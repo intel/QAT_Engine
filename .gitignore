@@ -1,0 +1,67 @@
+# Object files
+*.o
+*.obj
+
+# editor artefacts
+*.swp
+.#*
+\#*#
+*~
+/.dir-locals.el
+
+# Top level excludes
+/Makefile.bak
+/Makefile
+/MINFO
+/TABLE
+/*.a
+/*.pc
+/inc.*
+/makefile.*
+/out.*
+/tmp.*
+
+# Certificate symbolic links
+*.0
+
+# Auto generated assembly language source files
+*.s
+!/crypto/*/asm/*.s
+/crypto/arm*.S
+/crypto/*/*.S
+*.asm
+!/crypto/*/asm/*.asm
+
+*.so*
+*.dylib*
+*.dll*
+*.exe
+
+
+# Misc auto generated files
+lib
+Makefile.save
+*.bak
+tags
+TAGS
+cscope.out
+*.d
+
+# Windows
+/tmp32
+/tmp32.dbg
+/tmp32dll
+/tmp32dll.dbg
+/out32
+/out32.dbg
+/out32dll
+/out32dll.dbg
+/inc32
+/MINFO
+ms/bcb.mak
+ms/libeay32.def
+ms/nt.mak
+ms/ntdll.mak
+ms/ssleay32.def
+ms/version32.rc
+
