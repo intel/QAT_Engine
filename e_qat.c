@@ -1049,14 +1049,14 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "Set event driven mode",
      ENGINE_CMD_FLAG_NO_INPUT},
     {
-     QAT_CMD_DISABLE_EVENT_DRIVEN_MODE,
-     "DISABLE_EVENT_DRIVEN_MODE",
-     "Unset event driven mode",
-     ENGINE_CMD_FLAG_NO_INPUT},
-    {
      QAT_CMD_GET_NUM_CRYPTO_INSTANCES,
      "GET_NUM_CRYPTO_INSTANCES",
      "Get the number of crypto instances",
+     ENGINE_CMD_FLAG_NO_INPUT},
+    {
+     QAT_CMD_DISABLE_EVENT_DRIVEN_MODE,
+     "DISABLE_EVENT_DRIVEN_MODE",
+     "Unset event driven mode",
      ENGINE_CMD_FLAG_NO_INPUT},
     {0, NULL, NULL, 0}
 };
