@@ -103,7 +103,7 @@ OpenSSL_1_1_0-pre5.
 Older versions of OpenSSL\* are not supported.
 
 Due to the nature of the Intel&reg; QuickAssist Technonlogy OpenSSL\*
-Engine being a dynamic engine it can only be used with shared librar
+Engine being a dynamic engine it can only be used with shared library
 builds of OpenSSL\*.
 
 Note: The OpenSSL\* 1.1.0 baseline builds as a shared library by default
@@ -587,25 +587,32 @@ building the Intel&reg; Quickassist Technology OpenSSL\* Engine:
 
 ```
     -DOPENSSL_DISABLE_QAT_RSA/-DOPENSSL_ENABLE_QAT_RSA
-        Disable/Enable QAT RSA offload (enabled by default)
+        Disable/Enable Intel&reg; Quickassist Technology 
+        RSA offload (enabled by default)
  
     -DOPENSSL_DISABLE_QAT_DSA/-DOPENSSL_ENABLE_QAT_DSA
-        Disable/Enable QAT DSA offload (enabled by default)
+        Disable/Enable Intel&reg; Quickassist Technology 
+        DSA offload (enabled by default)
 
     -DOPENSSL_DISABLE_QAT_DH/-DOPENSSL_ENABLE_QAT_DH
-        Disable/Enable QAT DH offload (enabled by default)
+        Disable/Enable Intel&reg; Quickassist Technology 
+        DH offload (enabled by default)
 
     -DOPENSSL_DISABLE_QAT_ECDH/-DOPENSSL_ENABLE_QAT_ECDH
-        Disable/Enable QAT ECDH offload (enabled by default)
+        Disable/Enable Intel&reg; Quickassist Technology 
+        ECDH offload (enabled by default)
 
     -DOPENSSL_DISABLE_QAT_ECDSA/-DOPENSSL_ENABLE_QAT_ECDSA
-        Disable/Enable QAT ECDSA offload (enabled by default)
+        Disable/Enable Intel&reg; Quickassist Technology 
+        ECDSA offload (enabled by default)
 
     -DOPENSSL_DISABLE_QAT_CIPHERS/-DOPENSSL_ENABLE_QAT_CIPHERS
-        Disable/Enable QAT Chained Cipher offload (enabled by default)
+        Disable/Enable Intel&reg; Quickassist Technology 
+        Chained Cipher offload (enabled by default)
 
     -DOPENSSL_DISABLE_QAT_PRF/-DOPENSSL_ENABLE_QAT_PRF
-        Disable/Enable QAT PRF offload (enabled by default)
+        Disable/Enable Intel&reg; Quickassist Technology 
+        PRF offload (enabled by default)
 
     -DQAT_DEBUG
         Enable debug output to aid debugging. Warning: This option
