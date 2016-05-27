@@ -68,7 +68,7 @@
 # include "qae_mem_utils.h"
 #endif
 #ifdef USE_QAE_MEM
-# include "qat_contig_mem_drv_inf.h"
+# include "cmn_mem_drv_inf.h"
 #endif
 #include "e_qat_err.h"
 #include "qat_utils.h"
