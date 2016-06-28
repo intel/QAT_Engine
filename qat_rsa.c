@@ -465,11 +465,11 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
 {
     int rsa_len = 0;
     CpaCyRsaPrivateKey *cpa_prv_key = NULL;
-    BIGNUM *p = NULL;
-    BIGNUM *q = NULL;
-    BIGNUM *dmp1 = NULL;
-    BIGNUM *dmq1 = NULL;
-    BIGNUM *iqmp = NULL;
+    const BIGNUM *p = NULL;
+    const BIGNUM *q = NULL;
+    const BIGNUM *dmp1 = NULL;
+    const BIGNUM *dmq1 = NULL;
+    const BIGNUM *iqmp = NULL;
 
     RSA_get0_factors((const RSA*)rsa, &p, &q);
     RSA_get0_crt_params((const RSA*)rsa, &dmp1, &dmq1, &iqmp);
@@ -701,9 +701,9 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
 {
     CpaCyRsaPublicKey *cpa_pub_key = NULL;
     int rsa_len = 0;
-    BIGNUM *n = NULL;
-    BIGNUM *e = NULL;
-    BIGNUM *d = NULL;
+    const BIGNUM *n = NULL;
+    const BIGNUM *e = NULL;
+    const BIGNUM *d = NULL;
 
     RSA_get0_key((const RSA*)rsa, &n, &e, &d);
 

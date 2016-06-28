@@ -80,9 +80,9 @@
 static DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen, DSA *dsa);
 static int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                              DSA_SIG *sig, DSA *dsa);
-static int qat_dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in, 
+static int qat_dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in,
                               BIGNUM **kinvp, BIGNUM **rp);
-static int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, BIGNUM *a, const BIGNUM *p,
+static int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
                               const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
 
 /* Qat DSA method structure declaration. */
@@ -170,8 +170,9 @@ void qat_dsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
 
 /******************************************************************************
 * function:
-*         qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, BIGNUM *a, const BIGNUM *p,
-*                            const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
+*         qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a,
+*                            const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
+*                            BN_MONT_CTX *m_ctx)
 *
 * @param dsa   [IN] - Pointer to a OpenSSL DSA struct.
 * @param r     [IN] - Result bignum of mod_exp
@@ -185,7 +186,7 @@ void qat_dsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
 *   Overridden modular exponentiation function used in DSA.
 *
 ******************************************************************************/
-int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, BIGNUM *a, const BIGNUM *p,
+int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
                        const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
 {
     DEBUG("%s been called \n", __func__);
@@ -206,11 +207,11 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 {
     BIGNUM *r = NULL, *s = NULL;
     BIGNUM *k = NULL;
-    BIGNUM *p = NULL, *q = NULL;
-    BIGNUM *g = NULL;
-    BIGNUM *pub_key = NULL, *priv_key = NULL;
+    const BIGNUM *p = NULL, *q = NULL;
+    const BIGNUM *g = NULL;
+    const BIGNUM *pub_key = NULL, *priv_key = NULL;
     BN_CTX *ctx = NULL;
-    DSA_SIG *ret = NULL;
+    DSA_SIG *sig = NULL;
     CpaFlatBuffer *pResultR = NULL;
     CpaFlatBuffer *pResultS = NULL;
     CpaInstanceHandle instanceHandle;
@@ -236,7 +237,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     if (p == NULL || q == NULL || g == NULL) {
          QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-         return ret;
+         return sig;
     }
 
     /*
@@ -256,7 +257,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         OPENSSL_malloc(sizeof(CpaCyDsaRSSignOpData));
     if (opData == NULL) {
         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
-        return ret;
+        return sig;
     }
 
     memset(opData, 0, sizeof(CpaCyDsaRSSignOpData));
@@ -332,8 +333,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     memcpy(opData->Z.pData, dgst, dlen);
 
-    ret = DSA_SIG_new();
-    if (ret == NULL) {
+    sig = DSA_SIG_new();
+    if (sig == NULL) {
         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
         goto err;
     }
@@ -343,8 +344,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             cleanupOpDone(&op_done);
-            DSA_SIG_free(ret);
-            ret = NULL;
+            DSA_SIG_free(sig);
+            sig = NULL;
             goto err;
         }
     }
@@ -354,8 +355,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         if ((instanceHandle = get_next_inst()) == NULL) {
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             cleanupOpDone(&op_done);
-            DSA_SIG_free(ret);
-            ret = NULL;
+            DSA_SIG_free(sig);
+            sig = NULL;
             goto err;
         }
 
@@ -391,8 +392,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     if (status != CPA_STATUS_SUCCESS) {
         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         cleanupOpDone(&op_done);
-        DSA_SIG_free(ret);
-        ret = NULL;
+        DSA_SIG_free(sig);
+        sig = NULL;
         goto err;
     }
 
@@ -417,12 +418,12 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     if (op_done.verifyResult != CPA_TRUE) {
         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-        DSA_SIG_free(ret);
-        ret = NULL;
+        DSA_SIG_free(sig);
+        sig = NULL;
         goto err;
     }
 
-    DSA_SIG_get0(&r, &s, ret);
+    DSA_SIG_get0(sig, (const BIGNUM **)&r, (const BIGNUM **)&s);
 
     /* Convert the flatbuffer results back to a BN */
     BN_bin2bn(pResultR->pData, pResultR->dataLenInBytes, r);
@@ -453,7 +454,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
-    return (ret);
+    return sig;
 }
 
 /******************************************************************************
@@ -486,11 +487,11 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                       DSA_SIG *sig, DSA *dsa)
 {
     BN_CTX *ctx;
-    BIGNUM *r = NULL, *s = NULL;
+    const BIGNUM *r = NULL, *s = NULL;
     BIGNUM *z = NULL;
-    BIGNUM *p = NULL, *q = NULL;
-    BIGNUM *g = NULL;
-    BIGNUM *pub_key = NULL, *priv_key = NULL;
+    const BIGNUM *p = NULL, *q = NULL;
+    const BIGNUM *g = NULL;
+    const BIGNUM *pub_key = NULL, *priv_key = NULL;
     int ret = -1, i = 0;
     CpaInstanceHandle instanceHandle;
     CpaCyDsaVerifyOpData *opData = NULL;
@@ -557,7 +558,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         goto err;
     }
 
-    DSA_SIG_get0(&r, &s, sig);
+    DSA_SIG_get0(sig, &r, &s);
 
     if (BN_is_zero(r) || BN_is_negative(r) ||
         BN_ucmp(r, q) >= 0) {

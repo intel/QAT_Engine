@@ -156,10 +156,10 @@ int qat_dh_generate_key(DH *dh)
     int generate_new_priv_key = 0;
     int generate_new_pub_key = 0;
     unsigned length = 0;
-    BIGNUM *p = NULL, *q = NULL;
-    BIGNUM *g = NULL;
+    const BIGNUM *p = NULL, *q = NULL;
+    const BIGNUM *g = NULL;
     BIGNUM *pub_key = NULL, *priv_key = NULL;
-    BIGNUM *temp_pub_key = NULL, *temp_priv_key = NULL;
+    const BIGNUM *temp_pub_key = NULL, *temp_priv_key = NULL;
     CpaInstanceHandle instanceHandle;
     CpaCyDhPhase1KeyGenOpData *opData = NULL;
     CpaFlatBuffer *pPV = NULL;
@@ -197,7 +197,7 @@ int qat_dh_generate_key(DH *dh)
         return DH_meth_get_generate_key(sw_dh_method)(dh);
     }
 
-    DH_get0_key(dh, &temp_pub_key, &temp_priv_key);  
+    DH_get0_key(dh, &temp_pub_key, &temp_priv_key);
 
     opData = (CpaCyDhPhase1KeyGenOpData *)
         OPENSSL_malloc(sizeof(CpaCyDhPhase1KeyGenOpData));
@@ -352,7 +352,7 @@ int qat_dh_generate_key(DH *dh)
 
     /* Convert the flatbuffer result back to a BN */
     BN_bin2bn(pPV->pData, pPV->dataLenInBytes, pub_key);
-    
+
     if (!DH_set0_key(dh, pub_key, priv_key)) {
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -407,9 +407,9 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     struct op_done op_done;
     size_t buflen;
     int index = 1;
-    BIGNUM *p = NULL, *q = NULL;
-    BIGNUM *g = NULL;
-    BIGNUM *pub_key = NULL, *priv_key = NULL; 
+    const BIGNUM *p = NULL, *q = NULL;
+    const BIGNUM *g = NULL;
+    const BIGNUM *pub_key = NULL, *priv_key = NULL;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
 
     DEBUG("%s been called \n", __func__);
@@ -420,7 +420,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     }
 
     DH_get0_pqg(dh, &p, &q, &g);
-    DH_get0_key(dh, &pub_key, &priv_key);  
+    DH_get0_key(dh, &pub_key, &priv_key);
     if (p == NULL || priv_key == NULL) {
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         return -1;

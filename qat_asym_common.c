@@ -85,7 +85,7 @@
 *   format. The function is used to deliver the RSA Public/Private key structure
 *   from OpenSSL layer to API layer.
 ******************************************************************************/
-int qat_BN_to_FB(CpaFlatBuffer * fb, BIGNUM *bn)
+int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
 {
 
     /* Memory allocate for flat buffer */
