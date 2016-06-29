@@ -198,7 +198,6 @@ struct op_done {
 };
 
 CpaInstanceHandle get_next_inst(void);
-CpaStatus poll_instances(void);
 void initOpDone(struct op_done *opDone);
 void cleanupOpDone(struct op_done *opDone);
 void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
