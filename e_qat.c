@@ -1127,6 +1127,13 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             int flags;
             int fd;
 
+            if (enable_event_driven_polling == 0 ||
+                enable_external_polling == 0) {
+                retVal = 0;
+                WARN("QAT_CMD_GET_POLLING_FD failed as this engine message is only supported when running in Event Driven Mode with External Polling enabled\n");
+                break;
+            }
+
             if (p == NULL) {
                 retVal = 0;
                 WARN("GET_POLLING_FD failed as the input parameter was NULL\n");
@@ -1162,12 +1169,22 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
     case QAT_CMD_ENABLE_EVENT_DRIVEN_MODE:
         {
+#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+            retVal = 0;
+            WARN("QAT_CMD_ENABLE_EVENT_DRIVEN_MODE failed as Event Driven Polling is not supported\n");
+#else
             enable_event_driven_polling = 1;
+#endif
             break;
         }
     case QAT_CMD_DISABLE_EVENT_DRIVEN_MODE:
         {
+#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+            retVal = 0;
+            WARN("QAT_CMD_DISABLE_EVENT_DRIVEN_MODE failed as Event Driven Polling is not supported\n");
+#else
             enable_event_driven_polling = 0;
+#endif
             break;
         }
     case QAT_CMD_SET_INSTANCE_FOR_THREAD:

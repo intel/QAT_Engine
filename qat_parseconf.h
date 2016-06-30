@@ -136,5 +136,5 @@ int checkLimitDevAccessValue(int *limitDevAccess, char *section_name);
   *               Return 0 No Acceleration device is found
   *
   **********************************************************************/
-int getDevices(unsigned int dev_mask[]);
+int getDevices(unsigned int dev_mask[], int *upstream_flag);
 #endif                          /* QATPARSECONF_H */

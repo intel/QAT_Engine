@@ -3,22 +3,22 @@ CC = cc
 
 # ICP_ROOT (mandatory) contains the path of the QAT package
 ifndef ICP_ROOT
-$(error Env variable ICP_ROOT must be set)
+ $(error Env variable ICP_ROOT must be set)
 endif
 
 # OPENSSL_ENGINES (mandatory) contains the path of where
 # OpenSSL engines were installed to
 ifndef OPENSSL_ENGINES
-$(error Env variable OPENSSL_ENGINES must be set)
+ $(error Env variable OPENSSL_ENGINES must be set)
 endif
 
 # OPENSSL_ROOT (optional) contains the path of OpenSSL
 # If the variable is not set, we assume the QAT engine is built
 # from ./engines/qat_engine
 ifdef OPENSSL_ROOT
-TOP = $(OPENSSL_ROOT)
+ TOP = $(OPENSSL_ROOT)
 else
-TOP = ../..
+ TOP = ../..
 endif
 
 INCLUDES = -I$(TOP)/include -I$(TOP)
@@ -27,7 +27,7 @@ INCLUDES = -I$(TOP)/include -I$(TOP)
 CFLAG = -fPIC
 
 ifeq ($(MAKEFILE),)
-MAKEFILE := Makefile
+ MAKEFILE := Makefile
 endif
 
 # CFLAGS contains flags and include paths for the compiler
@@ -36,43 +36,39 @@ CFLAGS += $(INCLUDES) $(CFLAG)
 
 # QAT_FLAGS is an optional variable used for QAT specific build flags
 ifdef QAT_FLAGS
-CFLAGS += $(QAT_FLAGS)
+ CFLAGS += $(QAT_FLAGS)
 endif
 
+ifdef UPSTREAM_DRIVER_CMN_ROOT
+ CFLAGS += -DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+endif
 
 ifdef CMN_ROOT
-CRYPTO_MEMORY_DRIVER = qae_mem
+ CRYPTO_MEMORY_DRIVER = qae_mem
+ CFLAGS += -DUSE_QAE_MEM
+ INCLUDES += -I./
+ INCLUDES += -I$(CMN_ROOT)
 else
-ifdef MULTI_THREAD_MEMUTILS
-CRYPTO_MEMORY_DRIVER = multi_thread
-else
-CRYPTO_MEMORY_DRIVER = qat_contig_mem
-endif
-endif
-
-ifeq ($(CRYPTO_MEMORY_DRIVER),qat_contig_mem)
-CFLAGS += -DUSE_QAT_CONTIG_MEM -Iqat_contig_mem
-endif
-ifeq ($(CRYPTO_MEMORY_DRIVER),multi_thread)
-CFLAGS += -DUSE_QAT_CONTIG_MEM -Iqat_contig_mem
-endif
-ifeq ($(CRYPTO_MEMORY_DRIVER),qae_mem)
-CFLAGS += -DUSE_QAE_MEM
-INCLUDES += -I./
-INCLUDES += -I$(CMN_ROOT)
+ ifdef MULTI_THREAD_MEMUTILS
+  CRYPTO_MEMORY_DRIVER = multi_thread
+  CFLAGS += -DUSE_QAT_CONTIG_MEM -Iqat_contig_mem
+ else
+  CRYPTO_MEMORY_DRIVER = qat_contig_mem
+  CFLAGS += -DUSE_QAT_CONTIG_MEM -Iqat_contig_mem
+ endif
 endif
 
 # Include path for Intel QAT API
 ifdef ICP_API_PATH
-ICP_API_DIR = $(ICP_API_PATH)
+ ICP_API_DIR = $(ICP_API_PATH)
 else
-ICP_API_DIR = ${ICP_ROOT}/quickassist/include
+ ICP_API_DIR = ${ICP_ROOT}/quickassist/include
 endif
 
 ifdef ICP_SAL_API_PATH
-ICP_SAL_API_DIR = $(ICP_SAL_API_PATH)
+ ICP_SAL_API_DIR = $(ICP_SAL_API_PATH)
 else
-ICP_SAL_API_DIR = $(ICP_ROOT)/quickassist/lookaside/access_layer/include
+ ICP_SAL_API_DIR = $(ICP_ROOT)/quickassist/lookaside/access_layer/include
 endif
 
 ICP_LAC_API_DIR = $(ICP_API_DIR)/lac
@@ -81,11 +77,11 @@ ICP_LAC_API_DIR = $(ICP_API_DIR)/lac
 INCLUDES += -I$(ICP_API_DIR) -I$(ICP_LAC_API_DIR) -I$(ICP_SAL_API_DIR)
 DRIVER = icp_qa_al
 ifdef WITH_CPA_MUX
-ICP_MUX_DIR = $(ICP_ROOT)/../QAT1.5/quickassist/include
-ICP_DC_DIR = $(ICP_API_DIR)/dc
-CFLAGS += -DWITH_CPA_MUX
-INCLUDES += -I$(ICP_MUX_DIR) -I$(ICP_DC_DIR)
-DRIVER = qat_mux
+ ICP_MUX_DIR = $(ICP_ROOT)/../QAT1.5/quickassist/include
+ ICP_DC_DIR = $(ICP_API_DIR)/dc
+ CFLAGS += -DWITH_CPA_MUX
+ INCLUDES += -I$(ICP_MUX_DIR) -I$(ICP_DC_DIR)
+ DRIVER = qat_mux
 endif
 
 # Source files that are shared between the 2 mem drivers
@@ -114,45 +110,57 @@ QAT_LIB_OBJ_COMMON = e_qat.o\
 	 qat_prf.o
 
 ifeq ($(CRYPTO_MEMORY_DRIVER),qat_contig_mem)
-QAT_LIB_SRC = $(QAT_LIB_SRC_COMMON)  qae_mem_utils.c
-QAT_LIB_OBJ = $(QAT_LIB_OBJ_COMMON)  qae_mem_utils.o
-QAT_MEMLIB_OBJ = qae_mem_utils.o
-QAT_MEMLIB_NAME = libqae_mem_utils
-QAT_MEMLIB_DEPS =
+ QAT_LIB_SRC = $(QAT_LIB_SRC_COMMON)  qae_mem_utils.c
+ QAT_LIB_OBJ = $(QAT_LIB_OBJ_COMMON)  qae_mem_utils.o
+ QAT_MEMLIB_OBJ = qae_mem_utils.o
+ QAT_MEMLIB_NAME = libqae_mem_utils
+ QAT_MEMLIB_DEPS =
 endif
 ifeq ($(CRYPTO_MEMORY_DRIVER),multi_thread)
-QAT_LIB_SRC = $(QAT_LIB_SRC_COMMON)  multi_thread_qaememutils.c
-QAT_LIB_OBJ = $(QAT_LIB_OBJ_COMMON)  multi_thread_qaememutils.o
-QAT_MEMLIB_OBJ = multi_thread_qaememutils.o
-QAT_MEMLIB_NAME = libmulti_thread_qaememutils
-QAT_MEMLIB_DEPS =
+ QAT_LIB_SRC = $(QAT_LIB_SRC_COMMON)  multi_thread_qaememutils.c
+ QAT_LIB_OBJ = $(QAT_LIB_OBJ_COMMON)  multi_thread_qaememutils.o
+ QAT_MEMLIB_OBJ = multi_thread_qaememutils.o
+ QAT_MEMLIB_NAME = libmulti_thread_qaememutils
+ QAT_MEMLIB_DEPS =
 endif
 ifeq ($(CRYPTO_MEMORY_DRIVER),qae_mem)
-QAT_LIB_SRC = $(QAT_LIB_SRC_COMMON) cmn_mem_drv_inf.c
-QAT_LIB_OBJ = $(QAT_LIB_OBJ_COMMON) cmn_mem_drv_inf.o
-QAT_MEMLIB_OBJ = cmn_mem_drv_inf.o
-QAT_MEMLIB_NAME = libcmn_mem_drv_inf
-QAT_MEMLIB_DEPS =
+ QAT_LIB_SRC = $(QAT_LIB_SRC_COMMON) cmn_mem_drv_inf.c
+ QAT_LIB_OBJ = $(QAT_LIB_OBJ_COMMON) cmn_mem_drv_inf.o
+ QAT_MEMLIB_OBJ = cmn_mem_drv_inf.o
+ QAT_MEMLIB_NAME = libcmn_mem_drv_inf
+ QAT_MEMLIB_DEPS =
 endif
 
 SRC = $(QAT_LIB_SRC)
 QAT_LIB_TARGET = $(TOP)/libcrypto.a
 
 ifdef ICP_BUILD_OUTPUT
-QAT_SHARED_LIB_DEPS = -Wl,-rpath,$(ICP_BUILD_OUTPUT) -L$(ICP_BUILD_OUTPUT) -l$(DRIVER)_s
+ ifdef UPSTREAM_DRIVER_CMN_ROOT
+  QAT_SHARED_LIB_DEPS =-Wl,-rpath,$(UPSTREAM_DRIVER_CMN_ROOT) -L$(UPSTREAM_DRIVER_CMN_ROOT) -lqae_mem_s
+  QAT_SHARED_LIB_DEPS +=-Wl,-rpath,$(ICP_BUILD_OUTPUT) -L$(ICP_BUILD_OUTPUT) -l$(DRIVER)_s -ludev
+ else
+  QAT_SHARED_LIB_DEPS =-Wl,-rpath,$(ICP_BUILD_OUTPUT) -L$(ICP_BUILD_OUTPUT) -l$(DRIVER)_s
+ endif
 else
-QAT_SHARED_LIB_DEPS = -l$(DRIVER)_s
+ ifdef UPSTREAM_DRIVER_CMN_ROOT
+  QAT_SHARED_LIB_DEPS =-Wl,-rpath,$(UPSTREAM_DRIVER_CMN_ROOT) -L$(UPSTREAM_DRIVER_CMN_ROOT) -lqae_mem_s
+  QAT_SHARED_LIB_DEPS +=-l$(DRIVER)_s -ludev
+ else
+  QAT_SHARED_LIB_DEPS =-l$(DRIVER)_s
+ endif
 endif
 
 ifeq ($(CRYPTO_MEMORY_DRIVER),qat_contig_mem)
-QAT_SHARED_LIB_DEPS += -L. -lqae_mem_utils
+ QAT_SHARED_LIB_DEPS += -L. -lqae_mem_utils
 endif
 ifeq ($(CRYPTO_MEMORY_DRIVER),multi_thread)
-QAT_SHARED_LIB_DEPS += -L. -lmulti_thread_qaememutils
+ QAT_SHARED_LIB_DEPS += -L. -lmulti_thread_qaememutils
 endif
 ifeq ($(CRYPTO_MEMORY_DRIVER),qae_mem)
-QAT_SHARED_LIB_DEPS += -Wl,-rpath,$(CMN_ROOT) -L$(CMN_ROOT) -lqae_mem_s
-QAT_SHARED_LIB_DEPS += -L. -lcmn_mem_drv_inf
+ ifndef UPSTREAM_DRIVER_CMN_ROOT
+  QAT_SHARED_LIB_DEPS += -Wl,-rpath,$(CMN_ROOT) -L$(CMN_ROOT) -lqae_mem_s
+ endif
+ QAT_SHARED_LIB_DEPS += -L. -lcmn_mem_drv_inf
 endif
 
 QAT_LIB_NAME = qat

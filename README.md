@@ -153,7 +153,7 @@ The following example is assuming the engine was cloned into:
 `/path/to/qat_engine`.
 
 Before building the engine there are some variables
-that are manditory to be exported to the environment:
+that are mandatory to be exported to the environment:
 
 * `ICP_ROOT` is the path to the top level of the Intel&reg;
   Quickassist Technology Driver
@@ -168,7 +168,7 @@ For example you may set them as follows:
     export ICP_ROOT=/path/to/qat_driver
     export OPENSSL_ENGINES=/path/to/openssl_install/lib/engines
 
-The following variables are not manditory but are needed if they need
+The following variables are not mandatory but are needed if they need
 to be different from the default:
 
 * `ICP_BUILD_OUTPUT` default is `$ICP_ROOT/build`. `ICP_BUILD_OUTPUT`
@@ -182,6 +182,17 @@ For example you may set them as follows:
 
     export ICP_BUILD_OUTPUT=/path/to/qat_driver/build
     export OPENSSL_ROOT=/path/to/openssl
+
+The following variable is not mandatory but is needed if building 
+against the upstream driver:
+
+* `UPSTREAM_DRIVER_CMN_ROOT` is the path to the Intel&reg; Quickassist 
+  Technology Driver user space memory driver shared library `libqae_mem_s.so`.
+
+For example you may set it as follows:
+
+    export UPSTREAM_DRIVER_CMN_ROOT=/path/to/qat_driver/
+                                    quickassist/utilities/libqae_mem
 
 To build the engine:
 
