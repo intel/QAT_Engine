@@ -631,11 +631,11 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     gen = EC_GROUP_get0_generator(group);
     temp_xfield_size = temp_yfield_size = (field_size + 7) / 8;
 
-    if (!qat_ecdh_compute_key(&temp_xbuf,
+    if (qat_ecdh_compute_key(&temp_xbuf,
                               &temp_xfield_size,
                               &temp_ybuf,
                               &temp_yfield_size,
-                              gen, ecdh)) {
+                              gen, ecdh) <= 0) {
         /*
          * No QATerr is raised here because errors are already handled in
          * qat_ecdh_compute_key()
