@@ -13,7 +13,7 @@ within the `qat_contig_mem` folder and the full GPLv2 license contained
 in the file `LICENSE.GPL` within the `qat_contig_mem` folder.
 
 Example Intel&reg; Quickassist Technology Driver Configuration Files
-contained within the folder heirarchy `qat` - Dual BSD/GPLv2 License.
+contained within the folder hierarchy `qat` - Dual BSD/GPLv2 License.
 Please see the file  headers of the configuration files and the full
 GPLv2 license contained in the file `LICENSE.GPL` within the `qat` folder.
 
@@ -39,7 +39,7 @@ GPLv2 license contained in the file `LICENSE.GPL` within the `qat` folder.
 
 ## Hardware Requirements
 
-This OpenSSL\* Engine supports crypto offload to the following acceleration 
+This OpenSSL\* Engine supports crypto offload to the following acceleration
 devices:
 
 * Intel&reg; Communications Chipset 8900 to 8920 Series
@@ -49,7 +49,7 @@ devices:
 ## Software Requirements
 
 Successful operation of this release requires a software tool chain that
-supports OpenSSL\* 1.1.0. 
+supports OpenSSL\* 1.1.0.
 This release was validated on the following:
 
 * Operating system: Fedora* 16 64-bit version
@@ -63,11 +63,11 @@ CAUTION: Please note that the software provided in this release is
 "sample software" that is not fully functional or fully tested and
 is known to contain bugs and errors. As such, Intel&reg; does not
 recommend the use of the software in its current state for your
-production use. 
+production use.
 
 * Zero Copy Mode is not supported in this release.
 * When forking within an application it is not valid for
-  a cryptographic operation to be started in the parent process 
+  a cryptographic operation to be started in the parent process
   and completed in the child process.
 * Only one level of forking is permitted, if a child process forks
   again then the Intel&reg; Quickassist Technology OpenSSL\* Engine will
@@ -84,14 +84,14 @@ Started Guide (330750)
 
 or in
 
-Intel&reg; Atom&trade; Processor C2000 Product Family for Communications 
+Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
 Infrastructure Software - Getting Started Guide (333035)
 
 These instructions can be found on the 01.org website in the following
 section:
 
 <https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches>
- 
+
 ### Build OpenSSL\*
 
 Clone OpenSSL\* from Github\* at the following location:
@@ -102,7 +102,7 @@ It is recommended to checkout and build against OpenSSL\* 1.1.0 tag
 OpenSSL_1_1_0-pre5.
 Older versions of OpenSSL\* are not supported.
 
-Due to the nature of the Intel&reg; QuickAssist Technonlogy OpenSSL\*
+Due to the nature of the Intel&reg; QuickAssist Technology OpenSSL\*
 Engine being a dynamic engine it can only be used with shared library
 builds of OpenSSL\*.
 
@@ -113,11 +113,11 @@ running `./config`.
 Note: It is not recommended to install the accelerated version of
 OpenSSL\* as your default system library. If you do you may find that
 acceleration is used unexpectedly by other applications on the system
-resulting in undesired/unsupported behaviour. The `--prefix` can be used 
-with the `./config` command to specify the location that make install will 
+resulting in undesired/unsupported behaviour. The `--prefix` can be used
+with the `./config` command to specify the location that make install will
 copy files to. Please see the OpenSSL\* INSTALL file for full details on
-usage of the `--prefix` option. 
-   
+usage of the `--prefix` option.
+
 An example build would be:
 ```bash
     cd /path/to/openssl
@@ -143,7 +143,7 @@ Technology OpenSSL\* Engine:
 
     git clone https://github.com/01org/QAT_Engine.git
 
-The repository can be cloned to either a subdirectory within the openssl
+The repository can be cloned to either a subdirectory within the OpenSSL\*
 repository, for instance `/path/to/openssl/engines` or to its own unique
 location on the file system, for instance `/path/to/qat_engine`.
 In either case the engine will not be built as part of the OpenSSL\* build
@@ -152,83 +152,34 @@ and will require building manually.
 The following example is assuming the engine was cloned into:
 `/path/to/qat_engine`.
 
-Before building the engine there are some variables
-that are mandatory to be exported to the environment:
-
-* `ICP_ROOT` is the path to the top level of the Intel&reg;
-  Quickassist Technology Driver
-  source tree.
-* `OPENSSL_ENGINES` is the path to where OpenSSL\* engines are
-  placed when `make install` is run on the OpenSSL\* baseline. If
-  you have just built  OpenSSL* following the steps in the section 
-  above then you should have already exported this variable.
-
-For example you may set them as follows:
-
-    export ICP_ROOT=/path/to/qat_driver
-    export OPENSSL_ENGINES=/path/to/openssl_install/lib/engines
-
-The following variables are not mandatory but are needed if they need
-to be different from the default:
-
-* `ICP_BUILD_OUTPUT` default is `$ICP_ROOT/build`. `ICP_BUILD_OUTPUT`
-  is the directory the Intel&reg; Quickassist Technology Driver build
-  output is placed in.  
-* `OPENSSL_ROOT` default is `../..` relative to the directory you are
-  building in. `OPENSSL_ROOT` is the path to the top level of the
-  OpenSSL* source tree.
-
-For example you may set them as follows:
-
-    export ICP_BUILD_OUTPUT=/path/to/qat_driver/build
-    export OPENSSL_ROOT=/path/to/openssl
-
-The following variable is not mandatory but is needed if building 
-against the upstream driver:
-
-* `UPSTREAM_DRIVER_CMN_ROOT` is the path to the Intel&reg; Quickassist 
-  Technology Driver user space memory driver shared library `libqae_mem_s.so`.
-
-For example you may set it as follows:
-
-    export UPSTREAM_DRIVER_CMN_ROOT=/path/to/qat_driver/
-                                    quickassist/utilities/libqae_mem
-
 To build the engine:
 
 ```bash
     cd /path/to/qat_engine
+   ./configure \
+    --with-qat_dir=/path/to/qat_driver \
+    --with-qat_install_dir=/path/to/qat_driver/build \
+    --with-openssl_dir=/path/to/openssl \
+    --with-openssl_install_dir=/path/to/openssl_install
     make
+    make depend
     make install
 ```
 
-In the above example this will create the file `qat.so` in 
+In the above example this will create the file `qat.so` in
 `/path/to/qat_engine` and copy it to
 `/path/to/openssl_install/lib/engines`.
-It will also create the file `libqae_mem_utils.so` in 
-`/path/to/qat_engine` and copy it to
-`/path/to/openssl_install/lib`.
 
-Note: When building it is possible to specify build flags
+Note: When building it is possible to specify command line options
 that can be used to turn engine functionality on and off. Please see
-the Intel&reg; Quickassist Technology OpenSSL\* Engine Build Flags section
-below for a full description of the options that can be specified. Build
-flags can be specified by exporting the following variable into the
-environment:
+the Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options section
+below for a full description of the options that can be specified.
+The above options are all mandatory.
 
-    export QAT_FLAGS=<flags>
-
-or they can be specified directly on the `make` commandline.
-
-Before you can run applications that use the qat engine it is
-necessary for the system to know where the libqae_mem_utils.so
-library is located. A suggested method for this is to add the
-path to the `LD_LIBRARY_PATH` environment variable as follows:
-
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/openssl_install/lib
-
-This path needs to be in the `LD_LIBRARY_PATH` whenever the engine is
-used.
+If building to link against the Upstream Intel&reg; Quickassist 
+Technology userspace shared library then ensure the ./configure
+command was also run with the --with-upstream_driver_cmd_dir option as
+this is mandatory for building with the upstream version of the library.
 
 ### Copy the correct Intel&reg; Quickassist Technology Driver config files
 
@@ -279,18 +230,18 @@ own you should follow the procedure below to install it:
    Started Guide (330750) - Section 3.4 Starting/Stopping the Acceleration
    Software.
    or
-   Intel&reg; Atom&trade; Processor C2000 Product Family for Communications 
+   Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
    Infrastructure Software - Getting Started Guide (333035) - Section 9.5
    Starting/Stopping the Acceleration Software.
    to start the Acceleration Software.
-  
+
 ### Build and install the contiguous memory driver
 
-The Intel&reg; QuickAssist Technology API requires many of the data 
-structures (those that will be passed to the hardware) to be allocated 
-in contiguous pinned memory in order to support DMA operations. 
-The Intel&reg; QuickAssist Technology OpenSSL\* Engine comes with an 
-example kernel space contiguous memory driver that can be used to try 
+The Intel&reg; QuickAssist Technology API requires many of the data
+structures (those that will be passed to the hardware) to be allocated
+in contiguous pinned memory in order to support DMA operations.
+The Intel&reg; QuickAssist Technology OpenSSL\* Engine comes with an
+example kernel space contiguous memory driver that can be used to try
 out operation of the engine. It is considered to be an example only
 and is not written to be a production quality driver.
 
@@ -319,7 +270,7 @@ Engine is loaded correctly:
     cd /path/to/openssl/apps
     ./openssl engine -t -c -vvvv qat
     (qat) Reference implementation of QAT crypto engine
-     [RSA, DSA, DH, AES-128-CBC-HMAC-SHA1, AES-256-CBC-HMAC-SHA1, 
+     [RSA, DSA, DH, AES-128-CBC-HMAC-SHA1, AES-256-CBC-HMAC-SHA1,
       AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256 TLS1-PRF]
          [ available ]
          ENABLE_POLLING: Enables the polling interface to the engine.
@@ -353,7 +304,7 @@ Engine is loaded correctly:
 
 ```text
     cd /path/to/openssl/apps
-    
+
     * RSA 2K
       * Asynchronous
       ./openssl speed -engine qat -elapsed -async_jobs 72 rsa2048
@@ -386,20 +337,20 @@ If this occurs some of the things to check are:
    1. Has the qat\_contig\_mem driver been loaded successfully? If not the
       engine will fail to initialise. Check by running `lsmod`, qat\_contig\_mem
       should be in the list.
-   2. Has the correct Intel&reg; Quickassist Technology Driver config file 
+   2. Has the correct Intel&reg; Quickassist Technology Driver config file
       been copied to `/etc`? Check it has a `[SHIM]` section and that the
       Intel&reg; Quickassist Technology Driver software was restarted
       so that it picked up the new config file.
-   3. Is the Intel&reg; Quickassist Technology Driver up and running? 
-      Check by running `lsmod`, icp_qa_al should be in the list. 
+   3. Is the Intel&reg; Quickassist Technology Driver up and running?
+      Check by running `lsmod`, icp_qa_al should be in the list.
       Also check the Intel&reg; Quickassist Technology Driver software
       has been started.
-   4. Were the paths set correctly so the `qat.so` engine file and
-      `libqae_mem_utils.so` file were copied to the correct location?
-      Check they really are there. 
-   5. Have the environment variables `OPENSSL_ENGINES` and `LD_LIBRARY_PATH`
-      been correctly defined and exported to the shell?
-      Also check they really are pointing to the correct locations.
+   4. Were the paths set correctly so the `qat.so` engine file
+      was copied to the correct location?
+      Check they really are there.
+   5. Has the environment variable `OPENSSL_ENGINES` been correctly
+      defined and exported to the shell?
+      Also check it is really pointing to the correct location.
 
 If running on a Debian\* based OS (Ubuntu\* for example) it is
 possible that the Intel&reg; Quickassist Technology Driver userspace
@@ -410,20 +361,25 @@ folder to the LD_LIBRARY_PATH environment variable as follows:
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib64
 
+If building to link against the Upstream Intel&reg; Quickassist 
+Technology userspace shared library then ensure the ./configure
+command was run with the --with-upstream_driver_cmd_dir option as
+this is mandatory for building with the upstream version of the library.
+
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Specific Messages
 
 OpenSSL\* engines support a mechanism whereby custom messages can be
 defined for an application to communicate directly with the engine.
 These messages are typically used in two ways:
- 
+
    1. Firstly in order to set configuration options. These messages
       are typically sent before the engine is initialized. Sending
-      these after initialization will typically have no effect. 
+      these after initialization will typically have no effect.
    2. Secondly in order to control the engine operation. These
       messages may be sent before initialization or after or both.
-   
+
 The custom message mechanism passes a string to identify the
-message and uses a number of parameters to pass information into 
+message and uses a number of parameters to pass information into
 or out of the engine. It is defined as follows:
 
 ```
@@ -433,7 +389,7 @@ or out of the engine. It is defined as follows:
 
 Where:
 
-   - &lt;Engine&gt; is a pointer to the Intel&reg; QuickAssist Technology enabled 
+   - &lt;Engine&gt; is a pointer to the Intel&reg; QuickAssist Technology enabled
      OpenSSL\* Engine.
    - &lt;Message String&gt; is a string representing the message type.
    - &lt;Param 3&gt; is long that can be used to pass a number or a
@@ -448,7 +404,7 @@ Where:
     Param 4:        NULL
     Description:
         This message is used to enable the external polling mode
-        of operation where it becomes the applications 
+        of operation where it becomes the applications
         responsibility to use the POLL message below to check
         for messages that have been returned from the hardware
         accelerator. It has no parameters or return value.
@@ -459,7 +415,7 @@ Where:
     Param 3:        0
     Param 4:        pointer to an int
     Description:
-        This message is used when external polling is enabled to 
+        This message is used when external polling is enabled to
         request poll of all instances. The status of the request
         is passed back in the variable passed in as Param 4. This
         message may be sent at any time after engine initialization.
@@ -487,7 +443,7 @@ Where:
     Param 4:        NULL
     Description:
         This message sets the function that the engine and the
-        Intel&reg; Quickassist Technology Driver will use for 
+        Intel&reg; Quickassist Technology Driver will use for
         converting virtual addresses to physical addresses for the
         pinned contiguous memory buffers. A function pointer to
         the appropriately signatured function should be
@@ -515,7 +471,7 @@ Where:
     Param 3:        int cast to a long
     Param 4:        NULL
     Description:
-        This messagee is used for synchronous operations to
+        This message is used for synchronous operations to
         determine how many times the engine should retry a
         message before flagging a failure. The value should
         be passed in as Param 3. Setting the value to -1
@@ -543,7 +499,7 @@ Where:
         Intel&reg; Quickassist Technology Drivers event
         driven polling feature. It must be sent if required
         after engine creation but before engine initialization.
-        It should not be sent after engine intialization.
+        It should not be sent after engine initialization.
 
     Message String: DISABLE_EVENT_DRIVEN_MODE
     Param 3:        0
@@ -553,7 +509,7 @@ Where:
         timer based polling feature.
         It must be sent if required after engine creation
         but before engine initialization. It should not
-        be sent after engine intialization.
+        be sent after engine initialization.
 
     Message String: GET_NUM_CRYPTO_INSTANCES
     Param 3:        0
@@ -564,7 +520,7 @@ Where:
         specified in the Intel&reg; Quickassist Technology
         Driver config file. The number of instances is assigned
         to the dereferenced int that is passed in as Param 4.
-        This message is used in conjuction with the
+        This message is used in conjunction with the
         GET_POLLING_FD message as in event driven
         polling mode with external polling there
         is an fd to listen to events on for each
@@ -585,73 +541,151 @@ Where:
         Param4. When retrieving fd's it is usual to first request
         how many instances there are with the
         GET_NUM_CRYPTO_INSTANCES message and then use a for
-        loop to iterate through the instances starting from 0 
+        loop to iterate through the instances starting from 0
         and use this message to retrieve the fd for each
         instance. This message must be sent if required
         after the engine has been initialized.
 ```
 
-## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Flags
+## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options
 
-The following is a list of the compile flags that can be used when 
-building the Intel&reg; Quickassist Technology OpenSSL\* Engine:
+The following is a list of the options that can be used with the
+`./configure` command when building the Intel&reg; Quickassist Technology
+OpenSSL\* Engine:
 
 ```
-    -DOPENSSL_DISABLE_QAT_RSA/-DOPENSSL_ENABLE_QAT_RSA
-        Disable/Enable Intel&reg; Quickassist Technology 
+    Mandatory
+
+    --with-qat_dir=/path/to/qat_driver
+        Specify the path to the source code of the Intel&reg; Quickassist
+        Technology Driver. If you do not specify this the build will fail.
+
+    --with-qat_install_dir=/path/to/qat_driver/build
+        Specify the path to the location of the Intel&reg; Quickassist
+        Technology Driver library files. If you do not specify this the
+        link will fail.
+
+    --with-openssl_dir=/path/to/openssl
+        Specify the path to the top level of the OpenSSL\* source code.
+        If you do not specify this the build will fail.
+
+    --with-openssl_install_dir=/path/to/openssl_install
+        Specify the path to the top level where the OpenSSL\* build was
+        installed to. This is needed so that the qat.so engine library
+        can be copied into the folder containing the other dynamic engines
+        when you run 'make install'. If you do not specify this then
+        'make install' will fail.
+
+    Optional
+
+    --with-cmd_dir=/path/to/common_memory_driver
+        Specify the path to the top level folder containing the Common
+        Memory Driver. The Common Memory Driver is an alternative pinned
+        contiguous memory driver that is distributed with the Intel&reg;
+        Quickassist Technology Driver. It can be used instead of the
+        supplied qat_contig_mem memory driver. Specifying this parameter
+        will cause the engine to be built to use the Common Memory Driver
+        rather than the default qat_contig_mem driver.
+
+    --with-upstream_driver_cmd_dir=/path/to/common_memory_driver
+        Specify the path to the top level folder containing the Common
+        Memory Driver. The Upstream Intel&req; Quickassist Technology
+        Driver uses the Common Memory Driver by default but requires
+        the Common Memory Driver shared userspace library to be linked into
+        the engine. Specifying this option tells the linker that the engine
+        is being linked against the Upstream Intel&reg; Quickassist 
+        Technology Driver and the path to the needed Common Memory Driver
+        library. Specifying this path does not mean the engine will use the
+        Common Memory Driver for its internal contiguous pinned memory
+        allocations. If that is also required then the --with-cmd_dir
+        option should also be specified pointing to the same location.
+        If you are building on a system with the Upstream Intel&reg;
+        Quickassist Technology Driver then it is Mandatory to specify this
+        option.
+
+    --disable-qat_rsa/--enable-qat_rsa
+        Disable/Enable Intel&reg; Quickassist Technology
         RSA offload (enabled by default)
- 
-    -DOPENSSL_DISABLE_QAT_DSA/-DOPENSSL_ENABLE_QAT_DSA
-        Disable/Enable Intel&reg; Quickassist Technology 
+
+    --disable-qat_dsa/--enable-qat_dsa
+        Disable/Enable Intel&reg; Quickassist Technology
         DSA offload (enabled by default)
 
-    -DOPENSSL_DISABLE_QAT_DH/-DOPENSSL_ENABLE_QAT_DH
-        Disable/Enable Intel&reg; Quickassist Technology 
+    --disable-qat_dh/--enable-qat_dh
+        Disable/Enable Intel&reg; Quickassist Technology
         DH offload (enabled by default)
 
-    -DOPENSSL_DISABLE_QAT_ECDH/-DOPENSSL_ENABLE_QAT_ECDH
-        Disable/Enable Intel&reg; Quickassist Technology 
+    --disable-qat_ecdh/--enable-qat_ecdh
+        Disable/Enable Intel&reg; Quickassist Technology
         ECDH offload (enabled by default)
 
-    -DOPENSSL_DISABLE_QAT_ECDSA/-DOPENSSL_ENABLE_QAT_ECDSA
-        Disable/Enable Intel&reg; Quickassist Technology 
+    --disable-qat_ecdsa/--enable-qat_ecdsa
+        Disable/Enable Intel&reg; Quickassist Technology
         ECDSA offload (enabled by default)
 
-    -DOPENSSL_DISABLE_QAT_CIPHERS/-DOPENSSL_ENABLE_QAT_CIPHERS
-        Disable/Enable Intel&reg; Quickassist Technology 
+    --disable-qat_ciphers/--enable-qat_ciphers
+        Disable/Enable Intel&reg; Quickassist Technology
         Chained Cipher offload (enabled by default)
 
-    -DOPENSSL_DISABLE_QAT_PRF/-DOPENSSL_ENABLE_QAT_PRF
-        Disable/Enable Intel&reg; Quickassist Technology 
+    --disable-qat_prf/--enable-qat_prf
+        Disable/Enable Intel&reg; Quickassist Technology
         PRF offload (enabled by default)
 
-    -DQAT_DEBUG
-        Enable debug output to aid debugging. Warning: This option
-        should never be enabled in a production environment as it
-        may output private key information to the console/logs and
-        may also introduce side channel timing attack 
+    --disable-qat_debug/--enable-qat_debug
+        Disable/Enable debug output to aid debugging. Warning: This
+        option should never be enabled in a production environment as
+        it may output private key information to the console/logs and
+        may also introduce side channel timing attack
         vulnerabilities (disabled by default).
 
-    -DQAT_WARN
-        Enable warnings to aid debugging. Warning: This option
-        should never be left on in a production environment
+    --disable-qat_warnings/--enable-qat_warnings
+        Disable/Enable warnings to aid debugging. Warning: This
+        option should never be left on in a production environment
         as it may introduce side channel timing attack
         vulnerabilities (disabled by default).
 
-    -DQAT_MEM_DEBUG
-        Enable debug output from the userspace memory management code
-        to aid debugging. This option produces quite verbose output hence
-        why it is separate to the standard debug. Warning: This option
-        should never be enabled in a production environment as it
-        may output private key information to the console/logs and
-        may also introduce side channel timing attack 
+    --disable-qat_mem_debug/--enable-qat_mem_debug
+        Disable/Enable debug output from the userspace memory management
+        code to aid debugging. This option produces quite verbose output
+        hence why it is separate to the standard debug. Warning: This
+        option should never be enabled in a production environment as
+        it may output private key information to the console/logs and
+        may also introduce side channel timing attack
         vulnerabilities (disabled by default).
 
-    -DQAT_MEM_WARN
-        Enable warnings from the userspace memory management code
+    --disable-qat_mem_warnings/--enable-qat_mem_warnings
+        Disable/Enable warnings from the userspace memory management code
         to aid debugging. Warning: This option should never be left on
         in a production environment as it may introduce side channel
         timing attack vulnerabilities (disabled by default).
+
+    --disable-multi_thread/--enable-multi_thread
+        Disable/Enable an alternative way of managing within userspace the
+        pinned contiguous memory allocated by the qat_contig_mem
+        driver. This alternative method will give improved performance
+        in a multi-threaded environment by making the slab pools
+        thread local to avoid locking between threads. Although this
+        can give better performance there are several drawbacks such
+        as the memory slabs will be utilized less efficiently, and you
+        cannot allocate in one thread and free in another thread.
+        Running in this mode also does not support processes that
+        fork (disabled by default).
+
+    --disable-qat_mux/--enable-qat_mux
+        Disable/Enable support for building using the Mux mode of the
+        Intel&reg; Quickassist Technology Driver. Mux mode allows you to
+        mix Intel&reg; Communications Chipset 8900 to 8920 Series hardware
+        and Intel&reg; Communications Chipset 8925 to 8955 Series hardware
+        within the same system using a common driver interface. You
+        should only specify this option if using a mixture of hardware
+        (disabled by default).
+
+    --with-cc-opt="parameters"
+        Sets additional parameters that will be added to the CFLAGS
+        variable at compile time.
+
+    --with-ld-opt="parameters"
+        Sets additional parameters that will be used during linking.
 ```
 
 ## Legal
