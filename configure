@@ -624,16 +624,15 @@ QAT_SHARED_LIB_DEPS_QAE_MEM
 QAT_SHARED_LIB_DEPS_DRIVER
 QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER
 QAT_SHARED_LIB_DEPS_LD
-SRC
 includes_enable_qat_mux
 cflags_mux
-ICP_DC_DIR
-ICP_MUX_DIR
+with_ICP_DC_DIR
+with_ICP_MUX_DIR
 DRIVER
 includes_driver
-ICP_LAC_API_DIR
-ICP_SAL_API_DIR
-ICP_API_DIR
+with_ICP_LAC_API_DIR
+with_ICP_SAL_API_DIR
+with_ICP_API_DIR
 QAE_MEM_FALSE
 QAE_MEM_TRUE
 QAT_MULTI_THREAD_FALSE
@@ -644,7 +643,7 @@ include_with_cmd_dir
 cflags_with_cmd_dir
 cflags_enable_multi_thread
 cflags_qat_contig_mem
-cflags_with_qat_upstream_driver_cmd_dir
+cflags_with_upstream_driver_cmd_dir
 cflags_cc_opt
 cflags
 includes
@@ -656,7 +655,7 @@ with_cmd_dir
 with_openssl_install_dir
 with_openssl_dir
 with_qat_install_dir
-with_qat_upstream_driver_cmd_dir
+with_upstream_driver_cmd_dir
 with_qat_dir
 enable_qat_mem_warnings
 enable_qat_mem_debug
@@ -799,7 +798,7 @@ enable_qat_warnings
 enable_qat_mem_debug
 enable_qat_mem_warnings
 with_qat_dir
-with_qat_upstream_driver_cmd_dir
+with_upstream_driver_cmd_dir
 with_qat_install_dir
 with_openssl_dir
 with_openssl_install_dir
@@ -811,7 +810,7 @@ enable_qat_mux
 with_includes
 with_cflags
 with_cflags_cc_opt
-with_cflags_with_qat_upstream_driver_cmd_dir
+with_cflags_with_upstream_driver_cmd_dir
 with_cflags_qat_contig_mem
 with_cflags_enable_multi_thread
 with_cflags_with_cmd_dir
@@ -825,7 +824,6 @@ with_ICP_MUX_DIR
 with_ICP_DC_DIR
 with_cflags_mux
 with_includes_enable_qat_mux
-with_SRC
 with_QAT_SHARED_LIB_DEPS_LD
 with_QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER
 with_QAT_SHARED_LIB_DEPS_DRIVER
@@ -863,7 +861,7 @@ program_suffix=NONE
 program_transform_name=s,x,x,
 silent=
 site=
-srcdir='.tools'
+srcdir=".tools"
 verbose=
 x_includes=NONE
 x_libraries=NONE
@@ -1471,20 +1469,26 @@ Optional Features:
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
   --disable-libtool-lock  avoid locking (might break parallel builds)
-  --disable-qat_rsa       disable accelerated RSA offload
-  --disable-qat_ciphers   disable accelerated CIPHERS offload
-  --disable-qat_ecdh      disable accelerated ECDH offload
-  --disable-qat_ecdsa     disable accelerated ECDSA offload
-  --disable-qat_dsa       disable accelerated DSA offload
-  --disable-qat_dh        disable accelerated DH offload
-  --disable-qat_prf       disable accelerated PRF offload
-  --enable-qat_debug      Enable QAT Debug Messages
-  --enable-qat_warnings   Enable QAT Warn Messages
-  --enable-qat_mem_debug  Enable QAT memory Driver Debug Messages
+  --disable-qat_rsa       Disable accelerated RSA offload
+  --disable-qat_ciphers   Disable accelerated CIPHERS offload
+  --disable-qat_ecdh      Disable accelerated ECDH offload
+  --disable-qat_ecdsa     Disable accelerated ECDSA offload
+  --disable-qat_dsa       Disable accelerated DSA offload
+  --disable-qat_dh        Disable accelerated DH offload
+  --disable-qat_prf       Disable accelerated PRF offload
+  --enable-qat_debug      Enable Engine Debug Messages
+  --enable-qat_warnings   Enable Engine Warning Messages
+  --enable-qat_mem_debug  Enable Memory Driver Debug Messages
   --enable-qat_mem_warnings
-                          Enable QAT memory Driver Warn Messages
-  --enable-multi_thread   Enable multi thread feature
-  --enable-qat_mux        Enable QAT MUX driver
+                          Enable Memory Driver Warning Messages
+  --enable-multi_thread   Enable using a multi threaded version of the user
+                          space part of the supplied memory driver. Please see
+                          the documentation on limitations of using this
+                          option
+  --enable-qat_mux        Enable linking against a build of the Intel
+                          Quickassist Technology Driver that supports multiple
+                          accelerator hardware versions. Please see the
+                          documentation for more details
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1494,18 +1498,31 @@ Optional Packages:
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
   --with-sysroot=DIR Search for dependent libraries within DIR
                         (or the compiler's sysroot if not specified).
-  --with-qat_dir          Path to the qat_driver. same as ICP_ROOT path
-  --with-qat_upstream_driver_cmd_dir
-                          Path to the common memory driver. Same as CMN_ROOT
-  --with-qat_install_dir  Path to the qat_driver/build. Same as
-                          ICP_BUILD_OUTPUT path
-  --with-openssl_dir      Path to the openssl source. Same as OPENSSL_ROOT
-                          path
+  --with-qat_dir          Path to the Intel Quickassist Technology Driver
+                          source code
+  --with-upstream_driver_cmd_dir
+                          Path to the Intel Common Memory Driver source code
+                          when used by the Upstream Intel Quickassist
+                          Technology Driver. This option is not related to
+                          which Memory Driver is used by the Engine itself.
+                          There is no need to set this option if not using the
+                          Upstream version of the Intel Quickassist Technology
+                          Driver
+  --with-qat_install_dir  Path to the Intel Quickassist Technology Driver
+                          build output
+  --with-openssl_dir      Path to the OpenSSL source code
   --with-openssl_install_dir
-                          Path to the openssl_install directory
-  --with-cmd_dir          Path to the common memory driver. Same as CMN_ROOT
-  --with-cc_opt           Give any additional cc flags to build
-  --with-ld_opt           Give any additional ld flags to build
+                          Path to where the OpenSSL libraries are installed
+                          to. The Engine will be installed to the lib/engines
+                          subdirectory of this path
+  --with-cmd_dir          Path to the Intel Common Memory Driver source code.
+                          This should be specified to force the Engine to use
+                          the Intel Common Memory Driver rather than the
+                          supplied Memory Driver
+  --with-cc_opt           Sets additional parameters that will be added to the
+                          CFLAGS
+  --with-ld_opt           Sets additional parameters that will be used during
+                          linking
 
 
 Some influential environment variables:
@@ -11496,11 +11513,11 @@ fi
 
 
 
-# Check whether --with-qat_upstream_driver_cmd_dir was given.
-if test "${with_qat_upstream_driver_cmd_dir+set}" = set; then :
-  withval=$with_qat_upstream_driver_cmd_dir;
+# Check whether --with-upstream_driver_cmd_dir was given.
+if test "${with_upstream_driver_cmd_dir+set}" = set; then :
+  withval=$with_upstream_driver_cmd_dir;
 else
-  with_qat_upstream_driver_cmd_dir=unset
+  with_upstream_driver_cmd_dir=unset
 fi
 
 
@@ -11590,31 +11607,31 @@ fi
 
 if test "x$with_qat_dir" = "xunset"
 then
-  as_fn_error $? "qat_dir is not set, set to ICP_ROOT path. e.g: --with-qat_dir=/path/to/qat_driver" "$LINENO" 5
+  as_fn_error $? "--with-qat_dir is not set, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver" "$LINENO" 5
 fi
 
 if test "x$with_qat_install_dir" = "xunset"
 then
-  as_fn_error $? "--with-qat_install_dir is not set, set to ICP_BUILD_OUPUT path. e.g: --with-qat_install_dir=/path/to/qat_driver/build" "$LINENO" 5
+  as_fn_error $? "--with-qat_install_dir is not set, set it to the path to the Intel Quickassist Technology Driver build output. e.g: --with-qat_install_dir=/path/to/qat_driver/build" "$LINENO" 5
 fi
 
 if test "x$with_openssl_dir" = "xunset"
 then
-  as_fn_error $? "--with-openssl_dir is not set, set to OPENSSL_ROOT path. e.g: --with-openssl_dir=/path/to/openssl" "$LINENO" 5
+  as_fn_error $? "--with-openssl_dir is not set, set it to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl" "$LINENO" 5
 fi
 
 if test "x$with_openssl_install_dir" = "xunset"
 then
-  as_fn_error $? "--with-openssl_install_dir is not set, set to openssl install directory path. e.g: --with-openssl_install_dir=/path/to/openssl_install" "$LINENO" 5
+  as_fn_error $? "--with-openssl_install_dir is not set, set it to the path to where the OpenSSL libraries are installed. e.g: --with-openssl_install_dir=/path/to/openssl_install" "$LINENO" 5
 fi
 
 ac_default_prefix=$with_openssl_install_dir
 
-# The below flag with_qat_upstream_driver is needed only when building against upstream driver
-if test "x$with_qat_upstream_driver_cmd_dir" = "xunset"
+# The below flag with_upstream_driver is needed only when building against upstream driver
+if test "x$with_upstream_driver_cmd_dir" = "xunset"
 then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: --with-qat_upstream_driver_cmd_dir is not set, set to CMN_ROOT path if building with upstream driver. e.g: --with-qat_upstream_driver_cmd_dir=/path/to/libqae_mem_s.so" >&5
-$as_echo "$as_me: --with-qat_upstream_driver_cmd_dir is not set, set to CMN_ROOT path if building with upstream driver. e.g: --with-qat_upstream_driver_cmd_dir=/path/to/libqae_mem_s.so" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: --with-upstream_driver_cmd_dir is not set. If building against the Upstream Intel Quickassist Technology Driver then set it to point to the path to the Intel Common Memory Driver source/library files. e.g: --with-upstream_driver_cmd_dir=/path/to/libusdm_drv_s.so" >&5
+$as_echo "$as_me: --with-upstream_driver_cmd_dir is not set. If building against the Upstream Intel Quickassist Technology Driver then set it to point to the path to the Intel Common Memory Driver source/library files. e.g: --with-upstream_driver_cmd_dir=/path/to/libusdm_drv_s.so" >&6;}
 fi
 # Checking the parameters given and parsing the relevant flags
 
@@ -11698,45 +11715,45 @@ fi
 if test "x$enable_qat_debug" != "xunset"
 then
   enable_qat_debug="-DQAT_DEBUG"
-  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling QAT_DEBUG" >&5
-$as_echo "$as_me: Enabling QAT_DEBUG" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Engine Debug Messages" >&5
+$as_echo "$as_me: Enabling Engine Debug Messages" >&6;}
 else
   enable_qat_debug=""
-  { $as_echo "$as_me:${as_lineno-$LINENO}: disabling QAT_DEBUG" >&5
-$as_echo "$as_me: disabling QAT_DEBUG" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Disabling Engine Debug Messages" >&5
+$as_echo "$as_me: Disabling Engine Debug Messages" >&6;}
 fi
 
 if test "x$enable_qat_warnings" != "xunset"
 then
   enable_qat_warn="-DQAT_WARN"
-  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling QAT_WARN" >&5
-$as_echo "$as_me: Enabling QAT_WARN" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Engine Warning Messages" >&5
+$as_echo "$as_me: Enabling Engine Warning Messages" >&6;}
 else
   enable_qat_warn=""
-  { $as_echo "$as_me:${as_lineno-$LINENO}: disabling QAT_WARN" >&5
-$as_echo "$as_me: disabling QAT_WARN" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Disabling Engine Warning Messages" >&5
+$as_echo "$as_me: Disabling Engine Warning Messages" >&6;}
 fi
 
 if test "x$enable_qat_mem_debug" != "xunset"
 then
   enable_qat_mem_debug="-DQAT_MEM_DEBUG"
-  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling QAT_MEM_DEBUG" >&5
-$as_echo "$as_me: Enabling QAT_MEM_DEBUG" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Memory Driver Debug Messages" >&5
+$as_echo "$as_me: Enabling Memory Driver Debug Messages" >&6;}
 else
   enable_qat_mem_debug=""
-  { $as_echo "$as_me:${as_lineno-$LINENO}: disabling QAT_MEM_DEBUG" >&5
-$as_echo "$as_me: disabling QAT_MEM_DEBUG" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Disabling Memory Driver Debug Messages" >&5
+$as_echo "$as_me: Disabling Memory Driver Debug Messages" >&6;}
 fi
 
 if test "x$enable_qat_mem_warnings" != "xunset"
 then
   enable_qat_mem_warn="-DQAT_MEM_WARN"
-  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling QAT_MEM_WARN" >&5
-$as_echo "$as_me: Enabling QAT_MEM_WARN" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Memory Driver Warning Messages" >&5
+$as_echo "$as_me: Enabling Memory Driver Warning Messages" >&6;}
 else
   enable_qat_mem_warn=""
-  { $as_echo "$as_me:${as_lineno-$LINENO}: disabling QAT_MEM_WARN" >&5
-$as_echo "$as_me: disabling QAT_MEM_WARN" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Disabling Memory Driver Warning Messages" >&5
+$as_echo "$as_me: Disabling Memory Driver Warning Messages" >&6;}
 fi
 
 # Check for memory driver and parse the CFLAGS for building library
@@ -11774,14 +11791,14 @@ fi
 
 fi
 
-if test "x$with_qat_upstream_driver_cmd_dir" != "xunset"
+if test "x$with_upstream_driver_cmd_dir" != "xunset"
 then
 
-# Check whether --with-cflags_with_qat_upstream_driver_cmd_dir was given.
-if test "${with_cflags_with_qat_upstream_driver_cmd_dir+set}" = set; then :
-  withval=$with_cflags_with_qat_upstream_driver_cmd_dir;
+# Check whether --with-cflags_with_upstream_driver_cmd_dir was given.
+if test "${with_cflags_with_upstream_driver_cmd_dir+set}" = set; then :
+  withval=$with_cflags_with_upstream_driver_cmd_dir;
 else
-  cflags_with_qat_upstream_driver_cmd_dir="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER"
+  cflags_with_upstream_driver_cmd_dir="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER"
 fi
 
 
@@ -11822,7 +11839,7 @@ $as_echo "$as_me:  Compiling for COMMON MEMORY DRIVER" >&6;}
 if test "${with_cflags_with_cmd_dir+set}" = set; then :
   withval=$with_cflags_with_cmd_dir;
 else
-  cflags_with_cmd_dir="-D USE_QAE_MEM"
+  cflags_with_cmd_dir="-DUSE_QAE_MEM"
 fi
 
 
@@ -11871,7 +11888,7 @@ fi
 if test "${with_ICP_API_DIR+set}" = set; then :
   withval=$with_ICP_API_DIR;
 else
-  ICP_API_DIR="\$(with_qat_dir)/quickassist/include"
+  with_ICP_API_DIR="\$(with_qat_dir)/quickassist/include"
 fi
 
 
@@ -11881,7 +11898,7 @@ fi
 if test "${with_ICP_SAL_API_DIR+set}" = set; then :
   withval=$with_ICP_SAL_API_DIR;
 else
-  ICP_SAL_API_DIR="\$(with_qat_dir)/quickassist/lookaside/access_layer/include"
+  with_ICP_SAL_API_DIR="\$(with_qat_dir)/quickassist/lookaside/access_layer/include"
 fi
 
 
@@ -11891,9 +11908,8 @@ fi
 if test "${with_ICP_LAC_API_DIR+set}" = set; then :
   withval=$with_ICP_LAC_API_DIR;
 else
-  ICP_LAC_API_DIR="\$(ICP_API_DIR)/lac"
+  with_ICP_LAC_API_DIR="\$(with_ICP_API_DIR)/lac"
 fi
-
 
 
 
@@ -11902,9 +11918,8 @@ fi
 if test "${with_includes_driver+set}" = set; then :
   withval=$with_includes_driver;
 else
-  includes_driver="-I\$(ICP_API_DIR) -I\$(ICP_LAC_API_DIR) -I\$(ICP_SAL_API_DIR)"
+  includes_driver="-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR)"
 fi
-
 
 
 
@@ -11925,7 +11940,7 @@ then
 if test "${with_ICP_MUX_DIR+set}" = set; then :
   withval=$with_ICP_MUX_DIR;
 else
-  ICP_MUX_DIR="\$(with_qat_dir)/../QAT1.5/quickassist/include"
+  with_ICP_MUX_DIR="\$(with_qat_dir)/../QAT1.5/quickassist/include"
 fi
 
 
@@ -11934,7 +11949,7 @@ fi
 if test "${with_ICP_DC_DIR+set}" = set; then :
   withval=$with_ICP_DC_DIR;
 else
-  ICP_DC_DIR="\$(ICP_API_DIR)/dc"
+  with_ICP_DC_DIR="\$(with_ICP_API_DIR)/dc"
 fi
 
 
@@ -11952,7 +11967,7 @@ fi
 if test "${with_includes_enable_qat_mux+set}" = set; then :
   withval=$with_includes_enable_qat_mux;
 else
-  includes_enable_qat_mux="-I\$(ICP_MUX_DIR) -I\$(ICP_DC_DIR)"
+  includes_enable_qat_mux="-I\$(with_ICP_MUX_DIR) -I\$(with_ICP_DC_DIR)"
 fi
 
 
@@ -11966,17 +11981,6 @@ fi
 
 
 fi
-
-
-# Check whether --with-SRC was given.
-if test "${with_SRC+set}" = set; then :
-  withval=$with_SRC;
-else
-  SRC="\$(QAT_LIB_SRC)"
-fi
-
-
-
 
 if test "x$with_ld_opt" != "xunset"
 then
@@ -11993,14 +11997,23 @@ fi
 
 if test "x$with_qat_install_dir" != "xunset"
 then
-  if test "x$with_qat_upstream_driver_cmd_dir" != "xunset"
+  if test "x$with_upstream_driver_cmd_dir" != "xunset"
   then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER was given.
 if test "${with_QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER+set}" = set; then :
   withval=$with_QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER;
 else
-  QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER="-Wl,-rpath,\$(with_qat_upstream_driver_cmd_dir) -L\$(with_qat_upstream_driver_cmd_dir) -lqae_mem_s"
+  QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER="-Wl,-rpath,\$(with_upstream_driver_cmd_dir) -L\$(with_upstream_driver_cmd_dir) -lusdm_drv_s"
+fi
+
+
+
+# Check whether --with-DRIVER was given.
+if test "${with_DRIVER+set}" = set; then :
+  withval=$with_DRIVER;
+else
+  DRIVER="qat"
 fi
 
 
@@ -12013,7 +12026,7 @@ else
 fi
 
 
-  else if test "x$with_qat_upstream_driver_cmd_dir" = "xunset"
+  else if test "x$with_upstream_driver_cmd_dir" = "xunset"
   then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_DRIVER was given.
@@ -12028,14 +12041,23 @@ fi
   fi
 else if "x$with_qat_install_dir" = "xunset"
 then
-  if test "x$with_qat_upstream_driver_cmd_dir" != "xunset"
+  if test "x$with_upstream_driver_cmd_dir" != "xunset"
   then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER was given.
 if test "${with_QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER+set}" = set; then :
   withval=$with_QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER;
 else
-  QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER="-Wl,-rpath,\$(with_qat_upstream_driver_cmd_dir) -L\$(with_qat_upstream_driver_cmd_dir) -lqae_mem_s"
+  QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER="-Wl,-rpath,\$(with_upstream_driver_cmd_dir) -L\$(with_upstream_driver_cmd_dir) -lusdm_drv_s"
+fi
+
+
+
+# Check whether --with-DRIVER was given.
+if test "${with_DRIVER+set}" = set; then :
+  withval=$with_DRIVER;
+else
+  DRIVER="qat"
 fi
 
 
@@ -12048,7 +12070,7 @@ else
 fi
 
 
-  if test "x$with_qat_upstream_driver_cmd_dir" = "xunset"
+  if test "x$with_upstream_driver_cmd_dir" = "xunset"
   then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_DRIVER was given.
@@ -12064,7 +12086,7 @@ fi
 fi
 fi
 
-if test "x$with_cmd_dir" != "xunset" -a "x$enable_multi_thread" = "xunset" -a "x$with_qat_upstream_driver_cmd_dir" = "xunset"
+if test "x$with_cmd_dir" != "xunset" -a "x$enable_multi_thread" = "xunset" -a "x$with_upstream_driver_cmd_dir" = "xunset"
 then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_QAE_MEM was given.

@@ -2,6 +2,7 @@
 *.o
 *.obj
 *.ko
+*.lo
 
 # editor artefacts
 *.swp
@@ -34,3 +35,12 @@ tags
 TAGS
 cscope.out
 *.d
+Makefile
+/.deps
+/.tools/autom4te.cache
+config.h
+config.log
+config.status
+libtool
+stamp-h1
+
