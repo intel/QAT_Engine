@@ -351,6 +351,17 @@ AC_SUBST(DRIVER)
 
 if test "x$enable_qat_mux" != "xunset"
 then
+  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat_mux")
+  AC_SUBST(DRIVER)
+else if test "x$with_upstream_driver_cmd_dir" != "xunset"
+then
+  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
+  AC_SUBST(DRIVER)
+fi
+fi
+
+if test "x$enable_qat_mux" != "xunset"
+then
 AC_ARG_WITH(ICP_MUX_DIR, AS_HELP_STRING(), , with_ICP_MUX_DIR="\$(with_qat_dir)/../QAT1.5/quickassist/include")
 AC_SUBST(with_ICP_MUX_DIR)
 AC_ARG_WITH(ICP_DC_DIR, AS_HELP_STRING(), , with_ICP_DC_DIR="\$(with_ICP_API_DIR)/dc")
@@ -359,8 +370,6 @@ AC_ARG_WITH(cflags_mux, AS_HELP_STRING(), , cflags_mux="-DWITH_CPA_MUX")
 AC_SUBST(cflags_mux)
 AC_ARG_WITH(includes_enable_qat_mux, AS_HELP_STRING(), , includes_enable_qat_mux="-I\$(with_ICP_MUX_DIR) -I\$(with_ICP_DC_DIR)")
 AC_SUBST(includes_enable_qat_mux)
-AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat_mux")
-AC_SUBST(DRIVER)
 fi
 
 if test "x$with_ld_opt" != "xunset"
@@ -371,36 +380,12 @@ fi
 
 if test "x$with_qat_install_dir" != "xunset"
 then
-  if test "x$with_upstream_driver_cmd_dir" != "xunset"
-  then
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER=["-Wl,-rpath,\$(with_upstream_driver_cmd_dir) -L\$(with_upstream_driver_cmd_dir) -lusdm_drv_s"])
-  AC_SUBST(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER)
-  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
-  AC_SUBST(DRIVER)
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-Wl,-rpath,\$(with_qat_install_dir) -L\$(with_qat_install_dir) -l\$(DRIVER)_s -ludev"])
+  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-Wl,-rpath,\$(with_qat_install_dir) -L\$(with_qat_install_dir) -l\$(DRIVER)_s"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
-  else if test "x$with_upstream_driver_cmd_dir" = "xunset"
-  then
-    AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-Wl,-rpath,\$(with_qat_install_dir) -L\$(with_qat_install_dir) -l\$(DRIVER)_s"])
-    AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
-  fi
-  fi
 else if "x$with_qat_install_dir" = "xunset"
 then
-  if test "x$with_upstream_driver_cmd_dir" != "xunset"
-  then
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER=["-Wl,-rpath,\$(with_upstream_driver_cmd_dir) -L\$(with_upstream_driver_cmd_dir) -lusdm_drv_s"])
-  AC_SUBST(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER)
-  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
-  AC_SUBST(DRIVER)
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-l\$(DRIVER)_s -ludev"])
-  AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
-  if test "x$with_upstream_driver_cmd_dir" = "xunset"
-  then
   AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-l\$(DRIVER)_s"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
-  fi 
-  fi 
 fi
 fi
 
