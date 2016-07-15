@@ -176,7 +176,7 @@ the Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options section
 below for a full description of the options that can be specified.
 The above options are all mandatory.
 
-If building to link against the Upstream Intel&reg; Quickassist 
+If building to link against the Upstream Intel&reg; Quickassist
 Technology userspace shared library then ensure the ./configure
 command was also run with the --with-upstream_driver_cmd_dir option as
 this is mandatory for building with the upstream version of the library.
@@ -195,6 +195,10 @@ located at:
 
 The files are grouped by acceleration device, please choose the files
 appropriate to your acceleration device only.
+If building to link against the Upstream Intel&reg; Quickassist
+Technology userspace shared library then you should use the files in
+`dh895xcc_upstream`
+
 The files are also split into `multi_process_optimized` and
 `multi_thread_optimized`.
 
@@ -361,7 +365,7 @@ folder to the LD_LIBRARY_PATH environment variable as follows:
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib64
 
-If building to link against the Upstream Intel&reg; Quickassist 
+If building to link against the Upstream Intel&reg; Quickassist
 Technology userspace shared library then ensure the ./configure
 command was run with the --with-upstream_driver_cmd_dir option as
 this is mandatory for building with the upstream version of the library.
@@ -593,7 +597,7 @@ OpenSSL\* Engine:
         Driver uses the Common Memory Driver by default but requires
         the Common Memory Driver shared userspace library to be linked into
         the engine. Specifying this option tells the linker that the engine
-        is being linked against the Upstream Intel&reg; Quickassist 
+        is being linked against the Upstream Intel&reg; Quickassist
         Technology Driver and the path to the needed Common Memory Driver
         library. Specifying this path does not mean the engine will use the
         Common Memory Driver for its internal contiguous pinned memory
