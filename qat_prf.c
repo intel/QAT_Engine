@@ -119,7 +119,7 @@ static EVP_PKEY_METHOD *qat_prf_pmeth(void)
     if(_hidden_prf_pmeth) 
         return _hidden_prf_pmeth;
 #ifdef OPENSSL_DISABLE_QAT_PRF
-    if ((current_prf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_TLS_PRF)) == NULL) { 
+    if ((current_prf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_TLS1_PRF)) == NULL) {
         QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
