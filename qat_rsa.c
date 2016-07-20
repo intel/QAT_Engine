@@ -263,7 +263,8 @@ static int qat_data_len(unsigned char *in, int rLen, int sign)
 *                        unsigned char *in,
 *                        int r_len,
 *                        int out_len,
-*                        int sign)
+*                        int sign,
+*                        int padding)
 *
 * @param out     [OUT] - pointer to a Flat Buffer
 * @param in      [IN] -  pointer to a Flat Buffer
@@ -271,26 +272,33 @@ static int qat_data_len(unsigned char *in, int rLen, int sign)
 * @param out_len [OUT] - length of the output data after the padding has
                          been removed
 * @param sign    [IN] -  1 for sign operation and 0 for decryption
+* @param padding [IN] -  type of padding
 *
 * description:
 *   This function is used to remove PKCS#1 padding from outputBuffer
-*   after cpaCyRsaEncrypt() function during RSA verify.
+*   after cpaCyRsaEncrypt() function during RSA verify if that is the type of
+*   padding passed in.  However, if the type of padding is RSA_NO_PADDING, then
+*   all the data in the 'in' buffer is copied to the 'out' buffer.
 ******************************************************************************/
 static int qat_remove_pad(unsigned char *out, unsigned char *in,
-                          int r_len, int *out_len, int sign)
+                          int r_len, int *out_len, int sign, int padding)
 {
     int p_len = 0;
     int d_len = 0;
 
-    if (0 == (d_len = qat_data_len(in, r_len, sign))) {
-        return 0;
+    if (padding == RSA_NO_PADDING) {
+        memcpy(out, in, r_len);
+        *out_len = r_len;
     }
-    p_len = r_len - d_len;
+    else { /* should be RSA_PKCS1_PADDING */
+        if (0 == (d_len = qat_data_len(in, r_len, sign)))
+            return 0;
+        p_len = r_len - d_len;
 
-    /* shift actual data to the beginning of out buffer */
-    memcpy(out, in + p_len, d_len);
-    *out_len = d_len;
-
+        /* shift actual data to the beginning of out buffer */
+        memcpy(out, in + p_len, d_len);
+        *out_len = d_len;
+    }
     return 1;
 }
 
@@ -481,7 +489,7 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
     }
 
     /* Padding check */
-    if (padding != RSA_PKCS1_PADDING) {
+    if ((padding != RSA_NO_PADDING) && (padding != RSA_PKCS1_PADDING)) {
         DEBUG("[%s] --- Unknown Padding!\n", __func__);
         QATerr(QAT_F_BUILD_DECRYPT_OP_BUF, ERR_R_INTERNAL_ERROR);
         return 0;
@@ -938,8 +946,8 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         goto exit;
     }
     /* Copy output to output buffer */
-    if (qat_remove_pad(to, output_buffer->pData, rsa_len, &output_len, 0)
-            != 1) {
+    if (qat_remove_pad(to, output_buffer->pData, rsa_len, &output_len,
+                       0, padding) != 1) {
         /* set output all 0xff if failed */
         WARN("[%s] --- pData remove padding detected an error!\n",
                 __func__);
@@ -1100,10 +1108,9 @@ qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
         goto exit;
     }
 
-    /* remove the padding from outputBuffer */
-    /* only RSA_PKCS1_PADDING scheme supported by qat engine */
-    if (qat_remove_pad(to, output_buffer->pData, rsa_len, &output_len, 1)
-            != 1) {
+    /* remove the padding from outputBuffer if padding != RSA_NO_PADDING */
+    if (qat_remove_pad(to, output_buffer->pData, rsa_len, &output_len,
+                       1, padding) != 1) {
         WARN("[%s] --- pData remove padding detected an error!\n",
                 __func__);
         QATerr(QAT_F_QAT_RSA_PUB_DEC, ERR_R_INTERNAL_ERROR);
