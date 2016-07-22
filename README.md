@@ -65,7 +65,6 @@ is known to contain bugs and errors. As such, Intel&reg; does not
 recommend the use of the software in its current state for your
 production use.
 
-* Zero Copy Mode is not supported in this release.
 * When forking within an application it is not valid for
   a cryptographic operation to be started in the parent process
   and completed in the child process.
@@ -285,10 +284,6 @@ Engine is loaded correctly:
               (input flags): NUMERIC
          GET_OP_RETRIES: Get number of retries
               (input flags): NO_INPUT
-         SET_V2P: Set function to be used for V2P translation
-              (input flags): NUMERIC
-         ENABLE_ZERO_COPY_MODE: Set zero copy mode
-              (input flags): NO_INPUT
          SET_MSG_RETRY_COUNT: Set Message retry count
               (input flags): NUMERIC
          SET_POLL_INTERVAL: Set Poll Interval
@@ -441,35 +436,6 @@ Where:
         The number is set in the variable passed in as Param 4.
         This message may be sent at any time after engine
         initialization.
-
-    Message String: SET_V2P
-    Param 3:        function pointer cast to a long
-    Param 4:        NULL
-    Description:
-        This message sets the function that the engine and the
-        Intel&reg; Quickassist Technology Driver will use for
-        converting virtual addresses to physical addresses for the
-        pinned contiguous memory buffers. A function pointer to
-        the appropriately signatured function should be
-        cast to a long and passed as Param 3. This message
-        is usually used in conjunction with the
-        ENABLE_ZERO_COPY_MODE message to allow applications
-        to manage memory allocations themselves. This message
-        must be sent between engine creation and engine
-        initialization and before sending
-        ENABLE_ZERO_COPY_MODE.
-
-    Message String: ENABLE_ZERO_COPY_MODE
-    Param 3:        0
-    Param 4:        NULL
-    Description:
-        This message sets zero copy mode within the engine.
-        This reduces memory copies by assuming the
-        application is responsible for ensuring buffers
-        passed into the engine are contiguous pinned memory.
-        This message must be sent between engine creation
-        and engine initialization and should be called
-        after a SET_V2P message.
 
     Message String: SET_MSG_RETRY_COUNT
     Param 3:        int cast to a long

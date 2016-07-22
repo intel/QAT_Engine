@@ -1,6 +1,6 @@
 /* ====================================================================
  *
- * 
+ *
  *   BSD LICENSE
  *
  *   Copyright(c) 2016 Intel Corporation.
@@ -211,7 +211,6 @@ CpaStatus myPerformOp(const CpaInstanceHandle instanceHandle,
 int qat_setup_async_event_notification(int notificationNo);
 int qat_pause_job(ASYNC_JOB *job, int notificationNo);
 int qat_wake_job(ASYNC_JOB *job, int notificationNo);
-int isZeroCopy();
 useconds_t getQatPollInterval();
 int getQatMsgRetryCount();
 int getEnableExternalPolling();

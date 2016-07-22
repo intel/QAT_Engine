@@ -340,7 +340,7 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
 {
     CpaCyRsaPrivateKeyRep2 *key = NULL;
     if (dec_op_data) {
-        if (dec_op_data->inputData.pData && (!isZeroCopy() || padding))
+        if (dec_op_data->inputData.pData)
             qaeCryptoMemFree(dec_op_data->inputData.pData);
 
         if (dec_op_data->pRecipientPrivateKey) {
@@ -356,7 +356,7 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
     }
 
     if (out_buf) {
-        if (!isZeroCopy() && out_buf->pData)
+        if (out_buf->pData)
             qaeCryptoMemFree(out_buf->pData);
         OPENSSL_free(out_buf);
     }
@@ -532,8 +532,6 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
     if (alloc_pad) {
         (*dec_op_data)->inputData.pData =
             qat_alloc_pad((Cpa8U *) from, flen, rsa_len, 1);
-    } else if (isZeroCopy()) {
-        (*dec_op_data)->inputData.pData = (Cpa8U *) from;
     } else {
         (*dec_op_data)->inputData.pData =
             (Cpa8U *) copyAllocPinnedMemory((void *)from, flen, __FILE__,
@@ -558,17 +556,12 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (isZeroCopy()) {
-        /* Assign outputBuffer to output pointer */
-        (*output_buffer)->pData = (Cpa8U *) to;
-    } else {
-        /*
-         * Memory allocation for DecOpdata[IN] the size of outputBuffer
-         * should big enough to contain RSA_size
-         */
-        (*output_buffer)->pData =
-            (Cpa8U *) qaeCryptoMemAlloc(rsa_len, __FILE__, __LINE__);
-    }
+    /*
+     * Memory allocation for DecOpdata[IN] the size of outputBuffer
+     * should big enough to contain RSA_size
+     */
+    (*output_buffer)->pData =
+        (Cpa8U *) qaeCryptoMemAlloc(rsa_len, __FILE__, __LINE__);
 
     if (NULL == (*output_buffer)->pData) {
         WARN("[%s] --- OutputBuffer Data malloc failed!\n", __func__);
@@ -593,13 +586,13 @@ rsa_encrypt_op_buf_free(CpaCyRsaEncryptOpData * enc_op_data,
                                  publicExponentE.pData);
             OPENSSL_free(enc_op_data->pPublicKey);
         }
-        if ((!isZeroCopy() || padding) && enc_op_data->inputData.pData)
+        if (enc_op_data->inputData.pData)
             qaeCryptoMemFree(enc_op_data->inputData.pData);
         OPENSSL_free(enc_op_data);
     }
 
     if (out_buf) {
-        if (!isZeroCopy() && out_buf->pData)
+        if (out_buf->pData)
             qaeCryptoMemFree(out_buf->pData);
         OPENSSL_free(out_buf);
     }
@@ -763,8 +756,6 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
     if (alloc_pad) {
         (*enc_op_data)->inputData.pData =
             qat_alloc_pad((Cpa8U *) from, flen, rsa_len, 0);
-    } else if (isZeroCopy()) {
-        (*enc_op_data)->inputData.pData = (Cpa8U *) from;
     } else {
         (*enc_op_data)->inputData.pData =
             (Cpa8U *) copyAllocPinnedMemory((void *)from, flen, __FILE__,
@@ -871,8 +862,7 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
         sts = 0;
         goto exit;
     }
-    if (!isZeroCopy())
-        memcpy(to, output_buffer->pData, rsa_len);
+    memcpy(to, output_buffer->pData, rsa_len);
 
     DEBUG("[%s] --- cpaCyRsaDecrypt finished! \n", __func__);
 

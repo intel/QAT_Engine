@@ -137,8 +137,6 @@
 #define unlikely(x) __builtin_expect (!!(x), 0)
 
 /* Forward Declarations */
-static CpaPhysicalAddr realVirtualToPhysical(void *virtualAddr);
-
 static int qat_engine_finish(ENGINE *e);
 
 /* Qat engine id declaration */
@@ -171,8 +169,6 @@ static pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char *ICPConfigSectionName_libcrypto = "SHIM";
 
-static CpaVirtualToPhysical myVirtualToPhysical = realVirtualToPhysical;
-static int zero_copy_memory_mode = 0;
 static int qat_inited = 0;
 static useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 static int qat_msg_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
@@ -227,41 +223,11 @@ useconds_t getQatPollInterval()
 }
 
 
-int isZeroCopy()
-{
-    return (zero_copy_memory_mode);
-}
-
-
 int isEventDriven()
 {
     return enable_event_driven_polling;
 }
 
-
-void enableZeroCopy()
-{
-    CpaStatus status;
-
-    status =
-        CRYPTO_set_mem_ex_functions(qaeCryptoMemAlloc, qaeCryptoMemRealloc,
-                                    qaeCryptoMemFree);
-    if (CPA_FALSE == status) {
-        DEBUG("%s: CRYPTO_set_mem_functions failed\n", __func__);
-        /*
-         * Don't abort. This may be tried from a few places and will only
-         * succeed the first time.
-         */
-    } else {
-        DEBUG("%s: CRYPTO_set_mem_functions succeeded\n", __func__);
-    }
-
-    /*
-     * If over-riding OPENSSL_malloc then buffers passed will already be
-     * pinned memory so we switch to zero copy mode
-     */
-    zero_copy_memory_mode = 1;
-}
 
 /******************************************************************************
 * function:
@@ -728,7 +694,7 @@ static CpaStatus poll_instances(void)
 
 /******************************************************************************
 * function:
-*         realVirtualToPhysical(void *virtualAddr)
+*         virtualToPhysical(void *virtualAddr)
 *
 * @param virtualAddr [IN] - Virtual address.
 *
@@ -742,36 +708,11 @@ static CpaStatus poll_instances(void)
 *   qae_mem_utils.c and qat_contig_mem/qat_contig_mem.c
 *
 ******************************************************************************/
-static CpaPhysicalAddr realVirtualToPhysical(void *virtualAddr)
+static CpaPhysicalAddr virtualToPhysical(void *virtualAddr)
 {
     return qaeCryptoMemV2P(virtualAddr);
 }
 
-/******************************************************************************
-* function:
-*         setMyVirtualToPhysical(CpaVirtualToPhysical fp)
-*
-* @param CpaVirtualToPhysical [IN] - Function pointer to translation function
-*
-* description:
-*   External API to allow users to specify their own virtual to physical
-*   address translation function.
-*
-******************************************************************************/
-void setMyVirtualToPhysical(CpaVirtualToPhysical fp)
-{
-    /*
-     * If user specifies a V2P function then the user is taking
-     * responsibility for allocating and freeing pinned memory so we switch
-     * to zero_copy_memory mode
-     */
-    if (!qat_inited) {
-        myVirtualToPhysical = fp;
-        zero_copy_memory_mode = 1;
-    } else {
-        WARN("%s: can't set virtual to physical translation function after initialisation\n", __func__);
-    }
-}
 
 int qat_adjust_thread_affinity(pthread_t threadptr)
 {
@@ -931,7 +872,7 @@ static int qat_engine_init(ENGINE *e)
     for (instNum = 0; instNum < numInstances; instNum++) {
         /* Set the address translation function */
         status = cpaCySetAddressTranslation(qatInstanceHandles[instNum],
-                                            myVirtualToPhysical);
+                                            virtualToPhysical);
         if (CPA_STATUS_SUCCESS != status) {
             WARN("cpaCySetAddressTranslation failed, status=%d\n", status);
             qat_engine_finish(e);
@@ -985,14 +926,12 @@ static int qat_engine_init(ENGINE *e)
 #define QAT_CMD_POLL (ENGINE_CMD_BASE + 1)
 #define QAT_CMD_SET_INSTANCE_FOR_THREAD (ENGINE_CMD_BASE + 2)
 #define QAT_CMD_GET_OP_RETRIES (ENGINE_CMD_BASE + 3)
-#define QAT_CMD_SET_V2P (ENGINE_CMD_BASE + 4)
-#define QAT_CMD_ENABLE_ZERO_COPY_MODE (ENGINE_CMD_BASE + 5)
-#define QAT_CMD_SET_MSG_RETRY_COUNTER (ENGINE_CMD_BASE + 6)
-#define QAT_CMD_SET_POLL_INTERVAL (ENGINE_CMD_BASE + 7)
-#define QAT_CMD_GET_POLLING_FD (ENGINE_CMD_BASE + 8)
-#define QAT_CMD_ENABLE_EVENT_DRIVEN_MODE (ENGINE_CMD_BASE + 9)
-#define QAT_CMD_GET_NUM_CRYPTO_INSTANCES (ENGINE_CMD_BASE + 10)
-#define QAT_CMD_DISABLE_EVENT_DRIVEN_MODE (ENGINE_CMD_BASE + 11)
+#define QAT_CMD_SET_MSG_RETRY_COUNTER (ENGINE_CMD_BASE + 4)
+#define QAT_CMD_SET_POLL_INTERVAL (ENGINE_CMD_BASE + 5)
+#define QAT_CMD_GET_POLLING_FD (ENGINE_CMD_BASE + 6)
+#define QAT_CMD_ENABLE_EVENT_DRIVEN_MODE (ENGINE_CMD_BASE + 7)
+#define QAT_CMD_GET_NUM_CRYPTO_INSTANCES (ENGINE_CMD_BASE + 8)
+#define QAT_CMD_DISABLE_EVENT_DRIVEN_MODE (ENGINE_CMD_BASE + 9)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -1014,16 +953,6 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      QAT_CMD_GET_OP_RETRIES,
      "GET_OP_RETRIES",
      "Get number of retries",
-     ENGINE_CMD_FLAG_NO_INPUT},
-    {
-     QAT_CMD_SET_V2P,
-     "SET_V2P",
-     "Set function to be used for V2P translation",
-     ENGINE_CMD_FLAG_NUMERIC},
-    {
-     QAT_CMD_ENABLE_ZERO_COPY_MODE,
-     "ENABLE_ZERO_COPY_MODE",
-     "Set zero copy mode",
      ENGINE_CMD_FLAG_NO_INPUT},
     {
      QAT_CMD_SET_MSG_RETRY_COUNTER,
@@ -1208,16 +1137,6 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
                 break;
             }
             *(int *)p = qatPerformOpRetries;
-            break;
-        }
-    case QAT_CMD_SET_V2P:
-        {
-            setMyVirtualToPhysical((CpaVirtualToPhysical) i);
-            break;
-        }
-    case QAT_CMD_ENABLE_ZERO_COPY_MODE:
-        {
-            enableZeroCopy();
             break;
         }
     case QAT_CMD_SET_MSG_RETRY_COUNTER:
@@ -1470,9 +1389,6 @@ static ENGINE *engine_qat(void)
         QATerr(QAT_F_ENGINE_QAT, QAT_R_QAT_DEV_NOT_PRESENT);
         return ret;
     }
-# ifdef QAT_ZERO_COPY_MODE
-    enableZeroCopy();
-# endif
 
     ret = ENGINE_new();
 

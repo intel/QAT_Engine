@@ -1,15 +1,15 @@
 /* ====================================================================
  *
- * 
+ *
  *   BSD LICENSE
- * 
+ *
  *   Copyright(c) 2016 Intel Corporation.
  *   All rights reserved.
- * 
+ *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
  *   are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -19,7 +19,7 @@
  *     * Neither the name of Intel Corporation nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- * 
+ *
  *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -31,8 +31,8 @@
  *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *
+ *
  * ====================================================================
  */
 
@@ -364,7 +364,7 @@ qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
 * @param evp_ctx [IN] - pointer to the evp context
 *
 * description:
-*    This function is to find the sha digest length 
+*    This function is to find the sha digest length
 *    based on NID
 *    it will return Sha digest Length if successful and 0 on failure.
 *
@@ -482,13 +482,13 @@ static int cipher_init_chained(EVP_CIPHER_CTX *evp_ctx,
         WARN("[%s] Unable to get sha digest length\n", __func__);
         goto end;
     }
-      
+
     qat_ctx->session_data->hashSetupData.digestResultLenInBytes =
         sha_digest_len;
 
     if (sha_digest_len == SHA_DIGEST_LENGTH)
         qat_ctx->session_data->hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA1;
-    else 
+    else
         qat_ctx->session_data->hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
 
     qat_ctx->hmac_key = OPENSSL_malloc(HMAC_KEY_SIZE);
@@ -689,7 +689,7 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                     SHA256_Final(hmac_key, &(evp_ctx->sha_key_wrap.sha256_key_wrap));
                     sessionSetupData->hashSetupData.
                         authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
-                }   
+                }
             } else {
                 memcpy(hmac_key, ptr, arg);
                 sessionSetupData->hashSetupData.
@@ -1099,7 +1099,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             return 0;
         }
     }
-    
+
     if ((sha_digest_len = qat_get_sha_digest_len(ctx)) == 0) {
         WARN("[%s] --- Unable to get sha digest length\n", __func__);
         return -1;
@@ -1135,19 +1135,15 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
 
     /* Build request/response buffers */
-    if (isZeroCopy()) {
-        evp_ctx->srcFlatBuffer[1].pData = (Cpa8U *) in;
-        evp_ctx->dstFlatBuffer[1].pData = (Cpa8U *) out;
-    } else {
-        evp_ctx->srcFlatBuffer[1].pData =
-            qaeCryptoMemAlloc(len, __FILE__, __LINE__);
-        if ((evp_ctx->srcFlatBuffer[1].pData) == NULL) {
-            WARN("[%s] --- src/dst buffer allocation.\n", __func__);
-            return 0;
-        }
-        evp_ctx->dstFlatBuffer[1].pData = evp_ctx->srcFlatBuffer[1].pData;
-        memcpy(evp_ctx->dstFlatBuffer[1].pData, in, len);
+    evp_ctx->srcFlatBuffer[1].pData =
+        qaeCryptoMemAlloc(len, __FILE__, __LINE__);
+    if ((evp_ctx->srcFlatBuffer[1].pData) == NULL) {
+        WARN("[%s] --- src/dst buffer allocation.\n", __func__);
+	return 0;
     }
+    evp_ctx->dstFlatBuffer[1].pData = evp_ctx->srcFlatBuffer[1].pData;
+    memcpy(evp_ctx->dstFlatBuffer[1].pData, in, len);
+
     evp_ctx->srcFlatBuffer[1].dataLenInBytes = len;
     evp_ctx->srcBufferList.pUserData = NULL;
     evp_ctx->dstFlatBuffer[1].dataLenInBytes = len;
@@ -1246,12 +1242,10 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                             &(evp_ctx->srcBufferList),
                             &(evp_ctx->dstBufferList),
                             &(evp_ctx->session_data->verifyDigest))) !=
-         CPA_STATUS_SUCCESS) {
-        if (!isZeroCopy()) {
-            qaeCryptoMemFree(evp_ctx->srcFlatBuffer[1].pData);
-            evp_ctx->srcFlatBuffer[1].pData = NULL;
-            evp_ctx->dstFlatBuffer[1].pData = NULL;
-        }
+                            CPA_STATUS_SUCCESS) {
+        qaeCryptoMemFree(evp_ctx->srcFlatBuffer[1].pData);
+        evp_ctx->srcFlatBuffer[1].pData = NULL;
+        evp_ctx->dstFlatBuffer[1].pData = NULL;
         cleanupOpDone(&opDone);
         WARN("[%s] --- cpaCySymPerformOp failed sts=%d.\n", __func__,
              sts);
@@ -1288,12 +1282,10 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                AES_BLOCK_SIZE, EVP_CIPHER_CTX_iv_length(ctx));
     evp_ctx->payload_length = NO_PAYLOAD_LENGTH_SPECIFIED;
 
-    if (!isZeroCopy()) {
-        memcpy(out, evp_ctx->dstFlatBuffer[1].pData, len);
-        qaeCryptoMemFree(evp_ctx->srcFlatBuffer[1].pData);
-        evp_ctx->srcFlatBuffer[1].pData = NULL;
-        evp_ctx->dstFlatBuffer[1].pData = NULL;
-    }
+    memcpy(out, evp_ctx->dstFlatBuffer[1].pData, len);
+    qaeCryptoMemFree(evp_ctx->srcFlatBuffer[1].pData);
+    evp_ctx->srcFlatBuffer[1].pData = NULL;
+    evp_ctx->dstFlatBuffer[1].pData = NULL;
 
     return retVal;
 }
