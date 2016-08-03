@@ -9,13 +9,7 @@ MODULENAME 	:= qat_contig_mem
 KDIR		:= /lib/modules/$(shell uname -r)/build
 PWD		:= $(shell pwd)
 
-ifeq ($(shell uname -r|grep -c grsec-WR), 1)
 AUTO_CONF=$(KDIR)/include/generated/autoconf.h
-else ifeq ($(shell uname -r|grep -c el7), 1)
-AUTO_CONF=$(KDIR)/include/generated/autoconf.h
-else
-AUTO_CONF=/usr/src/kernels/$(shell uname -r)/include/linux/autoconf.h
-endif
 
 ifdef KERNEL_SOURCE_ROOT
 # Users who are cross compiling should export environment variable PATH_AUTOCNF
