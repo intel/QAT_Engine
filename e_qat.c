@@ -1098,22 +1098,12 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
     case QAT_CMD_ENABLE_EVENT_DRIVEN_MODE:
         {
-#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-            retVal = 0;
-            WARN("QAT_CMD_ENABLE_EVENT_DRIVEN_MODE failed as Event Driven Polling is not supported\n");
-#else
             enable_event_driven_polling = 1;
-#endif
             break;
         }
     case QAT_CMD_DISABLE_EVENT_DRIVEN_MODE:
         {
-#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-            retVal = 0;
-            WARN("QAT_CMD_DISABLE_EVENT_DRIVEN_MODE failed as Event Driven Polling is not supported\n");
-#else
             enable_event_driven_polling = 0;
-#endif
             break;
         }
     case QAT_CMD_SET_INSTANCE_FOR_THREAD:
