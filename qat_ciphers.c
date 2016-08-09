@@ -643,6 +643,10 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
     qat_chained_ctx *evp_ctx = NULL;
     int retVal = 0;
     int sha_digest_len = 0;
+    unsigned char *hmac_key = NULL;
+    CpaCySymSessionSetupData *sessionSetupData = NULL;
+    unsigned char *p = NULL;
+    unsigned int len = 0;
 
     if (ctx == NULL) {
         WARN("[%s] --- ctx parameter is NULL.\n", __func__);
@@ -663,116 +667,112 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
 
     switch (type) {
     case EVP_CTRL_AEAD_SET_MAC_KEY:
-        {
-            unsigned char *hmac_key = evp_ctx->hmac_key;
-            CpaCySymSessionSetupData *sessionSetupData =
-                evp_ctx->session_data;
+        hmac_key = evp_ctx->hmac_key;
+        sessionSetupData = evp_ctx->session_data;
 
-            if (NULL == hmac_key || NULL == sessionSetupData) {
-                WARN("[%s] --- HMAC Key or sessionSetupData are NULL",
-                     __func__);
-                return -1;
-            }
-
-            memset(hmac_key, 0, HMAC_KEY_SIZE);
-
-            if (arg > HMAC_KEY_SIZE) {
-                if (sha_digest_len == SHA_DIGEST_LENGTH) {
-                    SHA1_Init(&(evp_ctx->sha_key_wrap.sha1_key_wrap));
-                    SHA1_Update(&(evp_ctx->sha_key_wrap.sha1_key_wrap), ptr, arg);
-                    SHA1_Final(hmac_key, &(evp_ctx->sha_key_wrap.sha1_key_wrap));
-                    sessionSetupData->hashSetupData.
-                        authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
-                } else {
-                    SHA256_Init(&(evp_ctx->sha_key_wrap.sha256_key_wrap));
-                    SHA256_Update(&(evp_ctx->sha_key_wrap.sha256_key_wrap), ptr, arg);
-                    SHA256_Final(hmac_key, &(evp_ctx->sha_key_wrap.sha256_key_wrap));
-                    sessionSetupData->hashSetupData.
-                        authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
-                }
-            } else {
-                memcpy(hmac_key, ptr, arg);
-                sessionSetupData->hashSetupData.
-                    authModeSetupData.authKeyLenInBytes = arg;
-            }
-
-            DUMPL("hmac_key", hmac_key, arg);
-
-            evp_ctx->initHmacKeySet = 1;
-            retVal = 1;
-            break;
-        }
-    case EVP_CTRL_AEAD_TLS1_AAD:
-        {
-            /*
-             * Values to include in the record MAC calculation are included
-             * in this type This returns the amount of padding required for
-             * the send/encrypt direction
-             */
-            unsigned char *p = ptr;
-            unsigned int len =
-                (p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] << QAT_BYTE_SHIFT |
-                 p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET]);
-
-            if (arg < TLS_VIRT_HDR_SIZE) {
-                retVal = -1;
-                break;
-            }
-            evp_ctx->tls_version =
-                (p[arg - QAT_TLS_VERSION_MSB_OFFSET] << QAT_BYTE_SHIFT |
-                 p[arg - QAT_TLS_VERSION_LSB_OFFSET]);
-
-            if (EVP_CIPHER_CTX_encrypting(ctx)) {
-                evp_ctx->payload_length = len;
-                if (evp_ctx->tls_version >= TLS1_1_VERSION) {
-                    len -= AES_BLOCK_SIZE;
-                    /* TODO: Why does this code reduce the len in the
-                       TLS header by the IV for the framework? */
-                    p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] =
-                        len >> QAT_BYTE_SHIFT;
-                    p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET] = len;
-                }
-
-                if (NULL == evp_ctx->tls_virt_hdr) {
-                    WARN("Unable to allocate memory for mac preamble in qat/n");
-                    return -1;
-                }
-                /*
-                 * Copy the header from p into the QAT_BYTE_ALIGNMENT
-                 * sized buffer so that the header is in the final part
-                 * of the buffer
-                 */
-                memcpy(evp_ctx->tls_virt_hdr +
-                        (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), p,
-                        TLS_VIRT_HDR_SIZE);
-                DUMPL("tls_virt_hdr",
-                        evp_ctx->tls_virt_hdr + (QAT_BYTE_ALIGNMENT -
-                                                   TLS_VIRT_HDR_SIZE), arg);
-                retVal =
-                    (int)(((len + sha_digest_len +
-                            AES_BLOCK_SIZE) & -AES_BLOCK_SIZE) - len);
-                break;
-            } else {
-                /*
-                 * Copy the header from ptr into the QAT_BYTE_ALIGNMENT
-                 * sized buffer so that the header is in the final part
-                 * of the buffer
-                 */
-                if (arg > TLS_VIRT_HDR_SIZE)
-                    arg = TLS_VIRT_HDR_SIZE;
-                memcpy(evp_ctx->tls_virt_hdr +
-                        (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), ptr,
-                        arg);
-                evp_ctx->payload_length = arg;
-                retVal = sha_digest_len;
-                break;
-            }
-        }
-    default:
-        {
-            WARN("[%s] --- unknown type parameter.\n", __func__);
+        if (NULL == hmac_key || NULL == sessionSetupData) {
+            WARN("[%s] --- HMAC Key or sessionSetupData are NULL",
+                    __func__);
             return -1;
         }
+
+        memset(hmac_key, 0, HMAC_KEY_SIZE);
+
+        if (arg > HMAC_KEY_SIZE) {
+            if (sha_digest_len == SHA_DIGEST_LENGTH) {
+                SHA1_Init(&(evp_ctx->sha_key_wrap.sha1_key_wrap));
+                SHA1_Update(&(evp_ctx->sha_key_wrap.sha1_key_wrap), ptr, arg);
+                SHA1_Final(hmac_key, &(evp_ctx->sha_key_wrap.sha1_key_wrap));
+                sessionSetupData->hashSetupData.
+                    authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
+            } else {
+                SHA256_Init(&(evp_ctx->sha_key_wrap.sha256_key_wrap));
+                SHA256_Update(&(evp_ctx->sha_key_wrap.sha256_key_wrap), ptr, arg);
+                SHA256_Final(hmac_key, &(evp_ctx->sha_key_wrap.sha256_key_wrap));
+                sessionSetupData->hashSetupData.
+                    authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
+            }
+        } else {
+            memcpy(hmac_key, ptr, arg);
+            sessionSetupData->hashSetupData.
+                authModeSetupData.authKeyLenInBytes = arg;
+        }
+
+        DUMPL("hmac_key", hmac_key, arg);
+
+        evp_ctx->initHmacKeySet = 1;
+        retVal = 1;
+        break;
+
+    case EVP_CTRL_AEAD_TLS1_AAD:
+        /*
+         * Values to include in the record MAC calculation are included
+         * in this type This returns the amount of padding required for
+         * the send/encrypt direction
+         */
+        p = ptr;
+        len =
+            (p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] << QAT_BYTE_SHIFT |
+             p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET]);
+
+        if (arg < TLS_VIRT_HDR_SIZE) {
+            retVal = -1;
+            break;
+        }
+
+        evp_ctx->tls_version =
+            (p[arg - QAT_TLS_VERSION_MSB_OFFSET] << QAT_BYTE_SHIFT |
+             p[arg - QAT_TLS_VERSION_LSB_OFFSET]);
+
+        if (EVP_CIPHER_CTX_encrypting(ctx)) {
+            evp_ctx->payload_length = len;
+            if (evp_ctx->tls_version >= TLS1_1_VERSION) {
+                len -= AES_BLOCK_SIZE;
+                /* TODO: Why does this code reduce the len in the
+                   TLS header by the IV for the framework? */
+                p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] =
+                    len >> QAT_BYTE_SHIFT;
+                p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET] = len;
+            }
+
+            if (NULL == evp_ctx->tls_virt_hdr) {
+                WARN("Unable to allocate memory for mac preamble in qat/n");
+                return -1;
+            }
+            /*
+             * Copy the header from p into the QAT_BYTE_ALIGNMENT
+             * sized buffer so that the header is in the final part
+             * of the buffer
+             */
+            memcpy(evp_ctx->tls_virt_hdr +
+                    (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), p,
+                    TLS_VIRT_HDR_SIZE);
+            DUMPL("tls_virt_hdr",
+                    evp_ctx->tls_virt_hdr + (QAT_BYTE_ALIGNMENT -
+                        TLS_VIRT_HDR_SIZE), arg);
+            retVal =
+                (int)(((len + sha_digest_len +
+                                AES_BLOCK_SIZE) & -AES_BLOCK_SIZE) - len);
+            break;
+        } else {
+            /*
+             * Copy the header from ptr into the QAT_BYTE_ALIGNMENT
+             * sized buffer so that the header is in the final part
+             * of the buffer
+             */
+            if (arg > TLS_VIRT_HDR_SIZE)
+                arg = TLS_VIRT_HDR_SIZE;
+            memcpy(evp_ctx->tls_virt_hdr +
+                    (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), ptr,
+                    arg);
+            evp_ctx->payload_length = arg;
+            retVal = sha_digest_len;
+            break;
+        }
+
+    default:
+        WARN("[%s] --- unknown type parameter.\n", __func__);
+        return -1;
     }
     return retVal;
 }

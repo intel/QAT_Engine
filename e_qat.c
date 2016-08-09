@@ -1012,158 +1012,145 @@ static int
 qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 {
     unsigned int retVal = 1;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    int flags = 0;
+    int fd = 0;
 
     switch (cmd) {
     case QAT_CMD_POLL:
-        {
+        if (qatInstanceHandles == NULL) {
+            /*
+             * It is possible to call this ctrl function while the engine is
+             * in a state where there are no instances available. This
+             * happens for example immediately when the engine is waiting
+             * for get_next_inst() to be called.
+             *
+             * To avoid this condition we call get_next_inst()
+             */
+            get_next_inst();
             if (qatInstanceHandles == NULL) {
-                /*
-                 * It is possible to call this ctrl function while the engine is
-                 * in a state where there are no instances available. This
-                 * happens for example immediately when the engine is waiting
-                 * for get_next_inst() to be called.
-                 *
-                 * To avoid this condition we call get_next_inst()
-                 */
-                get_next_inst();
-                if (qatInstanceHandles == NULL) {
-                    retVal = 0;
-                    WARN("POLL failed as no instances are available\n");
-                    break;
-                }
+                retVal = 0;
+                WARN("POLL failed as no instances are available\n");
+                break;
             }
-            if (enable_external_polling) {
-                if (p != NULL) {
-                    *(int *)p = (int)poll_instances();
-                } else {
-                    retVal = 0;
-                    WARN("POLL failed as the input parameter was NULL\n");
-                }
+        }
+        if (enable_external_polling) {
+            if (p != NULL) {
+                *(int *)p = (int)poll_instances();
             } else {
                 retVal = 0;
-                WARN("POLL failed as polling is not enabled on the engine\n");
+                WARN("POLL failed as the input parameter was NULL\n");
             }
-            break;
-        }
-    case QAT_CMD_ENABLE_POLLING:
-        {
-            enable_external_polling = 1;
-            break;
-        }
-    case QAT_CMD_GET_POLLING_FD:
-        {
-            CpaStatus status;
-            int flags;
-            int fd;
-
-            if (enable_event_driven_polling == 0 ||
-                enable_external_polling == 0) {
-                retVal = 0;
-                WARN("QAT_CMD_GET_POLLING_FD failed as this engine message is only supported when running in Event Driven Mode with External Polling enabled\n");
-                break;
-            }
-
-            if (p == NULL) {
-                retVal = 0;
-                WARN("GET_POLLING_FD failed as the input parameter was NULL\n");
-                break;
-            }
-            if (qatInstanceHandles == NULL) {
-                get_next_inst();
-                if (qatInstanceHandles == NULL) {
-                    retVal = 0;
-                    WARN("GET_POLLING_FD failed as no instances are available\n");
-                    break;
-                }
-            }
-            if (i >= numInstances) {
-                retVal = 0;
-                WARN("GET_POLLING_FD failed as the instance does not exist\n");
-                break;
-            }
-
-            /* Get the file descriptor for the instance */
-            status = icp_sal_CyGetFileDescriptor(qatInstanceHandles[i], &fd);
-            if (CPA_STATUS_FAIL == status) {
-                retVal = 0;
-                WARN("GET_POLLING_FD failed as there was an error retrieving the fd\n");
-                break;
-            }
-            /*   Make the file descriptor non-blocking */
-            flags = fcntl(fd, F_GETFL, 0);
-            fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-
-            *(int *)p = fd;
-            break;
-        }
-    case QAT_CMD_ENABLE_EVENT_DRIVEN_MODE:
-        {
-            enable_event_driven_polling = 1;
-            break;
-        }
-    case QAT_CMD_DISABLE_EVENT_DRIVEN_MODE:
-        {
-            enable_event_driven_polling = 0;
-            break;
-        }
-    case QAT_CMD_SET_INSTANCE_FOR_THREAD:
-        {
-            if (qatInstanceHandles == NULL) {
-                get_next_inst();
-                if (qatInstanceHandles == NULL) {
-                    retVal = 0;
-                    WARN("SET_INSTANCE_FOR_THREAD failed as no instances are available\n");
-                    break;
-                }
-            }
-            qat_set_instance_for_thread(i);
-            break;
-        }
-    case QAT_CMD_GET_OP_RETRIES:
-        {
-            if (p == NULL) {
-                retVal = 0;
-                WARN("GET_OP_RETRIES failed as the input parameter was NULL\n");
-                break;
-            }
-            *(int *)p = qatPerformOpRetries;
-            break;
-        }
-    case QAT_CMD_SET_MSG_RETRY_COUNTER:
-        {
-            retVal = setQatMsgRetryCount((int)i);
-            break;
-        }
-    case QAT_CMD_SET_POLL_INTERVAL:
-        {
-            retVal = setQatPollInterval((unsigned long int)i);
-            break;
-        }
-    case QAT_CMD_GET_NUM_CRYPTO_INSTANCES:
-        {
-            if (p == NULL) {
-                retVal = 0;
-                WARN("GET_NUM_CRYPTO_INSTANCES failed as the input parameter was NULL\n");
-                break;
-            }
-
-            if (qatInstanceHandles == NULL) {
-                get_next_inst();
-                if (qatInstanceHandles == NULL) {
-                    retVal = 0;
-                    WARN("GET_NUM_CRYPTO_INSTANCES failed as no instances are available\n");
-                    break;
-                }
-            }
-            *(int *)p = numInstances;
-            break;
-        }
-    default:
-        {
-            WARN("CTRL command not implemented\n");
+        } else {
             retVal = 0;
+            WARN("POLL failed as polling is not enabled on the engine\n");
+        }
+        break;
+
+    case QAT_CMD_ENABLE_POLLING:
+        enable_external_polling = 1;
+        break;
+
+    case QAT_CMD_GET_POLLING_FD:
+        if (enable_event_driven_polling == 0 ||
+                enable_external_polling == 0) {
+            retVal = 0;
+            WARN("QAT_CMD_GET_POLLING_FD failed as this engine message is only supported when running in Event Driven Mode with External Polling enabled\n");
             break;
         }
+
+        if (p == NULL) {
+            retVal = 0;
+            WARN("GET_POLLING_FD failed as the input parameter was NULL\n");
+            break;
+        }
+        if (qatInstanceHandles == NULL) {
+            get_next_inst();
+            if (qatInstanceHandles == NULL) {
+                retVal = 0;
+                WARN("GET_POLLING_FD failed as no instances are available\n");
+                break;
+            }
+        }
+        if (i >= numInstances) {
+            retVal = 0;
+            WARN("GET_POLLING_FD failed as the instance does not exist\n");
+            break;
+        }
+
+        /* Get the file descriptor for the instance */
+        status = icp_sal_CyGetFileDescriptor(qatInstanceHandles[i], &fd);
+        if (CPA_STATUS_FAIL == status) {
+            retVal = 0;
+            WARN("GET_POLLING_FD failed as there was an error retrieving the fd\n");
+            break;
+        }
+        /*   Make the file descriptor non-blocking */
+        flags = fcntl(fd, F_GETFL, 0);
+        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+
+        *(int *)p = fd;
+        break;
+
+    case QAT_CMD_ENABLE_EVENT_DRIVEN_MODE:
+        enable_event_driven_polling = 1;
+        break;
+
+    case QAT_CMD_DISABLE_EVENT_DRIVEN_MODE:
+        enable_event_driven_polling = 0;
+        break;
+
+    case QAT_CMD_SET_INSTANCE_FOR_THREAD:
+        if (qatInstanceHandles == NULL) {
+            get_next_inst();
+            if (qatInstanceHandles == NULL) {
+                retVal = 0;
+                WARN("SET_INSTANCE_FOR_THREAD failed as no instances are available\n");
+                break;
+            }
+        }
+        qat_set_instance_for_thread(i);
+        break;
+
+    case QAT_CMD_GET_OP_RETRIES:
+        if (p == NULL) {
+            retVal = 0;
+            WARN("GET_OP_RETRIES failed as the input parameter was NULL\n");
+            break;
+        }
+        *(int *)p = qatPerformOpRetries;
+        break;
+
+    case QAT_CMD_SET_MSG_RETRY_COUNTER:
+        retVal = setQatMsgRetryCount((int)i);
+        break;
+
+    case QAT_CMD_SET_POLL_INTERVAL:
+        retVal = setQatPollInterval((unsigned long int)i);
+        break;
+
+    case QAT_CMD_GET_NUM_CRYPTO_INSTANCES:
+        if (p == NULL) {
+            retVal = 0;
+            WARN("GET_NUM_CRYPTO_INSTANCES failed as the input parameter was NULL\n");
+            break;
+        }
+
+        if (qatInstanceHandles == NULL) {
+            get_next_inst();
+            if (qatInstanceHandles == NULL) {
+                retVal = 0;
+                WARN("GET_NUM_CRYPTO_INSTANCES failed as no instances are available\n");
+                break;
+            }
+        }
+        *(int *)p = numInstances;
+        break;
+
+    default:
+        WARN("CTRL command not implemented\n");
+        retVal = 0;
+        break;
     }
     return retVal;
 }
