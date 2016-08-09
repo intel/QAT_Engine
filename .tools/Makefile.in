@@ -800,16 +800,16 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES
 	uninstall-libLTLIBRARIES
 
 
-mostlyclean-generic: 
+mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* *.old *.bak fluff *.so *.sl *.dll e_qat_err*
 
-	-rm -f $(with_openssl_install_dir)/lib/engines/qat.so
+	-rm -f $(with_openssl_install_dir)/lib/engines-1.1/qat.so
 
 depend:
-	-perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec -nostatic -write $(libqat_la_SOURCES) 
+	-perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec -nostatic -write $(libqat_la_SOURCES)
 
 install-data-am:
-	-cp -f $(prefix)/lib/libqat.so $(with_openssl_install_dir)/lib/engines/qat.so
+	-cp -f $(prefix)/lib/libqat.so $(with_openssl_install_dir)/lib/engines-1.1/qat.so
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

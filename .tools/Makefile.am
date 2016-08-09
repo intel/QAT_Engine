@@ -49,13 +49,13 @@ CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_with_upstream_driver_cmd_dir) $(cfl
 
 libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) $(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER) $(QAT_SHARED_LIB_DEPS_DRIVER) $(QAT_SHARED_LIB_DEPS_QAE_MEM)
 
-mostlyclean-generic: 
+mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* *.old *.bak fluff *.so *.sl *.dll e_qat_err*
 
-	-rm -f $(with_openssl_install_dir)/lib/engines/qat.so
+	-rm -f $(with_openssl_install_dir)/lib/engines-1.1/qat.so
 
 depend:
-	-perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec -nostatic -write $(libqat_la_SOURCES) 
+	-perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec -nostatic -write $(libqat_la_SOURCES)
 
 install-data-am:
-	-cp -f $(prefix)/lib/libqat.so $(with_openssl_install_dir)/lib/engines/qat.so
+	-cp -f $(prefix)/lib/libqat.so $(with_openssl_install_dir)/lib/engines-1.1/qat.so

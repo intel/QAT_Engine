@@ -55,7 +55,7 @@ This release was validated on the following:
 * Operating system: Fedora* 16 64-bit version
 * Kernel: GNU\*/Linux\* 3.1.0.7
 * Intel&reg; Communications Chipset 895x Series Software for Linux\*, version 2.5
-* OpenSSL\* 1.1.0 tag OpenSSL_1_1_0-pre5
+* OpenSSL\* 1.1.0 tag OpenSSL_1_1_0-pre6
 
 ## Limitations
 
@@ -98,7 +98,7 @@ Clone OpenSSL\* from Github\* at the following location:
     git clone https://github.com/openssl/openssl.git
 
 It is recommended to checkout and build against OpenSSL\* 1.1.0 tag
-OpenSSL_1_1_0-pre5.
+OpenSSL_1_1_0-pre6.
 Older versions of OpenSSL\* are not supported.
 
 Due to the nature of the Intel&reg; QuickAssist Technology OpenSSL\*
@@ -130,7 +130,7 @@ as a dynamic engine it is important to
 tell OpenSSL\* where to find the dynamic engines at runtime. This is
 achieved by exporting the following environment variable:
 
-    export OPENSSL_ENGINES=/path/to/openssl_install/lib/engines
+    export OPENSSL_ENGINES=/path/to/openssl_install/lib/engines-1.1
 
 Note: This variable will need to be present in the environment whenever
 the engine is used.
@@ -167,7 +167,7 @@ To build the engine:
 
 In the above example this will create the file `qat.so` in
 `/path/to/qat_engine` and copy it to
-`/path/to/openssl_install/lib/engines`.
+`/path/to/openssl_install/lib/engines-1.1`.
 
 Note: When building it is possible to specify command line options
 that can be used to turn engine functionality on and off. Please see
