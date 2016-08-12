@@ -830,6 +830,14 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         goto err;
     }
 
+    ecdsa_sig_r = BN_new();
+    ecdsa_sig_s = BN_new();
+    /* NULL checking of ecdsa_sig_r & ecdsa_sig_s done in ECDSA_SIG_set0() */
+    if (ECDSA_SIG_set0(ret, ecdsa_sig_r, ecdsa_sig_s) == 0) {
+        QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
+
     if ((ctx = BN_CTX_new()) == NULL) {
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -1086,7 +1094,6 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
 
     /* Convert the flatbuffer results back to a BN */
-    ECDSA_SIG_get0(ret, (const BIGNUM **)&ecdsa_sig_r, (const BIGNUM **)&ecdsa_sig_s);
     BN_bin2bn(pResultR->pData, pResultR->dataLenInBytes, ecdsa_sig_r);
     BN_bin2bn(pResultS->pData, pResultS->dataLenInBytes, ecdsa_sig_s);
 

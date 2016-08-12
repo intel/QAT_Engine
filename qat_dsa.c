@@ -339,6 +339,14 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         goto err;
     }
 
+    r = BN_new();
+    s = BN_new();
+    /* NULL checking of r & s done in DSA_SIG_set0() */
+    if (DSA_SIG_set0(sig, r, s) == 0) {
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
+
     initOpDone(&op_done);
     if (op_done.job) {
         if (qat_setup_async_event_notification(0) == 0) {
@@ -422,8 +430,6 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         sig = NULL;
         goto err;
     }
-
-    DSA_SIG_get0(sig, (const BIGNUM **)&r, (const BIGNUM **)&s);
 
     /* Convert the flatbuffer results back to a BN */
     BN_bin2bn(pResultR->pData, pResultR->dataLenInBytes, r);
