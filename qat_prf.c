@@ -43,35 +43,39 @@
  * OpenSSL engine
  *
  *****************************************************************************/
-# include <string.h>
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+#include <pthread.h>
+#include <string.h>
 
-# include "openssl/ossl_typ.h"
-# include "openssl/async.h"
-# include "openssl/kdf.h"
-# include "openssl/evp.h"
-# include "openssl/ssl.h"
-# include "qat_prf.h"
-# include "qat_utils.h"
-# include "qat_asym_common.h"
-# include "e_qat.h"
-# include "e_qat_err.h"
+#include "openssl/ossl_typ.h"
+#include "openssl/async.h"
+#include "openssl/kdf.h"
+#include "openssl/evp.h"
+#include "openssl/ssl.h"
+#include "qat_prf.h"
+#include "qat_utils.h"
+#include "qat_asym_common.h"
+#include "e_qat.h"
+#include "e_qat_err.h"
 
-# ifdef USE_QAT_CONTIG_MEM
-#  include "qae_mem_utils.h"
+#ifdef USE_QAT_CONTIG_MEM
+# include "qae_mem_utils.h"
+#endif
+#ifdef USE_QAE_MEM
+# include "cmn_mem_drv_inf.h"
+#endif
+
+#include "cpa.h"
+#include "cpa_types.h"
+#include "cpa_cy_key.h"
+
+#ifdef OPENSSL_ENABLE_QAT_PRF
+# ifdef OPENSSL_DISABLE_QAT_PRF
+#  undef OPENSSL_DISABLE_QAT_PRF
 # endif
-# ifdef USE_QAE_MEM
-#  include "cmn_mem_drv_inf.h"
-# endif
-
-# include "cpa.h"
-# include "cpa_types.h"
-# include "cpa_cy_key.h"
-
-# ifdef OPENSSL_ENABLE_QAT_PRF
-#  ifdef OPENSSL_DISABLE_QAT_PRF
-#   undef OPENSSL_DISABLE_QAT_PRF
-#  endif
-# endif
+#endif
 
 /* MAXBUF must be multiple of 64 to maintain the userLabel
  * aligned to 64B. See comment in QAT_TLS1_PRF_CTX
@@ -390,7 +394,7 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
     return 1;
 }
 
-#  ifdef QAT_DEBUG
+# ifdef QAT_DEBUG
 static void print_prf_op_data(const char *func, CpaCyKeyGenTlsOpData * prf_op_data)
 {
     if (prf_op_data == NULL || func == NULL) {
@@ -419,10 +423,10 @@ static void print_prf_op_data(const char *func, CpaCyKeyGenTlsOpData * prf_op_da
     DEBUG("---");
 
 }
-#   define DEBUG_PRF_OP_DATA(prf) print_prf_op_data(__func__,prf)
-#  else
-#   define DEBUG_PRF_OP_DATA(...)
-#  endif                        /* #ifdef QAT_DEBUG */
+#  define DEBUG_PRF_OP_DATA(prf) print_prf_op_data(__func__,prf)
+# else
+#  define DEBUG_PRF_OP_DATA(...)
+# endif                        /* #ifdef QAT_DEBUG */
 
 /******************************************************************************
 * function:

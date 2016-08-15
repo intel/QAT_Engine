@@ -99,6 +99,7 @@
 #include <fcntl.h>
 #include <sys/epoll.h>
 #include <sys/types.h>
+#include <sys/eventfd.h>
 #include <unistd.h>
 
 /* Local Includes */
