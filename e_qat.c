@@ -155,7 +155,6 @@ struct epoll_event eng_epoll_events[MAX_CRYPTO_INSTANCES] = { { 0, 0 } };
 static int internal_efd = 0;
 static ENGINE_EPOLL_ST eng_poll_st[MAX_CRYPTO_INSTANCES] = { {-1} };
 CpaInstanceHandle *qatInstanceHandles = NULL;
-static pid_t initiator_pid = 0;
 static pthread_key_t qatInstanceForThread;
 pthread_t *icp_polling_threads;
 static int keep_polling = 1;
@@ -170,7 +169,7 @@ static pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char *ICPConfigSectionName_libcrypto = "SHIM";
 
-static int qat_inited = 0;
+static unsigned int engine_inited = 0;
 static useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 static int qat_msg_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 static int qat_engine_init(ENGINE *e);
@@ -229,7 +228,6 @@ int isEventDriven()
     return enable_event_driven_polling;
 }
 
-
 /******************************************************************************
 * function:
 *         incr_curr_inst(void)
@@ -258,7 +256,6 @@ CpaInstanceHandle get_next_inst(void)
     CpaInstanceHandle instanceHandle = NULL;
     CpaStatus status = CPA_STATUS_SUCCESS;
     ENGINE* e = NULL;
-    pid_t curr_pid = getpid();
 
     if (1 == enable_instance_for_thread) {
         instanceHandle = pthread_getspecific(qatInstanceForThread);
@@ -268,28 +265,16 @@ CpaInstanceHandle get_next_inst(void)
             return instanceHandle;
     }
 
-    pthread_mutex_lock(&qat_engine_mutex);
-    if(curr_pid != initiator_pid) {
-        qat_inited = 0;
+    e = ENGINE_by_id(engine_qat_id);
+    if(e == NULL) {
+        instanceHandle = NULL;
+        return instanceHandle;
     }
 
-    if(!qat_inited) {
-        e = ENGINE_by_id(engine_qat_id);
-        if(e == NULL) {
-            pthread_mutex_unlock(&qat_engine_mutex);
-            return instanceHandle;
-        }
-
-        if(!qat_engine_init(e)){
-            if (qatInstanceHandles) {
-                OPENSSL_free(qatInstanceHandles);
-                qatInstanceHandles = NULL;
-            }
-            pthread_mutex_unlock(&qat_engine_mutex);
-            return instanceHandle;
-        }
+    if(!qat_engine_init(e)){
+        instanceHandle = NULL;
+        return instanceHandle;
     }
-    pthread_mutex_unlock(&qat_engine_mutex);
 
     /* Anytime we use external polling then we want to loop
        through the instances. Any time we are using internal polling
@@ -305,6 +290,18 @@ CpaInstanceHandle get_next_inst(void)
         }
     }
     return instanceHandle;
+}
+
+static void engine_fork_handler(void)
+{
+    /*Reset engine*/
+    ENGINE* e = ENGINE_by_id(engine_qat_id);
+    if(e == NULL) {
+        return;
+    }
+    qat_engine_finish(e);
+
+    keep_polling = 1;
 }
 
 /******************************************************************************
@@ -761,9 +758,16 @@ static int qat_engine_init(ENGINE *e)
     DEBUG("[%s] ---- Engine Initing\n\n", __func__);
     CRYPTO_INIT_QAT_LOG();
 
+    pthread_mutex_lock(&qat_engine_mutex);
+    if(engine_inited) {
+        pthread_mutex_unlock(&qat_engine_mutex);
+        return 1;
+    }
+
     if (0 == enable_external_polling &&
         (err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
         fprintf(stderr, "pthread_key_create: %s\n", strerror(err));
+        pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
     }
 
@@ -779,6 +783,7 @@ static int qat_engine_init(ENGINE *e)
         icp_sal_userStartMultiProcess(ICPConfigSectionName_libcrypto,
                                       limitDevAccess)) {
         WARN("icp_sal_userStart failed\n");
+        pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
     }
 
@@ -786,11 +791,13 @@ static int qat_engine_init(ENGINE *e)
     status = cpaCyGetNumInstances(&numInstances);
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyGetNumInstances failed, status=%d\n", status);
+        pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
     }
     if (!numInstances) {
         WARN("No crypto instances found\n");
+        pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
     }
@@ -803,6 +810,7 @@ static int qat_engine_init(ENGINE *e)
                                              sizeof(CpaInstanceHandle));
     if (NULL == qatInstanceHandles) {
         WARN("OPENSSL_malloc() failed for instance handles.\n");
+        pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
     }
@@ -811,6 +819,7 @@ static int qat_engine_init(ENGINE *e)
     status = cpaCyGetInstances(numInstances, qatInstanceHandles);
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyGetInstances failed, status=%d\n", status);
+        pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
     }
@@ -825,6 +834,7 @@ static int qat_engine_init(ENGINE *e)
             internal_efd = epoll_create1(0);
             if (-1 == internal_efd) {
                 WARN("Error creating epoll fd\n");
+                pthread_mutex_unlock(&qat_engine_mutex);
                 return 0;
             }
 
@@ -835,6 +845,7 @@ static int qat_engine_init(ENGINE *e)
                                                 &engine_fd);
                 if (CPA_STATUS_FAIL == status) {
                     WARN("Error getting file descriptor for instance\n");
+                    pthread_mutex_unlock(&qat_engine_mutex);
                     qat_engine_finish(e);
                     return 0;
                 }
@@ -851,6 +862,7 @@ static int qat_engine_init(ENGINE *e)
                     epoll_ctl(internal_efd, EPOLL_CTL_ADD, engine_fd,
                               &eng_epoll_events[instNum])) {
                     WARN("Error adding fd to epoll\n");
+                    pthread_mutex_unlock(&qat_engine_mutex);
                     qat_engine_finish(e);
                     return 0;
                 }
@@ -864,6 +876,7 @@ static int qat_engine_init(ENGINE *e)
         }
         if (NULL == icp_polling_threads) {
             WARN("OPENSSL_malloc() failed for icp_polling_threads.\n");
+            pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
         }
@@ -876,6 +889,7 @@ static int qat_engine_init(ENGINE *e)
                                             virtualToPhysical);
         if (CPA_STATUS_SUCCESS != status) {
             WARN("cpaCySetAddressTranslation failed, status=%d\n", status);
+            pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
         }
@@ -884,6 +898,7 @@ static int qat_engine_init(ENGINE *e)
         status = cpaCyStartInstance(qatInstanceHandles[instNum]);
         if (CPA_STATUS_SUCCESS != status) {
             WARN("cpaCyStartInstance failed, status=%d\n", status);
+            pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
         }
@@ -894,6 +909,7 @@ static int qat_engine_init(ENGINE *e)
                            qatInstanceHandles[instNum]);
 
             if (qat_adjust_thread_affinity(icp_polling_threads[instNum]) == 0) {
+                pthread_mutex_unlock(&qat_engine_mutex);
                 qat_engine_finish(e);
                 return 0;
             }
@@ -904,21 +920,15 @@ static int qat_engine_init(ENGINE *e)
         pthread_create(&icp_polling_threads[0], NULL, eventPoll_ns, NULL);
 
         if (qat_adjust_thread_affinity(icp_polling_threads[0]) == 0) {
+            pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
         }
     }
     /* Reset currInst */
     currInst = 0;
-    qat_inited = 1;
-
-    /* Work around for fork case, finish engine in parent process */
-    if(initiator_pid == 0) {
-        qat_engine_finish(e);
-        qat_inited = 0;
-        keep_polling = 1;
-    }
-    initiator_pid = getpid();
+    engine_inited = 1;
+    pthread_mutex_unlock(&qat_engine_mutex);
 
     return 1;
 }
@@ -1174,6 +1184,7 @@ static int qat_engine_finish(ENGINE *e)
 
     DEBUG("[%s] ---- Engine Finishing...\n\n", __func__);
 
+    pthread_mutex_lock(&qat_engine_mutex);
     keep_polling = 0;
 
     if (qatInstanceHandles) {
@@ -1182,6 +1193,7 @@ static int qat_engine_finish(ENGINE *e)
 
             if (CPA_STATUS_SUCCESS != status) {
                 WARN("cpaCyStopInstance failed, status=%d\n", status);
+                pthread_mutex_unlock(&qat_engine_mutex);
                 return 0;
             }
 
@@ -1228,6 +1240,8 @@ static int qat_engine_finish(ENGINE *e)
 
     numInstances = 0;
     icp_sal_userStop();
+    engine_inited = 0;
+    pthread_mutex_unlock(&qat_engine_mutex);
 
     CRYPTO_CLOSE_QAT_LOG();
 
@@ -1329,6 +1343,8 @@ static int bind_qat(ENGINE *e, const char *id)
         WARN("ENGINE_set_pkey_meths failed\n");
         goto end;
     }
+
+    pthread_atfork(engine_fork_handler, NULL, NULL);
 
     if (!ENGINE_set_destroy_function(e, qat_engine_destroy)
         || !ENGINE_set_init_function(e, qat_engine_init)
