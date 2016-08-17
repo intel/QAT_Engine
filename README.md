@@ -72,6 +72,22 @@ production use.
   again then the Intel&reg; Quickassist Technology OpenSSL\* Engine will
   not be available in that forked process.
 
+## Known Issues
+
+There is currently a bug in OpenSSL\* speed that was introduced by
+the following commit:
+
+    0930e07d1eb522e663abe543ee865a508749946e
+    Useless allocation
+
+The commit causes random failures when running asynchronous RSA/DSA/ECDSA
+speed tests. The commit will be reverted in the launch version of
+OpenSSL\* 1.1.0. In the meantime as a workaround the commit can be
+reverted manually in your clone of the OpenSSL\* 1.1.0 repo using the
+following git command:
+
+    git revert 0930e07d1eb522e663abe543ee865a508749946e
+
 ## Installation Instructions
 
 ### Build Intel&reg; QuickAssist Technology Driver
