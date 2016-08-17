@@ -1253,6 +1253,7 @@ static int qat_engine_destroy(ENGINE *e)
     qat_free_DH_methods();
     qat_free_DSA_methods();
     qat_free_RSA_methods();
+    ERR_unload_QAT_strings();
     return 1;
 }
 
