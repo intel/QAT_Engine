@@ -432,7 +432,7 @@ static int cipher_init_chained(EVP_CIPHER_CTX *evp_ctx,
     }
 
     if (NULL != iv)
-        memcpy(EVP_CIPHER_CTX_iv_noconst(evp_ctx), iv, EVP_CIPHER_CTX_iv_length(evp_ctx));
+        memmove(EVP_CIPHER_CTX_iv_noconst(evp_ctx), iv, EVP_CIPHER_CTX_iv_length(evp_ctx));
     else
         memset(EVP_CIPHER_CTX_iv_noconst(evp_ctx), 0, EVP_CIPHER_CTX_iv_length(evp_ctx));
 
@@ -458,7 +458,7 @@ static int cipher_init_chained(EVP_CIPHER_CTX *evp_ctx,
         goto end;
     }
 
-    memcpy(qat_ctx->session_data->cipherSetupData.pCipherKey, key,
+    memmove(qat_ctx->session_data->cipherSetupData.pCipherKey, key,
            EVP_CIPHER_CTX_key_length(evp_ctx));
 
     /* Operation to perform */
@@ -693,7 +693,7 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                     authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
             }
         } else {
-            memcpy(hmac_key, ptr, arg);
+            memmove(hmac_key, ptr, arg);
             sessionSetupData->hashSetupData.
                 authModeSetupData.authKeyLenInBytes = arg;
         }
@@ -744,7 +744,7 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
              * sized buffer so that the header is in the final part
              * of the buffer
              */
-            memcpy(evp_ctx->tls_virt_hdr +
+            memmove(evp_ctx->tls_virt_hdr +
                     (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), p,
                     TLS_VIRT_HDR_SIZE);
             DUMPL("tls_virt_hdr",
@@ -762,7 +762,7 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
              */
             if (arg > TLS_VIRT_HDR_SIZE)
                 arg = TLS_VIRT_HDR_SIZE;
-            memcpy(evp_ctx->tls_virt_hdr +
+            memmove(evp_ctx->tls_virt_hdr +
                     (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), ptr,
                     arg);
             evp_ctx->payload_length = arg;
@@ -1114,7 +1114,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return 0;
     } else if (evp_ctx->tls_version >= TLS1_1_VERSION) {
         iv = AES_BLOCK_SIZE;
-        memcpy(evp_ctx->OpData.pIv, in, EVP_CIPHER_CTX_iv_length(ctx));
+        memmove(evp_ctx->OpData.pIv, in, EVP_CIPHER_CTX_iv_length(ctx));
         /*
          * Note: The OpenSSL framework assumes that the IV field will be part
          * of the encrypted data, yet never looks at the output of the
@@ -1124,14 +1124,14 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
          * field in encryption
          */
         if (in != out)
-            memcpy(out, in, EVP_CIPHER_CTX_iv_length(ctx));
+            memmove(out, in, EVP_CIPHER_CTX_iv_length(ctx));
         in += iv;
         out += iv;
         len -= iv;
         evp_ctx->payload_length -= iv;
         plen -= iv;
     } else {
-        memcpy(evp_ctx->OpData.pIv, EVP_CIPHER_CTX_iv(ctx), EVP_CIPHER_CTX_iv_length(ctx));
+        memmove(evp_ctx->OpData.pIv, EVP_CIPHER_CTX_iv(ctx), EVP_CIPHER_CTX_iv_length(ctx));
     }
 
     /* Build request/response buffers */
@@ -1142,7 +1142,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 	return 0;
     }
     evp_ctx->dstFlatBuffer[1].pData = evp_ctx->srcFlatBuffer[1].pData;
-    memcpy(evp_ctx->dstFlatBuffer[1].pData, in, len);
+    memmove(evp_ctx->dstFlatBuffer[1].pData, in, len);
 
     evp_ctx->srcFlatBuffer[1].dataLenInBytes = len;
     evp_ctx->srcBufferList.pUserData = NULL;
@@ -1164,8 +1164,8 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         unsigned char out_blk[AES_BLOCK_SIZE] = { 0x0 };
 
         key_len = key_len * 8;  /* convert to bits */
-        memcpy(in_blk, (in + (len - AES_BLOCK_SIZE)), AES_BLOCK_SIZE);
-        memcpy(ivec, (in + (len - (AES_BLOCK_SIZE + AES_BLOCK_SIZE))),
+        memmove(in_blk, (in + (len - AES_BLOCK_SIZE)), AES_BLOCK_SIZE);
+        memmove(ivec, (in + (len - (AES_BLOCK_SIZE + AES_BLOCK_SIZE))),
                AES_BLOCK_SIZE);
 
         /* Dump input parameters */
@@ -1202,7 +1202,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         evp_ctx->OpData.messageLenToHashInBytes =
             TLS_VIRT_HDR_SIZE + evp_ctx->payload_length;
         /* Only copy the offset header data itself and not the whole block */
-        memcpy(evp_ctx->dstFlatBuffer[0].pData +
+        memmove(evp_ctx->dstFlatBuffer[0].pData +
                (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE),
                evp_ctx->tls_virt_hdr + (QAT_BYTE_ALIGNMENT -
                                         TLS_VIRT_HDR_SIZE),
@@ -1230,7 +1230,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if (!EVP_CIPHER_CTX_encrypting(ctx) &&
         (NO_PAYLOAD_LENGTH_SPECIFIED != evp_ctx->payload_length) &&
         ((evp_ctx->tls_version) < TLS1_1_VERSION))
-        memcpy(EVP_CIPHER_CTX_iv_noconst(ctx), in + len - AES_BLOCK_SIZE,
+        memmove(EVP_CIPHER_CTX_iv_noconst(ctx), in + len - AES_BLOCK_SIZE,
                EVP_CIPHER_CTX_iv_length(ctx));
 
     CRYPTO_QAT_LOG("CIPHER - %s\n", __func__);
@@ -1277,12 +1277,12 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     DEBUG("Post Perform Op\n");
 
     if (EVP_CIPHER_CTX_encrypting(ctx) && ((evp_ctx->tls_version) < TLS1_1_VERSION))
-        memcpy(EVP_CIPHER_CTX_iv_noconst(ctx),
+        memmove(EVP_CIPHER_CTX_iv_noconst(ctx),
                evp_ctx->dstBufferList.pBuffers[1].pData + len -
                AES_BLOCK_SIZE, EVP_CIPHER_CTX_iv_length(ctx));
     evp_ctx->payload_length = NO_PAYLOAD_LENGTH_SPECIFIED;
 
-    memcpy(out, evp_ctx->dstFlatBuffer[1].pData, len);
+    memmove(out, evp_ctx->dstFlatBuffer[1].pData, len);
     qaeCryptoMemFree(evp_ctx->srcFlatBuffer[1].pData);
     evp_ctx->srcFlatBuffer[1].pData = NULL;
     evp_ctx->dstFlatBuffer[1].pData = NULL;
