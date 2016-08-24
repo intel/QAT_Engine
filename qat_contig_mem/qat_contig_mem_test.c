@@ -93,14 +93,17 @@ int main(void)
     qat_contig_mem_config qmcfg;
     void *addr = MAP_FAILED;
     qat_contig_mem_config *mem_to_free = NULL;
+    int ret = EXIT_SUCCESS;
 
     if ((qat_contig_memfd = open("/dev/qat_contig_mem", O_RDWR)) == -1) {
-        perror("open qat_contig_mem");
+        perror("# FAIL open qat_contig_mem");
+        ret = EXIT_FAILURE;
         goto cleanup;
     }
     qmcfg.length = SEG_LEN;
     if (ioctl(qat_contig_memfd, QAT_CONTIG_MEM_MALLOC, &qmcfg) == -1) {
-        perror("ioctl QAT_CONTIG_MEM_MALLOC");
+        perror("# FAIL ioctl QAT_CONTIG_MEM_MALLOC");
+        ret = EXIT_FAILURE;
         goto cleanup;
     }
 
@@ -108,21 +111,32 @@ int main(void)
          mmap(NULL, SEG_LEN*QAT_CONTIG_MEM_MMAP_ADJUSTMENT, 
               PROT_READ | PROT_WRITE, MAP_PRIVATE, qat_contig_memfd,
               qmcfg.virtualAddress)) == MAP_FAILED) {
-        perror("mmap");
+        perror("# FAIL mmap");
+        ret = EXIT_FAILURE;
         goto cleanup;
     }
     mem_to_free = addr;
     printf("seg mapped to %p, virtualAddress in seg %p, length %d\n", addr,
            (void *)mem_to_free->virtualAddress, mem_to_free->length);
-    strcpy(addr + sizeof(qat_contig_mem_config), "Hello World!");
+    strcpy(addr + sizeof(qat_contig_mem_config), "Hello world!");
     puts(addr + sizeof(qat_contig_mem_config));
  cleanup:
     if (qat_contig_memfd != -1 && mem_to_free != NULL
-        && ioctl(qat_contig_memfd, QAT_CONTIG_MEM_FREE, mem_to_free) == -1)
-        perror("ioctl QAT_CONTIG_MEM_FREE");
-    if (addr != MAP_FAILED && munmap(addr, SEG_LEN) == -1)
-        perror("munmap");
-    if (qat_contig_memfd != -1 && close(qat_contig_memfd) == -1)
-        perror("close qat_contig_mem");
-    exit(EXIT_SUCCESS);
+        && ioctl(qat_contig_memfd, QAT_CONTIG_MEM_FREE, mem_to_free) == -1) {
+        perror("# FAIL ioctl QAT_CONTIG_MEM_FREE");
+        ret = EXIT_FAILURE;
+    }
+    if (addr != MAP_FAILED && munmap(addr, SEG_LEN) == -1) {
+       perror("# FAIL munmap");
+       ret = EXIT_FAILURE;
+    }
+    if (qat_contig_memfd != -1 && close(qat_contig_memfd) == -1) {
+       perror("# FAIL close qat_contig_mem");
+       ret = EXIT_FAILURE;
+    }
+    if (ret == EXIT_SUCCESS)
+        printf("# PASS Verify for QAT Contig Mem Test. \n");
+    else
+        printf("# FAIL Verify for QAT Contig Mem Test. \n");
+    exit(ret);
 }

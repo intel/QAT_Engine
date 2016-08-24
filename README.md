@@ -278,7 +278,8 @@ to the following:
 
     seg mapped to 0x7f9eedd6e000, virtualAddress in seg 0xffff880ac9c0c000,
     length 64
-    Hello World!
+    Hello world!
+    # PASS Verify for QAT Contig Mem Test
 
 ### Test the Intel&reg; Quickassist Technology OpenSSL\* Engine
 
