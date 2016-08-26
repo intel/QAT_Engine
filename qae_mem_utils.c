@@ -126,7 +126,7 @@ static pthread_mutex_t crypto_bsal = PTHREAD_MUTEX_INITIALIZER;
 #define SIG_ALLOC          0xA1A2A3A4
 
 /* maxmium slot size */
-#define MAX_ALLOC (SLAB_SIZE - sizeof(qat_contig_mem_config) - sizeof(qae_slab) - QAE_BYTE_ALIGNMENT)
+#define MAX_ALLOC (SLAB_SIZE - sizeof(qae_slab) - QAE_BYTE_ALIGNMENT)
 #define MAX_EMPTY_SLAB     128
 
 #define IN_EMPTY_LIST      0
@@ -378,8 +378,7 @@ static qae_slab *crypto_create_slab(int size, int pool_index)
     slb->used_slots = 0;
     slb->pid = getpid();
 
-    for (i = sizeof(qae_slab); SLAB_SIZE - sizeof(qat_contig_mem_config)
-         - i >= size; i += size) {
+    for (i = sizeof(qae_slab); SLAB_SIZE - i >= size; i += size) {
         slt = (qae_slot *) ((unsigned char *)slb + i);
         alignment =
             QAE_BYTE_ALIGNMENT -
