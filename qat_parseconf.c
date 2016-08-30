@@ -213,15 +213,14 @@ int confCryptoFindKeyValue(char *fileName,
 {
     FILE *conffile;
     int inSection = 0;
-    int found = 0;
-    int sectionFound = 0;
+    int found = CONF_FIND_KEY_FAILED;
     char lineBuffer[CONF_MAX_LINE_LENGTH] = { 0 };
     int lineBufferLength = 0;
     char *strippedLineBuffer = NULL;
 
     if (strlen(fileName) > CONF_MAX_PATH) {
         fprintf(stderr, "Invaid Configuration File Name Length\n");
-        return 0;
+        return found;
     }
     if ((conffile = fopen(fileName, "r")) != NULL) {
         while (!feof(conffile)) {
@@ -271,7 +270,7 @@ int confCryptoFindKeyValue(char *fileName,
                                  * It is the section we want so set the flag
                                  */
                                 inSection = 1;
-                                sectionFound = 1;
+                                found = CONF_FIND_KEY_SECTION_FOUND;
                             }
                         }
                     } else {    /* It's not a section name so assume it is a
@@ -291,7 +290,7 @@ int confCryptoFindKeyValue(char *fileName,
                                  * Found the parameter we are looking for set
                                  * flag and break out of loop
                                  */
-                                found = 1;
+                                found = CONF_FIND_KEY_KEY_FOUND;
                                 break;
                             }
                         }
@@ -303,7 +302,7 @@ int confCryptoFindKeyValue(char *fileName,
     } else {
         fprintf(stderr, "Unable to open file %s\n", fileName);
     }
-    return found + sectionFound;
+    return found;
 }
 
 #define DH89XXCC_NAME "dh89xxcc"
@@ -404,7 +403,7 @@ int getDevices(unsigned int dev_mask[], int *upstream_flag)
         closedir(kernel);
     }
     if (!found) {
-        WARN("No running QA devices detected \n");
+        WARN("No running Intel(R) Quickassist devices detected\n");
         return 0;
     }
     return 1;
@@ -442,6 +441,7 @@ int checkLimitDevAccessValue(int *limitDevAccess, char *section_name)
                 /* if the SHIM section was found in the config file but no
                    LimitDevAccess setting,
                    LimitDevAccess is set to 0 */
+                WARN("No LimitDevAccess setting in SHIM section - defaulting to 0\n");
                 *limitDevAccess = 0;
                 return 1;
             } else if (status == CONF_FIND_KEY_KEY_FOUND) {
