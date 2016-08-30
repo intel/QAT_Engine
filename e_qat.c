@@ -846,7 +846,7 @@ static int qat_engine_init(ENGINE *e)
                 fcntl(engine_fd, F_SETFL, flags | O_NONBLOCK);
 
                 eng_epoll_events[instNum].data.ptr = &eng_poll_st[instNum];
-                eng_epoll_events[instNum].events = EPOLLIN;
+                eng_epoll_events[instNum].events = EPOLLIN | EPOLLET;
                 if (-1 ==
                     epoll_ctl(internal_efd, EPOLL_CTL_ADD, engine_fd,
                               &eng_epoll_events[instNum])) {
