@@ -54,8 +54,8 @@ This release was validated on the following:
 
 * Operating system: Fedora* 16 64-bit version
 * Kernel: GNU\*/Linux\* 3.1.0.7
-* Intel&reg; Communications Chipset 895x Series Software for Linux\*, version 2.5
-* OpenSSL\* 1.1.0 tag OpenSSL_1_1_0-pre6
+* Intel&reg; Communications Chipset 895x Series Software for Linux\*, version 2.6
+* OpenSSL\* 1.1.0 tag OpenSSL_1_1_0
 
 ## Limitations
 
@@ -71,22 +71,6 @@ production use.
 * Only one level of forking is permitted, if a child process forks
   again then the Intel&reg; Quickassist Technology OpenSSL\* Engine will
   not be available in that forked process.
-
-## Known Issues
-
-There is currently a bug in OpenSSL\* speed that was introduced by
-the following commit:
-
-    0930e07d1eb522e663abe543ee865a508749946e
-    Useless allocation
-
-The commit causes random failures when running asynchronous RSA/DSA/ECDSA
-speed tests. The commit will be reverted in the launch version of
-OpenSSL\* 1.1.0. In the meantime as a workaround the commit can be
-reverted manually in your clone of the OpenSSL\* 1.1.0 repo using the
-following git command:
-
-    git revert 0930e07d1eb522e663abe543ee865a508749946e
 
 ## Installation Instructions
 
@@ -114,7 +98,7 @@ Clone OpenSSL\* from Github\* at the following location:
     git clone https://github.com/openssl/openssl.git
 
 It is recommended to checkout and build against OpenSSL\* 1.1.0 tag
-OpenSSL_1_1_0-pre6.
+OpenSSL_1_1_0.
 Older versions of OpenSSL\* are not supported.
 
 Due to the nature of the Intel&reg; QuickAssist Technology OpenSSL\*
