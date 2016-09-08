@@ -160,7 +160,6 @@ To build the engine:
     --with-qat_install_dir=/path/to/qat_driver/build \
     --with-openssl_dir=/path/to/openssl \
     --with-openssl_install_dir=/path/to/openssl_install
-    make depend
     make
     make install
 ```

@@ -54,8 +54,7 @@ mostlyclean-generic:
 
 	-rm -f $(with_openssl_install_dir)/lib/engines-1.1/qat.so
 
-depend:
-	-perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec -nostatic -write $(libqat_la_SOURCES)
+MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec -nostatic -write $(libqat_la_SOURCES) && make
 
 install-data-am:
 	-cp -f $(prefix)/lib/libqat.so $(with_openssl_install_dir)/lib/engines-1.1/qat.so
