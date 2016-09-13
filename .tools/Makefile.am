@@ -44,8 +44,8 @@ include_HEADERS = e_qat.h\
 
 
 CC = cc
-INCLUDES = $(includes) $(include_with_cmd_dir) $(includes_driver) $(includes_enable_qat_mux)
-CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_with_upstream_driver_cmd_dir) $(cflags_qat_contig_mem) $(cflags_enable_multi_thread) $(cflags_with_cmd_dir) $(cflags_mux) $(disable_qat_rsa) $(disable_qat_ciphers) $(disable_qat_ecdh) $(disable_qat_ecdsa) $(disable_qat_dsa) $(disable_qat_dh) $(disable_qat_prf) $(enable_qat_debug) $(enable_qat_warn)$(enable_qat_mem_debug) $(enable_qat_mem_warn)
+INCLUDES = $(includes) $(include_enable_usdm) $(includes_driver) $(includes_enable_qat_mux)
+CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) $(cflags_qat_contig_mem) $(cflags_enable_multi_thread) $(cflags_enable_usdm) $(cflags_mux) $(disable_qat_rsa) $(disable_qat_ciphers) $(disable_qat_ecdh) $(disable_qat_ecdsa) $(disable_qat_dsa) $(disable_qat_dh) $(disable_qat_prf) $(enable_qat_debug) $(enable_qat_warn)$(enable_qat_mem_debug) $(enable_qat_mem_warn)
 
 libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) $(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER) $(QAT_SHARED_LIB_DEPS_DRIVER) $(QAT_SHARED_LIB_DEPS_QAE_MEM)
 

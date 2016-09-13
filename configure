@@ -638,11 +638,11 @@ QAT_MULTI_THREAD_FALSE
 QAT_MULTI_THREAD_TRUE
 QAT_CONTIG_MEM_FALSE
 QAT_CONTIG_MEM_TRUE
-include_with_cmd_dir
-cflags_with_cmd_dir
+include_enable_usdm
+cflags_enable_usdm
 cflags_enable_multi_thread
 cflags_qat_contig_mem
-cflags_with_upstream_driver_cmd_dir
+cflags_enable_upstream_driver
 cflags_cc_opt
 cflags
 includes
@@ -650,11 +650,12 @@ enable_qat_mux
 enable_multi_thread
 with_ld_opt
 with_cc_opt
-with_cmd_dir
+with_usdm_dir
+enable_usdm
+enable_upstream_driver
+with_qat_install_dir
 with_openssl_install_dir
 with_openssl_dir
-with_qat_install_dir
-with_upstream_driver_cmd_dir
 with_qat_dir
 enable_qat_mem_warnings
 enable_qat_mem_debug
@@ -797,11 +798,12 @@ enable_qat_warnings
 enable_qat_mem_debug
 enable_qat_mem_warnings
 with_qat_dir
-with_upstream_driver_cmd_dir
-with_qat_install_dir
 with_openssl_dir
 with_openssl_install_dir
-with_cmd_dir
+with_qat_install_dir
+enable_upstream_driver
+enable_usdm
+with_usdm_dir
 with_cc_opt
 with_ld_opt
 enable_multi_thread
@@ -809,11 +811,11 @@ enable_qat_mux
 with_includes
 with_cflags
 with_cflags_cc_opt
-with_cflags_with_upstream_driver_cmd_dir
+with_cflags_enable_upstream_driver
 with_cflags_qat_contig_mem
 with_cflags_enable_multi_thread
-with_cflags_with_cmd_dir
-with_includes_with_cmd_dir
+with_cflags_enable_usdm
+with_includes_enable_usdm
 with_ICP_API_DIR
 with_ICP_SAL_API_DIR
 with_ICP_LAC_API_DIR
@@ -1479,6 +1481,12 @@ Optional Features:
   --enable-qat_mem_debug  Enable Memory Driver Debug Messages
   --enable-qat_mem_warnings
                           Enable Memory Driver Warning Messages
+  --enable-upstream_driver
+                          Enable using the upstream Intel Quickassist
+                          Technology Driver
+  --enable-usdm           This should be specified to force the Engine to use
+                          the USDM Component rather than the supplied memory
+                          driver
   --enable-multi_thread   Enable using a multi threaded version of the user
                           space part of the supplied memory driver. Please see
                           the documentation on limitations of using this
@@ -1498,25 +1506,17 @@ Optional Packages:
                         (or the compiler's sysroot if not specified).
   --with-qat_dir          Path to the Intel Quickassist Technology Driver
                           source code
-  --with-upstream_driver_cmd_dir
-                          Path to the Intel Common Memory Driver source code
-                          when used by the Upstream Intel Quickassist
-                          Technology Driver. This option is not related to
-                          which Memory Driver is used by the Engine itself.
-                          There is no need to set this option if not using the
-                          Upstream version of the Intel Quickassist Technology
-                          Driver
-  --with-qat_install_dir  Path to the Intel Quickassist Technology Driver
-                          build output
   --with-openssl_dir      Path to the OpenSSL source code
   --with-openssl_install_dir
                           Path to where the OpenSSL libraries are installed
                           to. The Engine will be installed to the lib/engines
                           subdirectory of this path
-  --with-cmd_dir          Path to the Intel Common Memory Driver source code.
-                          This should be specified to force the Engine to use
-                          the Intel Common Memory Driver rather than the
-                          supplied Memory Driver
+  --with-qat_install_dir  Path to the Intel Quickassist Technology Driver
+                          build output
+  --with-usdm_dir         Path to the USDM Component source code. This should
+                          be used to specify a path other than the standard
+                          default path within the Upstream Intel Quickassist
+                          Technology Driver source code
   --with-cc_opt           Sets additional parameters that will be added to the
                           CFLAGS
   --with-ld_opt           Sets additional parameters that will be used during
@@ -11511,26 +11511,6 @@ fi
 
 
 
-# Check whether --with-upstream_driver_cmd_dir was given.
-if test "${with_upstream_driver_cmd_dir+set}" = set; then :
-  withval=$with_upstream_driver_cmd_dir;
-else
-  with_upstream_driver_cmd_dir=unset
-fi
-
-
-
-
-# Check whether --with-qat_install_dir was given.
-if test "${with_qat_install_dir+set}" = set; then :
-  withval=$with_qat_install_dir;
-else
-  with_qat_install_dir=unset
-fi
-
-
-
-
 
 # Check whether --with-openssl_dir was given.
 if test "${with_openssl_dir+set}" = set; then :
@@ -11552,13 +11532,42 @@ fi
 
 
 
+# Other non mandatory parameters
 
 
-# Check whether --with-cmd_dir was given.
-if test "${with_cmd_dir+set}" = set; then :
-  withval=$with_cmd_dir;
+# Check whether --with-qat_install_dir was given.
+if test "${with_qat_install_dir+set}" = set; then :
+  withval=$with_qat_install_dir;
 else
-  with_cmd_dir=unset
+  with_qat_install_dir=unset
+fi
+
+
+
+# Check whether --enable-upstream_driver was given.
+if test "${enable_upstream_driver+set}" = set; then :
+  enableval=$enable_upstream_driver;
+else
+  enable_upstream_driver=unset
+fi
+
+
+
+# Check whether --enable-usdm was given.
+if test "${enable_usdm+set}" = set; then :
+  enableval=$enable_usdm;
+else
+  enable_usdm=unset
+fi
+
+
+
+
+# Check whether --with-usdm_dir was given.
+if test "${with_usdm_dir+set}" = set; then :
+  withval=$with_usdm_dir;
+else
+  with_usdm_dir=unset
 fi
 
 
@@ -11608,11 +11617,6 @@ then
   as_fn_error $? "--with-qat_dir is not set, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver" "$LINENO" 5
 fi
 
-if test "x$with_qat_install_dir" = "xunset"
-then
-  as_fn_error $? "--with-qat_install_dir is not set, set it to the path to the Intel Quickassist Technology Driver build output. e.g: --with-qat_install_dir=/path/to/qat_driver/build" "$LINENO" 5
-fi
-
 if test "x$with_openssl_dir" = "xunset"
 then
   as_fn_error $? "--with-openssl_dir is not set, set it to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl" "$LINENO" 5
@@ -11625,12 +11629,19 @@ fi
 
 ac_default_prefix=$with_openssl_install_dir
 
-# The below flag with_upstream_driver is needed only when building against upstream driver
-if test "x$with_upstream_driver_cmd_dir" = "xunset"
+
+# Default non mandatory paths if not provided
+
+if test "x$with_qat_install_dir" = "xunset"
 then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: --with-upstream_driver_cmd_dir is not set. If building against the Upstream Intel Quickassist Technology Driver then set it to point to the path to the Intel Common Memory Driver source/library files. e.g: --with-upstream_driver_cmd_dir=/path/to/libusdm_drv_s.so" >&5
-$as_echo "$as_me: --with-upstream_driver_cmd_dir is not set. If building against the Upstream Intel Quickassist Technology Driver then set it to point to the path to the Intel Common Memory Driver source/library files. e.g: --with-upstream_driver_cmd_dir=/path/to/libusdm_drv_s.so" >&6;}
+  with_qat_install_dir="\$(with_qat_dir)/build"
 fi
+
+if test "x$with_usdm_dir" = "xunset"
+then
+  with_usdm_dir="\$(with_qat_dir)/quickassist/utilities/libusdm_drv"
+fi
+
 # Checking the parameters given and parsing the relevant flags
 
 if test "x$disable_qat_rsa" = "xunset"
@@ -11789,23 +11800,25 @@ fi
 
 fi
 
-if test "x$with_upstream_driver_cmd_dir" != "xunset"
+if test "x$enable_upstream_driver" != "xunset"
 then
 
-# Check whether --with-cflags_with_upstream_driver_cmd_dir was given.
-if test "${with_cflags_with_upstream_driver_cmd_dir+set}" = set; then :
-  withval=$with_cflags_with_upstream_driver_cmd_dir;
+# Check whether --with-cflags_enable_upstream_driver was given.
+if test "${with_cflags_enable_upstream_driver+set}" = set; then :
+  withval=$with_cflags_enable_upstream_driver;
 else
-  cflags_with_upstream_driver_cmd_dir="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER"
+  cflags_enable_upstream_driver="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER"
 fi
 
 
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling build for Upstream Driver" >&5
+$as_echo "$as_me: Enabling build for Upstream Driver" >&6;}
 fi
 
-if test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" = "xunset"
+if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" = "xunset"
 then
-  { $as_echo "$as_me:${as_lineno-$LINENO}:  Compiling for QAT_CONTIG_MEMORY" >&5
-$as_echo "$as_me:  Compiling for QAT_CONTIG_MEMORY" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling for QAT_CONTIG_MEMORY" >&5
+$as_echo "$as_me: Compiling for QAT_CONTIG_MEMORY" >&6;}
 
 # Check whether --with-cflags_qat_contig_mem was given.
 if test "${with_cflags_qat_contig_mem+set}" = set; then :
@@ -11815,10 +11828,10 @@ else
 fi
 
 
-else if test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" != "xunset"
+else if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" != "xunset"
 then
-  { $as_echo "$as_me:${as_lineno-$LINENO}:  Compiling for MULTI_THREAD" >&5
-$as_echo "$as_me:  Compiling for MULTI_THREAD" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling for MULTI_THREAD" >&5
+$as_echo "$as_me: Compiling for MULTI_THREAD" >&6;}
 
 # Check whether --with-cflags_enable_multi_thread was given.
 if test "${with_cflags_enable_multi_thread+set}" = set; then :
@@ -11828,25 +11841,25 @@ else
 fi
 
 
-else if test "x$with_cmd_dir" != "xunset"
+else if test "x$enable_usdm" != "xunset"
 then
-  { $as_echo "$as_me:${as_lineno-$LINENO}:  Compiling for COMMON MEMORY DRIVER" >&5
-$as_echo "$as_me:  Compiling for COMMON MEMORY DRIVER" >&6;}
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling for USDM" >&5
+$as_echo "$as_me: Compiling for USDM" >&6;}
 
-# Check whether --with-cflags_with_cmd_dir was given.
-if test "${with_cflags_with_cmd_dir+set}" = set; then :
-  withval=$with_cflags_with_cmd_dir;
+# Check whether --with-cflags_enable_usdm was given.
+if test "${with_cflags_enable_usdm+set}" = set; then :
+  withval=$with_cflags_enable_usdm;
 else
-  cflags_with_cmd_dir="-DUSE_QAE_MEM"
+  cflags_enable_usdm="-DUSE_QAE_MEM"
 fi
 
 
 
-# Check whether --with-includes_with_cmd_dir was given.
-if test "${with_includes_with_cmd_dir+set}" = set; then :
-  withval=$with_includes_with_cmd_dir;
+# Check whether --with-includes_enable_usdm was given.
+if test "${with_includes_enable_usdm+set}" = set; then :
+  withval=$with_includes_enable_usdm;
 else
-  include_with_cmd_dir="-I\$(with_cmd_dir)"
+  include_enable_usdm="-I\$(with_usdm_dir)"
 fi
 
 
@@ -11854,7 +11867,7 @@ fi
 fi
 fi
 
- if test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" = "xunset"; then
+ if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" = "xunset"; then
   QAT_CONTIG_MEM_TRUE=
   QAT_CONTIG_MEM_FALSE='#'
 else
@@ -11862,7 +11875,7 @@ else
   QAT_CONTIG_MEM_FALSE=
 fi
 
- if test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" != "xunset"; then
+ if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" != "xunset"; then
   QAT_MULTI_THREAD_TRUE=
   QAT_MULTI_THREAD_FALSE='#'
 else
@@ -11870,7 +11883,7 @@ else
   QAT_MULTI_THREAD_FALSE=
 fi
 
- if test "x$with_cmd_dir" != "xunset"; then
+ if test "x$enable_usdm" != "xunset"; then
   QAE_MEM_TRUE=
   QAE_MEM_FALSE='#'
 else
@@ -11942,7 +11955,7 @@ else
 fi
 
 
-else if test "x$with_upstream_driver_cmd_dir" != "xunset"
+else if test "x$enable_upstream_driver" != "xunset"
 then
 
 # Check whether --with-DRIVER was given.
@@ -12020,28 +12033,16 @@ else
 fi
 
 
-else if "x$with_qat_install_dir" = "xunset"
-then
-
-# Check whether --with-QAT_SHARED_LIB_DEPS_DRIVER was given.
-if test "${with_QAT_SHARED_LIB_DEPS_DRIVER+set}" = set; then :
-  withval=$with_QAT_SHARED_LIB_DEPS_DRIVER;
-else
-  QAT_SHARED_LIB_DEPS_DRIVER="-l\$(DRIVER)_s"
 fi
 
-
-fi
-fi
-
-if test "x$with_cmd_dir" != "xunset" -a "x$enable_multi_thread" = "xunset" -a "x$with_upstream_driver_cmd_dir" = "xunset"
+if test "x$enable_usdm" != "xunset" -a "x$enable_multi_thread" = "xunset" -a "x$enable_upstream_driver" = "xunset"
 then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_QAE_MEM was given.
 if test "${with_QAT_SHARED_LIB_DEPS_QAE_MEM+set}" = set; then :
   withval=$with_QAT_SHARED_LIB_DEPS_QAE_MEM;
 else
-  QAT_SHARED_LIB_DEPS_QAE_MEM="-Wl,-rpath,\$(with_cmd_dir) -L\$(with_cmd_dir) -lqae_mem_s"
+  QAT_SHARED_LIB_DEPS_QAE_MEM="-Wl,-rpath,\$(with_usdm_dir) -L\$(with_usdm_dir) -lusdm_drv_s"
 fi
 
 

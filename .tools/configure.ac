@@ -100,18 +100,6 @@ AC_ARG_WITH(qat_dir,
               , with_qat_dir=unset)
 AC_SUBST(with_qat_dir)
 
-AC_ARG_WITH(upstream_driver_cmd_dir,
-              AS_HELP_STRING([--with-upstream_driver_cmd_dir],
-                             [Path to the Intel Common Memory Driver source code when used by the Upstream Intel Quickassist Technology Driver. This option is not related to which Memory Driver is used by the Engine itself. There is no need to set this option if not using the Upstream version of the Intel Quickassist Technology Driver]),
-              , with_upstream_driver_cmd_dir=unset)
-AC_SUBST(with_upstream_driver_cmd_dir)
-
-AC_ARG_WITH(qat_install_dir,
-              AS_HELP_STRING([--with-qat_install_dir],
-                             [Path to the Intel Quickassist Technology Driver build output]),
-              , with_qat_install_dir=unset)
-AC_SUBST(with_qat_install_dir)
-
 
 AC_ARG_WITH(openssl_dir,
               AS_HELP_STRING([--with-openssl_dir],
@@ -126,12 +114,31 @@ AC_ARG_WITH(openssl_install_dir,
               , with_openssl_install_dir=unset)
 AC_SUBST(with_openssl_install_dir)
 
+# Other non mandatory parameters
 
-AC_ARG_WITH(cmd_dir,
-              AS_HELP_STRING([--with-cmd_dir],
-                             [Path to the Intel Common Memory Driver source code. This should be specified to force the Engine to use the Intel Common Memory Driver rather than the supplied Memory Driver]),
-              , with_cmd_dir=unset)
-AC_SUBST(with_cmd_dir)
+AC_ARG_WITH(qat_install_dir,
+              AS_HELP_STRING([--with-qat_install_dir],
+                             [Path to the Intel Quickassist Technology Driver build output]),
+              , with_qat_install_dir=unset)
+AC_SUBST(with_qat_install_dir)
+
+AC_ARG_ENABLE(upstream_driver,
+              AS_HELP_STRING([--enable-upstream_driver],
+                             [Enable using the upstream Intel Quickassist Technology Driver]),
+              , enable_upstream_driver=unset)
+AC_SUBST(enable_upstream_driver)
+
+AC_ARG_ENABLE(usdm,
+              AS_HELP_STRING([--enable-usdm],
+                             [This should be specified to force the Engine to use the USDM Component rather than the supplied memory driver]),
+              , enable_usdm=unset)
+AC_SUBST(enable_usdm)
+
+AC_ARG_WITH(usdm_dir,
+              AS_HELP_STRING([--with-usdm_dir],
+                             [Path to the USDM Component source code. This should be used to specify a path other than the standard default path within the Upstream Intel Quickassist Technology Driver source code]),
+              , with_usdm_dir=unset)
+AC_SUBST(with_usdm_dir)
 
 AC_ARG_WITH(cc_opt,
               AS_HELP_STRING([--with-cc_opt],
@@ -164,11 +171,6 @@ then
   AC_MSG_ERROR([--with-qat_dir is not set, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver])
 fi
 
-if test "x$with_qat_install_dir" = "xunset"
-then
-  AC_MSG_ERROR([--with-qat_install_dir is not set, set it to the path to the Intel Quickassist Technology Driver build output. e.g: --with-qat_install_dir=/path/to/qat_driver/build])
-fi
-
 if test "x$with_openssl_dir" = "xunset"
 then
   AC_MSG_ERROR([--with-openssl_dir is not set, set it to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl])
@@ -181,11 +183,19 @@ fi
 
 ac_default_prefix=$with_openssl_install_dir
 
-# The below flag with_upstream_driver is needed only when building against upstream driver
-if test "x$with_upstream_driver_cmd_dir" = "xunset"
+
+# Default non mandatory paths if not provided
+
+if test "x$with_qat_install_dir" = "xunset"
 then
-  AC_MSG_NOTICE([--with-upstream_driver_cmd_dir is not set. If building against the Upstream Intel Quickassist Technology Driver then set it to point to the path to the Intel Common Memory Driver source/library files. e.g: --with-upstream_driver_cmd_dir=/path/to/libusdm_drv_s.so])
+  with_qat_install_dir="\$(with_qat_dir)/build"
 fi
+
+if test "x$with_usdm_dir" = "xunset"
+then
+  with_usdm_dir="\$(with_qat_dir)/quickassist/utilities/libusdm_drv"
+fi
+
 # Checking the parameters given and parsing the relevant flags
 
 if test "x$disable_qat_rsa" = "xunset"
@@ -297,40 +307,41 @@ AC_SUBST(cflags)
 
 if test "x$with_cc_opt" != "xunset"
 then
-AC_ARG_WITH(cflags_cc_opt, AS_HELP_STRING(), , cflags_cc_opt="\$(with_cc_opt)")
-AC_SUBST(cflags_cc_opt)
+  AC_ARG_WITH(cflags_cc_opt, AS_HELP_STRING(), , cflags_cc_opt="\$(with_cc_opt)")
+  AC_SUBST(cflags_cc_opt)
 fi
 
-if test "x$with_upstream_driver_cmd_dir" != "xunset"
+if test "x$enable_upstream_driver" != "xunset"
 then
-AC_ARG_WITH(cflags_with_upstream_driver_cmd_dir, AS_HELP_STRING(), , cflags_with_upstream_driver_cmd_dir="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER")
-AC_SUBST(cflags_with_upstream_driver_cmd_dir)
+  AC_ARG_WITH(cflags_enable_upstream_driver, AS_HELP_STRING(), , cflags_enable_upstream_driver="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER")
+  AC_SUBST(cflags_enable_upstream_driver)
+  AC_MSG_NOTICE([Enabling build for Upstream Driver])
 fi
 
-if test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" = "xunset"
+if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" = "xunset"
 then
-  AC_MSG_NOTICE([ Compiling for QAT_CONTIG_MEMORY])
+  AC_MSG_NOTICE([Compiling for QAT_CONTIG_MEMORY])
   AC_ARG_WITH(cflags_qat_contig_mem, AS_HELP_STRING(), , cflags_qat_contig_mem="-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem")
   AC_SUBST(cflags_qat_contig_mem)
-else if test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" != "xunset"
+else if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" != "xunset"
 then
-  AC_MSG_NOTICE([ Compiling for MULTI_THREAD])
+  AC_MSG_NOTICE([Compiling for MULTI_THREAD])
   AC_ARG_WITH(cflags_enable_multi_thread, AS_HELP_STRING(), , cflags_enable_multi_thread="-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem")
   AC_SUBST(cflags_enable_multi_thread)
-else if test "x$with_cmd_dir" != "xunset"
+else if test "x$enable_usdm" != "xunset"
 then
-  AC_MSG_NOTICE([ Compiling for COMMON MEMORY DRIVER])
-  AC_ARG_WITH(cflags_with_cmd_dir, AS_HELP_STRING(), , cflags_with_cmd_dir="-DUSE_QAE_MEM")
-  AC_SUBST(cflags_with_cmd_dir)
-  AC_ARG_WITH(includes_with_cmd_dir, AS_HELP_STRING(), , include_with_cmd_dir="-I\$(with_cmd_dir)")
-  AC_SUBST(include_with_cmd_dir)
+  AC_MSG_NOTICE([Compiling for USDM])
+  AC_ARG_WITH(cflags_enable_usdm, AS_HELP_STRING(), , cflags_enable_usdm="-DUSE_QAE_MEM")
+  AC_SUBST(cflags_enable_usdm)
+  AC_ARG_WITH(includes_enable_usdm, AS_HELP_STRING(), , include_enable_usdm="-I\$(with_usdm_dir)")
+  AC_SUBST(include_enable_usdm)
 fi
 fi
 fi
 
-AM_CONDITIONAL([QAT_CONTIG_MEM], [test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" = "xunset"])
-AM_CONDITIONAL([QAT_MULTI_THREAD], [test "x$with_cmd_dir" = "xunset" -a "x$enable_multi_thread" != "xunset"])
-AM_CONDITIONAL([QAE_MEM], [test "x$with_cmd_dir" != "xunset"])
+AM_CONDITIONAL([QAT_CONTIG_MEM], [test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" = "xunset"])
+AM_CONDITIONAL([QAT_MULTI_THREAD], [test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" != "xunset"])
+AM_CONDITIONAL([QAE_MEM], [test "x$enable_usdm" != "xunset"])
 
 # Adding driver source for building and linking the library
 
@@ -353,7 +364,7 @@ if test "x$enable_qat_mux" != "xunset"
 then
   AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat_mux")
   AC_SUBST(DRIVER)
-else if test "x$with_upstream_driver_cmd_dir" != "xunset"
+else if test "x$enable_upstream_driver" != "xunset"
 then
   AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
   AC_SUBST(DRIVER)
@@ -382,16 +393,11 @@ if test "x$with_qat_install_dir" != "xunset"
 then
   AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-Wl,-rpath,\$(with_qat_install_dir) -L\$(with_qat_install_dir) -l\$(DRIVER)_s"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
-else if "x$with_qat_install_dir" = "xunset"
-then
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-l\$(DRIVER)_s"])
-  AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
-fi
 fi
 
-if test "x$with_cmd_dir" != "xunset" -a "x$enable_multi_thread" = "xunset" -a "x$with_upstream_driver_cmd_dir" = "xunset"
+if test "x$enable_usdm" != "xunset" -a "x$enable_multi_thread" = "xunset" -a "x$enable_upstream_driver" = "xunset"
 then
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_QAE_MEM, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_QAE_MEM=["-Wl,-rpath,\$(with_cmd_dir) -L\$(with_cmd_dir) -lqae_mem_s"])
+  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_QAE_MEM, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_QAE_MEM=["-Wl,-rpath,\$(with_usdm_dir) -L\$(with_usdm_dir) -lusdm_drv_s"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_QAE_MEM)
 fi
 

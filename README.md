@@ -9,12 +9,12 @@ Please see the `LICENSE` file contained in the top level folder.
 
 Example Intel&reg; Contiguous Memory Driver contained within the folder
 `qat_contig_mem` - Dual BSD/GPLv2 License. Please see the file headers
-within the `qat_contig_mem` folder and the full GPLv2 license contained
+within the `qat_contig_mem` folder, and the full GPLv2 license contained
 in the file `LICENSE.GPL` within the `qat_contig_mem` folder.
 
 Example Intel&reg; Quickassist Technology Driver Configuration Files
 contained within the folder hierarchy `qat` - Dual BSD/GPLv2 License.
-Please see the file  headers of the configuration files and the full
+Please see the file headers of the configuration files, and the full
 GPLv2 license contained in the file `LICENSE.GPL` within the `qat` folder.
 
 ## Features
@@ -66,7 +66,7 @@ recommend the use of the software in its current state for your
 production use.
 
 * When forking within an application it is not valid for
-  a cryptographic operation to be started in the parent process
+  a cryptographic operation to be started in the parent process,
   and completed in the child process.
 * Only one level of forking is permitted, if a child process forks
   again then the Intel&reg; Quickassist Technology OpenSSL\* Engine will
@@ -117,10 +117,16 @@ with the `./config` command to specify the location that make install will
 copy files to. Please see the OpenSSL\* INSTALL file for full details on
 usage of the `--prefix` option.
 
+The following example is assuming:
+ 
+* The OpenSSL\* source was cloned from Github\* to its own location at
+  the root of the drive: `/`.
+* You want OpenSSL\* to be installed to `/usr/local/ssl`.
+
 An example build would be:
 ```bash
-    cd /path/to/openssl
-    ./config --prefix=/path/to/openssl_install
+    cd /openssl
+    ./config --prefix=/usr/local/ssl
     make depend (if recommended by the OpenSSL* build system)
     make
     make install
@@ -128,57 +134,162 @@ An example build would be:
 As the Intel&reg; Quickassist Technology OpenSSL\* Engine will be built
 as a dynamic engine it is important to
 tell OpenSSL\* where to find the dynamic engines at runtime. This is
-achieved by exporting the following environment variable:
+achieved by exporting the following environment variable (assuming the
+example paths above):
 
-    export OPENSSL_ENGINES=/path/to/openssl_install/lib/engines-1.1
+    export OPENSSL_ENGINES=/usr/local/ssl/lib/engines-1.1
 
 Note: This variable will need to be present in the environment whenever
 the engine is used.
 
-### Build the Intel&reg; Quickassist Technology OpenSSL\* Engine
+Further information on building OpenSSL\* can be found in the INSTALL
+file distributed with the OpenSSL\* source code or on the official
+OpenSSL\* Wiki in the Compilation and Installation section:
+https://wiki.openssl.org/index.php/Compilation_and_Installation
+
+### Clone the Intel&reg; Quickassist Technology OpenSSL\* Engine
 
 Clone the Github\* repository containing the Intel&reg; Quickassist
 Technology OpenSSL\* Engine:
 
     git clone https://github.com/01org/QAT_Engine.git
-
+    
 The repository can be cloned to either a subdirectory within the OpenSSL\*
-repository, for instance `/path/to/openssl/engines` or to its own unique
-location on the file system, for instance `/path/to/qat_engine`.
-In either case the engine will not be built as part of the OpenSSL\* build
-and will require building manually.
+repository, for instance if the OpenSSL\* source is located at 
+`/openssl` then the engine could be cloned at `/openssl/engines`, 
+or to its own unique location on the file system, for instance within
+`/`. In either case the engine will not be built as part of the OpenSSL\*
+build and will require building manually.
 
-The following example is assuming the engine was cloned into:
-`/path/to/qat_engine`.
+### Build and install a contiguous memory driver
 
-To build the engine:
+The Intel&reg; QuickAssist Technology API requires many of the data
+structures (those that will be passed to the hardware) to be allocated
+in contiguous pinned memory in order to support DMA operations.
+You must either supply your own contiguous memory driver and make
+changes to the engine to make use of it or use one of the following
+drivers:
+
+#### (Optional) Build and load the example contiguous memory driver - qat\_contig\_mem
+
+The Intel&reg; QuickAssist Technology OpenSSL\* Engine comes with an
+example kernel space contiguous memory driver that can be used to try
+out operation of the engine. It is considered to be an example only
+and is not written to be a production quality driver.
+
+The following example is assuming:
+* The Intel&reg; QuickAssist Technology OpenSSL\* Engine was cloned to its
+  own location at the root of the drive: `/`.
+
+To build/install the qat\_contig\_mem driver follow these steps:
 
 ```bash
-    cd /path/to/qat_engine
+    cd /QAT_Engine/qat_contig_mem
+    make
+    make load
+    make test
+```
+
+The expected output from `make test` should be something similar
+to the following:
+
+    seg mapped to 0x7f9eedd6e000, virtualAddress in seg 0xffff880ac9c0c000,
+    length 64
+    Hello world!
+    # PASS Verify for QAT Contig Mem Test
+
+#### (Optional) Load the User Space DMA-able Memory (USDM) Component
+
+As an alternative the Upstream Intel&reg; QuickAssist Technology Driver comes
+with its own contiguous pinned memory driver that is compatible with the
+Intel&reg; QuickAssist Technology OpenSSL\* Engine. The USDM component is of
+a higher quality than the qat\_contig\_mem driver, and is the preferred option.
+Unfortunately the USDM component may not be available if using older 
+Intel&reg; QuickAssist Technology Driver versions. The USDM component is used
+by the Upstream Intel&reg; QuickAssist Technology Driver itself, and also 
+has the following additional features:
+
+* Support for virtualization
+* Support for configurable slab sizes
+* Support for configurable secure freeing of memory (overwrite with zeros)
+* Support for configurable slab caching
+
+The USDM component is located within the Upstream Intel&reg; QuickAssist
+Technology Driver source code in the following subdirectory:
+`quickassist/utilities/libusdm_drv`.
+As the USDM component is also used by the upstream driver itself it will
+have already been built when the driver was built. It may also already
+be loaded as well, and you can check by running `lsmod` and looking
+for usdm_drv in the list. If not present it can be loaded as follows:
+
+```bash
+    insmod ./usdm_drv.ko
+```
+
+### Build the Intel&reg; Quickassist Technology OpenSSL\* Engine
+
+The following example is assuming:
+
+* The Intel&reg; Quickassist Technology OpenSSL\* Engine was cloned to its
+  own location at the root of the drive: `/`.
+* The Intel&reg; QuickAssist Technology Driver was unpacked within
+  `/QAT`.
+* An Intel&reg; Communications Chipset 8925 to 8955 Series device is fitted.
+* The OpenSSL\* source was cloned from Github\* to its own location at
+  the root of the drive: `/`.
+* OpenSSL\* was installed to `/usr/local/ssl`.
+
+To build and install the Intel&reg; Quickassist Technology OpenSSL\* Engine:
+
+```bash
+    cd /QAT_Engine
    ./configure \
-    --with-qat_dir=/path/to/qat_driver \
-    --with-qat_install_dir=/path/to/qat_driver/build \
-    --with-openssl_dir=/path/to/openssl \
-    --with-openssl_install_dir=/path/to/openssl_install
+    --with-qat_dir=/QAT/QAT1.6 \
+    --with-openssl_dir=/openssl \
+    --with-openssl_install_dir=/usr/local/ssl
     make
     make install
 ```
 
-In the above example this will create the file `qat.so` in
-`/path/to/qat_engine` and copy it to
-`/path/to/openssl_install/lib/engines-1.1`.
+In the above example this will create the file `qat.so` and
+copy it to `/usr/local/ssl/lib/engines-1.1`.
 
 Note: When building it is possible to specify command line options
 that can be used to turn engine functionality on and off. Please see
-the Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options section
-below for a full description of the options that can be specified.
-The above options are all mandatory.
+the Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options
+section below for a full description of the options that can be
+specified. The above options are all mandatory.
 
-If building to link against the Upstream Intel&reg; Quickassist
-Technology userspace shared library then ensure the ./configure
-command was also run with the --with-upstream_driver_cmd_dir option as
-this is mandatory for building with the upstream version of the library.
+If you plan to link against the Upstream Intel&reg; Quickassist
+Technology userspace shared library then there are some additional
+options that may be required:
 
+* The `--enable-upstream_driver` is a mandatory parameter to the
+  `./configure` that tells the build that you are going to link against
+  the upstream version of the Intel&reg; Quickassist Technology Driver
+  and ensures the link step is setup correctly.
+* The `--enable-usdm` is an optional parameter to the `./configure`
+  that tells the build that it should be compiled to use the usdm
+  component and that the link should be configured to link in the
+  userspace library of the usdm component.
+
+An example to build and install the Intel&reg; Quickassist Technology 
+OpenSSL\* Engine based on the example above, but building against the
+Upstream Intel&reg; Quickassist Technology Driver, and using the USDM
+component would be as follows:
+
+```bash
+    cd /QAT_Engine
+   ./configure \
+    --with-qat_dir=/QAT \
+    --with-openssl_dir=/openssl \
+    --with-openssl_install_dir=/usr/local/ssl \
+    --enable-upstream_driver \
+    --enable-usdm
+    make
+    make install
+```
+ 
 ### Copy the correct Intel&reg; Quickassist Technology Driver config files
 
 The Intel&reg; Quickassist Technology OpenSSL\* Engine comes with some example
@@ -236,33 +347,6 @@ own you should follow the procedure below to install it:
    Infrastructure Software - Getting Started Guide (333035) - Section 9.5
    Starting/Stopping the Acceleration Software.
    to start the Acceleration Software.
-
-### Build and install the contiguous memory driver
-
-The Intel&reg; QuickAssist Technology API requires many of the data
-structures (those that will be passed to the hardware) to be allocated
-in contiguous pinned memory in order to support DMA operations.
-The Intel&reg; QuickAssist Technology OpenSSL\* Engine comes with an
-example kernel space contiguous memory driver that can be used to try
-out operation of the engine. It is considered to be an example only
-and is not written to be a production quality driver.
-
-To build/install the qat\_contig\_mem driver follow these steps:
-
-```bash
-    cd /path/to/qat_engine/qat_contig_mem
-    make
-    make load
-    make test
-```
-
-The expected output from `make test` should be something similar
-to the following:
-
-    seg mapped to 0x7f9eedd6e000, virtualAddress in seg 0xffff880ac9c0c000,
-    length 64
-    Hello world!
-    # PASS Verify for QAT Contig Mem Test
 
 ### Test the Intel&reg; Quickassist Technology OpenSSL\* Engine
 
@@ -335,7 +419,8 @@ If this occurs some of the things to check are:
 
    1. Has the qat\_contig\_mem driver been loaded successfully? If not the
       engine will fail to initialise. Check by running `lsmod`, qat\_contig\_mem
-      should be in the list.
+      should be in the list. The same applies if using the alternative
+      USDM component, but instead look for usdm_drv when running `lsmod`.
    2. Has the correct Intel&reg; Quickassist Technology Driver config file
       been copied to `/etc`? Check it has a `[SHIM]` section and that the
       Intel&reg; Quickassist Technology Driver software was restarted
@@ -359,11 +444,11 @@ installed. To resolve this it is recommended to add the /lib64
 folder to the LD_LIBRARY_PATH environment variable as follows:
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib64
-
-If building to link against the Upstream Intel&reg; Quickassist
-Technology userspace shared library then ensure the ./configure
-command was run with the --with-upstream_driver_cmd_dir option as
-this is mandatory for building with the upstream version of the library.
+    
+If linking against the Upstream Intel&reg; Quickassist
+Technology Driver then ensure that the mandatory parameter
+`--enable-upstream_driver` has been specified when running
+`./configure`, or the link will fail.
 
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Specific Messages
 
@@ -378,7 +463,7 @@ These messages are typically used in two ways:
       messages may be sent before initialization or after or both.
 
 The custom message mechanism passes a string to identify the
-message and uses a number of parameters to pass information into
+message, and uses a number of parameters to pass information into
 or out of the engine. It is defined as follows:
 
 ```
@@ -391,7 +476,7 @@ Where:
    - &lt;Engine&gt; is a pointer to the Intel&reg; QuickAssist Technology enabled
      OpenSSL\* Engine.
    - &lt;Message String&gt; is a string representing the message type.
-   - &lt;Param 3&gt; is long that can be used to pass a number or a
+   - &lt;Param 3&gt; is a long that can be used to pass a number, or a
      pointer can be cast to it.
    - &lt;Param 4&gt; is a void pointer used to pass data structures in.
    - The last 2 parameters are always NULL and 0 when used with
@@ -528,16 +613,25 @@ OpenSSL\* Engine:
 
     --with-qat_dir=/path/to/qat_driver
         Specify the path to the source code of the Intel&reg; Quickassist
-        Technology Driver. If you do not specify this the build will fail.
-
-    --with-qat_install_dir=/path/to/qat_driver/build
-        Specify the path to the location of the Intel&reg; Quickassist
-        Technology Driver library files. If you do not specify this the
-        link will fail.
+        Technology Driver. This path is needed for compilation in order
+        to locate the Intel&reg; Quickassist header files.
+        If you do not specify this the build will fail.
+        For example if using the QATL.2.6.0-60.tar.gz driver package
+        that was unpacked to `/QAT`, and you are using an Intel&reg;
+        Communications Chipset 8925 to 8955 Series device then you
+        would use the following setting:
+        --with-qat_dir=/QAT/QAT1.6
 
     --with-openssl_dir=/path/to/openssl
         Specify the path to the top level of the OpenSSL\* source code.
-        If you do not specify this the build will fail.
+        This path is needed so that the compilation can locate the
+        OpenSSL header files and also because the mkerr.pl script
+        is needed from the OpenSSL source files in order to generate
+        the engine specific error source files. If you do not specify
+        this the build will fail.
+        For example if you cloned the OpenSSL\* Github\* repository from
+        within `/` then you would use the following setting:
+        --with-openssl_dir=/openssl
 
     --with-openssl_install_dir=/path/to/openssl_install
         Specify the path to the top level where the OpenSSL\* build was
@@ -545,33 +639,44 @@ OpenSSL\* Engine:
         can be copied into the folder containing the other dynamic engines
         when you run 'make install'. If you do not specify this then
         'make install' will fail.
+        For example if you installed OpenSSL to its default location of
+        `/usr/local/ssl` then you would use the following setting:
+        --with-openssl_install_dir=/usr/local/ssl
 
+    Mandatory (when using the Upstream Intel&reg; Quickassist Technology
+    Driver)
+    
+    --enable-upstream_driver/--disable-upsteam_driver
+        Enable/Disable linking against the Upstream Intel&reg; Quickassist
+        Technology Driver. If linking against the Upstream Intel&reg;
+        Quickassist Driver then this option must be enabled (disabled by
+        default).
+    
     Optional
 
-    --with-cmd_dir=/path/to/common_memory_driver
-        Specify the path to the top level folder containing the Common
-        Memory Driver. The Common Memory Driver is an alternative pinned
-        contiguous memory driver that is distributed with the Intel&reg;
+    --with-qat_build_dir=/path/to/qat_driver/build
+        Specify the path to the location of the built Intel&reg;
+        Quickassist Technology Driver library files. This path is needed
+        in order to link to the userspace libraries of the Intel&reg;
+        Quickassist Technology Driver. The default if not specified is to
+        use the path specified by --with-qat_dir with '/build' appended.
+        You only need to specify this parameter if the driver library
+        files have been built somewhere other than the default. 
+        
+    --enable-usdm/--disable-usdm
+        Enable/Disable compiling against the USDM component and that the
+        link should be configured to link in the userspace library of the
+        USDM component. The USDM component is a pinned contiguous memory
+        driver that is distributed with the Upstream Intel&reg;
         Quickassist Technology Driver. It can be used instead of the
-        supplied qat_contig_mem memory driver. Specifying this parameter
-        will cause the engine to be built to use the Common Memory Driver
-        rather than the default qat_contig_mem driver.
-
-    --with-upstream_driver_cmd_dir=/path/to/common_memory_driver
-        Specify the path to the top level folder containing the Common
-        Memory Driver. The Upstream Intel&req; Quickassist Technology
-        Driver uses the Common Memory Driver by default but requires
-        the Common Memory Driver shared userspace library to be linked into
-        the engine. Specifying this option tells the linker that the engine
-        is being linked against the Upstream Intel&reg; Quickassist
-        Technology Driver and the path to the needed Common Memory Driver
-        library. Specifying this path does not mean the engine will use the
-        Common Memory Driver for its internal contiguous pinned memory
-        allocations. If that is also required then the --with-cmd_dir
-        option should also be specified pointing to the same location.
-        If you are building on a system with the Upstream Intel&reg;
-        Quickassist Technology Driver then it is Mandatory to specify this
-        option.
+        supplied qat_contig_mem memory driver (disabled by default).
+        
+    --with-usdm_dir=/path/to/usdm/directory
+        Specify the path to the location of the USDM component.
+        The default if not specified is to use the path specified by
+        --with-qat_dir with '/quickassist/utilities/libusdm_drv' appended.
+        You only only need to specify this parameter if using the USDM
+        component, and if the path to it is different from the default.
 
     --disable-qat_rsa/--enable-qat_rsa
         Disable/Enable Intel&reg; Quickassist Technology
