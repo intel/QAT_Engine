@@ -87,7 +87,6 @@
 #define QAT_EPOLL_CONVERSION_FACTOR 10
 
 
-/* Algorithm registration options*/
 
 /* Standard Includes */
 #include <stdio.h>
@@ -136,6 +135,10 @@
 
 #define likely(x)   __builtin_expect (!!(x), 1)
 #define unlikely(x) __builtin_expect (!!(x), 0)
+
+/* Macro used to handle errors in qat_engine_ctrl() */
+#define BREAK_IF(cond, mesg) \
+    if(unlikely(cond)) { retVal = 0; WARN(mesg); break; }
 
 /* Forward Declarations */
 static int qat_engine_finish(ENGINE *e);
@@ -764,8 +767,7 @@ static int qat_engine_init(ENGINE *e)
     DEBUG("[%s] ---- Engine Initing\n\n", __func__);
     CRYPTO_INIT_QAT_LOG();
 
-    if (0 == enable_external_polling &&
-        (err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
+    if ((err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
         fprintf(stderr, "pthread_key_create: %s\n", strerror(err));
         pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
@@ -932,22 +934,22 @@ static int qat_engine_init(ENGINE *e)
     return 1;
 }
 
-#define QAT_CMD_ENABLE_POLLING ENGINE_CMD_BASE
+#define QAT_CMD_ENABLE_EXTERNAL_POLLING ENGINE_CMD_BASE
 #define QAT_CMD_POLL (ENGINE_CMD_BASE + 1)
 #define QAT_CMD_SET_INSTANCE_FOR_THREAD (ENGINE_CMD_BASE + 2)
-#define QAT_CMD_GET_OP_RETRIES (ENGINE_CMD_BASE + 3)
-#define QAT_CMD_SET_MSG_RETRY_COUNTER (ENGINE_CMD_BASE + 4)
-#define QAT_CMD_SET_POLL_INTERVAL (ENGINE_CMD_BASE + 5)
-#define QAT_CMD_GET_POLLING_FD (ENGINE_CMD_BASE + 6)
-#define QAT_CMD_ENABLE_EVENT_DRIVEN_MODE (ENGINE_CMD_BASE + 7)
+#define QAT_CMD_GET_NUM_OP_RETRIES (ENGINE_CMD_BASE + 3)
+#define QAT_CMD_SET_MAX_RETRY_COUNT (ENGINE_CMD_BASE + 4)
+#define QAT_CMD_SET_INTERNAL_POLL_INTERVAL (ENGINE_CMD_BASE + 5)
+#define QAT_CMD_GET_EXTERNAL_POLLING_FD (ENGINE_CMD_BASE + 6)
+#define QAT_CMD_ENABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 7)
 #define QAT_CMD_GET_NUM_CRYPTO_INSTANCES (ENGINE_CMD_BASE + 8)
-#define QAT_CMD_DISABLE_EVENT_DRIVEN_MODE (ENGINE_CMD_BASE + 9)
+#define QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 9)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
-     QAT_CMD_ENABLE_POLLING,
-     "ENABLE_POLLING",
-     "Enables the polling interface to the engine.",
+     QAT_CMD_ENABLE_EXTERNAL_POLLING,
+     "ENABLE_EXTERNAL_POLLING",
+     "Enables the external polling interface to the engine.",
      ENGINE_CMD_FLAG_NO_INPUT},
     {
      QAT_CMD_POLL,
@@ -960,29 +962,29 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "Set instance to be used by this thread",
      ENGINE_CMD_FLAG_NUMERIC},
     {
-     QAT_CMD_GET_OP_RETRIES,
-     "GET_OP_RETRIES",
+     QAT_CMD_GET_NUM_OP_RETRIES,
+     "GET_NUM_OP_RETRIES",
      "Get number of retries",
      ENGINE_CMD_FLAG_NO_INPUT},
     {
-     QAT_CMD_SET_MSG_RETRY_COUNTER,
-     "SET_MSG_RETRY_COUNT",
-     "Set Message retry count",
+     QAT_CMD_SET_MAX_RETRY_COUNT,
+     "SET_MAX_RETRY_COUNT",
+     "Set maximum retry count",
      ENGINE_CMD_FLAG_NUMERIC},
     {
-     QAT_CMD_SET_POLL_INTERVAL,
-     "SET_POLL_INTERVAL",
-     "Set Poll Interval",
+     QAT_CMD_SET_INTERNAL_POLL_INTERVAL,
+     "SET_INTERNAL_POLL_INTERVAL",
+     "Set poll interval",
      ENGINE_CMD_FLAG_NUMERIC},
     {
-     QAT_CMD_GET_POLLING_FD,
-     "GET_POLLING_FD",
+     QAT_CMD_GET_EXTERNAL_POLLING_FD,
+     "GET_EXTERNAL_POLLING_FD",
      "Returns non blocking fd for crypto engine",
      ENGINE_CMD_FLAG_NO_INPUT},
     {
-     QAT_CMD_ENABLE_EVENT_DRIVEN_MODE,
-     "ENABLE_EVENT_DRIVEN_MODE",
-     "Set event driven mode",
+     QAT_CMD_ENABLE_EVENT_DRIVEN_POLLING_MODE,
+     "ENABLE_EVENT_DRIVEN_POLLING_MODE",
+     "Set event driven polling mode",
      ENGINE_CMD_FLAG_NO_INPUT},
     {
      QAT_CMD_GET_NUM_CRYPTO_INSTANCES,
@@ -990,8 +992,8 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "Get the number of crypto instances",
      ENGINE_CMD_FLAG_NO_INPUT},
     {
-     QAT_CMD_DISABLE_EVENT_DRIVEN_MODE,
-     "DISABLE_EVENT_DRIVEN_MODE",
+     QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE,
+     "DISABLE_EVENT_DRIVEN_POLLING_MODE",
      "Unset event driven mode",
      ENGINE_CMD_FLAG_NO_INPUT},
     {0, NULL, NULL, 0}
@@ -1010,11 +1012,11 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
 *
 * description:
 *   Qat engine control functions.
-*   Note: QAT_CMD_ENABLE_POLLING should be called at the following point
-*         during startup:
+*   Note: QAT_CMD_ENABLE_EXTERNAL_POLLING should be called at the following
+*         point during startup:
 *         ENGINE_load_qat
 *         ENGINE_by_id
-*    ---> ENGINE_ctrl_cmd(QAT_CMD_ENABLE_POLLING)
+*    ---> ENGINE_ctrl_cmd(QAT_CMD_ENABLE_EXTERNAL_POLLING)
 *         ENGINE_init
 ******************************************************************************/
 
@@ -1038,122 +1040,103 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
              * To avoid this condition we call get_next_inst()
              */
             get_next_inst();
-            if (qatInstanceHandles == NULL) {
-                retVal = 0;
-                WARN("POLL failed as no instances are available\n");
-                break;
-            }
+            BREAK_IF(qatInstanceHandles == NULL, "POLL failed as no instances are available\n");
         }
-        if (enable_external_polling) {
-            if (p != NULL) {
-                *(int *)p = (int)poll_instances();
-            } else {
-                retVal = 0;
-                WARN("POLL failed as the input parameter was NULL\n");
-            }
-        } else {
-            retVal = 0;
-            WARN("POLL failed as polling is not enabled on the engine\n");
-        }
+
+        BREAK_IF(!engine_inited, "POLL failed as engine is not initialized\n");
+        BREAK_IF(!enable_external_polling, "POLL failed as external polling is not enabled\n");
+        BREAK_IF(p == NULL, "POLL failed as the input parameter was NULL\n");
+
+        *(int *)p = (int)poll_instances();
         break;
 
-    case QAT_CMD_ENABLE_POLLING:
+    case QAT_CMD_ENABLE_EXTERNAL_POLLING:
+        BREAK_IF(engine_inited, \
+                "ENABLE_EXTERNAL_POLLING failed as the engine is already initialized\n");
+        DEBUG("[%s] Enabled external polling\n", __func__);
         enable_external_polling = 1;
         break;
 
-    case QAT_CMD_GET_POLLING_FD:
-        if (enable_event_driven_polling == 0 ||
-                enable_external_polling == 0) {
-            retVal = 0;
-            WARN("QAT_CMD_GET_POLLING_FD failed as this engine message is only supported when running in Event Driven Mode with External Polling enabled\n");
-            break;
-        }
-
-        if (p == NULL) {
-            retVal = 0;
-            WARN("GET_POLLING_FD failed as the input parameter was NULL\n");
-            break;
-        }
+    case QAT_CMD_GET_EXTERNAL_POLLING_FD:
+        BREAK_IF(!enable_event_driven_polling || !enable_external_polling, \
+                "GET_EXTERNAL_POLLING_FD failed as this engine message is only supported \
+                when running in Event Driven Mode with External Polling enabled\n");
         if (qatInstanceHandles == NULL) {
             get_next_inst();
-            if (qatInstanceHandles == NULL) {
-                retVal = 0;
-                WARN("GET_POLLING_FD failed as no instances are available\n");
-                break;
-            }
+            BREAK_IF(qatInstanceHandles == NULL, \
+                    "GET_EXTERNAL_POLLING_FD failed as no instances are available\n");
         }
-        if (i >= numInstances) {
-            retVal = 0;
-            WARN("GET_POLLING_FD failed as the instance does not exist\n");
-            break;
-        }
+        BREAK_IF(!engine_inited, \
+                "GET_EXTERNAL_POLLING_FD failed as the engine is not initialized\n");
+        BREAK_IF(p == NULL, "GET_EXTERNAL_POLLING_FD failed as the input parameter was NULL\n");
+        BREAK_IF(i >= numInstances, \
+                "GET_EXTERNAL_POLLING_FD failed as the instance does not exist\n");
 
         /* Get the file descriptor for the instance */
         status = icp_sal_CyGetFileDescriptor(qatInstanceHandles[i], &fd);
-        if (CPA_STATUS_FAIL == status) {
-            retVal = 0;
-            WARN("GET_POLLING_FD failed as there was an error retrieving the fd\n");
-            break;
-        }
-        /*   Make the file descriptor non-blocking */
+        BREAK_IF(CPA_STATUS_FAIL == status, \
+                "GET_EXTERNAL_POLLING_FD failed as there was an error retrieving the fd\n");
+        /* Make the file descriptor non-blocking */
         flags = fcntl(fd, F_GETFL, 0);
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
+        DEBUG("[%s] External polling FD for instance[%d] = %d\n", __func__, i, fd);
         *(int *)p = fd;
         break;
 
-    case QAT_CMD_ENABLE_EVENT_DRIVEN_MODE:
+    case QAT_CMD_ENABLE_EVENT_DRIVEN_POLLING_MODE:
+        DEBUG("[%s] Enabled event driven polling mode\n", __func__);
+        BREAK_IF(engine_inited, \
+                "ENABLE_EVENT_DRIVEN_POLLING_MODE failed as the engine is already initialized\n");
         enable_event_driven_polling = 1;
         break;
 
-    case QAT_CMD_DISABLE_EVENT_DRIVEN_MODE:
+    case QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE:
+        DEBUG("[%s] Disabled event driven polling mode\n", __func__);
+        BREAK_IF(engine_inited, \
+                "DISABLE_EVENT_DRIVEN_POLLING_MODE failed as the engine is already initialized\n");
         enable_event_driven_polling = 0;
         break;
 
     case QAT_CMD_SET_INSTANCE_FOR_THREAD:
         if (qatInstanceHandles == NULL) {
             get_next_inst();
-            if (qatInstanceHandles == NULL) {
-                retVal = 0;
-                WARN("SET_INSTANCE_FOR_THREAD failed as no instances are available\n");
-                break;
-            }
+            BREAK_IF(qatInstanceHandles == NULL, \
+                    "SET_INSTANCE_FOR_THREAD failed as no instances are available\n");
         }
+        BREAK_IF(!engine_inited, \
+                "SET_INSTANCE_FOR_THREAD failed as the engine is not initialized\n");
+        DEBUG("[%s] Set instance for thread = %d\n", __func__, i);
         qat_set_instance_for_thread(i);
         break;
 
-    case QAT_CMD_GET_OP_RETRIES:
-        if (p == NULL) {
-            retVal = 0;
-            WARN("GET_OP_RETRIES failed as the input parameter was NULL\n");
-            break;
-        }
+    case QAT_CMD_GET_NUM_OP_RETRIES:
+        BREAK_IF(p == NULL, "GET_NUM_OP_RETRIES failed as the input parameter was NULL\n");
+        BREAK_IF(!engine_inited, "GET_NUM_OP_RETRIES failed as the engine is not initialized\n");
         *(int *)p = qatPerformOpRetries;
         break;
 
-    case QAT_CMD_SET_MSG_RETRY_COUNTER:
+    case QAT_CMD_SET_MAX_RETRY_COUNT:
+        DEBUG("[%s] Set max retry counter = %d\n", __func__, i);
         retVal = setQatMsgRetryCount((int)i);
         break;
 
-    case QAT_CMD_SET_POLL_INTERVAL:
+    case QAT_CMD_SET_INTERNAL_POLL_INTERVAL:
+        DEBUG("[%s] Set internal poll interval = %d\n", __func__, i);
         retVal = setQatPollInterval((unsigned long int)i);
         break;
 
     case QAT_CMD_GET_NUM_CRYPTO_INSTANCES:
-        if (p == NULL) {
-            retVal = 0;
-            WARN("GET_NUM_CRYPTO_INSTANCES failed as the input parameter was NULL\n");
-            break;
-        }
-
+        BREAK_IF(p == NULL, \
+                "GET_NUM_CRYPTO_INSTANCES failed as the input parameter was NULL\n");
         if (qatInstanceHandles == NULL) {
             get_next_inst();
-            if (qatInstanceHandles == NULL) {
-                retVal = 0;
-                WARN("GET_NUM_CRYPTO_INSTANCES failed as no instances are available\n");
-                break;
-            }
+            BREAK_IF(qatInstanceHandles == NULL, \
+                    "GET_NUM_CRYPTO_INSTANCES failed as no instances are available\n");
         }
+        BREAK_IF(!engine_inited, \
+                "GET_NUM_CRYPTO_INSTANCES failed as the engine is not initialized\n");
+        DEBUG("[%s] Get number of crypto instances = %d\n", __func__, numInstances);
         *(int *)p = numInstances;
         break;
 

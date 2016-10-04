@@ -52,10 +52,10 @@ Successful operation of this release requires a software tool chain that
 supports OpenSSL\* 1.1.0.
 This release was validated on the following:
 
-* Operating system: Fedora* 16 64-bit version
+* Operating system: Fedora\* 16 64-bit version
 * Kernel: GNU\*/Linux\* 3.1.0.7
 * Intel&reg; Communications Chipset 895x Series Software for Linux\*, version 2.6
-* OpenSSL\* 1.1.0b tag OpenSSL_1_1_0b
+* OpenSSL\* 1.1.0b tag `OpenSSL_1_1_0b`
 
 ## Limitations
 
@@ -98,7 +98,7 @@ Clone OpenSSL\* from Github\* at the following location:
     git clone https://github.com/openssl/openssl.git
 
 It is recommended to checkout and build against OpenSSL\* 1.1.0b tag
-OpenSSL_1_1_0b.
+`OpenSSL_1_1_0b`.
 Older versions of OpenSSL\* are not supported.
 
 Due to the nature of the Intel&reg; QuickAssist Technology OpenSSL\*
@@ -125,11 +125,11 @@ The following example is assuming:
 
 An example build would be:
 ```bash
-    cd /openssl
-    ./config --prefix=/usr/local/ssl
-    make depend (if recommended by the OpenSSL* build system)
-    make
-    make install
+cd /openssl
+./config --prefix=/usr/local/ssl
+make depend (if recommended by the OpenSSL* build system)
+make
+make install
 ```
 As the Intel&reg; Quickassist Technology OpenSSL\* Engine will be built
 as a dynamic engine it is important to
@@ -184,10 +184,10 @@ The following example is assuming:
 To build/install the qat\_contig\_mem driver follow these steps:
 
 ```bash
-    cd /QAT_Engine/qat_contig_mem
-    make
-    make load
-    make test
+cd /QAT_Engine/qat_contig_mem
+make
+make load
+make test
 ```
 
 The expected output from `make test` should be something similar
@@ -223,7 +223,7 @@ be loaded as well, and you can check by running `lsmod` and looking
 for usdm_drv in the list. If not present it can be loaded as follows:
 
 ```bash
-    insmod ./usdm_drv.ko
+insmod ./usdm_drv.ko
 ```
 
 ### Build the Intel&reg; Quickassist Technology OpenSSL\* Engine
@@ -242,13 +242,13 @@ The following example is assuming:
 To build and install the Intel&reg; Quickassist Technology OpenSSL\* Engine:
 
 ```bash
-    cd /QAT_Engine
-   ./configure \
-    --with-qat_dir=/QAT/QAT1.6 \
-    --with-openssl_dir=/openssl \
-    --with-openssl_install_dir=/usr/local/ssl
-    make
-    make install
+cd /QAT_Engine
+./configure \
+--with-qat_dir=/QAT/QAT1.6 \
+--with-openssl_dir=/openssl \
+--with-openssl_install_dir=/usr/local/ssl
+make
+make install
 ```
 
 In the above example this will create the file `qat.so` and
@@ -279,15 +279,15 @@ Upstream Intel&reg; Quickassist Technology Driver, and using the USDM
 component would be as follows:
 
 ```bash
-    cd /QAT_Engine
-   ./configure \
-    --with-qat_dir=/QAT \
-    --with-openssl_dir=/openssl \
-    --with-openssl_install_dir=/usr/local/ssl \
-    --enable-upstream_driver \
-    --enable-usdm
-    make
-    make install
+cd /QAT_Engine
+./configure \
+--with-qat_dir=/QAT \
+--with-openssl_dir=/openssl \
+--with-openssl_install_dir=/usr/local/ssl \
+--enable-upstream_driver \
+--enable-usdm
+make
+make install
 ```
 
 ### Copy the correct Intel&reg; Quickassist Technology Driver config files
@@ -354,61 +354,61 @@ Run this command to check if the Intel&reg; Quickassist Technology OpenSSL\*
 Engine is loaded correctly:
 
 ```text
-    cd /path/to/openssl/apps
-    ./openssl engine -t -c -vvvv qat
-    (qat) Reference implementation of QAT crypto engine
-     [RSA, DSA, DH, AES-128-CBC-HMAC-SHA1, AES-256-CBC-HMAC-SHA1,
-      AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256 TLS1-PRF]
-         [ available ]
-         ENABLE_POLLING: Enables the polling interface to the engine.
-              (input flags): NO_INPUT
-         POLL: Polls the engine for any completed requests
-              (input flags): NO_INPUT
-         SET_INSTANCE_FOR_THREAD: Set instance to be used by this thread
-              (input flags): NUMERIC
-         GET_OP_RETRIES: Get number of retries
-              (input flags): NO_INPUT
-         SET_MSG_RETRY_COUNT: Set Message retry count
-              (input flags): NUMERIC
-         SET_POLL_INTERVAL: Set Poll Interval
-              (input flags): NUMERIC
-         GET_POLLING_FD: Returns non blocking fd for crypto engine
-              (input flags): NO_INPUT
-         ENABLE_EVENT_DRIVEN_MODE: Set event driven mode
-              (input flags): NO_INPUT
-         GET_NUM_CRYPTO_INSTANCES: Get the number of crypto instances
-              (input flags): NO_INPUT
-         DISABLE_EVENT_DRIVEN_MODE: Set event driven mode to off
-              (input flags): NO_INPUT
-```
+cd /path/to/openssl/apps
+./openssl engine -t -c -vvvv qat
+(qat) Reference implementation of QAT crypto engine
+ [RSA, DSA, DH, AES-128-CBC-HMAC-SHA1, AES-256-CBC-HMAC-SHA1,
+ AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256, TLS1-PRF]
+     [ available ]
+     ENABLE_EXTERNAL_POLLING: Enables the external polling interface to the engine.
+          (input flags): NO_INPUT
+     POLL: Polls the engine for any completed requests
+          (input flags): NO_INPUT
+     SET_INSTANCE_FOR_THREAD: Set instance to be used by this thread
+          (input flags): NUMERIC
+     GET_NUM_OP_RETRIES: Get number of retries
+          (input flags): NO_INPUT
+     SET_MAX_RETRY_COUNT: Set maximum retry count
+          (input flags): NUMERIC
+     SET_INTERNAL_POLL_INTERVAL: Set poll interval
+          (input flags): NUMERIC
+     GET_EXTERNAL_POLLING_FD: Returns non blocking fd for crypto engine
+          (input flags): NO_INPUT
+     ENABLE_EVENT_DRIVEN_POLLING_MODE: Set event driven polling mode
+          (input flags): NO_INPUT
+     GET_NUM_CRYPTO_INSTANCES: Get the number of crypto instances
+          (input flags): NO_INPUT
+     DISABLE_EVENT_DRIVEN_POLLING_MODE: Unset event driven mode
+          (input flags): NO_INPUT
+
 
 
 ### Run speed with Intel&reg; Quickassist Technology OpenSSL\* Engine
 
 ```text
-    cd /path/to/openssl/apps
+cd /path/to/openssl/apps
 
-    * RSA 2K
-      * Asynchronous
-      ./openssl speed -engine qat -elapsed -async_jobs 72 rsa2048
-      * Synchronous
-      ./openssl speed -engine qat -elapsed rsa2048
-      * Software
-      ./openssl speed -elapsed rsa2048
-    * ECDH Compute Key
-      * Asynchronous
-      ./openssl speed -engine qat -elapsed -async_jobs 36 ecdh
-      * Synchronous
-      ./openssl speed -engine qat -elapsed ecdh
-      * Software
-      ./openssl speed -elapsed ecdh
-    * Chained Cipher: aes-128-cbc-hmac-sha1
-      * Asynchronous
-      ./openssl speed -engine qat -elapsed -async_jobs 128 -multi 2 -evp aes-128-cbc-hmac-sha1
-      * Synchronous
-      ./openssl speed -engine qat -elapsed -multi 2 -evp aes-128-cbc-hmac-sha1
-      * Software
-      ./openssl speed -elapsed -multi 2 -evp aes-128-cbc-hmac-sha1
+* RSA 2K
+  * Asynchronous
+  ./openssl speed -engine qat -elapsed -async_jobs 72 rsa2048
+  * Synchronous
+  ./openssl speed -engine qat -elapsed rsa2048
+  * Software
+  ./openssl speed -elapsed rsa2048
+* ECDH Compute Key
+  * Asynchronous
+  ./openssl speed -engine qat -elapsed -async_jobs 36 ecdh
+  * Synchronous
+  ./openssl speed -engine qat -elapsed ecdh
+  * Software
+  ./openssl speed -elapsed ecdh
+* Chained Cipher: aes-128-cbc-hmac-sha1
+  * Asynchronous
+  ./openssl speed -engine qat -elapsed -async_jobs 128 -multi 2 -evp aes-128-cbc-hmac-sha1
+  * Synchronous
+  ./openssl speed -engine qat -elapsed -multi 2 -evp aes-128-cbc-hmac-sha1
+  * Software
+  ./openssl speed -elapsed -multi 2 -evp aes-128-cbc-hmac-sha1
 ```
 
 ## Troubleshooting
@@ -467,8 +467,8 @@ message, and uses a number of parameters to pass information into
 or out of the engine. It is defined as follows:
 
 ```
-    ENGINE_ctrl_cmd(<Engine>, <Message String>, <Param 3>,
-                    <Param 4>, NULL, 0\)
+ENGINE_ctrl_cmd(<Engine>, <Message String>, <Param 3>,
+                <Param 4>, NULL, 0\)
 ```
 
 Where:
@@ -483,123 +483,123 @@ Where:
      the Intel&reg; Quickassist Technology OpenSSL\* Engine.
 
 ```text
-    Message String: ENABLE_POLLING
-    Param 3:        0
-    Param 4:        NULL
-    Description:
-        This message is used to enable the external polling mode
-        of operation where it becomes the applications
-        responsibility to use the POLL message below to check
-        for messages that have been returned from the hardware
-        accelerator. It has no parameters or return value.
-        If required this message must be sent between
-        engine creation and engine initialization.
+Message String: ENABLE_EXTERNAL_POLLING
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message is used to enable the external polling mode
+    of operation where it becomes the applications
+    responsibility to use the POLL message below to check
+    for messages that have been returned from the hardware
+    accelerator. It has no parameters or return value.
+    If required this message must be sent after
+    engine creation and before engine initialization.
 
-    Message String: POLL
-    Param 3:        0
-    Param 4:        pointer to an int
-    Description:
-        This message is used when external polling is enabled to
-        request poll of all instances. The status of the request
-        is passed back in the variable passed in as Param 4. This
-        message may be sent at any time after engine initialization.
+Message String: POLL
+Param 3:        0
+Param 4:        pointer to an int
+Description:
+    This message is used when external polling is enabled to
+    request poll of all instances. The status of the request
+    is passed back in the variable passed in as Param 4. This
+    message may be sent at any time after engine initialization.
 
-    Message String: SET_INSTANCES_FOR_THREAD
-    Param 3:        long
-    Param 4:        NULL
-    Description:
-        This message is used to bind the thread to a specific
-        instance number. Param 3 contains the instance number
-        to bind to. If required the message must be sent
-        between engine creation and engine initialization.
+Message String: SET_INTERNAL_POLL_INTERVAL
+Param 3:        unsigned long cast to a long
+Param 4:        NULL
+Description:
+    This message is used to set the interval in nano
+    seconds between polling for messages coming back
+    from the hardware accelerator. The value should
+    be passed in as Param 3. The default is 10,000,
+    the min value is 1, and the max value is
+    10,000,000. This message can be sent at any time
+    after the engine has been created.
 
-    Message String: GET_OP_RETRIES
-    Param 3:        0
-    Param 4:        pointer to an unsigned int
-    Description:
-        This message returns the number of retry operations.
-        The number is set in the variable passed in as Param 4.
-        This message may be sent at any time after engine
-        initialization.
+Message String: ENABLE_EVENT_DRIVEN_POLLING_MODE
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message changes the engines mode to use the
+    Intel&reg; Quickassist Technology Drivers event
+    driven polling feature. It must be sent if required
+    after engine creation but before engine initialization.
+    It should not be sent after engine initialization.
 
-    Message String: SET_MSG_RETRY_COUNT
-    Param 3:        int cast to a long
-    Param 4:        NULL
-    Description:
-        This message is used for synchronous operations to
-        determine how many times the engine should retry a
-        message before flagging a failure. The value should
-        be passed in as Param 3. Setting the value to -1
-        results in infinite retries. The default is 5 and
-        the max value is 100,000. This message can be sent
-        at any time after the engine is created.
+Message String: DISABLE_EVENT_DRIVEN_POLLING_MODE
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message changes the engines mode to use the
+    timer based polling feature.
+    It must be sent if required after engine creation
+    but before engine initialization. It should not
+    be sent after engine initialization.
 
-    Message String: SET_POLL_INTERVAL
-    Param 3:        unsigned long cast to a long
-    Param 4:        NULL
-    Description:
-        This message is used to set the interval in nano
-        seconds between polling for messages coming back
-        from the hardware accelerator. The value should
-        be passed in as Param 3. The default is 10,000,
-        the min value is 1, and the max value is
-        10,000,000. This message can be sent at any time
-        after the engine has been created.
+Message String: GET_NUM_CRYPTO_INSTANCES
+Param 3:        0
+Param 4:        pointer to an int
+Description:
+    This message is used to retrieve the total
+    number of crypto instances available as
+    specified in the Intel&reg; Quickassist Technology
+    Driver config file. The number of instances is assigned
+    to the dereferenced int that is passed in as Param 4.
+    This message is used in conjunction with the
+    GET_POLLING_FD message as in event driven
+    polling mode with external polling there
+    is an fd to listen to events on for each
+    crypto instance. This message must be
+    sent if required after the engine has been
+    initialized.
 
-    Message String: ENABLE_EVENT_DRIVEN_MODE
-    Param 3:        0
-    Param 4:        NULL
-    Description:
-        This message changes the engines mode to use the
-        Intel&reg; Quickassist Technology Drivers event
-        driven polling feature. It must be sent if required
-        after engine creation but before engine initialization.
-        It should not be sent after engine initialization.
+Message String: GET_EXTERNAL_POLLING_FD
+Param 3:        int cast to a long
+Param 4:        pointer to an int
+Description:
+    This message is used to retrieve the file descriptor
+    that can be used for event notification when the
+    Intel&reg; Quickassist Technology Driver has had the event
+    driven polling feature enabled. The value passed in as
+    Param 3 is the instance to retrieve the fd for. The fd is
+    returned by assigning to the dereferenced int passed as
+    Param4. When retrieving fd's it is usual to first request
+    how many instances there are with the
+    GET_NUM_CRYPTO_INSTANCES message and then use a for
+    loop to iterate through the instances starting from 0
+    and use this message to retrieve the fd for each
+    instance. This message must be sent if required
+    after the engine has been initialized.
 
-    Message String: DISABLE_EVENT_DRIVEN_MODE
-    Param 3:        0
-    Param 4:        NULL
-    Description:
-        This message changes the engines mode to use the
-        timer based polling feature.
-        It must be sent if required after engine creation
-        but before engine initialization. It should not
-        be sent after engine initialization.
+Message String: SET_INSTANCE_FOR_THREAD
+Param 3:        long
+Param 4:        NULL
+Description:
+    This message is used to bind the thread to a specific
+    instance number. Param 3 contains the instance number
+    to bind to. If required the message must be sent
+    between engine creation and engine initialization.
 
-    Message String: GET_NUM_CRYPTO_INSTANCES
-    Param 3:        0
-    Param 4:        pointer to an int
-    Description:
-        This message is used to retrieve the total
-        number of crypto instances available as
-        specified in the Intel&reg; Quickassist Technology
-        Driver config file. The number of instances is assigned
-        to the dereferenced int that is passed in as Param 4.
-        This message is used in conjunction with the
-        GET_POLLING_FD message as in event driven
-        polling mode with external polling there
-        is an fd to listen to events on for each
-        crypto instance. This message must be
-        sent if required after the engine has been
-        initialized.
+Message String: GET_NUM_OP_RETRIES
+Param 3:        0
+Param 4:        pointer to an unsigned int
+Description:
+    This message returns the number of retry operations.
+    The number is set in the variable passed in as Param 4.
+    This message may be sent at any time after engine
+    initialization.
 
-    Message String: GET_POLLING_FD
-    Param 3:        int cast to a long
-    Param 4:        pointer to an int
-    Description:
-        This message is used to retrieve the file descriptor
-        that can be used for event notification when the
-        Intel&reg; Quickassist Technology Driver has had the event
-        driven polling feature enabled. The value passed in as
-        Param 3 is the instance to retrieve the fd for. The fd is
-        returned by assigning to the dereferenced int passed as
-        Param4. When retrieving fd's it is usual to first request
-        how many instances there are with the
-        GET_NUM_CRYPTO_INSTANCES message and then use a for
-        loop to iterate through the instances starting from 0
-        and use this message to retrieve the fd for each
-        instance. This message must be sent if required
-        after the engine has been initialized.
+Message String: SET_MAX_RETRY_COUNT
+Param 3:        int cast to a long
+Param 4:        NULL
+Description:
+    This message is used for synchronous operations to
+    determine how many times the engine should retry a
+    message before flagging a failure. The value should
+    be passed in as Param 3. Setting the value to -1
+    results in infinite retries. The default is 5 and
+    the max value is 100,000. This message can be sent
+    at any time after the engine is created.
 ```
 
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options
@@ -609,158 +609,158 @@ The following is a list of the options that can be used with the
 OpenSSL\* Engine:
 
 ```
-    Mandatory
+Mandatory
 
-    --with-qat_dir=/path/to/qat_driver
-        Specify the path to the source code of the Intel&reg; Quickassist
-        Technology Driver. This path is needed for compilation in order
-        to locate the Intel&reg; Quickassist header files.
-        If you do not specify this the build will fail.
-        For example if using the QATL.2.6.0-60.tar.gz driver package
-        that was unpacked to `/QAT`, and you are using an Intel&reg;
-        Communications Chipset 8925 to 8955 Series device then you
-        would use the following setting:
-        --with-qat_dir=/QAT/QAT1.6
+--with-qat_dir=/path/to/qat_driver
+    Specify the path to the source code of the Intel&reg; Quickassist
+    Technology Driver. This path is needed for compilation in order
+    to locate the Intel&reg; Quickassist header files.
+    If you do not specify this the build will fail.
+    For example if using the QATL.2.6.0-60.tar.gz driver package
+    that was unpacked to `/QAT`, and you are using an Intel&reg;
+    Communications Chipset 8925 to 8955 Series device then you
+    would use the following setting:
+    --with-qat_dir=/QAT/QAT1.6
 
-    --with-openssl_dir=/path/to/openssl
-        Specify the path to the top level of the OpenSSL\* source code.
-        This path is needed so that the compilation can locate the
-        OpenSSL header files and also because the mkerr.pl script
-        is needed from the OpenSSL source files in order to generate
-        the engine specific error source files. If you do not specify
-        this the build will fail.
-        For example if you cloned the OpenSSL\* Github\* repository from
-        within `/` then you would use the following setting:
-        --with-openssl_dir=/openssl
+--with-openssl_dir=/path/to/openssl
+    Specify the path to the top level of the OpenSSL\* source code.
+    This path is needed so that the compilation can locate the
+    OpenSSL header files and also because the mkerr.pl script
+    is needed from the OpenSSL source files in order to generate
+    the engine specific error source files. If you do not specify
+    this the build will fail.
+    For example if you cloned the OpenSSL\* Github\* repository from
+    within `/` then you would use the following setting:
+    --with-openssl_dir=/openssl
 
-    --with-openssl_install_dir=/path/to/openssl_install
-        Specify the path to the top level where the OpenSSL\* build was
-        installed to. This is needed so that the qat.so engine library
-        can be copied into the folder containing the other dynamic engines
-        when you run 'make install'. If you do not specify this then
-        'make install' will fail.
-        For example if you installed OpenSSL to its default location of
-        `/usr/local/ssl` then you would use the following setting:
-        --with-openssl_install_dir=/usr/local/ssl
+--with-openssl_install_dir=/path/to/openssl_install
+    Specify the path to the top level where the OpenSSL\* build was
+    installed to. This is needed so that the qat.so engine library
+    can be copied into the folder containing the other dynamic engines
+    when you run 'make install'. If you do not specify this then
+    'make install' will fail.
+    For example if you installed OpenSSL to its default location of
+    `/usr/local/ssl` then you would use the following setting:
+    --with-openssl_install_dir=/usr/local/ssl
 
-    Mandatory (when using the Upstream Intel&reg; Quickassist Technology
-    Driver)
+Mandatory (when using the Upstream Intel&reg; Quickassist Technology
+Driver)
 
-    --enable-upstream_driver/--disable-upsteam_driver
-        Enable/Disable linking against the Upstream Intel&reg; Quickassist
-        Technology Driver. If linking against the Upstream Intel&reg;
-        Quickassist Driver then this option must be enabled (disabled by
-        default).
+--enable-upstream_driver/--disable-upsteam_driver
+    Enable/Disable linking against the Upstream Intel&reg; Quickassist
+    Technology Driver. If linking against the Upstream Intel&reg;
+    Quickassist Driver then this option must be enabled (disabled by
+    default).
 
-    Optional
+Optional
 
-    --with-qat_build_dir=/path/to/qat_driver/build
-        Specify the path to the location of the built Intel&reg;
-        Quickassist Technology Driver library files. This path is needed
-        in order to link to the userspace libraries of the Intel&reg;
-        Quickassist Technology Driver. The default if not specified is to
-        use the path specified by --with-qat_dir with '/build' appended.
-        You only need to specify this parameter if the driver library
-        files have been built somewhere other than the default.
+--with-qat_build_dir=/path/to/qat_driver/build
+    Specify the path to the location of the built Intel&reg;
+    Quickassist Technology Driver library files. This path is needed
+    in order to link to the userspace libraries of the Intel&reg;
+    Quickassist Technology Driver. The default if not specified is to
+    use the path specified by --with-qat_dir with '/build' appended.
+    You only need to specify this parameter if the driver library
+    files have been built somewhere other than the default.
 
-    --enable-usdm/--disable-usdm
-        Enable/Disable compiling against the USDM component and that the
-        link should be configured to link in the userspace library of the
-        USDM component. The USDM component is a pinned contiguous memory
-        driver that is distributed with the Upstream Intel&reg;
-        Quickassist Technology Driver. It can be used instead of the
-        supplied qat_contig_mem memory driver (disabled by default).
+--enable-usdm/--disable-usdm
+    Enable/Disable compiling against the USDM component and that the
+    link should be configured to link in the userspace library of the
+    USDM component. The USDM component is a pinned contiguous memory
+    driver that is distributed with the Upstream Intel&reg;
+    Quickassist Technology Driver. It can be used instead of the
+    supplied qat_contig_mem memory driver (disabled by default).
 
-    --with-usdm_dir=/path/to/usdm/directory
-        Specify the path to the location of the USDM component.
-        The default if not specified is to use the path specified by
-        --with-qat_dir with '/quickassist/utilities/libusdm_drv' appended.
-        You only only need to specify this parameter if using the USDM
-        component, and if the path to it is different from the default.
+--with-usdm_dir=/path/to/usdm/directory
+    Specify the path to the location of the USDM component.
+    The default if not specified is to use the path specified by
+    --with-qat_dir with '/quickassist/utilities/libusdm_drv' appended.
+    You only only need to specify this parameter if using the USDM
+    component, and if the path to it is different from the default.
 
-    --disable-qat_rsa/--enable-qat_rsa
-        Disable/Enable Intel&reg; Quickassist Technology
-        RSA offload (enabled by default)
+--disable-qat_rsa/--enable-qat_rsa
+    Disable/Enable Intel&reg; Quickassist Technology
+    RSA offload (enabled by default)
 
-    --disable-qat_dsa/--enable-qat_dsa
-        Disable/Enable Intel&reg; Quickassist Technology
-        DSA offload (enabled by default)
+--disable-qat_dsa/--enable-qat_dsa
+    Disable/Enable Intel&reg; Quickassist Technology
+    DSA offload (enabled by default)
 
-    --disable-qat_dh/--enable-qat_dh
-        Disable/Enable Intel&reg; Quickassist Technology
-        DH offload (enabled by default)
+--disable-qat_dh/--enable-qat_dh
+    Disable/Enable Intel&reg; Quickassist Technology
+    DH offload (enabled by default)
 
-    --disable-qat_ecdh/--enable-qat_ecdh
-        Disable/Enable Intel&reg; Quickassist Technology
-        ECDH offload (enabled by default)
+--disable-qat_ecdh/--enable-qat_ecdh
+    Disable/Enable Intel&reg; Quickassist Technology
+    ECDH offload (enabled by default)
 
-    --disable-qat_ecdsa/--enable-qat_ecdsa
-        Disable/Enable Intel&reg; Quickassist Technology
-        ECDSA offload (enabled by default)
+--disable-qat_ecdsa/--enable-qat_ecdsa
+    Disable/Enable Intel&reg; Quickassist Technology
+    ECDSA offload (enabled by default)
 
-    --disable-qat_ciphers/--enable-qat_ciphers
-        Disable/Enable Intel&reg; Quickassist Technology
-        Chained Cipher offload (enabled by default)
+--disable-qat_ciphers/--enable-qat_ciphers
+    Disable/Enable Intel&reg; Quickassist Technology
+    Chained Cipher offload (enabled by default)
 
-    --disable-qat_prf/--enable-qat_prf
-        Disable/Enable Intel&reg; Quickassist Technology
-        PRF offload (enabled by default)
+--disable-qat_prf/--enable-qat_prf
+    Disable/Enable Intel&reg; Quickassist Technology
+    PRF offload (enabled by default)
 
-    --disable-qat_debug/--enable-qat_debug
-        Disable/Enable debug output to aid debugging. Warning: This
-        option should never be enabled in a production environment as
-        it may output private key information to the console/logs and
-        may also introduce side channel timing attack
-        vulnerabilities (disabled by default).
+--disable-qat_debug/--enable-qat_debug
+    Disable/Enable debug output to aid debugging. Warning: This
+    option should never be enabled in a production environment as
+    it may output private key information to the console/logs and
+    may also introduce side channel timing attack
+    vulnerabilities (disabled by default).
 
-    --disable-qat_warnings/--enable-qat_warnings
-        Disable/Enable warnings to aid debugging. Warning: This
-        option should never be left on in a production environment
-        as it may introduce side channel timing attack
-        vulnerabilities (disabled by default).
+--disable-qat_warnings/--enable-qat_warnings
+    Disable/Enable warnings to aid debugging. Warning: This
+    option should never be left on in a production environment
+    as it may introduce side channel timing attack
+    vulnerabilities (disabled by default).
 
-    --disable-qat_mem_debug/--enable-qat_mem_debug
-        Disable/Enable debug output from the userspace memory management
-        code to aid debugging. This option produces quite verbose output
-        hence why it is separate to the standard debug. Warning: This
-        option should never be enabled in a production environment as
-        it may output private key information to the console/logs and
-        may also introduce side channel timing attack
-        vulnerabilities (disabled by default).
+--disable-qat_mem_debug/--enable-qat_mem_debug
+    Disable/Enable debug output from the userspace memory management
+    code to aid debugging. This option produces quite verbose output
+    hence why it is separate to the standard debug. Warning: This
+    option should never be enabled in a production environment as
+    it may output private key information to the console/logs and
+    may also introduce side channel timing attack
+    vulnerabilities (disabled by default).
 
-    --disable-qat_mem_warnings/--enable-qat_mem_warnings
-        Disable/Enable warnings from the userspace memory management code
-        to aid debugging. Warning: This option should never be left on
-        in a production environment as it may introduce side channel
-        timing attack vulnerabilities (disabled by default).
+--disable-qat_mem_warnings/--enable-qat_mem_warnings
+    Disable/Enable warnings from the userspace memory management code
+    to aid debugging. Warning: This option should never be left on
+    in a production environment as it may introduce side channel
+    timing attack vulnerabilities (disabled by default).
 
-    --disable-multi_thread/--enable-multi_thread
-        Disable/Enable an alternative way of managing within userspace the
-        pinned contiguous memory allocated by the qat_contig_mem
-        driver. This alternative method will give improved performance
-        in a multi-threaded environment by making the slab pools
-        thread local to avoid locking between threads. Although this
-        can give better performance there are several drawbacks such
-        as the memory slabs will be utilized less efficiently, and you
-        cannot allocate in one thread and free in another thread.
-        Running in this mode also does not support processes that
-        fork (disabled by default).
+--disable-multi_thread/--enable-multi_thread
+    Disable/Enable an alternative way of managing within userspace the
+    pinned contiguous memory allocated by the qat_contig_mem
+    driver. This alternative method will give improved performance
+    in a multi-threaded environment by making the slab pools
+    thread local to avoid locking between threads. Although this
+    can give better performance there are several drawbacks such
+    as the memory slabs will be utilized less efficiently, and you
+    cannot allocate in one thread and free in another thread.
+    Running in this mode also does not support processes that
+    fork (disabled by default).
 
-    --disable-qat_mux/--enable-qat_mux
-        Disable/Enable support for building using the Mux mode of the
-        Intel&reg; Quickassist Technology Driver. Mux mode allows you to
-        mix Intel&reg; Communications Chipset 8900 to 8920 Series hardware
-        and Intel&reg; Communications Chipset 8925 to 8955 Series hardware
-        within the same system using a common driver interface. You
-        should only specify this option if using a mixture of hardware
-        (disabled by default).
+--disable-qat_mux/--enable-qat_mux
+    Disable/Enable support for building using the Mux mode of the
+    Intel&reg; Quickassist Technology Driver. Mux mode allows you to
+    mix Intel&reg; Communications Chipset 8900 to 8920 Series hardware
+    and Intel&reg; Communications Chipset 8925 to 8955 Series hardware
+    within the same system using a common driver interface. You
+    should only specify this option if using a mixture of hardware
+    (disabled by default).
 
-    --with-cc-opt="parameters"
-        Sets additional parameters that will be added to the CFLAGS
-        variable at compile time.
+--with-cc-opt="parameters"
+    Sets additional parameters that will be added to the CFLAGS
+    variable at compile time.
 
-    --with-ld-opt="parameters"
-        Sets additional parameters that will be used during linking.
+--with-ld-opt="parameters"
+    Sets additional parameters that will be used during linking.
 ```
 
 ## Using the OpenSSL\* Configuration File to Load/Initialize Engines
@@ -773,7 +773,7 @@ time. In order to load the file you need to make the following function
 call from your application as the first call to the OpenSSL\* library:
 
 ```
-    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
+OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
 ```
 
 The second parameter determines the name of the section containing the
@@ -790,7 +790,7 @@ Technology OpenSSL\* Engine you may find that the application instead
 makes the now deprecated call to:
 
 ```
-    OPENSSL_config(NULL);
+OPENSSL_config(NULL);
 ```
 
 Where the parameter is a const char* pointer to the `appname` section
@@ -809,7 +809,7 @@ lines adding. You should add the following statement in the global section
 (this is the section before the first bracketed section header):
 
 ```
-    openssl_conf = openssl_init
+openssl_conf = openssl_init
 ```
 
 The string `openssl_init` is the name of the section in the configuration
@@ -822,8 +822,8 @@ section (as the first bracketed section), or further down the
 configuration file. It should have the following added:
 
 ```
-    [ openssl_init ]
-    engines = engine_section
+[ openssl_init ]
+engines = engine_section
 ```
 
 The `engines` string is a keyword that OpenSSL\* recognises as a
@@ -833,18 +833,18 @@ loaded. So for the Intel&reg; Quickassist Technology OpenSSL\*
 Engine the section should contain:
 
 ```
-    [ engine_section ]
-    qat = qat_section
+[ engine_section ]
+qat = qat_section
 ```
 
 The `qat_section` contains all the settings relating to that
 particular engine. For instance it may contain:
 
 ```
-    [ qat_section ]
-    engine_id = qat
-    dynamic_path = /usr/local/ssl/lib/engines_1_1/qat.so
-    default_algorithms = ALL
+[ qat_section ]
+engine_id = qat
+dynamic_path = /usr/local/ssl/lib/engines_1_1/qat.so
+default_algorithms = ALL
 ```
 
 Where `engine_id` specifies the name of engine to load (should be `qat`).
@@ -861,14 +861,14 @@ In addition the `qat_section` may contain settings that call custom
 engine specific messages. For instance:
 
 ```
-    ENABLE_EVENT_DRIVEN_MODE = EMPTY
+ENABLE_EVENT_DRIVEN_MODE = EMPTY
 ```
 
 is functionally equivalent of making the following engine specific
 message function call:
 
 ```
-    ENGINE_ctrl_cmd(e, "ENABLE_EVENT_DRIVEN_MODE", 0, NULL, NULL, 0);
+ENGINE_ctrl_cmd(e, "ENABLE_EVENT_DRIVEN_MODE", 0, NULL, NULL, 0);
 ```
 
 You should set the setting to `EMPTY` if there are no parameters to pass,
