@@ -893,6 +893,8 @@ void crypto_cleanup_slabs(void)
 static void crypto_init(void)
 {
     int i = 0;
+    MEM_WARN("QAT Contig memory Warnings enabled.\n");
+    MEM_DEBUG("QAT Contig memory Debug enabled.\n");
     for(i = 0 ; i < NUM_SLOT_SIZE ; i++) {
         init_pool(&available_slab_list[i]);
         init_pool(&empty_slab_list[i]);

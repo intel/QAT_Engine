@@ -11734,11 +11734,11 @@ fi
 
 if test "x$enable_qat_warnings" != "xunset"
 then
-  enable_qat_warn="-DQAT_WARN"
+  enable_qat_warnings="-DQAT_WARN"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Engine Warning Messages" >&5
 $as_echo "$as_me: Enabling Engine Warning Messages" >&6;}
 else
-  enable_qat_warn=""
+  enable_qat_warnings=""
   { $as_echo "$as_me:${as_lineno-$LINENO}: Disabling Engine Warning Messages" >&5
 $as_echo "$as_me: Disabling Engine Warning Messages" >&6;}
 fi
@@ -11756,11 +11756,11 @@ fi
 
 if test "x$enable_qat_mem_warnings" != "xunset"
 then
-  enable_qat_mem_warn="-DQAT_MEM_WARN"
+  enable_qat_mem_warnings="-DQAT_MEM_WARN"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Memory Driver Warning Messages" >&5
 $as_echo "$as_me: Enabling Memory Driver Warning Messages" >&6;}
 else
-  enable_qat_mem_warn=""
+  enable_qat_mem_warnings=""
   { $as_echo "$as_me:${as_lineno-$LINENO}: Disabling Memory Driver Warning Messages" >&5
 $as_echo "$as_me: Disabling Memory Driver Warning Messages" >&6;}
 fi

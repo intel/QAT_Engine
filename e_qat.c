@@ -755,14 +755,14 @@ static int qat_engine_init(ENGINE *e)
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaBoolean limitDevAccess = CPA_FALSE;
 
-    DEBUG("[%s] ---- Engine Initing\n\n", __func__);
-    CRYPTO_INIT_QAT_LOG();
-
     pthread_mutex_lock(&qat_engine_mutex);
     if(engine_inited) {
         pthread_mutex_unlock(&qat_engine_mutex);
         return 1;
     }
+
+    DEBUG("[%s] ---- Engine Initing\n\n", __func__);
+    CRYPTO_INIT_QAT_LOG();
 
     if (0 == enable_external_polling &&
         (err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
@@ -929,7 +929,6 @@ static int qat_engine_init(ENGINE *e)
     currInst = 0;
     engine_inited = 1;
     pthread_mutex_unlock(&qat_engine_mutex);
-
     return 1;
 }
 
@@ -1286,6 +1285,8 @@ static int bind_qat(ENGINE *e, const char *id)
 {
     int ret = 0;
 
+    WARN("QAT Warnings enabled.\n");
+    DEBUG("QAT Debug enabled.\n");
     DEBUG("[%s] id=%s\n", __func__, id);
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {

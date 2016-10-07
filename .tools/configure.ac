@@ -272,10 +272,10 @@ fi
 
 if test "x$enable_qat_warnings" != "xunset"
 then
-  enable_qat_warn="-DQAT_WARN"
+  enable_qat_warnings="-DQAT_WARN"
   AC_MSG_NOTICE([Enabling Engine Warning Messages])
 else
-  enable_qat_warn=""
+  enable_qat_warnings=""
   AC_MSG_NOTICE([Disabling Engine Warning Messages])
 fi
 
@@ -290,10 +290,10 @@ fi
 
 if test "x$enable_qat_mem_warnings" != "xunset"
 then
-  enable_qat_mem_warn="-DQAT_MEM_WARN"
+  enable_qat_mem_warnings="-DQAT_MEM_WARN"
   AC_MSG_NOTICE([Enabling Memory Driver Warning Messages])
 else
-  enable_qat_mem_warn=""
+  enable_qat_mem_warnings=""
   AC_MSG_NOTICE([Disabling Memory Driver Warning Messages])
 fi
 
