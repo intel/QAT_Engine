@@ -370,7 +370,7 @@ cd /path/to/openssl/apps
           (input flags): NO_INPUT
      SET_MAX_RETRY_COUNT: Set maximum retry count
           (input flags): NUMERIC
-     SET_INTERNAL_POLL_INTERVAL: Set poll interval
+     SET_INTERNAL_POLL_INTERVAL: Set internal polling interval
           (input flags): NUMERIC
      GET_EXTERNAL_POLLING_FD: Returns non blocking fd for crypto engine
           (input flags): NO_INPUT
@@ -378,8 +378,11 @@ cd /path/to/openssl/apps
           (input flags): NO_INPUT
      GET_NUM_CRYPTO_INSTANCES: Get the number of crypto instances
           (input flags): NO_INPUT
-     DISABLE_EVENT_DRIVEN_POLLING_MODE: Unset event driven mode
+     DISABLE_EVENT_DRIVEN_POLLING_MODE: Unset event driven polling mode
           (input flags): NO_INPUT
+     SET_EPOLL_TIMEOUT: Set epoll_wait timeout
+          (input flags): NUMERIC
+
 
 
 
@@ -487,119 +490,111 @@ Message String: ENABLE_EXTERNAL_POLLING
 Param 3:        0
 Param 4:        NULL
 Description:
-    This message is used to enable the external polling mode
-    of operation where it becomes the applications
-    responsibility to use the POLL message below to check
-    for messages that have been returned from the hardware
-    accelerator. It has no parameters or return value.
-    If required this message must be sent after
-    engine creation and before engine initialization.
+    This message is used to enable the external polling mode of operation where
+    it becomes the applications responsibility to use the POLL message below to
+    check for messages that have been returned from the hardware accelerator.
+    It has no parameters or return value.  If required this message must be
+    sent after engine creation and before engine initialization.
 
 Message String: POLL
 Param 3:        0
 Param 4:        pointer to an int
 Description:
-    This message is used when external polling is enabled to
-    request poll of all instances. The status of the request
-    is passed back in the variable passed in as Param 4. This
-    message may be sent at any time after engine initialization.
+    This message is used when external polling is enabled to request poll of
+    all instances. The status of the request is passed back in the variable
+    passed in as Param 4. This message may be sent at any time after engine
+    initialization.
 
 Message String: SET_INTERNAL_POLL_INTERVAL
 Param 3:        unsigned long cast to a long
 Param 4:        NULL
 Description:
-    This message is used to set the interval in nano
-    seconds between polling for messages coming back
-    from the hardware accelerator. The value should
-    be passed in as Param 3. The default is 10,000,
-    the min value is 1, and the max value is
-    10,000,000. This message can be sent at any time
-    after the engine has been created.
+    This message is used to set the interval in nano seconds between polling
+    for messages coming back from the hardware accelerator. The value should be
+    passed in as Param 3. The default is 10,000, the min value is 1, and
+    the max value is 10,000,000. This message can be sent at any time after
+    the engine has been created.
+
+Message String: SET_EPOLL_TIMEOUT
+Param 3:        unsigned long cast to a int
+Param 4:        NULL
+Description:
+    This message is used to set the timeout in milli seconds used for
+    epoll_wait() when event driven polling mode is enabled. The value should be
+    passed in as Param 3. The default is 1,000, the min value is 1, and the max
+    value is 10,000. This message can be sent at any time after the engine
+    has been created.
 
 Message String: ENABLE_EVENT_DRIVEN_POLLING_MODE
 Param 3:        0
 Param 4:        NULL
 Description:
-    This message changes the engines mode to use the
-    Intel&reg; Quickassist Technology Drivers event
-    driven polling feature. It must be sent if required
-    after engine creation but before engine initialization.
-    It should not be sent after engine initialization.
+    This message changes the engines mode to use the Intel&reg; Quickassist
+    Technology Drivers event driven polling feature. It must be sent if
+    required after engine creation but before engine initialization.  It should
+    not be sent after engine initialization.
 
 Message String: DISABLE_EVENT_DRIVEN_POLLING_MODE
 Param 3:        0
 Param 4:        NULL
 Description:
-    This message changes the engines mode to use the
-    timer based polling feature.
-    It must be sent if required after engine creation
-    but before engine initialization. It should not
-    be sent after engine initialization.
+    This message changes the engines mode to use the timer based polling
+    feature.  It must be sent if required after engine creation but before
+    engine initialization. It should not be sent after engine initialization.
 
 Message String: GET_NUM_CRYPTO_INSTANCES
 Param 3:        0
 Param 4:        pointer to an int
 Description:
-    This message is used to retrieve the total
-    number of crypto instances available as
-    specified in the Intel&reg; Quickassist Technology
-    Driver config file. The number of instances is assigned
-    to the dereferenced int that is passed in as Param 4.
-    This message is used in conjunction with the
-    GET_POLLING_FD message as in event driven
-    polling mode with external polling there
-    is an fd to listen to events on for each
-    crypto instance. This message must be
-    sent if required after the engine has been
+    This message is used to retrieve the total number of crypto instances
+    available as specified in the Intel&reg; Quickassist Technology Driver
+    config file. The number of instances is assigned to the dereferenced int
+    that is passed in as Param 4.  This message is used in conjunction with the
+    GET_POLLING_FD message as in event driven polling mode with external
+    polling there is an fd to listen to events on for each crypto instance.
+    This message must be sent if required after the engine has been
     initialized.
 
 Message String: GET_EXTERNAL_POLLING_FD
 Param 3:        int cast to a long
 Param 4:        pointer to an int
 Description:
-    This message is used to retrieve the file descriptor
-    that can be used for event notification when the
-    Intel&reg; Quickassist Technology Driver has had the event
-    driven polling feature enabled. The value passed in as
-    Param 3 is the instance to retrieve the fd for. The fd is
-    returned by assigning to the dereferenced int passed as
-    Param4. When retrieving fd's it is usual to first request
-    how many instances there are with the
-    GET_NUM_CRYPTO_INSTANCES message and then use a for
-    loop to iterate through the instances starting from 0
-    and use this message to retrieve the fd for each
-    instance. This message must be sent if required
-    after the engine has been initialized.
+    This message is used to retrieve the file descriptor that can be used for
+    event notification when the Intel&reg; Quickassist Technology Driver has
+    had the event driven polling feature enabled. The value passed in as Param
+    3 is the instance to retrieve the fd for. The fd is returned by assigning
+    to the dereferenced int passed as Param4. When retrieving fd's it is usual
+    to first request how many instances there are with the
+    GET_NUM_CRYPTO_INSTANCES message and then use a for loop to iterate through
+    the instances starting from 0 and use this message to retrieve the fd for
+    each instance. This message must be sent if required after the engine has
+    been initialized.
 
 Message String: SET_INSTANCE_FOR_THREAD
 Param 3:        long
 Param 4:        NULL
 Description:
-    This message is used to bind the thread to a specific
-    instance number. Param 3 contains the instance number
-    to bind to. If required the message must be sent
-    between engine creation and engine initialization.
+    This message is used to bind the thread to a specific instance number.
+    Param 3 contains the instance number to bind to. If required the message
+    must be sent between engine creation and engine initialization.
 
 Message String: GET_NUM_OP_RETRIES
 Param 3:        0
 Param 4:        pointer to an unsigned int
 Description:
-    This message returns the number of retry operations.
-    The number is set in the variable passed in as Param 4.
-    This message may be sent at any time after engine
-    initialization.
+    This message returns the number of retry operations.  The number is set in
+    the variable passed in as Param 4.  This message may be sent at any time
+    after engine initialization.
 
 Message String: SET_MAX_RETRY_COUNT
 Param 3:        int cast to a long
 Param 4:        NULL
 Description:
-    This message is used for synchronous operations to
-    determine how many times the engine should retry a
-    message before flagging a failure. The value should
-    be passed in as Param 3. Setting the value to -1
-    results in infinite retries. The default is 5 and
-    the max value is 100,000. This message can be sent
-    at any time after the engine is created.
+    This message is used for synchronous operations to determine how many times
+    the engine should retry a message before flagging a failure. The value
+    should be passed in as Param 3. Setting the value to -1 results in infinite
+    retries. The default is 5 and the max value is 100,000. This message can be
+    sent at any time after the engine is created.
 ```
 
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options

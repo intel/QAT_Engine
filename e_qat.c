@@ -63,6 +63,10 @@
 # error "No memory driver type defined"
 #endif
 
+
+/*
+ * The default interval in nanoseconds used for the internal polling thread
+ */
 #define QAT_POLL_PERIOD_IN_NS 10000
 
 /*
@@ -77,14 +81,11 @@
  */
 #define QAT_CRYPTO_RESPONSE_TIMEOUT (5)
 
-/* The polling interval used for normal polling is specified in
- * nanoseconds. For event driven polling we want an interval
- * to loop round the epoll_wait but it is specified in
- * milliseconds. As epoll is blocking we can have a longer timer.
- * This conversion factor is used to divide the normal polling
- * interval to give a reasonable value for the epoll timer.
+/*
+ * The default timeout in milliseconds used for epoll_wait when event driven
+ * polling mode is enabled.
  */
-#define QAT_EPOLL_CONVERSION_FACTOR 10
+#define QAT_EPOLL_TIMEOUT_IN_MS 1000
 
 
 
@@ -175,50 +176,14 @@ static pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static unsigned int engine_inited = 0;
 static useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
-static int qat_msg_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
+static int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
+static int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 static int qat_engine_init(ENGINE *e);
 
-/*
- * Invoked by Client. Used to set the number of times the engine should poll
- * QAT until it gives up and reports an error.
- */
-int setQatMsgRetryCount(int iRetryCount)
-{
-    if ((iRetryCount >= -1) && (iRetryCount <= 100000)) {
-        qat_msg_retry_count = iRetryCount;
-    } else {
-        fprintf(stderr,
-                "The Message retry count value is out of range, using default value %d\n",
-                qat_msg_retry_count);
-        return 0;
-    }
-    return 1;
-}
 
 int getQatMsgRetryCount()
 {
-    return qat_msg_retry_count;
-}
-
-int getEnableExternalPolling()
-{
-    return enable_external_polling;
-}
-
-/*
- * Invoked by Client. Used to set the interval between each poll retry
- */
-int setQatPollInterval(unsigned long int ulPollInterval)
-{
-    if ((ulPollInterval >= 1) && (ulPollInterval <= 1000000)) {
-        qat_poll_interval = (useconds_t) ulPollInterval;
-    } else {
-        fprintf(stderr,
-                "The polling interval value is out of range, using default value %d\n",
-                qat_poll_interval);
-        return 0;
-    }
-    return 1;
+    return qat_max_retry_count;
 }
 
 useconds_t getQatPollInterval()
@@ -226,8 +191,7 @@ useconds_t getQatPollInterval()
     return qat_poll_interval;
 }
 
-
-int isEventDriven()
+int qat_is_event_driven()
 {
     return enable_event_driven_polling;
 }
@@ -455,8 +419,6 @@ CpaStatus myPerformOp(const CpaInstanceHandle instanceHandle,
 {
     CpaStatus status;
     struct op_done *opDone = (struct op_done *)pCallbackTag;
-    useconds_t ulPollInterval = getQatPollInterval();
-    int iMsgRetry = getQatMsgRetryCount();
     unsigned int uiRetry = 0;
     do {
         status = cpaCySymPerformOp(instanceHandle,
@@ -472,12 +434,12 @@ CpaStatus myPerformOp(const CpaInstanceHandle instanceHandle,
                 }
             } else {
                 qatPerformOpRetries++;
-                if (uiRetry >= iMsgRetry
-                    && iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                if (uiRetry >= qat_max_retry_count
+                    && qat_max_retry_count != QAT_INFINITE_MAX_NUM_RETRIES) {
                     break;
                 }
                 uiRetry++;
-                usleep(ulPollInterval +
+                usleep(qat_poll_interval +
                        (uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
             }
         }
@@ -595,7 +557,7 @@ static void *sendPoll_ns(void *ih)
     }
 
     while (keep_polling) {
-        reqTime.tv_nsec = getQatPollInterval();
+        reqTime.tv_nsec = qat_poll_interval;
         /* Poll for 0 means process all packets on the instance */
         status = icp_sal_CyPollInstance(instanceHandle, 0);
 
@@ -629,7 +591,6 @@ end:
 static void *eventPoll_ns(void *ih)
 {
     CpaStatus status = 0;
-    useconds_t ulPollInterval = getQatPollInterval() / QAT_EPOLL_CONVERSION_FACTOR;
     struct epoll_event *events = NULL;
     ENGINE_EPOLL_ST* epollst = NULL;
     /* Buffer where events are returned */
@@ -642,7 +603,7 @@ static void *eventPoll_ns(void *ih)
         int n = 0;
         int i = 0;
 
-        n = epoll_wait(internal_efd, events, MAX_EVENTS, ulPollInterval);
+        n = epoll_wait(internal_efd, events, MAX_EVENTS, qat_epoll_timeout);
         for (i = 0; i < n; ++i) {
             if (events[i].events & EPOLLIN) {
                 /*  poll for 0 means process all packets on the ET ring */
@@ -828,7 +789,7 @@ static int qat_engine_init(ENGINE *e)
     }
 
     if (0 == enable_external_polling) {
-        if (isEventDriven()) {
+        if (qat_is_event_driven()) {
             CpaStatus status;
             int flags;
             int engine_fd;
@@ -906,7 +867,7 @@ static int qat_engine_init(ENGINE *e)
             return 0;
         }
 
-        if (0 == enable_external_polling && !isEventDriven()) {
+        if (0 == enable_external_polling && !qat_is_event_driven()) {
             /* Create the polling threads */
             pthread_create(&icp_polling_threads[instNum], NULL, sendPoll_ns,
                            qatInstanceHandles[instNum]);
@@ -919,7 +880,7 @@ static int qat_engine_init(ENGINE *e)
         }
     }
 
-    if (0 == enable_external_polling && isEventDriven()) {
+    if (0 == enable_external_polling && qat_is_event_driven()) {
         pthread_create(&icp_polling_threads[0], NULL, eventPoll_ns, NULL);
 
         if (qat_adjust_thread_affinity(icp_polling_threads[0]) == 0) {
@@ -945,6 +906,7 @@ static int qat_engine_init(ENGINE *e)
 #define QAT_CMD_ENABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 7)
 #define QAT_CMD_GET_NUM_CRYPTO_INSTANCES (ENGINE_CMD_BASE + 8)
 #define QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 9)
+#define QAT_CMD_SET_EPOLL_TIMEOUT (ENGINE_CMD_BASE + 10)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -975,7 +937,7 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
      QAT_CMD_SET_INTERNAL_POLL_INTERVAL,
      "SET_INTERNAL_POLL_INTERVAL",
-     "Set poll interval",
+     "Set internal polling interval",
      ENGINE_CMD_FLAG_NUMERIC},
     {
      QAT_CMD_GET_EXTERNAL_POLLING_FD,
@@ -995,8 +957,13 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
      QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE,
      "DISABLE_EVENT_DRIVEN_POLLING_MODE",
-     "Unset event driven mode",
+     "Unset event driven polling mode",
      ENGINE_CMD_FLAG_NO_INPUT},
+    {
+     QAT_CMD_SET_EPOLL_TIMEOUT,
+     "SET_EPOLL_TIMEOUT",
+     "Set epoll_wait timeout",
+     ENGINE_CMD_FLAG_NUMERIC},
     {0, NULL, NULL, 0}
 };
 
@@ -1118,13 +1085,24 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         break;
 
     case QAT_CMD_SET_MAX_RETRY_COUNT:
+        BREAK_IF(i < -1 || i > 100000,
+            "The Message retry count value is out of range, using default value\n");
         DEBUG("[%s] Set max retry counter = %d\n", __func__, i);
-        retVal = setQatMsgRetryCount((int)i);
+        qat_max_retry_count = (int)i;
         break;
 
     case QAT_CMD_SET_INTERNAL_POLL_INTERVAL:
-        DEBUG("[%s] Set internal poll interval = %d\n", __func__, i);
-        retVal = setQatPollInterval((unsigned long int)i);
+        BREAK_IF(i < 1 || i > 1000000,
+               "The polling interval value is out of range, using default value\n");
+        DEBUG("[%s] Set internal poll interval = %d ns\n", __func__, i);
+        qat_poll_interval = (useconds_t) i;
+        break;
+
+    case QAT_CMD_SET_EPOLL_TIMEOUT:
+        BREAK_IF(i < 1 || i > 10000,
+                "The epoll timeout value is out of range, using default value\n")
+        DEBUG("[%s] Set epoll_wait timeout = %d ms\n", __func__, i);
+        qat_epoll_timeout = (int) i;
         break;
 
     case QAT_CMD_GET_NUM_CRYPTO_INSTANCES:
@@ -1180,7 +1158,7 @@ static int qat_engine_finish(ENGINE *e)
                 return 0;
             }
 
-            if (0 == enable_external_polling && !isEventDriven()) {
+            if (0 == enable_external_polling && !qat_is_event_driven()) {
                 if (icp_polling_threads) {
                     pthread_join(icp_polling_threads[i], NULL);
                 }
@@ -1188,7 +1166,7 @@ static int qat_engine_finish(ENGINE *e)
         }
     }
 
-    if (0 == enable_external_polling && isEventDriven()) {
+    if (0 == enable_external_polling && qat_is_event_driven()) {
         if (icp_polling_threads) {
             pthread_join(icp_polling_threads[0], NULL);
         }
@@ -1199,7 +1177,7 @@ static int qat_engine_finish(ENGINE *e)
         qatInstanceHandles = NULL;
     }
 
-    if (0 == enable_external_polling && isEventDriven()) {
+    if (0 == enable_external_polling && qat_is_event_driven()) {
         for (i = 0; i < numInstances; i++) {
             epollst = (ENGINE_EPOLL_ST*)eng_epoll_events[i].data.ptr;
             if (epollst) {
@@ -1234,7 +1212,7 @@ static int qat_engine_finish(ENGINE *e)
     qatPerformOpRetries = 0;
     currInst = 0;
     qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
-    qat_msg_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
+    qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
     pthread_mutex_unlock(&qat_engine_mutex);
 
     CRYPTO_CLOSE_QAT_LOG();
