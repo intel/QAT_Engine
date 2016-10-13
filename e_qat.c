@@ -148,6 +148,8 @@ static const char *engine_qat_id = "qat";
 static const char *engine_qat_name =
     "Reference implementation of QAT crypto engine";
 
+char *ICPConfigSectionName_libcrypto = "SHIM";
+
 /* Globals */
 typedef struct {
     int eng_fd;
@@ -170,7 +172,6 @@ static int currInst = 0;
 static pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-char *ICPConfigSectionName_libcrypto = "SHIM";
 
 static unsigned int engine_inited = 0;
 static useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
@@ -1220,9 +1221,20 @@ static int qat_engine_finish(ENGINE *e)
         }
     }
 
+    /* Reset global variables */
     numInstances = 0;
     icp_sal_userStop();
     engine_inited = 0;
+    internal_efd = 0;
+    qatInstanceHandles = NULL;
+    keep_polling = 1;
+    enable_external_polling = 0;
+    enable_event_driven_polling = 0;
+    enable_instance_for_thread = 0;
+    qatPerformOpRetries = 0;
+    currInst = 0;
+    qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
+    qat_msg_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
     pthread_mutex_unlock(&qat_engine_mutex);
 
     CRYPTO_CLOSE_QAT_LOG();
