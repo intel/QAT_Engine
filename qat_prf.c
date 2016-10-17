@@ -192,7 +192,7 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 
     qat_prf_ctx = qaeCryptoMemAlloc(sizeof(*qat_prf_ctx), __FILE__, __LINE__);
     if (qat_prf_ctx == NULL) {
-        WARN(stderr, "Cannot allocate qat_prf_ctx\n");
+        WARN("[%s] Cannot allocate qat_prf_ctx\n", __func__);
         return 0;
     }
 
