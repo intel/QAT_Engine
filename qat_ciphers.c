@@ -36,6 +36,21 @@
  * ====================================================================
  */
 
+/*
+ * This file contains modified code from OpenSSL/BoringSSL used
+ * in order to run certain operations in constant time. 
+ * It is subject to the following license:
+ */
+
+/*
+ * Copyright 2002-2016 The OpenSSL Project Authors. All Rights Reserved.
+ *
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
+ */
+
 /*****************************************************************************
  * @file qat_ciphers.c
  *
@@ -62,6 +77,7 @@
 #include "cpa_types.h"
 #include "cpa_cy_sym.h"
 #include "qat_ciphers.h"
+#include "qat_constant_time.h"
 
 #include <openssl/evp.h>
 #include <openssl/aes.h>
@@ -1285,9 +1301,9 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     unsigned int pad_len = 0;
     struct op_done opDone;
     qat_chained_ctx *evp_ctx = NULL;
-    int retVal = 0;
+    int retVal = 1;
     size_t plen = 0, iv = 0;    /* explicit IV in TLS 1.1 and later */
-    int sha_digest_len = 0;
+    unsigned int sha_digest_len = 0;
 
     CRYPTO_QAT_LOG("CIPHER - %s\n", __func__);
 
@@ -1360,7 +1376,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     if ((sha_digest_len = qat_get_sha_digest_len(ctx)) == 0) {
         WARN("[%s] --- Unable to get sha digest length\n", __func__);
-        return -1;
+        return 0;
     }
 
     plen = evp_ctx->payload_length;
@@ -1371,6 +1387,9 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
              ((plen + sha_digest_len + AES_BLOCK_SIZE) & -AES_BLOCK_SIZE)) {
         return 0;
     } else if (evp_ctx->tls_version >= TLS1_1_VERSION) {
+        if (!EVP_CIPHER_CTX_encrypting(ctx) && 
+            (len < (AES_BLOCK_SIZE + sha_digest_len + 1 )))
+            return 0;
         iv = AES_BLOCK_SIZE;
         memmove(evp_ctx->OpData.pIv, in, EVP_CIPHER_CTX_iv_length(ctx));
         /*
@@ -1389,6 +1408,8 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         evp_ctx->payload_length -= iv;
         plen -= iv;
     } else {
+        if (!EVP_CIPHER_CTX_encrypting(ctx) && (len < sha_digest_len + 1))
+            return 0;
         memmove(evp_ctx->OpData.pIv, EVP_CIPHER_CTX_iv(ctx), EVP_CIPHER_CTX_iv_length(ctx));
     }
 
@@ -1414,30 +1435,63 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             (TLS_VIRT_HDR_SIZE + len) - sha_digest_len;
     } else if (!EVP_CIPHER_CTX_encrypting(ctx)) {
         AES_KEY aes_key;
-        unsigned char in_blk[AES_BLOCK_SIZE] = { 0x0 };
+        unsigned char in_blk[TLS_MAX_PADDING_LENGTH + 1] = { 0x0 };
         unsigned char *key =
             evp_ctx->session_data->cipherSetupData.pCipherKey;
         unsigned int key_len = EVP_CIPHER_CTX_key_length(ctx);
         unsigned char ivec[AES_BLOCK_SIZE] = { 0x0 };
-        unsigned char out_blk[AES_BLOCK_SIZE] = { 0x0 };
-
+        unsigned char out_blk[TLS_MAX_PADDING_LENGTH + 1] = { 0x0 };
+        /* temp_length is the size of the data we need to decrypt
+           in order to check the padding */
+        unsigned int temp_length = TLS_MAX_PADDING_LENGTH + 1;
+        size_t j;
+        unsigned int res = 0xff, maxpad;
+        
+        /* Adjust temp_length if we are working with a small amount of
+           data. This adjustment is based on public knowledge of len
+           so does not need to be in constant time */
+        if ((len - sha_digest_len) <= TLS_MAX_PADDING_LENGTH)
+            temp_length = ((len - sha_digest_len + AES_BLOCK_SIZE - 1) 
+                           / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+        
         key_len = key_len * 8;  /* convert to bits */
-        memmove(in_blk, (in + (len - AES_BLOCK_SIZE)), AES_BLOCK_SIZE);
+        memmove(in_blk, (in + (len - temp_length)), temp_length);
         memmove(ivec, (in + (len - (AES_BLOCK_SIZE + AES_BLOCK_SIZE))),
                AES_BLOCK_SIZE);
 
         /* Dump input parameters */
         DUMPL("Key :", key, EVP_CIPHER_CTX_key_length(ctx));
         DUMPL("IV :", ivec, AES_BLOCK_SIZE);
-        DUMPL("Input Blk :", in_blk, AES_BLOCK_SIZE);
+        DUMPL("Input Blk :", in_blk, temp_length);
 
         AES_set_decrypt_key(key, key_len, &aes_key);
-        AES_cbc_encrypt(in_blk, out_blk, AES_BLOCK_SIZE, &aes_key, ivec, 0);
+        AES_cbc_encrypt(in_blk, out_blk, temp_length, &aes_key, ivec, 0);
 
-        DUMPL("Output Blk :", out_blk, AES_BLOCK_SIZE);
+        DUMPL("Output Blk :", out_blk, temp_length);
 
         /* Extract pad length */
-        pad_len = out_blk[AES_BLOCK_SIZE - 1];
+        pad_len = out_blk[temp_length - 1];
+        
+        /* Determine the maximum amount of padding that could be present */
+        maxpad = len - (sha_digest_len + 1);
+        maxpad |= (TLS_MAX_PADDING_LENGTH - maxpad) >> (sizeof(maxpad) * 8 - 8);
+        maxpad &= TLS_MAX_PADDING_LENGTH;
+        
+        /* Check the padding in constant time */
+        for ( j = 0; j <= maxpad; j++) {
+            uint8_t cmask = qat_constant_time_ge_8(pad_len, j);
+            uint8_t b = out_blk[temp_length - 1 - j];
+            res &= ~(cmask & (pad_len ^ b));
+        }
+        res = qat_constant_time_eq(0xff, res & 0xff);
+        retVal &= (int)res;
+
+        /* Adjust the amount of data to digest to be the maximum by setting
+           pad_len = 0 if the padding check failed or if the padding length
+           is greater than the maximum padding allowed. This adjustment
+           is done in constant time. */
+        retVal &= qat_constant_time_ge(maxpad, pad_len);
+        pad_len *= retVal;
 
         /* Calculate and update length */
         evp_ctx->payload_length = len - (pad_len + 1 + sha_digest_len);
@@ -1529,8 +1583,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     cleanupOpDone(&opDone);
 
-    if (opDone.verifyResult == CPA_TRUE)
-        retVal = 1;
+    retVal &= (int)opDone.verifyResult;
 
     DEBUG("Post Perform Op\n");
 

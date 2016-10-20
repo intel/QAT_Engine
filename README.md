@@ -6,6 +6,10 @@ The Licensing of the files within this project is split as follows:
 
 Intel&reg; Quickassist Technology(QAT) OpenSSL\* Engine - BSD License.
 Please see the `LICENSE` file contained in the top level folder.
+Some of the engine code contains modified code from OpenSSL/BoringSSL. In
+both cases the code is licensed under the OpenSSL license available
+at <https://www.openssl.org/source/license.html>. Further details
+can be found in the file headers of the relevant files.  
 
 Example Intel&reg; Contiguous Memory Driver contained within the folder
 `qat_contig_mem` - Dual BSD/GPLv2 License. Please see the file headers

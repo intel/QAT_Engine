@@ -1,15 +1,15 @@
 /* ====================================================================
  *
- * 
+ *
  *   BSD LICENSE
- * 
+ *
  *   Copyright(c) 2016 Intel Corporation.
  *   All rights reserved.
- * 
+ *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
  *   are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -19,7 +19,7 @@
  *     * Neither the name of Intel Corporation nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- * 
+ *
  *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -31,62 +31,78 @@
  *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *
+ *
  * ====================================================================
  */
 
-/*****************************************************************************
- * @file qat_ciphers.h
+/*
+ * This file is based on modified code from OpenSSL.
+ * This is needed because the constant time functions are not exported
+ * from OpenSSL forcing engines to have their own copy of the
+ * functionality. 
+ * The code based on OpenSSL code is subject to the following license:
+ */
+
+/*
+ * Copyright 2014-2016 The OpenSSL Project Authors. All Rights Reserved.
  *
- * This file provides an interface for engine cipher operations
+ * Licensed under the OpenSSL license (the "License").  You may not use
+ * this file except in compliance with the License.  You can obtain a copy
+ * in the file LICENSE in the source distribution or at
+ * https://www.openssl.org/source/license.html
+ */
+
+/*****************************************************************************
+ * @file qat_constant_time.h
+ *
+ * This file provides constant time functions
  *
  *****************************************************************************/
 
-#ifndef QAT_CIPHERS_H
-# define QAT_CIPHERS_H
+#ifndef QAT_CONST_TIME_H
+# define QAT_CONST_TIME_H
 
-# include <openssl/engine.h>
-# include <openssl/crypto.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-# define AES_BLOCK_SIZE      16
-# define AES_IV_LEN          16
-# define AES_KEY_SIZE_256    32
-# define AES_KEY_SIZE_128    16
+static inline unsigned int qat_constant_time_msb(unsigned int a)
+{
+    return 0 - (a >> (sizeof(a) * 8 - 1));
+}
 
-# define qat_chained_data(ctx) (EVP_CIPHER_CTX_get_cipher_data(ctx))
+static inline unsigned int qat_constant_time_lt(unsigned int a,
+                                                unsigned int b)
+{
+    return qat_constant_time_msb(a ^ ((a ^ b) | ((a - b) ^ b)));
+}
 
-# define HMAC_KEY_SIZE       64
-# define TLS_VIRT_HDR_SIZE   13
-# define TLS_MAX_PADDING_LENGTH 255
+static inline unsigned int qat_constant_time_ge(unsigned int a,
+                                                unsigned int b)
+{
+    return ~qat_constant_time_lt(a, b);
+}
 
-# define NO_PAYLOAD_LENGTH_SPECIFIED ((size_t)-1)
+static inline unsigned char qat_constant_time_ge_8(unsigned int a,
+                                                   unsigned int b)
+{
+    return (unsigned char)(qat_constant_time_ge(a, b));
+}
 
-/* How long to wait for inflight messages before cleanup */
-# define QAT_CIPHER_CLEANUP_RETRY_COUNT 10
-# define QAT_CIPHER_CLEANUP_WAIT_TIME_NS 1000000
+static inline unsigned int qat_constant_time_is_zero(unsigned int a)
+{
+    return qat_constant_time_msb(~a & (a - 1));
+}
 
-# define qat_common_cipher_flags EVP_CIPH_FLAG_DEFAULT_ASN1
-# define qat_common_cbc_flags    (qat_common_cipher_flags | EVP_CIPH_CBC_MODE \
-                                | EVP_CIPH_CUSTOM_IV)
+static inline unsigned int qat_constant_time_eq(unsigned int a,
+                                                unsigned int b)
+{
+    return qat_constant_time_is_zero(a ^ b);
+}
 
-# define QAT_TLS_PAYLOADLENGTH_MSB_OFFSET 2
-# define QAT_TLS_PAYLOADLENGTH_LSB_OFFSET 1
-# define QAT_TLS_VERSION_MSB_OFFSET       4
-# define QAT_TLS_VERSION_LSB_OFFSET       3
-# define QAT_BYTE_SHIFT                   8
+#ifdef __cplusplus
+}
+#endif
 
-void qat_create_ciphers(void);
-void qat_free_ciphers(void);
-int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
-                      int nid);
-# ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-extern CRYPTO_ONCE qat_pkt_threshold_table_once;
-extern CRYPTO_THREAD_LOCAL qat_pkt_threshold_table_key;
-void qat_pkt_threshold_table_make_key(void );
-LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void);
-void qat_free_pkt_threshold_table(void *);
-int qat_pkt_threshold_table_set_threshold(int nid, int threshold);
-int qat_pkt_threshold_table_get_threshold(int nid);
-# endif
-#endif                          /* QAT_CIPHERS_H */
+#endif                          /* QAT_CONST_TIME_H */
