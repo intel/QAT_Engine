@@ -175,6 +175,7 @@ static pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 static unsigned int engine_inited = 0;
+static unsigned int instance_started[MAX_CRYPTO_INSTANCES] = {0};
 static useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 static int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 static int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
@@ -770,10 +771,10 @@ static int qat_engine_init(ENGINE *e)
 
     /* Allocate memory for the instance handle array */
     qatInstanceHandles =
-        (CpaInstanceHandle *) OPENSSL_malloc(((int)numInstances) *
+        (CpaInstanceHandle *) OPENSSL_zalloc(((int)numInstances) *
                                              sizeof(CpaInstanceHandle));
     if (NULL == qatInstanceHandles) {
-        WARN("OPENSSL_malloc() failed for instance handles.\n");
+        WARN("OPENSSL_zalloc() failed for instance handles.\n");
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -832,10 +833,10 @@ static int qat_engine_init(ENGINE *e)
                 }
             }
             icp_polling_threads =
-                (pthread_t *) OPENSSL_malloc(sizeof(pthread_t));
+                (pthread_t *) OPENSSL_zalloc(sizeof(pthread_t));
         } else {
             icp_polling_threads =
-                (pthread_t *) OPENSSL_malloc(((int)numInstances) *
+                (pthread_t *) OPENSSL_zalloc(((int)numInstances) *
                                               sizeof(pthread_t));
         }
         if (NULL == icp_polling_threads) {
@@ -873,11 +874,13 @@ static int qat_engine_init(ENGINE *e)
                            qatInstanceHandles[instNum]);
 
             if (qat_adjust_thread_affinity(icp_polling_threads[instNum]) == 0) {
+                instance_started[instNum] = 1;
                 pthread_mutex_unlock(&qat_engine_mutex);
                 qat_engine_finish(e);
                 return 0;
             }
         }
+        instance_started[instNum] = 1;
     }
 
     if (0 == enable_external_polling && qat_is_event_driven()) {
@@ -1140,6 +1143,7 @@ static int qat_engine_finish(ENGINE *e)
 {
 
     int i;
+    int ret = 1;
     CpaStatus status = CPA_STATUS_SUCCESS;
     ENGINE_EPOLL_ST *epollst = NULL;
 
@@ -1150,24 +1154,26 @@ static int qat_engine_finish(ENGINE *e)
 
     if (qatInstanceHandles) {
         for (i = 0; i < numInstances; i++) {
-            status = cpaCyStopInstance(qatInstanceHandles[i]);
+            if(instance_started[i]) {
+                status = cpaCyStopInstance(qatInstanceHandles[i]);
 
-            if (CPA_STATUS_SUCCESS != status) {
-                WARN("cpaCyStopInstance failed, status=%d\n", status);
-                pthread_mutex_unlock(&qat_engine_mutex);
-                return 0;
-            }
-
-            if (0 == enable_external_polling && !qat_is_event_driven()) {
-                if (icp_polling_threads) {
-                    pthread_join(icp_polling_threads[i], NULL);
+                if (CPA_STATUS_SUCCESS != status) {
+                    WARN("cpaCyStopInstance failed, status=%d\n", status);
+                    ret = 0;
                 }
+
+                if (0 == enable_external_polling && !qat_is_event_driven()) {
+                    if (icp_polling_threads[i] != NULL) {
+                        pthread_join(icp_polling_threads[i], NULL);
+                    }
+                }
+                instance_started[i] = 0;
             }
         }
     }
 
     if (0 == enable_external_polling && qat_is_event_driven()) {
-        if (icp_polling_threads) {
+        if (icp_polling_threads[0] != NULL) {
             pthread_join(icp_polling_threads[0], NULL);
         }
     }
@@ -1186,6 +1192,7 @@ static int qat_engine_finish(ENGINE *e)
                               epollst->eng_fd,
                               &eng_epoll_events[i])) {
                     WARN("Error removing fd from epoll\n");
+                    ret = 0;
                 }
                 close(epollst->eng_fd);
             }
@@ -1217,7 +1224,7 @@ static int qat_engine_finish(ENGINE *e)
 
     CRYPTO_CLOSE_QAT_LOG();
 
-    return 1;
+    return ret;
 }
 
 /******************************************************************************
