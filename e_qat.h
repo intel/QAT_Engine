@@ -96,13 +96,8 @@ typedef struct qat_chained_ctx_t {
      * need to be the elements present in EVP_AES_HMAC_SHA1 defined in
      * crypto/evp/e_aes_cbc_hmac_sha1.c
      */
-    AES_KEY ks;
-    SHA_CTX head, tail, md;
+
     size_t payload_length;      /* AAD length in decrypt case */
-    union {
-        unsigned int tls_ver;
-        unsigned char tls_aad[16]; /* 13 used */
-    } aux;
 
     /* QAT Session Params */
     CpaInstanceHandle instanceHandle;
@@ -144,6 +139,32 @@ typedef struct qat_chained_ctx_t {
     unsigned int meta_size;
 
 } qat_chained_ctx;
+
+typedef struct qat_chained_sha1_ctx_t {
+    /*struct EVP_AES_HMAC_SHA1 IA_key */
+    AES_KEY ks;
+    SHA_CTX head, tail, md;
+    size_t payload_length;      /* AAD length in decrypt case */
+    union {
+        unsigned int tls_ver;
+        unsigned char tls_aad[16]; /* 13 used */
+    } aux;
+
+    qat_chained_ctx    qat_ctx;
+}qat_chained_sha1_ctx;
+
+typedef struct qat_chained_sha256_ctx_t {
+    /*EVP_AES_HMAC_SHA256 IA_key*/
+    AES_KEY ks;
+    SHA256_CTX head, tail, md;
+    size_t payload_length;      /* AAD length in decrypt case */
+    union {
+        unsigned int tls_ver;
+        unsigned char tls_aad[16]; /* 13 used */
+    } aux;
+
+    qat_chained_ctx    qat_ctx;
+}qat_chained_sha256_ctx;
 
 /* qat_buffer structure for partial hash */
 typedef struct qat_buffer_t {

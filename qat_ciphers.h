@@ -47,13 +47,15 @@
 # define QAT_CIPHERS_H
 
 # include <openssl/engine.h>
+# include <openssl/crypto.h>
 
 # define AES_BLOCK_SIZE      16
 # define AES_IV_LEN          16
 # define AES_KEY_SIZE_256    32
 # define AES_KEY_SIZE_128    16
 
-# define qat_chained_data(ctx) ((qat_chained_ctx *)EVP_CIPHER_CTX_get_cipher_data(ctx))
+# define qat_chained_data(ctx) (EVP_CIPHER_CTX_get_cipher_data(ctx))
+
 # define HMAC_KEY_SIZE       64
 # define TLS_VIRT_HDR_SIZE   13
 
@@ -77,5 +79,13 @@ void qat_create_ciphers(void);
 void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                       int nid);
-
+# ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+extern CRYPTO_ONCE qat_pkt_threshold_table_once;
+extern CRYPTO_THREAD_LOCAL qat_pkt_threshold_table_key;
+void qat_pkt_threshold_table_make_key(void );
+LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void);
+void qat_free_pkt_threshold_table(void *);
+int qat_pkt_threshold_table_set_threshold(int nid, int threshold);
+int qat_pkt_threshold_table_get_threshold(int nid);
+# endif
 #endif                          /* QAT_CIPHERS_H */

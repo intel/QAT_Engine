@@ -116,6 +116,8 @@
 /* OpenSSL Includes */
 #include <openssl/err.h>
 #include <openssl/async.h>
+#include <openssl/objects.h>
+#include <openssl/crypto.h>
 
 /* QAT includes */
 #ifdef USE_QAT_CONTIG_MEM
@@ -196,6 +198,18 @@ int qat_is_event_driven()
 {
     return enable_event_driven_polling;
 }
+
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+int setQatSmallPacketThreshold(unsigned char *cipher_name, int threshold)
+{
+    if(threshold < 0)
+        threshold = 0;
+    else if (threshold > 16384)
+        threshold = 16384;
+    return qat_pkt_threshold_table_set_threshold(OBJ_sn2nid(cipher_name),threshold);
+}
+
+#endif
 
 /******************************************************************************
 * function:
@@ -910,6 +924,7 @@ static int qat_engine_init(ENGINE *e)
 #define QAT_CMD_GET_NUM_CRYPTO_INSTANCES (ENGINE_CMD_BASE + 8)
 #define QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 9)
 #define QAT_CMD_SET_EPOLL_TIMEOUT (ENGINE_CMD_BASE + 10)
+#define QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD (ENGINE_CMD_BASE + 11)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -967,6 +982,11 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "SET_EPOLL_TIMEOUT",
      "Set epoll_wait timeout",
      ENGINE_CMD_FLAG_NUMERIC},
+    {
+     QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD,
+     "SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD",
+     "Set QAT small packet threshold",
+     ENGINE_CMD_FLAG_STRING},
     {0, NULL, NULL, 0}
 };
 
@@ -1122,6 +1142,30 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         *(int *)p = numInstances;
         break;
 
+    case QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        if(p) {
+            char *token;
+            while((token = strsep((char **)&p, ","))) {
+                char *name_token = strsep(&token,":");
+                char *value_token = strsep(&token,":");
+                if(name_token && value_token) {
+                    retVal = setQatSmallPacketThreshold(name_token, atoi(value_token));
+                } else {
+                    WARN("Invalid parameter!\n");
+                    retVal = 0;
+                }
+            }
+        } else {
+            WARN("Invalid parameter!\n");
+            retVal = 0;
+        }
+#else
+        WARN("QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD is not supported\n");
+        retVal = 0;
+#endif
+        break;
+
     default:
         WARN("CTRL command not implemented\n");
         retVal = 0;
@@ -1163,7 +1207,7 @@ static int qat_engine_finish(ENGINE *e)
                 }
 
                 if (0 == enable_external_polling && !qat_is_event_driven()) {
-                    if (icp_polling_threads[i] != NULL) {
+                    if ((pthread_t *) icp_polling_threads[i] != 0) {
                         pthread_join(icp_polling_threads[i], NULL);
                     }
                 }
@@ -1173,7 +1217,7 @@ static int qat_engine_finish(ENGINE *e)
     }
 
     if (0 == enable_external_polling && qat_is_event_driven()) {
-        if (icp_polling_threads[0] != NULL) {
+        if ((pthread_t *) icp_polling_threads[0] != 0) {
             pthread_join(icp_polling_threads[0], NULL);
         }
     }
@@ -1246,6 +1290,9 @@ static int qat_engine_destroy(ENGINE *e)
     qat_free_DH_methods();
     qat_free_DSA_methods();
     qat_free_RSA_methods();
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    CRYPTO_THREAD_cleanup_local(&qat_pkt_threshold_table_key);
+#endif
     ERR_unload_QAT_strings();
     return 1;
 }
@@ -1292,7 +1339,9 @@ static int bind_qat(ENGINE *e, const char *id)
      * as this function will be called by a single thread.
      */
     qat_create_ciphers();
-
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    CRYPTO_THREAD_run_once(&qat_pkt_threshold_table_once,qat_pkt_threshold_table_make_key);
+#endif
     DEBUG("%s: About to set mem functions\n", __func__);
 
     if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {

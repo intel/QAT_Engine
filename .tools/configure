@@ -661,6 +661,7 @@ enable_qat_mem_warnings
 enable_qat_mem_debug
 enable_qat_warnings
 enable_qat_debug
+enable_qat_small_pkt_offload
 disable_qat_prf
 disable_qat_dh
 disable_qat_dsa
@@ -793,6 +794,7 @@ enable_qat_ecdsa
 enable_qat_dsa
 enable_qat_dh
 enable_qat_prf
+enable_qat_small_pkt_offload
 enable_qat_debug
 enable_qat_warnings
 enable_qat_mem_debug
@@ -1476,6 +1478,8 @@ Optional Features:
   --disable-qat_dsa       Disable accelerated DSA offload
   --disable-qat_dh        Disable accelerated DH offload
   --disable-qat_prf       Disable accelerated PRF offload
+  --enable-qat_small_pkt_offload
+                          Enable accelerated small packet CIPHER offload
   --enable-qat_debug      Enable Engine Debug Messages
   --enable-qat_warnings   Enable Engine Warning Messages
   --enable-qat_mem_debug  Enable Memory Driver Debug Messages
@@ -11458,6 +11462,14 @@ fi
 
 
 
+# Check whether --enable-qat_small_pkt_offload was given.
+if test "${enable_qat_small_pkt_offload+set}" = set; then :
+  enableval=$enable_qat_small_pkt_offload;
+else
+  enable_qat_small_pkt_offload=unset
+fi
+
+
 
 # Parameter parsing for enabling debug/warnings
 
@@ -11719,6 +11731,17 @@ else
   disable_qat_prf="-DOPENSSL_DISABLE_QAT_PRF"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading PRF to Hardware" >&5
 $as_echo "$as_me: Not Offloading PRF to Hardware" >&6;}
+fi
+
+if test "x$enable_qat_small_pkt_offload" != "xunset"
+then
+  enable_qat_small_pkt_offload="-DOPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading small packet CIPHERS to Hardware" >&5
+$as_echo "$as_me: Offloading small packet CIPHERS to Hardware" >&6;}
+else
+  enable_qat_small_pkt_offload=""
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading small packet CIPHERS to Hardware" >&5
+$as_echo "$as_me: Not Offloading small packet CIPHERS to Hardware" >&6;}
 fi
 
 if test "x$enable_qat_debug" != "xunset"

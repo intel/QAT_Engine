@@ -64,6 +64,11 @@ AC_ARG_ENABLE(qat_prf,
               , disable_qat_prf=unset)
 AC_SUBST(disable_qat_prf)
 
+AC_ARG_ENABLE(qat_small_pkt_offload,
+              AS_HELP_STRING([--enable-qat_small_pkt_offload],
+                             [Enable accelerated small packet CIPHER offload]),
+              , enable_qat_small_pkt_offload=unset)
+AC_SUBST(enable_qat_small_pkt_offload)
 
 # Parameter parsing for enabling debug/warnings
 
@@ -259,6 +264,15 @@ then
 else
   disable_qat_prf="-DOPENSSL_DISABLE_QAT_PRF"
   AC_MSG_NOTICE([Not Offloading PRF to Hardware])
+fi
+
+if test "x$enable_qat_small_pkt_offload" != "xunset"
+then
+  enable_qat_small_pkt_offload="-DOPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS"
+  AC_MSG_NOTICE([Offloading small packet CIPHERS to Hardware])
+else
+  enable_qat_small_pkt_offload=""
+  AC_MSG_NOTICE([Not Offloading small packet CIPHERS to Hardware])
 fi
 
 if test "x$enable_qat_debug" != "xunset"

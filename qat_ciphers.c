@@ -69,6 +69,7 @@
 #include <openssl/sha.h>
 #include <openssl/tls1.h>
 #include <openssl/async.h>
+#include <openssl/lhash.h>
 #include <string.h>
 
 #ifdef OPENSSL_ENABLE_QAT_CIPHERS
@@ -108,7 +109,7 @@ const EVP_CIPHER *qat_aes_128_cbc_hmac_sha1(void)
             || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_128_cbc_hmac_sha1,
                                               qat_aes_cbc_hmac_sha_cleanup)
             || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_128_cbc_hmac_sha1,
-                                                  sizeof(qat_chained_ctx))
+                                                  sizeof(qat_chained_sha1_ctx))
             || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_128_cbc_hmac_sha1,
                                                     EVP_CIPH_FLAG_DEFAULT_ASN1 ?
                                                     NULL :
@@ -146,7 +147,7 @@ const EVP_CIPHER *qat_aes_256_cbc_hmac_sha1(void)
             || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_256_cbc_hmac_sha1,
                                               qat_aes_cbc_hmac_sha_cleanup)
             || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_256_cbc_hmac_sha1,
-                                                  sizeof(qat_chained_ctx))
+                                                  sizeof(qat_chained_sha1_ctx))
             || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_256_cbc_hmac_sha1,
                                                     EVP_CIPH_FLAG_DEFAULT_ASN1 ?
                                                     NULL :
@@ -184,7 +185,7 @@ const EVP_CIPHER *qat_aes_128_cbc_hmac_sha256(void)
             || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_128_cbc_hmac_sha256,
                                               qat_aes_cbc_hmac_sha_cleanup)
             || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_128_cbc_hmac_sha256,
-                                                  sizeof(qat_chained_ctx))
+                                                  sizeof(qat_chained_sha256_ctx))
             || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_128_cbc_hmac_sha256,
                                                     EVP_CIPH_FLAG_DEFAULT_ASN1 ?
                                                     NULL :
@@ -222,7 +223,7 @@ const EVP_CIPHER *qat_aes_256_cbc_hmac_sha256(void)
             || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_256_cbc_hmac_sha256,
                                               qat_aes_cbc_hmac_sha_cleanup)
             || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_256_cbc_hmac_sha256,
-                                                  sizeof(qat_chained_ctx))
+                                                  sizeof(qat_chained_sha256_ctx))
             || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_256_cbc_hmac_sha256,
                                                     EVP_CIPH_FLAG_DEFAULT_ASN1 ?
                                                     NULL :
@@ -288,6 +289,116 @@ void qat_free_ciphers(void) {}
 
 #endif
 
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+# define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
+
+CRYPTO_ONCE qat_pkt_threshold_table_once = CRYPTO_ONCE_STATIC_INIT;
+CRYPTO_THREAD_LOCAL qat_pkt_threshold_table_key;
+
+void qat_pkt_threshold_table_make_key(void)
+{
+    CRYPTO_THREAD_init_local(&qat_pkt_threshold_table_key, qat_free_pkt_threshold_table);
+}
+
+typedef struct cipher_threshold_table_s {
+    int nid;
+    int threshold;
+}PKT_THRESHOLD;
+
+DEFINE_LHASH_OF(PKT_THRESHOLD);
+
+PKT_THRESHOLD qat_pkt_threshold_table[] = {
+    {NID_aes_128_cbc_hmac_sha1,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_256_cbc_hmac_sha1,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_128_cbc_hmac_sha256,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_256_cbc_hmac_sha256,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT}
+};
+
+static int pkt_threshold_table_cmp(const PKT_THRESHOLD * a, const PKT_THRESHOLD * b)
+{
+    return (a->nid == b->nid)?0:1;
+}
+
+static unsigned long pkt_threshold_table_hash(const PKT_THRESHOLD * a)
+{
+    return (unsigned long)(a->nid);
+}
+
+LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void)
+{
+    int i;
+    LHASH_OF(PKT_THRESHOLD) *ret = NULL;
+    ret = lh_PKT_THRESHOLD_new(pkt_threshold_table_hash,pkt_threshold_table_cmp);
+    if(ret == NULL) {
+        return ret;
+    }
+    for(i = 0; i < sizeof(qat_pkt_threshold_table);i++) {
+        lh_PKT_THRESHOLD_insert(ret,&qat_pkt_threshold_table[i]);
+    }
+    return ret;
+}
+
+int qat_pkt_threshold_table_set_threshold(int nid, int threshold)
+{
+    PKT_THRESHOLD entry,*ret;
+    LHASH_OF(PKT_THRESHOLD) *tbl = NULL;
+    if(NID_undef == nid) {
+        WARN("Unsupported NID\n");
+        return 0;
+    }
+    if((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
+        tbl = qat_create_pkt_threshold_table();
+        if(tbl != NULL) {
+            CRYPTO_THREAD_set_local(&qat_pkt_threshold_table_key, tbl);
+        }
+        else {
+            WARN("Create packet threshold table fail.\n");
+            return 0;
+        }
+    }
+    entry.nid = nid;
+    ret = lh_PKT_THRESHOLD_retrieve(tbl,&entry);
+    if(ret == NULL) {
+        WARN("Threshold entry retrieve failed for the NID : %d\n",entry.nid);
+        return 0;
+    }
+    ret->threshold = threshold;
+    lh_PKT_THRESHOLD_insert(tbl, ret); 
+    return 1;
+}
+
+int qat_pkt_threshold_table_get_threshold(int nid)
+{
+    PKT_THRESHOLD entry,*ret;
+    LHASH_OF(PKT_THRESHOLD) *tbl = NULL;
+    if((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
+        tbl = qat_create_pkt_threshold_table();
+        if(tbl != NULL) { 
+            CRYPTO_THREAD_set_local(&qat_pkt_threshold_table_key, tbl);
+        }
+        else {
+            WARN("Create packet threshold table fail.\n");
+            return 0;
+        }
+    }
+    entry.nid = nid;
+    ret = lh_PKT_THRESHOLD_retrieve(tbl,&entry);
+    if(ret == NULL) {
+        WARN("Threshold entry retrieve failed for the NID : %d\n",entry.nid);
+        return 0;
+    }
+    return ret->threshold;
+}
+
+void qat_free_pkt_threshold_table(void *thread_key)
+{
+    LHASH_OF(PKT_THRESHOLD) *tbl = (LHASH_OF(PKT_THRESHOLD) *) thread_key;
+    if((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key))) {
+        lh_PKT_THRESHOLD_free(tbl);
+    }
+}
+
+#endif
 /******************************************************************************
 * function:
 *         qat_ciphers(ENGINE *e,
@@ -546,7 +657,6 @@ int qat_aes_cbc_hmac_sha_init(EVP_CIPHER_CTX *ctx,
                                       const unsigned char *inkey,
                                       const unsigned char *iv, int enc)
 {
-
     /* Initialise a QAT session  and set the cipher keys */
     qat_chained_ctx *qat_ctx = NULL;
 
@@ -554,8 +664,48 @@ int qat_aes_cbc_hmac_sha_init(EVP_CIPHER_CTX *ctx,
         WARN("[%s] ctx or inkey is NULL.\n", __func__);
         return 0;
     }
-
-    qat_ctx = qat_chained_data(ctx);
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    const EVP_CIPHER *ia_cipher = NULL;
+#endif
+    int nid = EVP_CIPHER_CTX_nid(ctx);
+    switch (nid) {
+    case NID_aes_128_cbc_hmac_sha1:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_128_cbc_hmac_sha1();
+#endif
+        qat_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_256_cbc_hmac_sha1:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_256_cbc_hmac_sha1();
+#endif
+        qat_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_128_cbc_hmac_sha256:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_128_cbc_hmac_sha256();
+#endif
+        qat_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_256_cbc_hmac_sha256:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_256_cbc_hmac_sha256();
+#endif
+        qat_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    default:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = NULL;
+#endif
+        return 0;
+    }
+    if (iv)
+        memcpy((unsigned char *)EVP_CIPHER_CTX_original_iv(ctx), iv, EVP_CIPHER_CTX_iv_length(ctx));
+    memcpy(EVP_CIPHER_CTX_iv_noconst(ctx), EVP_CIPHER_CTX_original_iv(ctx), EVP_CIPHER_CTX_iv_length(ctx));
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    if(EVP_CIPHER_meth_get_init(ia_cipher)(ctx, inkey, iv, enc) == 0)
+        goto end;
+#endif
     if (qat_ctx == NULL) {
         WARN("[%s] --- qat_ctx is NULL.\n", __func__);
         return 0;
@@ -652,9 +802,51 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
         WARN("[%s] --- ctx parameter is NULL.\n", __func__);
         return -1;
     }
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    const EVP_CIPHER *ia_cipher = NULL;
+    size_t *payload_len_ptr = NULL;
+#endif
+    int nid = EVP_CIPHER_CTX_nid(ctx);
+    switch (nid) {
+    case NID_aes_128_cbc_hmac_sha1:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_128_cbc_hmac_sha1();
+        payload_len_ptr = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->payload_length);
+#endif
+        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_256_cbc_hmac_sha1:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_256_cbc_hmac_sha1();
+        payload_len_ptr = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->payload_length);
+#endif
+        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_128_cbc_hmac_sha256:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_128_cbc_hmac_sha256();
+        payload_len_ptr = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->payload_length);
+#endif
+        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_256_cbc_hmac_sha256:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_256_cbc_hmac_sha256();
+        payload_len_ptr = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->payload_length);
+#endif
+        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    default:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = NULL;
+#endif
+        return 0;
+    }
 
-    evp_ctx = qat_chained_data(ctx);
-
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    EVP_CIPHER_meth_get_ctrl(ia_cipher)(ctx, type, arg, ptr);
+#endif
+    
     if (evp_ctx == NULL) {
         WARN("[%s] --- evp_ctx is NULL.\n", __func__);
         return -1;
@@ -711,14 +903,19 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
          * the send/encrypt direction
          */
         p = ptr;
-        len =
-            (p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] << QAT_BYTE_SHIFT |
-             p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET]);
 
         if (arg < TLS_VIRT_HDR_SIZE) {
             retVal = -1;
             break;
         }
+
+#ifdef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        len =
+            (p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] << QAT_BYTE_SHIFT |
+             p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET]);
+#else
+        len = *(unsigned int *)payload_len_ptr;
+#endif
 
         evp_ctx->tls_version =
             (p[arg - QAT_TLS_VERSION_MSB_OFFSET] << QAT_BYTE_SHIFT |
@@ -726,6 +923,7 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
 
         if (EVP_CIPHER_CTX_encrypting(ctx)) {
             evp_ctx->payload_length = len;
+#ifdef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
             if (evp_ctx->tls_version >= TLS1_1_VERSION) {
                 len -= AES_BLOCK_SIZE;
                 /* TODO: Why does this code reduce the len in the
@@ -734,7 +932,7 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                     len >> QAT_BYTE_SHIFT;
                 p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET] = len;
             }
-
+#endif
             if (NULL == evp_ctx->tls_virt_hdr) {
                 WARN("Unable to allocate memory for mac preamble in qat/n");
                 return -1;
@@ -803,19 +1001,24 @@ int qat_aes_cbc_hmac_sha_cleanup(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
-    evp_ctx = qat_chained_data(ctx);
+    int nid = 0;
+    nid = EVP_CIPHER_CTX_nid(ctx);
+    switch (nid) {
+    case NID_aes_128_cbc_hmac_sha1:
+    case NID_aes_256_cbc_hmac_sha1:
+        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_128_cbc_hmac_sha256:
+    case NID_aes_256_cbc_hmac_sha256:
+        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    default:
+        return 0;
+    }
 
     if (evp_ctx == NULL) {
         WARN("[%s] evp_ctx parameter is NULL.\n", __func__);
         return 0;
-    }
-
-    if (!(evp_ctx->init)) {
-        /*
-         * It is valid to call cleanup even if the context has not been
-         * initialised.
-         */
-        return retVal;
     }
 
     sessSetup = evp_ctx->session_data;
@@ -901,7 +1104,20 @@ static int qat_aes_sha_session_init(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
-    evp_ctx = qat_chained_data(ctx);
+    int nid = 0;
+    nid = EVP_CIPHER_CTX_nid(ctx);
+    switch (nid) {
+    case NID_aes_128_cbc_hmac_sha1:
+    case NID_aes_256_cbc_hmac_sha1:
+        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_128_cbc_hmac_sha256:
+    case NID_aes_256_cbc_hmac_sha256:
+        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    default:
+        return 0;
+    }
 
     if (evp_ctx == NULL) {
         WARN("[%s] --- evp_ctx is NULL.\n", __func__);
@@ -953,8 +1169,6 @@ static int qat_aes_sha_session_init(EVP_CIPHER_CTX *ctx)
         qaeCryptoMemFree(pSessionCtx);
         return 0;
     }
-
-    evp_ctx->qat_ctx = pSessionCtx;
 
     evp_ctx->srcBufferList.numBuffers = 2;
     evp_ctx->srcBufferList.pBuffers = (evp_ctx->srcFlatBuffer);
@@ -1020,6 +1234,7 @@ static int qat_aes_sha_session_init(EVP_CIPHER_CTX *ctx)
      * Create the OpData structure to remove this processing from the data
      * path
      */
+    evp_ctx->qat_ctx = pSessionCtx;
     evp_ctx->OpData.sessionCtx = evp_ctx->qat_ctx;
     evp_ctx->OpData.packetType = CPA_CY_SYM_PACKET_TYPE_FULL;
 
@@ -1080,7 +1295,49 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return 0;
     }
 
-    evp_ctx = qat_chained_data(ctx);
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    const EVP_CIPHER *ia_cipher = NULL;
+#endif
+
+    int nid = EVP_CIPHER_CTX_nid(ctx);
+    switch (nid) {
+    case NID_aes_128_cbc_hmac_sha1:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_128_cbc_hmac_sha1();
+#endif
+        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_256_cbc_hmac_sha1:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_256_cbc_hmac_sha1();
+#endif
+        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_128_cbc_hmac_sha256:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_128_cbc_hmac_sha256();
+#endif
+        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    case NID_aes_256_cbc_hmac_sha256:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = EVP_aes_256_cbc_hmac_sha256();
+#endif
+        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
+        break;
+    default:
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        ia_cipher = NULL;
+#endif
+        return 0;
+    }
+
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    if(len <= qat_pkt_threshold_table_get_threshold(nid)) {
+        retVal = EVP_CIPHER_meth_get_do_cipher(ia_cipher)(ctx, out, in, len);
+        return retVal;
+    }
+#endif
 
     if (evp_ctx == NULL) {
         WARN("[%s] --- evp_ctx is NULL.\n", __func__);

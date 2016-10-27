@@ -595,6 +595,30 @@ Description:
     should be passed in as Param 3. Setting the value to -1 results in infinite
     retries. The default is 5 and the max value is 100,000. This message can be
     sent at any time after the engine is created.
+
+Message String: SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD
+Param 3:        0
+Param 4:        string of cipher algorithm name and threshold value
+Description:
+    This message is used to set the threshold that determines the size
+    crypto packets need to be before they are offloaded to the acceleration
+    device. Very small crypto packets are not efficient to offload to the
+    accelerator as it will take longer to transfer the data to and from the
+    accelerator than it will to encrypt/decrypt using the main CPU.
+    Each EVP_CIPHER supported in Intel&reg; Quickassist Technology
+    OpenSSL\* engine can set the threshold value
+    independently according to the algorithm name as below:
+        AES-128-CBC-HMAC-SHA1
+        AES-256-CBC-HMAC-SHA1
+        AES-128-CBC-HMAC-SHA256
+        AES-256-CBC-HMAC-SHA256
+    The input format should be a string like this in one line:
+        AES-128-CBC-HMAC-SHA1:4096,AES-256-CBC-HMAC-SHA1:8192
+    Using a separator ":" between cipher name and threshold value.
+    Using a separator "," between different cipher configuration
+    The default threshold value is 2048 bytes, the minimum is 0 bytes and the
+    maximum is 16,384.
+
 ```
 
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options
@@ -700,6 +724,10 @@ Optional
 --disable-qat_prf/--enable-qat_prf
     Disable/Enable Intel&reg; Quickassist Technology
     PRF offload (enabled by default)
+
+--disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
+    Enable Intel&reg; Quickassist Technology to offload small
+    packet cipher operations (disabled by default)
 
 --disable-qat_debug/--enable-qat_debug
     Disable/Enable debug output to aid debugging. Warning: This
