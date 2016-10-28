@@ -1207,7 +1207,7 @@ static int qat_engine_finish(ENGINE *e)
                 }
 
                 if (0 == enable_external_polling && !qat_is_event_driven()) {
-                    if ((pthread_t *) icp_polling_threads[i] != 0) {
+                    if ((pthread_t *) icp_polling_threads[i] != NULL) {
                         pthread_join(icp_polling_threads[i], NULL);
                     }
                 }
@@ -1217,7 +1217,7 @@ static int qat_engine_finish(ENGINE *e)
     }
 
     if (0 == enable_external_polling && qat_is_event_driven()) {
-        if ((pthread_t *) icp_polling_threads[0] != 0) {
+        if ((pthread_t *) icp_polling_threads[0] != NULL) {
             pthread_join(icp_polling_threads[0], NULL);
         }
     }

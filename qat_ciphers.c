@@ -327,12 +327,13 @@ static unsigned long pkt_threshold_table_hash(const PKT_THRESHOLD * a)
 LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void)
 {
     int i;
+    int tbl_size = (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
     LHASH_OF(PKT_THRESHOLD) *ret = NULL;
     ret = lh_PKT_THRESHOLD_new(pkt_threshold_table_hash,pkt_threshold_table_cmp);
     if(ret == NULL) {
         return ret;
     }
-    for(i = 0; i < sizeof(qat_pkt_threshold_table);i++) {
+    for(i = 0; i < tbl_size; i++) {
         lh_PKT_THRESHOLD_insert(ret,&qat_pkt_threshold_table[i]);
     }
     return ret;
