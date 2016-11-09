@@ -496,9 +496,9 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
     }
 
     cpa_prv_key =
-        (CpaCyRsaPrivateKey *) OPENSSL_malloc(sizeof(CpaCyRsaPrivateKey));
+        (CpaCyRsaPrivateKey *) OPENSSL_zalloc(sizeof(CpaCyRsaPrivateKey));
     if (NULL == cpa_prv_key) {
-        WARN("[%s] --- Private Key malloc failed!\n", __func__);
+        WARN("[%s] --- Private Key zalloc failed!\n", __func__);
         QATerr(QAT_F_BUILD_DECRYPT_OP_BUF, ERR_R_MALLOC_FAILURE);
         return 0;
     }
@@ -509,9 +509,9 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
 
     /* output and input data MUST allocate memory for sign process */
     /* memory allocation for DecOpdata[IN] */
-    *dec_op_data = OPENSSL_malloc(sizeof(CpaCyRsaDecryptOpData));
+    *dec_op_data = OPENSSL_zalloc(sizeof(CpaCyRsaDecryptOpData));
     if (NULL == *dec_op_data) {
-        WARN("[%s] --- OpData malloc failed!\n", __func__);
+        WARN("[%s] --- OpData zalloc failed!\n", __func__);
         QATerr(QAT_F_BUILD_DECRYPT_OP_BUF, ERR_R_MALLOC_FAILURE);
         OPENSSL_free(cpa_prv_key);
         return 0;
@@ -728,9 +728,9 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    cpa_pub_key = OPENSSL_malloc(sizeof(CpaCyRsaPublicKey));
+    cpa_pub_key = OPENSSL_zalloc(sizeof(CpaCyRsaPublicKey));
     if (NULL == cpa_pub_key) {
-        WARN("[%s] --- Public Key malloc failed!\n", __func__);
+        WARN("[%s] --- Public Key zalloc failed!\n", __func__);
         QATerr(QAT_F_BUILD_ENCRYPT_OP, ERR_R_MALLOC_FAILURE);
         return 0;
     }
@@ -739,9 +739,9 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
 
     /* Output and input data MUST allocate memory for RSA verify process */
     /* Memory allocation for EncOpData[IN] */
-    *enc_op_data = OPENSSL_malloc(sizeof(CpaCyRsaEncryptOpData));
+    *enc_op_data = OPENSSL_zalloc(sizeof(CpaCyRsaEncryptOpData));
     if (NULL == *enc_op_data) {
-        WARN("[%s] --- OpData malloc failed!\n", __func__);
+        WARN("[%s] --- OpData zalloc failed!\n", __func__);
         QATerr(QAT_F_BUILD_ENCRYPT_OP, ERR_R_MALLOC_FAILURE);
         OPENSSL_free(cpa_pub_key);
         return 0;
