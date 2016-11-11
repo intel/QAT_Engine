@@ -1262,8 +1262,6 @@ static int qat_engine_finish(ENGINE *e)
     enable_instance_for_thread = 0;
     qatPerformOpRetries = 0;
     currInst = 0;
-    qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
-    qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
     pthread_mutex_unlock(&qat_engine_mutex);
 
     CRYPTO_CLOSE_QAT_LOG();
