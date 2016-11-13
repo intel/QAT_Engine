@@ -1456,7 +1456,7 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         
         key_len = key_len * 8;  /* convert to bits */
         memmove(in_blk, (in + (len - temp_length)), temp_length);
-        memmove(ivec, (in + (len - (AES_BLOCK_SIZE + AES_BLOCK_SIZE))),
+        memmove(ivec, (in + (len - (temp_length + AES_BLOCK_SIZE))),
                AES_BLOCK_SIZE);
 
         /* Dump input parameters */
