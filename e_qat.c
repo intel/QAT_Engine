@@ -546,6 +546,41 @@ int qat_wake_job(ASYNC_JOB *job, int notificationNo)
 
 /******************************************************************************
 * function:
+*         int qat_create_thread(pthread_t *pThreadId,
+*                               const pthread_attr_t *attr,
+*                               void *(*start_func) (void *), void *pArg)
+*
+* @param pThreadId  [OUT] - Pointer to Thread ID
+* @param start_func [IN]  - Pointer to Thread Start routine
+* @param attr       [IN]  - Pointer to Thread attributes
+* @param pArg       [IN]  - Arguments to start routine
+*
+* description:
+*   Wrapper function for pthread_create
+******************************************************************************/
+int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
+                      void *(*start_func) (void *), void *pArg)
+{
+    return pthread_create(pThreadId, attr, start_func,(void *)pArg);
+}
+
+/******************************************************************************
+* function:
+*         int qat_join_thread(pthread_t threadId, void **retval)
+*
+* @param pThreadId  [IN ] - Thread ID of the created thread
+* @param retval     [OUT] - Pointer that contains thread's exit status
+*
+* description:
+*   Wrapper function for pthread_create
+******************************************************************************/
+int qat_join_thread(pthread_t threadId, void **retval)
+{
+    return pthread_join(threadId, retval);
+}
+
+/******************************************************************************
+* function:
 *         void *sendPoll_ns(void *ih)
 *
 * @param ih [IN] - Instance handle
@@ -809,11 +844,15 @@ static int qat_engine_init(ENGINE *e)
             int flags;
             int engine_fd;
 
+            icp_polling_threads =
+                (pthread_t *) OPENSSL_zalloc(sizeof(pthread_t));
+
             /*   Add the file descriptor to an epoll event list */
             internal_efd = epoll_create1(0);
             if (-1 == internal_efd) {
                 WARN("Error creating epoll fd\n");
                 pthread_mutex_unlock(&qat_engine_mutex);
+                qat_engine_finish(e);
                 return 0;
             }
 
@@ -846,8 +885,6 @@ static int qat_engine_init(ENGINE *e)
                     return 0;
                 }
             }
-            icp_polling_threads =
-                (pthread_t *) OPENSSL_zalloc(sizeof(pthread_t));
         } else {
             icp_polling_threads =
                 (pthread_t *) OPENSSL_zalloc(((int)numInstances) *
@@ -884,9 +921,14 @@ static int qat_engine_init(ENGINE *e)
 
         if (0 == enable_external_polling && !qat_is_event_driven()) {
             /* Create the polling threads */
-            pthread_create(&icp_polling_threads[instNum], NULL, sendPoll_ns,
-                           qatInstanceHandles[instNum]);
-
+            if (qat_create_thread(&icp_polling_threads[instNum], NULL,
+                                  sendPoll_ns, qatInstanceHandles[instNum])) {
+                WARN("Polling thread create failed\n");
+                instance_started[instNum] = 1;
+                pthread_mutex_unlock(&qat_engine_mutex);
+                qat_engine_finish(e);
+                return 0;
+            }
             if (qat_adjust_thread_affinity(icp_polling_threads[instNum]) == 0) {
                 instance_started[instNum] = 1;
                 pthread_mutex_unlock(&qat_engine_mutex);
@@ -898,8 +940,12 @@ static int qat_engine_init(ENGINE *e)
     }
 
     if (0 == enable_external_polling && qat_is_event_driven()) {
-        pthread_create(&icp_polling_threads[0], NULL, eventPoll_ns, NULL);
-
+        if (qat_create_thread(&icp_polling_threads[0], NULL, eventPoll_ns, NULL)) {
+            WARN("Epoll thread create failed\n");
+            pthread_mutex_unlock(&qat_engine_mutex);
+            qat_engine_finish(e);
+            return 0;
+        }
         if (qat_adjust_thread_affinity(icp_polling_threads[0]) == 0) {
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
@@ -1208,7 +1254,10 @@ static int qat_engine_finish(ENGINE *e)
 
                 if (0 == enable_external_polling && !qat_is_event_driven()) {
                     if ((pthread_t *) icp_polling_threads[i] != NULL) {
-                        pthread_join(icp_polling_threads[i], NULL);
+                        if (qat_join_thread(icp_polling_threads[i], NULL)) {
+                            WARN("Polling thread join failed\n");
+                            ret = 0;
+                        }
                     }
                 }
                 instance_started[i] = 0;
@@ -1218,7 +1267,10 @@ static int qat_engine_finish(ENGINE *e)
 
     if (0 == enable_external_polling && qat_is_event_driven()) {
         if ((pthread_t *) icp_polling_threads[0] != NULL) {
-            pthread_join(icp_polling_threads[0], NULL);
+            if (qat_join_thread(icp_polling_threads[0], NULL)) {
+                WARN("Epoll thread join failed\n");
+                ret = 0;
+            }
         }
     }
 
