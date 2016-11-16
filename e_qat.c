@@ -344,6 +344,43 @@ void initOpDone(struct op_done *opDone)
 
 /******************************************************************************
 * function:
+*         initOpDonePipe(struct op_done_pipe *opdpipe, unsigned int npipes)
+*
+* @param opd    [IN] - pointer to op_done_pipe callback structure
+* @param npipes [IN] - number of pipes in the pipeline
+*
+* description:
+*   Initialise the QAT chained operation "done" callback structure.
+*   Setup async event notification if required. The function returns
+*   1 for success and 0 for failure.
+*
+******************************************************************************/
+int initOpDonePipe(struct op_done_pipe *opdpipe, unsigned int npipes)
+{
+    if (opdpipe == NULL)
+        return 0;
+
+    opdpipe->num_pipes = npipes;
+    opdpipe->num_submitted = 0;
+    opdpipe->num_processed = 0;
+
+    opdpipe->opDone.flag = 0;
+    opdpipe->opDone.verifyResult = CPA_TRUE;
+    opdpipe->opDone.job = ASYNC_get_current_job();
+
+    /* Setup async notification if using async jobs. */
+    if (opdpipe->opDone.job != NULL &&
+        (qat_setup_async_event_notification(0) == 0)) {
+        WARN("[%s]Failure to setup async event notifications\n", __func__);
+        cleanupOpDonePipe(opdpipe);
+        return 0;
+    }
+
+    return 1;
+}
+
+/******************************************************************************
+* function:
 *         cleanupOpDone(struct op_done *opDone)
 *
 * @param opDone [IN] - pointer to op done callback structure
@@ -366,6 +403,28 @@ void cleanupOpDone(struct op_done *opDone)
     if (opDone->job) {
         opDone->job = NULL;
     }
+}
+
+/******************************************************************************
+* function:
+*         cleanupOpDonePipe(struct op_done_pipe *opDone)
+*
+* @param opDone [IN] - pointer to op_done_pipe callback structure
+*
+* description:
+*   Cleanup the QAT chained operation "done" callback structure.
+*
+******************************************************************************/
+void cleanupOpDonePipe(struct op_done_pipe *opdone)
+{
+    if (opdone == NULL)
+        return;
+
+    opdone->num_pipes = 0;
+    opdone->num_submitted = 0;
+    opdone->num_processed = 0;
+    if (opdone->opDone.job)
+        opdone->opDone.job = NULL;
 }
 
 /******************************************************************************

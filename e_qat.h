@@ -58,6 +58,7 @@
 
 # include "qat_ciphers.h"
 # include <openssl/async.h>
+# include <openssl/ssl.h>
 
 # define QAT_RETRY_BACKOFF_MODULO_DIVISOR 8
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
@@ -66,9 +67,35 @@
 #  define ERR_R_RETRY 57
 # endif
 
+#define QAT_QMEMFREE_BUFF(b) \
+            do { \
+                if (b != NULL) { \
+                    qaeCryptoMemFree(b); \
+                    b = NULL; \
+                } \
+            } while(0)
+
+#define QAT_CLEANSE_FREE_BUFF(b,len) \
+            do { \
+                if (b != NULL) { \
+                    OPENSSL_cleanse(b, len); \
+                    OPENSSL_free(b); \
+                    b = NULL; \
+                } \
+            } while(0)
+
+#define QAT_CLEANSE_QMEMFREE_BUFF(b,len) \
+            do { \
+                if (b != NULL) { \
+                    OPENSSL_cleanse(b, len); \
+                    qaeCryptoMemFree(b); \
+                    b = NULL; \
+                } \
+            } while(0)
 
 #define QAT_CLEANSE_FLATBUFF(b) \
             OPENSSL_cleanse((b).pData, (b).dataLenInBytes)
+
 #define QAT_QMEM_FREE_FLATBUFF(b) \
             qaeCryptoMemFree((b).pData)
 
@@ -79,92 +106,63 @@
             } while(0)
 
 #define QAT_CHK_CLNSE_QMFREE_FLATBUFF(b) \
-        do { \
-            if ((b).pData != NULL) \
-                QAT_CLEANSE_QMEMFREE_FLATBUFF(b); \
-        } while(0)
+            do { \
+                if ((b).pData != NULL) \
+                    QAT_CLEANSE_QMEMFREE_FLATBUFF(b); \
+            } while(0)
 
 #define QAT_CHK_QMFREE_FLATBUFF(b) \
-        do { \
-            if ((b).pData != NULL) \
-                QAT_QMEM_FREE_FLATBUFF(b); \
-        } while(0)
+            do { \
+                if ((b).pData != NULL) \
+                    QAT_QMEM_FREE_FLATBUFF(b); \
+            } while(0)
+
+/* QAT max supported pipelines may be different from
+ * SSL max supported ones.
+ */
+#define QAT_MAX_PIPELINES   SSL_MAX_PIPELINES
+
+/* These are QAT API operation parameters */
+typedef struct qat_op_params_t {
+    CpaCySymOpData op_data;
+    CpaBufferList src_sgl;
+    CpaBufferList dst_sgl;
+    CpaFlatBuffer src_fbuf[2];
+    CpaFlatBuffer dst_fbuf[2];
+} qat_op_params;
 
 typedef struct qat_chained_ctx_t {
-    /*
-     * While decryption is done in SW the first elements of this structure
-     * need to be the elements present in EVP_AES_HMAC_SHA1 defined in
-     * crypto/evp/e_aes_cbc_hmac_sha1.c
-     */
-
-    size_t payload_length;      /* AAD length in decrypt case */
-
+    /* Crypto */
+    unsigned char *hmac_key;
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    /* Pointer for context data that will be used by
+     * Small packet offload feature. */
+    void *sw_ctx_data;
+#endif
     /* QAT Session Params */
     CpaInstanceHandle instanceHandle;
     CpaCySymSessionSetupData *session_data;
-    CpaCySymSessionCtx qat_ctx;
-    int initParamsSet;
-    int initHmacKeySet;
-    int init;
+    CpaCySymSessionCtx session_ctx;
+    int init_flags;
 
-    /* QAT Op Params */
-    CpaCySymOpData OpData;
-    CpaBufferList srcBufferList;
-    CpaBufferList dstBufferList;
-    CpaFlatBuffer srcFlatBuffer[2];
-    CpaFlatBuffer dstFlatBuffer[2];
+    unsigned int aad_ctr;
+    char aad[QAT_MAX_PIPELINES][TLS_VIRT_HDR_SIZE];
 
-    /* Crypto */
-    unsigned char *hmac_key;
-    Cpa8U *pIv;
-    union {
-        SHA_CTX sha1_key_wrap;
-        SHA256_CTX sha256_key_wrap;
-    }sha_key_wrap;
-    /* TLS SSL proto */
-    /*
-     * Reintroduce when QAT decryption added size_t payload_length;
+    /* QAT Operation Params are required per pipe in the pipeline.
+     * Hence this is a pointer to a dynamically allocated array with
+     * length equal to QAT_MAX_PIPELINES if pipes are used else 1.
      */
-    Cpa8U *tls_virt_hdr;
-    Cpa8U tls_hdr[TLS_VIRT_HDR_SIZE];
-    unsigned int tls_version;
+    qat_op_params *qop;
+    unsigned int qop_len;
 
-    int (*cipher_cb) (unsigned char *out, int outl, void *cb_data,
-                      int status);
-
-    /* Request tracking stats */
-    Cpa64U noRequests;
-    Cpa64U noResponses;
-
-    unsigned int meta_size;
-
+    /* Pipeline related Data */
+    unsigned char **p_in;
+    unsigned char **p_out;
+    size_t  *p_inlen;
+    unsigned int numpipes;
+    unsigned int npipes_last_used;
+    unsigned long total_op;
 } qat_chained_ctx;
-
-typedef struct qat_chained_sha1_ctx_t {
-    /*struct EVP_AES_HMAC_SHA1 IA_key */
-    AES_KEY ks;
-    SHA_CTX head, tail, md;
-    size_t payload_length;      /* AAD length in decrypt case */
-    union {
-        unsigned int tls_ver;
-        unsigned char tls_aad[16]; /* 13 used */
-    } aux;
-
-    qat_chained_ctx    qat_ctx;
-}qat_chained_sha1_ctx;
-
-typedef struct qat_chained_sha256_ctx_t {
-    /*EVP_AES_HMAC_SHA256 IA_key*/
-    AES_KEY ks;
-    SHA256_CTX head, tail, md;
-    size_t payload_length;      /* AAD length in decrypt case */
-    union {
-        unsigned int tls_ver;
-        unsigned char tls_aad[16]; /* 13 used */
-    } aux;
-
-    qat_chained_ctx    qat_ctx;
-}qat_chained_sha256_ctx;
 
 /* qat_buffer structure for partial hash */
 typedef struct qat_buffer_t {
@@ -218,9 +216,24 @@ struct op_done {
     ASYNC_JOB *job;
 };
 
+/* Use this variant of op_done to track QAT chained cipher
+ * operation completion supporting pipelines.
+ */
+struct op_done_pipe {
+    /* Keep this as first member of the structure.
+     * to allow inter-changeability by casting pointers.
+     */
+    struct op_done opDone;
+    unsigned int num_pipes;
+    unsigned int num_submitted;
+    unsigned int num_processed;
+};
+
 CpaInstanceHandle get_next_inst(void);
 void initOpDone(struct op_done *opDone);
 void cleanupOpDone(struct op_done *opDone);
+int  initOpDonePipe(struct op_done_pipe *opDone, unsigned int npipes);
+void cleanupOpDonePipe(struct op_done_pipe *opDone);
 void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
                            const CpaCySymOp operationType, void *pOpData,
                            CpaBufferList * pDstBuffer,

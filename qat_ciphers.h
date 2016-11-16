@@ -48,42 +48,76 @@
 
 # include <openssl/engine.h>
 # include <openssl/crypto.h>
+# include <openssl/aes.h>
 
-# define AES_BLOCK_SIZE      16
-# define AES_IV_LEN          16
-# define AES_KEY_SIZE_256    32
-# define AES_KEY_SIZE_128    16
+# define AES_IV_LEN                 16
+# define AES_KEY_SIZE_256           32
+# define AES_KEY_SIZE_128           16
+# define QAT_BYTE_SHIFT             8
+# define HMAC_KEY_SIZE              64
+# define TLS_VIRT_HDR_SIZE          13
+# define TLS_MAX_PADDING_LENGTH     255
 
-# define qat_chained_data(ctx) (EVP_CIPHER_CTX_get_cipher_data(ctx))
+/* Use these flags to mark stages in the
+ * initialisation sequence for pipes.
+ */
+# define INIT_SEQ_QAT_CTX_INIT      0x0001
+# define INIT_SEQ_HMAC_KEY_SET      0x0002
+# define INIT_SEQ_QAT_SESSION_INIT  0x0004
+# define INIT_SEQ_TLS_HDR_SET       0x0008
+# define INIT_SEQ_PPL_IBUF_SET      0x0100
+# define INIT_SEQ_PPL_OBUF_SET      0x0200
+# define INIT_SEQ_PPL_BUF_LEN_SET   0x0400
+# define INIT_SEQ_PPL_AADCTR_SET    0x0800
+# define INIT_SEQ_PPL_USED          0x1000
 
-# define HMAC_KEY_SIZE       64
-# define TLS_VIRT_HDR_SIZE   13
-# define TLS_MAX_PADDING_LENGTH 255
+# define qat_chained_data(ctx) \
+    ((qat_chained_ctx *)EVP_CIPHER_CTX_get_cipher_data(ctx))
 
-# define NO_PAYLOAD_LENGTH_SPECIFIED ((size_t)-1)
+# define QAT_COMMON_CIPHER_FLAG     EVP_CIPH_FLAG_DEFAULT_ASN1
+# define QAT_CBC_FLAGS              (QAT_COMMON_CIPHER_FLAG | \
+                                     EVP_CIPH_CBC_MODE | \
+                                     EVP_CIPH_CUSTOM_IV)
+# define QAT_CHAINED_FLAG           (QAT_CBC_FLAGS | \
+                                     EVP_CIPH_FLAG_AEAD_CIPHER | \
+                                     EVP_CIPH_FLAG_PIPELINE)
 
-/* How long to wait for inflight messages before cleanup */
-# define QAT_CIPHER_CLEANUP_RETRY_COUNT 10
-# define QAT_CIPHER_CLEANUP_WAIT_TIME_NS 1000000
+# define INIT_SEQ_PPL_INIT_COMPLETE  (INIT_SEQ_PPL_IBUF_SET | \
+                                      INIT_SEQ_PPL_OBUF_SET | \
+                                      INIT_SEQ_PPL_AADCTR_SET | \
+                                      INIT_SEQ_PPL_BUF_LEN_SET)
 
-# define qat_common_cipher_flags EVP_CIPH_FLAG_DEFAULT_ASN1
-# define qat_common_cbc_flags    (qat_common_cipher_flags | EVP_CIPH_CBC_MODE \
-                                | EVP_CIPH_CUSTOM_IV)
+# define INIT_SEQ_CLEAR_ALL_FLAGS(qctx)  ((qctx)->init_flags = 0)
+# define INIT_SEQ_SET_FLAG(qctx, f)      ((qctx)->init_flags |= (f))
+# define INIT_SEQ_CLEAR_FLAG(qctx, f)    ((qctx)->init_flags &= ~(f))
+# define INIT_SEQ_IS_FLAG_SET(qctx,f)    ((qctx)->init_flags & (f))
 
-# define QAT_TLS_PAYLOADLENGTH_MSB_OFFSET 2
-# define QAT_TLS_PAYLOADLENGTH_LSB_OFFSET 1
-# define QAT_TLS_VERSION_MSB_OFFSET       4
-# define QAT_TLS_VERSION_LSB_OFFSET       3
-# define QAT_BYTE_SHIFT                   8
+# define TLS_HDR_SET(qctx)    ((qctx)->init_flags & INIT_SEQ_TLS_HDR_SET)
+
+# define PIPELINE_SET(qctx) \
+                     (((qctx)->init_flags & INIT_SEQ_PPL_INIT_COMPLETE) \
+                       == INIT_SEQ_PPL_INIT_COMPLETE)
+# define PIPELINE_NOT_SET(qctx) \
+                         (((qctx)->init_flags & INIT_SEQ_PPL_INIT_COMPLETE) \
+                           == 0)
+# define PIPELINE_USED(qctx)  ((qctx)->init_flags & INIT_SEQ_PPL_USED)
+# define PIPELINE_INCOMPLETE_INIT(qctx) \
+                              (!PIPELINE_SET(qctx) && !PIPELINE_NOT_SET(qctx) \
+                               && !PIPELINE_USED(qctx))
+# define CLEAR_PIPELINE(qctx) \
+                    do { \
+                        (qctx)->init_flags &= ~(INIT_SEQ_PPL_INIT_COMPLETE); \
+                        (qctx)->numpipes = 1; \
+                    } while(0)
 
 void qat_create_ciphers(void);
 void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
-                      int nid);
+                int nid);
 # ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
 extern CRYPTO_ONCE qat_pkt_threshold_table_once;
 extern CRYPTO_THREAD_LOCAL qat_pkt_threshold_table_key;
-void qat_pkt_threshold_table_make_key(void );
+void qat_pkt_threshold_table_make_key(void);
 LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void);
 void qat_free_pkt_threshold_table(void *);
 int qat_pkt_threshold_table_set_threshold(int nid, int threshold);

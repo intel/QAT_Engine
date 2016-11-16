@@ -38,7 +38,7 @@
 
 /*
  * This file contains modified code from OpenSSL/BoringSSL used
- * in order to run certain operations in constant time. 
+ * in order to run certain operations in constant time.
  * It is subject to the following license:
  */
 
@@ -86,6 +86,7 @@
 #include <openssl/tls1.h>
 #include <openssl/async.h>
 #include <openssl/lhash.h>
+#include <openssl/ssl.h>
 #include <string.h>
 
 #ifdef OPENSSL_ENABLE_QAT_CIPHERS
@@ -94,216 +95,205 @@
 # endif
 #endif
 
-static int qat_aes_cbc_hmac_sha_init(EVP_CIPHER_CTX *ctx,
-                                      const unsigned char *inkey,
-                                      const unsigned char *iv,int enc);
-static int qat_aes_cbc_hmac_sha_cleanup(EVP_CIPHER_CTX *ctx);
-static int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx,
-                                        unsigned char *out,
-                                        const unsigned char *in, size_t len);
-static int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
-                                      void *ptr);
+#define GET_TLS_HDR(qctx, i)     ((qctx)->aad[(i)])
+#define GET_TLS_VERSION(hdr)     (((hdr)[9]) << QAT_BYTE_SHIFT | (hdr)[10])
+#define GET_TLS_PAYLOAD_LEN(hdr) (((((hdr)[11]) << QAT_BYTE_SHIFT) & 0xff00) | \
+                                  ((hdr)[12] & 0x00ff))
+#define SET_TLS_PAYLOAD_LEN(hdr, len)   \
+                do { \
+                    hdr[11] = (len & 0xff00) >> QAT_BYTE_SHIFT; \
+                    hdr[12] = len & 0xff; \
+                } while(0)
 
-/* Qat cipher AES128-SHA1 function structure declaration */
-static EVP_CIPHER *_hidden_aes_128_cbc_hmac_sha1 = NULL;
-const EVP_CIPHER *qat_aes_128_cbc_hmac_sha1(void)
-{
-    if (_hidden_aes_128_cbc_hmac_sha1 == NULL
-        && ((_hidden_aes_128_cbc_hmac_sha1 =
-             EVP_CIPHER_meth_new(NID_aes_128_cbc_hmac_sha1,
-                                 AES_BLOCK_SIZE,
-                                 AES_KEY_SIZE_128)) == NULL
-            || !EVP_CIPHER_meth_set_iv_length(_hidden_aes_128_cbc_hmac_sha1,
-                                              AES_IV_LEN)
-            || !EVP_CIPHER_meth_set_flags(_hidden_aes_128_cbc_hmac_sha1,
-                                          0 | qat_common_cbc_flags |
-                                          EVP_CIPH_FLAG_AEAD_CIPHER)
-            || !EVP_CIPHER_meth_set_init(_hidden_aes_128_cbc_hmac_sha1,
-                                         qat_aes_cbc_hmac_sha_init)
-            || !EVP_CIPHER_meth_set_do_cipher(_hidden_aes_128_cbc_hmac_sha1,
-                                              qat_aes_cbc_hmac_sha_cipher)
-            || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_128_cbc_hmac_sha1,
-                                              qat_aes_cbc_hmac_sha_cleanup)
-            || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_128_cbc_hmac_sha1,
-                                                  sizeof(qat_chained_sha1_ctx))
-            || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_128_cbc_hmac_sha1,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_set_asn1_iv)
-            || !EVP_CIPHER_meth_set_get_asn1_params(_hidden_aes_128_cbc_hmac_sha1,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_get_asn1_iv)
-            || !EVP_CIPHER_meth_set_ctrl(_hidden_aes_128_cbc_hmac_sha1,
-                                         qat_aes_cbc_hmac_sha_ctrl))) {
-        EVP_CIPHER_meth_free(_hidden_aes_128_cbc_hmac_sha1);
-        _hidden_aes_128_cbc_hmac_sha1 = NULL;
-    }
-    return _hidden_aes_128_cbc_hmac_sha1;
-}
+#define FLATBUFF_ALLOC_AND_CHAIN(b1, b2, len) \
+                do { \
+                    (b1).pData = qaeCryptoMemAlloc(len, __FILE__, __LINE__); \
+                    (b2).pData = (b1).pData; \
+                    (b1).dataLenInBytes = len; \
+                    (b2).dataLenInBytes = len; \
+                } while(0)
 
-/* Qat cipher AES256-SHA1 function structure declaration */
-static EVP_CIPHER *_hidden_aes_256_cbc_hmac_sha1 = NULL;
-const EVP_CIPHER *qat_aes_256_cbc_hmac_sha1(void)
-{
-    if (_hidden_aes_256_cbc_hmac_sha1 == NULL
-        && ((_hidden_aes_256_cbc_hmac_sha1 =
-             EVP_CIPHER_meth_new(NID_aes_256_cbc_hmac_sha1,
-                                 AES_BLOCK_SIZE,
-                                 AES_KEY_SIZE_256)) == NULL
-            || !EVP_CIPHER_meth_set_iv_length(_hidden_aes_256_cbc_hmac_sha1,
-                                              AES_IV_LEN)
-            || !EVP_CIPHER_meth_set_flags(_hidden_aes_256_cbc_hmac_sha1,
-                                          0 | qat_common_cbc_flags |
-                                          EVP_CIPH_FLAG_AEAD_CIPHER)
-            || !EVP_CIPHER_meth_set_init(_hidden_aes_256_cbc_hmac_sha1,
-                                         qat_aes_cbc_hmac_sha_init)
-            || !EVP_CIPHER_meth_set_do_cipher(_hidden_aes_256_cbc_hmac_sha1,
-                                              qat_aes_cbc_hmac_sha_cipher)
-            || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_256_cbc_hmac_sha1,
-                                              qat_aes_cbc_hmac_sha_cleanup)
-            || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_256_cbc_hmac_sha1,
-                                                  sizeof(qat_chained_sha1_ctx))
-            || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_256_cbc_hmac_sha1,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_set_asn1_iv)
-            || !EVP_CIPHER_meth_set_get_asn1_params(_hidden_aes_256_cbc_hmac_sha1,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_get_asn1_iv)
-            || !EVP_CIPHER_meth_set_ctrl(_hidden_aes_256_cbc_hmac_sha1,
-                                         qat_aes_cbc_hmac_sha_ctrl))) {
-        EVP_CIPHER_meth_free(_hidden_aes_256_cbc_hmac_sha1);
-        _hidden_aes_256_cbc_hmac_sha1 = NULL;
-    }
-    return _hidden_aes_256_cbc_hmac_sha1;
-}
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+# define GET_SW_CIPHER(ctx) \
+            qat_chained_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
+#endif
 
-/* Qat cipher AES128-SHA256 function structure declaration */
-static EVP_CIPHER *_hidden_aes_128_cbc_hmac_sha256 = NULL;
-const EVP_CIPHER *qat_aes_128_cbc_hmac_sha256(void)
-{
-    if (_hidden_aes_128_cbc_hmac_sha256 == NULL
-        && ((_hidden_aes_128_cbc_hmac_sha256 =
-             EVP_CIPHER_meth_new(NID_aes_128_cbc_hmac_sha256,
-                                 AES_BLOCK_SIZE,
-                                 AES_KEY_SIZE_128)) == NULL
-            || !EVP_CIPHER_meth_set_iv_length(_hidden_aes_128_cbc_hmac_sha256,
-                                              AES_IV_LEN)
-            || !EVP_CIPHER_meth_set_flags(_hidden_aes_128_cbc_hmac_sha256,
-                                          0 | qat_common_cbc_flags |
-                                          EVP_CIPH_FLAG_AEAD_CIPHER)
-            || !EVP_CIPHER_meth_set_init(_hidden_aes_128_cbc_hmac_sha256,
-                                         qat_aes_cbc_hmac_sha_init)
-            || !EVP_CIPHER_meth_set_do_cipher(_hidden_aes_128_cbc_hmac_sha256,
-                                              qat_aes_cbc_hmac_sha_cipher)
-            || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_128_cbc_hmac_sha256,
-                                              qat_aes_cbc_hmac_sha_cleanup)
-            || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_128_cbc_hmac_sha256,
-                                                  sizeof(qat_chained_sha256_ctx))
-            || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_128_cbc_hmac_sha256,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_set_asn1_iv)
-            || !EVP_CIPHER_meth_set_get_asn1_params(_hidden_aes_128_cbc_hmac_sha256,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_get_asn1_iv)
-            || !EVP_CIPHER_meth_set_ctrl(_hidden_aes_128_cbc_hmac_sha256,
-                                         qat_aes_cbc_hmac_sha_ctrl))) {
-        EVP_CIPHER_meth_free(_hidden_aes_128_cbc_hmac_sha256);
-        _hidden_aes_128_cbc_hmac_sha256 = NULL;
-    }
-    return _hidden_aes_128_cbc_hmac_sha256;
-}
+#define DEBUG_PPL DEBUG
+static int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
+                                    const unsigned char *inkey,
+                                    const unsigned char *iv, int enc);
+static int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx);
+static int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx,
+                                         unsigned char *out,
+                                         const unsigned char *in, size_t len);
+static int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
+                                    void *ptr);
 
-/* Qat cipher AES256-SHA256 function structure declaration */
-static EVP_CIPHER *_hidden_aes_256_cbc_hmac_sha256 = NULL;
-const EVP_CIPHER *qat_aes_256_cbc_hmac_sha256(void)
-{
-    if (_hidden_aes_256_cbc_hmac_sha256 == NULL
-        && ((_hidden_aes_256_cbc_hmac_sha256 =
-             EVP_CIPHER_meth_new(NID_aes_256_cbc_hmac_sha256,
-                                 AES_BLOCK_SIZE,
-                                 AES_KEY_SIZE_256)) == NULL
-            || !EVP_CIPHER_meth_set_iv_length(_hidden_aes_256_cbc_hmac_sha256,
-                                              AES_IV_LEN)
-            || !EVP_CIPHER_meth_set_flags(_hidden_aes_256_cbc_hmac_sha256,
-                                          0 | qat_common_cbc_flags |
-                                          EVP_CIPH_FLAG_AEAD_CIPHER)
-            || !EVP_CIPHER_meth_set_init(_hidden_aes_256_cbc_hmac_sha256,
-                                         qat_aes_cbc_hmac_sha_init)
-            || !EVP_CIPHER_meth_set_do_cipher(_hidden_aes_256_cbc_hmac_sha256,
-                                              qat_aes_cbc_hmac_sha_cipher)
-            || !EVP_CIPHER_meth_set_cleanup(_hidden_aes_256_cbc_hmac_sha256,
-                                              qat_aes_cbc_hmac_sha_cleanup)
-            || !EVP_CIPHER_meth_set_impl_ctx_size(_hidden_aes_256_cbc_hmac_sha256,
-                                                  sizeof(qat_chained_sha256_ctx))
-            || !EVP_CIPHER_meth_set_set_asn1_params(_hidden_aes_256_cbc_hmac_sha256,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_set_asn1_iv)
-            || !EVP_CIPHER_meth_set_get_asn1_params(_hidden_aes_256_cbc_hmac_sha256,
-                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                    NULL :
-                                                    EVP_CIPHER_get_asn1_iv)
-            || !EVP_CIPHER_meth_set_ctrl(_hidden_aes_256_cbc_hmac_sha256,
-                                         qat_aes_cbc_hmac_sha_ctrl))) {
-        EVP_CIPHER_meth_free(_hidden_aes_256_cbc_hmac_sha256);
-        _hidden_aes_256_cbc_hmac_sha256 = NULL;
-    }
-    return _hidden_aes_256_cbc_hmac_sha256;
-}
+typedef struct _chained_info {
+    const int nid;
+    EVP_CIPHER *cipher;
+    const int keylen;
+} chained_info;
+
+static chained_info info[] = {
+    {NID_aes_128_cbc_hmac_sha1, NULL, AES_KEY_SIZE_128},
+    {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
+    {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
+    {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
+};
+
+static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
 
 /* Qat Symmetric cipher function register */
 int qat_cipher_nids[] = {
     NID_aes_128_cbc_hmac_sha1,
-    NID_aes_256_cbc_hmac_sha1,
     NID_aes_128_cbc_hmac_sha256,
-    NID_aes_256_cbc_hmac_sha256
+    NID_aes_256_cbc_hmac_sha1,
+    NID_aes_256_cbc_hmac_sha256,
 };
 
-#ifndef OPENSSL_DISABLE_QAT_CIPHERS
+/* Setup template for Session Setup Data as most of the fields
+ * are constant. The constant values of some of the fields are
+ * chosen for Encryption operation.
+ */
+static const CpaCySymSessionSetupData template_ssd = {
+    .sessionPriority = CPA_CY_PRIORITY_HIGH,
+    .symOperation = CPA_CY_SYM_OP_ALGORITHM_CHAINING,
+    .cipherSetupData = {
+                        .cipherAlgorithm = CPA_CY_SYM_CIPHER_AES_CBC,
+                        .cipherKeyLenInBytes = 0,
+                        .pCipherKey = NULL,
+                        .cipherDirection = CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT,
+                        },
+    .hashSetupData = {
+                      .hashAlgorithm = CPA_CY_SYM_HASH_SHA1,
+                      .hashMode = CPA_CY_SYM_HASH_MODE_AUTH,
+                      .digestResultLenInBytes = 0,
+                      .authModeSetupData = {
+                                            .authKey = NULL,
+                                            .authKeyLenInBytes = HMAC_KEY_SIZE,
+                                            .aadLenInBytes = 0,
+                                            },
+                      .nestedModeSetupData = {0},
+                      },
+    .algChainOrder = CPA_CY_SYM_ALG_CHAIN_ORDER_HASH_THEN_CIPHER,
+    .digestIsAppended = CPA_TRUE,
+    .verifyDigest = CPA_FALSE,
+    .partialsNotRequired = CPA_TRUE,
+};
+
+static const CpaCySymOpData template_opData = {
+    .sessionCtx = NULL,
+    .packetType = CPA_CY_SYM_PACKET_TYPE_FULL,
+    .pIv = NULL,
+    .ivLenInBytes = 0,
+    .cryptoStartSrcOffsetInBytes = QAT_BYTE_ALIGNMENT,
+    .messageLenToCipherInBytes = 0,
+    .hashStartSrcOffsetInBytes = QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE,
+    .messageLenToHashInBytes = 0,
+    .pDigestResult = NULL,
+    .pAdditionalAuthData = NULL
+};
+
+static inline int get_digest_len(int nid)
+{
+    return (((nid) == NID_aes_128_cbc_hmac_sha1 ||
+             (nid) == NID_aes_256_cbc_hmac_sha1) ?
+            SHA_DIGEST_LENGTH : SHA256_DIGEST_LENGTH);
+}
+
+static inline const EVP_CIPHER *qat_chained_cipher_sw_impl(int nid)
+{
+    switch (nid) {
+    case NID_aes_128_cbc_hmac_sha1:
+        return EVP_aes_128_cbc_hmac_sha1();
+    case NID_aes_256_cbc_hmac_sha1:
+        return EVP_aes_256_cbc_hmac_sha1();
+    case NID_aes_128_cbc_hmac_sha256:
+        return EVP_aes_128_cbc_hmac_sha256();
+    case NID_aes_256_cbc_hmac_sha256:
+        return EVP_aes_256_cbc_hmac_sha256();
+    default:
+        return NULL;
+    }
+}
+
+static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
+                                               unsigned int *num_elem)
+{
+    unsigned int i = 0;
+    qat_op_params *qop = NULL;
+    if (pqop != NULL && ((qop = *pqop) != NULL)) {
+        for (i = 0; i < *num_elem; i++) {
+            QAT_CHK_QMFREE_FLATBUFF(qop[i].src_fbuf[0]);
+            QAT_CHK_QMFREE_FLATBUFF(qop[i].src_fbuf[1]);
+            QAT_QMEMFREE_BUFF(qop[i].src_sgl.pPrivateMetaData);
+            QAT_QMEMFREE_BUFF(qop[i].dst_sgl.pPrivateMetaData);
+            QAT_QMEMFREE_BUFF(qop[i].op_data.pIv);
+        }
+        OPENSSL_free(qop);
+        *pqop = NULL;
+        *num_elem = 0;
+    }
+}
+
+static const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
+{
+    EVP_CIPHER *c = NULL;
+
+#ifdef OPENSSL_DISABLE_QAT_CIPHERS
+    return qat_chained_cipher_sw_impl(nid)
+#endif
+        if (((c = EVP_CIPHER_meth_new(nid, AES_BLOCK_SIZE, keylen)) == NULL)
+            || !EVP_CIPHER_meth_set_iv_length(c, AES_IV_LEN)
+            || !EVP_CIPHER_meth_set_flags(c, QAT_CHAINED_FLAG)
+            || !EVP_CIPHER_meth_set_init(c, qat_chained_ciphers_init)
+            || !EVP_CIPHER_meth_set_do_cipher(c, qat_chained_ciphers_do_cipher)
+            || !EVP_CIPHER_meth_set_cleanup(c, qat_chained_ciphers_cleanup)
+            || !EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_chained_ctx))
+            || !EVP_CIPHER_meth_set_set_asn1_params(c,
+                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                    NULL :
+                                                    EVP_CIPHER_set_asn1_iv)
+            || !EVP_CIPHER_meth_set_get_asn1_params(c,
+                                                    EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                    NULL :
+                                                    EVP_CIPHER_get_asn1_iv)
+            || !EVP_CIPHER_meth_set_ctrl(c, qat_chained_ciphers_ctrl)) {
+        WARN("[%s]: Failed to create cipher methods for nid %d\n",
+             __func__, nid);
+        EVP_CIPHER_meth_free(c);
+        c = NULL;
+    }
+
+    return c;
+}
 
 void qat_create_ciphers(void)
 {
-    qat_aes_128_cbc_hmac_sha1();
-    qat_aes_256_cbc_hmac_sha1();
-    qat_aes_128_cbc_hmac_sha256();
-    qat_aes_256_cbc_hmac_sha256();
+    int i;
+
+    for (i = 0; i < num_cc; i++) {
+        if (info[i].cipher == NULL) {
+            info[i].cipher = (EVP_CIPHER *)
+                qat_create_cipher_meth(info[i].nid, info[i].keylen);
+        }
+    }
 }
 
 void qat_free_ciphers(void)
 {
-    if (_hidden_aes_128_cbc_hmac_sha1) {
-        EVP_CIPHER_meth_free(_hidden_aes_128_cbc_hmac_sha1);
-        _hidden_aes_128_cbc_hmac_sha1 = NULL;
-    }
+    int i;
 
-    if (_hidden_aes_256_cbc_hmac_sha1) {
-        EVP_CIPHER_meth_free(_hidden_aes_256_cbc_hmac_sha1);
-        _hidden_aes_256_cbc_hmac_sha1 = NULL;
-    }
-
-    if (_hidden_aes_128_cbc_hmac_sha256) {
-        EVP_CIPHER_meth_free(_hidden_aes_128_cbc_hmac_sha256);
-        _hidden_aes_128_cbc_hmac_sha256 = NULL;
-    }
-
-    if (_hidden_aes_256_cbc_hmac_sha256) {
-        EVP_CIPHER_meth_free(_hidden_aes_256_cbc_hmac_sha256);
-        _hidden_aes_256_cbc_hmac_sha256 = NULL;
+    for (i = 0; i < num_cc; i++) {
+        if (info[i].cipher != NULL) {
+#ifndef OPENSSL_DISABLE_QAT_CIPHERS
+            EVP_CIPHER_meth_free(info[i].cipher);
+#endif
+            info[i].cipher = NULL;
+        }
     }
 }
-
-#else
-
-void qat_create_ciphers(void) {}
-
-void qat_free_ciphers(void) {}
-
-#endif
 
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
 # define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
@@ -313,26 +303,29 @@ CRYPTO_THREAD_LOCAL qat_pkt_threshold_table_key;
 
 void qat_pkt_threshold_table_make_key(void)
 {
-    CRYPTO_THREAD_init_local(&qat_pkt_threshold_table_key, qat_free_pkt_threshold_table);
+    CRYPTO_THREAD_init_local(&qat_pkt_threshold_table_key,
+                             qat_free_pkt_threshold_table);
 }
 
 typedef struct cipher_threshold_table_s {
     int nid;
     int threshold;
-}PKT_THRESHOLD;
+} PKT_THRESHOLD;
 
 DEFINE_LHASH_OF(PKT_THRESHOLD);
 
 PKT_THRESHOLD qat_pkt_threshold_table[] = {
-    {NID_aes_128_cbc_hmac_sha1,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-    {NID_aes_256_cbc_hmac_sha1,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-    {NID_aes_128_cbc_hmac_sha256,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-    {NID_aes_256_cbc_hmac_sha256,CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT}
+    {NID_aes_128_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_256_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_128_cbc_hmac_sha256,
+     CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_256_cbc_hmac_sha256, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT}
 };
 
-static int pkt_threshold_table_cmp(const PKT_THRESHOLD * a, const PKT_THRESHOLD * b)
+static int pkt_threshold_table_cmp(const PKT_THRESHOLD *a,
+                                   const PKT_THRESHOLD *b)
 {
-    return (a->nid == b->nid)?0:1;
+    return (a->nid == b->nid) ? 0 : 1;
 }
 
 static unsigned long pkt_threshold_table_hash(const PKT_THRESHOLD * a)
@@ -343,65 +336,65 @@ static unsigned long pkt_threshold_table_hash(const PKT_THRESHOLD * a)
 LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void)
 {
     int i;
-    int tbl_size = (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
+    int tbl_size =
+        (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
     LHASH_OF(PKT_THRESHOLD) *ret = NULL;
-    ret = lh_PKT_THRESHOLD_new(pkt_threshold_table_hash,pkt_threshold_table_cmp);
-    if(ret == NULL) {
+    ret =
+        lh_PKT_THRESHOLD_new(pkt_threshold_table_hash, pkt_threshold_table_cmp);
+    if (ret == NULL) {
         return ret;
     }
-    for(i = 0; i < tbl_size; i++) {
-        lh_PKT_THRESHOLD_insert(ret,&qat_pkt_threshold_table[i]);
+    for (i = 0; i < tbl_size; i++) {
+        lh_PKT_THRESHOLD_insert(ret, &qat_pkt_threshold_table[i]);
     }
     return ret;
 }
 
 int qat_pkt_threshold_table_set_threshold(int nid, int threshold)
 {
-    PKT_THRESHOLD entry,*ret;
+    PKT_THRESHOLD entry, *ret;
     LHASH_OF(PKT_THRESHOLD) *tbl = NULL;
-    if(NID_undef == nid) {
+    if (NID_undef == nid) {
         WARN("Unsupported NID\n");
         return 0;
     }
-    if((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
+    if ((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
         tbl = qat_create_pkt_threshold_table();
-        if(tbl != NULL) {
+        if (tbl != NULL) {
             CRYPTO_THREAD_set_local(&qat_pkt_threshold_table_key, tbl);
-        }
-        else {
+        } else {
             WARN("Create packet threshold table fail.\n");
             return 0;
         }
     }
     entry.nid = nid;
-    ret = lh_PKT_THRESHOLD_retrieve(tbl,&entry);
-    if(ret == NULL) {
-        WARN("Threshold entry retrieve failed for the NID : %d\n",entry.nid);
+    ret = lh_PKT_THRESHOLD_retrieve(tbl, &entry);
+    if (ret == NULL) {
+        WARN("Threshold entry retrieve failed for the NID : %d\n", entry.nid);
         return 0;
     }
     ret->threshold = threshold;
-    lh_PKT_THRESHOLD_insert(tbl, ret); 
+    lh_PKT_THRESHOLD_insert(tbl, ret);
     return 1;
 }
 
 int qat_pkt_threshold_table_get_threshold(int nid)
 {
-    PKT_THRESHOLD entry,*ret;
+    PKT_THRESHOLD entry, *ret;
     LHASH_OF(PKT_THRESHOLD) *tbl = NULL;
-    if((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
+    if ((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
         tbl = qat_create_pkt_threshold_table();
-        if(tbl != NULL) { 
+        if (tbl != NULL) {
             CRYPTO_THREAD_set_local(&qat_pkt_threshold_table_key, tbl);
-        }
-        else {
+        } else {
             WARN("Create packet threshold table fail.\n");
             return 0;
         }
     }
     entry.nid = nid;
-    ret = lh_PKT_THRESHOLD_retrieve(tbl,&entry);
-    if(ret == NULL) {
-        WARN("Threshold entry retrieve failed for the NID : %d\n",entry.nid);
+    ret = lh_PKT_THRESHOLD_retrieve(tbl, &entry);
+    if (ret == NULL) {
+        WARN("Threshold entry retrieve failed for the NID : %d\n", entry.nid);
         return 0;
     }
     return ret->threshold;
@@ -410,12 +403,76 @@ int qat_pkt_threshold_table_get_threshold(int nid)
 void qat_free_pkt_threshold_table(void *thread_key)
 {
     LHASH_OF(PKT_THRESHOLD) *tbl = (LHASH_OF(PKT_THRESHOLD) *) thread_key;
-    if((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key))) {
+    if ((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key))) {
         lh_PKT_THRESHOLD_free(tbl);
     }
 }
 
 #endif
+/******************************************************************************
+* function:
+*         qat_chained_callbackFn(void *callbackTag, CpaStatus status,
+*                        const CpaCySymOp operationType, void *pOpData,
+*                        CpaBufferList * pDstBuffer, CpaBoolean verifyResult)
+*
+
+* @param pCallbackTag  [IN] -  Opaque value provided by user while making
+*                              individual function call. Cast to op_done_pipe.
+* @param status        [IN] -  Status of the operation.
+* @param operationType [IN] -  Identifies the operation type requested.
+* @param pOpData       [IN] -  Pointer to structure with input parameters.
+* @param pDstBuffer    [IN] -  Destination buffer to hold the data output.
+* @param verifyResult  [IN] -  Used to verify digest result.
+*
+* description:
+*   Callback function used by chained ciphers with pipeline support. This
+*   function is called when operation is completed for each pipeline. However
+*   the paused job is woken up when all the pipelines have been proccessed.
+*
+******************************************************************************/
+static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
+                                   const CpaCySymOp operationType,
+                                   void *pOpData, CpaBufferList *pDstBuffer,
+                                   CpaBoolean verifyResult)
+{
+    struct op_done_pipe *opdone = (struct op_done_pipe *)callbackTag;
+    CpaBoolean res = CPA_FALSE;
+
+    if (opdone == NULL) {
+        WARN("[%s] Callback Tag NULL!\n", __func__);
+        return;
+    }
+
+    opdone->num_processed++;
+    res = (status == CPA_STATUS_SUCCESS) && verifyResult ? CPA_TRUE : CPA_FALSE;
+
+    /* If any single pipe processing failed, the entire operation
+     * is treated as failure. The default value of opDone.verifyResult
+     * is TRUE. Change it to false on Failure.
+     */
+    if (res == CPA_FALSE) {
+        DEBUG("[%s] Pipe %d failed( status %d, verifyResult %d)!\n",
+              __func__, opdone->num_processed, status, verifyResult);
+        opdone->opDone.verifyResult = CPA_FALSE;
+    }
+
+    /* The QAT API guarantees submission order for request
+     * i.e. first in first out. If not all requests have been
+     * submitted or processed, wait for more callbacks.
+     */
+    if ((opdone->num_submitted != opdone->num_pipes) ||
+        (opdone->num_submitted != opdone->num_processed))
+        return;
+
+    /* Mark job as done when all the requests have been submitted and
+     * subsequently processed.
+     */
+    opdone->opDone.flag = 1;
+    if (opdone->opDone.job) {
+        qat_wake_job(opdone->opDone.job, 0);
+    }
+}
+
 /******************************************************************************
 * function:
 *         qat_ciphers(ENGINE *e,
@@ -431,11 +488,9 @@ void qat_free_pkt_threshold_table(void *thread_key)
 * description:
 *   Qat engine cipher operations registrar
 ******************************************************************************/
-int
-qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
-            int nid)
+int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
 {
-    int ok = 1;
+    int i;
 
     /* No specific cipher => return a list of supported nids ... */
     if (cipher == NULL) {
@@ -444,215 +499,159 @@ qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
         return (sizeof(qat_cipher_nids) / sizeof(qat_cipher_nids[0]));
     }
 
-#ifndef OPENSSL_DISABLE_QAT_CIPHERS
-    switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-         *cipher = qat_aes_128_cbc_hmac_sha1();
-         break;
-    case NID_aes_256_cbc_hmac_sha1:
-         *cipher = qat_aes_256_cbc_hmac_sha1();
-         break;
-    case NID_aes_128_cbc_hmac_sha256:
-         *cipher = qat_aes_128_cbc_hmac_sha256();
-         break;
-    case NID_aes_256_cbc_hmac_sha256:
-         *cipher = qat_aes_256_cbc_hmac_sha256();
-         break;
-    default:
-        ok = 0;
-        *cipher = NULL;
-    }
-#else
-    switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-        *cipher = EVP_aes_128_cbc_hmac_sha1();
-        break;
-    case NID_aes_256_cbc_hmac_sha1:
-        *cipher = EVP_aes_256_cbc_hmac_sha1();
-        break;
-    case NID_aes_128_cbc_hmac_sha256:
-        *cipher = EVP_aes_128_cbc_hmac_sha256();
-        break;
-    case NID_aes_256_cbc_hmac_sha256:
-        *cipher = EVP_aes_256_cbc_hmac_sha256();
-        break;
-    default:
-        ok = 0;
-        *cipher = NULL;
-    }
-#endif
-
-    return ok;
-}
-
-/******************************************************************************
-* function:
-*         qat_get_sha_digest_len(EVP_CIPHER_CTX *evp_ctx)
-*
-* @param evp_ctx [IN] - pointer to the evp context
-*
-* description:
-*    This function is to find the sha digest length
-*    based on NID
-*    it will return Sha digest Length if successful and 0 on failure.
-*
-******************************************************************************/
-static int qat_get_sha_digest_len(EVP_CIPHER_CTX *evp_ctx)
-{
-
-    if (evp_ctx == NULL) {
-        WARN("[%s] --- ctx is NULL.\n", __func__);
-        return 0;
-    }
-
-    switch (EVP_CIPHER_CTX_nid(evp_ctx)) {
-    case NID_aes_128_cbc_hmac_sha1:
-    case NID_aes_256_cbc_hmac_sha1:
-            return SHA_DIGEST_LENGTH;
-
-    case NID_aes_128_cbc_hmac_sha256:
-    case NID_aes_256_cbc_hmac_sha256:
-            return SHA256_DIGEST_LENGTH;
-
-    default:
-        {
-            WARN("[%s] --- unknown NID.\n", __func__);
-            return 0;
+    for (i = 0; i < num_cc; i++) {
+        if (nid == info[i].nid) {
+            if (info[i].cipher == NULL)
+                qat_create_ciphers();
+            *cipher = info[i].cipher;
+            return 1;
         }
     }
-}
 
-/******************************************************************************
-* function:
-*         cipher_int_chained(EVP_CIPHER_CTX *evp_ctx,
-*                            qat_chained_ctx *qat_ctx,
-*                            const unsigned char* key,
-*                            const unsigned char* iv,
-*                            int enc)
-*
-* @param evp_ctx [IN] - pointer to the evp context
-* @param qat_ctx [IN] - pointer to the qat context
-* @param key     [IN] - pointer to the cipher key
-* @param iv      [IN] - pointer to the iv this maybe NULL.
-* @param enc     [IN] - whether we are doing encryption (1) or decryption (0).
-*
-* description:
-*    This function is to create QAT specific session data
-*    It is called from the session init function.
-*    it will return 1 if successful and 0 on failure.
-******************************************************************************/
-static int cipher_init_chained(EVP_CIPHER_CTX *evp_ctx,
-                               qat_chained_ctx * qat_ctx,
-                               const unsigned char *key,
-                               const unsigned char *iv, int enc)
-{
-
-    int sha_digest_len = 0;
-    if ((qat_ctx == NULL) || (key == NULL) || (evp_ctx == NULL)) {
-        WARN("[%s] --- qat_ctx or key or ctx is NULL.\n", __func__);
-        return 0;
-    }
-
-    qat_ctx->session_data = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
-    if (NULL == qat_ctx->session_data) {
-        WARN("OPENSSL_malloc() failed for session setup data allocation.\n");
-        return 0;
-    }
-
-    if (NULL != iv)
-        memmove(EVP_CIPHER_CTX_iv_noconst(evp_ctx), iv, EVP_CIPHER_CTX_iv_length(evp_ctx));
-    else
-        memset(EVP_CIPHER_CTX_iv_noconst(evp_ctx), 0, EVP_CIPHER_CTX_iv_length(evp_ctx));
-
-    DUMPL("iv", iv, EVP_CIPHER_CTX_iv_length(evp_ctx));
-    DUMPL("key", key, EVP_CIPHER_CTX_key_length(evp_ctx));
-
-    /* Priority of this session */
-    qat_ctx->session_data->sessionPriority = CPA_CY_PRIORITY_HIGH;
-    qat_ctx->session_data->symOperation = CPA_CY_SYM_OP_ALGORITHM_CHAINING;
-
-    /* Cipher algorithm and mode */
-    qat_ctx->session_data->cipherSetupData.cipherAlgorithm =
-        CPA_CY_SYM_CIPHER_AES_CBC;
-    /* Cipher key length 256 bits (32 bytes) */
-    qat_ctx->session_data->cipherSetupData.cipherKeyLenInBytes =
-        (Cpa32U) EVP_CIPHER_CTX_key_length(evp_ctx);
-    /* Cipher key */
-    if (NULL ==
-        (qat_ctx->session_data->cipherSetupData.pCipherKey =
-         OPENSSL_malloc(EVP_CIPHER_CTX_key_length(evp_ctx)))) {
-        WARN("[%s] --- unable to allocate memory for Cipher key.\n",
-             __func__);
-        goto end;
-    }
-
-    memmove(qat_ctx->session_data->cipherSetupData.pCipherKey, key,
-           EVP_CIPHER_CTX_key_length(evp_ctx));
-
-    /* Operation to perform */
-    if (enc) {
-        qat_ctx->session_data->cipherSetupData.cipherDirection =
-            CPA_CY_SYM_CIPHER_DIRECTION_ENCRYPT;
-        qat_ctx->session_data->algChainOrder =
-            CPA_CY_SYM_ALG_CHAIN_ORDER_HASH_THEN_CIPHER;
-    } else {
-        qat_ctx->session_data->cipherSetupData.cipherDirection =
-            CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT;
-        qat_ctx->session_data->algChainOrder =
-            CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH;
-    }
-
-    /* Hash Configuration */
-    qat_ctx->session_data->hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_AUTH;
-    qat_ctx->session_data->hashSetupData.authModeSetupData.aadLenInBytes = 0;
-
-    if ((sha_digest_len = qat_get_sha_digest_len(evp_ctx)) == 0) {
-        WARN("[%s] Unable to get sha digest length\n", __func__);
-        goto end;
-    }
-
-    qat_ctx->session_data->hashSetupData.digestResultLenInBytes =
-        sha_digest_len;
-
-    if (sha_digest_len == SHA_DIGEST_LENGTH)
-        qat_ctx->session_data->hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA1;
-    else
-        qat_ctx->session_data->hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
-
-    qat_ctx->hmac_key = OPENSSL_malloc(HMAC_KEY_SIZE);
-    if (NULL == qat_ctx->hmac_key) {
-        WARN("[%s] Unable to allocate memory or HMAC Key\n", __func__);
-        goto end;
-    }
-    memset(qat_ctx->hmac_key, 0, HMAC_KEY_SIZE);
-    qat_ctx->session_data->hashSetupData.authModeSetupData.authKey =
-        qat_ctx->hmac_key;
-    qat_ctx->session_data->hashSetupData.authModeSetupData.authKeyLenInBytes =
-        HMAC_KEY_SIZE;
-
-    qat_ctx->initParamsSet = 1;
-    qat_ctx->payload_length = NO_PAYLOAD_LENGTH_SPECIFIED;
-
-    return 1;
-
- end:
-    if (NULL != qat_ctx->session_data) {
-        if (NULL != qat_ctx->session_data->cipherSetupData.pCipherKey) {
-            OPENSSL_cleanse(qat_ctx->session_data->cipherSetupData.pCipherKey,
-                            qat_ctx->session_data->cipherSetupData.
-                            cipherKeyLenInBytes);
-            OPENSSL_free(qat_ctx->session_data->cipherSetupData.pCipherKey);
-            qat_ctx->session_data->cipherSetupData.pCipherKey = NULL;
-        }
-        OPENSSL_free(qat_ctx->session_data);
-        qat_ctx->session_data = NULL;
-    }
+    *cipher = NULL;
     return 0;
 }
 
 /******************************************************************************
 * function:
-*         qat_aes_cbc_hmac_sha_init(EVP_CIPHER_CTX *ctx,
+*         qat_setup_op_params(EVP_CIPHER_CTX *ctx)
+*
+* @param qctx    [IN]  - pointer to existing qat_chained_ctx
+*
+* @retval 1      function succeeded
+* @retval 0      function failed
+*
+* description:
+*    This function initialises the flatbuffer and flat buffer list for use.
+*
+******************************************************************************/
+static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
+{
+    CpaCySymOpData *opd = NULL;
+    Cpa32U msize = 0;
+    qat_chained_ctx *qctx = qat_chained_data(ctx);
+    int i = 0;
+    unsigned int start;
+
+    /* When no pipelines are used, numpipes = 1. The actual number of pipes are
+     * not known until the start of do_cipher.
+     */
+    if (PIPELINE_USED(qctx)) {
+        /* When Pipes have been previously used, the memory has been allocated
+         * for max supported pipes although initialised only for numpipes.
+         */
+        start = qctx->npipes_last_used;
+    } else {
+        start = 1;
+        /* When the context switches from using no pipes to using pipes,
+         * free the previous allocated memory.
+         */
+        if (qctx->qop != NULL && qctx->qop_len < qctx->numpipes) {
+            qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
+            DEBUG_PPL("[%s:%p] qop memory freed\n", __func__, ctx);
+        }
+    }
+
+    /* Allocate memory for qop depending on whether pipes are used or not.
+     * In case of pipes, allocate for the maximum supported pipes.
+     */
+    if (qctx->qop == NULL) {
+        if (PIPELINE_USED(qctx)) {
+            WARN("[%s] Pipeline used but no data allocated. \
+                  Possible memory leak", __func__);
+        }
+
+        qctx->qop_len = qctx->numpipes > 1 ? QAT_MAX_PIPELINES : 1;
+        qctx->qop = (qat_op_params *) OPENSSL_zalloc(sizeof(qat_op_params)
+                                                     * qctx->qop_len);
+        if (qctx->qop == NULL) {
+            WARN("[%s] Unable to allocate memory[%d bytes] for qat op params\n",
+                 __func__, sizeof(qat_op_params) * qctx->qop_len);
+            return 0;
+        }
+        /* start from 0 as New array of qat_op_params */
+        start = 0;
+    }
+
+    for (i = start; i < qctx->numpipes; i++) {
+        /* This is a whole block the size of the memory alignment. If the
+         * alignment was to become smaller than the header size
+         * (TLS_VIRT_HEADER_SIZE) which is unlikely then we would need to add
+         * some more logic here to work out how many blocks of size
+         * QAT_BYTE_ALIGNMENT we need to allocate to fit the header in.
+         */
+        FLATBUFF_ALLOC_AND_CHAIN(qctx->qop[i].src_fbuf[0],
+                                 qctx->qop[i].dst_fbuf[0], QAT_BYTE_ALIGNMENT);
+        if (qctx->qop[i].src_fbuf[0].pData == NULL) {
+            WARN("[%s] Unable to allocate memory for TLS header\n", __func__);
+            goto err;
+        }
+        memset(qctx->qop[i].src_fbuf[0].pData, 0, QAT_BYTE_ALIGNMENT);
+
+        qctx->qop[i].src_fbuf[1].pData = NULL;
+        qctx->qop[i].dst_fbuf[1].pData = NULL;
+
+        qctx->qop[i].src_sgl.numBuffers = 2;
+        qctx->qop[i].src_sgl.pBuffers = qctx->qop[i].src_fbuf;
+        qctx->qop[i].src_sgl.pUserData = NULL;
+        qctx->qop[i].src_sgl.pPrivateMetaData = NULL;
+
+        qctx->qop[i].dst_sgl.numBuffers = 2;
+        qctx->qop[i].dst_sgl.pBuffers = qctx->qop[i].dst_fbuf;
+        qctx->qop[i].dst_sgl.pUserData = NULL;
+        qctx->qop[i].dst_sgl.pPrivateMetaData = NULL;
+
+        /* setup meta data for buffer lists */
+        if (msize == 0 &&
+            cpaCyBufferListGetMetaSize(qctx->instanceHandle,
+                                       qctx->qop[i].src_sgl.numBuffers,
+                                       &msize) != CPA_STATUS_SUCCESS) {
+            WARN("[%s] --- cpaCyBufferListGetBufferSize failed.\n", __func__);
+            goto err;
+        }
+
+        if (msize) {
+            qctx->qop[i].src_sgl.pPrivateMetaData =
+                qaeCryptoMemAlloc(msize, __FILE__, __LINE__);
+            qctx->qop[i].dst_sgl.pPrivateMetaData =
+                qaeCryptoMemAlloc(msize, __FILE__, __LINE__);
+            if (qctx->qop[i].src_sgl.pPrivateMetaData == NULL ||
+                qctx->qop[i].dst_sgl.pPrivateMetaData == NULL) {
+                WARN("[%s] QMEM alloc failed for PrivateData\n", __func__);
+                goto err;
+            }
+        }
+
+        opd = &qctx->qop[i].op_data;
+
+        /* Copy the opData template */
+        memcpy(opd, &template_opData, sizeof(template_opData));
+
+        /* Update Opdata */
+        opd->sessionCtx = qctx->session_ctx;
+        opd->pIv = qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx),
+                                     __FILE__, __LINE__);
+        if (opd->pIv == NULL) {
+            WARN("[%s] --- QMEM Mem Alloc failed for pIv for pipe %d.\n",
+                 __func__, i);
+            goto err;
+        }
+
+        opd->ivLenInBytes = (Cpa32U) EVP_CIPHER_CTX_iv_length(ctx);
+    }
+
+    DEBUG_PPL("[%s:%p] qop setup for %d elements\n",
+              __func__, ctx, qctx->qop_len);
+    return 1;
+
+ err:
+    qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
+    return 0;
+}
+
+/******************************************************************************
+* function:
+*         qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 *                                    const unsigned char *inkey,
 *                                    const unsigned char *iv,
 *                                    int enc)
@@ -670,119 +669,154 @@ static int cipher_init_chained(EVP_CIPHER_CTX *evp_ctx,
 *  EVP context.
 *
 ******************************************************************************/
-int qat_aes_cbc_hmac_sha_init(EVP_CIPHER_CTX *ctx,
-                                      const unsigned char *inkey,
-                                      const unsigned char *iv, int enc)
+int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
+                             const unsigned char *inkey,
+                             const unsigned char *iv, int enc)
 {
-    /* Initialise a QAT session  and set the cipher keys */
-    qat_chained_ctx *qat_ctx = NULL;
+    CpaCySymSessionSetupData *ssd = NULL;
+    Cpa32U sctx_size = 0;
+    CpaCySymSessionCtx sctx = NULL;
+    CpaStatus sts = 0;
+    qat_chained_ctx *qctx = NULL;
+    unsigned char *ckey = NULL;
+    int ckeylen;
+    int dlen;
+    int ret = 0;
 
     if (ctx == NULL || inkey == NULL) {
         WARN("[%s] ctx or inkey is NULL.\n", __func__);
         return 0;
     }
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    const EVP_CIPHER *ia_cipher = NULL;
-#endif
-    int nid = EVP_CIPHER_CTX_nid(ctx);
-    switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_128_cbc_hmac_sha1();
-#endif
-        qat_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_256_cbc_hmac_sha1:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_256_cbc_hmac_sha1();
-#endif
-        qat_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_128_cbc_hmac_sha256:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_128_cbc_hmac_sha256();
-#endif
-        qat_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_256_cbc_hmac_sha256:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_256_cbc_hmac_sha256();
-#endif
-        qat_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    default:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = NULL;
-#endif
-        return 0;
-    }
-    if (iv)
-        memcpy((unsigned char *)EVP_CIPHER_CTX_original_iv(ctx), iv, EVP_CIPHER_CTX_iv_length(ctx));
-    memcpy(EVP_CIPHER_CTX_iv_noconst(ctx), EVP_CIPHER_CTX_original_iv(ctx), EVP_CIPHER_CTX_iv_length(ctx));
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    if(EVP_CIPHER_meth_get_init(ia_cipher)(ctx, inkey, iv, enc) == 0)
-        goto end;
-#endif
-    if (qat_ctx == NULL) {
-        WARN("[%s] --- qat_ctx is NULL.\n", __func__);
+
+    qctx = qat_chained_data(ctx);
+    if (qctx == NULL) {
+        WARN("[%s] --- qctx is NULL.\n", __func__);
         return 0;
     }
 
+    INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
 
-    /* Pre-allocate necessary memory */
-    /*
-     * This is a whole block the size of the memory alignment. If the
-     * alignment was to become smaller than the header size
-     * (TLS_VIRT_HEADER_SIZE) which is unlikely then we would need to add
-     * some more logic here to work how many blocks of size
-     * QAT_BYTE_ALIGNMENT we need to allocate to fit the header in.
-     */
-    qat_ctx->tls_virt_hdr =
-        qaeCryptoMemAlloc(QAT_BYTE_ALIGNMENT, __FILE__, __LINE__);
-    if (NULL == qat_ctx->tls_virt_hdr) {
-        WARN("[%s] Unable to allcoate memory for MAC preamble\n",
-                __func__);
+    if (iv != NULL)
+        memcpy(EVP_CIPHER_CTX_iv_noconst(ctx), iv,
+               EVP_CIPHER_CTX_iv_length(ctx));
+    else
+        memset(EVP_CIPHER_CTX_iv_noconst(ctx), 0,
+               EVP_CIPHER_CTX_iv_length(ctx));
+
+    ckeylen = EVP_CIPHER_CTX_key_length(ctx);
+    ckey = OPENSSL_malloc(ckeylen);
+    if (ckey == NULL) {
+        WARN("[%s] --- unable to allocate memory for Cipher key.\n", __func__);
         return 0;
     }
-    memset(qat_ctx->tls_virt_hdr, 0, QAT_BYTE_ALIGNMENT);
-    qat_ctx->srcFlatBuffer[0].pData = qat_ctx->tls_virt_hdr;
-    qat_ctx->srcFlatBuffer[0].dataLenInBytes = QAT_BYTE_ALIGNMENT;
-    qat_ctx->dstFlatBuffer[0].pData = qat_ctx->srcFlatBuffer[0].pData;
-    qat_ctx->dstFlatBuffer[0].dataLenInBytes = QAT_BYTE_ALIGNMENT;
+    memcpy(ckey, inkey, ckeylen);
 
-    qat_ctx->pIv =
-        qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx), __FILE__,
-                __LINE__);
-    if (qat_ctx->pIv == NULL) {
-        WARN("[%s] --- pIv is NULL.\n", __func__);
+    memset(qctx, 0, sizeof(qctx));
+
+    qctx->numpipes = 1;
+    qctx->total_op = 0;
+    qctx->npipes_last_used = 1;
+
+    qctx->hmac_key = OPENSSL_zalloc(HMAC_KEY_SIZE);
+    if (qctx->hmac_key == NULL) {
+        WARN("[%s] Unable to allocate memory for HMAC Key\n", __func__);
+        goto end;
+    }
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    const EVP_CIPHER *sw_cipher = GET_SW_CIPHER(ctx);
+    unsigned int sw_size = EVP_CIPHER_impl_ctx_size(sw_cipher);
+    if (sw_size != 0) {
+        qctx->sw_ctx_data = OPENSSL_zalloc(sw_size);
+        if (qctx->sw_ctx_data == NULL) {
+            WARN("[%s] Unable to allocate memory[ %d bytes] for sw_ctx_data\n",
+                 __func__, sw_size);
+            goto end;
+        }
+    }
+
+    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_data);
+    EVP_CIPHER_meth_get_init(sw_cipher) (ctx, inkey, iv, enc);
+    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+#endif
+
+    ssd = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
+    if (ssd == NULL) {
+        WARN("OPENSSL_malloc() failed for session setup data allocation.\n");
         goto end;
     }
 
-    if (!cipher_init_chained(ctx, qat_ctx, inkey, iv, enc)) {
-        WARN("[%s] cipher_init_chained failed.\n", __func__);
+    qctx->session_data = ssd;
+
+    /* Copy over the template for most of the values */
+    memcpy(ssd, &template_ssd, sizeof(template_ssd));
+
+    /* Change constant values for decryption */
+    if (!enc) {
+        ssd->cipherSetupData.cipherDirection =
+            CPA_CY_SYM_CIPHER_DIRECTION_DECRYPT;
+        ssd->algChainOrder = CPA_CY_SYM_ALG_CHAIN_ORDER_CIPHER_THEN_HASH;
+        ssd->verifyDigest = CPA_TRUE;
+    }
+
+    ssd->cipherSetupData.cipherKeyLenInBytes = ckeylen;
+    ssd->cipherSetupData.pCipherKey = ckey;
+
+    dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
+
+    ssd->hashSetupData.digestResultLenInBytes = dlen;
+
+    if (dlen != SHA_DIGEST_LENGTH)
+        ssd->hashSetupData.hashAlgorithm = CPA_CY_SYM_HASH_SHA256;
+
+    ssd->hashSetupData.authModeSetupData.authKey = qctx->hmac_key;
+
+    qctx->instanceHandle = get_next_inst();
+    if (qctx->instanceHandle == NULL) {
+        WARN("[%s] Failed to get QAT Instance Handle!.\n", __func__);
         goto end;
     }
 
+    sts = cpaCySymSessionCtxGetSize(qctx->instanceHandle, ssd, &sctx_size);
+    if (sts != CPA_STATUS_SUCCESS) {
+        WARN("[%s] Failed to get SessionCtx size.\n", __func__);
+        goto end;
+    }
+
+    sctx = (CpaCySymSessionCtx) qaeCryptoMemAlloc(sctx_size, __FILE__,
+                                                  __LINE__);
+    if (sctx == NULL) {
+        WARN("[%s] QMEM alloc failed for session ctx!\n", __func__);
+        goto end;
+    }
+
+    qctx->session_ctx = sctx;
+
+    qctx->qop = NULL;
+    qctx->qop_len = 0;
+
+    INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_CTX_INIT);
+
+    DEBUG_PPL("[%s:%p] qat chained cipher ctx %p initialised\n",
+              __func__, ctx, qctx);
     return 1;
 
  end:
-    if (NULL != qat_ctx->tls_virt_hdr) {
-        qaeCryptoMemFree(qat_ctx->tls_virt_hdr);
-        qat_ctx->tls_virt_hdr = NULL;
-    }
-    if (NULL != qat_ctx->pIv) {
-        qaeCryptoMemFree(qat_ctx->pIv);
-        qat_ctx->pIv = NULL;
-    }
+    if (ssd != NULL)
+        QAT_CLEANSE_FREE_BUFF(ssd->cipherSetupData.pCipherKey, ckeylen);
+    QAT_CLEANSE_FREE_BUFF(qctx->hmac_key, HMAC_KEY_SIZE);
+    OPENSSL_free(qctx->session_data);
+    QAT_QMEMFREE_BUFF(qctx->session_ctx);
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    OPENSSL_free(qctx->sw_ctx_data);
+#endif
 
     return 0;
-
 }
 
 /******************************************************************************
 * function:
-*    qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx,
-*                               int type, int arg, void *ptr)
+*    qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx,
+*                             int type, int arg, void *ptr)
 *
 * @param ctx    [IN]  - pointer to existing ctx
 * @param type   [IN]  - type of request either
@@ -804,197 +838,161 @@ int qat_aes_cbc_hmac_sha_init(EVP_CIPHER_CTX *ctx,
 *  identify record payload size.
 *
 ******************************************************************************/
-int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
-                                      void *ptr)
+int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 {
-    qat_chained_ctx *evp_ctx = NULL;
-    int retVal = 0;
-    int sha_digest_len = 0;
+    qat_chained_ctx *qctx = NULL;
     unsigned char *hmac_key = NULL;
-    CpaCySymSessionSetupData *sessionSetupData = NULL;
-    unsigned char *p = NULL;
+    CpaCySymSessionSetupData *ssd = NULL;
+    SHA_CTX hkey1;
+    SHA256_CTX hkey256;
+    CpaStatus sts;
+    char *hdr = NULL;
     unsigned int len = 0;
+    int retVal = 0;
+    int dlen = 0;
 
     if (ctx == NULL) {
         WARN("[%s] --- ctx parameter is NULL.\n", __func__);
         return -1;
     }
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    const EVP_CIPHER *ia_cipher = NULL;
-    size_t *payload_len_ptr = NULL;
-#endif
-    int nid = EVP_CIPHER_CTX_nid(ctx);
-    switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_128_cbc_hmac_sha1();
-        payload_len_ptr = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->payload_length);
-#endif
-        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_256_cbc_hmac_sha1:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_256_cbc_hmac_sha1();
-        payload_len_ptr = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->payload_length);
-#endif
-        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_128_cbc_hmac_sha256:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_128_cbc_hmac_sha256();
-        payload_len_ptr = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->payload_length);
-#endif
-        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_256_cbc_hmac_sha256:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_256_cbc_hmac_sha256();
-        payload_len_ptr = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->payload_length);
-#endif
-        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    default:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = NULL;
-#endif
-        return 0;
-    }
 
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    EVP_CIPHER_meth_get_ctrl(ia_cipher)(ctx, type, arg, ptr);
-#endif
-    
-    if (evp_ctx == NULL) {
-        WARN("[%s] --- evp_ctx is NULL.\n", __func__);
+    qctx = qat_chained_data(ctx);
+
+    if (qctx == NULL) {
+        WARN("[%s] --- qctx is NULL.\n", __func__);
         return -1;
     }
 
-    if ((sha_digest_len = qat_get_sha_digest_len(ctx)) == 0) {
-        WARN("[%s] --- Unable to get sha digest length\n", __func__);
-        return -1;
-    }
+    dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
 
     switch (type) {
     case EVP_CTRL_AEAD_SET_MAC_KEY:
-        hmac_key = evp_ctx->hmac_key;
-        sessionSetupData = evp_ctx->session_data;
-
-        if (NULL == hmac_key || NULL == sessionSetupData) {
-            WARN("[%s] --- HMAC Key or sessionSetupData are NULL",
-                    __func__);
-            return -1;
-        }
+        hmac_key = qctx->hmac_key;
+        ssd = qctx->session_data;
 
         memset(hmac_key, 0, HMAC_KEY_SIZE);
 
         if (arg > HMAC_KEY_SIZE) {
-            if (sha_digest_len == SHA_DIGEST_LENGTH) {
-                SHA1_Init(&(evp_ctx->sha_key_wrap.sha1_key_wrap));
-                SHA1_Update(&(evp_ctx->sha_key_wrap.sha1_key_wrap), ptr, arg);
-                SHA1_Final(hmac_key, &(evp_ctx->sha_key_wrap.sha1_key_wrap));
-                sessionSetupData->hashSetupData.
-                    authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
+            if (dlen == SHA_DIGEST_LENGTH) {
+                SHA1_Init(&hkey1);
+                SHA1_Update(&hkey1, ptr, arg);
+                SHA1_Final(hmac_key, &hkey1);
             } else {
-                SHA256_Init(&(evp_ctx->sha_key_wrap.sha256_key_wrap));
-                SHA256_Update(&(evp_ctx->sha_key_wrap.sha256_key_wrap), ptr, arg);
-                SHA256_Final(hmac_key, &(evp_ctx->sha_key_wrap.sha256_key_wrap));
-                sessionSetupData->hashSetupData.
-                    authModeSetupData.authKeyLenInBytes = HMAC_KEY_SIZE;
+                SHA256_Init(&hkey256);
+                SHA256_Update(&hkey256, ptr, arg);
+                SHA256_Final(hmac_key, &hkey256);
             }
         } else {
-            memmove(hmac_key, ptr, arg);
-            sessionSetupData->hashSetupData.
-                authModeSetupData.authKeyLenInBytes = arg;
+            memcpy(hmac_key, ptr, arg);
+            ssd->hashSetupData.authModeSetupData.authKeyLenInBytes = arg;
         }
 
-        DUMPL("hmac_key", hmac_key, arg);
+        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_HMAC_KEY_SET);
 
-        evp_ctx->initHmacKeySet = 1;
-        retVal = 1;
+        sts = cpaCySymInitSession(qctx->instanceHandle,
+                                  qat_chained_callbackFn,
+                                  ssd, qctx->session_ctx);
+        if (sts != CPA_STATUS_SUCCESS) {
+            WARN("[%s] --- cpaCySymInitSession failed.\n", __func__);
+            retVal = 0;
+        } else {
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
+            retVal = 1;
+        }
         break;
 
     case EVP_CTRL_AEAD_TLS1_AAD:
-        /*
-         * Values to include in the record MAC calculation are included
-         * in this type This returns the amount of padding required for
-         * the send/encrypt direction
+        /* This returns the amount of padding required for
+           the send/encrypt direction.
          */
-        p = ptr;
+        if (arg != TLS_VIRT_HDR_SIZE || qctx->aad_ctr >= QAT_MAX_PIPELINES) {
+            WARN("[%s] Invalid argument for AEAD_TLS1_AAD.\n", __func__);
+            retVal = -1;
+            break;
+        }
+        hdr = GET_TLS_HDR(qctx, qctx->aad_ctr);
+        memcpy(hdr, ptr, TLS_VIRT_HDR_SIZE);
+        qctx->aad_ctr++;
+        if (qctx->aad_ctr > 1)
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_AADCTR_SET);
 
-        if (arg < TLS_VIRT_HDR_SIZE) {
+        len = GET_TLS_PAYLOAD_LEN(((char *)ptr));
+        if (GET_TLS_VERSION(((char *)ptr)) >= TLS1_1_VERSION)
+            len -= EVP_CIPHER_CTX_iv_length(ctx);
+        else if (qctx->aad_ctr > 1) {
+            /* pipelines are not supported for
+             * TLS version < TLS1.1
+             */
+            WARN("[%s] AAD already set for TLS1.0\n", __func__);
             retVal = -1;
             break;
         }
 
-#ifdef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        len =
-            (p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] << QAT_BYTE_SHIFT |
-             p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET]);
-#else
-        len = *(unsigned int *)payload_len_ptr;
-#endif
+        if (EVP_CIPHER_CTX_encrypting(ctx))
+            retVal = (int)(((len + dlen + AES_BLOCK_SIZE)
+                            & -AES_BLOCK_SIZE) - len);
+        else
+            retVal = dlen;
 
-        evp_ctx->tls_version =
-            (p[arg - QAT_TLS_VERSION_MSB_OFFSET] << QAT_BYTE_SHIFT |
-             p[arg - QAT_TLS_VERSION_LSB_OFFSET]);
+        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_TLS_HDR_SET);
+        break;
 
-        if (EVP_CIPHER_CTX_encrypting(ctx)) {
-            evp_ctx->payload_length = len;
-#ifdef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-            if (evp_ctx->tls_version >= TLS1_1_VERSION) {
-                len -= AES_BLOCK_SIZE;
-                /* TODO: Why does this code reduce the len in the
-                   TLS header by the IV for the framework? */
-                p[arg - QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] =
-                    len >> QAT_BYTE_SHIFT;
-                p[arg - QAT_TLS_PAYLOADLENGTH_LSB_OFFSET] = len;
-            }
-#endif
-            if (NULL == evp_ctx->tls_virt_hdr) {
-                WARN("Unable to allocate memory for mac preamble in qat/n");
-                return -1;
-            }
-            /*
-             * Copy the header from p into the QAT_BYTE_ALIGNMENT
-             * sized buffer so that the header is in the final part
-             * of the buffer
-             */
-            memmove(evp_ctx->tls_virt_hdr +
-                    (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), p,
-                    TLS_VIRT_HDR_SIZE);
-            DUMPL("tls_virt_hdr",
-                    evp_ctx->tls_virt_hdr + (QAT_BYTE_ALIGNMENT -
-                        TLS_VIRT_HDR_SIZE), arg);
-            retVal =
-                (int)(((len + sha_digest_len +
-                                AES_BLOCK_SIZE) & -AES_BLOCK_SIZE) - len);
-            break;
-        } else {
-            /*
-             * Copy the header from ptr into the QAT_BYTE_ALIGNMENT
-             * sized buffer so that the header is in the final part
-             * of the buffer
-             */
-            if (arg > TLS_VIRT_HDR_SIZE)
-                arg = TLS_VIRT_HDR_SIZE;
-            memmove(evp_ctx->tls_virt_hdr +
-                    (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE), ptr,
-                    arg);
-            evp_ctx->payload_length = arg;
-            retVal = sha_digest_len;
-            break;
+        /* All remaining cases are exclusive to pipelines and are not
+         * used with small packet offload feature.
+         */
+    case EVP_CTRL_SET_PIPELINE_OUTPUT_BUFS:
+        if (arg > QAT_MAX_PIPELINES) {
+            WARN("[%s] PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
+                 __func__, arg, QAT_MAX_PIPELINES);
+            return -1;
         }
+        qctx->p_out = (unsigned char **)ptr;
+        qctx->numpipes = arg;
+        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_OBUF_SET);
+        return 1;
+
+    case EVP_CTRL_SET_PIPELINE_INPUT_BUFS:
+        if (arg > QAT_MAX_PIPELINES) {
+            WARN("[%s] PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
+                 __func__, arg, QAT_MAX_PIPELINES);
+            return -1;
+        }
+        qctx->p_in = (unsigned char **)ptr;
+        qctx->numpipes = arg;
+        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_IBUF_SET);
+        return 1;
+
+    case EVP_CTRL_SET_PIPELINE_INPUT_LENS:
+        if (arg > QAT_MAX_PIPELINES) {
+            WARN("[%s] PIPELINE_INPUT_LENS npipes(%d) > Max(%d).\n",
+                 __func__, arg, QAT_MAX_PIPELINES);
+            return -1;
+        }
+        qctx->p_inlen = (size_t *)ptr;
+        qctx->numpipes = arg;
+        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_BUF_LEN_SET);
+        return 1;
 
     default:
         WARN("[%s] --- unknown type parameter.\n", __func__);
         return -1;
     }
+
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    /* Openssl EVP implementation changes the size of payload encoded in TLS
+     * header pointed by ptr for EVP_CTRL_AEAD_TLS1_AAD, hence call is made
+     * here after ptr has been processed by engine implementation.
+     */
+    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_data);
+    EVP_CIPHER_meth_get_ctrl(GET_SW_CIPHER(ctx)) (ctx, type, arg, ptr);
+    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+#endif
     return retVal;
 }
 
 /******************************************************************************
 * function:
-*    qat_aes_cbc_hmac_sha_cleanup(EVP_CIPHER_CTX *ctx)
+*    qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
 *
 * @param ctx    [IN]  - pointer to existing ctx
 *
@@ -1006,11 +1004,11 @@ int qat_aes_cbc_hmac_sha_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
 *  cryptographic transform.
 *
 ******************************************************************************/
-int qat_aes_cbc_hmac_sha_cleanup(EVP_CIPHER_CTX *ctx)
+int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
 {
-    qat_chained_ctx *evp_ctx = NULL;
+    qat_chained_ctx *qctx = NULL;
     CpaStatus sts = 0;
-    CpaCySymSessionSetupData *sessSetup = NULL;
+    CpaCySymSessionSetupData *ssd = NULL;
     int retVal = 1;
 
     if (ctx == NULL) {
@@ -1018,268 +1016,47 @@ int qat_aes_cbc_hmac_sha_cleanup(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
-    int nid = 0;
-    nid = EVP_CIPHER_CTX_nid(ctx);
-    switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-    case NID_aes_256_cbc_hmac_sha1:
-        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_128_cbc_hmac_sha256:
-    case NID_aes_256_cbc_hmac_sha256:
-        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    default:
+    qctx = qat_chained_data(ctx);
+    if (qctx == NULL) {
+        WARN("[%s] qctx parameter is NULL.\n", __func__);
         return 0;
     }
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    OPENSSL_free(qctx->sw_ctx_data);
+#endif
 
-    if (evp_ctx == NULL) {
-        WARN("[%s] evp_ctx parameter is NULL.\n", __func__);
-        return 0;
-    }
+    /* ctx may be cleaned before it gets a chance to allocate qop */
+    qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
 
-    sessSetup = evp_ctx->session_data;
-    if (sessSetup) {
-        if (evp_ctx->qat_ctx) {
-            if ((sts =
-                 cpaCySymRemoveSession(evp_ctx->instanceHandle,
-                                       evp_ctx->qat_ctx))
-                != CPA_STATUS_SUCCESS) {
+    ssd = qctx->session_data;
+    if (ssd) {
+        if (INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_SESSION_INIT)) {
+            sts = cpaCySymRemoveSession(qctx->instanceHandle,
+                                        qctx->session_ctx);
+            if (sts != CPA_STATUS_SUCCESS) {
                 WARN("[%s] cpaCySymRemoveSession FAILED, sts = %d.!\n",
                      __func__, sts);
                 retVal = 0;
-                /*
-                 * Lets not return yet and instead make a best effort to
-                 * cleanup the rest to avoid memory leaks
-                 */
             }
-            qaeCryptoMemFree(evp_ctx->qat_ctx);
-            evp_ctx->qat_ctx = NULL;
         }
-        if (sessSetup->hashSetupData.authModeSetupData.authKey) {
-            OPENSSL_cleanse(sessSetup->hashSetupData.authModeSetupData.authKey,
-                            sessSetup->hashSetupData.authModeSetupData.
-                             authKeyLenInBytes);
-            OPENSSL_free(sessSetup->hashSetupData.authModeSetupData.authKey);
-            sessSetup->hashSetupData.authModeSetupData.authKey = NULL;
-        }
-
-        if (evp_ctx->tls_virt_hdr) {
-            qaeCryptoMemFree(evp_ctx->tls_virt_hdr);
-            evp_ctx->tls_virt_hdr = NULL;
-        }
-        if (evp_ctx->srcBufferList.pPrivateMetaData) {
-            qaeCryptoMemFree(evp_ctx->srcBufferList.pPrivateMetaData);
-            evp_ctx->srcBufferList.pPrivateMetaData = NULL;
-        }
-        if (evp_ctx->dstBufferList.pPrivateMetaData) {
-            qaeCryptoMemFree(evp_ctx->dstBufferList.pPrivateMetaData);
-            evp_ctx->dstBufferList.pPrivateMetaData = NULL;
-        }
-        if (evp_ctx->pIv) {
-            qaeCryptoMemFree(evp_ctx->pIv);
-            evp_ctx->pIv = NULL;
-
-        }
-        if (sessSetup->cipherSetupData.pCipherKey) {
-            OPENSSL_cleanse(sessSetup->cipherSetupData.pCipherKey,
-                            sessSetup->cipherSetupData.cipherKeyLenInBytes);
-            OPENSSL_free(sessSetup->cipherSetupData.pCipherKey);
-            sessSetup->cipherSetupData.pCipherKey = NULL;
-        }
-        OPENSSL_free(sessSetup);
-        evp_ctx->session_data=NULL;
+        QAT_QMEMFREE_BUFF(qctx->session_ctx);
+        QAT_CLEANSE_FREE_BUFF(ssd->hashSetupData.authModeSetupData.authKey,
+                              ssd->hashSetupData.authModeSetupData.
+                              authKeyLenInBytes);
+        QAT_CLEANSE_FREE_BUFF(ssd->cipherSetupData.pCipherKey,
+                              ssd->cipherSetupData.cipherKeyLenInBytes);
+        OPENSSL_free(ssd);
     }
-    evp_ctx->init = 0;
-    evp_ctx->payload_length = NO_PAYLOAD_LENGTH_SPECIFIED;
+
+    INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
+    DEBUG_PPL("[%s:%p] EVP CTX cleaned up\n", __func__, ctx);
     return retVal;
 }
 
 /******************************************************************************
 * function:
-*         qat_aes_sha_session_init(EVP_CIPHER_CTX *ctx)
-*
-* @param ctx [IN] - pointer to context
-*
-* @retval 1      function succeeded
-* @retval 0      function failed
-*
-* description:
-*    This function synchronises the initialisation of the QAT session and
-*  pre-allocates the necessary buffers for the session.
-******************************************************************************/
-static int qat_aes_sha_session_init(EVP_CIPHER_CTX *ctx)
-{
-    qat_chained_ctx *evp_ctx = NULL;
-    CpaCySymSessionSetupData *sessionSetupData = NULL;
-    Cpa32U sessionCtxSize = 0;
-    CpaCySymSessionCtx pSessionCtx = NULL;
-    Cpa32U metaSize = 0;
-
-    if (ctx == NULL) {
-        WARN("[%s] --- parameters ctx is NULL.\n", __func__);
-        return 0;
-    }
-
-    int nid = 0;
-    nid = EVP_CIPHER_CTX_nid(ctx);
-    switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-    case NID_aes_256_cbc_hmac_sha1:
-        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_128_cbc_hmac_sha256:
-    case NID_aes_256_cbc_hmac_sha256:
-        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    default:
-        return 0;
-    }
-
-    if (evp_ctx == NULL) {
-        WARN("[%s] --- evp_ctx is NULL.\n", __func__);
-        return 0;
-    }
-
-    /*
-     * All parameters have not been set yet or we have already been
-     * initialised.
-     */
-    if ((1 != evp_ctx->initParamsSet) || (1 == evp_ctx->init)) {
-        WARN("[%s] --- parameters not set or initialised yet.\n", __func__);
-        return 0;
-    }
-
-    sessionSetupData = evp_ctx->session_data;
-    evp_ctx->instanceHandle = get_next_inst();
-
-    if (evp_ctx->instanceHandle == NULL || sessionSetupData == NULL) {
-        WARN("[%s] --- evp_ctx->instanceHandle or sessionSetupData are NULL.\n", __func__);
-        return 0;
-    }
-
-    if (cpaCySymSessionCtxGetSize(evp_ctx->instanceHandle, sessionSetupData,
-                                  &sessionCtxSize) != CPA_STATUS_SUCCESS) {
-        WARN("[%s] --- cpaCySymSessionCtxGetSize failed.\n", __func__);
-        return 0;
-    }
-
-    pSessionCtx =
-        (CpaCySymSessionCtx) qaeCryptoMemAlloc(sessionCtxSize, __FILE__,
-                                               __LINE__);
-    if (NULL == pSessionCtx) {
-        WARN("[%s] --- pSessionCtx malloc failed !\n", __func__);
-        return 0;
-    }
-
-    if (EVP_CIPHER_CTX_encrypting(ctx))
-        sessionSetupData->verifyDigest = CPA_FALSE;
-    else
-        sessionSetupData->verifyDigest = CPA_TRUE;
-
-    sessionSetupData->digestIsAppended = CPA_TRUE;
-
-    if (cpaCySymInitSession
-        (evp_ctx->instanceHandle, qat_crypto_callbackFn, sessionSetupData,
-         pSessionCtx) != CPA_STATUS_SUCCESS) {
-        WARN("[%s] --- cpaCySymInitSession failed.\n", __func__);
-        qaeCryptoMemFree(pSessionCtx);
-        return 0;
-    }
-
-    evp_ctx->srcBufferList.numBuffers = 2;
-    evp_ctx->srcBufferList.pBuffers = (evp_ctx->srcFlatBuffer);
-    evp_ctx->srcBufferList.pUserData = NULL;
-
-    evp_ctx->dstBufferList.numBuffers = 2;
-    evp_ctx->dstBufferList.pBuffers = (evp_ctx->dstFlatBuffer);
-    evp_ctx->dstBufferList.pUserData = NULL;
-
-    /* setup meta data for buffer lists */
-    if (cpaCyBufferListGetMetaSize(evp_ctx->instanceHandle,
-                                   evp_ctx->srcBufferList.numBuffers,
-                                   &metaSize) != CPA_STATUS_SUCCESS) {
-        WARN("[%s] --- cpaCyBufferListGetBufferSize failed.\n", __func__);
-        qaeCryptoMemFree(pSessionCtx);
-        return 0;
-    }
-
-    if (metaSize) {
-        evp_ctx->srcBufferList.pPrivateMetaData =
-            qaeCryptoMemAlloc(metaSize, __FILE__, __LINE__);
-        if (!(evp_ctx->srcBufferList.pPrivateMetaData)) {
-            WARN("[%s] --- srcBufferList.pPrivateMetaData is NULL.\n",
-                 __func__);
-            qaeCryptoMemFree(pSessionCtx);
-            return 0;
-        }
-    } else {
-        evp_ctx->srcBufferList.pPrivateMetaData = NULL;
-    }
-    metaSize = 0;
-
-    if (cpaCyBufferListGetMetaSize(evp_ctx->instanceHandle,
-                                   evp_ctx->dstBufferList.numBuffers,
-                                   &metaSize) != CPA_STATUS_SUCCESS) {
-        WARN("[%s] --- cpaCyBufferListGetBufferSize failed.\n", __func__);
-        if (evp_ctx->srcBufferList.pPrivateMetaData) {
-            qaeCryptoMemFree(evp_ctx->srcBufferList.pPrivateMetaData);
-            evp_ctx->srcBufferList.pPrivateMetaData = NULL;
-        }
-        qaeCryptoMemFree(pSessionCtx);
-        return 0;
-    }
-
-    if (metaSize) {
-        evp_ctx->dstBufferList.pPrivateMetaData =
-            qaeCryptoMemAlloc(metaSize, __FILE__, __LINE__);
-        if (!(evp_ctx->dstBufferList.pPrivateMetaData)) {
-            WARN("[%s] --- dstBufferList.pPrivateMetaData is NULL.\n",
-                 __func__);
-            if (evp_ctx->srcBufferList.pPrivateMetaData) {
-                qaeCryptoMemFree(evp_ctx->srcBufferList.pPrivateMetaData);
-                evp_ctx->srcBufferList.pPrivateMetaData = NULL;
-            }
-            qaeCryptoMemFree(pSessionCtx);
-            return 0;
-        }
-    } else {
-        evp_ctx->dstBufferList.pPrivateMetaData = NULL;
-    }
-
-    /*
-     * Create the OpData structure to remove this processing from the data
-     * path
-     */
-    evp_ctx->qat_ctx = pSessionCtx;
-    evp_ctx->OpData.sessionCtx = evp_ctx->qat_ctx;
-    evp_ctx->OpData.packetType = CPA_CY_SYM_PACKET_TYPE_FULL;
-
-    evp_ctx->OpData.pIv = evp_ctx->pIv;
-    evp_ctx->OpData.ivLenInBytes = (Cpa32U) EVP_CIPHER_CTX_iv_length(ctx);
-    /*
-     * We want to ensure the start of crypto data is on a 64 byte, aligned
-     * boundary. This is for QAT internal performance reasons.
-     */
-    evp_ctx->OpData.cryptoStartSrcOffsetInBytes = QAT_BYTE_ALIGNMENT;
-    /*
-     * We start hashing from the start of the header. Due to needing the
-     * crypto data aligned to a 64 byte boundary we need to start the header
-     * that comes first at an offset into the 64 byte aligned block so the
-     * header will end on a 64 byte alignment.
-     */
-    evp_ctx->OpData.hashStartSrcOffsetInBytes =
-        QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE;
-    evp_ctx->OpData.pAdditionalAuthData = NULL;
-
-    evp_ctx->init = 1;
-
-    return 1;
-}
-/******************************************************************************
-* function:
-*    qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
-*                                 const unsigned char *in, size_t len)
+*    qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+*                                  const unsigned char *in, size_t len)
 *
 * @param ctx    [IN]  - pointer to existing ctx
 * @param out   [OUT]  - output buffer for transform result
@@ -1294,278 +1071,312 @@ static int qat_aes_sha_session_init(EVP_CIPHER_CTX *ctx)
 *  parameters setup during initialisation.
 *
 ******************************************************************************/
-int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
-                                      const unsigned char *in, size_t len)
+int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+                                  const unsigned char *in, size_t len)
 {
     CpaStatus sts = 0;
-    unsigned int pad_len = 0;
-    struct op_done opDone;
-    qat_chained_ctx *evp_ctx = NULL;
-    int retVal = 1;
-    size_t plen = 0, iv = 0;    /* explicit IV in TLS 1.1 and later */
-    unsigned int sha_digest_len = 0;
+    CpaCySymOpData *opd = NULL;
+    CpaBufferList *s_sgl = NULL;
+    CpaBufferList *d_sgl = NULL;
+    CpaFlatBuffer *s_fbuf = NULL;
+    CpaFlatBuffer *d_fbuf = NULL;
+    int retVal = 0;
+    unsigned int pad_check = 1;
+    int pad_len = 0;
+    int plen = 0;
+    int plen_adj = 0;
+    struct op_done_pipe done;
+    qat_chained_ctx *qctx = NULL;
+    AES_KEY aes_key;
+    unsigned char *inb, *outb;
+    unsigned char ivec[AES_BLOCK_SIZE];
+    unsigned char out_blk[TLS_MAX_PADDING_LENGTH + 1] = { 0x0 };
+    const unsigned char *in_blk = NULL;
+    unsigned int ivlen = 0;
+    int dlen, vtls, enc, i, buflen;
+    int discardlen = 0;
+    char *tls_hdr = NULL;
+    int pipe = 0;
+    int error = 0;
 
-    CRYPTO_QAT_LOG("CIPHER - %s\n", __func__);
-
-    if (ctx == NULL || in == NULL || out == NULL) {
-        WARN("[%s] --- ctx, in or out parameters are NULL.\n", __func__);
+    if (ctx == NULL) {
+        WARN("[%s] CTX parameter is NULL.\n", __func__);
         return 0;
     }
 
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    const EVP_CIPHER *ia_cipher = NULL;
-#endif
-
-    int nid = EVP_CIPHER_CTX_nid(ctx);
-    switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_128_cbc_hmac_sha1();
-#endif
-        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_256_cbc_hmac_sha1:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_256_cbc_hmac_sha1();
-#endif
-        evp_ctx = &(((qat_chained_sha1_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_128_cbc_hmac_sha256:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_128_cbc_hmac_sha256();
-#endif
-        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    case NID_aes_256_cbc_hmac_sha256:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = EVP_aes_256_cbc_hmac_sha256();
-#endif
-        evp_ctx = &(((qat_chained_sha256_ctx *)qat_chained_data(ctx))->qat_ctx);
-        break;
-    default:
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        ia_cipher = NULL;
-#endif
+    qctx = qat_chained_data(ctx);
+    if (qctx == NULL || !INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_CTX_INIT)) {
+        WARN("[%s] %s\n", __func__, qctx == NULL ? "QAT CTX NULL"
+             : "QAT Context not initialised");
         return 0;
     }
 
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    if(len <= qat_pkt_threshold_table_get_threshold(nid)) {
-        retVal = EVP_CIPHER_meth_get_do_cipher(ia_cipher)(ctx, out, in, len);
-        return retVal;
-    }
-#endif
-
-    if (evp_ctx == NULL) {
-        WARN("[%s] --- evp_ctx is NULL.\n", __func__);
+    /* Pipeline initialisation requires multiple EVP_CIPHER_CTX_ctrl
+     * calls to set all required parameters. Check if all have been
+     * provided. For Pipeline, in and out buffers can be NULL as these
+     * are supplied through ctrl messages.
+     */
+    if (PIPELINE_INCOMPLETE_INIT(qctx) ||
+        (!PIPELINE_SET(qctx) && (in == NULL || out == NULL
+                                 || (len % AES_BLOCK_SIZE)))) {
+        WARN("[%s] %s \n", __func__,
+             PIPELINE_INCOMPLETE_INIT(qctx) ?
+             "Pipeline not initialised completely" : len % AES_BLOCK_SIZE
+             ? "Buffer Length not multiple of AES block size"
+             : "in/out buffer null");
         return 0;
     }
 
-    if (len % AES_BLOCK_SIZE) {
-        WARN("[%s] --- len is not a multiple of the AES_BLOCK_SIZE.\n",
-             __func__);
-        return 0;
-    }
-
-    if (!(evp_ctx->init)) {
-        if (0 == qat_aes_sha_session_init(ctx)) {
-            WARN("[%s] --- Unable to initialise Cipher context.\n", __func__);
+    if (!INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_SESSION_INIT)) {
+        /* The qat session is initialized when HMAC key is set. In case
+         * HMAC key is not explicitly set, use default HMAC key of all zeros
+         * and initialise a qat session.
+         */
+        sts = cpaCySymInitSession(qctx->instanceHandle, qat_chained_callbackFn,
+                                  qctx->session_data, qctx->session_ctx);
+        if (sts != CPA_STATUS_SUCCESS) {
+            WARN("[%s] cpaCySymInitSession failed! Status = %d\n",
+                 __func__, sts);
             return 0;
         }
+        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
     }
 
-    if ((sha_digest_len = qat_get_sha_digest_len(ctx)) == 0) {
-        WARN("[%s] --- Unable to get sha digest length\n", __func__);
-        return 0;
-    }
+    enc = EVP_CIPHER_CTX_encrypting(ctx);
+    ivlen = EVP_CIPHER_CTX_iv_length(ctx);
+    dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
 
-    plen = evp_ctx->payload_length;
-    if (NO_PAYLOAD_LENGTH_SPECIFIED == plen) {
-        plen = len - sha_digest_len;
-    } else if (EVP_CIPHER_CTX_encrypting(ctx)
-             && len !=
-             ((plen + sha_digest_len + AES_BLOCK_SIZE) & -AES_BLOCK_SIZE)) {
-        return 0;
-    } else if (evp_ctx->tls_version >= TLS1_1_VERSION) {
-        if (!EVP_CIPHER_CTX_encrypting(ctx) && 
-            (len < (AES_BLOCK_SIZE + sha_digest_len + 1 )))
+    /* Check and setup data structures for pipeline */
+    if (PIPELINE_SET(qctx)) {
+        /* All the aad data (tls header) should be present */
+        if (qctx->aad_ctr != qctx->numpipes) {
+            WARN("[%s] AAD data missing supplied %d of %d\n",
+                 __func__, qctx->aad_ctr, qctx->numpipes);
             return 0;
-        iv = AES_BLOCK_SIZE;
-        memmove(evp_ctx->OpData.pIv, in, EVP_CIPHER_CTX_iv_length(ctx));
-        /*
-         * Note: The OpenSSL framework assumes that the IV field will be part
-         * of the encrypted data, yet never looks at the output of the
-         * encryption/decryption process for this field. In order to chain
-         * HASH and CIPHER we need to present contiguous SGL to QAT, thus we
-         * need to copy the IV from input to output in in order to skip this
-         * field in encryption
-         */
-        if (in != out)
-            memmove(out, in, EVP_CIPHER_CTX_iv_length(ctx));
-        in += iv;
-        out += iv;
-        len -= iv;
-        evp_ctx->payload_length -= iv;
-        plen -= iv;
+        }
     } else {
-        if (!EVP_CIPHER_CTX_encrypting(ctx) && (len < sha_digest_len + 1))
-            return 0;
-        memmove(evp_ctx->OpData.pIv, EVP_CIPHER_CTX_iv(ctx), EVP_CIPHER_CTX_iv_length(ctx));
-    }
-
-    /* Build request/response buffers */
-    evp_ctx->srcFlatBuffer[1].pData =
-        qaeCryptoMemAlloc(len, __FILE__, __LINE__);
-    if ((evp_ctx->srcFlatBuffer[1].pData) == NULL) {
-        WARN("[%s] --- src/dst buffer allocation.\n", __func__);
-	return 0;
-    }
-    evp_ctx->dstFlatBuffer[1].pData = evp_ctx->srcFlatBuffer[1].pData;
-    memmove(evp_ctx->dstFlatBuffer[1].pData, in, len);
-
-    evp_ctx->srcFlatBuffer[1].dataLenInBytes = len;
-    evp_ctx->srcBufferList.pUserData = NULL;
-    evp_ctx->dstFlatBuffer[1].dataLenInBytes = len;
-    evp_ctx->dstBufferList.pUserData = NULL;
-
-    evp_ctx->OpData.messageLenToCipherInBytes = len;
-
-    if (NO_PAYLOAD_LENGTH_SPECIFIED == evp_ctx->payload_length) {
-        evp_ctx->OpData.messageLenToHashInBytes =
-            (TLS_VIRT_HDR_SIZE + len) - sha_digest_len;
-    } else if (!EVP_CIPHER_CTX_encrypting(ctx)) {
-        AES_KEY aes_key;
-        unsigned char in_blk[TLS_MAX_PADDING_LENGTH + 1] = { 0x0 };
-        unsigned char *key =
-            evp_ctx->session_data->cipherSetupData.pCipherKey;
-        unsigned int key_len = EVP_CIPHER_CTX_key_length(ctx);
-        unsigned char ivec[AES_BLOCK_SIZE] = { 0x0 };
-        unsigned char out_blk[TLS_MAX_PADDING_LENGTH + 1] = { 0x0 };
-        /* temp_length is the size of the data we need to decrypt
-           in order to check the padding */
-        unsigned int temp_length = TLS_MAX_PADDING_LENGTH + 1;
-        size_t j;
-        unsigned int res = 0xff, maxpad;
-        
-        /* Adjust temp_length if we are working with a small amount of
-           data. This adjustment is based on public knowledge of len
-           so does not need to be in constant time */
-        if ((len - sha_digest_len) <= TLS_MAX_PADDING_LENGTH)
-            temp_length = ((len - sha_digest_len + AES_BLOCK_SIZE - 1) 
-                           / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
-        
-        key_len = key_len * 8;  /* convert to bits */
-        memmove(in_blk, (in + (len - temp_length)), temp_length);
-        memmove(ivec, (in + (len - (temp_length + AES_BLOCK_SIZE))),
-               AES_BLOCK_SIZE);
-
-        /* Dump input parameters */
-        DUMPL("Key :", key, EVP_CIPHER_CTX_key_length(ctx));
-        DUMPL("IV :", ivec, AES_BLOCK_SIZE);
-        DUMPL("Input Blk :", in_blk, temp_length);
-
-        AES_set_decrypt_key(key, key_len, &aes_key);
-        AES_cbc_encrypt(in_blk, out_blk, temp_length, &aes_key, ivec, 0);
-
-        DUMPL("Output Blk :", out_blk, temp_length);
-
-        /* Extract pad length */
-        pad_len = out_blk[temp_length - 1];
-        
-        /* Determine the maximum amount of padding that could be present */
-        maxpad = len - (sha_digest_len + 1);
-        maxpad |= (TLS_MAX_PADDING_LENGTH - maxpad) >> (sizeof(maxpad) * 8 - 8);
-        maxpad &= TLS_MAX_PADDING_LENGTH;
-        
-        /* Check the padding in constant time */
-        for ( j = 0; j <= maxpad; j++) {
-            uint8_t cmask = qat_constant_time_ge_8(pad_len, j);
-            uint8_t b = out_blk[temp_length - 1 - j];
-            res &= ~(cmask & (pad_len ^ b));
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+        if (len <=
+            qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
+            EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_data);
+            retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))
+                     (ctx, out, in, len);
+            EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+            goto cleanup;
         }
-        res = qat_constant_time_eq(0xff, res & 0xff);
-        retVal &= (int)res;
-
-        /* Adjust the amount of data to digest to be the maximum by setting
-           pad_len = 0 if the padding check failed or if the padding length
-           is greater than the maximum padding allowed. This adjustment
-           is done in constant time. */
-        retVal &= qat_constant_time_ge(maxpad, pad_len);
-        pad_len *= retVal;
-
-        /* Calculate and update length */
-        evp_ctx->payload_length = len - (pad_len + 1 + sha_digest_len);
-        /*
-         * Take into account that the field is part of the header that is
-         * offset into a byte aligned buffer.
+#endif
+        /* When no TLS AAD information is supplied, for example: speed,
+         * the payload length for encrypt/decrypt is equal to buffer len
+         * and the HMAC is to be discarded. Set the fake AAD hdr to avoid
+         * decision points in code for this special case handling.
          */
-        evp_ctx->tls_virt_hdr[QAT_BYTE_ALIGNMENT -
-                              QAT_TLS_PAYLOADLENGTH_MSB_OFFSET] =
-            evp_ctx->payload_length >> QAT_BYTE_SHIFT;
-        /*
-         * Take into account that the field is part of the header that is
-         * offset into a byte aligned buffer.
-         */
-        evp_ctx->tls_virt_hdr[QAT_BYTE_ALIGNMENT -
-                              QAT_TLS_PAYLOADLENGTH_LSB_OFFSET] =
-            evp_ctx->payload_length;
-
-        /* HMAC Length */
-        evp_ctx->OpData.messageLenToHashInBytes =
-            TLS_VIRT_HDR_SIZE + evp_ctx->payload_length;
-        /* Only copy the offset header data itself and not the whole block */
-        memmove(evp_ctx->dstFlatBuffer[0].pData +
-               (QAT_BYTE_ALIGNMENT - TLS_VIRT_HDR_SIZE),
-               evp_ctx->tls_virt_hdr + (QAT_BYTE_ALIGNMENT -
-                                        TLS_VIRT_HDR_SIZE),
-               TLS_VIRT_HDR_SIZE);
-    } else {
-        evp_ctx->OpData.messageLenToHashInBytes =
-            TLS_VIRT_HDR_SIZE + evp_ctx->payload_length;
-    }
-
-    /* Add record padding */
-    if (EVP_CIPHER_CTX_encrypting(ctx)) {
-        plen += sha_digest_len;
-        for (pad_len = len - plen - 1; plen < len; plen++)
-            evp_ctx->dstFlatBuffer[1].pData[plen] = pad_len;
-    }
-
-    initOpDone(&opDone);
-    if (opDone.job) {
-        if (qat_setup_async_event_notification(0) == 0) {
-            WARN("Failure to setup async event notifications\n");
-            cleanupOpDone(&opDone);
-            return 0;
+        if (!TLS_HDR_SET(qctx)) {
+            tls_hdr = GET_TLS_HDR(qctx, 0);
+            /* Mark an invalid tls version */
+            tls_hdr[9] = tls_hdr[10] = 0;
+            /* Set the payload length equal to entire length
+             * of buffer i.e. there is no space for HMAC in
+             * buffer.
+             */
+            SET_TLS_PAYLOAD_LEN(tls_hdr, 0);
+            plen = len;
+            if (!enc) {
+                /* When decrypting donot verify computed digest
+                 * to stored digest as there is none in this case.
+                 */
+                qctx->session_data->verifyDigest = CPA_FALSE;
+            }
+            /* Find the extra length for qat buffers to store the HMAC and
+             * padding which is later discarded when the result is copied out.
+             */
+            discardlen = ((len + dlen + AES_BLOCK_SIZE) & -AES_BLOCK_SIZE)
+                - len;
+            /* Pump-up the len by this amount */
+            len += discardlen;
         }
+        /* If the same ctx is being re-used for multiple invocation
+         * of this function without setting EVP_CTRL for number of pipes,
+         * the PIPELINE_SET is true from previous invocation. Clear Pipeline
+         * when add_ctr is 1. This means user wants to switch from pipeline mode
+         * to non-pipeline mode for the same ctx.
+         */
+        CLEAR_PIPELINE(qctx);
+
+        /* setting these helps avoid decision branches when
+         * pipelines are not used.
+         */
+        qctx->p_in = (unsigned char **)&in;
+        qctx->p_out = &out;
+        qctx->p_inlen = &len;
     }
-    if (!EVP_CIPHER_CTX_encrypting(ctx) &&
-        (NO_PAYLOAD_LENGTH_SPECIFIED != evp_ctx->payload_length) &&
-        ((evp_ctx->tls_version) < TLS1_1_VERSION))
-        memmove(EVP_CIPHER_CTX_iv_noconst(ctx), in + len - AES_BLOCK_SIZE,
-               EVP_CIPHER_CTX_iv_length(ctx));
 
-    CRYPTO_QAT_LOG("CIPHER - %s\n", __func__);
-    DEBUG("Pre Perform Op\n");
+    DEBUG_PPL("[%s:%p] Start Cipher operation with num pipes %d\n",
+              __func__, ctx, qctx->numpipes);
 
-    if ((sts = myPerformOp(evp_ctx->instanceHandle,
-                            &opDone,
-                            &(evp_ctx->OpData),
-                            &(evp_ctx->srcBufferList),
-                            &(evp_ctx->dstBufferList),
-                            &(evp_ctx->session_data->verifyDigest))) !=
-                            CPA_STATUS_SUCCESS) {
-        qaeCryptoMemFree(evp_ctx->srcFlatBuffer[1].pData);
-        evp_ctx->srcFlatBuffer[1].pData = NULL;
-        evp_ctx->dstFlatBuffer[1].pData = NULL;
-        cleanupOpDone(&opDone);
-        WARN("[%s] --- cpaCySymPerformOp failed sts=%d.\n", __func__,
-             sts);
+    if ((qat_setup_op_params(ctx) != 1) ||
+        (initOpDonePipe(&done, qctx->numpipes) != 1))
         return 0;
-    }
 
     do {
-        if(opDone.job) {
+        opd = &qctx->qop[pipe].op_data;
+        tls_hdr = GET_TLS_HDR(qctx, pipe);
+        vtls = GET_TLS_VERSION(tls_hdr);
+        s_fbuf = qctx->qop[pipe].src_fbuf;
+        d_fbuf = qctx->qop[pipe].dst_fbuf;
+        s_sgl = &qctx->qop[pipe].src_sgl;
+        d_sgl = &qctx->qop[pipe].src_sgl;
+        inb = &qctx->p_in[pipe][0];
+        outb = &qctx->p_out[pipe][0];
+        buflen = qctx->p_inlen[pipe];
+
+        if (vtls >= TLS1_1_VERSION) {
+            /*
+             * Note: The OpenSSL framework assumes that the IV field will be part
+             * of the output data. In order to chain HASH and CIPHER we need to
+             * present contiguous SGL to QAT, copy IV to output buffer now and
+             * skip it for chained operation.
+             */
+            if (inb != outb)
+                memcpy(outb, inb, ivlen);
+            memcpy(opd->pIv, inb, ivlen);
+            inb += ivlen;
+            buflen -= ivlen;
+            plen_adj = ivlen;
+        } else {
+            if (qctx->numpipes > 1) {
+                WARN("[%s] Pipe %d tls hdr version < tls1.1\n", __func__, pipe);
+                error = 1;
+                break;
+            }
+            memcpy(opd->pIv, EVP_CIPHER_CTX_iv(ctx), ivlen);
+        }
+
+        /* Calculate payload and padding len */
+        if (enc) {
+            /* For encryption, payload length is in the header.
+             * For non-TLS use case, plen has already been set above.
+             * For TLS Version > 1.1 the payload length also contains IV len.
+             */
+            if (vtls >= TLS1_VERSION)
+                plen = GET_TLS_PAYLOAD_LEN(tls_hdr) - plen_adj;
+
+            /* Compute the padding length using total buffer length, payload
+             * length, digest length and a byte to encode padding len.
+             */
+            pad_len = buflen - (plen + dlen) - 1;
+
+            /* If padlen is negative, then size of supplied output buffer
+             * is smaller than required.
+             */
+            if ((buflen % AES_BLOCK_SIZE) != 0 || pad_len < 0 ||
+                pad_len > TLS_MAX_PADDING_LENGTH) {
+                WARN("[%s] buffer len[%d] or pad_len[%d] incorrect\n", __func__,
+                     buflen, pad_len);
+                error = 1;
+                break;
+            }
+        } else if (vtls >= TLS1_VERSION) {
+            /* Decrypt the last block of the buffer to get the pad_len.
+             * Calculate payload len using total length and padlen.
+             * NOTE: plen so calculated does not account for ivlen
+             *       if iv is appened for TLS Version >= 1.1
+             */
+            unsigned int tmp_padlen = TLS_MAX_PADDING_LENGTH + 1;
+            unsigned int maxpad, res = 0xff;
+            size_t j;
+            uint8_t cmask, b;
+
+            if ((buflen - dlen) <= TLS_MAX_PADDING_LENGTH)
+                tmp_padlen = (((buflen - dlen) + (AES_BLOCK_SIZE - 1))
+                              / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
+            in_blk = inb + (buflen - tmp_padlen);
+            memcpy(ivec, in_blk - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
+
+            AES_set_decrypt_key(qctx->session_data->cipherSetupData.pCipherKey,
+                                EVP_CIPHER_CTX_key_length(ctx) * 8, &aes_key);
+            AES_cbc_encrypt(in_blk, out_blk, tmp_padlen, &aes_key, ivec, 0);
+
+            pad_len = out_blk[tmp_padlen - 1];
+            /* Determine the maximum amount of padding that could be present */
+            maxpad = buflen - (dlen + 1);
+            maxpad |=
+                (TLS_MAX_PADDING_LENGTH - maxpad) >> (sizeof(maxpad) * 8 - 8);
+            maxpad &= TLS_MAX_PADDING_LENGTH;
+
+            /* Check the padding in constant time */
+            for (j = 0; j <= maxpad; j++) {
+                cmask = qat_constant_time_ge_8(pad_len, j);
+                b = out_blk[tmp_padlen - 1 - j];
+                res &= ~(cmask & (pad_len ^ b));
+            }
+            res = qat_constant_time_eq(0xff, res & 0xff);
+            pad_check &= (int)res;
+
+            /* Adjust the amount of data to digest to be the maximum by setting
+             * pad_len = 0 if the padding check failed or if the padding length
+             * is greater than the maximum padding allowed. This adjustment
+             * is done in constant time.
+             */
+            pad_check &= qat_constant_time_ge(maxpad, pad_len);
+            pad_len *= pad_check;
+            plen = buflen - (pad_len + 1 + dlen);
+        }
+
+        opd->messageLenToCipherInBytes = buflen;
+        opd->messageLenToHashInBytes = TLS_VIRT_HDR_SIZE + plen;
+
+        /* copy tls hdr in flatbuffer's last 13 bytes */
+        memcpy(d_fbuf[0].pData + (d_fbuf[0].dataLenInBytes - TLS_VIRT_HDR_SIZE),
+               tls_hdr, TLS_VIRT_HDR_SIZE);
+        /* Update the value of payload before HMAC calculation */
+        SET_TLS_PAYLOAD_LEN((d_fbuf[0].pData +
+                             (d_fbuf[0].dataLenInBytes - TLS_VIRT_HDR_SIZE)),
+                            plen);
+
+        FLATBUFF_ALLOC_AND_CHAIN(s_fbuf[1], d_fbuf[1], buflen);
+        if ((s_fbuf[1].pData) == NULL) {
+            WARN("[%s] --- src/dst buffer allocation.\n", __func__);
+            error = 1;
+            break;
+        }
+
+        memcpy(d_fbuf[1].pData, inb, buflen - discardlen);
+
+        if (enc) {
+            /* Add padding to input buffer at end of digest */
+            for (i = plen + dlen; i < buflen; i++)
+                d_fbuf[1].pData[i] = pad_len;
+        } else {
+            /* store IV for next cbc operation */
+            if (vtls < TLS1_1_VERSION)
+                memcpy(EVP_CIPHER_CTX_iv_noconst(ctx),
+                       inb + (buflen - discardlen) - ivlen, ivlen);
+        }
+
+        sts = myPerformOp(qctx->instanceHandle, &done, opd, s_sgl, d_sgl,
+                          &(qctx->session_data->verifyDigest));
+        if (sts != CPA_STATUS_SUCCESS) {
+            WARN("[%s] CpaCySymPerformOp failed sts=%d.\n", __func__, sts);
+            error = 1;
+            break;
+        }
+        /* Increment after successful submission */
+        done.num_submitted++;
+    } while (++pipe < qctx->numpipes);
+
+    /* If there has been an error during submission of the pipes
+     * indicate to the callback function not to wait for the entire
+     * pipeline.
+     */
+    if (error == 1)
+        done.num_pipes = pipe;
+
+    /* If there is nothing to wait for, do not pause or yield */
+    if (done.num_submitted == 0 || (done.num_submitted == done.num_processed))
+        goto end;
+
+    do {
+        if (done.opDone.job) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -1574,30 +1385,52 @@ int qat_aes_cbc_hmac_sha_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(opDone.job, 0) == 0)
+            if (qat_pause_job(done.opDone.job, 0) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
-    } while(!opDone.flag);
+    } while (!done.opDone.flag);
 
-    cleanupOpDone(&opDone);
+ end:
+    qctx->total_op += done.num_processed;
+    cleanupOpDonePipe(&done);
 
-    retVal &= (int)opDone.verifyResult;
+    if (error == 0 && (done.opDone.verifyResult == CPA_TRUE))
+        retVal = 1;
 
-    DEBUG("Post Perform Op\n");
+    pipe = 0;
+    do {
+        if (retVal == 1) {
+            memcpy(qctx->p_out[pipe] + plen_adj,
+                   qctx->qop[pipe].dst_fbuf[1].pData,
+                   qctx->p_inlen[pipe] - discardlen - plen_adj);
+        }
+        qaeCryptoMemFree(qctx->qop[pipe].src_fbuf[1].pData);
+        qctx->qop[pipe].src_fbuf[1].pData = NULL;
+        qctx->qop[pipe].dst_fbuf[1].pData = NULL;
+    } while (++pipe < qctx->numpipes);
 
-    if (EVP_CIPHER_CTX_encrypting(ctx) && ((evp_ctx->tls_version) < TLS1_1_VERSION))
-        memmove(EVP_CIPHER_CTX_iv_noconst(ctx),
-               evp_ctx->dstBufferList.pBuffers[1].pData + len -
-               AES_BLOCK_SIZE, EVP_CIPHER_CTX_iv_length(ctx));
-    evp_ctx->payload_length = NO_PAYLOAD_LENGTH_SPECIFIED;
+    if (enc && vtls < TLS1_1_VERSION)
+        memcpy(EVP_CIPHER_CTX_iv_noconst(ctx),
+               outb + buflen - discardlen - ivlen, ivlen);
 
-    memmove(out, evp_ctx->dstFlatBuffer[1].pData, len);
-    qaeCryptoMemFree(evp_ctx->srcFlatBuffer[1].pData);
-    evp_ctx->srcFlatBuffer[1].pData = NULL;
-    evp_ctx->dstFlatBuffer[1].pData = NULL;
+ cleanup:
+    /*Reset the AAD counter forcing that new AAD information is provided
+     * before each repeat invocation of this function.
+     */
+    qctx->aad_ctr = 0;
 
-    return retVal;
+    /* This function can be called again with the same evp_cipher_ctx. */
+    if (PIPELINE_SET(qctx)) {
+        /* Number of pipes can grow between multiple invocation of this call.
+         * Record the maximum number of pipes used so that data structures can
+         * be allocated accordingly.
+         */
+        INIT_SEQ_CLEAR_FLAG(qctx, INIT_SEQ_PPL_AADCTR_SET);
+        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_USED);
+        qctx->npipes_last_used = qctx->numpipes > qctx->npipes_last_used
+            ? qctx->numpipes : qctx->npipes_last_used;
+    }
+    return retVal & pad_check;
 }
-

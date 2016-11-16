@@ -9,7 +9,7 @@ Please see the `LICENSE` file contained in the top level folder.
 Some of the engine code contains modified code from OpenSSL/BoringSSL. In
 both cases the code is licensed under the OpenSSL license available
 at <https://www.openssl.org/source/license.html>. Further details
-can be found in the file headers of the relevant files.  
+can be found in the file headers of the relevant files.
 
 Example Intel&reg; Contiguous Memory Driver contained within the folder
 `qat_contig_mem` - Dual BSD/GPLv2 License. Please see the file headers
@@ -36,7 +36,7 @@ GPLv2 license contained in the file `LICENSE.GPL` within the `qat` folder.
     * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
     * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
     * NIST Koblitz Curves: K-163/K-233/K-283/K409/K-571.
-* Symmetric Chained Cipher Offload:
+* Symmetric Chained Cipher Offload with pipelining capability:
   * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
   * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
 * Pseudo Random Function (PRF) offload.
@@ -916,6 +916,19 @@ By setting up the configuration file as above it is possible for instance
 to run the OpenSSL\* speed application to use the Intel&reg; Quickassist
 Technology OpenSSL\* Engine without needing to specify `-engine qat` as
 a command line option.
+
+## Using the OpenSSL\* pipelining capability
+The OpenSSL\* pipelining provides the capability to parallelise the
+processing for a single connection. For example a big buffer to be
+encrypted can be split into smaller chunks with each chunk encrypted
+simultaneously using pipelining.  The Intel&reg; Quickassist Technology
+OpenSSL\* Engine supports OpenSSL\* pipelining capability for chained
+cipher encryption operations only. The engine provides a maximum of 32
+pipelines (buffer chunks) with maximum size of 16,384 bytes for each
+pipeline. When pipelines are used, they are always offloaded to the
+accelerator ignoring the small packet offload threshold.  Please refer to
+OpenSSL\* manual for more information about pipelining.
+<https://www.openssl.org/docs/man1.1.0/ssl/SSL_CTX_set_split_send_fragment.html>
 
 ## Legal
 
