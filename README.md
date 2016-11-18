@@ -59,7 +59,7 @@ This release was validated on the following:
 * Operating system: Fedora\* 16 64-bit version
 * Kernel: GNU\*/Linux\* 3.1.0.7
 * Intel&reg; Communications Chipset 895x Series Software for Linux\*, version 2.6
-* OpenSSL\* 1.1.0b tag `OpenSSL_1_1_0b`
+* OpenSSL\* 1.1.0
 
 ## Limitations
 
@@ -101,8 +101,8 @@ Clone OpenSSL\* from Github\* at the following location:
 
     git clone https://github.com/openssl/openssl.git
 
-It is recommended to checkout and build against OpenSSL\* 1.1.0b tag
-`OpenSSL_1_1_0b`.
+It is recommended to checkout and build against the OpenSSL\* 1.1.0 git tag
+specified in the release notes.
 Older versions of OpenSSL\* are not supported.
 
 Due to the nature of the Intel&reg; QuickAssist Technology OpenSSL\*
