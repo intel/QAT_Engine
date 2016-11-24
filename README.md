@@ -604,14 +604,13 @@ Message String: SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD
 Param 3:        0
 Param 4:        string of cipher algorithm name and threshold value
 Description:
-    This message is used to set the threshold that determines the size
-    crypto packets need to be before they are offloaded to the acceleration
-    device. Very small crypto packets are not efficient to offload to the
-    accelerator as it will take longer to transfer the data to and from the
-    accelerator than it will to encrypt/decrypt using the main CPU.
-    Each EVP_CIPHER supported in Intel&reg; Quickassist Technology
-    OpenSSL\* engine can set the threshold value
-    independently according to the algorithm name as below:
+    This message is used to set the threshold that determines the size crypto
+    packets need to be before they are offloaded to the acceleration device.
+    It is not efficient to offload very small packets to the accelerator as to
+    do so would take longer to transfer the data to and from the accelerator
+    than to encrypt/decrypt using the main CPU. The threshold value can be set
+    independently for each EVP_CIPHER operation supported by the engine using
+    the following names:
         AES-128-CBC-HMAC-SHA1
         AES-256-CBC-HMAC-SHA1
         AES-128-CBC-HMAC-SHA256
@@ -622,6 +621,8 @@ Description:
     Using a separator "," between different cipher configuration
     The default threshold value is 2048 bytes, the minimum is 0 bytes and the
     maximum is 16,384.
+    This message is not supported when the engine is compiled with the flag
+    --enable-qat_small_pkt_offload.
 
 ```
 
@@ -730,8 +731,9 @@ Optional
     PRF offload (enabled by default)
 
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
-    Enable Intel&reg; Quickassist Technology to offload small
-    packet cipher operations (disabled by default)
+    Enable the offload of small packet cipher operations to Intel&reg;
+    Quickassist Technology. When disabled, these operations are performed using
+    the CPU (disabled by default).
 
 --disable-qat_debug/--enable-qat_debug
     Disable/Enable debug output to aid debugging. Warning: This
