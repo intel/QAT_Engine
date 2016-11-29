@@ -144,6 +144,7 @@
     if(unlikely(cond)) { retVal = 0; WARN(mesg); break; }
 
 /* Forward Declarations */
+static int qat_engine_init(ENGINE *e);
 static int qat_engine_finish(ENGINE *e);
 
 /* Qat engine id declaration */
@@ -175,13 +176,11 @@ static int currInst = 0;
 static pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-
 static unsigned int engine_inited = 0;
 static unsigned int instance_started[MAX_CRYPTO_INSTANCES] = {0};
 static useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 static int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 static int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
-static int qat_engine_init(ENGINE *e);
 
 
 int getQatMsgRetryCount()
@@ -206,6 +205,7 @@ int setQatSmallPacketThreshold(unsigned char *cipher_name, int threshold)
         threshold = 0;
     else if (threshold > 16384)
         threshold = 16384;
+    DEBUG("[%s] Set small packet threshold for %s: %d\n", __func__, cipher_name, threshold);
     return qat_pkt_threshold_table_set_threshold(OBJ_sn2nid(cipher_name),threshold);
 }
 
@@ -776,7 +776,14 @@ static int qat_engine_init(ENGINE *e)
         return 1;
     }
 
-    DEBUG("[%s] ---- Engine Initing\n\n", __func__);
+    DEBUG("[%s] QAT Engine initialization:\n", __func__);
+    DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
+    DEBUG("- Internal poll interval: %dns\n", qat_poll_interval);
+    DEBUG("- Epoll timeout: %dms\n", qat_epoll_timeout);
+    DEBUG("- Event driven polling mode: %s\n", enable_event_driven_polling ? "ON": "OFF");
+    DEBUG("- Instance for thread: %s\n", enable_instance_for_thread ? "ON": "OFF");
+    DEBUG("- Max retry count: %d\n", qat_max_retry_count);
+
     CRYPTO_INIT_QAT_LOG();
 
     if ((err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
