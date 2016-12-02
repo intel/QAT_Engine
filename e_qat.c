@@ -766,7 +766,7 @@ int qat_adjust_thread_affinity(pthread_t threadptr)
 ******************************************************************************/
 static int qat_engine_init(ENGINE *e)
 {
-    int instNum, err, checkLimitStatus;
+    int instNum, err;
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaBoolean limitDevAccess = CPA_FALSE;
 
@@ -792,12 +792,16 @@ static int qat_engine_init(ENGINE *e)
         return 0;
     }
 
-    checkLimitStatus =
-        checkLimitDevAccessValue((int *)&limitDevAccess,
-                                 ICPConfigSectionName_libcrypto);
-    if (!checkLimitStatus) {
-        WARN("Assuming LimitDevAccess = 0\n");
+#ifndef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+    /* limitDevAccess is passed as an input to icp_sal_userStartMultiProcess().
+     * However, in upstream driver the value is ignored and read directly from
+     * the configuration file -> No need to parse the file here.
+     */
+    if (!checkLimitDevAccessValue((int *)&limitDevAccess,
+                                    ICPConfigSectionName_libcrypto)) {
+        WARN("Could not load driver config file. Assuming LimitDevAccess = 0\n");
     }
+#endif
 
     /* Initialise the QAT hardware */
     if (CPA_STATUS_SUCCESS !=
