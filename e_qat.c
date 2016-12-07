@@ -87,6 +87,9 @@
  */
 #define QAT_EPOLL_TIMEOUT_IN_MS 1000
 
+/* Behavior of qat_engine_finish_int */
+#define QAT_RETAIN_GLOBALS 0
+#define QAT_RESET_GLOBALS 1
 
 
 /* Standard Includes */
@@ -146,6 +149,7 @@
 /* Forward Declarations */
 static int qat_engine_init(ENGINE *e);
 static int qat_engine_finish(ENGINE *e);
+static int qat_engine_finish_int(ENGINE *e, int reset_globals);
 
 /* Qat engine id declaration */
 static const char *engine_qat_id = "qat";
@@ -277,12 +281,14 @@ CpaInstanceHandle get_next_inst(void)
 
 static void engine_fork_handler(void)
 {
-    /*Reset engine*/
+    /* Reset the engine preserving the value of global variables */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if(e == NULL) {
+        WARN("[%s] Engine pointer is NULL", __func__);
         return;
     }
-    qat_engine_finish(e);
+
+    qat_engine_finish_int(e, QAT_RETAIN_GLOBALS);
 
     keep_polling = 1;
 }
@@ -1233,14 +1239,17 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 
 /******************************************************************************
 * function:
-*         qat_engine_finish(ENGINE *e)
+*         qat_engine_finish_int(ENGINE *e, int reset_globals)
 *
 * @param e [IN] - OpenSSL engine pointer
+* @param reset_globals [IN] - Whether reset the global configuration variables
 *
 * description:
-*   Qat engine finish function.
+*   Internal Qat engine finish function.
+*   The value of reset_globals should be either QAT_RESET_GLOBALS or
+*   QAT_RETAIN_GLOBALS
 ******************************************************************************/
-static int qat_engine_finish(ENGINE *e)
+static int qat_engine_finish_int(ENGINE *e, int reset_globals)
 {
 
     int i;
@@ -1320,16 +1329,41 @@ static int qat_engine_finish(ENGINE *e)
     internal_efd = 0;
     qatInstanceHandles = NULL;
     keep_polling = 1;
-    enable_external_polling = 0;
-    enable_event_driven_polling = 0;
-    enable_instance_for_thread = 0;
-    qatPerformOpRetries = 0;
     currInst = 0;
+    qatPerformOpRetries = 0;
+
+    /* Reset the configuration global variables (to their default values) only
+     * if requested, i.e. when we are not re-initializing the engine after
+     * forking
+     */
+    if (reset_globals) {
+        enable_external_polling = 0;
+        enable_event_driven_polling = 0;
+        enable_instance_for_thread = 0;
+        qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
+        qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
+    }
+
     pthread_mutex_unlock(&qat_engine_mutex);
 
     CRYPTO_CLOSE_QAT_LOG();
 
     return ret;
+}
+
+/******************************************************************************
+* function:
+*         qat_engine_finish(ENGINE *e)
+*
+* @param e [IN] - OpenSSL engine pointer
+*
+* description:
+*   Qat engine finish function with standard signature.
+*   This is a wrapper for qat_engine_finish_int that always resets all the
+*   global variables used to store the engine configuration.
+******************************************************************************/
+static int qat_engine_finish(ENGINE *e) {
+    qat_engine_finish_int(e, QAT_RESET_GLOBALS);
 }
 
 /******************************************************************************
