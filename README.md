@@ -304,7 +304,7 @@ because the default conf does not contain a `[SHIM]` section which the
 Intel&reg; Quickassist Technology OpenSSL\* Engine requires. The conf files are
 located at:
 
-`/path/to/qat_engine/qat/config`
+    /path/to/qat_engine/qat/config
 
 The files are grouped by acceleration device, please choose the files
 appropriate to your acceleration device only.
@@ -386,7 +386,7 @@ cd /path/to/openssl/apps
           (input flags): NO_INPUT
      SET_EPOLL_TIMEOUT: Set epoll_wait timeout
           (input flags): NUMERIC
-
+```
 
 
 
@@ -473,10 +473,8 @@ The custom message mechanism passes a string to identify the
 message, and uses a number of parameters to pass information into
 or out of the engine. It is defined as follows:
 
-```
-ENGINE_ctrl_cmd(<Engine>, <Message String>, <Param 3>,
-                <Param 4>, NULL, 0\)
-```
+    ENGINE_ctrl_cmd(<Engine>, <Message String>, <Param 3>,
+                    <Param 4>, NULL, 0\)
 
 Where:
 
@@ -579,8 +577,9 @@ Param 3:        long
 Param 4:        NULL
 Description:
     This message is used to bind the thread to a specific instance number.
-    Param 3 contains the instance number to bind to. If required the message
-    must be sent between engine creation and engine initialization.
+    Param 3 contains the instance number to bind to. If required, the message
+    must be sent after the engine creation and will automatically trigger the
+    engine initialization.
 
 Message String: GET_NUM_OP_RETRIES
 Param 3:        0
@@ -801,9 +800,7 @@ By default OpenSSL\* does not load the openssl.cnf file at initialization
 time. In order to load the file you need to make the following function
 call from your application as the first call to the OpenSSL\* library:
 
-```
-OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
-```
+    OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
 
 The second parameter determines the name of the section containing the
 application specific initialization settings. If you set the parameter
@@ -818,9 +815,7 @@ If converting an existing application to use the Intel&reg; Quickassist
 Technology OpenSSL\* Engine you may find that the application instead
 makes the now deprecated call to:
 
-```
-OPENSSL_config(NULL);
-```
+    OPENSSL_config(NULL);
 
 Where the parameter is a const char* pointer to the `appname` section
 you want to use, or NULL to use the default `openssl_conf` section.
@@ -837,9 +832,7 @@ In order to start using the openssl.cnf file it needs some additional
 lines adding. You should add the following statement in the global section
 (this is the section before the first bracketed section header):
 
-```
-openssl_conf = openssl_init
-```
+    openssl_conf = openssl_init
 
 The string `openssl_init` is the name of the section in the configuration
 file which describes the application specific settings. You do not need
@@ -850,10 +843,8 @@ The `openssl_init` section can be located at the end of the global
 section (as the first bracketed section), or further down the
 configuration file. It should have the following added:
 
-```
-[ openssl_init ]
-engines = engine_section
-```
+    [ openssl_init ]
+    engines = engine_section
 
 The `engines` string is a keyword that OpenSSL\* recognises as a
 configuration module. It should be set to a string which is the
@@ -861,20 +852,17 @@ section name containing a list of the engines to be
 loaded. So for the Intel&reg; Quickassist Technology OpenSSL\*
 Engine the section should contain:
 
-```
-[ engine_section ]
-qat = qat_section
-```
+    [ engine_section ]
+    qat = qat_section
 
 The `qat_section` contains all the settings relating to that
 particular engine. For instance it may contain:
 
-```
-[ qat_section ]
-engine_id = qat
-dynamic_path = /usr/local/ssl/lib/engines_1_1/qat.so
-default_algorithms = ALL
-```
+    [ qat_section ]
+    engine_id = qat
+    dynamic_path = /usr/local/ssl/lib/engines_1_1/qat.so
+    # Add engine specific messages here
+    default_algorithms = ALL
 
 Where `engine_id` specifies the name of engine to load (should be `qat`).
 
@@ -889,28 +877,36 @@ by the engine be used by default.
 In addition the `qat_section` may contain settings that call custom
 engine specific messages. For instance:
 
-```
-ENABLE_EVENT_DRIVEN_MODE = EMPTY
-```
+    ENABLE_EVENT_DRIVEN_MODE = EMPTY
 
 is functionally equivalent of making the following engine specific
 message function call:
 
-```
-ENGINE_ctrl_cmd(e, "ENABLE_EVENT_DRIVEN_MODE", 0, NULL, NULL, 0);
-```
+    ENGINE_ctrl_cmd(e, "ENABLE_EVENT_DRIVEN_MODE", 0, NULL, NULL, 0);
 
 You should set the setting to `EMPTY` if there are no parameters to pass,
 or assign the value that would be passed as the 4th parameter of the
-equivalent ENGINE_ctrl_cmd call. It should be noted that this mechanism
+equivalent `ENGINE_ctrl_cmd` call. It should be noted that this mechanism
 is only useful for passing simple values at engine initialization time.
 You cannot pass 3rd parameter values, pass complex structures or deal
-with return values via this mechanism. Engine specific messages should
-be specified before the `default_algorithms` setting or incorrect
-behaviour may result. By default the engine will get initialized at the
-end of this section (after all the custom engine specific messages have
-been sent). This can be controlled via an additional `init` setting that
-is out of scope of the documentation here.
+with return values via this mechanism.
+
+Engine specific messages should be specified before the `default_algorithms`
+setting or incorrect behaviour may result. The following messages are
+supported:
+
+* `ENABLE_EVENT_DRIVEN_POLLING_MODE`
+* `ENABLE_EXTERNAL_POLLING`
+* `SET_INTERNAL_POLL_INTERVAL`
+* `SET_EPOLL_TIMEOUT`
+* `SET_MAX_RETRY_COUNT`
+
+In case of forking, the custom values are inherited by the child process.
+
+By default the engine will get initialized at the end of this section (after
+all the custom engine specific messages have been sent). This can be controlled
+via an additional `init` setting that is out of scope of the documentation
+here.
 
 For further details on using the OpenSSL\* configuration file please
 see the OpenSSL\* online documentation located at:
