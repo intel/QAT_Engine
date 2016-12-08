@@ -18,7 +18,7 @@ e_qat_err.*
 *.symvers
 *.order
 qat_contig_mem_test
-/.tmp_versions
+.tmp_versions
 
 # shared objects
 *.so*
