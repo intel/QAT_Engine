@@ -268,7 +268,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
 
     case EVP_PKEY_CTRL_TLS_SECRET:
-        if (p1 < 0)
+        if (p1 < 0 || p2 == NULL)
             return 0;
         if (qat_prf_ctx->sec != NULL) {
             OPENSSL_cleanse(qat_prf_ctx->sec, qat_prf_ctx->seclen);
