@@ -1363,7 +1363,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
 *   global variables used to store the engine configuration.
 ******************************************************************************/
 static int qat_engine_finish(ENGINE *e) {
-    qat_engine_finish_int(e, QAT_RESET_GLOBALS);
+    return qat_engine_finish_int(e, QAT_RESET_GLOBALS);
 }
 
 /******************************************************************************
