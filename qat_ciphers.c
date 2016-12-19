@@ -242,7 +242,7 @@ static const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
     EVP_CIPHER *c = NULL;
 
 #ifdef OPENSSL_DISABLE_QAT_CIPHERS
-    return qat_chained_cipher_sw_impl(nid)
+    return qat_chained_cipher_sw_impl(nid);
 #endif
         if (((c = EVP_CIPHER_meth_new(nid, AES_BLOCK_SIZE, keylen)) == NULL)
             || !EVP_CIPHER_meth_set_iv_length(c, AES_IV_LEN)
@@ -681,7 +681,6 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     unsigned char *ckey = NULL;
     int ckeylen;
     int dlen;
-    int ret = 0;
 
     if (ctx == NULL || inkey == NULL) {
         WARN("[%s] ctx or inkey is NULL.\n", __func__);
@@ -711,7 +710,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     }
     memcpy(ckey, inkey, ckeylen);
 
-    memset(qctx, 0, sizeof(qctx));
+    memset(qctx, 0, sizeof(*qctx));
 
     qctx->numpipes = 1;
     qctx->total_op = 0;
