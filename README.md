@@ -636,32 +636,29 @@ Mandatory
 
 --with-qat_dir=/path/to/qat_driver
     Specify the path to the source code of the Intel&reg; Quickassist
-    Technology Driver. This path is needed for compilation in order
-    to locate the Intel&reg; Quickassist header files.
+    Technology Driver. This path is needed for compilation in order to locate
+    the Intel&reg; Quickassist header files.
     If you do not specify this the build will fail.
-    For example if using the QATL.2.6.0-60.tar.gz driver package
-    that was unpacked to `/QAT`, and you are using an Intel&reg;
-    Communications Chipset 8925 to 8955 Series device then you
-    would use the following setting:
+    For example if using the QATL.2.6.0-60.tar.gz driver package that was
+    unpacked to `/QAT`, and you are using an Intel&reg; Communications Chipset
+    8925 to 8955 Series device then you would use the following setting:
     --with-qat_dir=/QAT/QAT1.6
 
 --with-openssl_dir=/path/to/openssl
-    Specify the path to the top level of the OpenSSL\* source code.
-    This path is needed so that the compilation can locate the
-    OpenSSL header files and also because the mkerr.pl script
-    is needed from the OpenSSL source files in order to generate
-    the engine specific error source files. If you do not specify
-    this the build will fail.
-    For example if you cloned the OpenSSL\* Github\* repository from
-    within `/` then you would use the following setting:
+    Specify the path to the top level of the OpenSSL\* source code.  This path
+    is needed so that the compilation can locate the OpenSSL header files and
+    also because the mkerr.pl script is needed from the OpenSSL source files in
+    order to generate the engine specific error source files. If you do not
+    specify this the build will fail.
+    For example if you cloned the OpenSSL\* Github\* repository from within `/`
+    then you would use the following setting:
     --with-openssl_dir=/openssl
 
 --with-openssl_install_dir=/path/to/openssl_install
-    Specify the path to the top level where the OpenSSL\* build was
-    installed to. This is needed so that the qat.so engine library
-    can be copied into the folder containing the other dynamic engines
-    when you run 'make install'. If you do not specify this then
-    'make install' will fail.
+    Specify the path to the top level where the OpenSSL\* build was installed
+    to. This is needed so that the qat.so engine library can be copied into the
+    folder containing the other dynamic engines when you run 'make install'. If
+    you do not specify this then 'make install' will fail.
     For example if you installed OpenSSL to its default location of
     `/usr/local/ssl` then you would use the following setting:
     --with-openssl_install_dir=/usr/local/ssl
@@ -671,35 +668,33 @@ Driver)
 
 --enable-upstream_driver/--disable-upsteam_driver
     Enable/Disable linking against the Upstream Intel&reg; Quickassist
-    Technology Driver. If linking against the Upstream Intel&reg;
-    Quickassist Driver then this option must be enabled (disabled by
-    default).
+    Technology Driver. If linking against the Upstream Intel&reg; Quickassist
+    Driver then this option must be enabled (disabled by default).
 
 Optional
 
 --with-qat_build_dir=/path/to/qat_driver/build
-    Specify the path to the location of the built Intel&reg;
-    Quickassist Technology Driver library files. This path is needed
-    in order to link to the userspace libraries of the Intel&reg;
-    Quickassist Technology Driver. The default if not specified is to
-    use the path specified by --with-qat_dir with '/build' appended.
-    You only need to specify this parameter if the driver library
-    files have been built somewhere other than the default.
+    Specify the path to the location of the built Intel&reg; Quickassist
+    Technology Driver library files. This path is needed in order to link to
+    the userspace libraries of the Intel&reg; Quickassist Technology Driver.
+    The default if not specified is to use the path specified by --with-qat_dir
+    with '/build' appended.  You only need to specify this parameter if the
+    driver library files have been built somewhere other than the default.
 
 --enable-usdm/--disable-usdm
-    Enable/Disable compiling against the USDM component and that the
-    link should be configured to link in the userspace library of the
-    USDM component. The USDM component is a pinned contiguous memory
-    driver that is distributed with the Upstream Intel&reg;
-    Quickassist Technology Driver. It can be used instead of the
-    supplied qat_contig_mem memory driver (disabled by default).
+    Enable/Disable compiling against the USDM component and that the link
+    should be configured to link in the userspace library of the USDM
+    component. The USDM component is a pinned contiguous memory driver that is
+    distributed with the Upstream Intel&reg; Quickassist Technology Driver. It
+    can be used instead of the supplied qat_contig_mem memory driver (disabled
+    by default).
 
 --with-usdm_dir=/path/to/usdm/directory
     Specify the path to the location of the USDM component.
-    The default if not specified is to use the path specified by
-    --with-qat_dir with '/quickassist/utilities/libusdm_drv' appended.
-    You only only need to specify this parameter if using the USDM
-    component, and if the path to it is different from the default.
+    The default if not specified is to use the path specified by --with-qat_dir
+    with '/quickassist/utilities/libusdm_drv' appended.  You only only need to
+    specify this parameter if using the USDM component, and if the path to it
+    is different from the default.
 
 --disable-qat_rsa/--enable-qat_rsa
     Disable/Enable Intel&reg; Quickassist Technology
@@ -734,58 +729,54 @@ Optional
     Quickassist Technology. When disabled, these operations are performed using
     the CPU (disabled by default).
 
---disable-qat_debug/--enable-qat_debug
-    Disable/Enable debug output to aid debugging. Warning: This
-    option should never be enabled in a production environment as
-    it may output private key information to the console/logs and
-    may also introduce side channel timing attack
-    vulnerabilities (disabled by default).
-
 --disable-qat_warnings/--enable-qat_warnings
-    Disable/Enable warnings to aid debugging. Warning: This
-    option should never be left on in a production environment
-    as it may introduce side channel timing attack
-    vulnerabilities (disabled by default).
+    Disable/Enable warnings to aid debugging. Warning: This option should never
+    be left on in a production environment as it may introduce side channel
+    timing attack vulnerabilities (disabled by default).
 
---disable-qat_mem_debug/--enable-qat_mem_debug
-    Disable/Enable debug output from the userspace memory management
-    code to aid debugging. This option produces quite verbose output
-    hence why it is separate to the standard debug. Warning: This
-    option should never be enabled in a production environment as
-    it may output private key information to the console/logs and
-    may also introduce side channel timing attack
+--disable-qat_debug/--enable-qat_debug
+    Disable/Enable debug output to aid debugging. This will also enable the
+    warning messages above. Warning: This option should never be enabled in a
+    production environment as it may output private key information to the
+    console/logs and may also introduce side channel timing attack
     vulnerabilities (disabled by default).
 
 --disable-qat_mem_warnings/--enable-qat_mem_warnings
-    Disable/Enable warnings from the userspace memory management code
-    to aid debugging. Warning: This option should never be left on
-    in a production environment as it may introduce side channel
-    timing attack vulnerabilities (disabled by default).
-
---disable-multi_thread/--enable-multi_thread
-    Disable/Enable an alternative way of managing within userspace the
-    pinned contiguous memory allocated by the qat_contig_mem
-    driver. This alternative method will give improved performance
-    in a multi-threaded environment by making the slab pools
-    thread local to avoid locking between threads. Although this
-    can give better performance there are several drawbacks such
-    as the memory slabs will be utilized less efficiently, and you
-    cannot allocate in one thread and free in another thread.
-    Running in this mode also does not support processes that
-    fork (disabled by default).
-
---disable-qat_mux/--enable-qat_mux
-    Disable/Enable support for building using the Mux mode of the
-    Intel&reg; Quickassist Technology Driver. Mux mode allows you to
-    mix Intel&reg; Communications Chipset 8900 to 8920 Series hardware
-    and Intel&reg; Communications Chipset 8925 to 8955 Series hardware
-    within the same system using a common driver interface. You
-    should only specify this option if using a mixture of hardware
+    Disable/Enable warnings from the userspace memory management code to aid
+    debugging. Warning: This option should never be left on in a production
+    environment as it may introduce side channel timing attack vulnerabilities
     (disabled by default).
 
+--disable-qat_mem_debug/--enable-qat_mem_debug
+    Disable/Enable debug output from the userspace memory management code to
+    aid debugging. This will also enable the warning messages above. This
+    option produces quite verbose output hence why it is separate to the
+    standard debug. Warning: This option should never be enabled in a
+    production environment as it may output private key information to the
+    console/logs and may also introduce side channel timing attack
+    vulnerabilities (disabled by default).
+
+--disable-multi_thread/--enable-multi_thread
+    Disable/Enable an alternative way of managing within userspace the pinned
+    contiguous memory allocated by the qat_contig_mem driver. This alternative
+    method will give improved performance in a multi-threaded environment by
+    making the slab pools thread local to avoid locking between threads.
+    Although this can give better performance there are several drawbacks such
+    as the memory slabs will be utilized less efficiently, and you cannot
+    allocate in one thread and free in another thread.  Running in this mode
+    also does not support processes that fork (disabled by default).
+
+--disable-qat_mux/--enable-qat_mux
+    Disable/Enable support for building using the Mux mode of the Intel&reg;
+    Quickassist Technology Driver. Mux mode allows you to mix Intel&reg;
+    Communications Chipset 8900 to 8920 Series hardware and Intel&reg;
+    Communications Chipset 8925 to 8955 Series hardware within the same system
+    using a common driver interface. You should only specify this option if
+    using a mixture of hardware (disabled by default).
+
 --with-cc-opt="parameters"
-    Sets additional parameters that will be added to the CFLAGS
-    variable at compile time.
+    Sets additional parameters that will be added to the CFLAGS variable at
+    compile time.
 
 --with-ld-opt="parameters"
     Sets additional parameters that will be used during linking.

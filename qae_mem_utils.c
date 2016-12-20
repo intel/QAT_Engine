@@ -72,7 +72,7 @@
 
 #define MEM_ERROR(...) fprintf(stderr, __VA_ARGS__)
 
-#ifdef QAT_MEM_WARN
+#if defined(QAT_MEM_WARN) || defined(QAT_MEM_DEBUG)
 # define MEM_WARN(...) fprintf (stderr, __VA_ARGS__)
 #else
 # define MEM_WARN(...)

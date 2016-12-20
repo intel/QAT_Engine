@@ -95,13 +95,7 @@ do {                                                \
 
 # endif
 
-/*
- * #define QAT_DEBUG
- */
-/*
- * #define QAT_WARN
- */
-
+/* Debug and warning messages for the QAT engine */
 # ifdef QAT_DEBUG
 void hexDump(const char *func, const char *var, const unsigned char p[],
              int l);
@@ -119,8 +113,7 @@ void dumpRequest(const CpaInstanceHandle instanceHandle, void *pCallbackTag,
 #  define DUMPREQ(...)
 # endif
 
-/* warning message for qat engine and cpa function */
-# ifdef QAT_WARN
+# if defined(QAT_WARN) || defined(QAT_DEBUG)
 #  define WARN(...) fprintf (stderr, __VA_ARGS__)
 # else
 #  define WARN(...)
