@@ -202,19 +202,6 @@ int qat_is_event_driven()
     return enable_event_driven_polling;
 }
 
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-int setQatSmallPacketThreshold(unsigned char *cipher_name, int threshold)
-{
-    if(threshold < 0)
-        threshold = 0;
-    else if (threshold > 16384)
-        threshold = 16384;
-    DEBUG("[%s] Set small packet threshold for %s: %d\n", __func__, cipher_name, threshold);
-    return qat_pkt_threshold_table_set_threshold(OBJ_sn2nid(cipher_name),threshold);
-}
-
-#endif
-
 /******************************************************************************
 * function:
 *         incr_curr_inst(void)
@@ -1268,11 +1255,15 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
         if(p) {
             char *token;
-            while((token = strsep((char **)&p, ","))) {
+            char str_p[1024];
+            char *itr = str_p;
+            strncpy(str_p, (const char *)p, 1024);
+            while((token = strsep(&itr, ","))) {
                 char *name_token = strsep(&token,":");
                 char *value_token = strsep(&token,":");
                 if(name_token && value_token) {
-                    retVal = setQatSmallPacketThreshold(name_token, atoi(value_token));
+                    retVal = qat_pkt_threshold_table_set_threshold(
+                                name_token, atoi(value_token));
                 } else {
                     WARN("Invalid parameter!\n");
                     retVal = 0;
@@ -1444,9 +1435,6 @@ static int qat_engine_destroy(ENGINE *e)
     qat_free_DH_methods();
     qat_free_DSA_methods();
     qat_free_RSA_methods();
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    CRYPTO_THREAD_cleanup_local(&qat_pkt_threshold_table_key);
-#endif
     ERR_unload_QAT_strings();
     return 1;
 }
@@ -1493,9 +1481,6 @@ static int bind_qat(ENGINE *e, const char *id)
      * as this function will be called by a single thread.
      */
     qat_create_ciphers();
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    CRYPTO_THREAD_run_once(&qat_pkt_threshold_table_once,qat_pkt_threshold_table_make_key);
-#endif
     DEBUG("%s: About to set mem functions\n", __func__);
 
     if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {

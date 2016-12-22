@@ -115,12 +115,7 @@ void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                 int nid);
 # ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-extern CRYPTO_ONCE qat_pkt_threshold_table_once;
-extern CRYPTO_THREAD_LOCAL qat_pkt_threshold_table_key;
-void qat_pkt_threshold_table_make_key(void);
-LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void);
-void qat_free_pkt_threshold_table(void *);
-int qat_pkt_threshold_table_set_threshold(int nid, int threshold);
-int qat_pkt_threshold_table_get_threshold(int nid);
+int qat_pkt_threshold_table_set_threshold(const char *cipher_name,
+                                          int threshold);
 # endif
 #endif                          /* QAT_CIPHERS_H */

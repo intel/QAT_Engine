@@ -298,23 +298,12 @@ void qat_free_ciphers(void)
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
 # define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
 
-CRYPTO_ONCE qat_pkt_threshold_table_once = CRYPTO_ONCE_STATIC_INIT;
-CRYPTO_THREAD_LOCAL qat_pkt_threshold_table_key;
-
-void qat_pkt_threshold_table_make_key(void)
-{
-    CRYPTO_THREAD_init_local(&qat_pkt_threshold_table_key,
-                             qat_free_pkt_threshold_table);
-}
-
 typedef struct cipher_threshold_table_s {
     int nid;
     int threshold;
 } PKT_THRESHOLD;
 
-DEFINE_LHASH_OF(PKT_THRESHOLD);
-
-PKT_THRESHOLD qat_pkt_threshold_table[] = {
+static PKT_THRESHOLD qat_pkt_threshold_table[] = {
     {NID_aes_128_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_aes_256_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_aes_128_cbc_hmac_sha256,
@@ -322,93 +311,49 @@ PKT_THRESHOLD qat_pkt_threshold_table[] = {
     {NID_aes_256_cbc_hmac_sha256, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT}
 };
 
-static int pkt_threshold_table_cmp(const PKT_THRESHOLD *a,
-                                   const PKT_THRESHOLD *b)
-{
-    return (a->nid == b->nid) ? 0 : 1;
-}
+static int pkt_threshold_table_size =
+    (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
 
-static unsigned long pkt_threshold_table_hash(const PKT_THRESHOLD * a)
+int qat_pkt_threshold_table_set_threshold(const char *cn,
+                                          int threshold)
 {
-    return (unsigned long)(a->nid);
-}
+    int i = 0;
+    int nid;
 
-LHASH_OF(PKT_THRESHOLD) *qat_create_pkt_threshold_table(void)
-{
-    int i;
-    int tbl_size =
-        (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
-    LHASH_OF(PKT_THRESHOLD) *ret = NULL;
-    ret =
-        lh_PKT_THRESHOLD_new(pkt_threshold_table_hash, pkt_threshold_table_cmp);
-    if (ret == NULL) {
-        return ret;
-    }
-    for (i = 0; i < tbl_size; i++) {
-        lh_PKT_THRESHOLD_insert(ret, &qat_pkt_threshold_table[i]);
-    }
-    return ret;
-}
+    if(threshold < 0)
+        threshold = 0;
+    else if (threshold > 16384)
+        threshold = 16384;
 
-int qat_pkt_threshold_table_set_threshold(int nid, int threshold)
-{
-    PKT_THRESHOLD entry, *ret;
-    LHASH_OF(PKT_THRESHOLD) *tbl = NULL;
-    if (NID_undef == nid) {
-        WARN("Unsupported NID\n");
-        return 0;
-    }
-    if ((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
-        tbl = qat_create_pkt_threshold_table();
-        if (tbl != NULL) {
-            CRYPTO_THREAD_set_local(&qat_pkt_threshold_table_key, tbl);
-        } else {
-            WARN("Create packet threshold table fail.\n");
-            return 0;
+    DEBUG("[%s] Set small packet threshold for %s: %d\n",
+          __func__, cn, threshold);
+
+    nid = OBJ_sn2nid(cn);
+    do {
+        if (qat_pkt_threshold_table[i].nid == nid) {
+            qat_pkt_threshold_table[i].threshold = threshold;
+            return 1;
         }
-    }
-    entry.nid = nid;
-    ret = lh_PKT_THRESHOLD_retrieve(tbl, &entry);
-    if (ret == NULL) {
-        WARN("Threshold entry retrieve failed for the NID : %d\n", entry.nid);
-        return 0;
-    }
-    ret->threshold = threshold;
-    lh_PKT_THRESHOLD_insert(tbl, ret);
-    return 1;
+    } while (++i < pkt_threshold_table_size);
+
+    WARN("[%s] nid %d not found in threshold table", __func__, nid);
+    return 0;
 }
 
-int qat_pkt_threshold_table_get_threshold(int nid)
+static inline int qat_pkt_threshold_table_get_threshold(int nid)
 {
-    PKT_THRESHOLD entry, *ret;
-    LHASH_OF(PKT_THRESHOLD) *tbl = NULL;
-    if ((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key)) == NULL) {
-        tbl = qat_create_pkt_threshold_table();
-        if (tbl != NULL) {
-            CRYPTO_THREAD_set_local(&qat_pkt_threshold_table_key, tbl);
-        } else {
-            WARN("Create packet threshold table fail.\n");
-            return 0;
+    int i = 0;
+    do {
+        if (qat_pkt_threshold_table[i].nid == nid) {
+            return qat_pkt_threshold_table[i].threshold;
         }
-    }
-    entry.nid = nid;
-    ret = lh_PKT_THRESHOLD_retrieve(tbl, &entry);
-    if (ret == NULL) {
-        WARN("Threshold entry retrieve failed for the NID : %d\n", entry.nid);
-        return 0;
-    }
-    return ret->threshold;
-}
+    } while (++i < pkt_threshold_table_size);
 
-void qat_free_pkt_threshold_table(void *thread_key)
-{
-    LHASH_OF(PKT_THRESHOLD) *tbl = (LHASH_OF(PKT_THRESHOLD) *) thread_key;
-    if ((tbl = CRYPTO_THREAD_get_local(&qat_pkt_threshold_table_key))) {
-        lh_PKT_THRESHOLD_free(tbl);
-    }
+    WARN("[%s] nid %d not found in threshold table", __func__, nid);
+    return 0;
 }
-
 #endif
+
 /******************************************************************************
 * function:
 *         qat_chained_callbackFn(void *callbackTag, CpaStatus status,
@@ -565,7 +510,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
         qctx->qop = (qat_op_params *) OPENSSL_zalloc(sizeof(qat_op_params)
                                                      * qctx->qop_len);
         if (qctx->qop == NULL) {
-            WARN("[%s] Unable to allocate memory[%d bytes] for qat op params\n",
+            WARN("[%s] Unable to allocate memory[%lu bytes] for qat op params\n",
                  __func__, sizeof(qat_op_params) * qctx->qop_len);
             return 0;
         }
