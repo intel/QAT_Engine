@@ -1,15 +1,15 @@
 /* ====================================================================
  *
- * 
+ *
  *   BSD LICENSE
- * 
+ *
  *   Copyright(c) 2016 Intel Corporation.
  *   All rights reserved.
- * 
+ *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
  *   are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -19,7 +19,7 @@
  *     * Neither the name of Intel Corporation nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- * 
+ *
  *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -31,8 +31,8 @@
  *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *
+ *
  * ====================================================================
  */
 
@@ -317,7 +317,7 @@ int confCryptoFindKeyValue(char *fileName,
 #define C6XX_INDEX 3
 #define C3XXX_INDEX 4
 
-#define NUM_DEVICES_TYPES 5 
+#define NUM_DEVICES_TYPES 5
 #define MAX_NUM_DEVICES 32
 
 int getDevices(unsigned int dev_mask[], int *upstream_flag)
@@ -351,7 +351,7 @@ int getDevices(unsigned int dev_mask[], int *upstream_flag)
                     dev_index = C6XX_INDEX;
                 } else if (strstr(child->d_name, C3XXX_NAME)) {
                     dev_index = C3XXX_INDEX;
-                } else  
+                } else
                     continue;
                 if ((tmp = strstr(child->d_name, "dev")) != NULL) {
                     if (isdigit(tmp[3])) {
@@ -428,7 +428,7 @@ int checkLimitDevAccessValue(int *limitDevAccess, char *section_name)
             if ((dev_masks[j] & (1 << i)) && (!upstream_flags)) {
                 sprintf(config_file_path, "/etc/%s_qa_dev%d.conf",
                         dev_names[j], i);
-            } else if ((dev_masks[j] & (1 << i)) && (upstream_flags)) { 
+            } else if ((dev_masks[j] & (1 << i)) && (upstream_flags)) {
                        sprintf(config_file_path, "/etc/%s_dev%d.conf",
                                dev_names[j], i);
             } else

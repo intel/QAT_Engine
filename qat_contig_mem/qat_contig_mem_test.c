@@ -108,7 +108,7 @@ int main(void)
     }
 
     if ((addr =
-         mmap(NULL, SEG_LEN*QAT_CONTIG_MEM_MMAP_ADJUSTMENT, 
+         mmap(NULL, SEG_LEN*QAT_CONTIG_MEM_MMAP_ADJUSTMENT,
               PROT_READ | PROT_WRITE, MAP_PRIVATE, qat_contig_memfd,
               qmcfg.virtualAddress)) == MAP_FAILED) {
         perror("# FAIL mmap");

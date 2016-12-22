@@ -314,7 +314,7 @@ static int qat_contig_mem_mmap(struct file *filp, struct vm_area_struct *vma)
           Later when doing V2P lookups this allows us to find
           the slab header from any address by just doing simple
           maths (based on the fact we know the slab size we are
-          using). For allocations that result in only 1 page of 
+          using). For allocations that result in only 1 page of
           virtual address space there is no need to adjust the
           mapping as it will already be aligned on a page
           boundary. */
@@ -325,7 +325,7 @@ static int qat_contig_mem_mmap(struct file *filp, struct vm_area_struct *vma)
     ret = remap_pfn_range(vma,
                           vma->vm_start,
                           vma->vm_pgoff,
-                          vma->vm_end-vma->vm_start, 
+                          vma->vm_end-vma->vm_start,
                           vma->vm_page_prot);
     if (ret != 0) {
         printk("%s: remap_pfn_range failed, returned %d\n", __func__, ret);

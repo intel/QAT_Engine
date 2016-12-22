@@ -40,7 +40,7 @@
  * This file is based on modified code from OpenSSL.
  * This is needed because the constant time functions are not exported
  * from OpenSSL forcing engines to have their own copy of the
- * functionality. 
+ * functionality.
  * The code based on OpenSSL code is subject to the following license:
  */
 

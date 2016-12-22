@@ -1,15 +1,15 @@
 /* ====================================================================
  *
- * 
+ *
  *   BSD LICENSE
- * 
+ *
  *   Copyright(c) 2016 Intel Corporation.
  *   All rights reserved.
- * 
+ *
  *   Redistribution and use in source and binary forms, with or without
  *   modification, are permitted provided that the following conditions
  *   are met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above copyright
@@ -19,7 +19,7 @@
  *     * Neither the name of Intel Corporation nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- * 
+ *
  *   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  *   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  *   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -31,8 +31,8 @@
  *   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- * 
+ *
+ *
  * ====================================================================
  */
 
@@ -841,7 +841,7 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
      * The input message length should less than RSA size and also have
      * minimum space of PKCS1 padding(4 bytes)
      */
-    if (rsa == NULL || from == NULL || to == NULL || 
+    if (rsa == NULL || from == NULL || to == NULL ||
         (flen > ((rsa_len = RSA_size(rsa)) - 4))
         || flen == 0) {
         DEBUG("[%s] --- Invalid Parameter\n", __func__);
@@ -891,10 +891,10 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
 /******************************************************************************
 * function:
-*         qat_rsa_priv_dec(int flen, 
+*         qat_rsa_priv_dec(int flen,
 *                          const unsigned char *from,
-*                          unsigned char *to, 
-*                          RSA * rsa, 
+*                          unsigned char *to,
+*                          RSA * rsa,
 *                          int padding)
 *
 * @param flen    [IN]  - length in bytes of input
@@ -918,7 +918,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     DEBUG("[%s] --- called.\n", __func__);
 
     /* parameter checks */
-    if (rsa == NULL || from == NULL || to == NULL || 
+    if (rsa == NULL || from == NULL || to == NULL ||
         (flen != (rsa_len = RSA_size(rsa)))) {
         WARN("[%s] --- Invalid Parameter\n", __func__);
         QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_PASSED_NULL_PARAMETER);
@@ -1000,7 +1000,7 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     DEBUG("[%s] --- called.\n", __func__);
 
     /* parameter checks */
-    if (rsa == NULL || from == NULL || to == NULL || 
+    if (rsa == NULL || from == NULL || to == NULL ||
         (flen > (rsa_len = RSA_size(rsa)) - 11)) {
         WARN("[%s] --- Invalid Parameter\n", __func__);
         QATerr(QAT_F_QAT_RSA_PUB_ENC, ERR_R_PASSED_NULL_PARAMETER);
@@ -1079,7 +1079,7 @@ qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     DEBUG("[%s] --- called.\n", __func__);
 
     /* parameter checking */
-    if (rsa == NULL || from == NULL || to == NULL || 
+    if (rsa == NULL || from == NULL || to == NULL ||
         (flen != (rsa_len = RSA_size(rsa)))) {
         WARN("[%s] --- Invalid Parameter flen = %d, rsa_len = %d\n", __func__,
              flen, rsa_len);
