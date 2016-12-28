@@ -95,7 +95,6 @@ void qaeCryptoMemFree(void *ptr)
 
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
-    CpaStatus status = CPA_STATUS_SUCCESS;
     int rc;
     void *pAddress = NULL;
 
