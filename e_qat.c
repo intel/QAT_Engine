@@ -228,7 +228,6 @@ static inline void incr_curr_inst(void)
 CpaInstanceHandle get_next_inst(void)
 {
     CpaInstanceHandle instanceHandle = NULL;
-    CpaStatus status = CPA_STATUS_SUCCESS;
     ENGINE* e = NULL;
 
     if (1 == enable_instance_for_thread) {
