@@ -265,6 +265,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         return ret;
     }
 
+    if (outlenX == NULL || outlenY == NULL) {
+        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_PASSED_NULL_PARAMETER);
+        return ret;
+    }
+
     if ((group = EC_KEY_get0_group(ecdh)) == NULL) {
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_PASSED_NULL_PARAMETER);
         return ret;
