@@ -398,7 +398,7 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
 static void print_prf_op_data(const char *func, CpaCyKeyGenTlsOpData * prf_op_data)
 {
     if (prf_op_data == NULL || func == NULL) {
-        DEBUG("[%s] Error: null pointer\n", func);
+        DEBUG("[%s] Error: null input pointer\n", __func__);
         return;
     }
 
