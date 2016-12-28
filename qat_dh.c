@@ -558,7 +558,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     /* Remove leading zeros */
     if (!pSecretKey->pData[0]) {
-        while (!pSecretKey->pData[index] && index < pSecretKey->dataLenInBytes)
+        while (index < pSecretKey->dataLenInBytes && !pSecretKey->pData[index])
             index++;
         pSecretKey->dataLenInBytes = pSecretKey->dataLenInBytes - index;
         memcpy(key, &pSecretKey->pData[index],
