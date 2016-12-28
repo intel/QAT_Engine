@@ -396,7 +396,7 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
      * is TRUE. Change it to false on Failure.
      */
     if (res == CPA_FALSE) {
-        DEBUG("[%s] Pipe %d failed( status %d, verifyResult %d)!\n",
+        DEBUG("[%s] Pipe %u failed (status %d, verifyResult %d)!\n",
               __func__, opdone->num_processed, status, verifyResult);
         opdone->opDone.verifyResult = CPA_FALSE;
     }
@@ -585,7 +585,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
         opd->ivLenInBytes = (Cpa32U) EVP_CIPHER_CTX_iv_length(ctx);
     }
 
-    DEBUG_PPL("[%s:%p] qop setup for %d elements\n",
+    DEBUG_PPL("[%s:%p] qop setup for %u elements\n",
               __func__, ctx, qctx->qop_len);
     return 1;
 
@@ -672,7 +672,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     if (sw_size != 0) {
         qctx->sw_ctx_data = OPENSSL_zalloc(sw_size);
         if (qctx->sw_ctx_data == NULL) {
-            WARN("[%s] Unable to allocate memory[ %d bytes] for sw_ctx_data\n",
+            WARN("[%s] Unable to allocate memory [%u bytes] for sw_ctx_data\n",
                  __func__, sw_size);
             goto err;
         }
@@ -1095,7 +1095,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if (PIPELINE_SET(qctx)) {
         /* All the aad data (tls header) should be present */
         if (qctx->aad_ctr != qctx->numpipes) {
-            WARN("[%s] AAD data missing supplied %d of %d\n",
+            WARN("[%s] AAD data missing supplied %u of %u\n",
                  __func__, qctx->aad_ctr, qctx->numpipes);
             return 0;
         }
@@ -1155,7 +1155,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qctx->p_inlen = &len;
     }
 
-    DEBUG_PPL("[%s:%p] Start Cipher operation with num pipes %d\n",
+    DEBUG_PPL("[%s:%p] Start Cipher operation with num pipes %u\n",
               __func__, ctx, qctx->numpipes);
 
     if ((qat_setup_op_params(ctx) != 1) ||
