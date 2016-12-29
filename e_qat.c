@@ -164,9 +164,9 @@ typedef struct {
     int inst_index;
 } ENGINE_EPOLL_ST;
 
-struct epoll_event eng_epoll_events[MAX_CRYPTO_INSTANCES] = { { 0, 0 } };
+struct epoll_event eng_epoll_events[MAX_CRYPTO_INSTANCES] = {{ 0 }};
 static int internal_efd = 0;
-static ENGINE_EPOLL_ST eng_poll_st[MAX_CRYPTO_INSTANCES] = { {-1} };
+static ENGINE_EPOLL_ST eng_poll_st[MAX_CRYPTO_INSTANCES] = {{ -1 }};
 CpaInstanceHandle *qatInstanceHandles = NULL;
 static pthread_key_t qatInstanceForThread;
 pthread_t *icp_polling_threads;
