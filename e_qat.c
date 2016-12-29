@@ -686,7 +686,6 @@ static void *sendPoll_ns(void *ih)
         while ((retry_count <= QAT_CRYPTO_NUM_POLLING_RETRIES)
                && (EINTR == errno));
     }
-end:
     return NULL;
 }
 
