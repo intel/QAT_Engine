@@ -719,7 +719,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     qctx->hmac_key = OPENSSL_zalloc(HMAC_KEY_SIZE);
     if (qctx->hmac_key == NULL) {
         WARN("[%s] Unable to allocate memory for HMAC Key\n", __func__);
-        goto end;
+        goto err;
     }
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
     const EVP_CIPHER *sw_cipher = GET_SW_CIPHER(ctx);
@@ -729,7 +729,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         if (qctx->sw_ctx_data == NULL) {
             WARN("[%s] Unable to allocate memory[ %d bytes] for sw_ctx_data\n",
                  __func__, sw_size);
-            goto end;
+            goto err;
         }
     }
 
@@ -741,7 +741,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     ssd = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
     if (ssd == NULL) {
         WARN("OPENSSL_malloc() failed for session setup data allocation.\n");
-        goto end;
+        goto err;
     }
 
     qctx->session_data = ssd;
@@ -772,20 +772,20 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     qctx->instanceHandle = get_next_inst();
     if (qctx->instanceHandle == NULL) {
         WARN("[%s] Failed to get QAT Instance Handle!.\n", __func__);
-        goto end;
+        goto err;
     }
 
     sts = cpaCySymSessionCtxGetSize(qctx->instanceHandle, ssd, &sctx_size);
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("[%s] Failed to get SessionCtx size.\n", __func__);
-        goto end;
+        goto err;
     }
 
     sctx = (CpaCySymSessionCtx) qaeCryptoMemAlloc(sctx_size, __FILE__,
                                                   __LINE__);
     if (sctx == NULL) {
         WARN("[%s] QMEM alloc failed for session ctx!\n", __func__);
-        goto end;
+        goto err;
     }
 
     qctx->session_ctx = sctx;
@@ -799,14 +799,15 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
               __func__, ctx, qctx);
     return 1;
 
- end:
-    if (ssd != NULL)
-        QAT_CLEANSE_FREE_BUFF(ssd->cipherSetupData.pCipherKey, ckeylen);
+ err:
+    QAT_CLEANSE_FREE_BUFF(ckey, ckeylen);
     QAT_CLEANSE_FREE_BUFF(qctx->hmac_key, HMAC_KEY_SIZE);
-    OPENSSL_free(qctx->session_data);
+    OPENSSL_free(ssd);
+    qctx->session_data = NULL;
     QAT_QMEMFREE_BUFF(qctx->session_ctx);
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
     OPENSSL_free(qctx->sw_ctx_data);
+    qctx->sw_ctx_data = NULL;
 #endif
 
     return 0;
