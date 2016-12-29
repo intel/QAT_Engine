@@ -1,5 +1,28 @@
 # Intel&reg; QuickAssist Technology(QAT) OpenSSL\* Engine
 
+## Table of Contents
+
+- [Licensing](#licensing)
+- [Features](#features)
+- [Hardware Requirements](#hardware-requirements)
+- [Software Requirements](#software-requirements)
+- [Limitations](#limitations)
+- [Installation Instructions](#installation-instructions)
+    - [Build Intel&reg; QuickAssist Technology Driver](#build-intel-quickassist-technology-driver)
+    - [Build OpenSSL\*](#build-openssl)
+    - [Clone the Intel&reg; Quickassist Technology OpenSSL\* Engine](#clone-the-intel-quickassist-technology-openssl-engine)
+    - [Build and install a contiguous memory driver](#build-and-install-a-contiguous-memory-driver)
+    - [Build the Intel&reg; Quickassist Technology OpenSSL\* Engine](#build-the-intel-quickassist-technology-openssl-engine)
+    - [Copy the correct Intel&reg; Quickassist Technology Driver config files](#copy-the-correct-intel-quickassist-technology-driver-config-files)
+    - [Test the Intel&reg; Quickassist Technology OpenSSL\* Engine](#test-the-intel-quickassist-technology-openssl-engine)
+    - [Run speed with Intel&reg; Quickassist Technology OpenSSL\* Engine](#run-speed-with-intel-quickassist-technology-openssl-engine)
+- [Troubleshooting](#troubleshooting)
+- [Intel&reg; Quickassist Technology OpenSSL\* Engine Specific Messages](#intel-quickassist-technology-openssl-engine-specific-messages)
+- [Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options](#intel-quickassist-technology-openssl-engine-build-options)
+- [Using the OpenSSL\* Configuration File to Load/Initialize Engines](#using-the-openssl-configuration-file-to-loadinitialize-engines)
+- [Using the OpenSSL\* pipelining capability](#using-the-openssl-pipelining-capability)
+- [Legal](#legal)
+
 ## Licensing
 
 The Licensing of the files within this project is split as follows:
