@@ -1178,7 +1178,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         flags = fcntl(fd, F_GETFL, 0);
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-        DEBUG("[%s] External polling FD for instance[%d] = %d\n", __func__, i, fd);
+        DEBUG("[%s] External polling FD for instance[%ld] = %d\n", __func__, i, fd);
         *(int *)p = fd;
         break;
 
@@ -1204,7 +1204,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         BREAK_IF(!engine_inited, \
                 "SET_INSTANCE_FOR_THREAD failed as the engine is not initialized\n");
-        DEBUG("[%s] Set instance for thread = %d\n", __func__, i);
+        DEBUG("[%s] Set instance for thread = %ld\n", __func__, i);
         qat_set_instance_for_thread(i);
         break;
 
@@ -1217,21 +1217,21 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     case QAT_CMD_SET_MAX_RETRY_COUNT:
         BREAK_IF(i < -1 || i > 100000,
             "The Message retry count value is out of range, using default value\n");
-        DEBUG("[%s] Set max retry counter = %d\n", __func__, i);
+        DEBUG("[%s] Set max retry counter = %ld\n", __func__, i);
         qat_max_retry_count = (int)i;
         break;
 
     case QAT_CMD_SET_INTERNAL_POLL_INTERVAL:
         BREAK_IF(i < 1 || i > 1000000,
                "The polling interval value is out of range, using default value\n");
-        DEBUG("[%s] Set internal poll interval = %d ns\n", __func__, i);
+        DEBUG("[%s] Set internal poll interval = %ld ns\n", __func__, i);
         qat_poll_interval = (useconds_t) i;
         break;
 
     case QAT_CMD_SET_EPOLL_TIMEOUT:
         BREAK_IF(i < 1 || i > 10000,
                 "The epoll timeout value is out of range, using default value\n")
-        DEBUG("[%s] Set epoll_wait timeout = %d ms\n", __func__, i);
+        DEBUG("[%s] Set epoll_wait timeout = %ld ms\n", __func__, i);
         qat_epoll_timeout = (int) i;
         break;
 
