@@ -265,7 +265,8 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         return ret;
     }
 
-    if (outlenX == NULL || outlenY == NULL) {
+    if ((outX != NULL && outlenX == NULL) ||
+            (outY != NULL && outlenY == NULL)) {
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_PASSED_NULL_PARAMETER);
         return ret;
     }
@@ -546,7 +547,7 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
                                 const EC_POINT *pub_key,
                                 const EC_KEY *ecdh)
 {
-    return qat_ecdh_compute_key(out, outlen, NULL, 0, pub_key, ecdh);
+    return qat_ecdh_compute_key(out, outlen, NULL, NULL, pub_key, ecdh);
 }
 
 int qat_ecdh_generate_key(EC_KEY *ecdh)
