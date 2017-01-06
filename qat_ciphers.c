@@ -1360,7 +1360,9 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         memcpy(EVP_CIPHER_CTX_iv_noconst(ctx),
                outb + buflen - discardlen - ivlen, ivlen);
 
+#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
  cleanup:
+#endif
     /*Reset the AAD counter forcing that new AAD information is provided
      * before each repeat invocation of this function.
      */
