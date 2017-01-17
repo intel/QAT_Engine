@@ -316,7 +316,7 @@ fi
 AC_ARG_WITH(includes, AS_HELP_STRING(), , includes="-I\$(with_openssl_dir)/include")
 AC_SUBST(includes)
 
-AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC")
+AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall")
 AC_SUBST(cflags)
 
 if test "x$with_cc_opt" != "xunset"

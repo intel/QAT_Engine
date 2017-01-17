@@ -11805,7 +11805,7 @@ fi
 if test "${with_cflags+set}" = set; then :
   withval=$with_cflags;
 else
-  cflags="-shared -fPIC"
+  cflags="-shared -fPIC -Wall"
 fi
 
 
