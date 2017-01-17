@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Change directory to .tools as this script is location dependent
+cd "$(dirname "$0")"
+
 autoreconf -ivf
 
 rm -f ../configure
