@@ -223,7 +223,7 @@ int qat_dh_generate_key(DH *dh)
        }
     }
 
-    if (pub_key == NULL) {
+    if (temp_pub_key == NULL) {
         if ((pub_key = BN_new()) == NULL) {
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             goto err;
