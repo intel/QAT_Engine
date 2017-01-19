@@ -643,6 +643,10 @@ Description:
     Using a separator "," between different cipher configuration
     The default threshold value is 2048 bytes, the minimum is 0 bytes and the
     maximum is 16,384.
+    The threshold value includes all the bytes that make up the TLS record
+    including Record Header (5 bytes), IV (16 bytes), Payload, HMAC (20/32
+    bytes), Padding (variable but could be max 255 bytes), and Padding Length
+    (1 byte).
     This message is not supported when the engine is compiled with the flag
     --enable-qat_small_pkt_offload.
 
