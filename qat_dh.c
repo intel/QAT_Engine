@@ -78,12 +78,14 @@
 #define DH_QAT_RANGE_MIN 768
 #define DH_QAT_RANGE_MAX 4096
 
+#ifndef OPENSSL_DISABLE_QAT_DH
 static int qat_dh_generate_key(DH *dh);
 static int qat_dh_compute_key(unsigned char *key, const BIGNUM *pub_key,
                               DH *dh);
 static int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
                           const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
                           BN_MONT_CTX *m_ctx);
+#endif
 
 static DH_METHOD *qat_dh_method = NULL;
 
@@ -120,11 +122,11 @@ void qat_free_DH_methods(void)
 }
 
 
+#ifndef OPENSSL_DISABLE_QAT_DH
 /*
  * The DH range check is performed so that if the op sizes are not in the
  * range supported by QAT engine then fall back to software
  */
-
 int dh_range_check(int plen)
 {
     int range = 0;
@@ -612,3 +614,4 @@ int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     return qat_mod_exp(r, a, p, m);
 }
+#endif /* #ifndef OPENSSL_DISABLE_QAT_DH */

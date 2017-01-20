@@ -77,13 +77,16 @@
 # endif
 #endif
 
+#ifndef OPENSSL_DISABLE_QAT_DSA
 static DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen, DSA *dsa);
 static int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                              DSA_SIG *sig, DSA *dsa);
 static int qat_dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in,
                               BIGNUM **kinvp, BIGNUM **rp);
-static int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-                              const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
+static int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const
+                              BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
+                              BN_MONT_CTX *m_ctx);
+#endif
 
 /* Qat DSA method structure declaration. */
 static DSA_METHOD *qat_dsa_method = NULL;
@@ -121,6 +124,8 @@ void qat_free_DSA_methods(void)
 #endif
 }
 
+
+#ifndef OPENSSL_DISABLE_QAT_DSA
 /*
  * DSA range Supported in QAT {L,N} = {1024, 160}, {2048, 224} {2048, 256},
  * {3072, 256}
@@ -693,4 +698,5 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     return (ret);
 }
+#endif /* #ifndef OPENSSL_DISABLE_QAT_DSA */
 

@@ -83,6 +83,8 @@
 #define RSA_QAT_RANGE_MIN 512
 #define RSA_QAT_RANGE_MAX 4096
 
+
+#ifndef OPENSSL_DISABLE_QAT_RSA
 /* Qat engine RSA methods declaration */
 static int qat_rsa_priv_enc(int flen, const unsigned char *from,
                            unsigned char *to, RSA *rsa, int padding);
@@ -99,6 +101,7 @@ static int qat_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
 /* Callback to indicate QAT completion of RSA. */
 void qat_rsaCallbackFn(void *pCallbackTag,
                        CpaStatus status, void *pOpData, CpaFlatBuffer * pOut);
+#endif
 
 static RSA_METHOD *qat_rsa_method = NULL;
 
@@ -137,6 +140,7 @@ void qat_free_RSA_methods(void)
 #endif
 }
 
+#ifndef OPENSSL_DISABLE_QAT_RSA
 /*
  * The RSA range check is performed so that if the op sizes are not in the
  * range supported by QAT engine then fall back to software
@@ -1179,3 +1183,4 @@ qat_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
     return RSA_meth_get_bn_mod_exp(RSA_PKCS1_OpenSSL())
                                    (r, a, p, m, ctx, m_ctx);
 }
+#endif /* #ifndef OPENSSL_DISABLE_QAT_RSA */

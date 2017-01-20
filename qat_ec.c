@@ -87,6 +87,7 @@
 #endif
 
 
+#ifndef OPENSSL_DISABLE_QAT_ECDSA
 static int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                           unsigned char *sig, unsigned int *siglen,
                           const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
@@ -100,7 +101,10 @@ static int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
 
 static int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                                const ECDSA_SIG *sig, EC_KEY *eckey);
+#endif
 
+
+#ifndef OPENSSL_DISABLE_QAT_ECDH
 /* Qat engine ECDH methods declaration */
 static int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                                 unsigned char **outY, size_t *outlenY,
@@ -110,6 +114,7 @@ static int qat_engine_ecdh_compute_key(unsigned char **out, size_t *outlen,
                                        const EC_POINT *pub_key, const EC_KEY *ecdh);
 
 static int qat_ecdh_generate_key(EC_KEY *ecdh);
+#endif
 
 typedef int (*PFUNC_COMP_KEY)(unsigned char **,
                               size_t *,
@@ -234,6 +239,7 @@ void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                           NULL, multiplyStatus);
 }
 
+#ifndef OPENSSL_DISABLE_QAT_ECDH
 int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                          unsigned char **outY, size_t *outlenY,
                          const EC_POINT *pub_key, const EC_KEY *ecdh)
@@ -741,7 +747,9 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         BN_free(ty_bn);
     return (ok);
 }
+#endif /* #ifndef OPENSSL_DISABLE_QAT_ECDH */
 
+#ifndef OPENSSL_DISABLE_QAT_ECDSA
 /* Callback to indicate QAT completion of ECDSA Sign */
 void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
                              void *pOpData, CpaBoolean bEcdsaSignStatus,
@@ -1472,4 +1480,5 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
     return ret;
 }
+#endif /* #ifndef OPENSSL_DISABLE_QAT_ECDSA */
 
