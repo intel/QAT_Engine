@@ -99,7 +99,7 @@ do {                                                \
 # ifdef QAT_DEBUG
 void hexDump(const char *func, const char *var, const unsigned char p[],
              int l);
-void dumpRequest(const CpaInstanceHandle instanceHandle, void *pCallbackTag,
+void dumpRequest(const CpaInstanceHandle instance_handle, void *pCallbackTag,
                  const CpaCySymOpData * pOpData,
                  const CpaCySymSessionSetupData * sessionData,
                  const CpaBufferList * pSrcBuffer,

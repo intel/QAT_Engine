@@ -162,7 +162,7 @@ int qat_dh_generate_key(DH *dh)
     const BIGNUM *g = NULL;
     BIGNUM *pub_key = NULL, *priv_key = NULL;
     const BIGNUM *temp_pub_key = NULL, *temp_priv_key = NULL;
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     CpaCyDhPhase1KeyGenOpData *opData = NULL;
     CpaFlatBuffer *pPV = NULL;
     int qatPerformOpRetries = 0;
@@ -277,25 +277,29 @@ int qat_dh_generate_key(DH *dh)
         goto err;
     }
 
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
     }
 
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     do {
-        if ((instanceHandle = get_next_inst()) == NULL) {
+        if ((instance_handle = get_next_inst()) == NULL) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-        status = cpaCyDhKeyGenPhase1(instanceHandle,
+        status = cpaCyDhKeyGenPhase1(instance_handle,
                 qat_dhCallbackFn,
                 &op_done, opData, pPV);
 
@@ -322,13 +326,17 @@ int qat_dh_generate_key(DH *dh)
     while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
+        WARN("[%s] cpaCyDhKeyGenPhase1 failed - status=%d\n", __func__, status);
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -345,7 +353,7 @@ int qat_dh_generate_key(DH *dh)
     }
     while (!op_done.flag);
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
@@ -399,7 +407,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 {
     int ret = -1;
     int check_result;
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     CpaCyDhPhase2SecretKeyGenOpData *opData = NULL;
     CpaFlatBuffer *pSecretKey = NULL;
     int qatPerformOpRetries = 0;
@@ -483,30 +491,34 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         goto err;
     }
 
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
     }
 
     CRYPTO_QAT_LOG("KX - ?%s\n", __func__);
     do {
-        if ((instanceHandle = get_next_inst()) == NULL) {
+        if ((instance_handle = get_next_inst()) == NULL) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-        status = cpaCyDhKeyGenPhase2Secret(instanceHandle,
+        status = cpaCyDhKeyGenPhase2Secret(instance_handle,
                 qat_dhCallbackFn,
                 &op_done, opData, pSecretKey);
 
         if (status == CPA_STATUS_RETRY) {
-            if (!op_done.job) {
+            if (op_done.job == NULL) {
                 usleep(ulPollInterval +
                         (qatPerformOpRetries %
                          QAT_RETRY_BACKOFF_MODULO_DIVISOR));
@@ -528,13 +540,18 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
+        WARN("[%s] cpaCyDhKeyGenPhase2Secret failed - status=%d\n", __func__,
+                status);
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -551,7 +568,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     }
     while (!op_done.flag);
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);

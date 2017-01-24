@@ -202,6 +202,7 @@ int qat_is_event_driven()
     return enable_event_driven_polling;
 }
 
+
 /******************************************************************************
 * function:
 *         incr_curr_inst(void)
@@ -227,42 +228,47 @@ static inline void incr_curr_inst(void)
 ******************************************************************************/
 CpaInstanceHandle get_next_inst(void)
 {
-    CpaInstanceHandle instanceHandle = NULL;
+    CpaInstanceHandle instance_handle = NULL;
     ENGINE* e = NULL;
 
     if (1 == enable_instance_for_thread) {
-        instanceHandle = pthread_getspecific(qatInstanceForThread);
+        instance_handle = pthread_getspecific(qatInstanceForThread);
         /* If no thread specific data is found then return NULL
            as there should be as the flag is set */
-        if (instanceHandle == NULL)
-            return instanceHandle;
+        if (instance_handle == NULL) {
+            WARN("[%s] Could not find thread specific data\n", __func__);
+            return instance_handle;
+        }
     }
 
     e = ENGINE_by_id(engine_qat_id);
     if(e == NULL) {
-        instanceHandle = NULL;
-        return instanceHandle;
+        WARN("[%s] Function ENGINE_by_id returned NULL\n", __func__);
+        instance_handle = NULL;
+        return instance_handle;
     }
 
     if(!qat_engine_init(e)){
-        instanceHandle = NULL;
-        return instanceHandle;
+        WARN("[%s] Failure in qat_engine_init function\n", __func__);
+        instance_handle = NULL;
+        return instance_handle;
     }
 
     /* Anytime we use external polling then we want to loop
        through the instances. Any time we are using internal polling
        then we also want to loop through the instances assuming
        one was not retrieved from thread specific data. */
-    if (1 == enable_external_polling || instanceHandle == NULL)
+    if (1 == enable_external_polling || instance_handle == NULL)
     {
         if (qat_instance_handles) {
-            instanceHandle = qat_instance_handles[curr_inst];
+            instance_handle = qat_instance_handles[curr_inst];
             incr_curr_inst();
         } else {
-            instanceHandle = NULL;
+            WARN("[%s] qat_instance_handles is NULL\n", __func__);
+            instance_handle = NULL;
         }
     }
-    return instanceHandle;
+    return instance_handle;
 }
 
 static void engine_fork_handler(void)
@@ -307,7 +313,7 @@ void qat_set_instance_for_thread(long instanceNum)
 
 /******************************************************************************
 * function:
-*         initOpDone(struct op_done *opDone)
+*         qat_init_op_done(struct op_done *opDone)
 *
 * @param opDone [IN] - pointer to op done callback structure
 *
@@ -315,7 +321,7 @@ void qat_set_instance_for_thread(long instanceNum)
 *   Initialise the QAT operation "done" callback structure.
 *
 ******************************************************************************/
-void initOpDone(struct op_done *opDone)
+void qat_init_op_done(struct op_done *opDone)
 {
     if (opDone == NULL) {
         return;
@@ -330,10 +336,10 @@ void initOpDone(struct op_done *opDone)
 
 /******************************************************************************
 * function:
-*         initOpDonePipe(struct op_done_pipe *opdpipe, unsigned int npipes)
+*         qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 *
-* @param opd    [IN] - pointer to op_done_pipe callback structure
-* @param npipes [IN] - number of pipes in the pipeline
+* @param opdpipe [IN] - pointer to op_done_pipe callback structure
+* @param npipes  [IN] - number of pipes in the pipeline
 *
 * description:
 *   Initialise the QAT chained operation "done" callback structure.
@@ -341,7 +347,7 @@ void initOpDone(struct op_done *opDone)
 *   1 for success and 0 for failure.
 *
 ******************************************************************************/
-int initOpDonePipe(struct op_done_pipe *opdpipe, unsigned int npipes)
+int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 {
     if (opdpipe == NULL)
         return 0;
@@ -358,7 +364,7 @@ int initOpDonePipe(struct op_done_pipe *opdpipe, unsigned int npipes)
     if (opdpipe->opDone.job != NULL &&
         (qat_setup_async_event_notification(0) == 0)) {
         WARN("[%s]Failure to setup async event notifications\n", __func__);
-        cleanupOpDonePipe(opdpipe);
+        qat_cleanup_op_done_pipe(opdpipe);
         return 0;
     }
 
@@ -367,7 +373,7 @@ int initOpDonePipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 
 /******************************************************************************
 * function:
-*         cleanupOpDone(struct op_done *opDone)
+*         qat_cleanup_op_done(struct op_done *opDone)
 *
 * @param opDone [IN] - pointer to op done callback structure
 *
@@ -375,7 +381,7 @@ int initOpDonePipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 *   Cleanup the data in the "done" callback structure.
 *
 ******************************************************************************/
-void cleanupOpDone(struct op_done *opDone)
+void qat_cleanup_op_done(struct op_done *opDone)
 {
     if (opDone == NULL) {
         return;
@@ -393,7 +399,7 @@ void cleanupOpDone(struct op_done *opDone)
 
 /******************************************************************************
 * function:
-*         cleanupOpDonePipe(struct op_done_pipe *opDone)
+*         qat_cleanup_op_done_pipe(struct op_done_pipe *opDone)
 *
 * @param opDone [IN] - pointer to op_done_pipe callback structure
 *
@@ -401,7 +407,7 @@ void cleanupOpDone(struct op_done *opDone)
 *   Cleanup the QAT chained operation "done" callback structure.
 *
 ******************************************************************************/
-void cleanupOpDonePipe(struct op_done_pipe *opdone)
+void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
 {
     if (opdone == NULL)
         return;
@@ -458,26 +464,25 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
 
 /******************************************************************************
 * function:
-*         CpaStatus myPerformOp(const CpaInstanceHandle  instanceHandle,
+*         CpaStatus myPerformOp(const CpaInstanceHandle  instance_handle,
 *                     void *                     pCallbackTag,
 *                     const CpaCySymOpData      *pOpData,
 *                     const CpaBufferList       *pSrcBuffer,
 *                     CpaBufferList             *pDstBuffer,
 *                     CpaBoolean                *pVerifyResult)
 *
-* @param ih [IN] - Instance handle
-* @param instanceHandle [IN]  - Instance handle
-* @param pCallbackTag   [IN]  - Pointer to op_done struct
-* @param pOpData        [IN]  - Operation parameters
-* @param pSrcBuffer     [IN]  - Source buffer list
-* @param pDstBuffer     [OUT] - Destination buffer list
-* @param pVerifyResult  [OUT] - Whether hash verified or not
+* @param instance_handle [IN]  - Instance handle
+* @param pCallbackTag    [IN]  - Pointer to op_done struct
+* @param pOpData         [IN]  - Operation parameters
+* @param pSrcBuffer      [IN]  - Source buffer list
+* @param pDstBuffer      [OUT] - Destination buffer list
+* @param pVerifyResult   [OUT] - Whether hash verified or not
 *
 * description:
 *   Wrapper around cpaCySymPerformOp which handles retries for us.
 *
 ******************************************************************************/
-CpaStatus myPerformOp(const CpaInstanceHandle instanceHandle,
+CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
                       void *pCallbackTag,
                       const CpaCySymOpData * pOpData,
                       const CpaBufferList * pSrcBuffer,
@@ -487,7 +492,7 @@ CpaStatus myPerformOp(const CpaInstanceHandle instanceHandle,
     struct op_done *opDone = (struct op_done *)pCallbackTag;
     unsigned int uiRetry = 0;
     do {
-        status = cpaCySymPerformOp(instanceHandle,
+        status = cpaCySymPerformOp(instance_handle,
                                    pCallbackTag,
                                    pOpData,
                                    pSrcBuffer, pDstBuffer, pVerifyResult);
@@ -529,11 +534,15 @@ int qat_setup_async_event_notification(int notificationNo)
     void *custom = NULL;
     int ret = 0;
 
-    if ((job = ASYNC_get_current_job()) == NULL)
+    if ((job = ASYNC_get_current_job()) == NULL) {
+        WARN("[%s] Could not obtain current job\n", __func__);
         return ret;
+    }
 
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL)
+    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+        WARN("[%s] Could not obtain wait context for job\n", __func__);
         return ret;
+    }
 
     if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom)) {
@@ -550,6 +559,38 @@ int qat_setup_async_event_notification(int notificationNo)
             qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
         }
     }
+    return ret;
+}
+
+int qat_clear_async_event_notification() {
+
+    ASYNC_JOB *job;
+    ASYNC_WAIT_CTX *waitctx;
+    OSSL_ASYNC_FD efd;
+    int ret = 0;
+    void *custom = NULL;
+
+    if ((job = ASYNC_get_current_job()) == NULL) {
+        WARN("[%s] Could not obtain current job\n", __func__);
+        return ret;
+    }
+
+    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+        WARN("[%s] Could not obtain wait context for job\n", __func__);
+        return ret;
+    }
+
+    if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd, &custom)) == 0) {
+        WARN("[%s] Failure in ASYNC_WAIT_CTX_get_fd\n", __func__);
+        return ret;
+    }
+
+    qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
+
+    if ((ret = ASYNC_WAIT_CTX_clear_fd(waitctx, engine_qat_id)) == 0) {
+        WARN("[%s] Failure in ASYNC_WAIT_CTX_clear_fd\n", __func__);
+    }
+
     return ret;
 }
 
@@ -727,13 +768,13 @@ end:
 static CpaStatus poll_instances(void)
 {
     unsigned int poll_loop;
-    CpaInstanceHandle instanceHandle = NULL;
+    CpaInstanceHandle instance_handle = NULL;
     CpaStatus internal_status = CPA_STATUS_SUCCESS,
         ret_status = CPA_STATUS_SUCCESS;
     if (enable_instance_for_thread)
-        instanceHandle = pthread_getspecific(qatInstanceForThread);
-    if (instanceHandle) {
-        ret_status = icp_sal_CyPollInstance(instanceHandle, 0);
+        instance_handle = pthread_getspecific(qatInstanceForThread);
+    if (instance_handle) {
+        ret_status = icp_sal_CyPollInstance(instance_handle, 0);
     } else {
         for (poll_loop = 0; poll_loop < qat_num_instances; poll_loop++) {
             if (qat_instance_handles[poll_loop] != NULL) {

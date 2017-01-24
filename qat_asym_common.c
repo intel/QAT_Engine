@@ -131,7 +131,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     CpaFlatBuffer result = { 0, };
     CpaStatus status = 0;
     int retval = 1;
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     int qatPerformOpRetries = 0;
     ASYNC_JOB *job = NULL;
     int iMsgRetry = getQatMsgRetryCount();
@@ -160,12 +160,6 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         goto exit;
     }
 
-    if (NULL == (instanceHandle = get_next_inst())) {
-        WARN("instanceHandle is NULL\n");
-        retval = 0;
-        goto exit;
-    }
-
     if ((job = ASYNC_get_current_job()) != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notifications\n");
@@ -175,7 +169,16 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     }
 
     do {
-        status = cpaCyLnModExp(instanceHandle, NULL, NULL, &opData, &result);
+        if (NULL == (instance_handle = get_next_inst())) {
+            WARN("instance_handle is NULL\n");
+            if (job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            retval = 0;
+            goto exit;
+        }
+
+        status = cpaCyLnModExp(instance_handle, NULL, NULL, &opData, &result);
         if (status == CPA_STATUS_RETRY) {
             if (job == NULL) {
                 usleep(ulPollInterval +
@@ -199,6 +202,9 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
 
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyLnModExp failed, status=%d\n", status);
+        if (job != NULL) {
+            qat_clear_async_event_notification();
+        }
         retval = 0;
         goto exit;
     }

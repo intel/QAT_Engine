@@ -140,7 +140,7 @@ typedef struct qat_chained_ctx_t {
     void *sw_ctx_data;
 #endif
     /* QAT Session Params */
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     CpaCySymSessionSetupData *session_data;
     CpaCySymSessionCtx session_ctx;
     int init_flags;
@@ -181,7 +181,7 @@ typedef struct qat_ctx_t {
     int init;                   /* has been initialised */
     int copiedCtx;              /* whether this is a copied context for
                                  * initialisation purposes */
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     Cpa32U nodeId;
     /*
      * the memory for the private meta data must be allocated as contiguous
@@ -230,19 +230,20 @@ struct op_done_pipe {
 };
 
 CpaInstanceHandle get_next_inst(void);
-void initOpDone(struct op_done *opDone);
-void cleanupOpDone(struct op_done *opDone);
-int  initOpDonePipe(struct op_done_pipe *opDone, unsigned int npipes);
-void cleanupOpDonePipe(struct op_done_pipe *opDone);
+void qat_init_op_done(struct op_done *opDone);
+void qat_cleanup_op_done(struct op_done *opDone);
+int  qat_init_op_done_pipe(struct op_done_pipe *opDone, unsigned int npipes);
+void qat_cleanup_op_done_pipe(struct op_done_pipe *opDone);
 void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
                            const CpaCySymOp operationType, void *pOpData,
                            CpaBufferList * pDstBuffer,
                            CpaBoolean verifyResult);
-CpaStatus myPerformOp(const CpaInstanceHandle instanceHandle,
+CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
                       void *pCallbackTag, const CpaCySymOpData * pOpData,
                       const CpaBufferList * pSrcBuffer,
                       CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult);
 int qat_setup_async_event_notification(int notificationNo);
+int qat_clear_async_event_notification();
 int qat_pause_job(ASYNC_JOB *job, int notificationNo);
 int qat_wake_job(ASYNC_JOB *job, int notificationNo);
 useconds_t getQatPollInterval();

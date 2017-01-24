@@ -382,16 +382,16 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
     struct op_done op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
-    CpaInstanceHandle instanceHandle = NULL;
+    CpaInstanceHandle instance_handle = NULL;
 
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
 
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            qat_cleanup_op_done(&op_done);
             return 0;
         }
     }
@@ -403,13 +403,16 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
      */
     CRYPTO_QAT_LOG("RSA - %s\n", __func__);
     do {
-        if (NULL == (instanceHandle = get_next_inst())) {
-            WARN("instanceHandle is NULL\n");
+        if (NULL == (instance_handle = get_next_inst())) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
             return 0;
         }
-        sts = cpaCyRsaDecrypt(instanceHandle, qat_rsaCallbackFn, &op_done,
+        sts = cpaCyRsaDecrypt(instance_handle, qat_rsaCallbackFn, &op_done,
                               dec_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -433,14 +436,17 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
     while (sts == CPA_STATUS_RETRY);
 
     if (sts != CPA_STATUS_SUCCESS) {
-        fprintf(stderr,"[%s] --- cpaCyRsaDecrypt failed, sts=%d.\n", __func__, sts);
+        WARN("[%s] cpaCyRsaDecrypt failed - sts=%d\n", __func__, sts);
         QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         return 0;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -457,10 +463,10 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
     }
     while (!op_done.flag);
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        fprintf(stderr,"[%s] --- cpaCyRsaDecrypt failed, verifyResult=%d.\n",
+        WARN("[%s] cpaCyRsaDecrypt failed - verifyResult=%d\n",
                 __func__, op_done.verifyResult);
         QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
         return 0;
@@ -618,16 +624,16 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     struct op_done op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
-    CpaInstanceHandle instanceHandle = NULL;
+    CpaInstanceHandle instance_handle = NULL;
 
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
 
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            qat_cleanup_op_done(&op_done);
             return 0;
         }
     }
@@ -639,14 +645,17 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
      */
     CRYPTO_QAT_LOG("RSA - %s\n", __func__);
     do {
-        if (NULL == (instanceHandle = get_next_inst())) {
-            WARN("instanceHandle is NULL\n");
+        if (NULL == (instance_handle = get_next_inst())) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
             return 0;
         }
 
-        sts = cpaCyRsaEncrypt(instanceHandle, qat_rsaCallbackFn, &op_done,
+        sts = cpaCyRsaEncrypt(instance_handle, qat_rsaCallbackFn, &op_done,
                               enc_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -667,17 +676,20 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             }
         }
     }
-    while (sts == CPA_STATUS_RETRY );
+    while (sts == CPA_STATUS_RETRY);
 
     if (sts != CPA_STATUS_SUCCESS) {
-        WARN("[%s] --- cpaCyRsaEncrypt failed, sts=%d.\n", __func__, sts);
+        WARN("[%s] cpaCyRsaEncrypt failed - sts=%d\n", __func__, sts);
         QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         return 0;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -693,10 +705,10 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         }
     } while (!op_done.flag);
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        WARN("[%s] --- cpaCyRsaEncrypt failed, verifyResult=%d.\n",
+        WARN("[%s] cpaCyRsaEncrypt failed - verifyResult=%d\n",
              __func__, op_done.verifyResult);
         QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
         return 0;

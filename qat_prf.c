@@ -577,29 +577,34 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     generated_key->dataLenInBytes = key_length;
 
     /* ---- Perform the operation ---- */
-    CpaInstanceHandle instance_handle = NULL;
-    if (NULL == (instance_handle = get_next_inst())) {
-        QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-        goto err;
-    }
-
     struct op_done op_done;
     int qatPerformOpRetries = 0;
     int iMsgRetry = getQatMsgRetryCount();
     unsigned long int ulPollInterval = getQatPollInterval();
+    CpaInstanceHandle instance_handle = NULL;
 
     DEBUG_PRF_OP_DATA(&prf_op_data);
 
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
-        QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
     }
 
     do {
+        if (NULL == (instance_handle = get_next_inst())) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
+            QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
+            goto err;
+        }
+
         /* Call the function of CPA according the to the version of TLS */
         if (EVP_MD_type(qat_prf_ctx->md) != NID_md5_sha1) {
             DEBUG("Calling cpaCyKeyGenTls2 \n");
@@ -637,13 +642,17 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     } while (status == CPA_STATUS_RETRY);
 
     if (CPA_STATUS_SUCCESS != status) {
+        WARN("[%s] cpaCyKeyGenTls failed - status=%d\n", __func__, status);
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -660,7 +669,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     }
     while (!op_done.flag);
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);

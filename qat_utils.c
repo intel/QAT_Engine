@@ -105,7 +105,7 @@ void hexDump(const char *func, const char *var, const unsigned char p[],
     fputc('\n', stderr);
 }
 
-void dumpRequest(const CpaInstanceHandle instanceHandle,
+void dumpRequest(const CpaInstanceHandle instance_handle,
                  void *pCallbackTag,
                  const CpaCySymOpData * pOpData,
                  const CpaCySymSessionSetupData * sessionData,
@@ -114,7 +114,7 @@ void dumpRequest(const CpaInstanceHandle instanceHandle,
     unsigned int index = 0;
     struct op_done_asynch *opDoneCB = (struct op_done_asynch *)pCallbackTag;
 
-    fprintf(stderr, "\nInstance Handle:    %p\n", instanceHandle);
+    fprintf(stderr, "\nInstance Handle:    %p\n", instance_handle);
     fprintf(stderr, "Callback Ptr:       %p\n", opDoneCB);
     fprintf(stderr, "OpData->packetType:        %s\n",
             (pOpData->packetType ==

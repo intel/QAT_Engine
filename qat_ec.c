@@ -253,7 +253,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     size_t buflen;
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
 
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     CpaCyEcPointMultiplyOpData *opData = NULL;
     CpaBoolean bEcStatus;
     CpaFlatBuffer *pResultX = NULL;
@@ -420,11 +420,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         goto err;
     }
 
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
     }
@@ -432,14 +432,18 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     /* Invoke the crypto engine API for EC Point Multiply */
     do {
-        if ((instanceHandle = get_next_inst()) == NULL) {
+        if ((instance_handle = get_next_inst()) == NULL) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-        status = cpaCyEcPointMultiply(instanceHandle,
+        status = cpaCyEcPointMultiply(instance_handle,
                                       qat_ecCallbackFn,
                                       &op_done,
                                       opData,
@@ -468,13 +472,18 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     while (status == CPA_STATUS_RETRY );
 
     if (status != CPA_STATUS_SUCCESS) {
+        WARN("[%s] cpaCyEcPointMultiply failed - status=%d\n", __func__,
+                status);
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -493,11 +502,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     if (op_done.verifyResult != CPA_TRUE) {
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     /* KDF, is done in the caller now just copy out bytes */
     if (outX != NULL) {
@@ -803,7 +812,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     CpaFlatBuffer *pResultR = NULL;
     CpaFlatBuffer *pResultS = NULL;
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     CpaCyEcdsaSignRSOpData *opData = NULL;
     CpaBoolean bEcdsaSignStatus;
     CpaStatus status;
@@ -1030,25 +1039,29 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     pResultS->dataLenInBytes = (Cpa32U) buflen;
 
     /* perform ECDSA sign */
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
     }
 
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     do {
-        if ((instanceHandle = get_next_inst()) == NULL) {
+        if ((instance_handle = get_next_inst()) == NULL) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
             QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
-        status = cpaCyEcdsaSignRS(instanceHandle,
+        status = cpaCyEcdsaSignRS(instance_handle,
                 qat_ecdsaSignCallbackFn,
                 &op_done,
                 opData,
@@ -1077,13 +1090,17 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
+        WARN("[%s] cpaCyEcdsaSignRS failed - sts=%d\n", __func__, status);
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -1100,7 +1117,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
     while (!op_done.flag);
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
@@ -1194,7 +1211,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     const EC_POINT *ec_point;
     const BIGNUM *sig_r = NULL, *sig_s = NULL;
 
-    CpaInstanceHandle instanceHandle;
+    CpaInstanceHandle instance_handle;
     CpaCyEcdsaVerifyOpData *opData = NULL;
     CpaBoolean bEcdsaVerifyStatus;
     CpaStatus status;
@@ -1385,25 +1402,29 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
 
     /* perform ECDSA verify */
-    initOpDone(&op_done);
-    if (op_done.job) {
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
     }
 
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     do {
-        if ((instanceHandle = get_next_inst()) == NULL) {
+        if ((instance_handle = get_next_inst()) == NULL) {
+            WARN("[%s] Failure in get_next_inst()\n", __func__);
             QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-            cleanupOpDone(&op_done);
+            if (op_done.job != NULL) {
+                qat_clear_async_event_notification();
+            }
+            qat_cleanup_op_done(&op_done);
             goto err;
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
-        status = cpaCyEcdsaVerify(instanceHandle,
+        status = cpaCyEcdsaVerify(instance_handle,
                                   qat_ecdsaVerifyCallbackFn,
                                   &op_done, opData, &bEcdsaVerifyStatus);
 
@@ -1430,13 +1451,17 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
+        WARN("[%s] cpaCyEcdsaVerify failed - status=%d\n", __func__, status);
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-        cleanupOpDone(&op_done);
+        if (op_done.job != NULL) {
+            qat_clear_async_event_notification();
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
     do {
-        if(op_done.job) {
+        if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -1453,7 +1478,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
     while (!op_done.flag);
 
-    cleanupOpDone(&op_done);
+    qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;

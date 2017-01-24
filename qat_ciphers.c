@@ -548,7 +548,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
 
         /* setup meta data for buffer lists */
         if (msize == 0 &&
-            cpaCyBufferListGetMetaSize(qctx->instanceHandle,
+            cpaCyBufferListGetMetaSize(qctx->instance_handle,
                                        qctx->qop[i].src_sgl.numBuffers,
                                        &msize) != CPA_STATUS_SUCCESS) {
             WARN("[%s] --- cpaCyBufferListGetBufferSize failed.\n", __func__);
@@ -714,13 +714,13 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     ssd->hashSetupData.authModeSetupData.authKey = qctx->hmac_key;
 
-    qctx->instanceHandle = get_next_inst();
-    if (qctx->instanceHandle == NULL) {
+    qctx->instance_handle = get_next_inst();
+    if (qctx->instance_handle == NULL) {
         WARN("[%s] Failed to get QAT Instance Handle!.\n", __func__);
         goto err;
     }
 
-    sts = cpaCySymSessionCtxGetSize(qctx->instanceHandle, ssd, &sctx_size);
+    sts = cpaCySymSessionCtxGetSize(qctx->instance_handle, ssd, &sctx_size);
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("[%s] Failed to get SessionCtx size.\n", __func__);
         goto err;
@@ -834,7 +834,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 
         INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_HMAC_KEY_SET);
 
-        sts = cpaCySymInitSession(qctx->instanceHandle,
+        sts = cpaCySymInitSession(qctx->instance_handle,
                                   qat_chained_callbackFn,
                                   ssd, qctx->session_ctx);
         if (sts != CPA_STATUS_SUCCESS) {
@@ -976,7 +976,7 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
     ssd = qctx->session_data;
     if (ssd) {
         if (INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_SESSION_INIT)) {
-            sts = cpaCySymRemoveSession(qctx->instanceHandle,
+            sts = cpaCySymRemoveSession(qctx->instance_handle,
                                         qctx->session_ctx);
             if (sts != CPA_STATUS_SUCCESS) {
                 WARN("[%s] cpaCySymRemoveSession FAILED, sts = %d.!\n",
@@ -1077,7 +1077,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
          * HMAC key is not explicitly set, use default HMAC key of all zeros
          * and initialise a qat session.
          */
-        sts = cpaCySymInitSession(qctx->instanceHandle, qat_chained_callbackFn,
+        sts = cpaCySymInitSession(qctx->instance_handle, qat_chained_callbackFn,
                                   qctx->session_data, qctx->session_ctx);
         if (sts != CPA_STATUS_SUCCESS) {
             WARN("[%s] cpaCySymInitSession failed! Status = %d\n",
@@ -1159,7 +1159,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
               __func__, ctx, qctx->numpipes);
 
     if ((qat_setup_op_params(ctx) != 1) ||
-        (initOpDonePipe(&done, qctx->numpipes) != 1))
+        (qat_init_op_done_pipe(&done, qctx->numpipes) != 1))
         return 0;
 
     do {
@@ -1298,7 +1298,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                        inb + (buflen - discardlen) - ivlen, ivlen);
         }
 
-        sts = myPerformOp(qctx->instanceHandle, &done, opd, s_sgl, d_sgl,
+        sts = myPerformOp(qctx->instance_handle, &done, opd, s_sgl, d_sgl,
                           &(qctx->session_data->verifyDigest));
         if (sts != CPA_STATUS_SUCCESS) {
             WARN("[%s] CpaCySymPerformOp failed sts=%d.\n", __func__, sts);
@@ -1317,11 +1317,15 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         done.num_pipes = pipe;
 
     /* If there is nothing to wait for, do not pause or yield */
-    if (done.num_submitted == 0 || (done.num_submitted == done.num_processed))
+    if (done.num_submitted == 0 || (done.num_submitted == done.num_processed)) {
+        if (done.opDone.job != NULL) {
+            qat_clear_async_event_notification();
+        }
         goto end;
+    }
 
     do {
-        if (done.opDone.job) {
+        if (done.opDone.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -1339,7 +1343,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
  end:
     qctx->total_op += done.num_processed;
-    cleanupOpDonePipe(&done);
+    qat_cleanup_op_done_pipe(&done);
 
     if (error == 0 && (done.opDone.verifyResult == CPA_TRUE))
         retVal = 1;
