@@ -233,7 +233,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     DEBUG("[%s] --- called.\n", __func__);
 
-    if (dsa == NULL) {
+    if (dsa == NULL || dgst == NULL) {
          QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_PASSED_NULL_PARAMETER);
          return NULL;
     }
@@ -319,6 +319,11 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     pResultS->dataLenInBytes = (Cpa32U) buflen;
 
     DSA_get0_key(dsa, &pub_key, &priv_key);
+
+    if (priv_key == NULL) {
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
 
     if ((qat_BN_to_FB(&(opData->P), p) != 1) ||
         (qat_BN_to_FB(&(opData->Q), q) != 1) ||
@@ -524,7 +529,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     DEBUG("[%s] --- called.\n", __func__);
 
-    if (dsa == NULL) {
+    if (dsa == NULL || dgst == NULL || sig == NULL) {
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_PASSED_NULL_PARAMETER);
         return -1;
     }
@@ -579,6 +584,11 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     DSA_SIG_get0(sig, &r, &s);
 
+    if (r == NULL || s == NULL) {
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+
     if (BN_is_zero(r) || BN_is_negative(r) ||
         BN_ucmp(r, q) >= 0) {
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
@@ -603,6 +613,11 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
 
     DSA_get0_key(dsa, &pub_key, &priv_key);
+
+    if (pub_key == NULL) {
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
 
     if ((qat_BN_to_FB(&(opData->P), p) != 1) ||
         (qat_BN_to_FB(&(opData->Q), q) != 1) ||
