@@ -53,7 +53,9 @@
 
 # define QAT_BYTE_ALIGNMENT 64
 /* For best performance data buffers should be 64-byte aligned */
-# define QAT_CONTIG_MEM_ALIGN(x) (void *)(((uintptr_t)(x) + QAT_BYTE_ALIGNMENT - 1) & (~(uintptr_t)(QAT_BYTE_ALIGNMENT-1)))
+# define QAT_CONTIG_MEM_ALIGN(x)                              \
+         (void *)(((uintptr_t)(x) + QAT_BYTE_ALIGNMENT - 1) & \
+         (~(uintptr_t)(QAT_BYTE_ALIGNMENT-1)))
 
 /*
  * Add -DQAT_TESTS_LOG to ./config to enable debug logging to the
@@ -75,16 +77,16 @@ void crypto_qat_debug_close_log();
 
 #  define CRYPTO_CLOSE_QAT_LOG() crypto_qat_debug_close_log()
 
-#  define CRYPTO_QAT_LOG(...)                         \
+#  define CRYPTO_QAT_LOG(...)                       \
 do {                                                \
     pthread_mutex_lock(&debug_file_mutex);          \
-        if (debug_file_ref_count) {                     \
-            if (cryptoQatLogger != NULL) {              \
-                    fprintf (cryptoQatLogger, __VA_ARGS__); \
+    if (debug_file_ref_count) {                     \
+        if (cryptoQatLogger != NULL) {              \
+            fprintf (cryptoQatLogger, __VA_ARGS__); \
             fflush(cryptoQatLogger);                \
         }                                           \
     }                                               \
-        pthread_mutex_unlock(&debug_file_mutex);        \
+    pthread_mutex_unlock(&debug_file_mutex);        \
 } while(0)
 
 # else
@@ -104,9 +106,12 @@ void dumpRequest(const CpaInstanceHandle instance_handle, void *pCallbackTag,
                  const CpaCySymSessionSetupData * sessionData,
                  const CpaBufferList * pSrcBuffer,
                  CpaBufferList * pDstBuffer);
-#  define DEBUG(...) fprintf(stderr, __VA_ARGS__)
+#  define DEBUG(fmt_str, ...)                                                \
+          fprintf(stderr, "[DEBUG][%s:%d:%s()] "fmt_str, __FILE__, __LINE__, \
+                  __func__, ##__VA_ARGS__)
 #  define DUMPL(var,p,l) hexDump(__func__,var,p,l);
-#  define DUMPREQ(inst, cb, opD, sess, src, dst) dumpRequest(inst, cb, opD, sess, src, dst);
+#  define DUMPREQ(inst, cb, opD, sess, src, dst) \
+          dumpRequest(inst, cb, opD, sess, src, dst);
 # else
 #  define DEBUG(...)
 #  define DUMPL(...)
@@ -114,7 +119,9 @@ void dumpRequest(const CpaInstanceHandle instance_handle, void *pCallbackTag,
 # endif
 
 # if defined(QAT_WARN) || defined(QAT_DEBUG)
-#  define WARN(...) fprintf (stderr, __VA_ARGS__)
+#  define WARN(fmt_str, ...)                                          \
+          fprintf (stderr, "[WARNING][%s:%d:%s()] "fmt_str, __FILE__, \
+                   __LINE__, __func__, ##__VA_ARGS__)
 # else
 #  define WARN(...)
 # endif

@@ -236,20 +236,20 @@ CpaInstanceHandle get_next_inst(void)
         /* If no thread specific data is found then return NULL
            as there should be as the flag is set */
         if (instance_handle == NULL) {
-            WARN("[%s] Could not find thread specific data\n", __func__);
+            WARN("No thread specific instance is available\n");
             return instance_handle;
         }
     }
 
     e = ENGINE_by_id(engine_qat_id);
     if(e == NULL) {
-        WARN("[%s] Function ENGINE_by_id returned NULL\n", __func__);
+        WARN("Function ENGINE_by_id returned NULL\n");
         instance_handle = NULL;
         return instance_handle;
     }
 
     if(!qat_engine_init(e)){
-        WARN("[%s] Failure in qat_engine_init function\n", __func__);
+        WARN("Failure in qat_engine_init function\n");
         instance_handle = NULL;
         return instance_handle;
     }
@@ -264,7 +264,7 @@ CpaInstanceHandle get_next_inst(void)
             instance_handle = qat_instance_handles[curr_inst];
             incr_curr_inst();
         } else {
-            WARN("[%s] qat_instance_handles is NULL\n", __func__);
+            WARN("No instances are available\n");
             instance_handle = NULL;
         }
     }
@@ -276,7 +276,7 @@ static void engine_fork_handler(void)
     /* Reset the engine preserving the value of global variables */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if(e == NULL) {
-        WARN("[%s] Engine pointer is NULL", __func__);
+        WARN("Engine pointer is NULL\n");
         return;
     }
 
@@ -305,7 +305,7 @@ void qat_set_instance_for_thread(long instanceNum)
          pthread_setspecific(qatInstanceForThread,
                              qat_instance_handles[instanceNum %
                                                 qat_num_instances])) != 0) {
-        fprintf(stderr, "pthread_setspecific: %s\n", strerror(rc));
+        WARN("pthread_setspecific: %s\n", strerror(rc));
         return;
     }
     enable_instance_for_thread = 1;
@@ -324,6 +324,7 @@ void qat_set_instance_for_thread(long instanceNum)
 void qat_init_op_done(struct op_done *opDone)
 {
     if (opDone == NULL) {
+        WARN("opDone is NULL\n");
         return;
     }
 
@@ -349,8 +350,10 @@ void qat_init_op_done(struct op_done *opDone)
 ******************************************************************************/
 int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 {
-    if (opdpipe == NULL)
+    if (opdpipe == NULL) {
+        WARN("opdpipe is NULL\n");
         return 0;
+    }
 
     opdpipe->num_pipes = npipes;
     opdpipe->num_submitted = 0;
@@ -363,7 +366,7 @@ int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
     /* Setup async notification if using async jobs. */
     if (opdpipe->opDone.job != NULL &&
         (qat_setup_async_event_notification(0) == 0)) {
-        WARN("[%s]Failure to setup async event notifications\n", __func__);
+        WARN("Failure to setup async event notifications\n");
         qat_cleanup_op_done_pipe(opdpipe);
         return 0;
     }
@@ -384,6 +387,7 @@ int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 void qat_cleanup_op_done(struct op_done *opDone)
 {
     if (opDone == NULL) {
+        WARN("opDone is NULL\n");
         return;
     }
 
@@ -409,8 +413,10 @@ void qat_cleanup_op_done(struct op_done *opDone)
 ******************************************************************************/
 void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
 {
-    if (opdone == NULL)
+    if (opdone == NULL) {
+        WARN("opdone is NULL\n");
         return;
+    }
 
     opdone->num_pipes = 0;
     opdone->num_submitted = 0;
@@ -446,10 +452,11 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
     struct op_done *opDone = (struct op_done *)callbackTag;
 
     if (opDone == NULL) {
+        WARN("opDone is NULL\n");
         return;
     }
 
-    DEBUG("e_qat.%s: status %d verifyResult %d\n", __func__, status,
+    DEBUG("status %d verifyResult %d\n", status,
           verifyResult);
     opDone->verifyResult = (status == CPA_STATUS_SUCCESS) && verifyResult
                             ? CPA_TRUE : CPA_FALSE;
@@ -500,6 +507,7 @@ CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
             if (opDone->job) {
                 if ((qat_wake_job(opDone->job, 0) == 0) ||
                     (qat_pause_job(opDone->job, 0) == 0)) {
+                    WARN("Failed to wake or pause job\n");
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -507,6 +515,8 @@ CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
                 qatPerformOpRetries++;
                 if (uiRetry >= qat_max_retry_count
                     && qat_max_retry_count != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    WARN("Maximum retries exceeded\n");
+                    status = CPA_STATUS_FAIL;
                     break;
                 }
                 uiRetry++;
@@ -522,7 +532,9 @@ CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
 static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
                            OSSL_ASYNC_FD readfd, void *custom)
 {
-    close(readfd);
+    if (close(readfd) != 0) {
+        WARN("Failed to close fd: %d - error: %d\n", readfd, errno);
+    }
 }
 
 int qat_setup_async_event_notification(int notificationNo)
@@ -535,12 +547,12 @@ int qat_setup_async_event_notification(int notificationNo)
     int ret = 0;
 
     if ((job = ASYNC_get_current_job()) == NULL) {
-        WARN("[%s] Could not obtain current job\n", __func__);
+        WARN("Could not obtain current job\n");
         return ret;
     }
 
     if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
-        WARN("[%s] Could not obtain wait context for job\n", __func__);
+        WARN("Could not obtain wait context for job\n");
         return ret;
     }
 
@@ -556,6 +568,7 @@ int qat_setup_async_event_notification(int notificationNo)
 
         if ((ret = ASYNC_WAIT_CTX_set_wait_fd(waitctx, engine_qat_id, efd,
                                        custom, qat_fd_cleanup)) == 0) {
+            WARN("failed to set the fd in the ASYNC_WAIT_CTX\n");
             qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
         }
     }
@@ -571,24 +584,24 @@ int qat_clear_async_event_notification() {
     void *custom = NULL;
 
     if ((job = ASYNC_get_current_job()) == NULL) {
-        WARN("[%s] Could not obtain current job\n", __func__);
+        WARN("Could not obtain current job\n");
         return ret;
     }
 
     if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
-        WARN("[%s] Could not obtain wait context for job\n", __func__);
+        WARN("Could not obtain wait context for job\n");
         return ret;
     }
 
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd, &custom)) == 0) {
-        WARN("[%s] Failure in ASYNC_WAIT_CTX_get_fd\n", __func__);
+        WARN("Failure in ASYNC_WAIT_CTX_get_fd\n");
         return ret;
     }
 
     qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
 
     if ((ret = ASYNC_WAIT_CTX_clear_fd(waitctx, engine_qat_id)) == 0) {
-        WARN("[%s] Failure in ASYNC_WAIT_CTX_clear_fd\n", __func__);
+        WARN("Failure in ASYNC_WAIT_CTX_clear_fd\n");
     }
 
     return ret;
@@ -603,15 +616,21 @@ int qat_pause_job(ASYNC_JOB *job, int notificationNo)
     uint64_t buf = 0;
     int ret = 0;
 
-    if (ASYNC_pause_job() == 0)
+    if (ASYNC_pause_job() == 0) {
+        WARN("Failed to pause the job\n");
         return ret;
+    }
 
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL)
+    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+        WARN("waitctx == NULL\n");
         return ret;
+    }
 
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom)) > 0) {
-        read(efd, &buf, sizeof(uint64_t));
+        if (read(efd, &buf, sizeof(uint64_t)) == -1) {
+            WARN("Failed to read from fd: %d - error: %d\n", efd, errno);
+        }
     }
     return ret;
 }
@@ -622,16 +641,20 @@ int qat_wake_job(ASYNC_JOB *job, int notificationNo)
     ASYNC_WAIT_CTX *waitctx;
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
-    /* Arbitary character 'X' to write down the pipe to trigger event */
+    /* Arbitary value '1' to write down the pipe to trigger event */
     uint64_t buf = 1;
     int ret = 0;
 
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL)
+    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+        WARN("waitctx == NULL\n");
         return ret;
+    }
 
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom)) > 0) {
-        write(efd, &buf, sizeof(uint64_t));
+        if (write(efd, &buf, sizeof(uint64_t)) == -1) {
+            WARN("Failed to write to fd: %d - error: %d\n", efd, errno);
+        }
     }
     return ret;
 }
@@ -688,8 +711,6 @@ static void *timer_poll_func(void *ih)
     CpaStatus status = 0;
     Cpa16U inst_num = 0;
 
-    pthread_setname_np(pthread_self(), "QATTimerPollTh");
-
     struct timespec req_time = { 0 };
     struct timespec rem_time = { 0 };
     unsigned int retry_count = 0; /* to prevent too much time drift */
@@ -702,8 +723,8 @@ static void *timer_poll_func(void *ih)
             status = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
             if (unlikely(CPA_STATUS_SUCCESS != status
                         && CPA_STATUS_RETRY != status)) {
-                WARN("WARNING icp_sal_CyPollInstance returned status %d\n",
-                        status);
+                WARN("icp_sal_CyPollInstance returned status %d\n",
+                      status);
             }
 
             if (unlikely(!keep_polling))
@@ -717,8 +738,7 @@ static void *timer_poll_func(void *ih)
             req_time.tv_sec = rem_time.tv_sec;
             req_time.tv_nsec = rem_time.tv_nsec;
             if (unlikely((errno < 0) && (EINTR != errno))) {
-                WARN("WARNING nanosleep system call failed: errno %i\n",
-                     errno);
+                WARN("nanosleep system call failed: errno %i\n", errno);
                 break;
             }
         }
@@ -733,8 +753,6 @@ static void *event_poll_func(void *ih)
     CpaStatus status = 0;
     struct epoll_event *events = NULL;
     ENGINE_EPOLL_ST* epollst = NULL;
-
-    pthread_setname_np(pthread_self(), "QATEventPollTh");
 
     /* Buffer where events are returned */
     events = OPENSSL_zalloc(sizeof(struct epoll_event) * MAX_EVENTS);
@@ -753,7 +771,7 @@ static void *event_poll_func(void *ih)
                 epollst = (ENGINE_EPOLL_ST*)events[i].data.ptr;
                 status = icp_sal_CyPollInstance(qat_instance_handles[epollst->inst_index], 0);
                 if (CPA_STATUS_SUCCESS != status) {
-                    WARN("WARNING icp_sal_CyPollInstance returned status %d\n", status);
+                    WARN("icp_sal_CyPollInstance returned status %d\n", status);
                 }
             }
         }
@@ -785,7 +803,7 @@ static CpaStatus poll_instances(void)
                 } else if (CPA_STATUS_RETRY == internal_status) {
                     ret_status = internal_status;
                 } else {
-                    WARN("WARNING icp_sal_CyPollInstance returned status %d\n", internal_status);
+                    WARN("icp_sal_CyPollInstance failed - status %d\n", internal_status);
                     ret_status = internal_status;
                     break;
                 }
@@ -829,12 +847,12 @@ int qat_adjust_thread_affinity(pthread_t threadptr)
 
     sts = pthread_setaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
     if (sts != 0) {
-        DEBUG("pthread_setaffinity_np error, status = %d \n", sts);
+        WARN("pthread_setaffinity_np error, status = %d\n", sts);
         return 0;
     }
     sts = pthread_getaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
     if (sts != 0) {
-        DEBUG("pthread_getaffinity_np error, status = %d \n", sts);
+        WARN("pthread_getaffinity_np error, status = %d\n", sts);
         return 0;
     }
 
@@ -867,7 +885,7 @@ static int qat_engine_init(ENGINE *e)
         return 1;
     }
 
-    DEBUG("[%s] QAT Engine initialization:\n", __func__);
+    DEBUG("QAT Engine initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
     DEBUG("- Internal poll interval: %dns\n", qat_poll_interval);
     DEBUG("- Epoll timeout: %dms\n", qat_epoll_timeout);
@@ -880,7 +898,7 @@ static int qat_engine_init(ENGINE *e)
     polling_thread = pthread_self();
 
     if ((err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
-        fprintf(stderr, "pthread_key_create: %s\n", strerror(err));
+        WARN("pthread_key_create failed: %s\n", strerror(err));
         pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
     }
@@ -920,7 +938,7 @@ static int qat_engine_init(ENGINE *e)
         return 0;
     }
 
-    DEBUG("%s: %d Cy instances got\n", __func__, qat_num_instances);
+    DEBUG("Found %d Cy instances\n", qat_num_instances);
 
     /* Allocate memory for the instance handle array */
     qat_instance_handles =
@@ -1016,13 +1034,14 @@ static int qat_engine_init(ENGINE *e)
     if (!enable_external_polling) {
         if (qat_create_thread(&polling_thread, NULL,
                     qat_is_event_driven() ? event_poll_func : timer_poll_func, NULL)) {
-            WARN("[%s] Creation of polling thread create\n", __func__);
+            WARN("Creation of polling thread failed\n");
             polling_thread = pthread_self();
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
         }
         if (qat_adjust_thread_affinity(polling_thread) == 0) {
+            WARN("Setting polling thread affinity failed\n");
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -1166,7 +1185,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     case QAT_CMD_ENABLE_EXTERNAL_POLLING:
         BREAK_IF(engine_inited, \
                 "ENABLE_EXTERNAL_POLLING failed as the engine is already initialized\n");
-        DEBUG("[%s] Enabled external polling\n", __func__);
+        DEBUG("Enabled external polling\n");
         enable_external_polling = 1;
         break;
 
@@ -1193,19 +1212,19 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         flags = fcntl(fd, F_GETFL, 0);
         fcntl(fd, F_SETFL, flags | O_NONBLOCK);
 
-        DEBUG("[%s] External polling FD for instance[%ld] = %d\n", __func__, i, fd);
+        DEBUG("External polling FD for instance[%ld] = %d\n", i, fd);
         *(int *)p = fd;
         break;
 
     case QAT_CMD_ENABLE_EVENT_DRIVEN_POLLING_MODE:
-        DEBUG("[%s] Enabled event driven polling mode\n", __func__);
+        DEBUG("Enabled event driven polling mode\n");
         BREAK_IF(engine_inited, \
                 "ENABLE_EVENT_DRIVEN_POLLING_MODE failed as the engine is already initialized\n");
         enable_event_driven_polling = 1;
         break;
 
     case QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE:
-        DEBUG("[%s] Disabled event driven polling mode\n", __func__);
+        DEBUG("Disabled event driven polling mode\n");
         BREAK_IF(engine_inited, \
                 "DISABLE_EVENT_DRIVEN_POLLING_MODE failed as the engine is already initialized\n");
         enable_event_driven_polling = 0;
@@ -1219,7 +1238,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         BREAK_IF(!engine_inited, \
                 "SET_INSTANCE_FOR_THREAD failed as the engine is not initialized\n");
-        DEBUG("[%s] Set instance for thread = %ld\n", __func__, i);
+        DEBUG("Set instance for thread = %ld\n", i);
         qat_set_instance_for_thread(i);
         break;
 
@@ -1232,21 +1251,21 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     case QAT_CMD_SET_MAX_RETRY_COUNT:
         BREAK_IF(i < -1 || i > 100000,
             "The Message retry count value is out of range, using default value\n");
-        DEBUG("[%s] Set max retry counter = %ld\n", __func__, i);
+        DEBUG("Set max retry counter = %ld\n", i);
         qat_max_retry_count = (int)i;
         break;
 
     case QAT_CMD_SET_INTERNAL_POLL_INTERVAL:
         BREAK_IF(i < 1 || i > 1000000,
                "The polling interval value is out of range, using default value\n");
-        DEBUG("[%s] Set internal poll interval = %ld ns\n", __func__, i);
+        DEBUG("Set internal poll interval = %ld ns\n", i);
         qat_poll_interval = (useconds_t) i;
         break;
 
     case QAT_CMD_SET_EPOLL_TIMEOUT:
         BREAK_IF(i < 1 || i > 10000,
                 "The epoll timeout value is out of range, using default value\n")
-        DEBUG("[%s] Set epoll_wait timeout = %ld ms\n", __func__, i);
+        DEBUG("Set epoll_wait timeout = %ld ms\n", i);
         qat_epoll_timeout = (int) i;
         break;
 
@@ -1260,7 +1279,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         BREAK_IF(!engine_inited, \
                 "GET_NUM_CRYPTO_INSTANCES failed as the engine is not initialized\n");
-        DEBUG("[%s] Get number of crypto instances = %d\n", __func__, qat_num_instances);
+        DEBUG("Get number of crypto instances = %d\n", qat_num_instances);
         *(int *)p = qat_num_instances;
         break;
 
@@ -1278,12 +1297,12 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
                     retVal = qat_pkt_threshold_table_set_threshold(
                                 name_token, atoi(value_token));
                 } else {
-                    WARN("Invalid parameter!\n");
+                    WARN("Invalid name_token or value_token\n");
                     retVal = 0;
                 }
             }
         } else {
-            WARN("Invalid parameter!\n");
+            WARN("Invalid p parameter\n");
             retVal = 0;
         }
 #else
@@ -1320,7 +1339,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
     CpaStatus status = CPA_STATUS_SUCCESS;
     ENGINE_EPOLL_ST *epollst = NULL;
 
-    DEBUG("[%s] ---- Engine Finishing...\n\n", __func__);
+    DEBUG("---- Engine Finishing...\n\n");
 
     pthread_mutex_lock(&qat_engine_mutex);
     keep_polling = 0;
@@ -1432,7 +1451,7 @@ static int qat_engine_finish(ENGINE *e) {
 ******************************************************************************/
 static int qat_engine_destroy(ENGINE *e)
 {
-    DEBUG("[%s] ---- Destroying Engine...\n\n", __func__);
+    DEBUG("---- Destroying Engine...\n\n");
     qat_free_ciphers();
     qat_free_EC_methods();
     qat_free_DH_methods();
@@ -1459,7 +1478,7 @@ static int bind_qat(ENGINE *e, const char *id)
 
     WARN("QAT Warnings enabled.\n");
     DEBUG("QAT Debug enabled.\n");
-    DEBUG("[%s] id=%s\n", __func__, id);
+    DEBUG("id=%s\n", id);
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already!\n");
@@ -1484,7 +1503,6 @@ static int bind_qat(ENGINE *e, const char *id)
      * as this function will be called by a single thread.
      */
     qat_create_ciphers();
-    DEBUG("%s: About to set mem functions\n", __func__);
 
     if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
         WARN("ENGINE_set_RSA failed\n");
@@ -1523,7 +1541,7 @@ static int bind_qat(ENGINE *e, const char *id)
         || !ENGINE_set_finish_function(e, qat_engine_finish)
         || !ENGINE_set_ctrl_function(e, qat_engine_ctrl)
         || !ENGINE_set_cmd_defns(e, qat_cmd_defns)) {
-        WARN("[%s] failed reg destroy, init or finish\n", __func__);
+        WARN("Engine failed to register init, finish or destroy functions\n");
 
         goto end;
     }
@@ -1545,25 +1563,29 @@ static ENGINE *engine_qat(void)
 {
     ENGINE *ret = NULL;
     unsigned int devmasks[] = { 0, 0, 0 };
-    DEBUG("[%s] engine_qat\n", __func__);
+    DEBUG("- Starting\n");
 
     if (access(QAT_DEV, F_OK) != 0) {
+        WARN("Qat memory driver not present\n");
         QATerr(QAT_F_ENGINE_QAT, QAT_R_MEM_DRV_NOT_PRESENT);
         return ret;
     }
 
     if (!getDevices(devmasks)) {
+        WARN("Qat device not present\n");
         QATerr(QAT_F_ENGINE_QAT, QAT_R_QAT_DEV_NOT_PRESENT);
         return ret;
     }
 
     ret = ENGINE_new();
 
-    if (!ret)
+    if (!ret) {
+        WARN("Failed to create Engine\n");
         return NULL;
+    }
 
     if (!bind_qat(ret, engine_qat_id)) {
-        WARN("qat engine bind failed!\n");
+        WARN("Qat engine bind failed\n");
         ENGINE_free(ret);
         return NULL;
     }
@@ -1577,16 +1599,16 @@ void ENGINE_load_qat(void)
     int error = 0;
     char error_string[120] = { 0 };
 
-    DEBUG("[%s] engine_load_qat\n", __func__);
+    DEBUG("- Starting\n");
 
     if (toadd == NULL) {
         error = ERR_get_error();
         ERR_error_string(error, error_string);
-        fprintf(stderr, "Error reported by engine load: %s\n", error_string);
+        WARN("Error reported by engine load: %s\n", error_string);
         return;
     }
 
-    DEBUG("[%s] engine_load_qat adding\n", __func__);
+    DEBUG("adding engine\n");
     ENGINE_add(toadd);
     ENGINE_free(toadd);
     ERR_clear_error();
