@@ -86,18 +86,24 @@ This release was validated on the following:
 
 ## Limitations
 
-CAUTION: Please note that the software provided in this release is
-"sample software" that is not fully functional or fully tested and
-is known to contain bugs and errors. As such, Intel&reg; does not
-recommend the use of the software in its current state for your
-production use.
+CAUTION: Please note that the software provided in this release is "sample
+software" that is not fully functional or fully tested and is known to contain
+bugs and errors. As such, Intel&reg; does not recommend the use of the software
+in its current state for your production use.
 
-* When forking within an application it is not valid for
-  a cryptographic operation to be started in the parent process,
-  and completed in the child process.
-* Only one level of forking is permitted, if a child process forks
-  again then the Intel&reg; Quickassist Technology OpenSSL\* Engine will
-  not be available in that forked process.
+* When forking within an application it is not valid for a cryptographic
+  operation to be started in the parent process, and completed in the child
+  process.
+* Only one level of forking is permitted, if a child process forks again then
+  the Intel&reg; Quickassist Technology OpenSSL\* Engine will not be available
+  in that forked process.
+* The function `ASYNC_WAIT_CTX_get_changed_fds` contained in OpenSSL\* 1.1.0
+  might return incorrect values in the case of failures during the submission
+  of operations to the hardware accelerator. This could result in errors at the
+  application level. The fix has been delivered in OpenSSL\* 1.1.0e. All
+  previous versions of the library are affected. For more information, please
+  refer to the following pull request on Github:
+  <https://github.com/openssl/openssl/pull/2581>
 
 ## Installation Instructions
 
