@@ -61,7 +61,6 @@
  * Add -DQAT_TESTS_LOG to ./config to enable debug logging to the
  * CRYPTO_QAT_LOG_FILE
  */
-
 # ifdef QAT_TESTS_LOG
 
 #  define CRYPTO_QAT_LOG_FILE "/opt/qat-crypto.log"

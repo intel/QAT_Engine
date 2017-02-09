@@ -50,6 +50,7 @@ static char *confRemoveChar(char *inputStr, const char *charToRemove)
     char *startStr = inputStr;
 
     if (NULL == startStr || strlen(startStr) < 1) {
+        WARN("Input String is NULL\n");
         return startStr;
     }
 
@@ -57,8 +58,10 @@ static char *confRemoveChar(char *inputStr, const char *charToRemove)
         startStr++;
     }
 
-    if (strlen(startStr) < 1)
+    if (strlen(startStr) < 1) {
+        WARN("startStr is empty\n");
         return startStr;
+    }
 
     endStr = (char *)(startStr + (strlen(startStr) - 1));
 
@@ -91,11 +94,14 @@ static char *confRemoveStartingSquareBracket(char *inputStr)
 static int confRemoveEndSquareBracket(char *inputStr)
 {
     char *scannedInputStr = NULL;
-    if (NULL == inputStr)
+    if (NULL == inputStr) {
+        WARN("Input String is NULL\n");
         return 0;
+    }
 
     scannedInputStr = strchr(inputStr, ']');
     if (NULL == scannedInputStr) {
+        WARN("']' not found in the input string\n");
         return 0;
     } else {
         *scannedInputStr = '\0';
@@ -110,8 +116,10 @@ static int confIsLineASectionName(char *inputStr)
      * Assumption: line has been stripped of leading/trailing white space
      * already
      */
-    if (NULL == inputStr)
+    if (NULL == inputStr) {
+        WARN("Input String is NULL\n");
         return 0;
+    }
 
     if (strncmp(inputStr, "[", 1) == 0) {
         if (strchr(inputStr, ']') != NULL) {;
@@ -119,6 +127,7 @@ static int confIsLineASectionName(char *inputStr)
         }
     }
 
+    WARN("Input string does not contain section name\n");
     return 0;
 }
 
@@ -135,16 +144,21 @@ static int confParseSectionName(char *inputStr, char *sectionName)
      */
     char *strippedInputStr = confRemoveStartingSquareBracket(inputStr);
 
-    if (!confRemoveEndSquareBracket(strippedInputStr))
+    if (!confRemoveEndSquareBracket(strippedInputStr)) {
+        WARN("Failed to remove end square bracket from section name\n");
         return 0;
+    }
 
-    if (NULL == strippedInputStr)
+    if (NULL == strippedInputStr) {
+        WARN("strippedInputStr is NULL\n");
         return 0;
+    }
 
     if (strncmp(sectionName, strippedInputStr, strlen(sectionName)) == 0) {
         return 1;
     }
 
+    WARN("Failed to parse section name\n");
     return 0;
 }
 
@@ -161,12 +175,16 @@ static int confParseParameter(char *inputStr, char *keyName,
     int tempKeyValueLen = 0;
 
     /* Check input parameters */
-    if (NULL == inputStr)
+    if (NULL == inputStr) {
+        WARN("Input String is NULL\n");
         return 0;
+    }
 
     if ((strlen(keyName) > (CONF_MAX_LINE_LENGTH - 1)) ||
-        (strlen(inputStr) > (CONF_MAX_LINE_LENGTH - 1)))
+            (strlen(inputStr) > (CONF_MAX_LINE_LENGTH - 1))) {
+        WARN("keyName or inputStr are too long\n");
         return 0;
+    }
 
     /*
      * Separate the key name and value pair using the same method as the ia
@@ -174,6 +192,7 @@ static int confParseParameter(char *inputStr, char *keyName,
      */
     if (sscanf(inputStr, "%[^=] = %[^#\n]", tempKeyName, tempKeyValue) !=
         CONF_PARAM_EXP_NUM_ARGS) {
+        WARN("Unable to seperate the tempKeyName and tempKeyValue\n");
         return 0;
     }
 
@@ -184,22 +203,30 @@ static int confParseParameter(char *inputStr, char *keyName,
     tempKeyNameLen = strlen(tempKeyName);
     tempKeyValueLen = strlen(tempKeyValue);
     if ((tempKeyNameLen > (CONF_MAX_LINE_LENGTH - 1)) ||
-        (tempKeyValueLen > (CONF_MAX_LINE_LENGTH - 1)))
+        (tempKeyValueLen > (CONF_MAX_LINE_LENGTH - 1))) {
+        WARN("tempKeyNameLen or tempKeyValueLen are too long\n");
         return 0;
+    }
 
     /* Strip whitespace and quotes as appropriate */
     strippedKeyName = confRemoveWhiteSpace(tempKeyName);
     strippedKeyValue = confRemoveWhiteSpace(tempKeyValue);
     doubleQuoteStrippedKeyValue = confRemoveDoubleQuotes(strippedKeyValue);
 
-    if (NULL == strippedKeyName || NULL == doubleQuoteStrippedKeyValue)
+    if (NULL == strippedKeyName || NULL == doubleQuoteStrippedKeyValue) {
+        WARN("Invalid trippedKeyName\n");
         return 0;
+    }
 
-    if (strncmp(keyName, strippedKeyName, strlen(keyName)) != 0)
+    if (strncmp(keyName, strippedKeyName, strlen(keyName)) != 0) {
+        WARN("Invalid keyName\n");
         return 0;
+    }
 
-    if (keyValueSize < strlen(doubleQuoteStrippedKeyValue))
+    if (keyValueSize < strlen(doubleQuoteStrippedKeyValue)) {
+        WARN("Invalid keyValueSize\n");
         return 0;
+    }
 
     strncpy(keyValue, doubleQuoteStrippedKeyValue,
             strlen(doubleQuoteStrippedKeyValue));
@@ -219,7 +246,7 @@ int confCryptoFindKeyValue(char *fileName,
     char *strippedLineBuffer = NULL;
 
     if (strlen(fileName) > CONF_MAX_PATH) {
-        fprintf(stderr, "Invaid Configuration File Name Length\n");
+        WARN("Invaid Configuration File Name Length\n");
         return found;
     }
     if ((conffile = fopen(fileName, "r")) != NULL) {
@@ -300,7 +327,10 @@ int confCryptoFindKeyValue(char *fileName,
         }
         fclose(conffile);
     } else {
-        fprintf(stderr, "Unable to open file %s\n", fileName);
+        WARN("Unable to open file %s\n", fileName);
+    }
+    if (found != CONF_FIND_KEY_KEY_FOUND) {
+        WARN("Unable to find key value for key %s\n",keyName);
     }
     return found;
 }
@@ -420,6 +450,7 @@ int checkLimitDevAccessValue(int *limitDevAccess, char *section_name)
     int upstream_flags = 0;
     int i, j;
     if (!getDevices(dev_masks, &upstream_flags)) {
+        WARN("Failure in getDevices\n");
         *limitDevAccess = 0;
         return 0;
     }
@@ -452,5 +483,6 @@ int checkLimitDevAccessValue(int *limitDevAccess, char *section_name)
             }
         }
     *limitDevAccess = 0;
+    WARN("Failed to retrieve limitDevAccess\n");
     return 0;
 }

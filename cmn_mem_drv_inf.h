@@ -50,6 +50,28 @@
 # include <stdio.h>
 # include <pthread.h>
 # include "cpa.h"
+
+
+#ifdef QAT_MEM_DEBUG
+# define MEM_DEBUG(fmt_str, ...)                                           \
+    fprintf(stderr, "[MEM_DEBUG][%s:%d:%s()] "fmt_str, __FILE__, __LINE__, \
+            __func__, ##__VA_ARGS__)
+#else
+# define MEM_DEBUG(...)
+#endif
+
+# define MEM_ERROR(fmt_str, ...)                                           \
+    fprintf(stderr, "[MEM_ERROR][%s:%d:%s()] "fmt_str, __FILE__, __LINE__, \
+            __func__, ##__VA_ARGS__)
+
+#if defined(QAT_MEM_WARN) || defined(QAT_MEM_DEBUG)
+# define MEM_WARN(fmt_str, ...)                                            \
+    fprintf(stderr, "[MEM_WARN][%s:%d:%s()] "fmt_str, __FILE__, __LINE__,  \
+            __func__, ##__VA_ARGS__)
+#else
+# define MEM_WARN(...)
+#endif
+
 void qaeCryptoMemFree(void *ptr);
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line);
 void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,

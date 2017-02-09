@@ -99,7 +99,8 @@ DH_METHOD *qat_get_DH_methods(void)
         || DH_meth_set_generate_key(qat_dh_method, qat_dh_generate_key) == 0
         || DH_meth_set_compute_key(qat_dh_method, qat_dh_compute_key) == 0
         || DH_meth_set_bn_mod_exp(qat_dh_method, qat_dh_mod_exp) == 0) {
-        QATerr(QAT_F_QAT_GET_DH_METHODS, ERR_R_INTERNAL_ERROR);
+        WARN("Failure setting DH methods\n");
+        QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_SET_DH_METH_FAILURE);
         return NULL;
     }
 #else
@@ -116,7 +117,8 @@ void qat_free_DH_methods(void)
         DH_meth_free(qat_dh_method);
         qat_dh_method = NULL;
     } else {
-        QATerr(QAT_F_QAT_FREE_DH_METHODS, ERR_R_INTERNAL_ERROR);
+     	WARN("Failure freeing DH methods\n");
+        QATerr(QAT_F_QAT_FREE_DH_METHODS, QAT_R_FREE_DH_METH_FAILURE);
     }
 #endif
 }
@@ -173,16 +175,18 @@ int qat_dh_generate_key(DH *dh)
     size_t buflen;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
 
-    DEBUG("%s been called \n", __func__);
+    DEBUG("- Started\n");
 
     if (dh == NULL) {
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_PASSED_NULL_PARAMETER);
+        WARN("Input variable dh is null\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_DH_NULL);
         return 0;
     }
 
     DH_get0_pqg(dh, &p, &q, &g);
     if (p == NULL || g == NULL) {
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to get p, q, g\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_P_Q_G_NULL);
         return 0;
     }
 
@@ -193,7 +197,8 @@ int qat_dh_generate_key(DH *dh)
 
     if (!dh_range_check(BN_num_bits(p))) {
         if (sw_dh_method == NULL) {
-            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            WARN("Failed to get sw_dh_method for %d bits\n", BN_num_bits(p));
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_SW_METHOD_NULL);
             return 0;
         }
         return DH_meth_get_generate_key(sw_dh_method)(dh);
@@ -204,7 +209,8 @@ int qat_dh_generate_key(DH *dh)
     opData = (CpaCyDhPhase1KeyGenOpData *)
         OPENSSL_malloc(sizeof(CpaCyDhPhase1KeyGenOpData));
     if (opData == NULL) {
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_MALLOC_FAILURE);
+        WARN("Failure allocating memory for opData\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ok;
     }
 
@@ -214,35 +220,40 @@ int qat_dh_generate_key(DH *dh)
 
     if (temp_priv_key == NULL) {
         if ((priv_key = BN_new()) == NULL) {
-            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            WARN("Failed to allocate memory for priv_key\n");
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PRIV_KEY_MALLOC_FAILURE);
             goto err;
         }
         generate_new_priv_key = 1;
     } else {
-       if ((priv_key = BN_dup(temp_priv_key)) == NULL) {
-            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        if ((priv_key = BN_dup(temp_priv_key)) == NULL) {
+            WARN("Failed to duplicate the private key\n");
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PRIV_KEY_DUPLICATE_FAILURE);
             goto err;
-       }
+        }
     }
 
     if (temp_pub_key == NULL) {
         if ((pub_key = BN_new()) == NULL) {
-            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            WARN("Failed to allocate memory for pub_key\n");
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PUB_KEY_MALLOC_FAILURE);
             goto err;
         }
         generate_new_pub_key = 1;
     } else {
-       if ((pub_key = BN_dup(temp_pub_key)) == NULL) {
-            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        if ((pub_key = BN_dup(temp_pub_key)) == NULL) {
+            WARN("Failed to duplicate the public key\n");
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PUB_KEY_DUPLICATE_FAILURE);
             goto err;
-       }
+        }
     }
 
     if (generate_new_priv_key) {
         if (q) {
             do {
                 if (!BN_rand_range(priv_key, q)) {
-                    QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_BN_LIB);
+                    WARN("Failed to generate random number for range %d\n",BN_num_bits(q));
+                    QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE);
                     goto err;
                 }
             }
@@ -251,7 +262,8 @@ int qat_dh_generate_key(DH *dh)
             /* secret exponent length */
             length = DH_get_length(dh) ? DH_get_length(dh) : BN_num_bits(p) - 1;
             if (!BN_rand(priv_key, length, 0, 0)) {
-                QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_BN_LIB);
+                WARN("Failed to generate random number of length %d\n", length);
+                QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE);
                 goto err;
             }
         }
@@ -260,12 +272,14 @@ int qat_dh_generate_key(DH *dh)
     buflen = BN_num_bytes(p);
     pPV = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (pPV == NULL) {
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for pPV\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PPV_MALLOC_FAILURE);
         goto err;
     }
     pPV->pData = qaeCryptoMemAlloc(buflen, __FILE__, __LINE__);
     if (pPV->pData == NULL) {
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for pPV->pData\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PPV_PDATA_MALLOC_FAILURE);
         goto err;
     }
     pPV->dataLenInBytes = (Cpa32U) buflen;
@@ -273,13 +287,15 @@ int qat_dh_generate_key(DH *dh)
     if ((qat_BN_to_FB(&(opData->primeP), (BIGNUM *)p) != 1) ||
         (qat_BN_to_FB(&(opData->baseG), (BIGNUM *)g) != 1) ||
         (qat_BN_to_FB(&(opData->privateValueX), (BIGNUM *)priv_key) != 1)) {
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to convert p, g or priv_key to a flat buffer\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_P_G_PRIV_KEY_CONVERT_TO_FB_FAILURE);
         goto err;
     }
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
+            WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
             goto err;
@@ -289,7 +305,7 @@ int qat_dh_generate_key(DH *dh)
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     do {
         if ((instance_handle = get_next_inst()) == NULL) {
-            WARN("[%s] Failure in get_next_inst()\n", __func__);
+            WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
@@ -311,12 +327,16 @@ int qat_dh_generate_key(DH *dh)
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
             } else {
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
-                    (qat_pause_job(op_done.job, 0) == 0)) {
+                        (qat_pause_job(op_done.job, 0) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -326,7 +346,7 @@ int qat_dh_generate_key(DH *dh)
     while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
-        WARN("[%s] cpaCyDhKeyGenPhase1 failed - status=%d\n", __func__, status);
+        WARN("Failed to submit request to qat - status = %d\n", status);
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
@@ -356,6 +376,7 @@ int qat_dh_generate_key(DH *dh)
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -364,12 +385,13 @@ int qat_dh_generate_key(DH *dh)
     BN_bin2bn(pPV->pData, pPV->dataLenInBytes, pub_key);
 
     if (!DH_set0_key(dh, pub_key, priv_key)) {
+        WARN("Failure setting pub or priv key\n");
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
 
     ok = 1;
- err:
+err:
     if (pPV) {
         if (pPV->pData) {
             qaeCryptoMemFree(pPV->pData);
@@ -396,13 +418,13 @@ int qat_dh_generate_key(DH *dh)
 }
 
 /******************************************************************************
-* function:
-*         qat_dh_compute_key(unsigned char *key,
-*                            const BIGNUM * in_pub_key, DH * dh)
-*
-* description:
-*   Implement Diffie-Hellman phase 2 operations.
-******************************************************************************/
+ * function:
+ *         qat_dh_compute_key(unsigned char *key,
+ *                            const BIGNUM * in_pub_key, DH * dh)
+ *
+ * description:
+ *   Implement Diffie-Hellman phase 2 operations.
+ ******************************************************************************/
 int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 {
     int ret = -1;
@@ -422,17 +444,19 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
 
-    DEBUG("%s been called \n", __func__);
+    DEBUG("- Started\n");
 
     if (!dh) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_PASSED_NULL_PARAMETER);
+        WARN("Input variable dh is null\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_DH_NULL);
         return -1;
     }
 
     DH_get0_pqg(dh, &p, &q, &g);
     DH_get0_key(dh, &pub_key, &priv_key);
     if (p == NULL || priv_key == NULL) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        WARN("Failure getting p or priv_key\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_P_Q_G_NULL);
         return -1;
     }
 
@@ -443,26 +467,30 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     if (!dh_range_check(BN_num_bits(p))) {
         if (sw_dh_method == NULL) {
-            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            WARN("Failed to get sw_dh_method for bits %d\n", BN_num_bits(p));
+            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_SW_METHOD_NULL);
             return -1;
         }
         return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
     }
 
     if (BN_num_bits(p) > OPENSSL_DH_MAX_MODULUS_BITS) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        WARN("Number of bits for p exceeds maximum\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_P_MODULUS_TOO_LARGE);
         return -1;
     }
 
     if (!DH_check_pub_key(dh, in_pub_key, &check_result) || check_result) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        WARN("Failure checking pub key\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_INVALID_PUB_KEY);
         return -1;
     }
 
     opData = (CpaCyDhPhase2SecretKeyGenOpData *)
         OPENSSL_malloc(sizeof(CpaCyDhPhase2SecretKeyGenOpData));
     if (opData == NULL) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
+        WARN("Failure allocating memory for opData\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
 
@@ -473,27 +501,31 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     buflen = BN_num_bytes(p);
     pSecretKey = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (pSecretKey == NULL) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
+        WARN("Failure allocating memory for pSecretKey\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_SECRET_KEY_MALLOC_FAILURE);
         goto err;
     }
     pSecretKey->pData = qaeCryptoMemAlloc(buflen, __FILE__, __LINE__);
     if (pSecretKey->pData == NULL) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
+        WARN("Failure allocating memory for pSecretKey data\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE);
         goto err;
     }
     pSecretKey->dataLenInBytes = (Cpa32U) buflen;
 
     if ((qat_BN_to_FB(&(opData->primeP), (BIGNUM *)p) != 1) ||
-        (qat_BN_to_FB(&(opData->remoteOctetStringPV), (BIGNUM *)in_pub_key) != 1)
-        || (qat_BN_to_FB(&(opData->privateValueX), (BIGNUM *)priv_key) !=
-            1)) {
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            (qat_BN_to_FB(&(opData->remoteOctetStringPV), (BIGNUM *)in_pub_key) != 1)
+            || (qat_BN_to_FB(&(opData->privateValueX), (BIGNUM *)priv_key) !=
+                1)) {
+        WARN("Failure converting p, pub_key or priv_key into a flat buffer\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_P_PUB_PRIV_KEY_CONVERT_TO_FB_FAILURE);
         goto err;
     }
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
+            WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
             goto err;
@@ -503,7 +535,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     CRYPTO_QAT_LOG("KX - ?%s\n", __func__);
     do {
         if ((instance_handle = get_next_inst()) == NULL) {
-            WARN("[%s] Failure in get_next_inst()\n", __func__);
+            WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
@@ -525,12 +557,16 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
             } else {
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
-                    (qat_pause_job(op_done.job, 0) == 0)) {
+                        (qat_pause_job(op_done.job, 0) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -540,8 +576,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
-        WARN("[%s] cpaCyDhKeyGenPhase2Secret failed - status=%d\n", __func__,
-                status);
+        WARN("Failed to submit request to qat - status = %d\n", status);
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
@@ -571,6 +606,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -627,7 +663,7 @@ int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
                    const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
                    BN_MONT_CTX *m_ctx)
 {
-    DEBUG("%s been called \n", __func__);
+    DEBUG("- Started\n");
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     return qat_mod_exp(r, a, p, m);
 }

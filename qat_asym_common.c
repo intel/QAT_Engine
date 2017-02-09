@@ -69,6 +69,7 @@
 #endif
 #include "qat_utils.h"
 #include "e_qat.h"
+#include "e_qat_err.h"
 
 #define QAT_PERFORMOP_RETRIES 3
 
@@ -87,17 +88,17 @@
 ******************************************************************************/
 int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
 {
-
     /* Memory allocate for flat buffer */
     fb->dataLenInBytes = (Cpa32U) BN_num_bytes(bn);
     if (0 == fb->dataLenInBytes) {
         fb->dataLenInBytes = 0;
         fb->pData = NULL;
+        DEBUG("Datalen = 0, zero byte memory allocation\n");
         return 1;
     }
     fb->pData = qaeCryptoMemAlloc(fb->dataLenInBytes, __FILE__, __LINE__);
     if (NULL == fb->pData) {
-        WARN("[%s] --- FlatBuffer pData malloc failed.\n", __func__);
+        WARN("Failed to allocate fb->pData\n");
         return 0;
     }
     /*
@@ -137,7 +138,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
 
-    DEBUG("%s\n", __func__);
+    DEBUG(" - Started\n");
 
     opData.base.pData = NULL;
     opData.exponent.pData = NULL;
@@ -146,7 +147,8 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     if (qat_BN_to_FB(&opData.base, (BIGNUM *)base) != 1 ||
         qat_BN_to_FB(&opData.exponent, (BIGNUM *)exp) != 1 ||
         qat_BN_to_FB(&opData.modulus, (BIGNUM *)mod) != 1) {
-        WARN("qat_BN_to_FB () failed for base, exponent or modulus.\n");
+        WARN("Failed to convert base, exponent or modulus to flatbuffer\n");
+        QATerr(QAT_F_QAT_MOD_EXP, QAT_R_BUF_CONV_FAIL);
         retval = 0;
         goto exit;
     }
@@ -155,7 +157,8 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     result.pData =
         qaeCryptoMemAlloc(result.dataLenInBytes, __FILE__, __LINE__);
     if (NULL == result.pData) {
-        WARN("qaeCryptoMemAlloc () failed for result.pData.\n");
+        WARN("Failed to allocate result.pData\n");
+        QATerr(QAT_F_QAT_MOD_EXP, QAT_R_RESULT_PDATA_ALLOC_FAIL);
         retval = 0;
         goto exit;
     }
@@ -163,6 +166,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     if ((job = ASYNC_get_current_job()) != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notifications\n");
+            QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL);
             retval = 0;
             goto exit;
         }
@@ -170,7 +174,8 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
 
     do {
         if (NULL == (instance_handle = get_next_inst())) {
-            WARN("instance_handle is NULL\n");
+            WARN("Failure in get_next_inst()\n");
+            QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_GET_NEXT_INST_FAIL);
             if (job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -186,12 +191,15 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
                 }
             } else {
                 if ((qat_wake_job(job, 0) == 0) ||
                     (qat_pause_job(job, 0) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_WAKE_PAUSE_JOB_FAIL);
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -201,7 +209,8 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     while (status == CPA_STATUS_RETRY);
 
     if (CPA_STATUS_SUCCESS != status) {
-        WARN("cpaCyLnModExp failed, status=%d\n", status);
+        WARN("Failed to submit request to qat - status = %d\n", status);
+        QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_LN_MOD_EXP_FAIL);
         if (job != NULL) {
             qat_clear_async_event_notification();
         }

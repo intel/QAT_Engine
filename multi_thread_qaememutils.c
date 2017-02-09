@@ -62,20 +62,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-#ifdef QAT_MEM_DEBUG
-# define MEM_DEBUG(...) fprintf(stderr, __VA_ARGS__)
-#else
-# define MEM_DEBUG(...)
-#endif
-
-#define MEM_ERROR(...) fprintf(stderr, __VA_ARGS__)
-
-#ifdef QAT_MEM_WARN
-# define MEM_WARN(...) fprintf (stderr, __VA_ARGS__)
-#else
-# define MEM_WARN(...)
-#endif
-
 /*
  * Error from file descriptor operation
  */
@@ -139,7 +125,6 @@ typedef struct _qae_slot {
     int line;
 } qae_slot;
 
-afjdklj;
 typedef struct _qae_slab {
     qat_contig_mem_config memCfg;
     /* this field has two meanings:
@@ -263,7 +248,7 @@ void *copyAllocPinnedMemory(void *ptr, size_t size, const char *file,
     void *nptr;
 
     if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
-        MEM_WARN("%s: pinned memory allocation failure\n", __func__);
+        MEM_WARN("pinned memory allocation failure\n");
         return NULL;
     }
 
@@ -296,7 +281,7 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
     void *nptr;
 
     if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
-        MEM_WARN("%s: pinned memory allocation failure\n", __func__);
+        MEM_WARN("pinned memory allocation failure\n");
         return NULL;
     }
 
@@ -319,6 +304,11 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
 ******************************************************************************/
 void copyFreePinnedMemory(void *uptr, void *kptr, int size)
 {
+    if (uptr == NULL || kptr == NULL) {
+        MEM_WARN("Input pointers uptr or kptr are NULL\n");
+        return;
+    }
+
     memcpy(uptr, kptr, size);
     qaeCryptoMemFree(kptr);
 }
@@ -369,7 +359,7 @@ static qae_slab *crypto_create_slab(int size, int pool_index, int memfd)
         goto exit;
     }
 #endif
-    MEM_DEBUG("%s slot size %d\n", __func__, size);
+    MEM_DEBUG("slot size %d\n", size);
     slb->slot_size = size;
     slb->next_slot = NULL;
     slb->sig = SIG_ALLOC;
@@ -401,7 +391,7 @@ static qae_slab *crypto_create_slab(int size, int pool_index, int memfd)
      */
 
     result = slb;
-    MEM_DEBUG("%s slab %p last slot is %p, count is %d\n", __func__, slb, slt,
+    MEM_DEBUG("slab %p last slot is %p, count is %d\n", slb, slt,
           nslot);
  exit:
     return result;
@@ -481,7 +471,7 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
         if (size <= MAX_ALLOC) {
             slot_size = MAX_ALLOC;
         } else {
-            MEM_ERROR("%s Allocation of %d bytes is too big\n", __func__, size);
+            MEM_WARN("Allocation of %d bytes is too big\n", size);
             goto exit;
         }
     }
@@ -492,8 +482,7 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
         /* no free slots need to allocate new slab */
         slb = crypto_get_empty_slab(slot_size, i, (void *)tls_ptr);
         if (NULL == slb) {
-            MEM_ERROR("%s error, create_slab failed - memory allocation error\n",
-                  __func__);
+            MEM_WARN("error, create_slab failed - memory allocation error\n");
             goto exit;
         }
         /* allocate a new slab, add it into the available slab list */
@@ -505,8 +494,8 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
     slb = slt->slab;
 
     if (slt->sig != SIG_FREE) {
-        MEM_ERROR("%s error alloc slot that isn't free %p\n", __func__, slt);
-        exit(1);
+        MEM_WARN("error alloc slot that isn't free %p\n", slt);
+        goto exit;
     }
 
     slt->sig = SIG_ALLOC;
@@ -548,14 +537,14 @@ static void crypto_free_slab(qae_slab *slb, void *thread_key)
     qat_contig_mem_config qmcfg;
     qae_slab_pools_local *tls_ptr = (qae_slab_pools_local *)thread_key;
 #ifdef USE_QAT_CONTIG_MEM
-    MEM_DEBUG("%s do munmap  of %p\n", __func__, slb);
+    MEM_DEBUG("do munmap  of %p\n", slb);
     qmcfg = *((qat_contig_mem_config *) slb);
 
     if (munmap(slb, SLAB_SIZE) == -1) {
         perror("munmap");
         exit(EXIT_FAILURE);
     }
-    MEM_DEBUG("%s ioctl free of %p\n", __func__, slb);
+    MEM_DEBUG("ioctl free of %p\n", slb);
     if (ioctl(tls_ptr->crypto_qat_contig_memfd, QAT_CONTIG_MEM_FREE, &qmcfg)
         == -1) {
         perror("ioctl QAT_CONTIG_MEM_FREE");
@@ -581,7 +570,7 @@ static void crypto_free_to_slab(void *ptr)
 
     qae_slot *slt = (void *)((unsigned char *)ptr - sizeof(qae_slot));
     if (!slt) {
-        MEM_ERROR("Error freeing memory - unknown address\n");
+        MEM_WARN("Error freeing memory - unknown address\n");
         return;
     }
 
@@ -589,8 +578,7 @@ static void crypto_free_to_slab(void *ptr)
     int i = slt->pool_index;
 
     if (slt->sig != SIG_ALLOC) {
-        MEM_ERROR("%s error trying to free slot that hasn't been alloc'd %p\n",
-              __func__, slt);
+        MEM_WARN("error trying to free slot that hasn't been alloc'd %p\n", slt);
         return;
     }
 
@@ -657,7 +645,7 @@ static void crypto_free_to_slab(void *ptr)
 static int crypto_slot_get_size(void *ptr)
 {
     if (NULL == ptr) {
-        MEM_ERROR("%s error can't find %p\n", __func__, ptr);
+        MEM_WARN("error can't find %p\n", ptr);
         return 0;
     }
     qae_slot *slt = (void *)((unsigned char *)ptr - sizeof(qae_slot));
@@ -667,7 +655,7 @@ static int crypto_slot_get_size(void *ptr)
         return slot_sizes_available[slt->pool_index] - sizeof(qae_slot) -
             QAE_BYTE_ALIGNMENT;
     } else {
-        MEM_ERROR("%s error invalid pool_index %d\n", __func__, slt->pool_index);
+        MEM_WARN("error invalid pool_index %d\n", slt->pool_index);
         return 0;
     }
 }
@@ -757,14 +745,14 @@ static void crypto_free_slab_list(qae_slab_pool *list, int memfd)
            slb = slb->next_slab in the for loop above. */
         s_next_slab = slb->next;
 #ifdef USE_QAT_CONTIG_MEM
-        MEM_DEBUG("%s do munmap  of %p\n", __func__, slb);
+        MEM_DEBUG("do munmap of %p\n", slb);
         qmcfg = *((qat_contig_mem_config *) slb);
 
         if (munmap(slb, SLAB_SIZE) == -1) {
             perror("munmap");
             exit(EXIT_FAILURE);
         }
-        MEM_DEBUG("%s ioctl free of %p\n", __func__, slb);
+        MEM_DEBUG("ioctl free of %p\n", slb);
         if (ioctl(memfd, QAT_CONTIG_MEM_FREE, &qmcfg) == -1) {
             perror("ioctl QAT_CONTIG_MEM_FREE");
             exit(EXIT_FAILURE);
@@ -773,7 +761,7 @@ static void crypto_free_slab_list(qae_slab_pool *list, int memfd)
         list->slot_size--;
     }
 
-    MEM_DEBUG("%s done\n", __func__);
+    MEM_DEBUG("done\n");
 
 }
 
@@ -809,23 +797,22 @@ void slab_list_stat(qae_slab_pool * list)
     qae_slab *slb;
     int index;
     if(0 == list->slot_size) {
-        fprintf(stderr,"The list is empty.\n");
+        MEM_DEBUG("The list is empty.\n");
         return;
     }
     for (slb = list->next, index = 0; index < list->slot_size;
          slb = slb->next) {
-        fprintf(stderr,"Slab index        : %d\n",index++);
-        fprintf(stderr,"Slab virtual addr : %p\n",
+        MEM_DEBUG("Slab index        : %d\n",index++);
+        MEM_DEBUG("Slab virtual addr : %p\n",
                 (void *)slb->memCfg.virtualAddress);
-        fprintf(stderr,"Slab physical addr: %p\n",
+        MEM_DEBUG("Slab physical addr: %p\n",
                 (void *)slb->memCfg.physicalAddress);
-        fprintf(stderr,"Slab slot size    : %d\n",slb->slot_size);
-        fprintf(stderr,"Slab used slots   : %d\n",slb->used_slots);
-        fprintf(stderr,"Slab total slots  : %d\n",slb->total_slots);
+        MEM_DEBUG("Slab slot size    : %d\n",slb->slot_size);
+        MEM_DEBUG("Slab used slots   : %d\n",slb->used_slots);
+        MEM_DEBUG("Slab total slots  : %d\n",slb->total_slots);
     }
     return;
 }
-
 
 /*****************************************************************************
  * function:
@@ -845,15 +832,14 @@ void crypto_cleanup_slabs(void *thread_key)
     int i;
     /* statistics of available slab lists */
     for(i = 0;  i < NUM_SLOT_SIZE; i++) {
-        fprintf(stderr,"available_slab_list[%d]:\n",i);
+        MEM_DEBUG("available_slab_list[%d]:\n",i);
         slab_list_stat(&tls_ptr->available_slab_list[i]);
     }
     /* statistics of the full slab list */
-    fprintf(stderr,"full_slab_list:\n");
+    MEM_DEBUG("full_slab_list:\n");
     slab_list_stat(&tls_ptr->full_slab_list);
 #endif
 }
-
 
 /******************************************************************************
 * function:
@@ -913,7 +899,6 @@ void qaeCryptoAtFork()
     }
 }
 
-
 /******************************************************************************
 * function:
 *         qaeCryptoMemV2P(void *v)
@@ -932,7 +917,7 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
    void *pVirtPageAddress = NULL;
    ptrdiff_t offset = 0;
    if(v == NULL) {
-       MEM_WARN("%s: NULL address passed to function\n", __func__);
+       MEM_WARN("NULL address passed to function\n");
        return (CpaPhysicalAddr) 0;
    }
 
@@ -948,7 +933,7 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
    memCfg = (qat_contig_mem_config *)pVirtPageAddress;
    if(memCfg->signature == QAT_CONTIG_MEM_ALLOC_SIG)
        return (CpaPhysicalAddr)(memCfg->physicalAddress + offset);
-   MEM_WARN("%s: Virtual to Physical memory lookup failure\n", __func__);
+   MEM_WARN("Virtual to Physical memory lookup failure\n");
    return (CpaPhysicalAddr) 0;
 }
 
@@ -972,7 +957,7 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
     void *pAddress = crypto_alloc_from_slab(memsize, file, line);
-    MEM_DEBUG("%s: Address: %p Size: %d File: %s:%d\n", __func__, pAddress,
+    MEM_DEBUG("Address: %p Size: %lu File: %s:%d\n", pAddress,
           memsize, file, line);
     return pAddress;
 }
@@ -989,7 +974,7 @@ void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 ******************************************************************************/
 void qaeCryptoMemFree(void *ptr)
 {
-    MEM_DEBUG("%s: Address: %p\n", __func__, ptr);
+    MEM_DEBUG("Address: %p\n", ptr);
     if (NULL != ptr)
         crypto_free_to_slab(ptr);
 }
@@ -1015,13 +1000,17 @@ void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
 {
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
-    MEM_DEBUG("%s: Alloc Address: %p Size: %d File: %s:%d\n", __func__, n,
-          memsize, file, line);
+    if (n == NULL) {
+        MEM_WARN("Failure in crypto_alloc_from_slab\n");
+        return n;
+    }
+    MEM_DEBUG("Alloc Address: %p Size: %lu File: %s:%d\n", n,
+               memsize, file, line);
 
     if (memsize < copy)
         copy = memsize;
     memcpy(n, ptr, copy);
-    MEM_DEBUG("%s: Free Address: %p\n", __func__, ptr);
+    MEM_DEBUG("Free Address: %p\n", ptr);
     crypto_free_to_slab(ptr);
     return n;
 }
@@ -1051,14 +1040,18 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
 {
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
-    MEM_DEBUG("%s: Alloc Address: %p Size: %d File: %s:%d\n", __func__, n,
-          memsize, file, line);
+    if (n == NULL) {
+        MEM_WARN("Failure in crypto_alloc_from_slab. Size: %lu File: %s:%d\n",
+                  memsize, file, line);
+        return n;
+    }
+    MEM_DEBUG("Alloc Address: %p Size: %lu File: %s:%d\n", n,
+               memsize, file, line);
 
     if (memsize < copy)
         copy = memsize;
     memcpy(n, ptr, copy);
-    MEM_DEBUG("%s: Free Address: %p\n", __func__, ptr);
+    MEM_DEBUG("Free Address: %p\n", ptr);
     crypto_free_to_slab(ptr);
     return n;
 }
-

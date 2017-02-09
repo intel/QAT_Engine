@@ -205,21 +205,22 @@ static inline int get_digest_len(int nid)
 static inline const EVP_CIPHER *qat_chained_cipher_sw_impl(int nid)
 {
     switch (nid) {
-    case NID_aes_128_cbc_hmac_sha1:
-        return EVP_aes_128_cbc_hmac_sha1();
-    case NID_aes_256_cbc_hmac_sha1:
-        return EVP_aes_256_cbc_hmac_sha1();
-    case NID_aes_128_cbc_hmac_sha256:
-        return EVP_aes_128_cbc_hmac_sha256();
-    case NID_aes_256_cbc_hmac_sha256:
-        return EVP_aes_256_cbc_hmac_sha256();
-    default:
-        return NULL;
+        case NID_aes_128_cbc_hmac_sha1:
+            return EVP_aes_128_cbc_hmac_sha1();
+        case NID_aes_256_cbc_hmac_sha1:
+            return EVP_aes_256_cbc_hmac_sha1();
+        case NID_aes_128_cbc_hmac_sha256:
+            return EVP_aes_128_cbc_hmac_sha256();
+        case NID_aes_256_cbc_hmac_sha256:
+            return EVP_aes_256_cbc_hmac_sha256();
+        default:
+            WARN("Invalid nid %d\n", nid);
+            return NULL;
     }
 }
 
 static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
-                                               unsigned int *num_elem)
+        unsigned int *num_elem)
 {
     unsigned int i = 0;
     qat_op_params *qop = NULL;
@@ -260,8 +261,7 @@ static const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
                                                     NULL :
                                                     EVP_CIPHER_get_asn1_iv)
             || !EVP_CIPHER_meth_set_ctrl(c, qat_chained_ciphers_ctrl)) {
-        WARN("[%s]: Failed to create cipher methods for nid %d\n",
-             __func__, nid);
+        WARN("Failed to create cipher methods for nid %d\n", nid);
         EVP_CIPHER_meth_free(c);
         c = NULL;
     }
@@ -325,8 +325,7 @@ int qat_pkt_threshold_table_set_threshold(const char *cn,
     else if (threshold > 16384)
         threshold = 16384;
 
-    DEBUG("[%s] Set small packet threshold for %s: %d\n",
-          __func__, cn, threshold);
+    DEBUG("Set small packet threshold for %s: %d\n", cn, threshold);
 
     nid = OBJ_sn2nid(cn);
     do {
@@ -336,7 +335,7 @@ int qat_pkt_threshold_table_set_threshold(const char *cn,
         }
     } while (++i < pkt_threshold_table_size);
 
-    WARN("[%s] nid %d not found in threshold table", __func__, nid);
+    WARN("nid %d not found in threshold table\n", nid);
     return 0;
 }
 
@@ -349,7 +348,7 @@ static inline int qat_pkt_threshold_table_get_threshold(int nid)
         }
     } while (++i < pkt_threshold_table_size);
 
-    WARN("[%s] nid %d not found in threshold table", __func__, nid);
+    WARN("nid %d not found in threshold table", nid);
     return 0;
 }
 #endif
@@ -384,7 +383,7 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
     CpaBoolean res = CPA_FALSE;
 
     if (opdone == NULL) {
-        WARN("[%s] Callback Tag NULL!\n", __func__);
+        WARN("Callback Tag NULL\n");
         return;
     }
 
@@ -396,8 +395,8 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
      * is TRUE. Change it to false on Failure.
      */
     if (res == CPA_FALSE) {
-        DEBUG("[%s] Pipe %u failed (status %d, verifyResult %d)!\n",
-              __func__, opdone->num_processed, status, verifyResult);
+        WARN("Pipe %u failed (status %d, verifyResult %d)\n",
+              opdone->num_processed, status, verifyResult);
         opdone->opDone.verifyResult = CPA_FALSE;
     }
 
@@ -453,6 +452,7 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
         }
     }
 
+    WARN("NID %d not supported\n", nid);
     *cipher = NULL;
     return 0;
 }
@@ -493,7 +493,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
          */
         if (qctx->qop != NULL && qctx->qop_len < qctx->numpipes) {
             qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
-            DEBUG_PPL("[%s:%p] qop memory freed\n", __func__, ctx);
+            DEBUG_PPL("[%p] qop memory freed\n", ctx);
         }
     }
 
@@ -502,16 +502,15 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
      */
     if (qctx->qop == NULL) {
         if (PIPELINE_USED(qctx)) {
-            WARN("[%s] Pipeline used but no data allocated. \
-                  Possible memory leak", __func__);
+            WARN("Pipeline used but no data allocated. Possible memory leak\n");
         }
 
         qctx->qop_len = qctx->numpipes > 1 ? QAT_MAX_PIPELINES : 1;
         qctx->qop = (qat_op_params *) OPENSSL_zalloc(sizeof(qat_op_params)
                                                      * qctx->qop_len);
         if (qctx->qop == NULL) {
-            WARN("[%s] Unable to allocate memory[%lu bytes] for qat op params\n",
-                 __func__, sizeof(qat_op_params) * qctx->qop_len);
+            WARN("Unable to allocate memory[%lu bytes] for qat op params\n",
+                 sizeof(qat_op_params) * qctx->qop_len);
             return 0;
         }
         /* start from 0 as New array of qat_op_params */
@@ -528,7 +527,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
         FLATBUFF_ALLOC_AND_CHAIN(qctx->qop[i].src_fbuf[0],
                                  qctx->qop[i].dst_fbuf[0], QAT_BYTE_ALIGNMENT);
         if (qctx->qop[i].src_fbuf[0].pData == NULL) {
-            WARN("[%s] Unable to allocate memory for TLS header\n", __func__);
+            WARN("Unable to allocate memory for TLS header\n");
             goto err;
         }
         memset(qctx->qop[i].src_fbuf[0].pData, 0, QAT_BYTE_ALIGNMENT);
@@ -551,7 +550,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
             cpaCyBufferListGetMetaSize(qctx->instance_handle,
                                        qctx->qop[i].src_sgl.numBuffers,
                                        &msize) != CPA_STATUS_SUCCESS) {
-            WARN("[%s] --- cpaCyBufferListGetBufferSize failed.\n", __func__);
+            WARN("cpaCyBufferListGetBufferSize failed.\n");
             goto err;
         }
 
@@ -562,7 +561,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
                 qaeCryptoMemAlloc(msize, __FILE__, __LINE__);
             if (qctx->qop[i].src_sgl.pPrivateMetaData == NULL ||
                 qctx->qop[i].dst_sgl.pPrivateMetaData == NULL) {
-                WARN("[%s] QMEM alloc failed for PrivateData\n", __func__);
+                WARN("QMEM alloc failed for PrivateData\n");
                 goto err;
             }
         }
@@ -577,16 +576,14 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
         opd->pIv = qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx),
                                      __FILE__, __LINE__);
         if (opd->pIv == NULL) {
-            WARN("[%s] --- QMEM Mem Alloc failed for pIv for pipe %d.\n",
-                 __func__, i);
+            WARN("QMEM Mem Alloc failed for pIv for pipe %d.\n", i);
             goto err;
         }
 
         opd->ivLenInBytes = (Cpa32U) EVP_CIPHER_CTX_iv_length(ctx);
     }
 
-    DEBUG_PPL("[%s:%p] qop setup for %u elements\n",
-              __func__, ctx, qctx->qop_len);
+    DEBUG_PPL("[%p] qop setup for %u elements\n", ctx, qctx->qop_len);
     return 1;
 
  err:
@@ -628,13 +625,13 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     int dlen;
 
     if (ctx == NULL || inkey == NULL) {
-        WARN("[%s] ctx or inkey is NULL.\n", __func__);
+        WARN("ctx or inkey is NULL.\n");
         return 0;
     }
 
     qctx = qat_chained_data(ctx);
     if (qctx == NULL) {
-        WARN("[%s] --- qctx is NULL.\n", __func__);
+        WARN("qctx is NULL.\n");
         return 0;
     }
 
@@ -650,7 +647,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     ckeylen = EVP_CIPHER_CTX_key_length(ctx);
     ckey = OPENSSL_malloc(ckeylen);
     if (ckey == NULL) {
-        WARN("[%s] --- unable to allocate memory for Cipher key.\n", __func__);
+        WARN("Unable to allocate memory for Cipher key.\n");
         return 0;
     }
     memcpy(ckey, inkey, ckeylen);
@@ -663,7 +660,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     qctx->hmac_key = OPENSSL_zalloc(HMAC_KEY_SIZE);
     if (qctx->hmac_key == NULL) {
-        WARN("[%s] Unable to allocate memory for HMAC Key\n", __func__);
+        WARN("Unable to allocate memory for HMAC Key\n");
         goto err;
     }
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
@@ -672,8 +669,8 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     if (sw_size != 0) {
         qctx->sw_ctx_data = OPENSSL_zalloc(sw_size);
         if (qctx->sw_ctx_data == NULL) {
-            WARN("[%s] Unable to allocate memory [%u bytes] for sw_ctx_data\n",
-                 __func__, sw_size);
+            WARN("Unable to allocate memory [%u bytes] for sw_ctx_data\n",
+                 sw_size);
             goto err;
         }
     }
@@ -685,7 +682,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     ssd = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
     if (ssd == NULL) {
-        WARN("OPENSSL_malloc() failed for session setup data allocation.\n");
+        WARN("Failed to allocate session setup data\n");
         goto err;
     }
 
@@ -716,20 +713,20 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     qctx->instance_handle = get_next_inst();
     if (qctx->instance_handle == NULL) {
-        WARN("[%s] Failed to get QAT Instance Handle!.\n", __func__);
+        WARN("Failed to get QAT Instance Handle!.\n");
         goto err;
     }
 
     sts = cpaCySymSessionCtxGetSize(qctx->instance_handle, ssd, &sctx_size);
     if (sts != CPA_STATUS_SUCCESS) {
-        WARN("[%s] Failed to get SessionCtx size.\n", __func__);
+        WARN("Failed to get SessionCtx size.\n");
         goto err;
     }
 
     sctx = (CpaCySymSessionCtx) qaeCryptoMemAlloc(sctx_size, __FILE__,
                                                   __LINE__);
     if (sctx == NULL) {
-        WARN("[%s] QMEM alloc failed for session ctx!\n", __func__);
+        WARN("QMEM alloc failed for session ctx!\n");
         goto err;
     }
 
@@ -740,8 +737,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_CTX_INIT);
 
-    DEBUG_PPL("[%s:%p] qat chained cipher ctx %p initialised\n",
-              __func__, ctx, qctx);
+    DEBUG_PPL("[%p] qat chained cipher ctx %p initialised\n",ctx, qctx);
     return 1;
 
  err:
@@ -797,14 +793,14 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     int dlen = 0;
 
     if (ctx == NULL) {
-        WARN("[%s] --- ctx parameter is NULL.\n", __func__);
+        WARN("ctx parameter is NULL.\n");
         return -1;
     }
 
     qctx = qat_chained_data(ctx);
 
     if (qctx == NULL) {
-        WARN("[%s] --- qctx is NULL.\n", __func__);
+        WARN("qctx is NULL.\n");
         return -1;
     }
 
@@ -838,7 +834,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
                                   qat_chained_callbackFn,
                                   ssd, qctx->session_ctx);
         if (sts != CPA_STATUS_SUCCESS) {
-            WARN("[%s] --- cpaCySymInitSession failed.\n", __func__);
+            WARN("cpaCySymInitSession failed! Status = %d\n", sts);
             retVal = 0;
         } else {
             INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
@@ -851,7 +847,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
            the send/encrypt direction.
          */
         if (arg != TLS_VIRT_HDR_SIZE || qctx->aad_ctr >= QAT_MAX_PIPELINES) {
-            WARN("[%s] Invalid argument for AEAD_TLS1_AAD.\n", __func__);
+            WARN("Invalid argument for AEAD_TLS1_AAD.\n");
             retVal = -1;
             break;
         }
@@ -868,7 +864,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
             /* pipelines are not supported for
              * TLS version < TLS1.1
              */
-            WARN("[%s] AAD already set for TLS1.0\n", __func__);
+            WARN("AAD already set for TLS1.0\n");
             retVal = -1;
             break;
         }
@@ -887,8 +883,8 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
          */
     case EVP_CTRL_SET_PIPELINE_OUTPUT_BUFS:
         if (arg > QAT_MAX_PIPELINES) {
-            WARN("[%s] PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
-                 __func__, arg, QAT_MAX_PIPELINES);
+            WARN("PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
+                 arg, QAT_MAX_PIPELINES);
             return -1;
         }
         qctx->p_out = (unsigned char **)ptr;
@@ -898,8 +894,8 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 
     case EVP_CTRL_SET_PIPELINE_INPUT_BUFS:
         if (arg > QAT_MAX_PIPELINES) {
-            WARN("[%s] PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
-                 __func__, arg, QAT_MAX_PIPELINES);
+            WARN("PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
+                 arg, QAT_MAX_PIPELINES);
             return -1;
         }
         qctx->p_in = (unsigned char **)ptr;
@@ -909,8 +905,8 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 
     case EVP_CTRL_SET_PIPELINE_INPUT_LENS:
         if (arg > QAT_MAX_PIPELINES) {
-            WARN("[%s] PIPELINE_INPUT_LENS npipes(%d) > Max(%d).\n",
-                 __func__, arg, QAT_MAX_PIPELINES);
+            WARN("PIPELINE_INPUT_LENS npipes(%d) > Max(%d).\n",
+                 arg, QAT_MAX_PIPELINES);
             return -1;
         }
         qctx->p_inlen = (size_t *)ptr;
@@ -919,7 +915,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         return 1;
 
     default:
-        WARN("[%s] --- unknown type parameter.\n", __func__);
+        WARN("Unknown type parameter\n");
         return -1;
     }
 
@@ -957,13 +953,13 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
     int retVal = 1;
 
     if (ctx == NULL) {
-        WARN("[%s] ctx parameter is NULL.\n", __func__);
+        WARN("ctx parameter is NULL.\n");
         return 0;
     }
 
     qctx = qat_chained_data(ctx);
     if (qctx == NULL) {
-        WARN("[%s] qctx parameter is NULL.\n", __func__);
+        WARN("qctx parameter is NULL.\n");
         return 0;
     }
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
@@ -979,8 +975,7 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
             sts = cpaCySymRemoveSession(qctx->instance_handle,
                                         qctx->session_ctx);
             if (sts != CPA_STATUS_SUCCESS) {
-                WARN("[%s] cpaCySymRemoveSession FAILED, sts = %d.!\n",
-                     __func__, sts);
+                WARN("cpaCySymRemoveSession FAILED, sts = %d\n", sts);
                 retVal = 0;
             }
         }
@@ -994,7 +989,7 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
     }
 
     INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
-    DEBUG_PPL("[%s:%p] EVP CTX cleaned up\n", __func__, ctx);
+    DEBUG_PPL("[%p] EVP CTX cleaned up\n", ctx);
     return retVal;
 }
 
@@ -1045,14 +1040,13 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int error = 0;
 
     if (ctx == NULL) {
-        WARN("[%s] CTX parameter is NULL.\n", __func__);
+        WARN("CTX parameter is NULL.\n");
         return 0;
     }
 
     qctx = qat_chained_data(ctx);
     if (qctx == NULL || !INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_CTX_INIT)) {
-        WARN("[%s] %s\n", __func__, qctx == NULL ? "QAT CTX NULL"
-             : "QAT Context not initialised");
+        WARN("%s\n", qctx == NULL ? "QAT CTX NULL" : "QAT Context not initialised");
         return 0;
     }
 
@@ -1064,7 +1058,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if (PIPELINE_INCOMPLETE_INIT(qctx) ||
         (!PIPELINE_SET(qctx) && (in == NULL || out == NULL
                                  || (len % AES_BLOCK_SIZE)))) {
-        WARN("[%s] %s \n", __func__,
+        WARN("%s \n",
              PIPELINE_INCOMPLETE_INIT(qctx) ?
              "Pipeline not initialised completely" : len % AES_BLOCK_SIZE
              ? "Buffer Length not multiple of AES block size"
@@ -1080,8 +1074,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         sts = cpaCySymInitSession(qctx->instance_handle, qat_chained_callbackFn,
                                   qctx->session_data, qctx->session_ctx);
         if (sts != CPA_STATUS_SUCCESS) {
-            WARN("[%s] cpaCySymInitSession failed! Status = %d\n",
-                 __func__, sts);
+            WARN("cpaCySymInitSession failed! Status = %d\n", sts);
             return 0;
         }
         INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
@@ -1095,8 +1088,8 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if (PIPELINE_SET(qctx)) {
         /* All the aad data (tls header) should be present */
         if (qctx->aad_ctr != qctx->numpipes) {
-            WARN("[%s] AAD data missing supplied %u of %u\n",
-                 __func__, qctx->aad_ctr, qctx->numpipes);
+            WARN("AAD data missing supplied %u of %u\n",
+                 qctx->aad_ctr, qctx->numpipes);
             return 0;
         }
     } else {
@@ -1155,12 +1148,14 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qctx->p_inlen = &len;
     }
 
-    DEBUG_PPL("[%s:%p] Start Cipher operation with num pipes %u\n",
-              __func__, ctx, qctx->numpipes);
+    DEBUG_PPL("[%p] Start Cipher operation with num pipes %u\n",
+              ctx, qctx->numpipes);
 
     if ((qat_setup_op_params(ctx) != 1) ||
-        (qat_init_op_done_pipe(&done, qctx->numpipes) != 1))
+        (qat_init_op_done_pipe(&done, qctx->numpipes) != 1)) {
+        WARN("Failure in qat_setup_op_params or qat_init_op_done_pipe\n");
         return 0;
+    }
 
     do {
         opd = &qctx->qop[pipe].op_data;
@@ -1189,7 +1184,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             plen_adj = ivlen;
         } else {
             if (qctx->numpipes > 1) {
-                WARN("[%s] Pipe %d tls hdr version < tls1.1\n", __func__, pipe);
+                WARN("Pipe %d tls hdr version < tls1.1\n", pipe);
                 error = 1;
                 break;
             }
@@ -1215,7 +1210,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
              */
             if ((buflen % AES_BLOCK_SIZE) != 0 || pad_len < 0 ||
                 pad_len > TLS_MAX_PADDING_LENGTH) {
-                WARN("[%s] buffer len[%d] or pad_len[%d] incorrect\n", __func__,
+                WARN("buffer len[%d] or pad_len[%d] incorrect\n",
                      buflen, pad_len);
                 error = 1;
                 break;
@@ -1280,7 +1275,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
         FLATBUFF_ALLOC_AND_CHAIN(s_fbuf[1], d_fbuf[1], buflen);
         if ((s_fbuf[1].pData) == NULL) {
-            WARN("[%s] --- src/dst buffer allocation.\n", __func__);
+            WARN("Failure in src buffer allocation.\n");
             error = 1;
             break;
         }
@@ -1301,7 +1296,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         sts = myPerformOp(qctx->instance_handle, &done, opd, s_sgl, d_sgl,
                           &(qctx->session_data->verifyDigest));
         if (sts != CPA_STATUS_SUCCESS) {
-            WARN("[%s] CpaCySymPerformOp failed sts=%d.\n", __func__, sts);
+            WARN("Failed to submit request to qat - status = %d\n", sts);
             error = 1;
             break;
         }

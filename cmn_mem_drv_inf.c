@@ -51,46 +51,32 @@
 #include "cmn_mem_drv_inf.h"
 #include "qae_mem.h"
 
-#ifdef QAT_MEM_DEBUG
-# define MEM_DEBUG(...) fprintf(stderr, __VA_ARGS__)
-#else
-# define MEM_DEBUG(...)
-#endif
-
-#define MEM_ERROR(...) fprintf(stderr, __VA_ARGS__)
-
-#ifdef QAT_MEM_WARN
-# define MEM_WARN(...) fprintf (stderr, __VA_ARGS__)
-#else
-# define MEM_WARN(...)
-#endif
-
 static pthread_mutex_t mem_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void qaeCryptoMemFree(void *ptr)
 {
     int rc;
 
-    MEM_DEBUG("%s: Address: %p\n", __func__, ptr);
+    MEM_DEBUG("Address: %p\n", ptr);
 
     if (NULL == ptr) {
         MEM_WARN("qaeCryptoMemFree trying to free NULL pointer.\n");
         return;
     }
 
-    MEM_DEBUG("%s: pthread_mutex_lock\n", __func__);
+    MEM_DEBUG("pthread_mutex_lock\n");
     if ((rc = pthread_mutex_lock(&mem_mutex)) != 0) {
-        MEM_ERROR("pthread_mutex_lock: %s\n", strerror(rc));
+        MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
         return;
     }
 
     qaeMemFreeNUMA(&ptr);
 
     if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
-        MEM_ERROR("pthread_mutex_unlock: %s\n", strerror(rc));
+        MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
         return;
     }
-    MEM_DEBUG("%s: pthread_mutex_unlock\n", __func__);
+    MEM_DEBUG("pthread_mutex_unlock\n");
 }
 
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
@@ -98,19 +84,19 @@ void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
     int rc;
     void *pAddress = NULL;
 
-    MEM_DEBUG("%s: pthread_mutex_lock\n", __func__);
+    MEM_DEBUG("pthread_mutex_lock\n");
     if ((rc = pthread_mutex_lock(&mem_mutex)) != 0) {
-        MEM_ERROR("pthread_mutex_lock: %s\n", strerror(rc));
+        MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
         return NULL;
     }
 
     pAddress = qaeMemAllocNUMA(memsize, 0, QAT_BYTE_ALIGNMENT);
-    MEM_DEBUG("%s: Address: %p Size: %d File: %s:%d\n", __func__, pAddress,
+    MEM_DEBUG("Address: %p Size: %d File: %s:%d\n", pAddress,
           memsize, file, line);
     if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
-        MEM_ERROR("pthread_mutex_unlock: %s\n", strerror(rc));
+        MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
     }
-    MEM_DEBUG("%s: pthread_mutex_unlock\n", __func__);
+    MEM_DEBUG("pthread_mutex_unlock\n");
     return pAddress;
 }
 
@@ -132,8 +118,10 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
 {
     void *nptr;
 
-    if (original_size > memsize)
+    if (original_size > memsize) {
+        MEM_WARN("original_size : %d > memsize : %d", original_size, memsize);
         return NULL;
+    }
 
     nptr =
         copyAllocPinnedMemoryClean(ptr, memsize, original_size, file, line);
@@ -149,7 +137,7 @@ void *copyAllocPinnedMemory(void *ptr, size_t size, const char *file,
     void *nptr;
 
     if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
-        MEM_WARN("%s: pinned memory allocation failure\n", __func__);
+        MEM_WARN("pinned memory allocation failure\n");
         return NULL;
     }
     memcpy(nptr, ptr, size);
@@ -162,7 +150,7 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
     void *nptr;
 
     if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
-        MEM_WARN("%s: pinned memory allocation failure\n", __func__);
+        MEM_WARN("pinned memory allocation failure\n");
         return NULL;
     }
     memcpy(nptr, ptr, original_size);
@@ -171,6 +159,10 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
 
 void copyFreePinnedMemory(void *uptr, void *kptr, int size)
 {
+    if (uptr == NULL || kptr == NULL) {
+       MEM_WARN("Input pointers uptr or kptr are NULL\n");
+       return;
+    }
     memcpy(uptr, kptr, size);
     qaeCryptoMemFree(kptr);
 }
@@ -184,4 +176,3 @@ void qaeCryptoAtFork()
 {
     qaeAtFork();
 }
-

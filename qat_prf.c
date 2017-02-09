@@ -192,7 +192,7 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 
     qat_prf_ctx = qaeCryptoMemAlloc(sizeof(*qat_prf_ctx), __FILE__, __LINE__);
     if (qat_prf_ctx == NULL) {
-        WARN("[%s] Cannot allocate qat_prf_ctx\n", __func__);
+        WARN("Cannot allocate qat_prf_ctx\n");
         return 0;
     }
 
@@ -215,13 +215,13 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
 
     if (ctx == NULL) {
-        WARN("[%s] Error: ctx (type EVP_PKEY_CTX) is NULL \n", __func__);
+        WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
         return;
     }
 
     qat_prf_ctx = (QAT_TLS1_PRF_CTX *) EVP_PKEY_CTX_get_data(ctx);
     if (qat_prf_ctx == NULL) {
-        WARN("[%s] Error: qat_prf_ctx is NULL\n", __func__);
+        WARN("qat_prf_ctx is NULL\n");
         return;
     }
 
@@ -258,7 +258,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     QAT_TLS1_PRF_CTX *qat_prf_ctx = (QAT_TLS1_PRF_CTX *) EVP_PKEY_CTX_get_data(ctx);
     if (qat_prf_ctx == NULL) {
-         WARN("[%s] Error: qat_prf_ctx cannot be NULL\n", __func__);
+         WARN("qat_prf_ctx cannot be NULL\n");
          return 0;
     }
 
@@ -268,8 +268,10 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
 
     case EVP_PKEY_CTRL_TLS_SECRET:
-        if (p1 < 0 || p2 == NULL)
+        if (p1 < 0 || p2 == NULL) {
+            WARN("Either p1 is invalid or p2 is NULL\n");
             return 0;
+        }
         if (qat_prf_ctx->sec != NULL) {
             OPENSSL_cleanse(qat_prf_ctx->sec, qat_prf_ctx->seclen);
             qaeCryptoMemFree(qat_prf_ctx->sec);
@@ -288,7 +290,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         qat_prf_ctx->sec = copyAllocPinnedMemory(p2, p1 ? p1 : 1,
                 __FILE__, __LINE__);
         if (qat_prf_ctx->sec == NULL) {
-            WARN("[%s] Error: secret data malloc failed\n", __func__);
+            WARN("secret data malloc failed\n");
             return 0;
         }
         qat_prf_ctx->seclen  = p1;
@@ -299,6 +301,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             return 1;
         if (qat_prf_ctx->userLabel_len == 0) {
             if (p1 < 0 || p1 > (QAT_TLS1_PRF_SEED1_MAXBUF)) {
+                WARN("p1 %d is out of range\n", p1);
                 return 0;
             } else {
                 memcpy(qat_prf_ctx->userLabel, p2, p1);
@@ -306,6 +309,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             }
         } else {
             if (p1 < 0 || p1 > (QAT_TLS1_PRF_MAXBUF - qat_prf_ctx->seedlen)) {
+                WARN("p1 %d is out of range\n", p1);
                 return 0;
             } else {
                 memcpy(qat_prf_ctx->seed + qat_prf_ctx->seedlen, p2, p1);
@@ -314,6 +318,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         }
         return 1;
     default:
+        WARN("Invalid type %d\n", type);
         return -2;
 
     }
@@ -360,13 +365,14 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
                                   CpaCySymHashAlgorithm * hash_algorithm)
 {
     if (qat_prf_ctx == NULL || hash_algorithm == NULL) {
-        WARN("[%s] Error: NULL input variables\n", __func__);
+        WARN("Either qat_prf_ctx %p or  hash_algorithm %p is NULL\n",
+              qat_prf_ctx, hash_algorithm);
         return 0;
     }
 
     const EVP_MD *md = qat_prf_ctx->md;
     if (md == NULL) {
-        WARN("[%s] Error: md is NULL.\n", __func__);
+        WARN("md is NULL.\n");
         return 0;
     }
 
@@ -387,7 +393,7 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
         *hash_algorithm = CPA_CY_SYM_HASH_MD5;
         break;
     default:
-        WARN("[%s] Error: unsupported PRF hash type\n", __func__);
+        WARN("unsupported PRF hash type\n");
         return 0;
     }
 
@@ -398,7 +404,7 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
 static void print_prf_op_data(const char *func, CpaCyKeyGenTlsOpData * prf_op_data)
 {
     if (prf_op_data == NULL || func == NULL) {
-        DEBUG("[%s] Error: null input pointer\n", __func__);
+        DEBUG("NULL input pointer\n");
         return;
     }
 
@@ -445,7 +451,7 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
                                  CpaCyKeyGenTlsOpData * prf_op_data)
 {
     if (qat_prf_ctx == NULL || prf_op_data == NULL) {
-        WARN("[%s] Error: NULL input variables\n", __func__);
+        WARN("Either qat_prf_ctx %p or prf_op_data %p is NULL\n", qat_prf_ctx, prf_op_data);
         return 0;
     }
 
@@ -457,7 +463,7 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
      * constant
      */
     const void *label = qat_prf_ctx->userLabel;
-    DEBUG("[%s] Value of label = %s\n", __func__, (char *)label);
+    DEBUG("Value of label = %s\n", (char *)label);
 
     prf_op_data->userLabel.pData = NULL;
     prf_op_data->userLabel.dataLenInBytes = 0;
@@ -481,7 +487,7 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
     } else {
         /* Allocate and copy the user label contained in userLabel */
         /* TODO we must test this case to see if it works OK */
-        DEBUG("[%s] Using USER_DEFINED label\n", __func__);
+        DEBUG("Using USER_DEFINED label = %s\n", (char*)label);
         prf_op_data->tlsOp = CPA_CY_KEY_TLS_OP_USER_DEFINED;
         prf_op_data->userLabel.pData = (Cpa8U *) qat_prf_ctx->userLabel;
         prf_op_data->userLabel.dataLenInBytes = qat_prf_ctx->userLabel_len;
@@ -525,12 +531,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
 
     if (NULL == ctx || NULL == key || NULL == olen) {
+        WARN("Either ctx %p, key %p or olen %p is NULL\n", ctx, key, olen);
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_PASSED_NULL_PARAMETER);
         goto err;
     }
 
     qat_prf_ctx = (QAT_TLS1_PRF_CTX *) EVP_PKEY_CTX_get_data(ctx);
     if (qat_prf_ctx == NULL) {
+        WARN("qat_prf_ctx is NULL\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -543,6 +551,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
      */
     if (EVP_MD_type(qat_prf_ctx->md) != NID_md5_sha1) {
         if (!qat_get_hash_algorithm(qat_prf_ctx, &hash_algo)) {
+            WARN("Failed to get hash algorithm\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
             goto err;
         }
@@ -552,6 +561,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
 
     if (!build_tls_prf_op_data(qat_prf_ctx, &prf_op_data)) {
+        WARN("Error building TlsOpdata\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -564,6 +574,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
         (CpaFlatBuffer *) qaeCryptoMemAlloc(sizeof(CpaFlatBuffer), __FILE__,
                                             __LINE__);
     if (NULL == generated_key) {
+        WARN("Failed to allocate memory for generated_key\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_MALLOC_FAILURE);
         goto err;
     }
@@ -571,6 +582,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     generated_key->pData =
         (Cpa8U *) qaeCryptoMemAlloc(key_length, __FILE__, __LINE__);
     if (NULL == generated_key->pData) {
+        WARN("Failed to allocate memory for generated_key data\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_MALLOC_FAILURE);
         goto err;
     }
@@ -588,6 +600,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
+            WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
             goto err;
@@ -596,7 +609,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
 
     do {
         if (NULL == (instance_handle = get_next_inst())) {
-            WARN("[%s] Failure in get_next_inst()\n", __func__);
+            WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
@@ -627,12 +640,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
                 }
             } else {
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -642,7 +657,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     } while (status == CPA_STATUS_RETRY);
 
     if (CPA_STATUS_SUCCESS != status) {
-        WARN("[%s] cpaCyKeyGenTls failed - status=%d\n", __func__, status);
+        WARN("Failed to submit request to qat - status = %d\n", status);
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
@@ -672,6 +687,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
         goto err;
     }

@@ -102,7 +102,8 @@ DSA_METHOD *qat_get_DSA_methods(void)
         || DSA_meth_set_sign_setup(qat_dsa_method, qat_dsa_sign_setup) == 0
         || DSA_meth_set_verify(qat_dsa_method, qat_dsa_do_verify) == 0
         || DSA_meth_set_bn_mod_exp(qat_dsa_method, qat_dsa_bn_mod_exp) == 0 ) {
-        QATerr(QAT_F_QAT_GET_DSA_METHODS, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to set DSA methods\n");
+        QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_SET_QAT_DSA_METH_FAILURE);
         return NULL;
     }
 #else
@@ -119,7 +120,8 @@ void qat_free_DSA_methods(void)
         DSA_meth_free(qat_dsa_method);
         qat_dsa_method = NULL;
     } else {
-        QATerr(QAT_F_QAT_FREE_DSA_METHODS, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to free DSA methods\n");
+        QATerr(QAT_F_QAT_FREE_DSA_METHODS, QAT_R_FREE_QAT_DSA_METH_FAILURE);
     }
 #endif
 }
@@ -194,7 +196,7 @@ void qat_dsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
 int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
                        const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
 {
-    DEBUG("%s been called \n", __func__);
+    DEBUG("- Started\n");
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     return qat_mod_exp(r, a, p, m);
 }
@@ -231,17 +233,19 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
 
 
-    DEBUG("[%s] --- called.\n", __func__);
+    DEBUG("- Started\n");
 
     if (dsa == NULL || dgst == NULL) {
-         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_PASSED_NULL_PARAMETER);
+         WARN("Either dsa %p or dgst %p are NULL\n", dsa, dgst);
+         QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_DSA_DGST_NULL);
          return NULL;
     }
 
     DSA_get0_pqg(dsa, &p, &q, &g);
 
     if (p == NULL || q == NULL || g == NULL) {
-         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+         WARN("Either p %p, q %p, or g %p are NULL\n", p, q, g);
+         QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_P_Q_G_NULL);
          return sig;
     }
 
@@ -252,7 +256,9 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     if (!dsa_range_check(BN_num_bits(p), BN_num_bits(q))) {
         if (default_dsa_method == NULL) {
-            QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+            WARN("Failed to get default_dsa_method for bits p = %d & q = %d\n",
+                  BN_num_bits(p), BN_num_bits(q));
+            QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_SW_METHOD_NULL);
             return NULL;
         }
         return DSA_meth_get_sign(default_dsa_method)(dgst, dlen, dsa);
@@ -261,21 +267,24 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     opData = (CpaCyDsaRSSignOpData *)
         OPENSSL_malloc(sizeof(CpaCyDsaRSSignOpData));
     if (opData == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for opData\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_OPDATA_MALLOC_FAILURE);
         return sig;
     }
 
     memset(opData, 0, sizeof(CpaCyDsaRSSignOpData));
 
     if ((ctx = BN_CTX_new()) == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for ctx\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_CTX_MALLOC_FAILURE);
         goto err;
     }
 
     BN_CTX_start(ctx);
 
     if ((k = BN_CTX_get(ctx)) == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        WARN("Failed  to allocate k\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_K_ALLOCATE_FAILURE);
         goto err;
     }
 
@@ -288,7 +297,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         dlen = BN_num_bytes(q);
     do {
         if (!BN_rand_range(k, q)) {
-            QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+            WARN("Failed to generate random number for the range %d\n", dlen);
+            QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_K_RAND_GENERATE_FAILURE);
             goto err;
         }
     }
@@ -297,23 +307,27 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     buflen = BN_num_bytes(q);
     pResultR = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (!pResultR) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for pResultR\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_PRESULTR_MALLOC_FAILURE);
         goto err;
     }
     pResultR->pData = qaeCryptoMemAlloc(buflen, __FILE__, __LINE__);
     if (!pResultR->pData) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for pResultR data\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_PRESULTR_PDATA_MALLOC_FAILURE);
         goto err;
     }
     pResultR->dataLenInBytes = (Cpa32U) buflen;
     pResultS = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (!pResultS) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for pResultS\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_PRESULTS_MALLOC_FAILURE);
         goto err;
     }
     pResultS->pData = qaeCryptoMemAlloc(buflen, __FILE__, __LINE__);
     if (!pResultS->pData) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for pResultS data\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_PRESULTS_PDATA_MALLOC_FAILURE);
         goto err;
     }
     pResultS->dataLenInBytes = (Cpa32U) buflen;
@@ -321,7 +335,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     DSA_get0_key(dsa, &pub_key, &priv_key);
 
     if (priv_key == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        WARN("Unable to get private key\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_PRIV_KEY_NULL);
         goto err;
     }
 
@@ -330,13 +345,15 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         (qat_BN_to_FB(&(opData->G), g) != 1) ||
         (qat_BN_to_FB(&(opData->X), priv_key) != 1) ||
         (qat_BN_to_FB(&(opData->K), k) != 1)) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to convert p, q, g, priv_key or k to a flat buffer\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_P_Q_G_X_K_CONVERT_TO_FB_FAILURE);
         goto err;
     }
 
     opData->Z.pData = qaeCryptoMemAlloc(dlen, __FILE__, __LINE__);
     if (!opData->Z.pData) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for opData pData\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_OPDATA_ZPDATA_MALLOC_FAILURE);
         goto err;
     }
     opData->Z.dataLenInBytes = (Cpa32U) dlen;
@@ -345,7 +362,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     sig = DSA_SIG_new();
     if (sig == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for sig\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_SIG_MALLOC_FAILURE);
         goto err;
     }
 
@@ -353,13 +371,15 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     s = BN_new();
     /* NULL checking of r & s done in DSA_SIG_set0() */
     if (DSA_SIG_set0(sig, r, s) == 0) {
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_MALLOC_FAILURE);
+        WARN("Unable to set r and s\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         goto err;
     }
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
+            WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
             DSA_SIG_free(sig);
@@ -371,7 +391,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     do {
         if ((instance_handle = get_next_inst()) == NULL) {
-            WARN("[%s] Failure in get_next_inst()\n", __func__);
+            WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
@@ -397,12 +417,16 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
             } else {
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -412,7 +436,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
-        WARN("[%s] cpaCyDsaSignRS failed - status=%d\n", __func__, status);
+        WARN("Failed to submit request to qat - status = %d\n", status);
         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
@@ -443,6 +467,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         DSA_SIG_free(sig);
         sig = NULL;
@@ -527,17 +552,19 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     int iMsgRetry = getQatMsgRetryCount();
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
 
-    DEBUG("[%s] --- called.\n", __func__);
+    DEBUG("- Started\n");
 
     if (dsa == NULL || dgst == NULL || sig == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_PASSED_NULL_PARAMETER);
+        WARN("Either dsa = %p, dgst = %p or sig = %p are NULL\n", dsa, dgst, sig);
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_DSA_DGST_SIG_NULL);
         return -1;
     }
 
     DSA_get0_pqg(dsa, &p, &q, &g);
 
     if (p == NULL || q == NULL || g == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("Either p = %p, q = %p or g = %p are NULL\n", p, q, g);
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_GET_PQG_FAILURE);
         return ret;
     }
 
@@ -548,7 +575,9 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     if (!dsa_range_check(BN_num_bits(p), BN_num_bits(q))) {
         if (default_dsa_method == NULL) {
-            QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+            WARN("Failed to get default_dsa_method for bits p = %d & q = %d\n",
+                  BN_num_bits(p), BN_num_bits(q));
+            QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_SW_METHOD_NULL);
             return -1;
         }
         return DSA_meth_get_verify(default_dsa_method)(dgst, dgst_len, sig, dsa);
@@ -557,46 +586,53 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     i = BN_num_bits(q);
     /* fips 186-3 allows only different sizes for q */
     if (i != 160 && i != 224 && i != 256) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("q size %d not supported\n", BN_num_bits(q));
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_Q_SIZE_UNSUPPORTED);
         return ret;
     }
 
     opData = (CpaCyDsaVerifyOpData *)
         OPENSSL_malloc(sizeof(CpaCyDsaVerifyOpData));
     if (opData == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for opData\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
 
     memset(opData, 0, sizeof(CpaCyDsaVerifyOpData));
 
     if ((ctx = BN_CTX_new()) == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_MALLOC_FAILURE);
+        WARN("Failed to allocate memory for ctx\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_CTX_MALLOC_FAILURE);
         goto err;
     }
 
     BN_CTX_start(ctx);
 
     if ((z = BN_CTX_get(ctx)) == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to allocate z\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_Z_ALLOCATE_FAILURE);
         goto err;
     }
 
     DSA_SIG_get0(sig, &r, &s);
 
     if (r == NULL || s == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to get r or s\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_SIG_GET_R_S_FAILURE);
         goto err;
     }
 
     if (BN_is_zero(r) || BN_is_negative(r) ||
         BN_ucmp(r, q) >= 0) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("r and q not equal after compare\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_R_Q_COMPARE_FAILURE);
         goto err;
     }
     if (BN_is_zero(s) || BN_is_negative(s) ||
         BN_ucmp(s, q) >= 0) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("s and q not equal after compare\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_S_Q_COMPARE_FAILURE);
         goto err;
     }
 
@@ -608,14 +644,16 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
          */
         dgst_len = (i >> 3);
     if (BN_bin2bn(dgst, dgst_len, z) == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to convert dgst to big number\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_DGST_BN_CONV_FAILURE);
         goto err;
     }
 
     DSA_get0_key(dsa, &pub_key, &priv_key);
 
     if (pub_key == NULL) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("pub_key is NULL\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_PUB_KEY_NULL);
         goto err;
     }
 
@@ -626,13 +664,15 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         (qat_BN_to_FB(&(opData->Z), z) != 1) ||
         (qat_BN_to_FB(&(opData->R), r) != 1) ||
         (qat_BN_to_FB(&(opData->S), s) != 1)) {
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        WARN("Failed to convert p, q, g, pub_key, z, r or s to a flat buffer\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_P_Q_G_Y_Z_R_S_CONVERT_TO_FB_FAILURE);
         goto err;
     }
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
+            WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
             goto err;
@@ -642,7 +682,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     do {
         if ((instance_handle = get_next_inst()) == NULL) {
-            WARN("[%s] Failure in get_next_inst()\n", __func__);
+            WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
@@ -664,12 +704,16 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
             } else {
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -678,7 +722,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     } while (status == CPA_STATUS_RETRY);
 
     if (status != CPA_STATUS_SUCCESS) {
-        WARN("[%s] cpaCyDsaVerify failed - status=%d\n", __func__, status);
+        WARN("Failed to submit request to qat - status = %d\n", status);
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();

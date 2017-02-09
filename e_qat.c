@@ -286,11 +286,13 @@ static void engine_init_child_at_fork_handler(void)
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (e == NULL) {
         WARN("Engine pointer is NULL\n");
+        QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_NULL);
         return;
     }
 
     if (qat_engine_init(e) != 1) {
         WARN("Failure in qat_engine_init function\n");
+        QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
     }
 }
 
@@ -309,6 +311,7 @@ static void engine_finish_before_fork_handler(void)
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (e == NULL) {
         WARN("Engine pointer is NULL\n");
+        QATerr(QAT_F_ENGINE_FINISH_BEFORE_FORK_HANDLER, QAT_R_ENGINE_NULL);
         return;
     }
 
@@ -340,6 +343,7 @@ void qat_set_instance_for_thread(long instanceNum)
                              qat_instance_handles[instanceNum %
                                                 qat_num_instances])) != 0) {
         WARN("pthread_setspecific: %s\n", strerror(rc));
+        QATerr(QAT_F_QAT_SET_INSTANCE_FOR_THREAD, QAT_R_PTHREAD_SETSPECIFIC_FAILURE);
         return;
     }
     enable_instance_for_thread = 1;
@@ -359,6 +363,7 @@ void qat_init_op_done(struct op_done *opDone)
 {
     if (opDone == NULL) {
         WARN("opDone is NULL\n");
+        QATerr(QAT_F_QAT_INIT_OP_DONE, QAT_R_OPDONE_NULL);
         return;
     }
 
@@ -386,6 +391,7 @@ int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 {
     if (opdpipe == NULL) {
         WARN("opdpipe is NULL\n");
+        QATerr(QAT_F_QAT_INIT_OP_DONE_PIPE, QAT_R_OPDPIPE_NULL);
         return 0;
     }
 
@@ -401,6 +407,7 @@ int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
     if (opdpipe->opDone.job != NULL &&
         (qat_setup_async_event_notification(0) == 0)) {
         WARN("Failure to setup async event notifications\n");
+        QATerr(QAT_F_QAT_INIT_OP_DONE_PIPE, QAT_R_SETUP_ASYNC_EVENT_FAILURE);
         qat_cleanup_op_done_pipe(opdpipe);
         return 0;
     }
@@ -422,6 +429,7 @@ void qat_cleanup_op_done(struct op_done *opDone)
 {
     if (opDone == NULL) {
         WARN("opDone is NULL\n");
+        QATerr(QAT_F_QAT_CLEANUP_OP_DONE, QAT_R_OPDONE_NULL);
         return;
     }
 
@@ -449,6 +457,7 @@ void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
 {
     if (opdone == NULL) {
         WARN("opdone is NULL\n");
+        QATerr(QAT_F_QAT_CLEANUP_OP_DONE_PIPE, QAT_R_OPDONE_NULL);
         return;
     }
 
@@ -487,6 +496,7 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
 
     if (opDone == NULL) {
         WARN("opDone is NULL\n");
+        QATerr(QAT_F_QAT_CRYPTO_CALLBACKFN, QAT_R_OPDONE_NULL);
         return;
     }
 
@@ -542,6 +552,7 @@ CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
                 if ((qat_wake_job(opDone->job, 0) == 0) ||
                     (qat_pause_job(opDone->job, 0) == 0)) {
                     WARN("Failed to wake or pause job\n");
+                    QATerr(QAT_F_MYPERFORMOP, QAT_R_WAKE_PAUSE_JOB_FAILURE);
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -550,6 +561,7 @@ CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
                 if (uiRetry >= qat_max_retry_count
                     && qat_max_retry_count != QAT_INFINITE_MAX_NUM_RETRIES) {
                     WARN("Maximum retries exceeded\n");
+                    QATerr(QAT_F_MYPERFORMOP, QAT_R_MAX_RETRIES_EXCEEDED);
                     status = CPA_STATUS_FAIL;
                     break;
                 }
@@ -568,6 +580,7 @@ static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
 {
     if (close(readfd) != 0) {
         WARN("Failed to close fd: %d - error: %d\n", readfd, errno);
+        QATerr(QAT_F_QAT_FD_CLEANUP, QAT_R_CLOSE_FD_FAILURE);
     }
 }
 
@@ -757,8 +770,8 @@ static void *timer_poll_func(void *ih)
             status = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
             if (unlikely(CPA_STATUS_SUCCESS != status
                         && CPA_STATUS_RETRY != status)) {
-                WARN("icp_sal_CyPollInstance returned status %d\n",
-                      status);
+                WARN("icp_sal_CyPollInstance returned status %d\n", status);
+                QATerr(QAT_F_TIMER_POLL_FUNC, QAT_R_POLL_INSTANCE_FAILURE);
             }
 
             if (unlikely(!keep_polling))
@@ -773,6 +786,7 @@ static void *timer_poll_func(void *ih)
             req_time.tv_nsec = rem_time.tv_nsec;
             if (unlikely((errno < 0) && (EINTR != errno))) {
                 WARN("nanosleep system call failed: errno %i\n", errno);
+                QATerr(QAT_F_TIMER_POLL_FUNC, QAT_R_NANOSLEEP_FAILURE);
                 break;
             }
         }
@@ -792,6 +806,7 @@ static void *event_poll_func(void *ih)
     events = OPENSSL_zalloc(sizeof(struct epoll_event) * MAX_EVENTS);
     if (NULL == events) {
         WARN("Error allocating events list\n");
+        QATerr(QAT_F_EVENT_POLL_FUNC, QAT_R_EVENTS_MALLOC_FAILURE);
         goto end;
     }
     while (keep_polling) {
@@ -806,6 +821,7 @@ static void *event_poll_func(void *ih)
                 status = icp_sal_CyPollInstance(qat_instance_handles[epollst->inst_index], 0);
                 if (CPA_STATUS_SUCCESS != status) {
                     WARN("icp_sal_CyPollInstance returned status %d\n", status);
+                    QATerr(QAT_F_EVENT_POLL_FUNC, QAT_R_POLL_INSTANCE_FAILURE);
                 }
             }
         }
@@ -838,6 +854,7 @@ static CpaStatus poll_instances(void)
                     ret_status = internal_status;
                 } else {
                     WARN("icp_sal_CyPollInstance failed - status %d\n", internal_status);
+                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
                     ret_status = internal_status;
                     break;
                 }
@@ -882,11 +899,13 @@ int qat_adjust_thread_affinity(pthread_t threadptr)
     sts = pthread_setaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
     if (sts != 0) {
         WARN("pthread_setaffinity_np error, status = %d\n", sts);
+        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_SETAFFINITY_FAILURE);
         return 0;
     }
     sts = pthread_getaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
     if (sts != 0) {
         WARN("pthread_getaffinity_np error, status = %d\n", sts);
+        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_GETAFFINITY_FAILURE);
         return 0;
     }
 
@@ -933,6 +952,7 @@ static int qat_engine_init(ENGINE *e)
 
     if ((err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
         WARN("pthread_key_create failed: %s\n", strerror(err));
+        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_PTHREAD_CREATE_FAILURE);
         pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
     }
@@ -945,6 +965,7 @@ static int qat_engine_init(ENGINE *e)
     if (!checkLimitDevAccessValue((int *)&limitDevAccess,
                                     ICPConfigSectionName_libcrypto)) {
         WARN("Could not load driver config file. Assuming LimitDevAccess = 0\n");
+        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_LOAD_CONFIG_FILE_FAILURE);
     }
 #endif
 
@@ -953,6 +974,7 @@ static int qat_engine_init(ENGINE *e)
         icp_sal_userStartMultiProcess(ICPConfigSectionName_libcrypto,
                                       limitDevAccess)) {
         WARN("icp_sal_userStart failed\n");
+        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_ICP_SAL_USERSTART_FAIL);
         pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
     }
@@ -961,12 +983,14 @@ static int qat_engine_init(ENGINE *e)
     status = cpaCyGetNumInstances(&qat_num_instances);
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyGetNumInstances failed, status=%d\n", status);
+        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_NUM_INSTANCE_FAILURE);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
     }
     if (!qat_num_instances) {
         WARN("No crypto instances found\n");
+        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_INSTANCE_UNAVAILABLE);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -980,6 +1004,7 @@ static int qat_engine_init(ENGINE *e)
                                              sizeof(CpaInstanceHandle));
     if (NULL == qat_instance_handles) {
         WARN("OPENSSL_zalloc() failed for instance handles.\n");
+        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_INSTANCE_HANDLE_MALLOC_FAILURE);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -989,6 +1014,7 @@ static int qat_engine_init(ENGINE *e)
     status = cpaCyGetInstances(qat_num_instances, qat_instance_handles);
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyGetInstances failed, status=%d\n", status);
+        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_INSTANCE_FAILURE);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -1004,6 +1030,7 @@ static int qat_engine_init(ENGINE *e)
             internal_efd = epoll_create1(0);
             if (-1 == internal_efd) {
                 WARN("Error creating epoll fd\n");
+                QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_EPOLL_CREATE_FAILURE);
                 pthread_mutex_unlock(&qat_engine_mutex);
                 qat_engine_finish(e);
                 return 0;
@@ -1016,6 +1043,7 @@ static int qat_engine_init(ENGINE *e)
                                                 &engine_fd);
                 if (CPA_STATUS_FAIL == status) {
                     WARN("Error getting file descriptor for instance\n");
+                    QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_FILE_DESCRIPTOR_FAILURE);
                     pthread_mutex_unlock(&qat_engine_mutex);
                     qat_engine_finish(e);
                     return 0;
@@ -1033,6 +1061,7 @@ static int qat_engine_init(ENGINE *e)
                     epoll_ctl(internal_efd, EPOLL_CTL_ADD, engine_fd,
                               &eng_epoll_events[instNum])) {
                     WARN("Error adding fd to epoll\n");
+                    QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_EPOLL_CTL_FAILURE);
                     pthread_mutex_unlock(&qat_engine_mutex);
                     qat_engine_finish(e);
                     return 0;
@@ -1048,6 +1077,7 @@ static int qat_engine_init(ENGINE *e)
                                             virtualToPhysical);
         if (CPA_STATUS_SUCCESS != status) {
             WARN("cpaCySetAddressTranslation failed, status=%d\n", status);
+            QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_SET_ADDRESS_TRANSLATION_FAILURE);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -1057,6 +1087,7 @@ static int qat_engine_init(ENGINE *e)
         status = cpaCyStartInstance(qat_instance_handles[instNum]);
         if (CPA_STATUS_SUCCESS != status) {
             WARN("cpaCyStartInstance failed, status=%d\n", status);
+            QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_START_INSTANCE_FAILURE);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -1069,6 +1100,7 @@ static int qat_engine_init(ENGINE *e)
         if (qat_create_thread(&polling_thread, NULL,
                     qat_is_event_driven() ? event_poll_func : timer_poll_func, NULL)) {
             WARN("Creation of polling thread failed\n");
+            QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_POLLING_THREAD_CREATE_FAILURE);
             polling_thread = pthread_self();
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
@@ -1076,6 +1108,7 @@ static int qat_engine_init(ENGINE *e)
         }
         if (qat_adjust_thread_affinity(polling_thread) == 0) {
             WARN("Setting polling thread affinity failed\n");
+            QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -1329,6 +1362,9 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         retVal = 0;
         break;
     }
+    if(!retVal) {
+     QATerr(QAT_F_QAT_ENGINE_CTRL, QAT_R_ENGINE_CTRL_CMD_FAILURE);
+    }
     return retVal;
 }
 
@@ -1364,6 +1400,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
 
                 if (CPA_STATUS_SUCCESS != status) {
                     WARN("cpaCyStopInstance failed, status=%d\n", status);
+                    QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_STOP_INSTANCE_FAILURE);
                     ret = 0;
                 }
 
@@ -1379,6 +1416,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
         pthread_equal(polling_thread, pthread_self()) == 0) {
         if (qat_join_thread(polling_thread, NULL) != 0) {
             WARN("Polling thread join failed with status: %d\n", ret);
+            QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_PTHREAD_JOIN_FAILURE);
             ret = 0;
         }
     }
@@ -1399,6 +1437,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
                               epollst->eng_fd,
                               &eng_epoll_events[i])) {
                     WARN("Error removing fd from epoll\n");
+                    QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_EPOLL_CTL_FAILURE);
                     ret = 0;
                 }
                 close(epollst->eng_fd);
@@ -1495,16 +1534,19 @@ static int bind_qat(ENGINE *e, const char *id)
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already!\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_ID_ALREADY_DEFINED);
         goto end;
     }
 
     if (!ENGINE_set_id(e, engine_qat_id)) {
         WARN("ENGINE_set_id failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_ID_FAILURE);
         goto end;
     }
 
     if (!ENGINE_set_name(e, engine_qat_name)) {
         WARN("ENGINE_set_name failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_NAME_FAILURE);
         goto end;
     }
 
@@ -1519,31 +1561,37 @@ static int bind_qat(ENGINE *e, const char *id)
 
     if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
         WARN("ENGINE_set_RSA failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
         goto end;
     }
 
     if (!ENGINE_set_DSA(e, qat_get_DSA_methods())) {
         WARN("ENGINE_set_DSA failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DSA_FAILURE);
         goto end;
     }
 
     if (!ENGINE_set_DH(e, qat_get_DH_methods())) {
         WARN("ENGINE_set_DH failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DH_FAILURE);
         goto end;
     }
 
     if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
         WARN("ENGINE_set_EC failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_EC_FAILURE);
         goto end;
     }
 
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_CIPHER_FAILURE);
         goto end;
     }
 
     if (!ENGINE_set_pkey_meths(e, qat_PRF_pkey_methods)) {
         WARN("ENGINE_set_pkey_meths failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_PKEY_FAILURE);
         goto end;
     }
 
@@ -1555,7 +1603,7 @@ static int bind_qat(ENGINE *e, const char *id)
         || !ENGINE_set_ctrl_function(e, qat_engine_ctrl)
         || !ENGINE_set_cmd_defns(e, qat_cmd_defns)) {
         WARN("Engine failed to register init, finish or destroy functions\n");
-
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_REGISTER_FUNC_FAILURE);
         goto end;
     }
 
@@ -1594,11 +1642,13 @@ static ENGINE *engine_qat(void)
 
     if (!ret) {
         WARN("Failed to create Engine\n");
+        QATerr(QAT_F_ENGINE_QAT, QAT_R_QAT_CREATE_ENGINE_FAILURE);
         return NULL;
     }
 
     if (!bind_qat(ret, engine_qat_id)) {
         WARN("Qat engine bind failed\n");
+        QATerr(QAT_F_ENGINE_QAT, QAT_R_QAT_BIND_ENGINE_FAILED);
         ENGINE_free(ret);
         return NULL;
     }
@@ -1618,6 +1668,7 @@ void ENGINE_load_qat(void)
         error = ERR_get_error();
         ERR_error_string(error, error_string);
         WARN("Error reported by engine load: %s\n", error_string);
+        QATerr(QAT_F_ENGINE_LOAD_QAT, QAT_R_QAT_LOAD_ENGINE_FAILED);
         return;
     }
 

@@ -332,7 +332,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         (b = BN_CTX_get(ctx)) == NULL ||
         (xg = BN_CTX_get(ctx)) == NULL ||
         (yg = BN_CTX_get(ctx)) == NULL) {
-        WARN("Failure to allocate p, a, b, xg or yg\n");
+        WARN("Failed to allocate p, a, b, xg or yg\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -455,7 +455,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("Maximum retries exceeded\n");
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
                 }
@@ -602,7 +602,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     if (EC_GROUP_get_curve_name(group) == NID_X25519) {
         EC_KEY_METHOD_get_keygen((EC_KEY_METHOD *) EC_KEY_OpenSSL(), &gen_key_pfunc);
         if (gen_key_pfunc == NULL) {
-            WARN("gen_key_pfunc is NULL\n");
+            WARN("get keygen failed\n");
             QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             return 0;
         }
@@ -624,7 +624,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     if ((priv_key = (BIGNUM *)EC_KEY_get0_private_key(ecdh)) == NULL) {
         priv_key = BN_new();
         if (priv_key == NULL) {
-            WARN("Failure to allocate priv_key\n");
+            WARN("Failure to get priv_key\n");
             QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_MALLOC_FAILURE);
             goto err;
         }
@@ -687,7 +687,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         (y_bn = BN_CTX_get(ctx)) == NULL ||
         (tx_bn = BN_CTX_get(ctx)) == NULL ||
         (ty_bn = BN_CTX_get(ctx)) == NULL) {
-        WARN("Failure to allocate x_bn, y_bn, tx_bn or ty_bn\n");
+        WARN("Failure to allocate ctx x_bn, y_bn, tx_bn or ty_bn\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_MEM_ALLOC_FAILED);
         goto err;
     }
@@ -1089,7 +1089,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("Maximum retries exceeded\n");
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
                 }
@@ -1424,7 +1424,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("Maximum retries exceeded\n");
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
                 }
