@@ -229,7 +229,6 @@ static inline void incr_curr_inst(void)
 CpaInstanceHandle get_next_inst(void)
 {
     CpaInstanceHandle instance_handle = NULL;
-    ENGINE* e = NULL;
 
     if (1 == enable_instance_for_thread) {
         instance_handle = pthread_getspecific(qatInstanceForThread);
@@ -239,19 +238,6 @@ CpaInstanceHandle get_next_inst(void)
             WARN("No thread specific instance is available\n");
             return instance_handle;
         }
-    }
-
-    e = ENGINE_by_id(engine_qat_id);
-    if(e == NULL) {
-        WARN("Function ENGINE_by_id returned NULL\n");
-        instance_handle = NULL;
-        return instance_handle;
-    }
-
-    if(!qat_engine_init(e)){
-        WARN("Failure in qat_engine_init function\n");
-        instance_handle = NULL;
-        return instance_handle;
     }
 
     /* Anytime we use external polling then we want to loop
@@ -271,11 +257,43 @@ CpaInstanceHandle get_next_inst(void)
     return instance_handle;
 }
 
-static void engine_fork_handler(void)
+
+/******************************************************************************
+* function:
+*         void engine_init_child_at_fork_handler(void)
+*
+* description:
+*   This function is registered, by the call to pthread_atfork(), as
+*   a function to be invoked in the child process prior to fork() returning.
+******************************************************************************/
+static void engine_init_child_at_fork_handler(void)
+{
+    /* Reinitialise the engine */
+    ENGINE* e = ENGINE_by_id(engine_qat_id);
+    if (e == NULL) {
+        WARN("Engine pointer is NULL\n");
+        return;
+    }
+
+    if (qat_engine_init(e) != 1) {
+        WARN("Failure in qat_engine_init function\n");
+    }
+}
+
+
+/******************************************************************************
+* function:
+*         void engine_finish_before_fork_handler(void)
+*
+* description:
+*   This function is registered, by the call to pthread_atfork(), as
+*   a function to be run (by the parent process) before a fork() function.
+******************************************************************************/
+static void engine_finish_before_fork_handler(void)
 {
     /* Reset the engine preserving the value of global variables */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
-    if(e == NULL) {
+    if (e == NULL) {
         WARN("Engine pointer is NULL\n");
         return;
     }
@@ -284,6 +302,8 @@ static void engine_fork_handler(void)
 
     keep_polling = 1;
 }
+
+
 
 /******************************************************************************
 * function:
@@ -1162,20 +1182,8 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 
     switch (cmd) {
     case QAT_CMD_POLL:
-        if (qat_instance_handles == NULL) {
-            /*
-             * It is possible to call this ctrl function while the engine is
-             * in a state where there are no instances available. This
-             * happens for example immediately when the engine is waiting
-             * for get_next_inst() to be called.
-             *
-             * To avoid this condition we call get_next_inst()
-             */
-            get_next_inst();
-            BREAK_IF(qat_instance_handles == NULL, "POLL failed as no instances are available\n");
-        }
-
         BREAK_IF(!engine_inited, "POLL failed as engine is not initialized\n");
+        BREAK_IF(qat_instance_handles == NULL, "POLL failed as no instances are available\n");
         BREAK_IF(!enable_external_polling, "POLL failed as external polling is not enabled\n");
         BREAK_IF(p == NULL, "POLL failed as the input parameter was NULL\n");
 
@@ -1193,13 +1201,10 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         BREAK_IF(!enable_event_driven_polling || !enable_external_polling, \
                 "GET_EXTERNAL_POLLING_FD failed as this engine message is only supported \
                 when running in Event Driven Mode with External Polling enabled\n");
-        if (qat_instance_handles == NULL) {
-            get_next_inst();
-            BREAK_IF(qat_instance_handles == NULL, \
-                    "GET_EXTERNAL_POLLING_FD failed as no instances are available\n");
-        }
         BREAK_IF(!engine_inited, \
                 "GET_EXTERNAL_POLLING_FD failed as the engine is not initialized\n");
+        BREAK_IF(qat_instance_handles == NULL,                          \
+                 "GET_EXTERNAL_POLLING_FD failed as no instances are available\n");
         BREAK_IF(p == NULL, "GET_EXTERNAL_POLLING_FD failed as the input parameter was NULL\n");
         BREAK_IF(i >= qat_num_instances, \
                 "GET_EXTERNAL_POLLING_FD failed as the instance does not exist\n");
@@ -1231,13 +1236,10 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         break;
 
     case QAT_CMD_SET_INSTANCE_FOR_THREAD:
-        if (qat_instance_handles == NULL) {
-            get_next_inst();
-            BREAK_IF(qat_instance_handles == NULL, \
-                    "SET_INSTANCE_FOR_THREAD failed as no instances are available\n");
-        }
         BREAK_IF(!engine_inited, \
                 "SET_INSTANCE_FOR_THREAD failed as the engine is not initialized\n");
+        BREAK_IF(qat_instance_handles == NULL,                          \
+                 "SET_INSTANCE_FOR_THREAD failed as no instances are available\n");
         DEBUG("Set instance for thread = %ld\n", i);
         qat_set_instance_for_thread(i);
         break;
@@ -1272,13 +1274,10 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     case QAT_CMD_GET_NUM_CRYPTO_INSTANCES:
         BREAK_IF(p == NULL, \
                 "GET_NUM_CRYPTO_INSTANCES failed as the input parameter was NULL\n");
-        if (qat_instance_handles == NULL) {
-            get_next_inst();
-            BREAK_IF(qat_instance_handles == NULL, \
-                    "GET_NUM_CRYPTO_INSTANCES failed as no instances are available\n");
-        }
         BREAK_IF(!engine_inited, \
                 "GET_NUM_CRYPTO_INSTANCES failed as the engine is not initialized\n");
+        BREAK_IF(qat_instance_handles == NULL,                          \
+                 "GET_NUM_CRYPTO_INSTANCES failed as no instances are available\n");
         DEBUG("Get number of crypto instances = %d\n", qat_num_instances);
         *(int *)p = qat_num_instances;
         break;
@@ -1534,7 +1533,7 @@ static int bind_qat(ENGINE *e, const char *id)
         goto end;
     }
 
-    pthread_atfork(engine_fork_handler, NULL, NULL);
+    pthread_atfork(engine_finish_before_fork_handler, NULL, engine_init_child_at_fork_handler);
 
     if (!ENGINE_set_destroy_function(e, qat_engine_destroy)
         || !ENGINE_set_init_function(e, qat_engine_init)
