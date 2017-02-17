@@ -229,6 +229,7 @@ static inline void incr_curr_inst(void)
 CpaInstanceHandle get_next_inst(void)
 {
     CpaInstanceHandle instance_handle = NULL;
+    ENGINE* e = NULL;
 
     if (1 == enable_instance_for_thread) {
         instance_handle = pthread_getspecific(qatInstanceForThread);
@@ -238,6 +239,19 @@ CpaInstanceHandle get_next_inst(void)
             WARN("No thread specific instance is available\n");
             return instance_handle;
         }
+    }
+
+    e = ENGINE_by_id(engine_qat_id);
+    if(e == NULL) {
+        WARN("Function ENGINE_by_id returned NULL\n");
+        instance_handle = NULL;
+        return instance_handle;
+    }
+
+    if(!qat_engine_init(e)){
+        WARN("Failure in qat_engine_init function\n");
+        instance_handle = NULL;
+        return instance_handle;
     }
 
     /* Anytime we use external polling then we want to loop
