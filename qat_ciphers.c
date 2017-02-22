@@ -549,6 +549,9 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
         qctx->qop[i].dst_sgl.pUserData = NULL;
         qctx->qop[i].dst_sgl.pPrivateMetaData = NULL;
 
+        DEBUG("Pipe [%d] instance_handle = %p\n", i, qctx->instance_handle);
+        DEBUG("Pipe [%d] No of buffers = %d\n", i, qctx->qop[i].src_sgl.numBuffers);
+
         /* setup meta data for buffer lists */
         if (msize == 0 &&
             cpaCyBufferListGetMetaSize(qctx->instance_handle,
@@ -557,6 +560,8 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
             WARN("cpaCyBufferListGetBufferSize failed.\n");
             goto err;
         }
+
+        DEBUG("Pipe [%d] Size of meta data = %d\n", i, msize);
 
         if (msize) {
             qctx->qop[i].src_sgl.pPrivateMetaData =
@@ -721,12 +726,16 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         goto err;
     }
 
+    DEBUG("instance_handle = %p\n", qctx->instance_handle);
+    DUMP_SESSION_SETUP_DATA(ssd);
     sts = cpaCySymSessionCtxGetSize(qctx->instance_handle, ssd, &sctx_size);
+
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to get SessionCtx size.\n");
         goto err;
     }
 
+    DEBUG("Size of session ctx = %d\n", sctx_size);
     sctx = (CpaCySymSessionCtx) qaeCryptoMemAlloc(sctx_size, __FILE__,
                                                   __LINE__);
     if (sctx == NULL) {
@@ -833,6 +842,10 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         }
 
         INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_HMAC_KEY_SET);
+
+        DEBUG("instance_handle = %p\n", qctx->instance_handle);
+        DUMP_SESSION_SETUP_DATA(ssd);
+        DEBUG("session_ctx = %p\n", qctx->session_ctx);
 
         sts = cpaCySymInitSession(qctx->instance_handle,
                                   qat_chained_callbackFn,
@@ -1075,8 +1088,13 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
          * HMAC key is not explicitly set, use default HMAC key of all zeros
          * and initialise a qat session.
          */
+
+        DEBUG("instance_handle = %p\n", qctx->instance_handle);
+        DUMP_SESSION_SETUP_DATA(qctx->session_data);
+        DEBUG("session_ctx = %p\n", qctx->session_ctx);
         sts = cpaCySymInitSession(qctx->instance_handle, qat_chained_callbackFn,
                                   qctx->session_data, qctx->session_ctx);
+
         if (sts != CPA_STATUS_SUCCESS) {
             WARN("cpaCySymInitSession failed! Status = %d\n", sts);
             return 0;
@@ -1297,6 +1315,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                        inb + (buflen - discardlen) - ivlen, ivlen);
         }
 
+        DUMP_SYM_PERFORM_OP(qctx->instance_handle, opd, s_sgl, d_sgl);
         sts = myPerformOp(qctx->instance_handle, &done, opd, s_sgl, d_sgl,
                           &(qctx->session_data->verifyDigest));
         if (sts != CPA_STATUS_SUCCESS) {
@@ -1342,6 +1361,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
  end:
     qctx->total_op += done.num_processed;
+    DUMP_SYM_PERFORM_OP_OUTPUT(&(qctx->session_data->verifyDigest), d_sgl);
     qat_cleanup_op_done_pipe(&done);
 
     if (error == 0 && (done.opDone.verifyResult == CPA_TRUE))

@@ -87,12 +87,12 @@ void crypto_qat_debug_close_log()
 #endif                          /* QAT_TESTS_LOG */
 
 #ifdef QAT_DEBUG
-void hexDump(const char *func, const char *var, const unsigned char p[],
+void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
              int l)
 {
     int i;
 
-    fprintf(stderr, "%s: %s", func, var);
+    fprintf(stderr, "%s: %s: Length %d, Address %p", func, var, l, p);
     if (NULL != p && l != 0) {
         for (i = 0; i < l; i++) {
             if (i % 16 == 0)
@@ -103,97 +103,5 @@ void hexDump(const char *func, const char *var, const unsigned char p[],
         }
     }
     fputc('\n', stderr);
-}
-
-void dumpRequest(const CpaInstanceHandle instance_handle,
-                 void *pCallbackTag,
-                 const CpaCySymOpData * pOpData,
-                 const CpaCySymSessionSetupData * sessionData,
-                 const CpaBufferList * pSrcBuffer, CpaBufferList * pDstBuffer)
-{
-    unsigned int index = 0;
-    struct op_done_asynch *opDoneCB = (struct op_done_asynch *)pCallbackTag;
-
-    fprintf(stderr, "\nInstance Handle:    %p\n", instance_handle);
-    fprintf(stderr, "Callback Ptr:       %p\n", opDoneCB);
-    fprintf(stderr, "OpData->packetType:        %s\n",
-            (pOpData->packetType ==
-             CPA_CY_SYM_PACKET_TYPE_FULL ? "FULL" : "PARTIAL"));
-    hexDump(__func__, "Cipher Key:      ",
-            sessionData->cipherSetupData.pCipherKey,
-            sessionData->cipherSetupData.cipherKeyLenInBytes);
-    fprintf(stderr, "Cipher Key Len:     %u\n",
-            sessionData->cipherSetupData.cipherKeyLenInBytes);
-    hexDump(__func__, "Cipher IV:               ", pOpData->pIv,
-            pOpData->ivLenInBytes);
-    if (sessionData->symOperation != CPA_CY_SYM_OP_CIPHER) {
-        hexDump(__func__, "MAC Key:                 ",
-                sessionData->hashSetupData.authModeSetupData.authKey,
-                sessionData->hashSetupData.
-                authModeSetupData.authKeyLenInBytes);
-    }
-    for (index = 0; index < pSrcBuffer->numBuffers; index++) {
-        fprintf(stderr,
-                "pSrcBuffer->pBuffers[%u].pData:                   %p\n",
-                index, pSrcBuffer->pBuffers[index].pData);
-        hexDump(__func__, " ", pSrcBuffer->pBuffers[index].pData,
-                pSrcBuffer->pBuffers[index].dataLenInBytes);
-        fprintf(stderr,
-                "pSrcBuffer->pBuffers[%u].dataLenInBytes:          %u\n\n",
-                index, pSrcBuffer->pBuffers[index].dataLenInBytes);
-    }
-
-    for (index = 0; index < pDstBuffer->numBuffers; index++) {
-        fprintf(stderr,
-                "pDstBuffer->pBuffers[%u].pData:                  %p\n",
-                index, pDstBuffer->pBuffers[index].pData);
-        hexDump(__func__, " ", pDstBuffer->pBuffers[index].pData,
-                pDstBuffer->pBuffers[index].dataLenInBytes);
-        fprintf(stderr,
-                "pDstBuffer->pBuffers[%u].dataLenInBytes:         %u\n\n",
-                index, pDstBuffer->pBuffers[index].dataLenInBytes);
-    }
-
-    fprintf(stderr,
-            "sessionData->cipherSetupData.cipherAlgorithm:       %u\n",
-            sessionData->cipherSetupData.cipherAlgorithm);
-    fprintf(stderr,
-            "sessionData->cipherSetupData.cipherDirection:       %u\n",
-            sessionData->cipherSetupData.cipherDirection);
-    fprintf(stderr,
-            "sessionData->algChainOrder:                         %u\n",
-            sessionData->algChainOrder);
-    fprintf(stderr,
-            "pOpData->cryptoStartSrcOffsetInBytes:               %u\n",
-            pOpData->cryptoStartSrcOffsetInBytes);
-    fprintf(stderr,
-            "pOpData->messageLenToCipherInBytes:                 %u\n",
-            pOpData->messageLenToCipherInBytes);
-    fprintf(stderr,
-            "sessionData->hashSetupData.hashAlgorithm:           %u\n",
-            sessionData->hashSetupData.hashAlgorithm);
-    fprintf(stderr,
-            "sessionData->hashSetupData.hashMode:                %u\n",
-            sessionData->hashSetupData.hashMode);
-    fprintf(stderr,
-            "pOpData->hashStartSrcOffsetInBytes:                 %u\n",
-            pOpData->hashStartSrcOffsetInBytes);
-    fprintf(stderr,
-            "sessionData->hashSetupData.digestResultLenInBytes:  %u\n",
-            sessionData->hashSetupData.digestResultLenInBytes);
-    fprintf(stderr,
-            "pOpData->messageLenToHashInBytes:                   %u\n",
-            pOpData->messageLenToHashInBytes);
-    fprintf(stderr,
-            "pOpData->pDigestResult:                             %p\n",
-            pOpData->pDigestResult);
-    fprintf(stderr,
-            "sessionData->verifyDigest:                          %s\n",
-            (sessionData->verifyDigest ==
-             CPA_TRUE ? "CPA_TRUE" : "CPA_FALSE"));
-    fprintf(stderr,
-            "sessionData->digestIsAppended:                      %s\n",
-            (sessionData->digestIsAppended ==
-             CPA_TRUE ? "CPA_TRUE" : "CPA_FALSE"));
 }
 #endif

@@ -324,6 +324,7 @@ int qat_dh_generate_key(DH *dh)
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
+        DUMP_DH_GEN_PHASE1(instance_handle, opData, pPV);
         status = cpaCyDhKeyGenPhase1(instance_handle,
                 qat_dhCallbackFn,
                 &op_done, opData, pPV);
@@ -382,6 +383,7 @@ int qat_dh_generate_key(DH *dh)
     }
     while (!op_done.flag);
 
+    DUMP_DH_GEN_PHASE2_OUTPUT(pPV);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
@@ -554,6 +556,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
+        DUMP_DH_GEN_PHASE2(instance_handle, opData, pSecretKey);
         status = cpaCyDhKeyGenPhase2Secret(instance_handle,
                 qat_dhCallbackFn,
                 &op_done, opData, pSecretKey);
@@ -612,6 +615,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     }
     while (!op_done.flag);
 
+    DUMP_DH_GEN_PHASE2_OUTPUT(pSecretKey);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {

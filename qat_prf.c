@@ -408,7 +408,8 @@ static void print_prf_op_data(const char *func, CpaCyKeyGenTlsOpData * prf_op_da
         return;
     }
 
-    DEBUG("[%s] ----- PRF Op Data -----\n", func);
+    fprintf(stderr,"=================================================\n");
+    fprintf(stderr, "[%s] PRF Op Data: %p\n", func, prf_op_data);
 
     if (prf_op_data->tlsOp == CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE)
         DEBUG("tlsOp: MASTER_SECRET_DERIVE\n");
@@ -426,7 +427,7 @@ static void print_prf_op_data(const char *func, CpaCyKeyGenTlsOpData * prf_op_da
     DUMPL("Seed", prf_op_data->seed.pData, prf_op_data->seed.dataLenInBytes);
     DUMPL("User Label", prf_op_data->userLabel.pData,
           prf_op_data->userLabel.dataLenInBytes);
-    DEBUG("---");
+    fprintf(stderr,"=================================================\n");
 
 }
 #  define DEBUG_PRF_OP_DATA(prf) print_prf_op_data(__func__,prf)
@@ -618,18 +619,19 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
             goto err;
         }
 
+        DUMP_KEYGEN_TLS(instance_handle, generated_key);
         /* Call the function of CPA according the to the version of TLS */
         if (EVP_MD_type(qat_prf_ctx->md) != NID_md5_sha1) {
             DEBUG("Calling cpaCyKeyGenTls2 \n");
             status =
                 cpaCyKeyGenTls2(instance_handle, qat_prf_cb,
-                        &op_done, &prf_op_data, hash_algo,
-                        generated_key);
+                                &op_done, &prf_op_data, hash_algo,
+                                generated_key);
         } else {
             DEBUG("Calling cpaCyKeyGenTls \n");
             status =
                 cpaCyKeyGenTls(instance_handle, qat_prf_cb, &op_done,
-                        &prf_op_data, generated_key);
+                               &prf_op_data, generated_key);
         }
 
         if (status == CPA_STATUS_RETRY) {
@@ -684,6 +686,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     }
     while (!op_done.flag);
 
+    DUMP_KEYGEN_TLS_OUTPUT(generated_key);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {

@@ -443,6 +443,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
+        DUMP_EC_POINT_MULTIPLY(instance_handle, opData, pResultX, pResultY);
         status = cpaCyEcPointMultiply(instance_handle,
                                       qat_ecCallbackFn,
                                       &op_done,
@@ -508,6 +509,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         goto err;
     }
 
+    DUMP_EC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY);
     qat_cleanup_op_done(&op_done);
 
     /* KDF, is done in the caller now just copy out bytes */
@@ -1079,11 +1081,12 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
+        DUMP_ECDSA_SIGN(instance_handle, opData, pResultR, pResultS);
         status = cpaCyEcdsaSignRS(instance_handle,
-                qat_ecdsaSignCallbackFn,
-                &op_done,
-                opData,
-                &bEcdsaSignStatus, pResultR, pResultS);
+                                  qat_ecdsaSignCallbackFn,
+                                  &op_done,
+                                  opData,
+                                  &bEcdsaSignStatus, pResultR, pResultS);
 
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -1137,6 +1140,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
     while (!op_done.flag);
 
+    DUMP_ECDSA_SIGN_OUTPUT(bEcdsaSignStatus, pResultR, pResultS);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
@@ -1417,6 +1421,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
+        DUMP_ECDSA_VERIFY(instance_handle, opData);
         status = cpaCyEcdsaVerify(instance_handle,
                                   qat_ecdsaVerifyCallbackFn,
                                   &op_done, opData, &bEcdsaVerifyStatus);
@@ -1473,6 +1478,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
     while (!op_done.flag);
 
+    DEBUG("bEcdsaVerifyStatus = %u\n", bEcdsaVerifyStatus);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult == CPA_TRUE)

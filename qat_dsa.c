@@ -412,11 +412,14 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
+        DUMP_DSA_SIGN(instance_handle, &op_done, opData, &bDsaSignStatus,
+                      pResultR, pResultS);
+
         status = cpaCyDsaSignRS(instance_handle,
-                qat_dsaSignCallbackFn,
-                &op_done,
-                opData,
-                &bDsaSignStatus, pResultR, pResultS);
+                                qat_dsaSignCallbackFn,
+                                &op_done,
+                                opData,
+                                &bDsaSignStatus, pResultR, pResultS);
 
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -473,6 +476,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         }
     } while (!op_done.flag);
 
+    DUMP_DSA_SIGN_OUTPUT(bDsaSignStatus, pResultR, pResultS);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
@@ -701,9 +705,11 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
+        DUMP_DSA_VERIFY(instance_handle, &op_done, opData, &bDsaVerifyStatus);
+
         status = cpaCyDsaVerify(instance_handle,
-                qat_dsaVerifyCallbackFn,
-                &op_done, opData, &bDsaVerifyStatus);
+                                qat_dsaVerifyCallbackFn,
+                                &op_done, opData, &bDsaVerifyStatus);
 
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -761,6 +767,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;
 
+    DEBUG("bDsaVerifyStatus = %u\n", bDsaVerifyStatus);
     qat_cleanup_op_done(&op_done);
 
  err:

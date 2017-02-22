@@ -434,6 +434,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
             qat_cleanup_op_done(&op_done);
             return 0;
         }
+        DUMP_RSA_DECRYPT(instance_handle, &op_done, dec_op_data, output_buf);
         sts = cpaCyRsaDecrypt(instance_handle, qat_rsaCallbackFn, &op_done,
                               dec_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
@@ -489,6 +490,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
     }
     while (!op_done.flag);
 
+    DUMP_RSA_DECRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
@@ -688,6 +690,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             return 0;
         }
 
+        DUMP_RSA_ENCRYPT(instance_handle, &op_done, enc_op_data, output_buf);
         sts = cpaCyRsaEncrypt(instance_handle, qat_rsaCallbackFn, &op_done,
                               enc_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
@@ -742,6 +745,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         }
     } while (!op_done.flag);
 
+    DUMP_RSA_ENCRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
