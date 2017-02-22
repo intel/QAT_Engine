@@ -327,11 +327,13 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
 
     BN_CTX_start(ctx);
-    if ((p = BN_CTX_get(ctx)) == NULL ||
-        (a = BN_CTX_get(ctx)) == NULL ||
-        (b = BN_CTX_get(ctx)) == NULL ||
-        (xg = BN_CTX_get(ctx)) == NULL ||
-        (yg = BN_CTX_get(ctx)) == NULL) {
+    p = BN_CTX_get(ctx);
+    a = BN_CTX_get(ctx);
+    b = BN_CTX_get(ctx);
+    xg = BN_CTX_get(ctx);
+    yg = BN_CTX_get(ctx);
+
+    if (yg == NULL) {
         WARN("Failed to allocate p, a, b, xg or yg\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -683,10 +685,12 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         goto err;
     }
 
-    if ((x_bn = BN_CTX_get(ctx)) == NULL ||
-        (y_bn = BN_CTX_get(ctx)) == NULL ||
-        (tx_bn = BN_CTX_get(ctx)) == NULL ||
-        (ty_bn = BN_CTX_get(ctx)) == NULL) {
+    x_bn = BN_CTX_get(ctx);
+    y_bn = BN_CTX_get(ctx);
+    tx_bn = BN_CTX_get(ctx);
+    ty_bn = BN_CTX_get(ctx);
+
+    if (ty_bn == NULL) {
         WARN("Failure to allocate ctx x_bn, y_bn, tx_bn or ty_bn\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_MEM_ALLOC_FAILED);
         goto err;
@@ -829,7 +833,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     ECDSA_SIG *ret = NULL;
     BIGNUM *ecdsa_sig_r = NULL, *ecdsa_sig_s = NULL;
     const BIGNUM *priv_key;
-    BIGNUM *p = NULL, *a = NULL, *b = NULL, *k = NULL, *r = NULL;
+    BIGNUM *p = NULL, *a = NULL, *b = NULL, *k = NULL;
     BIGNUM *xg = NULL, *yg = NULL;
     const EC_POINT *pub_key = NULL;
 
@@ -896,16 +900,16 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
 
     BN_CTX_start(ctx);
+    p = BN_CTX_get(ctx);
+    a = BN_CTX_get(ctx);
+    b = BN_CTX_get(ctx);
+    xg = BN_CTX_get(ctx);
+    yg = BN_CTX_get(ctx);
+    m = BN_CTX_get(ctx);
+    k = BN_CTX_get(ctx);
+    order = BN_CTX_get(ctx);
 
-    if ((p = BN_CTX_get(ctx)) == NULL ||
-        (a = BN_CTX_get(ctx)) == NULL ||
-        (b = BN_CTX_get(ctx)) == NULL ||
-        (xg = BN_CTX_get(ctx)) == NULL ||
-        (yg = BN_CTX_get(ctx)) == NULL ||
-        (m = BN_CTX_get(ctx)) == NULL ||
-        (k = BN_CTX_get(ctx)) == NULL ||
-        (r = BN_CTX_get(ctx)) == NULL ||
-        (order = BN_CTX_get(ctx)) == NULL) {
+    if (order == NULL) {
         WARN("Failure to allocate p, a, b, xg, yg, m, k, r or order\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -1276,16 +1280,17 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
 
     BN_CTX_start(ctx);
+    p = BN_CTX_get(ctx);
+    a = BN_CTX_get(ctx);
+    b = BN_CTX_get(ctx);
+    xg = BN_CTX_get(ctx);
+    yg = BN_CTX_get(ctx);
+    xp = BN_CTX_get(ctx);
+    yp = BN_CTX_get(ctx);
+    m = BN_CTX_get(ctx);
+    order = BN_CTX_get(ctx);
 
-    if ((p = BN_CTX_get(ctx)) == NULL ||
-        (a = BN_CTX_get(ctx)) == NULL ||
-        (b = BN_CTX_get(ctx)) == NULL ||
-        (xg = BN_CTX_get(ctx)) == NULL ||
-        (yg = BN_CTX_get(ctx)) == NULL ||
-        (xp = BN_CTX_get(ctx)) == NULL ||
-        (yp = BN_CTX_get(ctx)) == NULL ||
-        (m = BN_CTX_get(ctx)) == NULL ||
-        (order = BN_CTX_get(ctx)) == NULL) {
+    if (order == NULL) {
         WARN("Failure to allocate p, a, b, xg, yg, xp, yp, m or order\n");
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
         goto err;
