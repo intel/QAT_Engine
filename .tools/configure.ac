@@ -169,6 +169,12 @@ AC_ARG_ENABLE(qat_mux,
               , enable_qat_mux=unset)
 AC_SUBST(enable_qat_mux)
 
+AC_ARG_ENABLE(qat_lenstra_protection,
+              AS_HELP_STRING([--disable-qat_lenstra_protection],
+                             [Disable protection against Lenstra attack]),
+              , disable_qat_lenstra_protection=unset)
+AC_SUBST(disable_qat_lenstra_protection)
+
 # ERROR message if mandatory options are not provided
 
 if test "x$with_qat_dir" = "xunset"
@@ -273,6 +279,15 @@ then
 else
   enable_qat_small_pkt_offload=""
   AC_MSG_NOTICE([Not Offloading small packet CIPHERS to Hardware])
+fi
+
+if test "x$disable_qat_lenstra_protection" != "xunset"
+then
+  disable_qat_lenstra_protection="-DOPENSSL_DISABLE_QAT_LENSTRA_PROTECTION"
+  AC_MSG_NOTICE([Lenstra attack protection disabled.])
+else
+  disable_qat_lenstra_protection=""
+  AC_MSG_NOTICE([Lenstra attack protection enabled (default).])
 fi
 
 if test "x$enable_qat_debug" != "xunset"

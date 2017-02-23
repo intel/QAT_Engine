@@ -646,6 +646,7 @@ cflags_enable_upstream_driver
 cflags_cc_opt
 cflags
 includes
+disable_qat_lenstra_protection
 enable_qat_mux
 enable_multi_thread
 with_ld_opt
@@ -810,6 +811,7 @@ with_cc_opt
 with_ld_opt
 enable_multi_thread
 enable_qat_mux
+enable_qat_lenstra_protection
 with_includes
 with_cflags
 with_cflags_cc_opt
@@ -1499,6 +1501,8 @@ Optional Features:
                           Quickassist Technology Driver that supports multiple
                           accelerator hardware versions. Please see the
                           documentation for more details
+  --disable-qat_lenstra_protection
+                          Disable protection against Lenstra attack
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -11622,6 +11626,15 @@ fi
 
 
 
+# Check whether --enable-qat_lenstra_protection was given.
+if test "${enable_qat_lenstra_protection+set}" = set; then :
+  enableval=$enable_qat_lenstra_protection;
+else
+  disable_qat_lenstra_protection=unset
+fi
+
+
+
 # ERROR message if mandatory options are not provided
 
 if test "x$with_qat_dir" = "xunset"
@@ -11742,6 +11755,17 @@ else
   enable_qat_small_pkt_offload=""
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading small packet CIPHERS to Hardware" >&5
 $as_echo "$as_me: Not Offloading small packet CIPHERS to Hardware" >&6;}
+fi
+
+if test "x$disable_qat_lenstra_protection" != "xunset"
+then
+  disable_qat_lenstra_protection="-DOPENSSL_DISABLE_QAT_LENSTRA_PROTECTION"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Lenstra attack protection disabled." >&5
+$as_echo "$as_me: Lenstra attack protection disabled." >&6;}
+else
+  disable_qat_lenstra_protection=""
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Lenstra attack protection enabled (default)." >&5
+$as_echo "$as_me: Lenstra attack protection enabled (default)." >&6;}
 fi
 
 if test "x$enable_qat_debug" != "xunset"

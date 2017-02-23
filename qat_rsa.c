@@ -895,6 +895,12 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1;
+#ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
+    unsigned char *ver_msg = NULL;
+    const BIGNUM *n = NULL;
+    const BIGNUM *e = NULL;
+    const BIGNUM *d = NULL;
+#endif
 
     DEBUG("- Started.\n");
 
@@ -939,14 +945,40 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer, PADDING);
 
+#ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
+    /* Lenstra vulnerability protection: Now call the s/w impl'n of public decrypt in order to
+       verify the sign operation just carried out (cpaCyRsaDecrypt). */
+    RSA_get0_key((const RSA*)rsa, &n, &e, &d);
+
+    /* Note: not checking 'd' as it is not used */
+    if (e != NULL) { /* then a public key exists and we can effect Lenstra attack protection*/
+        ver_msg = OPENSSL_zalloc(flen);
+        if (ver_msg == NULL) {
+            WARN("ver_msg zalloc failed.\n");
+            QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_MALLOC_FAILURE);
+            sts = 0;
+            goto exit_lenstra;
+        }
+        if ((RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
+             (rsa_len, (const unsigned char *)to, ver_msg, rsa, padding) <= 0)
+            || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
+            WARN("- Verify failed - redoing sign operation in s/w\n");
+            OPENSSL_free(ver_msg);
+            return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
+        }
+        OPENSSL_free(ver_msg);
+    }
+#endif
+
     DEBUG("- Finished\n");
     return rsa_len;
 
- exit:
-
+exit:
     /* Free all the memory allocated in this function */
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer, PADDING);
-
+#ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
+exit_lenstra:
+#endif
     /* set output all 0xff if failed */
     if (!sts)
         memset(to, 0xff, rsa_len);
@@ -973,13 +1005,19 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 * description: Perform an RSA private decrypt. (RSA Decrypt)
 ******************************************************************************/
 int qat_rsa_priv_dec(int flen, const unsigned char *from,
-                            unsigned char *to, RSA *rsa, int padding)
+                     unsigned char *to, RSA *rsa, int padding)
 {
     int rsa_len = 0;
     int output_len = 0;
     int sts = 1;
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
+#ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
+    unsigned char *ver_msg = NULL;
+    const BIGNUM *n = NULL;
+    const BIGNUM *e = NULL;
+    const BIGNUM *d = NULL;
+#endif
 
     DEBUG("- Started.\n");
 
@@ -1015,6 +1053,33 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         sts = 0;
         goto exit;
     }
+
+#ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
+    /* Lenstra vulnerability protection: Now call the s/w impl'n of public encrypt in order to
+       verify the decrypt operation just carried out. */
+    RSA_get0_key((const RSA*)rsa, &n, &e, &d);
+
+    /* Note: not checking 'd' as it is not used */
+    if (e != NULL) { /* then a public key exists and we can effect Lenstra attack protection*/
+        ver_msg = OPENSSL_zalloc(flen);
+        if (ver_msg == NULL) {
+            WARN("ver_msg zalloc failed.\n");
+            QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_MALLOC_FAILURE);
+            sts = 0;
+            goto exit;
+        }
+        if ((RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
+             (rsa_len, (const unsigned char *)output_buffer->pData, ver_msg, rsa, RSA_NO_PADDING) <= 0)
+            || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
+            WARN("- Verify of offloaded decrypt operation failed - redoing decrypt operation in s/w\n");
+            OPENSSL_free(ver_msg);
+            rsa_decrypt_op_buf_free(dec_op_data, output_buffer, NO_PADDING);
+            return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
+        }
+        OPENSSL_free(ver_msg);
+    }
+#endif
+
     /* Copy output to output buffer */
     if (qat_remove_pad(to, output_buffer->pData, rsa_len, &output_len,
                        0, padding) != 1) {
@@ -1036,6 +1101,8 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     /* set output all 0xff if failed */
     if (!sts && to)
         memset(to, 0xff, rsa_len);
+
+    /* Return an error */
     return 0;
 }
 
@@ -1060,7 +1127,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
 *   API RSA sign function cpaCyRsaEncrypt().
 ******************************************************************************/
 int qat_rsa_pub_enc(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding)
+                    unsigned char *to, RSA *rsa, int padding)
 {
     int rsa_len = 0;
     CpaCyRsaEncryptOpData *enc_op_data = NULL;

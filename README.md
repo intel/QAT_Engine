@@ -807,6 +807,22 @@ Optional
     using a common driver interface. You should only specify this option if
     using a mixture of hardware (disabled by default).
 
+--disable-qat_lenstra_protection
+    Disable protection against Lenstra attack (CVE-2017-5681) (protection is enabled by default).
+    The RSA-CRT implementation in the Intel&reg; Quickassist Technology OpenSSL\* Engine,
+    for OpenSSL versions prior to v0.5.19, may allow remote attackers to obtain
+    private RSA keys by conducting a Lenstra side-channel attack.  From version v0.5.19
+    onward, protection against this form of attack is effected by performing a Verify/Encrypt
+    operation after the Sign/Decrypt operation, and if a failure is detected then re-running the
+    Sign/Decrypt operation using the CPU.
+    However, future releases of Intel&reg; Quickassist Technology driver code or firmware
+    may effect this protection instead, in which case the Intel&reg; Quickassist Technology OpenSSL\*
+    Engine code-based protection would no longer be required and this configuration option should
+    then be selected.
+    For further information, please visit:-
+    https://security-center.intel.com/advisory.aspx?intelid=INTEL-SA-00071&languageid=en-fr
+    https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5681
+
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at
     compile time.
