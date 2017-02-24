@@ -1595,19 +1595,19 @@ static int bind_qat(ENGINE *e, const char *id)
         goto end;
     }
 
-    pthread_atfork(engine_finish_before_fork_handler, NULL, engine_init_child_at_fork_handler);
-
-    if (!ENGINE_set_destroy_function(e, qat_engine_destroy)
-        || !ENGINE_set_init_function(e, qat_engine_init)
-        || !ENGINE_set_finish_function(e, qat_engine_finish)
-        || !ENGINE_set_ctrl_function(e, qat_engine_ctrl)
-        || !ENGINE_set_cmd_defns(e, qat_cmd_defns)) {
-        WARN("Engine failed to register init, finish or destroy functions\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_REGISTER_FUNC_FAILURE);
-        goto end;
-    }
+    pthread_atfork(engine_finish_before_fork_handler, NULL,
+                   engine_init_child_at_fork_handler);
 
     ret = 1;
+    ret &= ENGINE_set_destroy_function(e, qat_engine_destroy);
+    ret &= ENGINE_set_init_function(e, qat_engine_init);
+    ret &= ENGINE_set_finish_function(e, qat_engine_finish);
+    ret &= ENGINE_set_ctrl_function(e, qat_engine_ctrl);
+    ret &= ENGINE_set_cmd_defns(e, qat_cmd_defns);
+    if (ret == 0) {
+        WARN("Engine failed to register init, finish or destroy functions\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_REGISTER_FUNC_FAILURE);
+    }
 
  end:
     return ret;
