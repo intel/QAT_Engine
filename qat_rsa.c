@@ -109,17 +109,26 @@ static RSA_METHOD *qat_rsa_method = NULL;
 
 RSA_METHOD *qat_get_RSA_methods(void)
 {
+    int res = 1;
+
     if (qat_rsa_method != NULL)
         return qat_rsa_method;
 
 #ifndef OPENSSL_DISABLE_QAT_RSA
-    if ((qat_rsa_method = RSA_meth_new("QAT RSA method", 0)) == NULL
-        || RSA_meth_set_pub_enc(qat_rsa_method, qat_rsa_pub_enc) == 0
-        || RSA_meth_set_pub_dec(qat_rsa_method, qat_rsa_pub_dec) == 0
-        || RSA_meth_set_priv_enc(qat_rsa_method, qat_rsa_priv_enc) == 0
-        || RSA_meth_set_priv_dec(qat_rsa_method, qat_rsa_priv_dec) == 0
-        || RSA_meth_set_mod_exp(qat_rsa_method, qat_rsa_mod_exp) == 0
-        || RSA_meth_set_bn_mod_exp(qat_rsa_method, qat_bn_mod_exp) == 0) {
+    if ((qat_rsa_method = RSA_meth_new("QAT RSA method", 0)) == NULL) {
+        WARN("Failed to allocate QAT RSA methods\n");
+        QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_ALLOC_QAT_RSA_METH_FAILURE);
+        return NULL;
+    }
+
+    res &= RSA_meth_set_pub_enc(qat_rsa_method, qat_rsa_pub_enc);
+    res &= RSA_meth_set_pub_dec(qat_rsa_method, qat_rsa_pub_dec);
+    res &= RSA_meth_set_priv_enc(qat_rsa_method, qat_rsa_priv_enc);
+    res &= RSA_meth_set_priv_dec(qat_rsa_method, qat_rsa_priv_dec);
+    res &= RSA_meth_set_mod_exp(qat_rsa_method, qat_rsa_mod_exp);
+    res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, qat_bn_mod_exp);
+
+    if (res == 0) {
         WARN("Failed to set QAT RSA methods\n");
         QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_SET_QAT_RSA_METH_FAILURE);
         return NULL;

@@ -93,15 +93,24 @@ static DSA_METHOD *qat_dsa_method = NULL;
 
 DSA_METHOD *qat_get_DSA_methods(void)
 {
+    int res = 1;
+
     if (qat_dsa_method != NULL)
         return qat_dsa_method;
 
 #ifndef OPENSSL_DISABLE_QAT_DSA
-    if ((qat_dsa_method = DSA_meth_new("QAT DSA method", 0)) == NULL
-        || DSA_meth_set_sign(qat_dsa_method, qat_dsa_do_sign) == 0
-        || DSA_meth_set_sign_setup(qat_dsa_method, qat_dsa_sign_setup) == 0
-        || DSA_meth_set_verify(qat_dsa_method, qat_dsa_do_verify) == 0
-        || DSA_meth_set_bn_mod_exp(qat_dsa_method, qat_dsa_bn_mod_exp) == 0 ) {
+    if ((qat_dsa_method = DSA_meth_new("QAT DSA method", 0)) == NULL) {
+        WARN("Failed to allocate DSA methods\n");
+        QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_ALLOC_QAT_DSA_METH_FAILURE);
+        return NULL;
+    }
+
+    res &= DSA_meth_set_sign(qat_dsa_method, qat_dsa_do_sign);
+    res &= DSA_meth_set_sign_setup(qat_dsa_method, qat_dsa_sign_setup);
+    res &= DSA_meth_set_verify(qat_dsa_method, qat_dsa_do_verify);
+    res &= DSA_meth_set_bn_mod_exp(qat_dsa_method, qat_dsa_bn_mod_exp);
+
+    if (res == 0) {
         WARN("Failed to set DSA methods\n");
         QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_SET_QAT_DSA_METH_FAILURE);
         return NULL;

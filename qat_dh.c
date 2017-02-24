@@ -91,14 +91,23 @@ static DH_METHOD *qat_dh_method = NULL;
 
 DH_METHOD *qat_get_DH_methods(void)
 {
+    int res = 1;
+
     if (qat_dh_method != NULL)
         return qat_dh_method;
 
 #ifndef OPENSSL_DISABLE_QAT_DH
-    if ((qat_dh_method = DH_meth_new("QAT DH method", 0)) == NULL
-        || DH_meth_set_generate_key(qat_dh_method, qat_dh_generate_key) == 0
-        || DH_meth_set_compute_key(qat_dh_method, qat_dh_compute_key) == 0
-        || DH_meth_set_bn_mod_exp(qat_dh_method, qat_dh_mod_exp) == 0) {
+    if ((qat_dh_method = DH_meth_new("QAT DH method", 0)) == NULL) {
+        WARN("Failure allocating DH methods\n");
+        QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_ALLOC_DH_METH_FAILURE);
+        return NULL;
+    }
+
+    res &= DH_meth_set_generate_key(qat_dh_method, qat_dh_generate_key);
+    res &= DH_meth_set_compute_key(qat_dh_method, qat_dh_compute_key);
+    res &= DH_meth_set_bn_mod_exp(qat_dh_method, qat_dh_mod_exp);
+
+    if (res == 0) {
         WARN("Failure setting DH methods\n");
         QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_SET_DH_METH_FAILURE);
         return NULL;
