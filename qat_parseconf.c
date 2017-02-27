@@ -127,7 +127,6 @@ static int confIsLineASectionName(char *inputStr)
         }
     }
 
-    WARN("Input string does not contain section name\n");
     return 0;
 }
 
@@ -158,7 +157,6 @@ static int confParseSectionName(char *inputStr, char *sectionName)
         return 1;
     }
 
-    WARN("Failed to parse section name\n");
     return 0;
 }
 
@@ -214,17 +212,15 @@ static int confParseParameter(char *inputStr, char *keyName,
     doubleQuoteStrippedKeyValue = confRemoveDoubleQuotes(strippedKeyValue);
 
     if (NULL == strippedKeyName || NULL == doubleQuoteStrippedKeyValue) {
-        WARN("Invalid trippedKeyName\n");
+        WARN("strippedKeyName or doubleQuoteStrippedKeyValue are NULL\n");
         return 0;
     }
 
     if (strncmp(keyName, strippedKeyName, strlen(keyName)) != 0) {
-        WARN("Invalid keyName\n");
         return 0;
     }
 
     if (keyValueSize < strlen(doubleQuoteStrippedKeyValue)) {
-        WARN("Invalid keyValueSize\n");
         return 0;
     }
 
