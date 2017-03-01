@@ -418,10 +418,12 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
         }
     }
     /*
-     * cpaCyRsaDecrypt() is the function called for RSA verify in API, the
-     * DecOpData [IN] contains both private key value and input file (hash)
-     * value, the outputBuffer [OUT] stores the signature as the output
-     * message, the sts value return 0 if successful
+     * cpaCyRsaDecrypt() is the function called for RSA Sign in the API.
+     * For that particular case the dec_op_data [IN] contains both the
+     * private key value and the message (hash) value. The output_buf [OUT]
+     * stores the signature as the output once the request is fully completed.
+     * The sts return value contains 0 (CPA_STATUS_SUCCESS) if the request
+     * was successfully submitted.
      */
     CRYPTO_QAT_LOG("- RSA\n");
     do {
@@ -673,10 +675,12 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         }
     }
     /*
-     * cpaCyRsaEncrypt() is the function called for RSA verify in API, the
-     * DecOpData [IN] contains both private key value and input file (hash)
-     * value, the outputBuffer [OUT] stores the signature as the output
-     * message, the sts value return 0 if successful
+     * cpaCyRsaEncrypt() is the function called for RSA verify in the API.
+     * For that particular case the enc_op_data [IN] contains both the
+     * public key value and the signature value. The output_buf [OUT]
+     * stores the message as the output once the request is fully completed.
+     * The sts return value contains 0 (CPA_STATUS_SUCCESS) if the request
+     * was successfully submitted.
      */
     CRYPTO_QAT_LOG("RSA - %s\n", __func__);
     do {
