@@ -93,7 +93,9 @@ static DSA_METHOD *qat_dsa_method = NULL;
 
 DSA_METHOD *qat_get_DSA_methods(void)
 {
+#ifndef OPENSSL_DISABLE_QAT_DSA
     int res = 1;
+#endif
 
     if (qat_dsa_method != NULL)
         return qat_dsa_method;

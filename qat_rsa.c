@@ -109,7 +109,9 @@ static RSA_METHOD *qat_rsa_method = NULL;
 
 RSA_METHOD *qat_get_RSA_methods(void)
 {
+#ifndef OPENSSL_DISABLE_QAT_RSA
     int res = 1;
+#endif
 
     if (qat_rsa_method != NULL)
         return qat_rsa_method;

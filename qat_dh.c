@@ -91,7 +91,9 @@ static DH_METHOD *qat_dh_method = NULL;
 
 DH_METHOD *qat_get_DH_methods(void)
 {
+#ifndef OPENSSL_DISABLE_QAT_DH
     int res = 1;
+#endif
 
     if (qat_dh_method != NULL)
         return qat_dh_method;

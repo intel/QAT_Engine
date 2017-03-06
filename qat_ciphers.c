@@ -119,6 +119,7 @@
 #endif
 
 #define DEBUG_PPL DEBUG
+#ifndef OPENSSL_DISABLE_QAT_CIPHERS
 static int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
                                     const unsigned char *inkey,
                                     const unsigned char *iv, int enc);
@@ -129,6 +130,7 @@ static int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx,
 static int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                                     void *ptr);
 
+#endif
 typedef struct _chained_info {
     const int nid;
     EVP_CIPHER *cipher;
