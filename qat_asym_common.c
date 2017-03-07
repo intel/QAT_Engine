@@ -199,8 +199,6 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
                 if ((qat_wake_job(job, 0) == 0) ||
                     (qat_pause_job(job, 0) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
-                    QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_WAKE_PAUSE_JOB_FAIL);
-                    status = CPA_STATUS_FAIL;
                     break;
                 }
             }

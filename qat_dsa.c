@@ -432,7 +432,6 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
                         WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
@@ -440,8 +439,6 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
-                    QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-                    status = CPA_STATUS_FAIL;
                     break;
                 }
             }
@@ -722,7 +719,6 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
                         WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
@@ -730,8 +726,6 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
-                    QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-                    status = CPA_STATUS_FAIL;
                     break;
                 }
             }

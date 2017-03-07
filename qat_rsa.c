@@ -449,7 +449,6 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
                         WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-						QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
@@ -457,8 +456,6 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
-                    QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-                    sts = CPA_STATUS_FAIL;
                     break;
                 }
             }
@@ -707,16 +704,13 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
                         WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                        QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
                         break;
                     }
                 }
             } else {
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
-                    sts = CPA_STATUS_FAIL;
                     WARN("qat_wake_job or qat_pause_job failed\n");
-                    QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
                     break;
                 }
             }

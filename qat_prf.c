@@ -650,7 +650,6 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                 if ((qat_wake_job(op_done.job, 0) == 0) ||
                     (qat_pause_job(op_done.job, 0) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
-                    status = CPA_STATUS_FAIL;
                     break;
                 }
             }
