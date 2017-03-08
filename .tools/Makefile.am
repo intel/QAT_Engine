@@ -48,10 +48,11 @@ INCLUDES = $(includes) $(include_enable_usdm) $(includes_driver) \
 
 CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
 		$(cflags_qat_contig_mem) $(cflags_enable_multi_thread) \
-		$(cflags_enable_usdm) $(cflags_mux) $(disable_qat_rsa) \
-		$(disable_qat_ciphers) $(disable_qat_ecdh) $(disable_qat_ecdsa) \
-		$(disable_qat_dsa) $(disable_qat_dh) $(disable_qat_prf) \
-		$(enable_qat_small_pkt_offload) $(disable_qat_lenstra_protection) \
+		$(cflags_enable_usdm) $(cflags_mux) $(enable_qat_rsa) \
+		$(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
+		$(enable_qat_dsa) $(enable_qat_dh) $(enable_qat_prf) \
+		$(enable_qat_small_pkt_offload) \
+		$(enable_qat_lenstra_protection) \
 		$(enable_qat_debug) $(enable_qat_warnings) \
 		$(enable_qat_mem_debug) $(enable_qat_mem_warnings)
 

@@ -646,7 +646,7 @@ cflags_enable_upstream_driver
 cflags_cc_opt
 cflags
 includes
-disable_qat_lenstra_protection
+enable_qat_lenstra_protection
 enable_qat_mux
 enable_multi_thread
 with_ld_opt
@@ -663,13 +663,13 @@ enable_qat_mem_debug
 enable_qat_warnings
 enable_qat_debug
 enable_qat_small_pkt_offload
-disable_qat_prf
-disable_qat_dh
-disable_qat_dsa
-disable_qat_ecdsa
-disable_qat_ecdh
-disable_qat_ciphers
-disable_qat_rsa
+enable_qat_prf
+enable_qat_dh
+enable_qat_dsa
+enable_qat_ecdsa
+enable_qat_ecdh
+enable_qat_ciphers
+enable_qat_rsa
 CPP
 OTOOL64
 OTOOL
@@ -11400,8 +11400,6 @@ fi
 # Check whether --enable-qat_rsa was given.
 if test "${enable_qat_rsa+set}" = set; then :
   enableval=$enable_qat_rsa;
-else
-  disable_qat_rsa=unset
 fi
 
 
@@ -11410,8 +11408,6 @@ fi
 # Check whether --enable-qat_ciphers was given.
 if test "${enable_qat_ciphers+set}" = set; then :
   enableval=$enable_qat_ciphers;
-else
-  disable_qat_ciphers=unset
 fi
 
 
@@ -11420,8 +11416,6 @@ fi
 # Check whether --enable-qat_ecdh was given.
 if test "${enable_qat_ecdh+set}" = set; then :
   enableval=$enable_qat_ecdh;
-else
-  disable_qat_ecdh=unset
 fi
 
 
@@ -11430,8 +11424,6 @@ fi
 # Check whether --enable-qat_ecdsa was given.
 if test "${enable_qat_ecdsa+set}" = set; then :
   enableval=$enable_qat_ecdsa;
-else
-  disable_qat_ecdsa=unset
 fi
 
 
@@ -11440,8 +11432,6 @@ fi
 # Check whether --enable-qat_dsa was given.
 if test "${enable_qat_dsa+set}" = set; then :
   enableval=$enable_qat_dsa;
-else
-  disable_qat_dsa=unset
 fi
 
 
@@ -11450,8 +11440,6 @@ fi
 # Check whether --enable-qat_dh was given.
 if test "${enable_qat_dh+set}" = set; then :
   enableval=$enable_qat_dh;
-else
-  disable_qat_dh=unset
 fi
 
 
@@ -11460,8 +11448,6 @@ fi
 # Check whether --enable-qat_prf was given.
 if test "${enable_qat_prf+set}" = set; then :
   enableval=$enable_qat_prf;
-else
-  disable_qat_prf=unset
 fi
 
 
@@ -11469,8 +11455,6 @@ fi
 # Check whether --enable-qat_small_pkt_offload was given.
 if test "${enable_qat_small_pkt_offload+set}" = set; then :
   enableval=$enable_qat_small_pkt_offload;
-else
-  enable_qat_small_pkt_offload=unset
 fi
 
 
@@ -11480,8 +11464,6 @@ fi
 # Check whether --enable-qat_debug was given.
 if test "${enable_qat_debug+set}" = set; then :
   enableval=$enable_qat_debug;
-else
-  enable_qat_debug=unset
 fi
 
 
@@ -11490,8 +11472,6 @@ fi
 # Check whether --enable-qat_warnings was given.
 if test "${enable_qat_warnings+set}" = set; then :
   enableval=$enable_qat_warnings;
-else
-  enable_qat_warnings=unset
 fi
 
 
@@ -11499,8 +11479,6 @@ fi
 # Check whether --enable-qat_mem_debug was given.
 if test "${enable_qat_mem_debug+set}" = set; then :
   enableval=$enable_qat_mem_debug;
-else
-  enable_qat_mem_debug=unset
 fi
 
 
@@ -11508,8 +11486,6 @@ fi
 # Check whether --enable-qat_mem_warnings was given.
 if test "${enable_qat_mem_warnings+set}" = set; then :
   enableval=$enable_qat_mem_warnings;
-else
-  enable_qat_mem_warnings=unset
 fi
 
 
@@ -11520,8 +11496,6 @@ fi
 # Check whether --with-qat_dir was given.
 if test "${with_qat_dir+set}" = set; then :
   withval=$with_qat_dir;
-else
-  with_qat_dir=unset
 fi
 
 
@@ -11531,8 +11505,6 @@ fi
 # Check whether --with-openssl_dir was given.
 if test "${with_openssl_dir+set}" = set; then :
   withval=$with_openssl_dir;
-else
-  with_openssl_dir=unset
 fi
 
 
@@ -11542,8 +11514,6 @@ fi
 # Check whether --with-openssl_install_dir was given.
 if test "${with_openssl_install_dir+set}" = set; then :
   withval=$with_openssl_install_dir;
-else
-  with_openssl_install_dir=unset
 fi
 
 
@@ -11554,8 +11524,6 @@ fi
 # Check whether --with-qat_install_dir was given.
 if test "${with_qat_install_dir+set}" = set; then :
   withval=$with_qat_install_dir;
-else
-  with_qat_install_dir=unset
 fi
 
 
@@ -11563,8 +11531,6 @@ fi
 # Check whether --enable-upstream_driver was given.
 if test "${enable_upstream_driver+set}" = set; then :
   enableval=$enable_upstream_driver;
-else
-  enable_upstream_driver=unset
 fi
 
 
@@ -11572,8 +11538,6 @@ fi
 # Check whether --enable-usdm was given.
 if test "${enable_usdm+set}" = set; then :
   enableval=$enable_usdm;
-else
-  enable_usdm=unset
 fi
 
 
@@ -11582,8 +11546,6 @@ fi
 # Check whether --with-usdm_dir was given.
 if test "${with_usdm_dir+set}" = set; then :
   withval=$with_usdm_dir;
-else
-  with_usdm_dir=unset
 fi
 
 
@@ -11592,8 +11554,6 @@ fi
 # Check whether --with-cc_opt was given.
 if test "${with_cc_opt+set}" = set; then :
   withval=$with_cc_opt;
-else
-  with_cc_opt=unset
 fi
 
 
@@ -11602,8 +11562,6 @@ fi
 # Check whether --with-ld_opt was given.
 if test "${with_ld_opt+set}" = set; then :
   withval=$with_ld_opt;
-else
-  with_ld_opt=unset
 fi
 
 
@@ -11611,8 +11569,6 @@ fi
 # Check whether --enable-multi_thread was given.
 if test "${enable_multi_thread+set}" = set; then :
   enableval=$enable_multi_thread;
-else
-  enable_multi_thread=unset
 fi
 
 
@@ -11620,8 +11576,6 @@ fi
 # Check whether --enable-qat_mux was given.
 if test "${enable_qat_mux+set}" = set; then :
   enableval=$enable_qat_mux;
-else
-  enable_qat_mux=unset
 fi
 
 
@@ -11629,27 +11583,37 @@ fi
 # Check whether --enable-qat_lenstra_protection was given.
 if test "${enable_qat_lenstra_protection+set}" = set; then :
   enableval=$enable_qat_lenstra_protection;
-else
-  disable_qat_lenstra_protection=unset
 fi
 
 
 
 # ERROR message if mandatory options are not provided
 
-if test "x$with_qat_dir" = "xunset"
+if test "x$with_qat_dir" = "x"
 then
   as_fn_error $? "--with-qat_dir is not set, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver" "$LINENO" 5
+else if test "x$with_qat_dir" = "xno"
+then
+  as_fn_error $? "--without-qat_dir is invalid, set using --with-qat_dir to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver" "$LINENO" 5
+fi
 fi
 
-if test "x$with_openssl_dir" = "xunset"
+if test "x$with_openssl_dir" = "x"
 then
   as_fn_error $? "--with-openssl_dir is not set, set it to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl" "$LINENO" 5
+else if test "x$with_openssl_dir" = "xno"
+then
+  as_fn_error $? "--without-openssl_dir is invalid, set using --with-openssl_dir to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl" "$LINENO" 5
+fi
 fi
 
-if test "x$with_openssl_install_dir" = "xunset"
+if test "x$with_openssl_install_dir" = "x"
 then
   as_fn_error $? "--with-openssl_install_dir is not set, set it to the path to where the OpenSSL libraries are installed. e.g: --with-openssl_install_dir=/path/to/openssl_install" "$LINENO" 5
+else if test "x$with_openssl_install_dir" = "xno"
+then
+  as_fn_error $? "--without-openssl_install_dir is invalid, set using --with-openssl_install_dir to the path to where the OpenSSL libraries are installed. e.g: --with-openssl_install_dir=/path/to/openssl_install" "$LINENO" 5
+fi
 fi
 
 ac_default_prefix=$with_openssl_install_dir
@@ -11657,96 +11621,96 @@ ac_default_prefix=$with_openssl_install_dir
 
 # Default non mandatory paths if not provided
 
-if test "x$with_qat_install_dir" = "xunset"
+if test "x$with_qat_install_dir" = "x"
 then
   with_qat_install_dir="\$(with_qat_dir)/build"
 fi
 
-if test "x$with_usdm_dir" = "xunset"
+if test "x$with_usdm_dir" = "x"
 then
   with_usdm_dir="\$(with_qat_dir)/quickassist/utilities/libusdm_drv"
 fi
 
 # Checking the parameters given and parsing the relevant flags
 
-if test "x$disable_qat_rsa" = "xunset"
+if test "x$enable_qat_rsa" != "xno"
 then
-  disable_qat_rsa="-DOPENSSL_ENABLE_QAT_RSA"
+  enable_qat_rsa="-DOPENSSL_ENABLE_QAT_RSA"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading RSA to Hardware" >&5
 $as_echo "$as_me: Offloading RSA to Hardware" >&6;}
 else
-  disable_qat_rsa="-DOPENSSL_DISABLE_QAT_RSA"
+  enable_qat_rsa="-DOPENSSL_DISABLE_QAT_RSA"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading RSA to Hardware" >&5
 $as_echo "$as_me: Not Offloading RSA to Hardware" >&6;}
 fi
 
-if test "x$disable_qat_ciphers" = "xunset"
+if test "x$enable_qat_ciphers" != "xno"
 then
-  disable_qat_ciphers="-DOPENSSL_ENABLE_QAT_CIPHERS"
+  enable_qat_ciphers="-DOPENSSL_ENABLE_QAT_CIPHERS"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading CIPHERS to Hardware" >&5
 $as_echo "$as_me: Offloading CIPHERS to Hardware" >&6;}
 else
-  disable_qat_ciphers="-DOPENSSL_DISABLE_QAT_CIPHERS"
+  enable_qat_ciphers="-DOPENSSL_DISABLE_QAT_CIPHERS"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading CIPHERS to Hardware" >&5
 $as_echo "$as_me: Not Offloading CIPHERS to Hardware" >&6;}
 fi
 
-if test "x$disable_qat_ecdh" = "xunset"
+if test "x$enable_qat_ecdh" != "xno"
 then
-  disable_qat_ecdh="-DOPENSSL_ENABLE_QAT_ECDH"
+  enable_qat_ecdh="-DOPENSSL_ENABLE_QAT_ECDH"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading ECDH to Hardware" >&5
 $as_echo "$as_me: Offloading ECDH to Hardware" >&6;}
 else
-  disable_qat_ecdh="-DOPENSSL_DISABLE_QAT_ECDH"
+  enable_qat_ecdh="-DOPENSSL_DISABLE_QAT_ECDH"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading ECDH to Hardware" >&5
 $as_echo "$as_me: Not Offloading ECDH to Hardware" >&6;}
 fi
 
-if test "x$disable_qat_ecdsa" = "xunset"
+if test "x$enable_qat_ecdsa" != "xno"
 then
-  disable_qat_ecdsa="-DOPENSSL_ENABLE_QAT_ECDSA"
+  enable_qat_ecdsa="-DOPENSSL_ENABLE_QAT_ECDSA"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading ECDSA to Hardware" >&5
 $as_echo "$as_me: Offloading ECDSA to Hardware" >&6;}
 else
-  disable_qat_ecdsa="-DOPENSSL_DISABLE_QAT_ECDSA"
+  enable_qat_ecdsa="-DOPENSSL_DISABLE_QAT_ECDSA"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading ECDSA to Hardware" >&5
 $as_echo "$as_me: Not Offloading ECDSA to Hardware" >&6;}
 fi
 
-if test "x$disable_qat_dsa" = "xunset"
+if test "x$enable_qat_dsa" != "xno"
 then
-  disable_qat_dsa="-DOPENSSL_ENABLE_QAT_DSA"
+  enable_qat_dsa="-DOPENSSL_ENABLE_QAT_DSA"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading DSA to Hardware" >&5
 $as_echo "$as_me: Offloading DSA to Hardware" >&6;}
 else
-  disable_qat_dsa="-DOPENSSL_DISABLE_QAT_DSA"
+  enable_qat_dsa="-DOPENSSL_DISABLE_QAT_DSA"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading DSA to Hardware" >&5
 $as_echo "$as_me: Not Offloading DSA to Hardware" >&6;}
 fi
 
-if test "x$disable_qat_dh" = "xunset"
+if test "x$enable_qat_dh" != "xno"
 then
-  disable_qat_dh="-DOPENSSL_ENABLE_QAT_DH"
+  enable_qat_dh="-DOPENSSL_ENABLE_QAT_DH"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading DH to Hardware" >&5
 $as_echo "$as_me: Offloading DH to Hardware" >&6;}
 else
-  disable_qat_dh="-DOPENSSL_DISABLE_QAT_DH"
+  enable_qat_dh="-DOPENSSL_DISABLE_QAT_DH"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading DH to Hardware" >&5
 $as_echo "$as_me: Not Offloading DH to Hardware" >&6;}
 fi
 
-if test "x$disable_qat_prf" = "xunset"
+if test "x$enable_qat_prf" != "xno"
 then
-  disable_qat_prf="-DOPENSSL_ENABLE_QAT_PRF"
+  enable_qat_prf="-DOPENSSL_ENABLE_QAT_PRF"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading PRF to Hardware" >&5
 $as_echo "$as_me: Offloading PRF to Hardware" >&6;}
 else
-  disable_qat_prf="-DOPENSSL_DISABLE_QAT_PRF"
+  enable_qat_prf="-DOPENSSL_DISABLE_QAT_PRF"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Not Offloading PRF to Hardware" >&5
 $as_echo "$as_me: Not Offloading PRF to Hardware" >&6;}
 fi
 
-if test "x$enable_qat_small_pkt_offload" != "xunset"
+if test "x$enable_qat_small_pkt_offload" = "xyes"
 then
   enable_qat_small_pkt_offload="-DOPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Offloading small packet CIPHERS to Hardware" >&5
@@ -11757,18 +11721,18 @@ else
 $as_echo "$as_me: Not Offloading small packet CIPHERS to Hardware" >&6;}
 fi
 
-if test "x$disable_qat_lenstra_protection" != "xunset"
+if test "x$enable_qat_lenstra_protection" = "xno"
 then
-  disable_qat_lenstra_protection="-DOPENSSL_DISABLE_QAT_LENSTRA_PROTECTION"
+  enable_qat_lenstra_protection="-DOPENSSL_DISABLE_QAT_LENSTRA_PROTECTION"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Lenstra attack protection disabled." >&5
 $as_echo "$as_me: Lenstra attack protection disabled." >&6;}
 else
-  disable_qat_lenstra_protection=""
+  enable_qat_lenstra_protection=""
   { $as_echo "$as_me:${as_lineno-$LINENO}: Lenstra attack protection enabled (default)." >&5
 $as_echo "$as_me: Lenstra attack protection enabled (default)." >&6;}
 fi
 
-if test "x$enable_qat_debug" != "xunset"
+if test "x$enable_qat_debug" = "xyes"
 then
   enable_qat_debug="-DQAT_DEBUG"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Engine Debug Messages" >&5
@@ -11779,7 +11743,7 @@ else
 $as_echo "$as_me: Disabling Engine Debug Messages" >&6;}
 fi
 
-if test "x$enable_qat_warnings" != "xunset"
+if test "x$enable_qat_warnings" = "xyes"
 then
   enable_qat_warnings="-DQAT_WARN"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Engine Warning Messages" >&5
@@ -11790,7 +11754,7 @@ else
 $as_echo "$as_me: Disabling Engine Warning Messages" >&6;}
 fi
 
-if test "x$enable_qat_mem_debug" != "xunset"
+if test "x$enable_qat_mem_debug" = "xyes"
 then
   enable_qat_mem_debug="-DQAT_MEM_DEBUG"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Memory Driver Debug Messages" >&5
@@ -11801,7 +11765,7 @@ else
 $as_echo "$as_me: Disabling Memory Driver Debug Messages" >&6;}
 fi
 
-if test "x$enable_qat_mem_warnings" != "xunset"
+if test "x$enable_qat_mem_warnings" = "xyes"
 then
   enable_qat_mem_warnings="-DQAT_MEM_WARN"
   { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling Memory Driver Warning Messages" >&5
@@ -11834,7 +11798,7 @@ fi
 
 
 
-if test "x$with_cc_opt" != "xunset"
+if test "x$with_cc_opt" != "x"
 then
 
 # Check whether --with-cflags_cc_opt was given.
@@ -11847,7 +11811,7 @@ fi
 
 fi
 
-if test "x$enable_upstream_driver" != "xunset"
+if test "x$enable_upstream_driver" = "xyes"
 then
 
 # Check whether --with-cflags_enable_upstream_driver was given.
@@ -11862,7 +11826,7 @@ fi
 $as_echo "$as_me: Enabling build for Upstream Driver" >&6;}
 fi
 
-if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" = "xunset"
+if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"
 then
   { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling for QAT_CONTIG_MEMORY" >&5
 $as_echo "$as_me: Compiling for QAT_CONTIG_MEMORY" >&6;}
@@ -11875,7 +11839,7 @@ else
 fi
 
 
-else if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" != "xunset"
+else if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" = "xyes"
 then
   { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling for MULTI_THREAD" >&5
 $as_echo "$as_me: Compiling for MULTI_THREAD" >&6;}
@@ -11888,7 +11852,7 @@ else
 fi
 
 
-else if test "x$enable_usdm" != "xunset"
+else if test "x$enable_usdm" = "xyes"
 then
   { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling for USDM" >&5
 $as_echo "$as_me: Compiling for USDM" >&6;}
@@ -11914,7 +11878,7 @@ fi
 fi
 fi
 
- if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" = "xunset"; then
+ if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"; then
   QAT_CONTIG_MEM_TRUE=
   QAT_CONTIG_MEM_FALSE='#'
 else
@@ -11922,7 +11886,7 @@ else
   QAT_CONTIG_MEM_FALSE=
 fi
 
- if test "x$enable_usdm" = "xunset" -a "x$enable_multi_thread" != "xunset"; then
+ if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" = "xyes"; then
   QAT_MULTI_THREAD_TRUE=
   QAT_MULTI_THREAD_FALSE='#'
 else
@@ -11930,7 +11894,7 @@ else
   QAT_MULTI_THREAD_FALSE=
 fi
 
- if test "x$enable_usdm" != "xunset"; then
+ if test "x$enable_usdm" = "xyes"; then
   QAE_MEM_TRUE=
   QAE_MEM_FALSE='#'
 else
@@ -11991,7 +11955,7 @@ fi
 
 
 
-if test "x$enable_qat_mux" != "xunset"
+if test "x$enable_qat_mux" = "xyes"
 then
 
 # Check whether --with-DRIVER was given.
@@ -12002,7 +11966,7 @@ else
 fi
 
 
-else if test "x$enable_upstream_driver" != "xunset"
+else if test "x$enable_upstream_driver" = "xyes"
 then
 
 # Check whether --with-DRIVER was given.
@@ -12016,7 +11980,7 @@ fi
 fi
 fi
 
-if test "x$enable_qat_mux" != "xunset"
+if test "x$enable_qat_mux" = "xyes"
 then
 
 # Check whether --with-ICP_MUX_DIR was given.
@@ -12056,7 +12020,7 @@ fi
 
 fi
 
-if test "x$with_ld_opt" != "xunset"
+if test "x$with_ld_opt" != "x"
 then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_LD was given.
@@ -12069,7 +12033,7 @@ fi
 
 fi
 
-if test "x$with_qat_install_dir" != "xunset"
+if test "x$with_qat_install_dir" != "x"
 then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_DRIVER was given.
@@ -12082,7 +12046,7 @@ fi
 
 fi
 
-if test "x$enable_usdm" != "xunset" -a "x$enable_multi_thread" = "xunset" -a "x$enable_upstream_driver" = "xunset"
+if test "x$enable_usdm" = "xyes" -a "x$enable_multi_thread" != "xyes" -a "$enable_upstream_driver" != "xyes"
 then
 
 # Check whether --with-QAT_SHARED_LIB_DEPS_QAE_MEM was given.
