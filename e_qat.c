@@ -591,35 +591,33 @@ int qat_setup_async_event_notification(int notificationNo)
     ASYNC_WAIT_CTX *waitctx;
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
-    int ret = 0;
 
     if ((job = ASYNC_get_current_job()) == NULL) {
         WARN("Could not obtain current job\n");
-        return ret;
+        return 0;
     }
 
     if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
         WARN("Could not obtain wait context for job\n");
-        return ret;
+        return 0;
     }
 
     if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
-                              &custom)) {
-        ret = 1;
-    } else {
+                              &custom) == 0) {
         efd = eventfd(0, 0);
         if (efd == -1) {
             WARN("Failed to get eventfd = %d\n", errno);
-            return ret;
+            return 0;
         }
 
-        if ((ret = ASYNC_WAIT_CTX_set_wait_fd(waitctx, engine_qat_id, efd,
-                                       custom, qat_fd_cleanup)) == 0) {
+        if (ASYNC_WAIT_CTX_set_wait_fd(waitctx, engine_qat_id, efd,
+                                       custom, qat_fd_cleanup) == 0) {
             WARN("failed to set the fd in the ASYNC_WAIT_CTX\n");
             qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
+            return 0;
         }
     }
-    return ret;
+    return 1;
 }
 
 int qat_clear_async_event_notification() {
@@ -627,31 +625,45 @@ int qat_clear_async_event_notification() {
     ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
     OSSL_ASYNC_FD efd;
-    int ret = 0;
+    size_t num_add_fds = 0;
+    size_t num_del_fds = 0;
     void *custom = NULL;
 
     if ((job = ASYNC_get_current_job()) == NULL) {
         WARN("Could not obtain current job\n");
-        return ret;
+        return 0;
     }
 
     if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
         WARN("Could not obtain wait context for job\n");
-        return ret;
+        return 0;
     }
 
-    if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd, &custom)) == 0) {
-        WARN("Failure in ASYNC_WAIT_CTX_get_fd\n");
-        return ret;
+    if (ASYNC_WAIT_CTX_get_changed_fds(waitctx, NULL, &num_add_fds, NULL,
+                                       &num_del_fds) == 0) {
+        WARN("Failure in ASYNC_WAIT_CTX_get_changed_async_fds\n");
+        return 0;
     }
 
-    qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
+    if (num_add_fds > 0) {
+        /* Only close the fd and remove it from the ASYNC_WAIT_CTX
+           if it is a new fd. If it is an existing fd then leave it
+           open and in the ASYNC_WAIT_CTX and it will be cleaned up
+           when the ASYNC_WAIT_CTX is cleaned up.*/
+        if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd, &custom) == 0) {
+            WARN("Failure in ASYNC_WAIT_CTX_get_fd\n");
+            return 0;
+        }
 
-    if ((ret = ASYNC_WAIT_CTX_clear_fd(waitctx, engine_qat_id)) == 0) {
-        WARN("Failure in ASYNC_WAIT_CTX_clear_fd\n");
+        qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
+
+        if (ASYNC_WAIT_CTX_clear_fd(waitctx, engine_qat_id) == 0) {
+            WARN("Failure in ASYNC_WAIT_CTX_clear_fd\n");
+            return 0;
+        }
     }
 
-    return ret;
+    return 1;
 }
 
 int qat_pause_job(ASYNC_JOB *job, int notificationNo)
