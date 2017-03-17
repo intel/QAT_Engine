@@ -251,8 +251,11 @@ CpaInstanceHandle get_next_inst(void)
     if(!qat_engine_init(e)){
         WARN("Failure in qat_engine_init function\n");
         instance_handle = NULL;
+        ENGINE_free(e);
         return instance_handle;
     }
+
+    ENGINE_free(e);
 
     /* Anytime we use external polling then we want to loop
        through the instances. Any time we are using internal polling
@@ -294,6 +297,7 @@ static void engine_init_child_at_fork_handler(void)
         WARN("Failure in qat_engine_init function\n");
         QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
     }
+    ENGINE_free(e);
 }
 
 
@@ -316,6 +320,7 @@ static void engine_finish_before_fork_handler(void)
     }
 
     qat_engine_finish_int(e, QAT_RETAIN_GLOBALS);
+    ENGINE_free(e);
 
     keep_polling = 1;
 }
