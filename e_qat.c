@@ -977,7 +977,6 @@ static int qat_engine_init(ENGINE *e)
     if (!checkLimitDevAccessValue((int *)&limitDevAccess,
                                     ICPConfigSectionName_libcrypto)) {
         WARN("Could not load driver config file. Assuming LimitDevAccess = 0\n");
-        QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_LOAD_CONFIG_FILE_FAILURE);
     }
 #endif
 
