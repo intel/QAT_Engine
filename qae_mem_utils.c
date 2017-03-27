@@ -88,18 +88,25 @@ static pthread_mutex_t crypto_bsal = PTHREAD_MUTEX_INITIALIZER;
 
 /*
  * We allocate memory in slabs consisting of a number of slots to avoid
- * fragmentation and also to reduce cost of allocation There are six
- * predefined slot sizes: 256 bytes, 1024 bytes, 4096 bytes, 8192 bytes,
- * 16384 bytes and 32768 bytes.  Slabs are 128KB in size.  This implies
- * the most slots that a slab can hold is 128KB/256 = 512.  The first slot
- * is used for meta info, so actual is 511.
+ * fragmentation and also to reduce cost of allocation There are nine
+ * predefined slot sizes: 128 bytes, 256 bytes, 512 bytes, 1024 bytes,
+ * 2048 bytes, 4096 bytes, 8192 bytes, 16384 bytes and 32768 bytes.
+ * Slabs are 128KB in size.  Each slot has an overhead of a qae_slot 
+ * structure plus QAE_BYTE_ALIGNMENT bytes. The slab also has an
+ * overhead of a qae_slab structure plus QAE_BYTE_ALIGNMENT bytes
+ * so the full 128KB is not available for allocation or splitting into
+ * slots. For allocations bigger than 32KB but less than MAX_ALLOC
+ * we do not split the slab into slots but just allocate the whole slab.
  */
 #define SLAB_SIZE          0x20000
 
 /* Slot sizes */
-#define NUM_SLOT_SIZE      7
+#define NUM_SLOT_SIZE      10
+#define SLOT_128_BYTES     0x0080
 #define SLOT_256_BYTES     0x0100
+#define SLOT_512_BYTES     0x0200
 #define SLOT_1_KILOBYTES   0x0400
+#define SLOT_2_KILOBYTES   0x0800
 #define SLOT_4_KILOBYTES   0x1000
 #define SLOT_8_KILOBYTES   0x2000
 #define SLOT_16_KILOBYTES  0x4000
@@ -118,15 +125,6 @@ static pthread_mutex_t crypto_bsal = PTHREAD_MUTEX_INITIALIZER;
 #define IN_EMPTY_LIST      0
 #define IN_AVAILABLE_LIST  1
 #define IN_FULL_LIST       2
-
-static int slot_sizes_available[] = {
-    SLOT_256_BYTES,
-    SLOT_1_KILOBYTES,
-    SLOT_4_KILOBYTES,
-    SLOT_8_KILOBYTES,
-    SLOT_16_KILOBYTES,
-    SLOT_32_KILOBYTES
-};
 
 typedef struct _qae_slot {
     struct _qae_slot *next;
@@ -157,6 +155,18 @@ typedef struct _qae_slab {
     /* indicate which process alloc this slab */
     pid_t pid;
 } qae_slab;
+
+static int slot_sizes_available[] = {
+    SLOT_128_BYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_256_BYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_512_BYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_1_KILOBYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_2_KILOBYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_4_KILOBYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_8_KILOBYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_16_KILOBYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot),
+    SLOT_32_KILOBYTES + QAE_BYTE_ALIGNMENT + sizeof(qae_slot)
+};
 
 /* head of a cyclic doubly linked list, reused qae_slab data structure */
 typedef qae_slab qae_slab_pool;
@@ -362,7 +372,7 @@ static qae_slab *crypto_create_slab(int size, int pool_index)
         goto exit;
     }
 #endif
-    MEM_DEBUG("slot size %d\n", size);
+    MEM_DEBUG("Splitting slab into slot size %d\n", size);
     slb->slot_size = size;
     slb->next_slot = NULL;
     slb->sig = SIG_ALLOC;
@@ -392,7 +402,7 @@ static qae_slab *crypto_create_slab(int size, int pool_index)
      */
 
     result = slb;
-    MEM_DEBUG("slab %p last slot is %p, count is %d\n", slb, slt,
+    MEM_DEBUG("slab %p slotsize is %d last slot is %p, count is %d\n", slb, size, slt,
           nslot);
  exit:
     return result;
@@ -444,17 +454,15 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
     void *result = NULL;
     int rc;
     int i;
+    int internal_size = size + QAE_BYTE_ALIGNMENT + sizeof(qae_slot);
 
     if (!crypto_inited)
         crypto_init();
 
-    size += sizeof(qae_slot);
-    size += QAE_BYTE_ALIGNMENT;
-
     slot_size = SLOT_DEFAULT_INIT;
 
     for (i = 0; i < sizeof(slot_sizes_available) / sizeof(int); i++) {
-        if (size < slot_sizes_available[i]) {
+        if (internal_size <= slot_sizes_available[i]) {
             slot_size = slot_sizes_available[i];
             break;
         }
@@ -694,6 +702,7 @@ void fork_slab_list(qae_slab_pool * list)
         MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
         return;
     }
+    MEM_DEBUG("fork_slab_list.\n");
     MEM_DEBUG("pthread_mutex_lock\n");
     qae_slab *old_slb = list->next;
     qae_slab *new_slb = NULL;
@@ -912,6 +921,7 @@ static void crypto_init(void)
  *****************************************************************************/
 void qaeCryptoAtFork()
 {
+    MEM_DEBUG("qaeCryptoAtFork.\n");
     int i;
     fork_slab_list(&full_slab_list);
     for(i = 0;i < NUM_SLOT_SIZE; i++) {
