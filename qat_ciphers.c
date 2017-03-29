@@ -1143,15 +1143,17 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             SET_TLS_PAYLOAD_LEN(tls_hdr, 0);
             plen = len;
             if (!enc) {
-                /* When decrypting donot verify computed digest
+                /* When decrypting, do not verify computed digest
                  * to stored digest as there is none in this case.
                  */
                 qctx->session_data->verifyDigest = CPA_FALSE;
             }
             /* Find the extra length for qat buffers to store the HMAC and
              * padding which is later discarded when the result is copied out.
+             * Note: AES_BLOCK_SIZE must be a power of 2 for this algorithm to
+             * work correctly.
              */
-            discardlen = ((len + dlen + AES_BLOCK_SIZE) & -AES_BLOCK_SIZE)
+            discardlen = ((len + dlen + AES_BLOCK_SIZE - 1) & ~(AES_BLOCK_SIZE - 1))
                 - len;
             /* Pump-up the len by this amount */
             len += discardlen;
