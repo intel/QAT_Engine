@@ -77,11 +77,14 @@
 # endif
 #endif
 
-/* MAXBUF must be multiple of 64 to maintain the userLabel
- * aligned to 64B. See comment in QAT_TLS1_PRF_CTX
+/* These limits are based on QuickAssist limits.
+ * OpenSSL is more generous but better to restrict and fail
+ * early on here if they are exceeded rather than later on
+ * down in the driver.
  */
-#define QAT_TLS1_PRF_MAXBUF 1024
-#define QAT_TLS1_PRF_SEED1_MAXBUF 256
+#define QAT_TLS1_PRF_SECRET_MAXBUF 512
+#define QAT_TLS1_PRF_SEED_MAXBUF 64
+#define QAT_TLS1_PRF_LABEL_MAXBUF 136
 
 /* PRF nid */
 int qat_prf_nids[] = {
@@ -91,12 +94,10 @@ int qat_prf_nids[] = {
 #ifndef OPENSSL_DISABLE_QAT_PRF
 /* QAT TLS  pkey context structure */
 typedef struct {
-    /* Buffer of concatenated seeds from seed2 to seed5 data
-     * IMPORTANT: leave the buffers at the beginning of struct
-     */
-    unsigned char seed[QAT_TLS1_PRF_MAXBUF];
-    unsigned char userLabel[QAT_TLS1_PRF_SEED1_MAXBUF];
+    /* Buffer of concatenated seeds from seed2 to seed5 data */
+    unsigned char seed[QAT_TLS1_PRF_SEED_MAXBUF];
     size_t seedlen;
+    unsigned char *userLabel;
     size_t userLabel_len;
     /* Digest to use for PRF */
     const EVP_MD *md;
@@ -177,7 +178,7 @@ int qat_PRF_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
 #ifndef OPENSSL_DISABLE_QAT_PRF
 /******************************************************************************
 * function:
-*        qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx)
+*        qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 *
 * @param ctx   [IN] - PKEY Context structure pointer
 *
@@ -190,13 +191,12 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 {
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
 
-    qat_prf_ctx = qaeCryptoMemAlloc(sizeof(*qat_prf_ctx), __FILE__, __LINE__);
+    qat_prf_ctx = OPENSSL_zalloc(sizeof(*qat_prf_ctx));
     if (qat_prf_ctx == NULL) {
         WARN("Cannot allocate qat_prf_ctx\n");
         return 0;
     }
 
-    memset(qat_prf_ctx, 0, sizeof(*qat_prf_ctx));
     EVP_PKEY_CTX_set_data(ctx, qat_prf_ctx);
     return 1;
 }
@@ -229,11 +229,11 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
         OPENSSL_cleanse(qat_prf_ctx->sec, qat_prf_ctx->seclen);
         qaeCryptoMemFree(qat_prf_ctx->sec);
     }
-    if (qat_prf_ctx->seed != NULL)
+    if (qat_prf_ctx->seedlen)
         OPENSSL_cleanse(qat_prf_ctx->seed, qat_prf_ctx->seedlen);
     if (qat_prf_ctx->userLabel != NULL)
-        OPENSSL_cleanse(qat_prf_ctx->userLabel, qat_prf_ctx->userLabel_len);
-    qaeCryptoMemFree(qat_prf_ctx);
+        qaeCryptoMemFree(qat_prf_ctx->userLabel);
+    OPENSSL_free(qat_prf_ctx);
     EVP_PKEY_CTX_set_data(ctx, NULL);
 }
 
@@ -246,7 +246,7 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
 *
 * @param ctx    [IN] - PKEY Context structure pointer
 * @param type   [IN] - Type
-* @param p1     [IN] - Lenth/Size
+* @param p1     [IN] - Length/Size
 * @param *p2    [IN] - Data
 *
 * @param       [OUT] - Status
@@ -268,17 +268,17 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
 
     case EVP_PKEY_CTRL_TLS_SECRET:
-        if (p1 < 0 || p2 == NULL) {
+        if (p1 < 0 || p1 > QAT_TLS1_PRF_SECRET_MAXBUF || p2 == NULL) {
             WARN("Either p1 is invalid or p2 is NULL\n");
             return 0;
         }
         if (qat_prf_ctx->sec != NULL) {
             OPENSSL_cleanse(qat_prf_ctx->sec, qat_prf_ctx->seclen);
             qaeCryptoMemFree(qat_prf_ctx->sec);
+            qat_prf_ctx->seclen = 0;
         }
         OPENSSL_cleanse(qat_prf_ctx->seed, qat_prf_ctx->seedlen);
         qat_prf_ctx->seedlen = 0;
-        OPENSSL_cleanse(qat_prf_ctx->userLabel, qat_prf_ctx->userLabel_len);
         qat_prf_ctx->userLabel_len = 0;
 
         /*-
@@ -288,27 +288,35 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
          * driver is used.
          */
         qat_prf_ctx->sec = copyAllocPinnedMemory(p2, p1 ? p1 : 1,
-                __FILE__, __LINE__);
+                                                 __FILE__, __LINE__);
         if (qat_prf_ctx->sec == NULL) {
             WARN("secret data malloc failed\n");
             return 0;
         }
-        qat_prf_ctx->seclen  = p1;
+        qat_prf_ctx->seclen = p1;
         return 1;
 
     case EVP_PKEY_CTRL_TLS_SEED:
         if (p1 == 0 || p2 == NULL)
             return 1;
         if (qat_prf_ctx->userLabel_len == 0) {
-            if (p1 < 0 || p1 > (QAT_TLS1_PRF_SEED1_MAXBUF)) {
-                WARN("p1 %d is out of range\n", p1);
+            if (p1 < 0 || p1 > QAT_TLS1_PRF_LABEL_MAXBUF) {
+                WARN("userLabel p1 %d is out of range\n", p1);
                 return 0;
             } else {
-                memcpy(qat_prf_ctx->userLabel, p2, p1);
+                if (qat_prf_ctx->userLabel != NULL) {
+                    qaeCryptoMemFree(qat_prf_ctx->userLabel);
+                }
+                qat_prf_ctx->userLabel = copyAllocPinnedMemory(p2, p1,
+                                                               __FILE__, __LINE__);
+                if (qat_prf_ctx->userLabel == NULL) {
+                    WARN("userLabel malloc failed\n");
+                    return 0;
+                }
                 qat_prf_ctx->userLabel_len = p1;
             }
         } else {
-            if (p1 < 0 || p1 > (QAT_TLS1_PRF_MAXBUF - qat_prf_ctx->seedlen)) {
+            if (p1 < 0 || p1 > (QAT_TLS1_PRF_SEED_MAXBUF - qat_prf_ctx->seedlen)) {
                 WARN("p1 %d is out of range\n", p1);
                 return 0;
             } else {
@@ -468,6 +476,7 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
 
     prf_op_data->userLabel.pData = NULL;
     prf_op_data->userLabel.dataLenInBytes = 0;
+    prf_op_data->seed.pData = NULL;
 
     if (0 ==
         strncmp(label, TLS_MD_MASTER_SECRET_CONST,
@@ -501,8 +510,17 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
      * Derive. This is not be a problem because OpenSSL calls the function
      * with the variables in the correct order
      */
-    prf_op_data->seed.pData = qat_prf_ctx->seedlen ? qat_prf_ctx->seed: NULL;
-    prf_op_data->seed.dataLenInBytes = qat_prf_ctx->seedlen;
+    if (qat_prf_ctx->seedlen) {
+        prf_op_data->seed.pData = copyAllocPinnedMemory(qat_prf_ctx->seed,
+                                                        qat_prf_ctx->seedlen,
+                                                        __FILE__, __LINE__);
+        if (prf_op_data->seed.pData == NULL) {
+            /* On failure WARN and Error are flagged at the next level up.*/
+            return 0;
+        }
+
+        prf_op_data->seed.dataLenInBytes = qat_prf_ctx->seedlen;
+    }
 
     return 1;
 }
@@ -531,17 +549,19 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     CpaStatus status = CPA_STATUS_FAIL;
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
 
+    memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
+
     if (NULL == ctx || NULL == key || NULL == olen) {
         WARN("Either ctx %p, key %p or olen %p is NULL\n", ctx, key, olen);
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_PASSED_NULL_PARAMETER);
-        goto err;
+        return ret;
     }
 
     qat_prf_ctx = (QAT_TLS1_PRF_CTX *) EVP_PKEY_CTX_get_data(ctx);
     if (qat_prf_ctx == NULL) {
         WARN("qat_prf_ctx is NULL\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-        goto err;
+        return ret;
     }
 
     /* ---- Hash algorithm ---- */
@@ -554,13 +574,11 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
         if (!qat_get_hash_algorithm(qat_prf_ctx, &hash_algo)) {
             WARN("Failed to get hash algorithm\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-            goto err;
+            return ret;
         }
     }
 
     /* ---- Tls Op Data ---- */
-    memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
-
     if (!build_tls_prf_op_data(qat_prf_ctx, &prf_op_data)) {
         WARN("Error building TlsOpdata\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
@@ -701,6 +719,10 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
  err:
 
     /* Free the memory  */
+    if (prf_op_data.seed.pData) {
+         OPENSSL_cleanse(prf_op_data.seed.pData, prf_op_data.seed.dataLenInBytes);
+         qaeCryptoMemFree(prf_op_data.seed.pData);
+    }
     if (NULL != generated_key) {
         if (NULL != generated_key->pData) {
             OPENSSL_cleanse(generated_key->pData, key_length);
