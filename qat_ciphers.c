@@ -1152,8 +1152,18 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
              * padding which is later discarded when the result is copied out.
              * Note: AES_BLOCK_SIZE must be a power of 2 for this algorithm to
              * work correctly.
+             * If the digest len (dlen) is a multiple of AES_BLOCK_SIZE, then
+             * discardlen could theoretically be equal to 'dlen'.  However
+             * 1 byte is still needed for the required pad_len field which would
+             * not be available in this case.  Therefore we add an additional AES_BLOCK_SIZE to
+             * ensure that even for the case of (dlen % AES_BLOCK_SIZE == 0) there
+             * is room for the pad_len field byte - in this specific case the pad space
+             * field would comprise the remaining 15 bytes and the pad_len byte field
+             * would be equal to 15.
+             * The '& ~(AES_BLOCK_SIZE - 1)' element of the algorithm serves to round down
+             * 'discardlen' to the nearest AES_BLOCK_SIZE multiple.
              */
-            discardlen = ((len + dlen + AES_BLOCK_SIZE - 1) & ~(AES_BLOCK_SIZE - 1))
+            discardlen = ((len + dlen + AES_BLOCK_SIZE) & ~(AES_BLOCK_SIZE - 1))
                 - len;
             /* Pump-up the len by this amount */
             len += discardlen;
