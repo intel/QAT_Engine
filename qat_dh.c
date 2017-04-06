@@ -382,7 +382,7 @@ int qat_dh_generate_key(DH *dh)
     }
     while (!op_done.flag);
 
-    DUMP_DH_GEN_PHASE2_OUTPUT(pPV);
+    DUMP_DH_GEN_PHASE1_OUTPUT(pPV);
     qat_cleanup_op_done(&op_done);
 
     if (op_done.verifyResult != CPA_TRUE) {
