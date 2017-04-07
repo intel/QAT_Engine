@@ -788,7 +788,6 @@ static void *timer_poll_func(void *ih)
             if (unlikely(CPA_STATUS_SUCCESS != status
                         && CPA_STATUS_RETRY != status)) {
                 WARN("icp_sal_CyPollInstance returned status %d\n", status);
-                QATerr(QAT_F_TIMER_POLL_FUNC, QAT_R_POLL_INSTANCE_FAILURE);
             }
 
             if (unlikely(!keep_polling))
@@ -803,7 +802,6 @@ static void *timer_poll_func(void *ih)
             req_time.tv_nsec = rem_time.tv_nsec;
             if (unlikely((errno < 0) && (EINTR != errno))) {
                 WARN("nanosleep system call failed: errno %i\n", errno);
-                QATerr(QAT_F_TIMER_POLL_FUNC, QAT_R_NANOSLEEP_FAILURE);
                 break;
             }
         }
@@ -838,7 +836,6 @@ static void *event_poll_func(void *ih)
                 status = icp_sal_CyPollInstance(qat_instance_handles[epollst->inst_index], 0);
                 if (CPA_STATUS_SUCCESS != status) {
                     WARN("icp_sal_CyPollInstance returned status %d\n", status);
-                    QATerr(QAT_F_EVENT_POLL_FUNC, QAT_R_POLL_INSTANCE_FAILURE);
                 }
             }
         }
