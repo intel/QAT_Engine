@@ -110,19 +110,21 @@
 #include <unistd.h>
 
 /* Local Includes */
+#include "e_qat.h"
 #include "qat_ciphers.h"
 #include "qat_rsa.h"
 #include "qat_dsa.h"
 #include "qat_dh.h"
 #include "qat_ec.h"
-#include "e_qat.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
 #include "qat_prf.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 #include <openssl/async.h>
+#endif
 #include <openssl/objects.h>
 #include <openssl/crypto.h>
 
@@ -177,6 +179,7 @@ static pthread_key_t qatInstanceForThread;
 pthread_t polling_thread;
 static int keep_polling = 1;
 static int enable_external_polling = 0;
+static int enable_inline_polling = 0;
 static int enable_event_driven_polling = 0;
 static int enable_instance_for_thread = 0;
 int qatPerformOpRetries = 0;
@@ -199,6 +202,11 @@ int getQatMsgRetryCount()
 useconds_t getQatPollInterval()
 {
     return qat_poll_interval;
+}
+
+int getEnableInlinePolling()
+{
+    return enable_inline_polling;
 }
 
 int qat_is_event_driven()
@@ -424,6 +432,37 @@ int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
 
 /******************************************************************************
 * function:
+*         qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+*
+* @param opdcrt [IN] - pointer to op done callback structure
+*
+* description:
+*   Initialise the QAT RSA synchronous operation "done" callback structure.
+*   The function returns 1 for success and 0 for failure.
+*
+******************************************************************************/
+int qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+{
+    if (opdcrt == NULL) {
+        WARN("opdcrt is NULL\n");
+        QATerr(QAT_F_QAT_INIT_OP_DONE_RSA_CRT, QAT_R_OPDCRT_NULL);
+        return 0;
+    }
+
+    opdcrt->opDone.flag = 0;
+    /* note that the initial value is true in order to judge via AND */
+    opdcrt->opDone.verifyResult = CPA_TRUE;
+
+    opdcrt->opDone.job = NULL;
+
+    opdcrt->req = 0;
+    opdcrt->resp = 0;
+
+    return 1;
+}
+
+/******************************************************************************
+* function:
 *         qat_cleanup_op_done(struct op_done *opDone)
 *
 * @param opDone [IN] - pointer to op done callback structure
@@ -436,7 +475,6 @@ void qat_cleanup_op_done(struct op_done *opDone)
 {
     if (opDone == NULL) {
         WARN("opDone is NULL\n");
-        QATerr(QAT_F_QAT_CLEANUP_OP_DONE, QAT_R_OPDONE_NULL);
         return;
     }
 
@@ -464,7 +502,6 @@ void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
 {
     if (opdone == NULL) {
         WARN("opdone is NULL\n");
-        QATerr(QAT_F_QAT_CLEANUP_OP_DONE_PIPE, QAT_R_OPDONE_NULL);
         return;
     }
 
@@ -473,6 +510,28 @@ void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
     opdone->num_processed = 0;
     if (opdone->opDone.job)
         opdone->opDone.job = NULL;
+}
+
+/******************************************************************************
+* function:
+*         qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+*
+* @param opdcrt [IN] - pointer to op done callback structure
+*
+* description:
+*   Cleanup the QAT RSA synchronous operation "done" callback structure.
+*
+******************************************************************************/
+void qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+{
+    if (opdcrt == NULL) {
+        WARN("opdcrt is NULL\n");
+        return;
+    }
+
+    opdcrt->opDone.verifyResult = CPA_FALSE;
+    opdcrt->req = 0;
+    opdcrt->resp = 0;
 }
 
 /******************************************************************************
@@ -958,6 +1017,7 @@ static int qat_engine_init(ENGINE *e)
 
     DEBUG("QAT Engine initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
+    DEBUG("- Inline polling: %s\n", enable_inline_polling ? "ON": "OFF");
     DEBUG("- Internal poll interval: %dns\n", qat_poll_interval);
     DEBUG("- Epoll timeout: %dms\n", qat_epoll_timeout);
     DEBUG("- Event driven polling mode: %s\n", enable_event_driven_polling ? "ON": "OFF");
@@ -1037,7 +1097,7 @@ static int qat_engine_init(ENGINE *e)
         return 0;
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling && !enable_inline_polling) {
         if (qat_is_event_driven()) {
             CpaStatus status;
             int flags;
@@ -1113,7 +1173,7 @@ static int qat_engine_init(ENGINE *e)
         instance_started[instNum] = 1;
     }
 
-    if (!enable_external_polling) {
+    if (!enable_external_polling && !enable_inline_polling) {
         if (qat_create_thread(&polling_thread, NULL,
                     qat_is_event_driven() ? event_poll_func : timer_poll_func, NULL)) {
             WARN("Creation of polling thread failed\n");
@@ -1150,6 +1210,7 @@ static int qat_engine_init(ENGINE *e)
 #define QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 9)
 #define QAT_CMD_SET_EPOLL_TIMEOUT (ENGINE_CMD_BASE + 10)
 #define QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD (ENGINE_CMD_BASE + 11)
+#define QAT_CMD_ENABLE_INLINE_POLLING (ENGINE_CMD_BASE + 12)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -1212,6 +1273,11 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD",
      "Set QAT small packet threshold",
      ENGINE_CMD_FLAG_STRING},
+    {
+     QAT_CMD_ENABLE_INLINE_POLLING,
+     "ENABLE_INLINE_POLLING",
+     "Enables the inline polling mode.",
+     ENGINE_CMD_FLAG_NO_INPUT},
     {0, NULL, NULL, 0}
 };
 
@@ -1259,6 +1325,15 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
                 "ENABLE_EXTERNAL_POLLING failed as the engine is already initialized\n");
         DEBUG("Enabled external polling\n");
         enable_external_polling = 1;
+        enable_inline_polling = 0;
+        break;
+
+    case QAT_CMD_ENABLE_INLINE_POLLING:
+        BREAK_IF(engine_inited, \
+                "ENABLE_INLINE_POLLING failed as the engine is already initialized\n");
+        DEBUG("Enabled inline polling\n");
+        enable_inline_polling = 1;
+        enable_external_polling = 0;
         break;
 
     case QAT_CMD_GET_EXTERNAL_POLLING_FD:
@@ -1429,7 +1504,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
     /* If polling thread is different from the main thread, wait for polling
      * thread to finish. pthread_equal returns 0 when threads are different.
      */
-    if (enable_external_polling == 0 &&
+    if (!enable_external_polling && !enable_inline_polling &&
         pthread_equal(polling_thread, pthread_self()) == 0) {
         if (qat_join_thread(polling_thread, NULL) != 0) {
             WARN("Polling thread join failed with status: %d\n", ret);
@@ -1445,7 +1520,8 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
         qat_instance_handles = NULL;
     }
 
-    if (0 == enable_external_polling && qat_is_event_driven()) {
+    if (!enable_external_polling && !enable_inline_polling &&
+        qat_is_event_driven()) {
         for (i = 0; i < qat_num_instances; i++) {
             epollst = (ENGINE_EPOLL_ST*)eng_epoll_events[i].data.ptr;
             if (epollst) {
@@ -1479,6 +1555,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
      */
     if (reset_globals) {
         enable_external_polling = 0;
+        enable_inline_polling = 0;
         enable_event_driven_polling = 0;
         enable_instance_for_thread = 0;
         qat_poll_interval = QAT_POLL_PERIOD_IN_NS;

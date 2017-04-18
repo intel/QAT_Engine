@@ -52,7 +52,9 @@
 
 #include <pthread.h>
 #include <openssl/rsa.h>
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 #include <openssl/async.h>
+#endif
 #include <openssl/err.h>
 #include <string.h>
 #include <unistd.h>
@@ -69,9 +71,13 @@
 #include "cpa_types.h"
 
 #include "cpa_cy_rsa.h"
+#include "cpa_cy_ln.h"
 #include "qat_rsa.h"
+#include "qat_rsa_aux.h"
 #include "qat_asym_common.h"
 #include "e_qat_err.h"
+#include "icp_sal_poll.h"
+#include "qat_rsa_crt.h"
 
 #ifdef OPENSSL_ENABLE_QAT_RSA
 # ifdef OPENSSL_DISABLE_QAT_RSA
@@ -396,17 +402,13 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
 }
 
 int
-qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
+qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 CpaFlatBuffer * output_buf)
 {
     /* Used for RSA Decrypt and RSA Sign */
     struct op_done op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
-    int qatPerformOpRetries = 0;
     CpaInstanceHandle instance_handle = NULL;
-
-    int iMsgRetry = getQatMsgRetryCount();
-    useconds_t ulPollInterval = getQatPollInterval();
 
     DEBUG("- Started\n");
 
@@ -418,6 +420,12 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
             qat_cleanup_op_done(&op_done);
             return 0;
         }
+    } else {
+        /*
+         *  Sync mode
+         */
+        qat_cleanup_op_done(&op_done);
+        return qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf);
     }
     /*
      * cpaCyRsaDecrypt() is the function called for RSA Sign in the API.
@@ -432,9 +440,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
         if (NULL == (instance_handle = get_next_inst())) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-            if (op_done.job != NULL) {
-                qat_clear_async_event_notification();
-            }
+            qat_clear_async_event_notification();
             qat_cleanup_op_done(&op_done);
             return 0;
         }
@@ -442,22 +448,10 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
         sts = cpaCyRsaDecrypt(instance_handle, qat_rsaCallbackFn, &op_done,
                               dec_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
-            if (op_done.job == NULL) {
-                usleep(ulPollInterval +
-                       (qatPerformOpRetries % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                qatPerformOpRetries++;
-                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                    if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                        break;
-                    }
-                }
-            } else {
-                if ((qat_wake_job(op_done.job, 0) == 0) ||
-                    (qat_pause_job(op_done.job, 0) == 0)) {
-                    WARN("qat_wake_job or qat_pause_job failed\n");
-                    break;
-                }
+            if ((qat_wake_job(op_done.job, 0) == 0) ||
+                (qat_pause_job(op_done.job, 0) == 0)) {
+                WARN("qat_wake_job or qat_pause_job failed\n");
+                break;
             }
         }
     }
@@ -466,28 +460,22 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data,
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", sts);
         QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-        if (op_done.job != NULL) {
-            qat_clear_async_event_notification();
-        }
+        qat_clear_async_event_notification();
         qat_cleanup_op_done(&op_done);
         return 0;
     }
 
     do {
-        if(op_done.job != NULL) {
-            /* If we get a failure on qat_pause_job then we will
-               not flag an error here and quit because we have
-               an asynchronous request in flight.
-               We don't want to start cleaning up data
-               structures that are still being used. If
-               qat_pause_job fails we will just yield and
-               loop around and try again until the request
-               completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
-                pthread_yield();
-        } else {
+        /* If we get a failure on qat_pause_job then we will
+           not flag an error here and quit because we have
+           an asynchronous request in flight.
+           We don't want to start cleaning up data
+           structures that are still being used. If
+           qat_pause_job fails we will just yield and
+           loop around and try again until the request
+           completes and we can continue. */
+        if (qat_pause_job(op_done.job, 0) == 0)
             pthread_yield();
-        }
     }
     while (!op_done.flag);
 
@@ -741,7 +729,11 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             if (qat_pause_job(op_done.job, 0) == 0)
                 pthread_yield();
         } else {
-            pthread_yield();
+            if(getEnableInlinePolling()) {
+                icp_sal_CyPollInstance(instance_handle, 0);
+            } else {
+                pthread_yield();
+            }
         }
     } while (!op_done.flag);
 
@@ -931,7 +923,7 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
         goto exit;
     }
 
-    if (1 != qat_rsa_decrypt(dec_op_data, output_buffer)) {
+    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer)) {
         WARN("Failure in qat_rsa_decrypt\n");
         QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_INTERNAL_ERROR);
         sts = 0;
@@ -1043,7 +1035,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         goto exit;
     }
 
-    if (1 != qat_rsa_decrypt(dec_op_data, output_buffer)) {
+    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer)) {
         WARN("Failure in qat_rsa_decrypt\n");
         QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
         sts = 0;

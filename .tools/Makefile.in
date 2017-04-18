@@ -79,14 +79,23 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 libqat_la_LIBADD =
 am__libqat_la_SOURCES_DIST = e_qat.c qat_asym_common.c qat_ciphers.c \
 	qat_dh.c qat_dsa.c qat_ec.c qat_parseconf.c qat_prf.c \
-	qat_utils.c qat_rsa.c e_qat_err.c cmn_mem_drv_inf.c \
-	qae_mem_utils.c multi_thread_qaememutils.c
+	qat_utils.c qat_rsa.c qat_rsa_crt.c e_qat_err.c \
+	cmn_mem_drv_inf.c qae_mem_utils.c multi_thread_qaememutils.c \
+	qat_aux.c qat_rsa_aux.c
 @QAE_MEM_FALSE@@QAT_CONTIG_MEM_FALSE@@QAT_MULTI_THREAD_TRUE@am__objects_1 = multi_thread_qaememutils.lo
 @QAE_MEM_FALSE@@QAT_CONTIG_MEM_TRUE@am__objects_1 = qae_mem_utils.lo
 @QAE_MEM_TRUE@am__objects_1 = cmn_mem_drv_inf.lo
-am_libqat_la_OBJECTS = e_qat.lo qat_asym_common.lo qat_ciphers.lo \
-	qat_dh.lo qat_dsa.lo qat_ec.lo qat_parseconf.lo qat_prf.lo \
-	qat_utils.lo qat_rsa.lo e_qat_err.lo $(am__objects_1)
+@QAT_OPENSSL_102_FALSE@am_libqat_la_OBJECTS = e_qat.lo \
+@QAT_OPENSSL_102_FALSE@	qat_asym_common.lo qat_ciphers.lo \
+@QAT_OPENSSL_102_FALSE@	qat_dh.lo qat_dsa.lo qat_ec.lo \
+@QAT_OPENSSL_102_FALSE@	qat_parseconf.lo qat_prf.lo \
+@QAT_OPENSSL_102_FALSE@	qat_utils.lo qat_rsa.lo qat_rsa_crt.lo \
+@QAT_OPENSSL_102_FALSE@	e_qat_err.lo $(am__objects_1)
+@QAT_OPENSSL_102_TRUE@am_libqat_la_OBJECTS = e_qat.lo qat_aux.lo \
+@QAT_OPENSSL_102_TRUE@	qat_asym_common.lo qat_parseconf.lo \
+@QAT_OPENSSL_102_TRUE@	qat_utils.lo qat_rsa.lo qat_rsa_aux.lo \
+@QAT_OPENSSL_102_TRUE@	qat_rsa_crt.lo e_qat_err.lo \
+@QAT_OPENSSL_102_TRUE@	$(am__objects_1)
 libqat_la_OBJECTS = $(am_libqat_la_OBJECTS)
 libqat_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
@@ -108,7 +117,8 @@ SOURCES = $(libqat_la_SOURCES)
 DIST_SOURCES = $(am__libqat_la_SOURCES_DIST)
 am__include_HEADERS_DIST = e_qat.h qat_asym_common.h qat_ciphers.h \
 	qat_dh.h qat_dsa.h qat_ec.h qat_parseconf.h qat_prf.h \
-	qat_utils.h qat_rsa.h cmn_mem_drv_inf.h qae_mem_utils.h
+	qat_utils.h qat_rsa.h qat_rsa_crt.h cmn_mem_drv_inf.h \
+	qae_mem_utils.h qat_aux.h qat_rsa_aux.h
 HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -239,6 +249,7 @@ enable_qat_dh = @enable_qat_dh@
 enable_qat_dsa = @enable_qat_dsa@
 enable_qat_ecdh = @enable_qat_ecdh@
 enable_qat_ecdsa = @enable_qat_ecdsa@
+enable_qat_for_openssl_102 = @enable_qat_for_openssl_102@
 enable_qat_lenstra_protection = @enable_qat_lenstra_protection@
 enable_qat_mem_debug = @enable_qat_mem_debug@
 enable_qat_mem_warnings = @enable_qat_mem_warnings@
@@ -301,30 +312,53 @@ lib_LTLIBRARIES = libqat.la
 @QAT_MULTI_THREAD_TRUE@MEM_LIB_SRC = multi_thread_qaememutils.c
 @QAE_MEM_TRUE@MEM_LIB_HEADER = cmn_mem_drv_inf.h
 @QAT_CONTIG_MEM_TRUE@MEM_LIB_HEADER = qae_mem_utils.h
-libqat_la_SOURCES = e_qat.c \
-				qat_asym_common.c \
-				qat_ciphers.c \
-				qat_dh.c \
-				qat_dsa.c \
-				qat_ec.c \
-				qat_parseconf.c \
-				qat_prf.c \
-				qat_utils.c \
-				qat_rsa.c \
-				e_qat_err.c \
-				${MEM_LIB_SRC}
+@QAT_OPENSSL_102_FALSE@libqat_la_SOURCES = e_qat.c \
+@QAT_OPENSSL_102_FALSE@				qat_asym_common.c \
+@QAT_OPENSSL_102_FALSE@				qat_ciphers.c \
+@QAT_OPENSSL_102_FALSE@				qat_dh.c \
+@QAT_OPENSSL_102_FALSE@				qat_dsa.c \
+@QAT_OPENSSL_102_FALSE@				qat_ec.c \
+@QAT_OPENSSL_102_FALSE@				qat_parseconf.c \
+@QAT_OPENSSL_102_FALSE@				qat_prf.c \
+@QAT_OPENSSL_102_FALSE@				qat_utils.c \
+@QAT_OPENSSL_102_FALSE@				qat_rsa.c \
+@QAT_OPENSSL_102_FALSE@				qat_rsa_crt.c \
+@QAT_OPENSSL_102_FALSE@				e_qat_err.c \
+@QAT_OPENSSL_102_FALSE@				${MEM_LIB_SRC}
 
-include_HEADERS = e_qat.h \
-					qat_asym_common.h \
-					qat_ciphers.h \
-					qat_dh.h \
-					qat_dsa.h \
-					qat_ec.h \
-					qat_parseconf.h \
-					qat_prf.h \
-					qat_utils.h \
-					qat_rsa.h \
-					${MEM_LIB_HEADER}
+@QAT_OPENSSL_102_TRUE@libqat_la_SOURCES = e_qat.c \
+@QAT_OPENSSL_102_TRUE@                qat_aux.c \
+@QAT_OPENSSL_102_TRUE@                qat_asym_common.c \
+@QAT_OPENSSL_102_TRUE@                qat_parseconf.c \
+@QAT_OPENSSL_102_TRUE@                qat_utils.c \
+@QAT_OPENSSL_102_TRUE@                qat_rsa.c \
+@QAT_OPENSSL_102_TRUE@                qat_rsa_aux.c \
+@QAT_OPENSSL_102_TRUE@                qat_rsa_crt.c \
+@QAT_OPENSSL_102_TRUE@                e_qat_err.c \
+@QAT_OPENSSL_102_TRUE@                ${MEM_LIB_SRC}
+
+@QAT_OPENSSL_102_FALSE@include_HEADERS = e_qat.h \
+@QAT_OPENSSL_102_FALSE@					qat_asym_common.h \
+@QAT_OPENSSL_102_FALSE@					qat_ciphers.h \
+@QAT_OPENSSL_102_FALSE@					qat_dh.h \
+@QAT_OPENSSL_102_FALSE@					qat_dsa.h \
+@QAT_OPENSSL_102_FALSE@					qat_ec.h \
+@QAT_OPENSSL_102_FALSE@					qat_parseconf.h \
+@QAT_OPENSSL_102_FALSE@					qat_prf.h \
+@QAT_OPENSSL_102_FALSE@					qat_utils.h \
+@QAT_OPENSSL_102_FALSE@					qat_rsa.h \
+@QAT_OPENSSL_102_FALSE@					qat_rsa_crt.h \
+@QAT_OPENSSL_102_FALSE@					${MEM_LIB_HEADER}
+
+@QAT_OPENSSL_102_TRUE@include_HEADERS = e_qat.h \
+@QAT_OPENSSL_102_TRUE@                    qat_aux.h \
+@QAT_OPENSSL_102_TRUE@                    qat_asym_common.h \
+@QAT_OPENSSL_102_TRUE@                    qat_parseconf.h \
+@QAT_OPENSSL_102_TRUE@                    qat_utils.h \
+@QAT_OPENSSL_102_TRUE@                    qat_rsa.h \
+@QAT_OPENSSL_102_TRUE@                    qat_rsa_aux.h \
+@QAT_OPENSSL_102_TRUE@                    qat_rsa_crt.h \
+@QAT_OPENSSL_102_TRUE@                    ${MEM_LIB_HEADER}
 
 INCLUDES = $(includes) $(include_enable_usdm) $(includes_driver) \
 			$(includes_enable_qat_mux)
@@ -439,6 +473,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/multi_thread_qaememutils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qae_mem_utils.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_asym_common.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_aux.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_ciphers.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_dh.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_dsa.Plo@am__quote@
@@ -446,6 +481,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_parseconf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_prf.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_rsa.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_rsa_aux.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_rsa_crt.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qat_utils.Plo@am__quote@
 
 .c.o:

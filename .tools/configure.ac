@@ -151,6 +151,12 @@ AC_ARG_ENABLE(qat_lenstra_protection,
                              [Disable protection against Lenstra attack]))
 AC_SUBST(enable_qat_lenstra_protection)
 
+AC_ARG_ENABLE(qat_for_openssl_102,
+              AS_HELP_STRING([--enable-qat_for_openssl_102],
+                             [Enable building QAT engine against OpenSSL 1.0.2 with only RSA sync offloading]))
+AC_SUBST(enable_qat_for_openssl_102)
+
+
 # ERROR message if mandatory options are not provided
 
 if test "x$with_qat_dir" = "x"
@@ -359,6 +365,17 @@ fi
 AM_CONDITIONAL([QAT_CONTIG_MEM], [test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"])
 AM_CONDITIONAL([QAT_MULTI_THREAD], [test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" = "xyes"])
 AM_CONDITIONAL([QAE_MEM], [test "x$enable_usdm" = "xyes"])
+
+if test "x$enable_qat_for_openssl_102" = "xyes"
+then
+  AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.0.2 with only RSA sync offloading])
+# always set enable_qat_rsa to -DOPENSSL_ENABLE_QAT_RSA
+  enable_qat_rsa="-DOPENSSL_ENABLE_QAT_RSA"
+# this is a trick to bypass code for small packet cipher offloading
+  enable_qat_small_pkt_offload="-DOPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS"
+fi
+
+AM_CONDITIONAL([QAT_OPENSSL_102], [test "x$enable_qat_for_openssl_102" = "xyes"])
 
 # Adding driver source for building and linking the library
 

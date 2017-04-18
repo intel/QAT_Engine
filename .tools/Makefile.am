@@ -17,6 +17,29 @@ if QAE_MEM
  MEM_LIB_HEADER = cmn_mem_drv_inf.h
 endif
 
+if QAT_OPENSSL_102
+libqat_la_SOURCES = e_qat.c \
+                qat_aux.c \
+                qat_asym_common.c \
+                qat_parseconf.c \
+                qat_utils.c \
+                qat_rsa.c \
+                qat_rsa_aux.c \
+                qat_rsa_crt.c \
+                e_qat_err.c \
+                ${MEM_LIB_SRC}
+
+include_HEADERS = e_qat.h \
+                    qat_aux.h \
+                    qat_asym_common.h \
+                    qat_parseconf.h \
+                    qat_utils.h \
+                    qat_rsa.h \
+                    qat_rsa_aux.h \
+                    qat_rsa_crt.h \
+                    ${MEM_LIB_HEADER}
+
+else
 libqat_la_SOURCES = e_qat.c \
 				qat_asym_common.c \
 				qat_ciphers.c \
@@ -27,6 +50,7 @@ libqat_la_SOURCES = e_qat.c \
 				qat_prf.c \
 				qat_utils.c \
 				qat_rsa.c \
+				qat_rsa_crt.c \
 				e_qat_err.c \
 				${MEM_LIB_SRC}
 
@@ -40,7 +64,9 @@ include_HEADERS = e_qat.h \
 					qat_prf.h \
 					qat_utils.h \
 					qat_rsa.h \
+					qat_rsa_crt.h \
 					${MEM_LIB_HEADER}
+endif
 
 CC = cc
 INCLUDES = $(includes) $(include_enable_usdm) $(includes_driver) \

@@ -46,6 +46,7 @@
 #ifndef E_QAT_H
 # define E_QAT_H
 
+# include <openssl/ssl.h>
 # include <openssl/sha.h>
 # include <openssl/aes.h>
 # include <sys/types.h>
@@ -56,9 +57,11 @@
 # include "cpa_cy_sym.h"
 # include "cpa_cy_drbg.h"
 
+# include "qat_aux.h"
 # include "qat_ciphers.h"
+# if OPENSSL_VERSION_NUMBER >= 0x10100000L
 # include <openssl/async.h>
-# include <openssl/ssl.h>
+# endif
 
 # define QAT_RETRY_BACKOFF_MODULO_DIVISOR 8
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
@@ -229,6 +232,18 @@ struct op_done_pipe {
     unsigned int num_processed;
 };
 
+/* Use this variant of op_done to track
+ * QAT RSA CRT operation completion.
+ */
+struct op_done_rsa_crt {
+    /* Keep this as first member of the structure.
+     * to allow inter-changeability by casting pointers.
+     */
+    struct op_done opDone;
+    unsigned int req;
+    unsigned int resp;
+};
+
 CpaInstanceHandle get_next_inst(void);
 void qat_init_op_done(struct op_done *opDone);
 void qat_cleanup_op_done(struct op_done *opDone);
@@ -242,6 +257,8 @@ CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
                       void *pCallbackTag, const CpaCySymOpData * pOpData,
                       const CpaBufferList * pSrcBuffer,
                       CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult);
+int qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt);
+void qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt);
 int qat_setup_async_event_notification(int notificationNo);
 int qat_clear_async_event_notification();
 int qat_pause_job(ASYNC_JOB *job, int notificationNo);
@@ -249,4 +266,5 @@ int qat_wake_job(ASYNC_JOB *job, int notificationNo);
 useconds_t getQatPollInterval();
 int getQatMsgRetryCount();
 int getEnableExternalPolling();
+int getEnableInlinePolling();
 #endif   /* E_QAT_H */

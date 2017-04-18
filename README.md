@@ -656,6 +656,17 @@ Description:
     This message is not supported when the engine is compiled with the flag
     --enable-qat_small_pkt_offload.
 
+Message String: ENABLE_INLINE_POLLING
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message is used to enable the inline polling mode of operation where
+    a busy loop is used by Intel&reg; QAT OpenSSL\* Engine to check for messages
+    from the hardware accelerator after requests are sent to it. Currently this
+    mode is only available in the synchronous RSA computation. It has no parameters
+    or return value. If required this message must be sent after engine creation
+    and before engine initialization.
+
 ```
 
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options
@@ -823,6 +834,10 @@ Optional
     https://security-center.intel.com/advisory.aspx?intelid=INTEL-SA-00071&languageid=en-fr
     https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5681
 
+--enable-qat_for_openssl_102
+    Enable Intel&reg; QAT OpenSSL\* Engine to build against OpenSSL\* 1.0.2. Currently
+    in this build only synchronous RSA offloading is supported.
+
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at
     compile time.
@@ -937,6 +952,7 @@ supported:
 
 * `ENABLE_EVENT_DRIVEN_POLLING_MODE`
 * `ENABLE_EXTERNAL_POLLING`
+* `ENABLE_INLINE_POLLING`
 * `SET_INTERNAL_POLL_INTERVAL`
 * `SET_EPOLL_TIMEOUT`
 * `SET_MAX_RETRY_COUNT`

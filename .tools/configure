@@ -632,6 +632,8 @@ includes_driver
 with_ICP_LAC_API_DIR
 with_ICP_SAL_API_DIR
 with_ICP_API_DIR
+QAT_OPENSSL_102_FALSE
+QAT_OPENSSL_102_TRUE
 QAE_MEM_FALSE
 QAE_MEM_TRUE
 QAT_MULTI_THREAD_FALSE
@@ -646,6 +648,7 @@ cflags_enable_upstream_driver
 cflags_cc_opt
 cflags
 includes
+enable_qat_for_openssl_102
 enable_qat_lenstra_protection
 enable_qat_mux
 enable_multi_thread
@@ -812,6 +815,7 @@ with_ld_opt
 enable_multi_thread
 enable_qat_mux
 enable_qat_lenstra_protection
+enable_qat_for_openssl_102
 with_includes
 with_cflags
 with_cflags_cc_opt
@@ -1503,6 +1507,9 @@ Optional Features:
                           documentation for more details
   --disable-qat_lenstra_protection
                           Disable protection against Lenstra attack
+  --enable-qat_for_openssl_102
+                          Enable building QAT engine against OpenSSL 1.0.2
+                          with only RSA sync offloading
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -11587,6 +11594,14 @@ fi
 
 
 
+# Check whether --enable-qat_for_openssl_102 was given.
+if test "${enable_qat_for_openssl_102+set}" = set; then :
+  enableval=$enable_qat_for_openssl_102;
+fi
+
+
+
+
 # ERROR message if mandatory options are not provided
 
 if test "x$with_qat_dir" = "x"
@@ -11900,6 +11915,25 @@ fi
 else
   QAE_MEM_TRUE='#'
   QAE_MEM_FALSE=
+fi
+
+
+if test "x$enable_qat_for_openssl_102" = "xyes"
+then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Build QAT engine against OpenSSL 1.0.2 with only RSA sync offloading" >&5
+$as_echo "$as_me: Build QAT engine against OpenSSL 1.0.2 with only RSA sync offloading" >&6;}
+# always set enable_qat_rsa to -DOPENSSL_ENABLE_QAT_RSA
+  enable_qat_rsa="-DOPENSSL_ENABLE_QAT_RSA"
+# this is a trick to bypass code for small packet cipher offloading
+  enable_qat_small_pkt_offload="-DOPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS"
+fi
+
+ if test "x$enable_qat_for_openssl_102" = "xyes"; then
+  QAT_OPENSSL_102_TRUE=
+  QAT_OPENSSL_102_FALSE='#'
+else
+  QAT_OPENSSL_102_TRUE='#'
+  QAT_OPENSSL_102_FALSE=
 fi
 
 
@@ -16455,6 +16489,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${QAE_MEM_TRUE}" && test -z "${QAE_MEM_FALSE}"; then
   as_fn_error $? "conditional \"QAE_MEM\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${QAT_OPENSSL_102_TRUE}" && test -z "${QAT_OPENSSL_102_FALSE}"; then
+  as_fn_error $? "conditional \"QAT_OPENSSL_102\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
