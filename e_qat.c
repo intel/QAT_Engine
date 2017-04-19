@@ -257,11 +257,9 @@ CpaInstanceHandle get_next_inst(void)
 
     ENGINE_free(e);
 
-    /* Anytime we use external polling then we want to loop
-       through the instances. Any time we are using internal polling
-       then we also want to loop through the instances assuming
-       one was not retrieved from thread specific data. */
-    if (1 == enable_external_polling || instance_handle == NULL)
+    /* Each call to get_next_inst will iterate through the array of instances
+       if an instance was not retrieved already from thread specific data. */
+    if (instance_handle == NULL)
     {
         if (qat_instance_handles) {
             instance_handle = qat_instance_handles[curr_inst];
