@@ -56,7 +56,7 @@
 #if defined(USE_QAT_CONTIG_MEM) && !defined(USE_QAE_MEM)
 # define QAT_DEV "/dev/qat_contig_mem"
 #elif defined(USE_QAE_MEM) && !defined(USE_QAT_CONTIG_MEM)
-# define QAT_DEV "/dev/qae_mem"
+# define QAT_DEV "/dev/usdm_drv"
 #elif defined(USE_QAE_MEM) && defined(USE_QAT_CONFIG_MEM)
 # error "USE_QAT_CONTIG_MEM and USE_QAE_MEM both defined"
 #else
