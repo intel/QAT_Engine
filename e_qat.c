@@ -607,7 +607,7 @@ int qat_setup_async_event_notification(int notificationNo)
 
     if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom) == 0) {
-        efd = eventfd(0, 0);
+        efd = eventfd(0, EFD_NONBLOCK);
         if (efd == -1) {
             WARN("Failed to get eventfd = %d\n", errno);
             return 0;
@@ -691,7 +691,9 @@ int qat_pause_job(ASYNC_JOB *job, int notificationNo)
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom)) > 0) {
         if (read(efd, &buf, sizeof(uint64_t)) == -1) {
-            WARN("Failed to read from fd: %d - error: %d\n", efd, errno);
+            if (errno != EAGAIN) {
+                WARN("Failed to read from fd: %d - error: %d\n", efd, errno);
+            }
         }
     }
     return ret;
