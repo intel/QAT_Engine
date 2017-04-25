@@ -1540,10 +1540,24 @@ static int qat_engine_destroy(ENGINE *e)
 static int bind_qat(ENGINE *e, const char *id)
 {
     int ret = 0;
+    int upstream_flags = 0;
+    unsigned int devmasks[] = { 0, 0, 0 };
 
     WARN("QAT Warnings enabled.\n");
     DEBUG("QAT Debug enabled.\n");
     DEBUG("id=%s\n", id);
+
+    if (access(QAT_DEV, F_OK) != 0) {
+        WARN("Qat memory driver not present\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_MEM_DRV_NOT_PRESENT);
+        goto end;
+    }
+
+    if (!getDevices(devmasks, &upstream_flags)) {
+        WARN("Qat device not present\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_QAT_DEV_NOT_PRESENT);
+        goto end;
+    }
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already!\n");
@@ -1636,20 +1650,7 @@ IMPLEMENT_DYNAMIC_BIND_FN(bind_qat)
 static ENGINE *engine_qat(void)
 {
     ENGINE *ret = NULL;
-    unsigned int devmasks[] = { 0, 0, 0 };
     DEBUG("- Starting\n");
-
-    if (access(QAT_DEV, F_OK) != 0) {
-        WARN("Qat memory driver not present\n");
-        QATerr(QAT_F_ENGINE_QAT, QAT_R_MEM_DRV_NOT_PRESENT);
-        return ret;
-    }
-
-    if (!getDevices(devmasks)) {
-        WARN("Qat device not present\n");
-        QATerr(QAT_F_ENGINE_QAT, QAT_R_QAT_DEV_NOT_PRESENT);
-        return ret;
-    }
 
     ret = ENGINE_new();
 
@@ -1661,7 +1662,6 @@ static ENGINE *engine_qat(void)
 
     if (!bind_qat(ret, engine_qat_id)) {
         WARN("Qat engine bind failed\n");
-        QATerr(QAT_F_ENGINE_QAT, QAT_R_QAT_BIND_ENGINE_FAILED);
         ENGINE_free(ret);
         return NULL;
     }
