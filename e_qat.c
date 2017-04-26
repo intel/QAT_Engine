@@ -91,6 +91,10 @@
 #define QAT_RETAIN_GLOBALS 0
 #define QAT_RESET_GLOBALS 1
 
+/*
+ * Max Length (bytes) of error string in human readable format
+ */
+#define QAT_MAX_ERROR_STRING 256
 
 /* Standard Includes */
 #include <stdio.h>
@@ -1673,15 +1677,14 @@ void ENGINE_load_qat(void)
 {
     ENGINE *toadd = engine_qat();
     int error = 0;
-    char error_string[120] = { 0 };
+    char error_string[QAT_MAX_ERROR_STRING] = { 0 };
 
     DEBUG("- Starting\n");
 
     if (toadd == NULL) {
-        error = ERR_get_error();
-        ERR_error_string(error, error_string);
+        error = ERR_peek_error();
+        ERR_error_string_n(error, error_string, QAT_MAX_ERROR_STRING);
         WARN("Error reported by engine load: %s\n", error_string);
-        QATerr(QAT_F_ENGINE_LOAD_QAT, QAT_R_QAT_LOAD_ENGINE_FAILED);
         return;
     }
 
