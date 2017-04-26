@@ -1541,7 +1541,7 @@ static int bind_qat(ENGINE *e, const char *id)
 {
     int ret = 0;
     int upstream_flags = 0;
-    unsigned int devmasks[] = { 0, 0, 0 };
+    unsigned int devmasks[] = { 0, 0, 0, 0, 0 };
 
     WARN("QAT Warnings enabled.\n");
     DEBUG("QAT Debug enabled.\n");
