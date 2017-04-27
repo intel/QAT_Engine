@@ -1085,12 +1085,20 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return 0;
     }
 
+    enc = EVP_CIPHER_CTX_encrypting(ctx);
+
     if (!INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_SESSION_INIT)) {
         /* The qat session is initialized when HMAC key is set. In case
          * HMAC key is not explicitly set, use default HMAC key of all zeros
          * and initialise a qat session.
          */
 
+        if (!PIPELINE_SET(qctx) && !TLS_HDR_SET(qctx) && !enc) {
+            /* When decrypting do not verify computed digest
+             * against stored digest as there is none in this case.
+             */
+            qctx->session_data->verifyDigest = CPA_FALSE;
+        }
         DEBUG("instance_handle = %p\n", qctx->instance_handle);
         DUMP_SESSION_SETUP_DATA(qctx->session_data);
         DEBUG("session_ctx = %p\n", qctx->session_ctx);
@@ -1104,7 +1112,6 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
     }
 
-    enc = EVP_CIPHER_CTX_encrypting(ctx);
     ivlen = EVP_CIPHER_CTX_iv_length(ctx);
     dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
 
@@ -1142,12 +1149,6 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
              */
             SET_TLS_PAYLOAD_LEN(tls_hdr, 0);
             plen = len;
-            if (!enc) {
-                /* When decrypting, do not verify computed digest
-                 * to stored digest as there is none in this case.
-                 */
-                qctx->session_data->verifyDigest = CPA_FALSE;
-            }
             /* Find the extra length for qat buffers to store the HMAC and
              * padding which is later discarded when the result is copied out.
              * Note: AES_BLOCK_SIZE must be a power of 2 for this algorithm to
