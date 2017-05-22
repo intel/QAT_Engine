@@ -331,7 +331,7 @@ err:
     return ret;
 }
 
-inline int
+int
 qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                     CpaFlatBuffer * output_buf)
 {

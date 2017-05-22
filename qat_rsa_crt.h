@@ -53,7 +53,7 @@
 
 void qat_rsaCallbackFn_CRT(void *pCallbackTag, CpaStatus status,
                            void *pOpData, CpaFlatBuffer * pOut);
-inline int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data,
+int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data,
                           int rsa_len, CpaFlatBuffer * output_buf);
 
 #endif                          /* QAT_RSA_CRT_H */
