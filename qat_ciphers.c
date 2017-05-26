@@ -877,8 +877,14 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
             INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_AADCTR_SET);
 
         len = GET_TLS_PAYLOAD_LEN(((char *)ptr));
-        if (GET_TLS_VERSION(((char *)ptr)) >= TLS1_1_VERSION)
+        if (GET_TLS_VERSION(((char *)ptr)) >= TLS1_1_VERSION) {
+            if (len < EVP_CIPHER_CTX_iv_length(ctx)) {
+                WARN("Length is smaller than the IV length\n");
+                retVal = 0;
+                break;
+            }
             len -= EVP_CIPHER_CTX_iv_length(ctx);
+        }
         else if (qctx->aad_ctr > 1) {
             /* pipelines are not supported for
              * TLS version < TLS1.1
