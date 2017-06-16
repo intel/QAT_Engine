@@ -366,6 +366,23 @@ AM_CONDITIONAL([QAT_CONTIG_MEM], [test "x$enable_usdm" != "xyes" -a "x$enable_mu
 AM_CONDITIONAL([QAT_MULTI_THREAD], [test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" = "xyes"])
 AM_CONDITIONAL([QAE_MEM], [test "x$enable_usdm" = "xyes"])
 
+AC_CHECK_PROG(USE_GETCONF, getconf, yes, no)
+AC_PROG_AWK
+if test $AWK == "gawk" -a $USE_GETCONF == "yes"
+then
+ AC_MSG_NOTICE([Getting glibc version ...])
+ if test `getconf GNU_LIBC_VERSION | gawk '{print $2>=2.23?"1":"0"}' 2>/dev/null` == 1
+ then
+  AC_MSG_NOTICE([glibc version is greater or equal to 2.23 so AVX-512 optimisations are supported.])
+ else
+  AC_MSG_NOTICE([glibc version is less than 2.23 - no AVX-512 optimisation supported.])
+ fi
+else
+ AC_MSG_NOTICE([Version of glibc could not be obtained automatically.  Please check manually by running:-])
+ AC_MSG_NOTICE(['getconf GNU_LIBC_VERSION' or 'ldd --version'.])
+ AC_MSG_NOTICE([If version of glibc returned is greater or equal to 2.23 then glibc AVX-512 optimisation is supported.])
+fi
+
 if test "x$enable_qat_for_openssl_102" = "xyes"
 then
   AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.0.2 with only RSA sync offloading])
