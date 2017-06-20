@@ -53,6 +53,18 @@
 # include <openssl/async.h>
 # endif
 
+/* This value is defined as one possible return value
+ * of qat_pause_job() which means paused async job is
+ * not resumed by async event but some other events
+ * such as socket events.
+ * NOTE THAT the unexpected event will be thrown away
+ * effectively and quietly. The application should be
+ * aware of this case.
+ */
+#define QAT_JOB_RESUMED_UNEXPECTEDLY -1
+#define QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(x) \
+        (x == QAT_JOB_RESUMED_UNEXPECTEDLY)
+
 int qat_is_event_driven();
 void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
                     OSSL_ASYNC_FD readfd, void *custom);

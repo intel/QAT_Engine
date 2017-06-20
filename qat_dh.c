@@ -170,7 +170,7 @@ void qat_dhCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
 ******************************************************************************/
 int qat_dh_generate_key(DH *dh)
 {
-    int ok = 0;
+    int ok = 0, job_ret = 0;
     int generate_new_priv_key = 0;
     int generate_new_pub_key = 0;
     unsigned length = 0;
@@ -377,13 +377,14 @@ int qat_dh_generate_key(DH *dh)
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_DH_GEN_PHASE1_OUTPUT(pPV);
     qat_cleanup_op_done(&op_done);
@@ -440,7 +441,7 @@ err:
  ******************************************************************************/
 int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 {
-    int ret = -1;
+    int ret = -1, job_ret = 0;
     int check_result;
     CpaInstanceHandle instance_handle;
     CpaCyDhPhase2SecretKeyGenOpData *opData = NULL;
@@ -606,13 +607,14 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_DH_GEN_PHASE2_OUTPUT(pSecretKey);
     qat_cleanup_op_done(&op_done);

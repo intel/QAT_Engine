@@ -1051,7 +1051,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     CpaBufferList *d_sgl = NULL;
     CpaFlatBuffer *s_fbuf = NULL;
     CpaFlatBuffer *d_fbuf = NULL;
-    int retVal = 0;
+    int retVal = 0, job_ret = 0;
     unsigned int pad_check = 1;
     int pad_len = 0;
     int plen = 0;
@@ -1379,12 +1379,13 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(done.opDone.job, 0) == 0)
+            if ((job_ret = qat_pause_job(done.opDone.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
-    } while (!done.opDone.flag);
+    } while (!done.opDone.flag ||
+             QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
  end:
     qctx->total_op += done.num_processed;

@@ -245,7 +245,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
-
+    int job_ret = 0;
 
     DEBUG("- Started\n");
 
@@ -471,12 +471,13 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
-    } while (!op_done.flag);
+    } while (!op_done.flag ||
+             QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_DSA_SIGN_OUTPUT(bDsaSignStatus, pResultR, pResultS);
     qat_cleanup_op_done(&op_done);
@@ -556,7 +557,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     const BIGNUM *p = NULL, *q = NULL;
     const BIGNUM *g = NULL;
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
-    int ret = -1, i = 0;
+    int ret = -1, i = 0, job_ret = 0;
     CpaInstanceHandle instance_handle;
     CpaCyDsaVerifyOpData *opData = NULL;
     CpaBoolean bDsaVerifyStatus;
@@ -755,13 +756,14 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;

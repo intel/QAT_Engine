@@ -547,7 +547,7 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
 int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                               size_t *olen)
 {
-    int ret = 0;
+    int ret = 0, job_ret = 0;
     CpaCyKeyGenTlsOpData prf_op_data;
     CpaFlatBuffer *generated_key = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
@@ -699,13 +699,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_KEYGEN_TLS_OUTPUT(generated_key);
     qat_cleanup_op_done(&op_done);

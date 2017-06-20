@@ -202,6 +202,8 @@ int qat_pause_job(ASYNC_JOB *job, int notificationNo)
             if (errno != EAGAIN) {
                 WARN("Failed to read from fd: %d - error: %d\n", efd, errno);
             }
+            /* Not resumed by the expected qat_wake_job() */
+            return QAT_JOB_RESUMED_UNEXPECTEDLY;
         }
     }
     return ret;

@@ -254,7 +254,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     BIGNUM *xg = NULL, *yg = NULL;
     const BIGNUM *priv_key;
     const EC_GROUP *group;
-    int ret = -1;
+    int ret = -1, job_ret = 0;
     size_t buflen;
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
 
@@ -496,13 +496,14 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of request failed\n");
@@ -830,7 +831,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                                     const BIGNUM *in_kinv, const BIGNUM *in_r,
                                     EC_KEY *eckey)
 {
-    int ok = 0, i;
+    int ok = 0, i, job_ret = 0;
     BIGNUM *m = NULL, *order = NULL;
     BN_CTX *ctx = NULL;
     const EC_GROUP *group;
@@ -1133,13 +1134,14 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_ECDSA_SIGN_OUTPUT(bEcdsaSignStatus, pResultR, pResultS);
     qat_cleanup_op_done(&op_done);
@@ -1236,7 +1238,7 @@ int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
 int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                         const ECDSA_SIG *sig, EC_KEY *eckey)
 {
-    int ret = -1, i;
+    int ret = -1, i, job_ret = 0;
     BN_CTX *ctx = NULL;
     BIGNUM *order = NULL, *m = NULL;
     const EC_GROUP *group;
@@ -1474,13 +1476,14 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
         }
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("bEcdsaVerifyStatus = %u\n", bEcdsaVerifyStatus);
     qat_cleanup_op_done(&op_done);

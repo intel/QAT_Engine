@@ -413,6 +413,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     struct op_done op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     CpaInstanceHandle instance_handle = NULL;
+    int job_ret = 0;
 
     DEBUG("- Started\n");
 
@@ -478,10 +479,11 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
            qat_pause_job fails we will just yield and
            loop around and try again until the request
            completes and we can continue. */
-        if (qat_pause_job(op_done.job, 0) == 0)
+        if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
             pthread_yield();
     }
-    while (!op_done.flag);
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_RSA_DECRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
@@ -650,6 +652,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
     CpaInstanceHandle instance_handle = NULL;
+    int job_ret = 0;
 
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
@@ -730,7 +733,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if (qat_pause_job(op_done.job, 0) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                 pthread_yield();
         } else {
             if(getEnableInlinePolling()) {
@@ -739,7 +742,8 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                 pthread_yield();
             }
         }
-    } while (!op_done.flag);
+    } while (!op_done.flag ||
+             QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_RSA_ENCRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
