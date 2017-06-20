@@ -71,6 +71,9 @@
 
 #include "qat_utils.h"
 #include "e_qat.h"
+#include "qat_callback.h"
+#include "qat_polling.h"
+#include "qat_events.h"
 #include "e_qat_err.h"
 
 #include "cpa.h"
@@ -131,6 +134,9 @@ static int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                                     void *ptr);
 
 #endif
+
+int qatPerformOpRetries = 0;
+
 typedef struct _chained_info {
     const int nid;
     EVP_CIPHER *cipher;
@@ -1337,7 +1343,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         }
 
         DUMP_SYM_PERFORM_OP(qctx->instance_handle, opd, s_sgl, d_sgl);
-        sts = myPerformOp(qctx->instance_handle, &done, opd, s_sgl, d_sgl,
+        sts = qat_sym_perform_op(qctx->instance_handle, &done, opd, s_sgl, d_sgl,
                           &(qctx->session_data->verifyDigest));
         if (sts != CPA_STATUS_SUCCESS) {
             WARN("Failed to submit request to qat - status = %d\n", sts);
@@ -1424,4 +1430,69 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             ? qctx->numpipes : qctx->npipes_last_used;
     }
     return retVal & pad_check;
+}
+
+/******************************************************************************
+ *  * function:
+ *         CpaStatus qat_sym_perform_op(const CpaInstanceHandle  instance_handle,
+ *                     void *                     pCallbackTag,
+ *                     const CpaCySymOpData      *pOpData,
+ *                     const CpaBufferList       *pSrcBuffer,
+ *                     CpaBufferList             *pDstBuffer,
+ *                     CpaBoolean                *pVerifyResult)
+ *
+ * @param instance_handle [IN]  - Instance handle
+ * @param pCallbackTag    [IN]  - Pointer to op_done struct
+ * @param pOpData         [IN]  - Operation parameters
+ * @param pSrcBuffer      [IN]  - Source buffer list
+ * @param pDstBuffer      [OUT] - Destination buffer list
+ * @param pVerifyResult   [OUT] - Whether hash verified or not
+ *
+ * description:
+ *   Wrapper around cpaCySymPerformOp which handles retries for us.
+ *
+ *******************************************************************************/
+
+CpaStatus qat_sym_perform_op(const CpaInstanceHandle instance_handle,
+        void *pCallbackTag,
+        const CpaCySymOpData * pOpData,
+        const CpaBufferList * pSrcBuffer,
+        CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult)
+{
+    CpaStatus status;
+    struct op_done *opDone = (struct op_done *)pCallbackTag;
+    unsigned int uiRetry = 0;
+    useconds_t ulPollInterval = getQatPollInterval();
+    int iMsgRetry = getQatMsgRetryCount();
+    do {
+        status = cpaCySymPerformOp(instance_handle,
+                pCallbackTag,
+                pOpData,
+                pSrcBuffer, pDstBuffer, pVerifyResult);
+        if (status == CPA_STATUS_RETRY) {
+            if (opDone->job) {
+                if ((qat_wake_job(opDone->job, 0) == 0) ||
+                        (qat_pause_job(opDone->job, 0) == 0)) {
+                    WARN("Failed to wake or pause job\n");
+                    QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_WAKE_PAUSE_JOB_FAILURE);
+                    status = CPA_STATUS_FAIL;
+                    break;
+                }
+            } else {
+                qatPerformOpRetries++;
+                if (uiRetry >= iMsgRetry
+                        && iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    WARN("Maximum retries exceeded\n");
+                    QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_MAX_RETRIES_EXCEEDED);
+                    status = CPA_STATUS_FAIL;
+                    break;
+                }
+                uiRetry++;
+                usleep(ulPollInterval +
+                        (uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+            }
+        }
+    }
+    while (status == CPA_STATUS_RETRY);
+    return status;
 }

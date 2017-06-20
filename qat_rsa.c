@@ -66,6 +66,10 @@
 #endif
 #include "qat_utils.h"
 #include "e_qat.h"
+#include "qat_callback.h"
+#include "qat_polling.h"
+#include "qat_events.h"
+
 
 #include "cpa.h"
 #include "cpa_types.h"

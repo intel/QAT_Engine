@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_dh.c
  *
- * This file provides implementaiotns for Diffie Hellman operations through an
+ * This file provides implementations for Diffie Hellman operations through an
  * OpenSSL engine
  *
  *****************************************************************************/
@@ -64,6 +64,9 @@
 #include "cpa_types.h"
 #include "cpa_cy_dh.h"
 #include "e_qat.h"
+#include "qat_callback.h"
+#include "qat_polling.h"
+#include "qat_events.h"
 #include "e_qat_err.h"
 #include <unistd.h>
 #include <string.h>

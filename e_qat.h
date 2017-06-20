@@ -46,22 +46,14 @@
 #ifndef E_QAT_H
 # define E_QAT_H
 
-# include <openssl/ssl.h>
-# include <openssl/sha.h>
-# include <openssl/aes.h>
+# include <openssl/engine.h>
 # include <sys/types.h>
 # include <unistd.h>
 
 # include "cpa.h"
 # include "cpa_types.h"
-# include "cpa_cy_sym.h"
-# include "cpa_cy_drbg.h"
 
 # include "qat_aux.h"
-# include "qat_ciphers.h"
-# if OPENSSL_VERSION_NUMBER >= 0x10100000L
-# include <openssl/async.h>
-# endif
 
 # define QAT_RETRY_BACKOFF_MODULO_DIVISOR 8
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
@@ -69,6 +61,13 @@
 # ifndef ERR_R_RETRY
 #  define ERR_R_RETRY 57
 # endif
+
+#define likely(x)   __builtin_expect (!!(x), 1)
+#define unlikely(x) __builtin_expect (!!(x), 0)
+
+/* Macro used to handle errors in qat_engine_ctrl() */
+#define BREAK_IF(cond, mesg) \
+    if(unlikely(cond)) { retVal = 0; WARN(mesg); break; }
 
 #define QAT_QMEMFREE_BUFF(b) \
             do { \
@@ -120,151 +119,113 @@
                     QAT_QMEM_FREE_FLATBUFF(b); \
             } while(0)
 
-/* QAT max supported pipelines may be different from
- * SSL max supported ones.
+#define MAX_CRYPTO_INSTANCES 64
+
+/* Behavior of qat_engine_finish_int */
+#define QAT_RETAIN_GLOBALS 0
+#define QAT_RESET_GLOBALS 1
+
+/*
+ * The default interval in nanoseconds used for the internal polling thread
  */
-#define QAT_MAX_PIPELINES   SSL_MAX_PIPELINES
+#define QAT_POLL_PERIOD_IN_NS 10000
 
-/* These are QAT API operation parameters */
-typedef struct qat_op_params_t {
-    CpaCySymOpData op_data;
-    CpaBufferList src_sgl;
-    CpaBufferList dst_sgl;
-    CpaFlatBuffer src_fbuf[2];
-    CpaFlatBuffer dst_fbuf[2];
-} qat_op_params;
-
-typedef struct qat_chained_ctx_t {
-    /* Crypto */
-    unsigned char *hmac_key;
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    /* Pointer for context data that will be used by
-     * Small packet offload feature. */
-    void *sw_ctx_data;
-#endif
-    /* QAT Session Params */
-    CpaInstanceHandle instance_handle;
-    CpaCySymSessionSetupData *session_data;
-    CpaCySymSessionCtx session_ctx;
-    int init_flags;
-
-    unsigned int aad_ctr;
-    char aad[QAT_MAX_PIPELINES][TLS_VIRT_HDR_SIZE];
-
-    /* QAT Operation Params are required per pipe in the pipeline.
-     * Hence this is a pointer to a dynamically allocated array with
-     * length equal to QAT_MAX_PIPELINES if pipes are used else 1.
-     */
-    qat_op_params *qop;
-    unsigned int qop_len;
-
-    /* Pipeline related Data */
-    unsigned char **p_in;
-    unsigned char **p_out;
-    size_t  *p_inlen;
-    unsigned int numpipes;
-    unsigned int npipes_last_used;
-    unsigned long total_op;
-} qat_chained_ctx;
-
-/* qat_buffer structure for partial hash */
-typedef struct qat_buffer_t {
-    struct qat_buffer_t *next;  /* next buffer in the list */
-    void *data;                 /* point to data buffer */
-    int len;                    /* length of data */
-} qat_buffer;
-
-/* Qat ctx structure declaration */
-typedef struct qat_ctx_t {
-    int paramNID;               /* algorithm nid */
-    CpaCySymSessionCtx ctx;     /* session context */
-    unsigned char hashResult[SHA512_DIGEST_LENGTH];
-    /* hash digest result */
-    int enc;                    /* encryption flag */
-    int init;                   /* has been initialised */
-    int copiedCtx;              /* whether this is a copied context for
-                                 * initialisation purposes */
-    CpaInstanceHandle instance_handle;
-    Cpa32U nodeId;
-    /*
-     * the memory for the private meta data must be allocated as contiguous
-     * memory. The cpaCyBufferListGetMetaSize() will return the size (in
-     * bytes) for memory allocation routine to allocate the private meta data
-     * memory
-     */
-    void *srcPrivateMetaData;   /* meta data pointer */
-    void *dstPrivateMetaData;   /* meta data pointer */
-    /*
-     * For partial operations, we maintain a linked list of buffers to be
-     * processed in the final function.
-     */
-    qat_buffer *first;          /* first buffer pointer for partial op */
-    qat_buffer *last;           /* last buffer pointe for partial op */
-    int buff_count;             /* buffer count */
-    int buff_total_bytes;       /* total number of bytes in buffer */
-    int failed_submission;      /* flag as a failed submission to aid cleanup */
-    /* Request tracking stats */
-    Cpa64U noRequests;
-    Cpa64U noResponses;
-    CpaCySymSessionSetupData *session_data;
-    Cpa32U meta_size;
-} qat_ctx;
-
-/* Struct for tracking threaded QAT operation completion. */
-struct op_done {
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    int flag;
-    CpaBoolean verifyResult;
-    ASYNC_JOB *job;
-};
-
-/* Use this variant of op_done to track QAT chained cipher
- * operation completion supporting pipelines.
+/*
+ * The number of retries of the nanosleep if it gets interrupted during
+ * waiting between polling.
  */
-struct op_done_pipe {
-    /* Keep this as first member of the structure.
-     * to allow inter-changeability by casting pointers.
-     */
-    struct op_done opDone;
-    unsigned int num_pipes;
-    unsigned int num_submitted;
-    unsigned int num_processed;
-};
+#define QAT_CRYPTO_NUM_POLLING_RETRIES (5)
 
-/* Use this variant of op_done to track
- * QAT RSA CRT operation completion.
+/*
+ * The number of seconds to wait for a response back after submitting a
+ * request before raising an error.
  */
-struct op_done_rsa_crt {
-    /* Keep this as first member of the structure.
-     * to allow inter-changeability by casting pointers.
-     */
-    struct op_done opDone;
-    unsigned int req;
-    unsigned int resp;
-};
+#define QAT_CRYPTO_RESPONSE_TIMEOUT (5)
 
+/*
+ * The default timeout in milliseconds used for epoll_wait when event driven
+ * polling mode is enabled.
+ */
+#define QAT_EPOLL_TIMEOUT_IN_MS 1000
+
+/*
+ * Max Length (bytes) of error string in human readable format
+ */
+#define QAT_MAX_ERROR_STRING 256
+
+/* Qat engine id declaration */
+extern const char *engine_qat_id;
+extern const char *engine_qat_name;
+
+extern char *ICPConfigSectionName_libcrypto;
+
+extern CpaInstanceHandle *qat_instance_handles;
+extern Cpa16U qat_num_instances;
+extern  pthread_key_t qatInstanceForThread;
+extern pthread_t polling_thread;
+extern int keep_polling;
+extern int enable_external_polling;
+extern int enable_inline_polling;
+extern int enable_event_driven_polling;
+extern int enable_instance_for_thread;
+extern int qatPerformOpRetries;
+extern int curr_inst;
+extern pthread_mutex_t qat_instance_mutex;
+extern pthread_mutex_t qat_engine_mutex;
+
+extern unsigned int engine_inited;
+extern unsigned int instance_started[MAX_CRYPTO_INSTANCES];
+extern useconds_t qat_poll_interval;
+extern int qat_epoll_timeout;
+extern int qat_max_retry_count;
+
+/******************************************************************************
+ * function:
+ *         get_next_inst(void)
+ *
+ * description:
+ *   Return the next instance handle to use for an operation.
+ *
+ ******************************************************************************/
 CpaInstanceHandle get_next_inst(void);
-void qat_init_op_done(struct op_done *opDone);
-void qat_cleanup_op_done(struct op_done *opDone);
-int  qat_init_op_done_pipe(struct op_done_pipe *opDone, unsigned int npipes);
-void qat_cleanup_op_done_pipe(struct op_done_pipe *opDone);
-void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
-                           const CpaCySymOp operationType, void *pOpData,
-                           CpaBufferList * pDstBuffer,
-                           CpaBoolean verifyResult);
-CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
-                      void *pCallbackTag, const CpaCySymOpData * pOpData,
-                      const CpaBufferList * pSrcBuffer,
-                      CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult);
-int qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt);
-void qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt);
-int qat_setup_async_event_notification(int notificationNo);
-int qat_clear_async_event_notification();
-int qat_pause_job(ASYNC_JOB *job, int notificationNo);
-int qat_wake_job(ASYNC_JOB *job, int notificationNo);
-useconds_t getQatPollInterval();
-int getQatMsgRetryCount();
-int getEnableExternalPolling();
-int getEnableInlinePolling();
+
+/******************************************************************************
+ * function:
+ *         qat_engine_init(ENGINE *e)
+ *
+ * @param e [IN] - OpenSSL engine pointer
+ *
+ * description:
+ *   Qat engine init function, associated with Crypto memory setup
+ *   and cpaStartInstance setups.
+ ******************************************************************************/
+int qat_engine_init(ENGINE *e);
+
+/******************************************************************************
+ * function:
+ *         qat_engine_finish(ENGINE *e)
+ *
+ * @param e [IN] - OpenSSL engine pointer
+ *
+ * description:
+ *   Qat engine finish function with standard signature.
+ *   This is a wrapper for qat_engine_finish_int that always resets all the
+ *   global variables used to store the engine configuration.
+ ******************************************************************************/
+int qat_engine_finish(ENGINE *e);
+
+/******************************************************************************
+ * function:
+ *         qat_engine_finish_int(ENGINE *e, int reset_globals)
+ *
+ * @param e [IN] - OpenSSL engine pointer
+ * @param reset_globals [IN] - Whether reset the global configuration variables
+ *
+ * description:
+ *   Internal Qat engine finish function.
+ *   The value of reset_globals should be either QAT_RESET_GLOBALS or
+ *   QAT_RETAIN_GLOBALS
+ ******************************************************************************/
+int qat_engine_finish_int(ENGINE *e, int reset_globals);
+
 #endif   /* E_QAT_H */

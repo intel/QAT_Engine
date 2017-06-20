@@ -63,39 +63,6 @@
 # error "No memory driver type defined"
 #endif
 
-
-/*
- * The default interval in nanoseconds used for the internal polling thread
- */
-#define QAT_POLL_PERIOD_IN_NS 10000
-
-/*
- * The number of retries of the nanosleep if it gets interrupted during
- * waiting between polling.
- */
-#define QAT_CRYPTO_NUM_POLLING_RETRIES (5)
-
-/*
- * The number of seconds to wait for a response back after submitting a
- * request before raising an error.
- */
-#define QAT_CRYPTO_RESPONSE_TIMEOUT (5)
-
-/*
- * The default timeout in milliseconds used for epoll_wait when event driven
- * polling mode is enabled.
- */
-#define QAT_EPOLL_TIMEOUT_IN_MS 1000
-
-/* Behavior of qat_engine_finish_int */
-#define QAT_RETAIN_GLOBALS 0
-#define QAT_RESET_GLOBALS 1
-
-/*
- * Max Length (bytes) of error string in human readable format
- */
-#define QAT_MAX_ERROR_STRING 256
-
 /* Standard Includes */
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,6 +78,10 @@
 
 /* Local Includes */
 #include "e_qat.h"
+#include "qat_fork.h"
+#include "qat_events.h"
+#include "qat_callback.h"
+#include "qat_polling.h"
 #include "qat_ciphers.h"
 #include "qat_rsa.h"
 #include "qat_dsa.h"
@@ -142,9 +113,6 @@
 #include "icp_sal_poll.h"
 #include "qat_parseconf.h"
 
-#define MAX_EVENTS 32
-#define MAX_CRYPTO_INSTANCES 64
-
 #define likely(x)   __builtin_expect (!!(x), 1)
 #define unlikely(x) __builtin_expect (!!(x), 0)
 
@@ -152,68 +120,32 @@
 #define BREAK_IF(cond, mesg) \
     if(unlikely(cond)) { retVal = 0; WARN(mesg); break; }
 
-/* Forward Declarations */
-static int qat_engine_init(ENGINE *e);
-static int qat_engine_finish(ENGINE *e);
-static int qat_engine_finish_int(ENGINE *e, int reset_globals);
 
 /* Qat engine id declaration */
-static const char *engine_qat_id = "qat";
-static const char *engine_qat_name =
+const char *engine_qat_id = "qat";
+const char *engine_qat_name =
     "Reference implementation of QAT crypto engine";
 
 char *ICPConfigSectionName_libcrypto = "SHIM";
 
-/* Globals */
-typedef struct {
-    int eng_fd;
-    int inst_index;
-} ENGINE_EPOLL_ST;
-
-struct epoll_event eng_epoll_events[MAX_CRYPTO_INSTANCES] = {{ 0 }};
-static int internal_efd = 0;
-static ENGINE_EPOLL_ST eng_poll_st[MAX_CRYPTO_INSTANCES] = {{ -1 }};
 CpaInstanceHandle *qat_instance_handles = NULL;
 Cpa16U qat_num_instances = 0;
-static pthread_key_t qatInstanceForThread;
+pthread_key_t qatInstanceForThread;
 pthread_t polling_thread;
-static int keep_polling = 1;
-static int enable_external_polling = 0;
-static int enable_inline_polling = 0;
-static int enable_event_driven_polling = 0;
-static int enable_instance_for_thread = 0;
-int qatPerformOpRetries = 0;
-static int curr_inst = 0;
-static pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
+int keep_polling = 1;
+int enable_external_polling = 0;
+int enable_inline_polling = 0;
+int enable_event_driven_polling = 0;
+int enable_instance_for_thread = 0;
+int curr_inst = 0;
+pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-static unsigned int engine_inited = 0;
-static unsigned int instance_started[MAX_CRYPTO_INSTANCES] = {0};
-static useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
-static int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
-static int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
-
-
-int getQatMsgRetryCount()
-{
-    return qat_max_retry_count;
-}
-
-useconds_t getQatPollInterval()
-{
-    return qat_poll_interval;
-}
-
-int getEnableInlinePolling()
-{
-    return enable_inline_polling;
-}
-
-int qat_is_event_driven()
-{
-    return enable_event_driven_polling;
-}
-
+unsigned int engine_inited = 0;
+unsigned int instance_started[MAX_CRYPTO_INSTANCES] = {0};
+useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
+int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
+int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 
 /******************************************************************************
 * function:
@@ -230,14 +162,6 @@ static inline void incr_curr_inst(void)
     pthread_mutex_unlock(&qat_instance_mutex);
 }
 
-/******************************************************************************
-* function:
-*         get_next_inst(void)
-*
-* description:
-*   Return the next instance handle to use for an operation.
-*
-******************************************************************************/
 CpaInstanceHandle get_next_inst(void)
 {
     CpaInstanceHandle instance_handle = NULL;
@@ -284,664 +208,6 @@ CpaInstanceHandle get_next_inst(void)
     return instance_handle;
 }
 
-
-/******************************************************************************
-* function:
-*         void engine_init_child_at_fork_handler(void)
-*
-* description:
-*   This function is registered, by the call to pthread_atfork(), as
-*   a function to be invoked in the child process prior to fork() returning.
-******************************************************************************/
-static void engine_init_child_at_fork_handler(void)
-{
-    /* Reinitialise the engine */
-    ENGINE* e = ENGINE_by_id(engine_qat_id);
-    if (e == NULL) {
-        WARN("Engine pointer is NULL\n");
-        QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_NULL);
-        return;
-    }
-
-    if (qat_engine_init(e) != 1) {
-        WARN("Failure in qat_engine_init function\n");
-        QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
-    }
-    ENGINE_free(e);
-}
-
-
-/******************************************************************************
-* function:
-*         void engine_finish_before_fork_handler(void)
-*
-* description:
-*   This function is registered, by the call to pthread_atfork(), as
-*   a function to be run (by the parent process) before a fork() function.
-******************************************************************************/
-static void engine_finish_before_fork_handler(void)
-{
-    /* Reset the engine preserving the value of global variables */
-    ENGINE* e = ENGINE_by_id(engine_qat_id);
-    if (e == NULL) {
-        WARN("Engine pointer is NULL\n");
-        QATerr(QAT_F_ENGINE_FINISH_BEFORE_FORK_HANDLER, QAT_R_ENGINE_NULL);
-        return;
-    }
-
-    qat_engine_finish_int(e, QAT_RETAIN_GLOBALS);
-    ENGINE_free(e);
-
-    keep_polling = 1;
-}
-
-
-
-/******************************************************************************
-* function:
-*         qat_set_instance_for_thread(long instanceNum)
-*
-* @param instanceNum [IN] - logical instance number
-*
-* description:
-*   Bind the current thread to a particular logical Cy instance. Note that if
-*   instanceNum is greater than the number of configured instances, the
-*   modulus operation is used.
-*
-******************************************************************************/
-void qat_set_instance_for_thread(long instanceNum)
-{
-    int rc;
-
-    if ((rc =
-         pthread_setspecific(qatInstanceForThread,
-                             qat_instance_handles[instanceNum %
-                                                qat_num_instances])) != 0) {
-        WARN("pthread_setspecific: %s\n", strerror(rc));
-        QATerr(QAT_F_QAT_SET_INSTANCE_FOR_THREAD, QAT_R_PTHREAD_SETSPECIFIC_FAILURE);
-        return;
-    }
-    enable_instance_for_thread = 1;
-}
-
-/******************************************************************************
-* function:
-*         qat_init_op_done(struct op_done *opDone)
-*
-* @param opDone [IN] - pointer to op done callback structure
-*
-* description:
-*   Initialise the QAT operation "done" callback structure.
-*
-******************************************************************************/
-void qat_init_op_done(struct op_done *opDone)
-{
-    if (opDone == NULL) {
-        WARN("opDone is NULL\n");
-        QATerr(QAT_F_QAT_INIT_OP_DONE, QAT_R_OPDONE_NULL);
-        return;
-    }
-
-    opDone->flag = 0;
-    opDone->verifyResult = CPA_FALSE;
-
-    opDone->job = ASYNC_get_current_job();
-
-}
-
-/******************************************************************************
-* function:
-*         qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
-*
-* @param opdpipe [IN] - pointer to op_done_pipe callback structure
-* @param npipes  [IN] - number of pipes in the pipeline
-*
-* description:
-*   Initialise the QAT chained operation "done" callback structure.
-*   Setup async event notification if required. The function returns
-*   1 for success and 0 for failure.
-*
-******************************************************************************/
-int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
-{
-    if (opdpipe == NULL) {
-        WARN("opdpipe is NULL\n");
-        QATerr(QAT_F_QAT_INIT_OP_DONE_PIPE, QAT_R_OPDPIPE_NULL);
-        return 0;
-    }
-
-    opdpipe->num_pipes = npipes;
-    opdpipe->num_submitted = 0;
-    opdpipe->num_processed = 0;
-
-    opdpipe->opDone.flag = 0;
-    opdpipe->opDone.verifyResult = CPA_TRUE;
-    opdpipe->opDone.job = ASYNC_get_current_job();
-
-    /* Setup async notification if using async jobs. */
-    if (opdpipe->opDone.job != NULL &&
-        (qat_setup_async_event_notification(0) == 0)) {
-        WARN("Failure to setup async event notifications\n");
-        QATerr(QAT_F_QAT_INIT_OP_DONE_PIPE, QAT_R_SETUP_ASYNC_EVENT_FAILURE);
-        qat_cleanup_op_done_pipe(opdpipe);
-        return 0;
-    }
-
-    return 1;
-}
-
-/******************************************************************************
-* function:
-*         qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
-*
-* @param opdcrt [IN] - pointer to op done callback structure
-*
-* description:
-*   Initialise the QAT RSA synchronous operation "done" callback structure.
-*   The function returns 1 for success and 0 for failure.
-*
-******************************************************************************/
-int qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
-{
-    if (opdcrt == NULL) {
-        WARN("opdcrt is NULL\n");
-        QATerr(QAT_F_QAT_INIT_OP_DONE_RSA_CRT, QAT_R_OPDCRT_NULL);
-        return 0;
-    }
-
-    opdcrt->opDone.flag = 0;
-    /* note that the initial value is true in order to judge via AND */
-    opdcrt->opDone.verifyResult = CPA_TRUE;
-
-    opdcrt->opDone.job = NULL;
-
-    opdcrt->req = 0;
-    opdcrt->resp = 0;
-
-    return 1;
-}
-
-/******************************************************************************
-* function:
-*         qat_cleanup_op_done(struct op_done *opDone)
-*
-* @param opDone [IN] - pointer to op done callback structure
-*
-* description:
-*   Cleanup the data in the "done" callback structure.
-*
-******************************************************************************/
-void qat_cleanup_op_done(struct op_done *opDone)
-{
-    if (opDone == NULL) {
-        WARN("opDone is NULL\n");
-        return;
-    }
-
-    /*
-     * op_done:verifyResult is used after return from this function
-     * Donot change this value.
-     */
-
-    if (opDone->job) {
-        opDone->job = NULL;
-    }
-}
-
-/******************************************************************************
-* function:
-*         qat_cleanup_op_done_pipe(struct op_done_pipe *opDone)
-*
-* @param opDone [IN] - pointer to op_done_pipe callback structure
-*
-* description:
-*   Cleanup the QAT chained operation "done" callback structure.
-*
-******************************************************************************/
-void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
-{
-    if (opdone == NULL) {
-        WARN("opdone is NULL\n");
-        return;
-    }
-
-    opdone->num_pipes = 0;
-    opdone->num_submitted = 0;
-    opdone->num_processed = 0;
-    if (opdone->opDone.job)
-        opdone->opDone.job = NULL;
-}
-
-/******************************************************************************
-* function:
-*         qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
-*
-* @param opdcrt [IN] - pointer to op done callback structure
-*
-* description:
-*   Cleanup the QAT RSA synchronous operation "done" callback structure.
-*
-******************************************************************************/
-void qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
-{
-    if (opdcrt == NULL) {
-        WARN("opdcrt is NULL\n");
-        return;
-    }
-
-    opdcrt->opDone.verifyResult = CPA_FALSE;
-    opdcrt->req = 0;
-    opdcrt->resp = 0;
-}
-
-/******************************************************************************
-* function:
-*         qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
-*                        const CpaCySymOp operationType, void *pOpData,
-*                        CpaBufferList * pDstBuffer, CpaBoolean verifyResult)
-*
-
-* @param pCallbackTag  [IN] -  Opaque value provided by user while making
-*                              individual function call. Cast to op_done.
-* @param status        [IN] -  Status of the operation.
-* @param operationType [IN] -  Identifies the operation type requested.
-* @param pOpData       [IN] -  Pointer to structure with input parameters.
-* @param pDstBuffer    [IN] -  Destination buffer to hold the data output.
-* @param verifyResult  [IN] -  Used to verify digest result.
-*
-* description:
-*   Callback function used by cpaCySymPerformOp to indicate completion.
-*
-******************************************************************************/
-void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
-                           const CpaCySymOp operationType, void *pOpData,
-                           CpaBufferList * pDstBuffer,
-                           CpaBoolean verifyResult)
-{
-    struct op_done *opDone = (struct op_done *)callbackTag;
-
-    if (opDone == NULL) {
-        WARN("opDone is NULL\n");
-        QATerr(QAT_F_QAT_CRYPTO_CALLBACKFN, QAT_R_OPDONE_NULL);
-        return;
-    }
-
-    DEBUG("status %d verifyResult %d\n", status,
-          verifyResult);
-    opDone->verifyResult = (status == CPA_STATUS_SUCCESS) && verifyResult
-                            ? CPA_TRUE : CPA_FALSE;
-
-    if (opDone->job) {
-        opDone->flag = 1;
-        qat_wake_job(opDone->job, 0);
-    } else {
-        opDone->flag = 1;
-    }
-}
-
-/******************************************************************************
-* function:
-*         CpaStatus myPerformOp(const CpaInstanceHandle  instance_handle,
-*                     void *                     pCallbackTag,
-*                     const CpaCySymOpData      *pOpData,
-*                     const CpaBufferList       *pSrcBuffer,
-*                     CpaBufferList             *pDstBuffer,
-*                     CpaBoolean                *pVerifyResult)
-*
-* @param instance_handle [IN]  - Instance handle
-* @param pCallbackTag    [IN]  - Pointer to op_done struct
-* @param pOpData         [IN]  - Operation parameters
-* @param pSrcBuffer      [IN]  - Source buffer list
-* @param pDstBuffer      [OUT] - Destination buffer list
-* @param pVerifyResult   [OUT] - Whether hash verified or not
-*
-* description:
-*   Wrapper around cpaCySymPerformOp which handles retries for us.
-*
-******************************************************************************/
-CpaStatus myPerformOp(const CpaInstanceHandle instance_handle,
-                      void *pCallbackTag,
-                      const CpaCySymOpData * pOpData,
-                      const CpaBufferList * pSrcBuffer,
-                      CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult)
-{
-    CpaStatus status;
-    struct op_done *opDone = (struct op_done *)pCallbackTag;
-    unsigned int uiRetry = 0;
-    do {
-        status = cpaCySymPerformOp(instance_handle,
-                                   pCallbackTag,
-                                   pOpData,
-                                   pSrcBuffer, pDstBuffer, pVerifyResult);
-        if (status == CPA_STATUS_RETRY) {
-            if (opDone->job) {
-                if ((qat_wake_job(opDone->job, 0) == 0) ||
-                    (qat_pause_job(opDone->job, 0) == 0)) {
-                    WARN("Failed to wake or pause job\n");
-                    QATerr(QAT_F_MYPERFORMOP, QAT_R_WAKE_PAUSE_JOB_FAILURE);
-                    status = CPA_STATUS_FAIL;
-                    break;
-                }
-            } else {
-                qatPerformOpRetries++;
-                if (uiRetry >= qat_max_retry_count
-                    && qat_max_retry_count != QAT_INFINITE_MAX_NUM_RETRIES) {
-                    WARN("Maximum retries exceeded\n");
-                    QATerr(QAT_F_MYPERFORMOP, QAT_R_MAX_RETRIES_EXCEEDED);
-                    status = CPA_STATUS_FAIL;
-                    break;
-                }
-                uiRetry++;
-                usleep(qat_poll_interval +
-                       (uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-            }
-        }
-    }
-    while (status == CPA_STATUS_RETRY);
-    return status;
-}
-
-static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
-                           OSSL_ASYNC_FD readfd, void *custom)
-{
-    if (close(readfd) != 0) {
-        WARN("Failed to close fd: %d - error: %d\n", readfd, errno);
-        QATerr(QAT_F_QAT_FD_CLEANUP, QAT_R_CLOSE_FD_FAILURE);
-    }
-}
-
-int qat_setup_async_event_notification(int notificationNo)
-{
-    /* We will ignore notificationNo for the moment */
-    ASYNC_JOB *job;
-    ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
-    void *custom = NULL;
-
-    if ((job = ASYNC_get_current_job()) == NULL) {
-        WARN("Could not obtain current job\n");
-        return 0;
-    }
-
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
-        WARN("Could not obtain wait context for job\n");
-        return 0;
-    }
-
-    if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
-                              &custom) == 0) {
-        efd = eventfd(0, EFD_NONBLOCK);
-        if (efd == -1) {
-            WARN("Failed to get eventfd = %d\n", errno);
-            return 0;
-        }
-
-        if (ASYNC_WAIT_CTX_set_wait_fd(waitctx, engine_qat_id, efd,
-                                       custom, qat_fd_cleanup) == 0) {
-            WARN("failed to set the fd in the ASYNC_WAIT_CTX\n");
-            qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
-            return 0;
-        }
-    }
-    return 1;
-}
-
-int qat_clear_async_event_notification() {
-
-    ASYNC_JOB *job;
-    ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
-    size_t num_add_fds = 0;
-    size_t num_del_fds = 0;
-    void *custom = NULL;
-
-    if ((job = ASYNC_get_current_job()) == NULL) {
-        WARN("Could not obtain current job\n");
-        return 0;
-    }
-
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
-        WARN("Could not obtain wait context for job\n");
-        return 0;
-    }
-
-    if (ASYNC_WAIT_CTX_get_changed_fds(waitctx, NULL, &num_add_fds, NULL,
-                                       &num_del_fds) == 0) {
-        WARN("Failure in ASYNC_WAIT_CTX_get_changed_async_fds\n");
-        return 0;
-    }
-
-    if (num_add_fds > 0) {
-        /* Only close the fd and remove it from the ASYNC_WAIT_CTX
-           if it is a new fd. If it is an existing fd then leave it
-           open and in the ASYNC_WAIT_CTX and it will be cleaned up
-           when the ASYNC_WAIT_CTX is cleaned up.*/
-        if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd, &custom) == 0) {
-            WARN("Failure in ASYNC_WAIT_CTX_get_fd\n");
-            return 0;
-        }
-
-        qat_fd_cleanup(waitctx, engine_qat_id, efd, NULL);
-
-        if (ASYNC_WAIT_CTX_clear_fd(waitctx, engine_qat_id) == 0) {
-            WARN("Failure in ASYNC_WAIT_CTX_clear_fd\n");
-            return 0;
-        }
-    }
-
-    return 1;
-}
-
-int qat_pause_job(ASYNC_JOB *job, int notificationNo)
-{
-    /* We will ignore notificationNo for the moment */
-    ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
-    void *custom = NULL;
-    uint64_t buf = 0;
-    int ret = 0;
-
-    if (ASYNC_pause_job() == 0) {
-        WARN("Failed to pause the job\n");
-        return ret;
-    }
-
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
-        WARN("waitctx == NULL\n");
-        return ret;
-    }
-
-    if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
-                              &custom)) > 0) {
-        if (read(efd, &buf, sizeof(uint64_t)) == -1) {
-            if (errno != EAGAIN) {
-                WARN("Failed to read from fd: %d - error: %d\n", efd, errno);
-            }
-        }
-    }
-    return ret;
-}
-
-int qat_wake_job(ASYNC_JOB *job, int notificationNo)
-{
-    /* We will ignore notificationNo for the moment */
-    ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
-    void *custom = NULL;
-    /* Arbitary value '1' to write down the pipe to trigger event */
-    uint64_t buf = 1;
-    int ret = 0;
-
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
-        WARN("waitctx == NULL\n");
-        return ret;
-    }
-
-    if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
-                              &custom)) > 0) {
-        if (write(efd, &buf, sizeof(uint64_t)) == -1) {
-            WARN("Failed to write to fd: %d - error: %d\n", efd, errno);
-        }
-    }
-    return ret;
-}
-
-/******************************************************************************
-* function:
-*         int qat_create_thread(pthread_t *pThreadId,
-*                               const pthread_attr_t *attr,
-*                               void *(*start_func) (void *), void *pArg)
-*
-* @param pThreadId  [OUT] - Pointer to Thread ID
-* @param start_func [IN]  - Pointer to Thread Start routine
-* @param attr       [IN]  - Pointer to Thread attributes
-* @param pArg       [IN]  - Arguments to start routine
-*
-* description:
-*   Wrapper function for pthread_create
-******************************************************************************/
-int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
-                      void *(*start_func) (void *), void *pArg)
-{
-    return pthread_create(pThreadId, attr, start_func,(void *)pArg);
-}
-
-/******************************************************************************
-* function:
-*         int qat_join_thread(pthread_t threadId, void **retval)
-*
-* @param pThreadId  [IN ] - Thread ID of the created thread
-* @param retval     [OUT] - Pointer that contains thread's exit status
-*
-* description:
-*   Wrapper function for pthread_create
-******************************************************************************/
-int qat_join_thread(pthread_t threadId, void **retval)
-{
-    return pthread_join(threadId, retval);
-}
-
-/******************************************************************************
-* function:
-*         void *timer_poll_func(void *ih)
-*
-* @param ih [IN] - Instance handle
-*
-* description:
-*   Poll the QAT instances (nanosleep version)
-*     NB: Delay in this function is set by default at runtime by an engine
-*     specific message. If not set then the default is QAT_POLL_PERIOD_IN_NS.
-*
-******************************************************************************/
-static void *timer_poll_func(void *ih)
-{
-    CpaStatus status = 0;
-    Cpa16U inst_num = 0;
-
-    struct timespec req_time = { 0 };
-    struct timespec rem_time = { 0 };
-    unsigned int retry_count = 0; /* to prevent too much time drift */
-
-    while (keep_polling) {
-        req_time.tv_nsec = qat_poll_interval;
-
-        for (inst_num = 0; inst_num < qat_num_instances; ++inst_num) {
-            /* Poll for 0 means process all packets on the instance */
-            status = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
-            if (unlikely(CPA_STATUS_SUCCESS != status
-                        && CPA_STATUS_RETRY != status)) {
-                WARN("icp_sal_CyPollInstance returned status %d\n", status);
-            }
-
-            if (unlikely(!keep_polling))
-                break;
-        }
-
-        retry_count = 0;
-        do {
-            retry_count++;
-            nanosleep(&req_time, &rem_time);
-            req_time.tv_sec = rem_time.tv_sec;
-            req_time.tv_nsec = rem_time.tv_nsec;
-            if (unlikely((errno < 0) && (EINTR != errno))) {
-                WARN("nanosleep system call failed: errno %i\n", errno);
-                break;
-            }
-        }
-        while ((retry_count <= QAT_CRYPTO_NUM_POLLING_RETRIES)
-               && (EINTR == errno));
-    }
-    return NULL;
-}
-
-static void *event_poll_func(void *ih)
-{
-    CpaStatus status = 0;
-    struct epoll_event *events = NULL;
-    ENGINE_EPOLL_ST* epollst = NULL;
-
-    /* Buffer where events are returned */
-    events = OPENSSL_zalloc(sizeof(struct epoll_event) * MAX_EVENTS);
-    if (NULL == events) {
-        WARN("Error allocating events list\n");
-        QATerr(QAT_F_EVENT_POLL_FUNC, QAT_R_EVENTS_MALLOC_FAILURE);
-        goto end;
-    }
-    while (keep_polling) {
-        int n = 0;
-        int i = 0;
-
-        n = epoll_wait(internal_efd, events, MAX_EVENTS, qat_epoll_timeout);
-        for (i = 0; i < n; ++i) {
-            if (events[i].events & EPOLLIN) {
-                /*  poll for 0 means process all packets on the ET ring */
-                epollst = (ENGINE_EPOLL_ST*)events[i].data.ptr;
-                status = icp_sal_CyPollInstance(qat_instance_handles[epollst->inst_index], 0);
-                if (CPA_STATUS_SUCCESS != status) {
-                    WARN("icp_sal_CyPollInstance returned status %d\n", status);
-                }
-            }
-        }
-    }
-
-    OPENSSL_free(events);
-    events = 0;
-end:
-    return NULL;
-}
-
-static CpaStatus poll_instances(void)
-{
-    unsigned int poll_loop;
-    CpaInstanceHandle instance_handle = NULL;
-    CpaStatus internal_status = CPA_STATUS_SUCCESS,
-        ret_status = CPA_STATUS_SUCCESS;
-    if (enable_instance_for_thread)
-        instance_handle = pthread_getspecific(qatInstanceForThread);
-    if (instance_handle) {
-        ret_status = icp_sal_CyPollInstance(instance_handle, 0);
-    } else {
-        for (poll_loop = 0; poll_loop < qat_num_instances; poll_loop++) {
-            if (qat_instance_handles[poll_loop] != NULL) {
-                internal_status =
-                    icp_sal_CyPollInstance(qat_instance_handles[poll_loop], 0);
-                if (CPA_STATUS_SUCCESS == internal_status) {
-                    /* Do nothing */
-                } else if (CPA_STATUS_RETRY == internal_status) {
-                    ret_status = internal_status;
-                } else {
-                    WARN("icp_sal_CyPollInstance failed - status %d\n", internal_status);
-                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
-                    ret_status = internal_status;
-                    break;
-                }
-            }
-        }
-    }
-
-    return ret_status;
-}
-
 /******************************************************************************
 * function:
 *         virtualToPhysical(void *virtualAddr)
@@ -962,7 +228,6 @@ static CpaPhysicalAddr virtualToPhysical(void *virtualAddr)
 {
     return qaeCryptoMemV2P(virtualAddr);
 }
-
 
 int qat_adjust_thread_affinity(pthread_t threadptr)
 {
@@ -993,17 +258,7 @@ int qat_adjust_thread_affinity(pthread_t threadptr)
     return 1;
 }
 
-/******************************************************************************
-* function:
-*         qat_engine_init(ENGINE *e)
-*
-* @param e [IN] - OpenSSL engine pointer
-*
-* description:
-*   Qat engine init function, associated with Crypto memory setup
-*   and cpaStartInstance setups.
-******************************************************************************/
-static int qat_engine_init(ENGINE *e)
+int qat_engine_init(ENGINE *e)
 {
     int instNum, err;
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -1460,19 +715,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     return retVal;
 }
 
-/******************************************************************************
-* function:
-*         qat_engine_finish_int(ENGINE *e, int reset_globals)
-*
-* @param e [IN] - OpenSSL engine pointer
-* @param reset_globals [IN] - Whether reset the global configuration variables
-*
-* description:
-*   Internal Qat engine finish function.
-*   The value of reset_globals should be either QAT_RESET_GLOBALS or
-*   QAT_RETAIN_GLOBALS
-******************************************************************************/
-static int qat_engine_finish_int(ENGINE *e, int reset_globals)
+int qat_engine_finish_int(ENGINE *e, int reset_globals)
 {
 
     int i;
@@ -1569,18 +812,7 @@ static int qat_engine_finish_int(ENGINE *e, int reset_globals)
     return ret;
 }
 
-/******************************************************************************
-* function:
-*         qat_engine_finish(ENGINE *e)
-*
-* @param e [IN] - OpenSSL engine pointer
-*
-* description:
-*   Qat engine finish function with standard signature.
-*   This is a wrapper for qat_engine_finish_int that always resets all the
-*   global variables used to store the engine configuration.
-******************************************************************************/
-static int qat_engine_finish(ENGINE *e) {
+int qat_engine_finish(ENGINE *e) {
     return qat_engine_finish_int(e, QAT_RESET_GLOBALS);
 }
 
@@ -1770,4 +1002,5 @@ void ENGINE_load_qat(void)
     ENGINE_free(toadd);
     ERR_clear_error();
 }
+
 #endif

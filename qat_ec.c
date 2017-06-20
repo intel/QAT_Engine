@@ -63,6 +63,9 @@
 #include "cpa_cy_ec.h"
 #include "cpa_cy_ecdsa.h"
 #include "e_qat.h"
+#include "qat_callback.h"
+#include "qat_polling.h"
+#include "qat_events.h"
 #include "qat_asym_common.h"
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"

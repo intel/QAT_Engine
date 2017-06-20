@@ -47,6 +47,7 @@
 # define QAT_CIPHERS_H
 
 # include <openssl/engine.h>
+# include <openssl/ssl.h>
 # include <openssl/crypto.h>
 # include <openssl/aes.h>
 
@@ -57,6 +58,12 @@
 # define HMAC_KEY_SIZE              64
 # define TLS_VIRT_HDR_SIZE          13
 # define TLS_MAX_PADDING_LENGTH     255
+
+/* QAT max supported pipelines may be different from
+ * SSL max supported ones.
+ */
+# define QAT_MAX_PIPELINES   SSL_MAX_PIPELINES
+
 
 /* Use these flags to mark stages in the
  * initialisation sequence for pipes.
@@ -110,6 +117,91 @@
                         (qctx)->numpipes = 1; \
                     } while(0)
 
+/* These are QAT API operation parameters */
+typedef struct qat_op_params_t {
+    CpaCySymOpData op_data;
+    CpaBufferList src_sgl;
+    CpaBufferList dst_sgl;
+    CpaFlatBuffer src_fbuf[2];
+    CpaFlatBuffer dst_fbuf[2];
+} qat_op_params;
+
+typedef struct qat_chained_ctx_t {
+    /* Crypto */
+    unsigned char *hmac_key;
+# ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+    /* Pointer for context data that will be used by
+     * Small packet offload feature. */
+    void *sw_ctx_data;
+# endif
+    /* QAT Session Params */
+    CpaInstanceHandle instance_handle;
+    CpaCySymSessionSetupData *session_data;
+    CpaCySymSessionCtx session_ctx;
+    int init_flags;
+
+    unsigned int aad_ctr;
+    char aad[QAT_MAX_PIPELINES][TLS_VIRT_HDR_SIZE];
+
+    /* QAT Operation Params are required per pipe in the pipeline.
+     * Hence this is a pointer to a dynamically allocated array with
+     * length equal to QAT_MAX_PIPELINES if pipes are used else 1.
+     */
+    qat_op_params *qop;
+    unsigned int qop_len;
+
+    /* Pipeline related Data */
+    unsigned char **p_in;
+    unsigned char **p_out;
+    size_t  *p_inlen;
+    unsigned int numpipes;
+    unsigned int npipes_last_used;
+    unsigned long total_op;
+} qat_chained_ctx;
+
+/* qat_buffer structure for partial hash */
+typedef struct qat_buffer_t {
+    struct qat_buffer_t *next;  /* next buffer in the list */
+    void *data;                 /* point to data buffer */
+    int len;                    /* length of data */
+} qat_buffer;
+
+/* Qat ctx structure declaration */
+typedef struct qat_ctx_t {
+    int paramNID;               /* algorithm nid */
+    CpaCySymSessionCtx ctx;     /* session context */
+    unsigned char hashResult[SHA512_DIGEST_LENGTH];
+    /* hash digest result */
+    int enc;                    /* encryption flag */
+    int init;                   /* has been initialised */
+    int copiedCtx;              /* whether this is a copied context for
+                                 * initialisation purposes */
+    CpaInstanceHandle instance_handle;
+    Cpa32U nodeId;
+    /*
+     * the memory for the private meta data must be allocated as contiguous
+     * memory. The cpaCyBufferListGetMetaSize() will return the size (in
+     * bytes) for memory allocation routine to allocate the private meta data
+     * memory
+     */
+    void *srcPrivateMetaData;   /* meta data pointer */
+    void *dstPrivateMetaData;   /* meta data pointer */
+    /*
+     * For partial operations, we maintain a linked list of buffers to be
+     * processed in the final function.
+     */
+    qat_buffer *first;          /* first buffer pointer for partial op */
+    qat_buffer *last;           /* last buffer pointe for partial op */
+    int buff_count;             /* buffer count */
+    int buff_total_bytes;       /* total number of bytes in buffer */
+    int failed_submission;      /* flag as a failed submission to aid cleanup */
+    /* Request tracking stats */
+    Cpa64U noRequests;
+    Cpa64U noResponses;
+    CpaCySymSessionSetupData *session_data;
+    Cpa32U meta_size;
+} qat_ctx;
+
 void qat_create_ciphers(void);
 void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
@@ -118,4 +210,9 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
 int qat_pkt_threshold_table_set_threshold(const char *cipher_name,
                                           int threshold);
 # endif
+CpaStatus qat_sym_perform_op(const CpaInstanceHandle instance_handle,
+                             void *pCallbackTag, const CpaCySymOpData * pOpData,
+                             const CpaBufferList * pSrcBuffer,
+                             CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult);
+
 #endif                          /* QAT_CIPHERS_H */
