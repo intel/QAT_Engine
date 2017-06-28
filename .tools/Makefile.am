@@ -34,10 +34,10 @@ libqat_la_SOURCES = e_qat.c \
                     ${MEM_LIB_SRC}
 
 include_HEADERS = e_qat.h \
-			      qat_fork.h \
-				  qat_events.h \
-				  qat_callback.h \
-				  qat_polling.h \
+                  qat_fork.h \
+                  qat_events.h \
+                  qat_callback.h \
+                  qat_polling.h \
                   qat_aux.h \
                   qat_asym_common.h \
                   qat_parseconf.h \
@@ -67,10 +67,10 @@ libqat_la_SOURCES = e_qat.c \
                     ${MEM_LIB_SRC}
 
 include_HEADERS = e_qat.h \
-					qat_fork.h \
-				    qat_events.h \
-				    qat_callback.h \
-				    qat_polling.h \
+                    qat_fork.h \
+                    qat_events.h \
+                    qat_callback.h \
+                    qat_polling.h \
                     qat_asym_common.h \
                     qat_ciphers.h \
                     qat_dh.h \
@@ -105,12 +105,18 @@ libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
-	*.old *.bak fluff *.so *.sl *.dll e_qat_err*
+	*.old *.bak fluff *.so *.sl *.dll
 
 	-rm -f $(with_openssl_install_dir)/lib/engines-1.1/qat.so
 
+if QAT_OPENSSL_MASTER
 MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-		-nostatic -write $(libqat_la_SOURCES) && make
+       -rebuild -reindex $(libqat_la_SOURCES) && make
+
+else
+MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
+endif
 
 install-data-am:
 	-cp -f $(prefix)/lib/libqat.so \

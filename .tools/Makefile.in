@@ -256,6 +256,7 @@ enable_qat_dsa = @enable_qat_dsa@
 enable_qat_ecdh = @enable_qat_ecdh@
 enable_qat_ecdsa = @enable_qat_ecdsa@
 enable_qat_for_openssl_102 = @enable_qat_for_openssl_102@
+enable_qat_for_openssl_master = @enable_qat_for_openssl_master@
 enable_qat_lenstra_protection = @enable_qat_lenstra_protection@
 enable_qat_mem_debug = @enable_qat_mem_debug@
 enable_qat_mem_warnings = @enable_qat_mem_warnings@
@@ -352,21 +353,21 @@ lib_LTLIBRARIES = libqat.la
 @QAT_OPENSSL_102_TRUE@                    ${MEM_LIB_SRC}
 
 @QAT_OPENSSL_102_FALSE@include_HEADERS = e_qat.h \
-@QAT_OPENSSL_102_FALSE@                  qat_fork.h \
-@QAT_OPENSSL_102_FALSE@                  qat_events.h \
-@QAT_OPENSSL_102_FALSE@                  qat_callback.h \
-@QAT_OPENSSL_102_FALSE@                  qat_polling.h \
-@QAT_OPENSSL_102_FALSE@                  qat_asym_common.h \
-@QAT_OPENSSL_102_FALSE@                  qat_ciphers.h \
-@QAT_OPENSSL_102_FALSE@                  qat_dh.h \
-@QAT_OPENSSL_102_FALSE@                  qat_dsa.h \
-@QAT_OPENSSL_102_FALSE@                  qat_ec.h \
-@QAT_OPENSSL_102_FALSE@                  qat_parseconf.h \
-@QAT_OPENSSL_102_FALSE@                  qat_prf.h \
-@QAT_OPENSSL_102_FALSE@                  qat_utils.h \
-@QAT_OPENSSL_102_FALSE@                  qat_rsa.h \
-@QAT_OPENSSL_102_FALSE@                  qat_rsa_crt.h \
-@QAT_OPENSSL_102_FALSE@                  ${MEM_LIB_HEADER}
+@QAT_OPENSSL_102_FALSE@                    qat_fork.h \
+@QAT_OPENSSL_102_FALSE@                    qat_events.h \
+@QAT_OPENSSL_102_FALSE@                    qat_callback.h \
+@QAT_OPENSSL_102_FALSE@                    qat_polling.h \
+@QAT_OPENSSL_102_FALSE@                    qat_asym_common.h \
+@QAT_OPENSSL_102_FALSE@                    qat_ciphers.h \
+@QAT_OPENSSL_102_FALSE@                    qat_dh.h \
+@QAT_OPENSSL_102_FALSE@                    qat_dsa.h \
+@QAT_OPENSSL_102_FALSE@                    qat_ec.h \
+@QAT_OPENSSL_102_FALSE@                    qat_parseconf.h \
+@QAT_OPENSSL_102_FALSE@                    qat_prf.h \
+@QAT_OPENSSL_102_FALSE@                    qat_utils.h \
+@QAT_OPENSSL_102_FALSE@                    qat_rsa.h \
+@QAT_OPENSSL_102_FALSE@                    qat_rsa_crt.h \
+@QAT_OPENSSL_102_FALSE@                    ${MEM_LIB_HEADER}
 
 @QAT_OPENSSL_102_TRUE@include_HEADERS = e_qat.h \
 @QAT_OPENSSL_102_TRUE@                  qat_fork.h \
@@ -390,8 +391,11 @@ libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
 					$(QAT_SHARED_LIB_DEPS_DRIVER) \
 					$(QAT_SHARED_LIB_DEPS_QAE_MEM)
 
-MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-		-nostatic -write $(libqat_la_SOURCES) && make
+@QAT_OPENSSL_MASTER_FALSE@MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+@QAT_OPENSSL_MASTER_FALSE@       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
+
+@QAT_OPENSSL_MASTER_TRUE@MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+@QAT_OPENSSL_MASTER_TRUE@       -rebuild -reindex $(libqat_la_SOURCES) && make
 
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -886,7 +890,7 @@ uninstall-am: uninstall-includeHEADERS uninstall-libLTLIBRARIES
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
-	*.old *.bak fluff *.so *.sl *.dll e_qat_err*
+	*.old *.bak fluff *.so *.sl *.dll
 
 	-rm -f $(with_openssl_install_dir)/lib/engines-1.1/qat.so
 

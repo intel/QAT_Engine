@@ -12,11 +12,11 @@
 /.dir-locals.el
 
 # Top level and qat_contig_mem excludes
-e_qat_err.*
 *.mod.c
 .*.cmd
 *.symvers
 *.order
+e_qat.txt.old
 qat_contig_mem_test
 .tmp_versions
 

@@ -632,6 +632,8 @@ includes_driver
 with_ICP_LAC_API_DIR
 with_ICP_SAL_API_DIR
 with_ICP_API_DIR
+QAT_OPENSSL_MASTER_FALSE
+QAT_OPENSSL_MASTER_TRUE
 QAT_OPENSSL_102_FALSE
 QAT_OPENSSL_102_TRUE
 USE_GETCONF
@@ -649,6 +651,7 @@ cflags_enable_upstream_driver
 cflags_cc_opt
 cflags
 includes
+enable_qat_for_openssl_master
 enable_qat_for_openssl_102
 enable_qat_lenstra_protection
 enable_qat_mux
@@ -817,6 +820,7 @@ enable_multi_thread
 enable_qat_mux
 enable_qat_lenstra_protection
 enable_qat_for_openssl_102
+enable_qat_for_openssl_master
 with_includes
 with_cflags
 with_cflags_cc_opt
@@ -1511,6 +1515,9 @@ Optional Features:
   --enable-qat_for_openssl_102
                           Enable building QAT engine against OpenSSL 1.0.2
                           with only RSA sync offloading
+  --enable-qat_for_openssl_master
+                          Enable building QAT engine against OpenSSL master
+                          branch
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -11602,6 +11609,12 @@ fi
 
 
 
+# Check whether --enable-qat_for_openssl_master was given.
+if test "${enable_qat_for_openssl_master+set}" = set; then :
+  enableval=$enable_qat_for_openssl_master;
+fi
+
+
 
 # ERROR message if mandatory options are not provided
 
@@ -12036,6 +12049,20 @@ fi
 else
   QAT_OPENSSL_102_TRUE='#'
   QAT_OPENSSL_102_FALSE=
+fi
+
+
+if test "x$enable_qat_for_openssl_master" = "xyes"
+then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Build QAT engine against OpenSSL master" >&5
+$as_echo "$as_me: Build QAT engine against OpenSSL master" >&6;}
+fi
+ if test "x$enable_qat_for_openssl_master" = "xyes"; then
+  QAT_OPENSSL_MASTER_TRUE=
+  QAT_OPENSSL_MASTER_FALSE='#'
+else
+  QAT_OPENSSL_MASTER_TRUE='#'
+  QAT_OPENSSL_MASTER_FALSE=
 fi
 
 
@@ -16595,6 +16622,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${QAT_OPENSSL_102_TRUE}" && test -z "${QAT_OPENSSL_102_FALSE}"; then
   as_fn_error $? "conditional \"QAT_OPENSSL_102\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${QAT_OPENSSL_MASTER_TRUE}" && test -z "${QAT_OPENSSL_MASTER_FALSE}"; then
+  as_fn_error $? "conditional \"QAT_OPENSSL_MASTER\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then

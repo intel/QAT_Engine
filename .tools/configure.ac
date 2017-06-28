@@ -156,6 +156,10 @@ AC_ARG_ENABLE(qat_for_openssl_102,
                              [Enable building QAT engine against OpenSSL 1.0.2 with only RSA sync offloading]))
 AC_SUBST(enable_qat_for_openssl_102)
 
+AC_ARG_ENABLE(qat_for_openssl_master,
+              AS_HELP_STRING([--enable-qat_for_openssl_master],
+                             [Enable building QAT engine against OpenSSL master branch]))
+AC_SUBST(enable_qat_for_openssl_master)
 
 # ERROR message if mandatory options are not provided
 
@@ -393,6 +397,12 @@ then
 fi
 
 AM_CONDITIONAL([QAT_OPENSSL_102], [test "x$enable_qat_for_openssl_102" = "xyes"])
+
+if test "x$enable_qat_for_openssl_master" = "xyes"
+then
+  AC_MSG_NOTICE([Build QAT engine against OpenSSL master])
+fi
+AM_CONDITIONAL([QAT_OPENSSL_MASTER], [test "x$enable_qat_for_openssl_master" = "xyes"])
 
 # Adding driver source for building and linking the library
 

@@ -860,6 +860,9 @@ Optional
     Currently if using this build option, only synchronous RSA offload is
     supported.
 
+--enable-qat_for_openssl_master
+    Enable the Intel&reg; QAT OpenSSL\* Engine to build against OpenSSL\* master.
+
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at
     compile time.
