@@ -36,7 +36,7 @@ code is licensed under the OpenSSL license available at
 the file headers of the relevant files.
 
 Example Intel&reg; Contiguous Memory Driver contained within the folder
-`qat_contig_mem` - Dual BSD/GPLv2 License. 
+`qat_contig_mem` - Dual BSD/GPLv2 License.
 Please see the file headers within the `qat_contig_mem` folder, and the full
 GPLv2 license contained in the file `LICENSE.GPL` within the `qat_contig_mem`
 folder.
@@ -170,6 +170,38 @@ command to specify the location that `make install` will copy files to. Please
 see the OpenSSL\* INSTALL file for full details on usage of the `--prefix`
 option.
 
+From OpenSSL\* version 1.1.0c onwards, automatic RPATH has been removed.
+The reason for this is that before OpenSSL\* version 1.1.0, binaries were
+installed in a non-standard location by default, and runpath driectories were
+therefore added in those binaries, to make sure the executables would be able to
+find the shared libraries they were linked with.  However, with OpenSSL\* version
+1.1.0 and on, binaries are installed in standard directories by default, and the
+addition of runpath directories is not done automatically.  If you wish
+to install OpenSSL\* in a non-standard location (recommended), the runpath
+directories can be specified via the OpenSSL\* Configure command, which
+recognises the arguments `-rpath` and `-R` to support user-added rpaths.  For
+convenience, a Makefile variable `LIBRPATH` has also been added which is defined
+as the full path to a subdirectory of the installation directory. The subdirectory
+is named `lib` by default.
+If you do not wish to use `LIBRPATH`, the rpath can be specified directly.
+The syntax for specifying a rpath is as follows:
+
+    ./config [options] -Wl,-rpath,\${LIBRPATH}
+
+The `-rpath` can be replaced with `-R` for brevity. If you do not wish
+to use the built-in variable LIBRPATH, the syntax for specifying a rpath of
+`/usr/local/ssl/lib` for example would be:
+
+    ./config [options] -Wl,-rpath,/usr/local/ssl/lib
+
+Alternatively, you can specify the rpath by adding it to the environment
+variable `LD_LIBRARY_PATH` via the command:
+
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`RPATH`
+
+where `RPATH` is the full path(s) to the shared libraries.  This is not the
+preferred method though.
+
 The following example is assuming:
 
 * The OpenSSL\* source was cloned from Github\* to its own location at the root
@@ -179,8 +211,8 @@ The following example is assuming:
 An example build would be:
 ```bash
 cd /openssl
-./config --prefix=/usr/local/ssl
-make depend (if recommended by the OpenSSL* build system)
+./config --prefix=/usr/local/ssl -Wl,-rpath,\${LIBRPATH}
+make depend (if recommended by the OpenSSL\* build system)
 make
 make install
 ```
@@ -482,7 +514,7 @@ OpenSSL\* Engine may not be located even though it has been installed. To
 resolve this it is recommended to add the /lib64 folder to the LD_LIBRARY_PATH
 environment variable as follows:
 
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/lib64
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
 
 If linking against the Upstream Intel&reg; QAT Driver then ensure that the
 mandatory parameter `--enable-upstream_driver` has been specified when running
