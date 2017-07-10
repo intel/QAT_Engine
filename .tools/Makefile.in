@@ -391,11 +391,16 @@ libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
 					$(QAT_SHARED_LIB_DEPS_DRIVER) \
 					$(QAT_SHARED_LIB_DEPS_QAE_MEM)
 
-@QAT_OPENSSL_MASTER_FALSE@MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-@QAT_OPENSSL_MASTER_FALSE@       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
+@QAT_OPENSSL_102_FALSE@ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-1.1/qat.so
+@QAT_OPENSSL_102_TRUE@ENGINE_LIB = $(with_openssl_install_dir)/lib/engines/libqat.so
+@QAT_OPENSSL_102_FALSE@@QAT_OPENSSL_MASTER_FALSE@MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+@QAT_OPENSSL_102_FALSE@@QAT_OPENSSL_MASTER_FALSE@       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
 
-@QAT_OPENSSL_MASTER_TRUE@MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-@QAT_OPENSSL_MASTER_TRUE@       -rebuild -reindex $(libqat_la_SOURCES) && make
+@QAT_OPENSSL_102_FALSE@@QAT_OPENSSL_MASTER_TRUE@MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+@QAT_OPENSSL_102_FALSE@@QAT_OPENSSL_MASTER_TRUE@       -rebuild -reindex $(libqat_la_SOURCES) && make
+
+@QAT_OPENSSL_102_TRUE@MAKE = rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+@QAT_OPENSSL_102_TRUE@       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
 
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -892,11 +897,10 @@ mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
 	*.old *.bak fluff *.so *.sl *.dll
 
-	-rm -f $(with_openssl_install_dir)/lib/engines-1.1/qat.so
+	-rm -f $(ENGINE_LIB)
 
 install-data-am:
-	-cp -f $(prefix)/lib/libqat.so \
-	$(with_openssl_install_dir)/lib/engines-1.1/qat.so
+	-cp -f $(prefix)/lib/libqat.so $(ENGINE_LIB)
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

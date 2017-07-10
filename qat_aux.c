@@ -57,6 +57,8 @@
 
 #include "qat_aux.h"
 
+int qatPerformOpRetries = 0;
+
 ASYNC_JOB *ASYNC_get_current_job(void)
 {
     return NULL;

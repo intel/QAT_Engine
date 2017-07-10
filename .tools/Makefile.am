@@ -103,12 +103,23 @@ libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
 					$(QAT_SHARED_LIB_DEPS_DRIVER) \
 					$(QAT_SHARED_LIB_DEPS_QAE_MEM)
 
+if QAT_OPENSSL_102
+ ENGINE_LIB = $(with_openssl_install_dir)/lib/engines/libqat.so
+else
+ ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-1.1/qat.so
+endif
+
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
 	*.old *.bak fluff *.so *.sl *.dll
 
-	-rm -f $(with_openssl_install_dir)/lib/engines-1.1/qat.so
+	-rm -f $(ENGINE_LIB)
 
+if QAT_OPENSSL_102
+MAKE = rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
+
+else
 if QAT_OPENSSL_MASTER
 MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
        -rebuild -reindex $(libqat_la_SOURCES) && make
@@ -117,7 +128,7 @@ else
 MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
        -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
 endif
+endif
 
 install-data-am:
-	-cp -f $(prefix)/lib/libqat.so \
-	$(with_openssl_install_dir)/lib/engines-1.1/qat.so
+	-cp -f $(prefix)/lib/libqat.so $(ENGINE_LIB)
