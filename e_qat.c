@@ -853,8 +853,10 @@ static int qat_engine_destroy(ENGINE *e)
 static int bind_qat(ENGINE *e, const char *id)
 {
     int ret = 0;
+#ifndef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
     int upstream_flags = 0;
     unsigned int devmasks[] = { 0, 0, 0, 0, 0 };
+#endif
 
     WARN("QAT Warnings enabled.\n");
     DEBUG("QAT Debug enabled.\n");
@@ -866,11 +868,13 @@ static int bind_qat(ENGINE *e, const char *id)
         goto end;
     }
 
+#ifndef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
     if (!getDevices(devmasks, &upstream_flags)) {
         WARN("Qat device not present\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_QAT_DEV_NOT_PRESENT);
         goto end;
     }
+#endif
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already!\n");
