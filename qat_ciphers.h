@@ -159,49 +159,6 @@ typedef struct qat_chained_ctx_t {
     unsigned long total_op;
 } qat_chained_ctx;
 
-/* qat_buffer structure for partial hash */
-typedef struct qat_buffer_t {
-    struct qat_buffer_t *next;  /* next buffer in the list */
-    void *data;                 /* point to data buffer */
-    int len;                    /* length of data */
-} qat_buffer;
-
-/* Qat ctx structure declaration */
-typedef struct qat_ctx_t {
-    int paramNID;               /* algorithm nid */
-    CpaCySymSessionCtx ctx;     /* session context */
-    unsigned char hashResult[SHA512_DIGEST_LENGTH];
-    /* hash digest result */
-    int enc;                    /* encryption flag */
-    int init;                   /* has been initialised */
-    int copiedCtx;              /* whether this is a copied context for
-                                 * initialisation purposes */
-    CpaInstanceHandle instance_handle;
-    Cpa32U nodeId;
-    /*
-     * the memory for the private meta data must be allocated as contiguous
-     * memory. The cpaCyBufferListGetMetaSize() will return the size (in
-     * bytes) for memory allocation routine to allocate the private meta data
-     * memory
-     */
-    void *srcPrivateMetaData;   /* meta data pointer */
-    void *dstPrivateMetaData;   /* meta data pointer */
-    /*
-     * For partial operations, we maintain a linked list of buffers to be
-     * processed in the final function.
-     */
-    qat_buffer *first;          /* first buffer pointer for partial op */
-    qat_buffer *last;           /* last buffer pointe for partial op */
-    int buff_count;             /* buffer count */
-    int buff_total_bytes;       /* total number of bytes in buffer */
-    int failed_submission;      /* flag as a failed submission to aid cleanup */
-    /* Request tracking stats */
-    Cpa64U noRequests;
-    Cpa64U noResponses;
-    CpaCySymSessionSetupData *session_data;
-    Cpa32U meta_size;
-} qat_ctx;
-
 void qat_create_ciphers(void);
 void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
