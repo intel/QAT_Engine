@@ -56,11 +56,11 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
   * ECDH Support for the following curves:
     * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
     * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
-    * NIST Koblitz Curves: K-163/K-233/K-283/K409/K-571.
+    * NIST Koblitz Curves: K-163/K-233/K-283/K-409/K-571.
   * ECDSA Support for the following curves:
     * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
     * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
-    * NIST Koblitz Curves: K-163/K-233/K-283/K409/K-571.
+    * NIST Koblitz Curves: K-163/K-233/K-283/K-409/K-571.
 * Symmetric Chained Cipher Offload with pipelining capability:
   * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
   * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
