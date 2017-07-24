@@ -71,12 +71,13 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
 This OpenSSL\* Engine supports crypto offload to the following acceleration
 devices:
 
-* [Intel&reg; Communications Chipset 8900 to 8920 Series][1]
-* [Intel&reg; Communications Chipset 8925 to 8955 Series][2]
+* Intel&reg; C62X Series Chipset
+* [Intel&reg; Communications Chipset 8925 to 8955 Series][1]
+* [Intel&reg; Communications Chipset 8900 to 8920 Series][2]
 * [Intel&reg; Atom&trade; Processor C2000][3]
 
-[1]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8920-brief.html
-[2]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8950-brief.html
+[1]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8950-brief.html
+[2]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8920-brief.html
 [3]:http://www.intel.com/content/www/us/en/embedded/products/rangeley/atom-c2000-product-family-based-platforms-brief.html
 
 ## Software Requirements
@@ -131,11 +132,14 @@ in its current state for your production use.
 
 Please follow the instructions contained in:
 
+**For Intel&reg; C62X Series Chipset:**
+Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started Guide - HW version 1.7 (336212)
+
+**For Intel&reg; Communications Chipset 89XX Series:**
 Intel&reg; Communications Chipset 89xx Series Software for Linux\* - Getting
 Started Guide (330750)
 
-or in
-
+**For Intel&reg; Atom&trade; Processor C2000:**
 Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
 Infrastructure Software - Getting Started Guide (333035)
 
@@ -378,7 +382,7 @@ files are located at:
 The files are grouped by acceleration device, please choose the files
 appropriate to your acceleration device only.
 If building to link against the Upstream Intel&reg; QAT userspace shared library
-then you should use the files in `dh895xcc_upstream`.
+then you should use the files in `dh895xcc_upstream`, or `c6xx`.
 
 The files are also split into `multi_process_optimized` and
 `multi_thread_optimized`.
@@ -399,25 +403,41 @@ polling feature of the Intel&reg; QAT Driver. Once you have decided which conf
 file you should use, or created your own you should follow the procedure below
 to install it:
 
-1. Follow the instructions in the:
+1. Follow the instructions to stop the Acceleration Driver:
+
+   **For Intel&reg; C62X Series Chipset:**
+   Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started
+   Guide - HW version 1.7 (336212) - Section 3.3 Starting/Stopping the
+   Acceleration.
+
+   **For Intel&reg; Communications Chipset 89XX Series:**
    Intel&reg; Communications Chipset 89xx Series Software for Linux\* - Getting
    Started Guide (330750) - Section 3.4 Starting/Stopping the Acceleration
    Software.
-   or
+
+   **For Intel&reg; Atom&trade; Processor C2000:**
    Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
    Infrastructure Software - Getting Started Guide (333035) - Section 9.5
    Starting/Stopping the Acceleration Software.
-   to stop the Acceleration Software.
+
 2. Copy the appropriate `.conf` file to `/etc`
-3. Follow the instructions in the:
+
+3. Follow the instructions to start the Acceleration Driver:
+
+   **For Intel&reg; C62X Series Chipset:**
+   Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started
+   Guide - HW version 1.7 (336212) - Section 3.3 Starting/Stopping the
+   Acceleration.
+
+   **For Intel&reg; Communications Chipset 89XX Series:**
    Intel&reg; Communications Chipset 89xx Series Software for Linux\* - Getting
    Started Guide (330750) - Section 3.4 Starting/Stopping the Acceleration
    Software.
-   or
+
+   **For Intel&reg; Atom&trade; Processor C2000:**
    Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
    Infrastructure Software - Getting Started Guide (333035) - Section 9.5
    Starting/Stopping the Acceleration Software.
-   to start the Acceleration Software.
 
 ### Test the Intel&reg; Quickassist Technology OpenSSL\* Engine
 
