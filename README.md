@@ -956,7 +956,7 @@ For instance it may contain:
 
     [ qat_section ]
     engine_id = qat
-    dynamic_path = /usr/local/ssl/lib/engines_1_1/qat.so
+    dynamic_path = /usr/local/ssl/lib/engines-1.1/qat.so
     # Add engine specific messages here
     default_algorithms = ALL
 
