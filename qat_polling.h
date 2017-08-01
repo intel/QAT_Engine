@@ -95,6 +95,19 @@ int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
  ******************************************************************************/
 int qat_join_thread(pthread_t threadId, void **retval);
 
+
+/******************************************************************************
+ * function:
+ *         int qat_adjust_thread_affinity(pthread_t threadptr);
+ *
+ * @param threadptr[IN ] - Thread ID
+ *
+ * description:
+ *    Sets the CPU affinity mask using pthread_setaffinity_np
+ *    and returns the CPU affinity mask using pthread_getaffinity_np
+ ******************************************************************************/
+int qat_adjust_thread_affinity(pthread_t threadptr);
+
 /******************************************************************************
  * function:
  *         void *timer_poll_func(void *ih)

@@ -226,35 +226,6 @@ static CpaPhysicalAddr virtualToPhysical(void *virtualAddr)
     return qaeCryptoMemV2P(virtualAddr);
 }
 
-int qat_adjust_thread_affinity(pthread_t threadptr)
-{
-#ifdef QAT_POLL_CORE_AFFINITY
-    int coreID = 0;
-    int sts = 1;
-    cpu_set_t cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(coreID, &cpuset);
-
-    sts = pthread_setaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
-    if (sts != 0) {
-        WARN("pthread_setaffinity_np error, status = %d\n", sts);
-        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_SETAFFINITY_FAILURE);
-        return 0;
-    }
-    sts = pthread_getaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
-    if (sts != 0) {
-        WARN("pthread_getaffinity_np error, status = %d\n", sts);
-        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_GETAFFINITY_FAILURE);
-        return 0;
-    }
-
-    if (CPU_ISSET(coreID, &cpuset)) {
-        DEBUG("Polling thread assigned on CPU core %d\n", coreID);
-    }
-#endif
-    return 1;
-}
-
 int qat_engine_init(ENGINE *e)
 {
     int instNum, err;
