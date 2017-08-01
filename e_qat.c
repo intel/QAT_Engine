@@ -113,9 +113,6 @@
 #include "icp_sal_poll.h"
 #include "qat_parseconf.h"
 
-#define likely(x)   __builtin_expect (!!(x), 1)
-#define unlikely(x) __builtin_expect (!!(x), 0)
-
 /* Macro used to handle errors in qat_engine_ctrl() */
 #define BREAK_IF(cond, mesg) \
     if(unlikely(cond)) { retVal = 0; WARN(mesg); break; }
