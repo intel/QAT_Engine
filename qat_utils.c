@@ -52,6 +52,15 @@
 #ifdef QAT_TESTS_LOG
 
 FILE *cryptoQatLogger = NULL;
+pthread_mutex_t test_file_mutex = PTHREAD_MUTEX_INITIALIZER;
+int test_file_ref_count = 0;
+
+#endif  /* QAT_TESTS_LOG */
+
+FILE *qatDebugLogFile = NULL;
+
+#ifdef QAT_DEBUG_FILE_PATH
+
 pthread_mutex_t debug_file_mutex = PTHREAD_MUTEX_INITIALIZER;
 int debug_file_ref_count = 0;
 
@@ -59,49 +68,86 @@ void crypto_qat_debug_init_log()
 {
     pthread_mutex_lock(&debug_file_mutex);
     if (!debug_file_ref_count) {
-        cryptoQatLogger = fopen(CRYPTO_QAT_LOG_FILE, "w");
+        qatDebugLogFile = fopen(STR(QAT_DEBUG_FILE_PATH), "w");
 
-        if (NULL == cryptoQatLogger) {
-            sprintf(stderr, "ERROR, unable to open %s \n",
-                    CRYPTO_QAT_LOG_FILE);
-            pthread_mutex_unlock(&debug_file_mutex);
-            exit(1);
+        if (NULL == qatDebugLogFile) {
+            qatDebugLogFile = stderr;
+            WARN("unable to open %s\n",
+                 STR(QAT_DEBUG_FILE_PATH));
+        } else {
+            debug_file_ref_count++; 
         }
-
     }
-    debug_file_ref_count++;
     pthread_mutex_unlock(&debug_file_mutex);
 }
 
 void crypto_qat_debug_close_log()
 {
     pthread_mutex_lock(&debug_file_mutex);
-    debug_file_ref_count--;
-    if (!debug_file_ref_count) {
-        if (cryptoQatLogger != NULL) {
-            fclose(cryptoQatLogger);
+    if (debug_file_ref_count) {
+        if (qatDebugLogFile != NULL) {
+            fclose(qatDebugLogFile);
+            debug_file_ref_count--;
+            qatDebugLogFile = stderr;
         }
     }
     pthread_mutex_unlock(&debug_file_mutex);
 }
-#endif                          /* QAT_TESTS_LOG */
+
+#endif  /* QAT_DEBUG_FILE_PATH */
+
+#ifdef QAT_TESTS_LOG
+
+void crypto_qat_testing_init_log()
+{
+    pthread_mutex_lock(&testing_file_mutex);
+    if (!testing_file_ref_count) {
+        cryptoQatLogger = fopen(CRYPTO_QAT_LOG_FILE, "w");
+
+        if (NULL == cryptoQatLogger) {
+            WARN("unable to open %s\n",
+                 CRYPTO_QAT_LOG_FILE);
+            pthread_mutex_unlock(&testing_file_mutex);
+            exit(1);
+        }
+
+    }
+    testing_file_ref_count++;
+    pthread_mutex_unlock(&testing_file_mutex);
+}
+
+void crypto_qat_testing_close_log()
+{
+    pthread_mutex_lock(&testing_file_mutex);
+    testing_file_ref_count--;
+    if (!testing_file_ref_count) {
+        if (cryptoQatLogger != NULL) {
+            fclose(cryptoQatLogger);
+        }
+    }
+    pthread_mutex_unlock(&testing_file_mutex);
+}
+
+#endif  /* QAT_TESTS_LOG */
 
 #ifdef QAT_DEBUG
+
 void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
              int l)
 {
     int i;
 
-    fprintf(stderr, "%s: %s: Length %d, Address %p", func, var, l, p);
+    fprintf(qatDebugLogFile, "%s: %s: Length %d, Address %p", func, var, l, p);
     if (NULL != p && l != 0) {
         for (i = 0; i < l; i++) {
             if (i % 16 == 0)
-                fputc('\n', stderr);
+                fputc('\n', qatDebugLogFile);
             else if (i % 8 == 0)
-                fputs("- ", stderr);
-            fprintf(stderr, "%02x ", p[i]);
+                fputs("- ", qatDebugLogFile);
+            fprintf(qatDebugLogFile, "%02x ", p[i]);
         }
     }
-    fputc('\n', stderr);
+    fputc('\n', qatDebugLogFile);
 }
+
 #endif

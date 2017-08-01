@@ -803,6 +803,7 @@ static int qat_engine_destroy(ENGINE *e)
     qat_free_DH_methods();
     qat_free_DSA_methods();
     qat_free_RSA_methods();
+    QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
 }
@@ -825,6 +826,8 @@ static int bind_qat(ENGINE *e, const char *id)
     int upstream_flags = 0;
     unsigned int devmasks[] = { 0, 0, 0, 0, 0 };
 #endif
+
+    QAT_DEBUG_LOG_INIT();
 
     WARN("QAT Warnings enabled.\n");
     DEBUG("QAT Debug enabled.\n");
@@ -956,12 +959,14 @@ static ENGINE *engine_qat(void)
 
 void ENGINE_load_qat(void)
 {
-    ENGINE *toadd = engine_qat();
+    ENGINE *toadd;
     int error = 0;
     char error_string[QAT_MAX_ERROR_STRING] = { 0 };
 
+    QAT_DEBUG_LOG_INIT();
     DEBUG("- Starting\n");
 
+    toadd = engine_qat();
     if (toadd == NULL) {
         error = ERR_peek_error();
         ERR_error_string_n(error, error_string, QAT_MAX_ERROR_STRING);

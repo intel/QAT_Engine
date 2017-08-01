@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_prf.h
  *
- * This file provides an interface for PRF operation
+ * This file provides an interface for PRF operations
  *
  *****************************************************************************/
 

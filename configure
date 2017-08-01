@@ -643,6 +643,7 @@ QAT_MULTI_THREAD_FALSE
 QAT_MULTI_THREAD_TRUE
 QAT_CONTIG_MEM_FALSE
 QAT_CONTIG_MEM_TRUE
+cflags_qat_debug_file
 include_enable_usdm
 cflags_enable_usdm
 cflags_enable_multi_thread
@@ -658,6 +659,7 @@ enable_qat_mux
 enable_multi_thread
 with_ld_opt
 with_cc_opt
+with_qat_debug_file
 with_usdm_dir
 enable_usdm
 enable_upstream_driver
@@ -814,6 +816,7 @@ with_qat_install_dir
 enable_upstream_driver
 enable_usdm
 with_usdm_dir
+with_qat_debug_file
 with_cc_opt
 with_ld_opt
 enable_multi_thread
@@ -829,6 +832,7 @@ with_cflags_qat_contig_mem
 with_cflags_enable_multi_thread
 with_cflags_enable_usdm
 with_includes_enable_usdm
+with_cflags_qat_debug_file
 with_ICP_API_DIR
 with_ICP_SAL_API_DIR
 with_ICP_LAC_API_DIR
@@ -1540,6 +1544,9 @@ Optional Packages:
                           be used to specify a path other than the standard
                           default path within the Upstream Intel Quickassist
                           Technology Driver source code
+  --with-qat_debug_file   Path and filename to log debug output to. Combine
+                          with other flags that enable the debug and warning
+                          output
   --with-cc_opt           Sets additional parameters that will be added to the
                           CFLAGS
   --with-ld_opt           Sets additional parameters that will be used during
@@ -11566,6 +11573,14 @@ fi
 
 
 
+# Check whether --with-qat_debug_file was given.
+if test "${with_qat_debug_file+set}" = set; then :
+  withval=$with_qat_debug_file;
+fi
+
+
+
+
 # Check whether --with-cc_opt was given.
 if test "${with_cc_opt+set}" = set; then :
   withval=$with_cc_opt;
@@ -11906,6 +11921,22 @@ fi
 fi
 fi
 fi
+
+if test "x$with_qat_debug_file" != "x"
+then
+
+# Check whether --with-cflags_qat_debug_file was given.
+if test "${with_cflags_qat_debug_file+set}" = set; then :
+  withval=$with_cflags_qat_debug_file;
+else
+  cflags_qat_debug_file="-DQAT_DEBUG_FILE_PATH=\$(with_qat_debug_file)"
+fi
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: Enabling writing debug to file" >&5
+$as_echo "$as_me: Enabling writing debug to file" >&6;}
+fi
+
 
  if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"; then
   QAT_CONTIG_MEM_TRUE=

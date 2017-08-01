@@ -126,6 +126,11 @@ AC_ARG_WITH(usdm_dir,
                              [Path to the USDM Component source code. This should be used to specify a path other than the standard default path within the Upstream Intel Quickassist Technology Driver source code]))
 AC_SUBST(with_usdm_dir)
 
+AC_ARG_WITH(qat_debug_file,
+              AS_HELP_STRING([--with-qat_debug_file],
+                             [Path and filename to log debug output to. Combine with other flags that enable the debug and warning output]))
+AC_SUBST(with_qat_debug_file)
+
 AC_ARG_WITH(cc_opt,
               AS_HELP_STRING([--with-cc_opt],
                              [Sets additional parameters that will be added to the CFLAGS]))
@@ -365,6 +370,14 @@ then
 fi
 fi
 fi
+
+if test "x$with_qat_debug_file" != "x"
+then
+  AC_ARG_WITH(cflags_qat_debug_file, AS_HELP_STRING(), , cflags_qat_debug_file="-DQAT_DEBUG_FILE_PATH=\$(with_qat_debug_file)")
+  AC_SUBST(cflags_qat_debug_file)
+  AC_MSG_NOTICE([Enabling writing debug to file])
+fi
+
 
 AM_CONDITIONAL([QAT_CONTIG_MEM], [test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"])
 AM_CONDITIONAL([QAT_MULTI_THREAD], [test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" = "xyes"])

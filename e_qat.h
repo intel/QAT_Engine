@@ -49,6 +49,7 @@
 # include <openssl/engine.h>
 # include <sys/types.h>
 # include <unistd.h>
+# include <string.h>
 
 # include "cpa.h"
 # include "cpa_types.h"
@@ -64,6 +65,9 @@
 
 #define likely(x)   __builtin_expect (!!(x), 1)
 #define unlikely(x) __builtin_expect (!!(x), 0)
+
+#define XSTR(x) #x
+#define STR(x) XSTR(x)
 
 /* Macro used to handle errors in qat_engine_ctrl() */
 #define BREAK_IF(cond, mesg) \

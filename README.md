@@ -840,6 +840,23 @@ Optional
     console/logs and may also introduce side channel timing attack
     vulnerabilities (disabled by default).
 
+--with-qat_debug_file=/file/and/path/to/log/qat/debug/to
+    This option turns on logging to a file instead of to stderr. It works with
+    any combination of the following flags:
+      --enable-qat_warnings
+      --enable-qat_debug
+      --enable-qat_mem_warnings
+      --enable-qat_mem_debug
+    The option should specify the full absolute path and filename that you would
+    like to log to. The directory needs to be writable by the user the process
+    is running as, and the log file can get very big, very quickly.
+    The existing log file will be replaced rather than appended to on each run
+    of the application. If the file cannot be opened for writing then the
+    logging will default to output to stderr.
+    As with the other logging options this option should never be enabled in a
+    production environment as private key information and plaintext data will
+    be logged to the file (logging to file is disabled by default).
+
 --disable-multi_thread/--enable-multi_thread
     Disable/Enable an alternative way of managing within userspace the pinned
     contiguous memory allocated by the qat_contig_mem driver. This alternative

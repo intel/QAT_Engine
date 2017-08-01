@@ -155,7 +155,8 @@ CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
 		$(enable_qat_small_pkt_offload) \
 		$(enable_qat_lenstra_protection) \
 		$(enable_qat_debug) $(enable_qat_warnings) \
-		$(enable_qat_mem_debug) $(enable_qat_mem_warnings)
+		$(enable_qat_mem_debug) $(enable_qat_mem_warnings) \
+		$(cflags_qat_debug_file)
 
 CPP = @CPP@
 CPPFLAGS = @CPPFLAGS@
@@ -244,6 +245,7 @@ cflags_enable_upstream_driver = @cflags_enable_upstream_driver@
 cflags_enable_usdm = @cflags_enable_usdm@
 cflags_mux = @cflags_mux@
 cflags_qat_contig_mem = @cflags_qat_contig_mem@
+cflags_qat_debug_file = @cflags_qat_debug_file@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -309,6 +311,7 @@ with_cc_opt = @with_cc_opt@
 with_ld_opt = @with_ld_opt@
 with_openssl_dir = @with_openssl_dir@
 with_openssl_install_dir = @with_openssl_install_dir@
+with_qat_debug_file = @with_qat_debug_file@
 with_qat_dir = @with_qat_dir@
 with_qat_install_dir = @with_qat_install_dir@
 with_usdm_dir = @with_usdm_dir@

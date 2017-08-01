@@ -412,41 +412,6 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
     return 1;
 }
 
-# ifdef QAT_DEBUG
-static void print_prf_op_data(const char *func, CpaCyKeyGenTlsOpData * prf_op_data)
-{
-    if (prf_op_data == NULL || func == NULL) {
-        DEBUG("NULL input pointer\n");
-        return;
-    }
-
-    fprintf(stderr,"=================================================\n");
-    fprintf(stderr, "[%s] PRF Op Data: %p\n", func, prf_op_data);
-
-    if (prf_op_data->tlsOp == CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE)
-        DEBUG("tlsOp: MASTER_SECRET_DERIVE\n");
-    else if (prf_op_data->tlsOp == CPA_CY_KEY_TLS_OP_KEY_MATERIAL_DERIVE)
-        DEBUG("tlsOp: KEY_MATERIAL_DERIVE\n");
-    else if (prf_op_data->tlsOp == CPA_CY_KEY_TLS_OP_CLIENT_FINISHED_DERIVE)
-        DEBUG("tlsOp: CLIENT_FINISHED_DERIVE\n");
-    else if (prf_op_data->tlsOp == CPA_CY_KEY_TLS_OP_SERVER_FINISHED_DERIVE)
-        DEBUG("tlsOp: SERVER_FINISHED_DERIVE\n");
-    else if (prf_op_data->tlsOp == CPA_CY_KEY_TLS_OP_USER_DEFINED)
-        DEBUG("tlsOp: USER_DEFINED:\n");
-
-    DUMPL("Secret", prf_op_data->secret.pData,
-          prf_op_data->secret.dataLenInBytes);
-    DUMPL("Seed", prf_op_data->seed.pData, prf_op_data->seed.dataLenInBytes);
-    DUMPL("User Label", prf_op_data->userLabel.pData,
-          prf_op_data->userLabel.dataLenInBytes);
-    fprintf(stderr,"=================================================\n");
-
-}
-#  define DEBUG_PRF_OP_DATA(prf) print_prf_op_data(__func__,prf)
-# else
-#  define DEBUG_PRF_OP_DATA(...)
-# endif                        /* #ifdef QAT_DEBUG */
-
 /******************************************************************************
 * function:
 *         build_tls_prf_op_data(
@@ -618,7 +583,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     unsigned long int ulPollInterval = getQatPollInterval();
     CpaInstanceHandle instance_handle = NULL;
 
-    DEBUG_PRF_OP_DATA(&prf_op_data);
+    DUMP_PRF_OP_DATA(prf_op_data);
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
