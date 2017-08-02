@@ -383,8 +383,8 @@ lib_LTLIBRARIES = libqat.la
 @QAT_OPENSSL_102_TRUE@                  qat_rsa_crt.h \
 @QAT_OPENSSL_102_TRUE@                  ${MEM_LIB_HEADER}
 
-INCLUDES = $(includes) $(include_enable_usdm) $(includes_driver) \
-			$(includes_enable_qat_mux)
+AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
+				$(includes_enable_qat_mux)
 
 libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
 					$(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER) \
