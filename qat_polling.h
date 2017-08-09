@@ -118,6 +118,9 @@ int qat_adjust_thread_affinity(pthread_t threadptr);
  *   Poll the QAT instances (nanosleep version)
  *     NB: Delay in this function is set by default at runtime by an engine
  *     specific message. If not set then the default is QAT_POLL_PERIOD_IN_NS.
+ *     This function uses pthread signals to wait for a signal
+ *     that there is traffic to process and therefore that QAT engine polling
+ *     needs to be started/resumed.
  *
  ******************************************************************************/
 void *timer_poll_func(void *ih);

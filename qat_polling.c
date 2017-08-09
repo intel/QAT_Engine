@@ -57,6 +57,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <signal.h>
 
 /* Local Includes */
 #include "e_qat.h"
@@ -148,10 +149,29 @@ void *timer_poll_func(void *ih)
     struct timespec rem_time = { 0 };
     unsigned int retry_count = 0; /* to prevent too much time drift */
 
-    while (keep_polling) {
-        req_time.tv_nsec = qat_poll_interval;
+    int ret_sigwait, sig;
 
+
+    DEBUG("timer_poll_func started\n");
+    timer_poll_func_thread = pthread_self();
+    cleared_to_start = 1;
+
+    DEBUG("timer_poll_func_thread = 0x%lx\n", timer_poll_func_thread);
+
+    while (keep_polling) {
+        if (num_requests_in_flight == 0) {
+            ret_sigwait = sigwait((const sigset_t *)&set, &sig);
+            if (ret_sigwait != 0) {
+                WARN("sigwait error\n");
+                return NULL;
+            }
+        }
+
+        req_time.tv_nsec = qat_poll_interval;
         for (inst_num = 0; inst_num < qat_num_instances; ++inst_num) {
+            if (num_requests_in_flight == 0)
+                break;
+
             /* Poll for 0 means process all packets on the instance */
             status = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
             if (unlikely(CPA_STATUS_SUCCESS != status
@@ -177,6 +197,9 @@ void *timer_poll_func(void *ih)
         while ((retry_count <= QAT_CRYPTO_NUM_POLLING_RETRIES)
                && (EINTR == errno));
     }
+    DEBUG("timer_poll_func finishing\n");
+    timer_poll_func_thread = 0;
+    cleared_to_start = 0;
     return NULL;
 }
 

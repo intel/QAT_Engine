@@ -58,6 +58,7 @@
 #include <openssl/err.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"
 #endif
@@ -414,15 +415,28 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     CpaStatus sts = CPA_STATUS_FAIL;
     CpaInstanceHandle instance_handle = NULL;
     int job_ret = 0;
+    int sync_mode_ret = 0;
+    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            return 0;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notifications\n");
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             return 0;
         }
     } else {
@@ -430,7 +444,9 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
          *  Sync mode
          */
         qat_cleanup_op_done(&op_done);
-        return qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf);
+        sync_mode_ret = qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
+        return sync_mode_ret;
     }
     /*
      * cpaCyRsaDecrypt() is the function called for RSA Sign in the API.
@@ -447,6 +463,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             qat_clear_async_event_notification();
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             return 0;
         }
         DUMP_RSA_DECRYPT(instance_handle, &op_done, dec_op_data, output_buf);
@@ -467,6 +484,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
         qat_clear_async_event_notification();
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         return 0;
     }
 
@@ -487,6 +505,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     DUMP_RSA_DECRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
@@ -653,18 +672,30 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     int qatPerformOpRetries = 0;
     CpaInstanceHandle instance_handle = NULL;
     int job_ret = 0;
+    int pthread_kill_ret;
 
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
 
     DEBUG("- Started\n");
 
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            return 0;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             return 0;
         }
     }
@@ -685,6 +716,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             return 0;
         }
 
@@ -720,6 +752,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         return 0;
     }
 
@@ -747,6 +780,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 
     DUMP_RSA_ENCRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");

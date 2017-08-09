@@ -48,6 +48,7 @@
 #endif
 #include <pthread.h>
 #include <string.h>
+#include <signal.h>
 
 #include "openssl/ossl_typ.h"
 #include "openssl/async.h"
@@ -582,15 +583,27 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     int iMsgRetry = getQatMsgRetryCount();
     unsigned long int ulPollInterval = getQatPollInterval();
     CpaInstanceHandle instance_handle = NULL;
+    int pthread_kill_ret;
 
     DUMP_PRF_OP_DATA(prf_op_data);
 
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            goto err;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
     }
@@ -603,6 +616,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
 
@@ -651,6 +665,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         goto err;
     }
 
@@ -675,6 +690,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
 
     DUMP_KEYGEN_TLS_OUTPUT(generated_key);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");

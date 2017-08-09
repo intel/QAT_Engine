@@ -48,6 +48,7 @@
 # define _GNU_SOURCE
 #endif
 #include <pthread.h>
+#include <signal.h>
 #include "qat_dh.h"
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"
@@ -188,6 +189,7 @@ int qat_dh_generate_key(DH *dh)
     struct op_done op_done;
     size_t buflen;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
+    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -306,12 +308,23 @@ int qat_dh_generate_key(DH *dh)
         goto err;
     }
 
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            goto err;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
     }
@@ -325,6 +338,7 @@ int qat_dh_generate_key(DH *dh)
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
 
@@ -364,11 +378,12 @@ int qat_dh_generate_key(DH *dh)
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         goto err;
     }
 
     do {
-        if(op_done.job != NULL) {
+        if (op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -388,6 +403,7 @@ int qat_dh_generate_key(DH *dh)
 
     DUMP_DH_GEN_PHASE1_OUTPUT(pPV);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
@@ -457,6 +473,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     const BIGNUM *g = NULL;
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
+    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -536,12 +553,23 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         goto err;
     }
 
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            goto err;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
     }
@@ -555,6 +583,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
 
@@ -594,11 +623,12 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         goto err;
     }
 
     do {
-        if(op_done.job != NULL) {
+        if (op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
                not flag an error here and quit because we have
                an asynchronous request in flight.
@@ -618,6 +648,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     DUMP_DH_GEN_PHASE2_OUTPUT(pSecretKey);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");

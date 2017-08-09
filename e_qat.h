@@ -157,6 +157,14 @@
  */
 #define QAT_MAX_ERROR_STRING 256
 
+#define qat_atomic_inc(qat_int) \
+    (__sync_add_and_fetch(&(qat_int), 1))
+#define qat_atomic_dec(qat_int) \
+    (__sync_sub_and_fetch(&(qat_int), 1))
+#define qat_atomic_dec_if_polling(qat_int)   \
+    if (qat_use_signals())                   \
+        (__sync_sub_and_fetch(&(qat_int), 1))
+
 /* Qat engine id declaration */
 extern const char *engine_qat_id;
 extern const char *engine_qat_name;
@@ -182,6 +190,24 @@ extern unsigned int instance_started[MAX_CRYPTO_INSTANCES];
 extern useconds_t qat_poll_interval;
 extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
+extern int num_requests_in_flight;
+extern sigset_t set;
+extern pthread_t timer_poll_func_thread;
+extern int cleared_to_start;
+
+
+/******************************************************************************
+ * function:
+ *         qat_use_signals(void)
+ *
+ * description:
+ *   This function indicates whether pthread signals are being used for thread
+ *   synchronisation.  If so, then a non-zero value is returned, else zero is
+ *   returned.
+ *
+ ******************************************************************************/
+int qat_use_signals(void);
+
 
 /******************************************************************************
  * function:

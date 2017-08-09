@@ -50,6 +50,8 @@
 #include <string.h>
 #include <limits.h>
 #include <unistd.h>
+#include <signal.h>
+
 #include <openssl/ecdh.h>
 #include <openssl/async.h>
 #include <openssl/err.h>
@@ -268,6 +270,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     int iMsgRetry = getQatMsgRetryCount();
     CpaStatus status;
     struct op_done op_done;
+    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -422,12 +425,23 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         opData->a.pData[0] = 0;
     }
 
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            goto err;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
     }
@@ -442,6 +456,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
 
@@ -483,6 +498,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         goto err;
     }
 
@@ -509,11 +525,13 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         WARN("Verification of request failed\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         goto err;
     }
 
     DUMP_EC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     /* KDF, is done in the caller now just copy out bytes */
     if (outX != NULL) {
@@ -854,6 +872,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     const EC_POINT *ec_point = NULL;
+    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -1061,12 +1080,23 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     pResultS->dataLenInBytes = (Cpa32U) buflen;
 
     /* perform ECDSA sign */
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            goto err;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failure to setup async event notifications\n");
             QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec(num_requests_in_flight);
             goto err;
         }
     }
@@ -1080,6 +1110,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
 
@@ -1121,6 +1152,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         goto err;
     }
 
@@ -1145,6 +1177,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     DUMP_ECDSA_SIGN_OUTPUT(bEcdsaSignStatus, pResultR, pResultS);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
@@ -1256,6 +1289,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
+    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -1405,12 +1439,23 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
 
     /* perform ECDSA verify */
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+            qat_atomic_dec(num_requests_in_flight);
+            goto err;
+        }
+    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failure to setup async event notifications\n");
             QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
     }
@@ -1424,6 +1469,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
             goto err;
         }
 
@@ -1463,6 +1509,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
         goto err;
     }
 
@@ -1487,6 +1534,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     DEBUG("bEcdsaVerifyStatus = %u\n", bEcdsaVerifyStatus);
     qat_cleanup_op_done(&op_done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;

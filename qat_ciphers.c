@@ -62,6 +62,7 @@
 # define _GNU_SOURCE
 #endif
 #include <pthread.h>
+#include <signal.h>
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"
 #endif
@@ -1069,6 +1070,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     char *tls_hdr = NULL;
     int pipe = 0;
     int error = 0;
+    int pthread_kill_ret;
 
     if (ctx == NULL) {
         WARN("CTX parameter is NULL.\n");
@@ -1206,6 +1208,15 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return 0;
     }
 
+    if (qat_use_signals()) {
+        qat_atomic_inc(num_requests_in_flight);
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            qat_atomic_dec(num_requests_in_flight);
+            return 0;
+        }
+    }
     do {
         opd = &qctx->qop[pipe].op_data;
         tls_hdr = GET_TLS_HDR(qctx, pipe);
@@ -1391,6 +1402,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     qctx->total_op += done.num_processed;
     DUMP_SYM_PERFORM_OP_OUTPUT(&(qctx->session_data->verifyDigest), d_sgl);
     qat_cleanup_op_done_pipe(&done);
+    qat_atomic_dec_if_polling(num_requests_in_flight);
 
     if (error == 0 && (done.opDone.verifyResult == CPA_TRUE))
         retVal = 1;

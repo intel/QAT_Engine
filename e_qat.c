@@ -75,6 +75,7 @@
 #include <sys/types.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
+#include <signal.h>
 
 /* Local Includes */
 #include "e_qat.h"
@@ -143,6 +144,17 @@ unsigned int instance_started[MAX_CRYPTO_INSTANCES] = {0};
 useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
+int num_requests_in_flight = 0;
+sigset_t set = {{0}};
+pthread_t timer_poll_func_thread = 0;
+int cleared_to_start = 0;
+
+
+int qat_use_signals(void)
+{
+    return (int)timer_poll_func_thread;
+}
+
 
 /******************************************************************************
 * function:
@@ -231,6 +243,7 @@ int qat_engine_init(ENGINE *e)
     int instNum, err;
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaBoolean limitDevAccess = CPA_FALSE;
+    int ret_pthread_sigmask;
 
     pthread_mutex_lock(&qat_engine_mutex);
     if(engine_inited) {
@@ -397,6 +410,19 @@ int qat_engine_init(ENGINE *e)
     }
 
     if (!enable_external_polling && !enable_inline_polling) {
+        if (!qat_is_event_driven()) {
+            sigemptyset(&set);
+            sigaddset(&set, SIGUSR1);
+            ret_pthread_sigmask = pthread_sigmask(SIG_BLOCK, &set, NULL);
+            if (ret_pthread_sigmask != 0) {
+                WARN("pthread_sigmask error\n");
+                QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_POLLING_THREAD_SIGMASK_FAILURE);
+                pthread_mutex_unlock(&qat_engine_mutex);
+                qat_engine_finish(e);
+                return 0;
+            }
+        }
+
         if (qat_create_thread(&polling_thread, NULL,
                     qat_is_event_driven() ? event_poll_func : timer_poll_func, NULL)) {
             WARN("Creation of polling thread failed\n");
@@ -412,6 +438,10 @@ int qat_engine_init(ENGINE *e)
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
+        }
+        if (!qat_is_event_driven()) {
+            while (!cleared_to_start)
+                sleep(1);
         }
     }
     /* Reset curr_inst */
@@ -690,11 +720,20 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     int ret = 1;
     CpaStatus status = CPA_STATUS_SUCCESS;
     ENGINE_EPOLL_ST *epollst = NULL;
+    int pthread_kill_ret;
 
     DEBUG("---- Engine Finishing...\n\n");
 
     pthread_mutex_lock(&qat_engine_mutex);
     keep_polling = 0;
+    if (qat_use_signals()) {
+        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
+        if (pthread_kill_ret != 0) {
+            WARN("pthread_kill error\n");
+            QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_PTHREAD_KILL_FAILURE);
+            ret = 0;
+        }
+    }
 
     if (qat_instance_handles) {
         for (i = 0; i < qat_num_instances; i++) {
