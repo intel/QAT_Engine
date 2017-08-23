@@ -78,28 +78,24 @@ am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 libqat_la_LIBADD =
 am__libqat_la_SOURCES_DIST = e_qat.c qat_fork.c qat_events.c \
-	qat_callback.c qat_polling.c qat_asym_common.c qat_ciphers.c \
-	qat_dh.c qat_dsa.c qat_ec.c qat_parseconf.c qat_prf.c \
-	qat_utils.c qat_rsa.c qat_rsa_crt.c e_qat_err.c \
+	qat_callback.c qat_polling.c qat_asym_common.c qat_utils.c \
+	qat_rsa.c qat_rsa_crt.c qat_ciphers.c qat_dh.c qat_dsa.c \
+	qat_ec.c qat_prf.c qat_aux.c qat_rsa_aux.c qat_parseconf.c \
 	cmn_mem_drv_inf.c qae_mem_utils.c multi_thread_qaememutils.c \
-	qat_aux.c qat_rsa_aux.c
-@QAE_MEM_FALSE@@QAT_CONTIG_MEM_FALSE@@QAT_MULTI_THREAD_TRUE@am__objects_1 = multi_thread_qaememutils.lo
-@QAE_MEM_FALSE@@QAT_CONTIG_MEM_TRUE@am__objects_1 = qae_mem_utils.lo
-@QAE_MEM_TRUE@am__objects_1 = cmn_mem_drv_inf.lo
-@QAT_OPENSSL_102_FALSE@am_libqat_la_OBJECTS = e_qat.lo qat_fork.lo \
-@QAT_OPENSSL_102_FALSE@	qat_events.lo qat_callback.lo \
-@QAT_OPENSSL_102_FALSE@	qat_polling.lo qat_asym_common.lo \
-@QAT_OPENSSL_102_FALSE@	qat_ciphers.lo qat_dh.lo qat_dsa.lo \
-@QAT_OPENSSL_102_FALSE@	qat_ec.lo qat_parseconf.lo qat_prf.lo \
-@QAT_OPENSSL_102_FALSE@	qat_utils.lo qat_rsa.lo qat_rsa_crt.lo \
-@QAT_OPENSSL_102_FALSE@	e_qat_err.lo $(am__objects_1)
-@QAT_OPENSSL_102_TRUE@am_libqat_la_OBJECTS = e_qat.lo qat_fork.lo \
-@QAT_OPENSSL_102_TRUE@	qat_events.lo qat_callback.lo \
-@QAT_OPENSSL_102_TRUE@	qat_polling.lo qat_aux.lo \
-@QAT_OPENSSL_102_TRUE@	qat_asym_common.lo qat_parseconf.lo \
-@QAT_OPENSSL_102_TRUE@	qat_utils.lo qat_rsa.lo qat_rsa_aux.lo \
-@QAT_OPENSSL_102_TRUE@	qat_rsa_crt.lo e_qat_err.lo \
-@QAT_OPENSSL_102_TRUE@	$(am__objects_1)
+	e_qat_err.c
+am__objects_1 = e_qat.lo qat_fork.lo qat_events.lo qat_callback.lo \
+	qat_polling.lo qat_asym_common.lo qat_utils.lo qat_rsa.lo \
+	qat_rsa_crt.lo
+@QAT_OPENSSL_102_FALSE@am__objects_2 = qat_ciphers.lo qat_dh.lo \
+@QAT_OPENSSL_102_FALSE@	qat_dsa.lo qat_ec.lo qat_prf.lo
+@QAT_OPENSSL_102_TRUE@am__objects_2 = qat_aux.lo qat_rsa_aux.lo
+@OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE@am__objects_3 =  \
+@OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE@	qat_parseconf.lo
+@QAE_MEM_FALSE@@QAT_CONTIG_MEM_FALSE@@QAT_MULTI_THREAD_TRUE@am__objects_4 = multi_thread_qaememutils.lo
+@QAE_MEM_FALSE@@QAT_CONTIG_MEM_TRUE@am__objects_4 = qae_mem_utils.lo
+@QAE_MEM_TRUE@am__objects_4 = cmn_mem_drv_inf.lo
+am_libqat_la_OBJECTS = $(am__objects_1) $(am__objects_2) \
+	$(am__objects_3) $(am__objects_4) e_qat_err.lo
 libqat_la_OBJECTS = $(am_libqat_la_OBJECTS)
 libqat_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
@@ -120,10 +116,10 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 SOURCES = $(libqat_la_SOURCES)
 DIST_SOURCES = $(am__libqat_la_SOURCES_DIST)
 am__include_HEADERS_DIST = e_qat.h qat_fork.h qat_events.h \
-	qat_callback.h qat_polling.h qat_asym_common.h qat_ciphers.h \
-	qat_dh.h qat_dsa.h qat_ec.h qat_parseconf.h qat_prf.h \
-	qat_utils.h qat_rsa.h qat_rsa_crt.h cmn_mem_drv_inf.h \
-	qae_mem_utils.h qat_aux.h qat_rsa_aux.h
+	qat_callback.h qat_polling.h qat_asym_common.h qat_utils.h \
+	qat_rsa.h qat_rsa_crt.h qat_ciphers.h qat_dh.h qat_dsa.h \
+	qat_ec.h qat_prf.h qat_aux.h qat_rsa_aux.h qat_parseconf.h \
+	cmn_mem_drv_inf.h qae_mem_utils.h e_qat_err.h
 HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -322,69 +318,57 @@ lib_LTLIBRARIES = libqat.la
 @QAT_MULTI_THREAD_TRUE@MEM_LIB_SRC = multi_thread_qaememutils.c
 @QAE_MEM_TRUE@MEM_LIB_HEADER = cmn_mem_drv_inf.h
 @QAT_CONTIG_MEM_TRUE@MEM_LIB_HEADER = qae_mem_utils.h
-@QAT_OPENSSL_102_FALSE@libqat_la_SOURCES = e_qat.c \
-@QAT_OPENSSL_102_FALSE@                    qat_fork.c \
-@QAT_OPENSSL_102_FALSE@                    qat_events.c \
-@QAT_OPENSSL_102_FALSE@                    qat_callback.c \
-@QAT_OPENSSL_102_FALSE@                    qat_polling.c \
-@QAT_OPENSSL_102_FALSE@                    qat_asym_common.c \
-@QAT_OPENSSL_102_FALSE@                    qat_ciphers.c \
-@QAT_OPENSSL_102_FALSE@                    qat_dh.c \
-@QAT_OPENSSL_102_FALSE@                    qat_dsa.c \
-@QAT_OPENSSL_102_FALSE@                    qat_ec.c \
-@QAT_OPENSSL_102_FALSE@                    qat_parseconf.c \
-@QAT_OPENSSL_102_FALSE@                    qat_prf.c \
-@QAT_OPENSSL_102_FALSE@                    qat_utils.c \
-@QAT_OPENSSL_102_FALSE@                    qat_rsa.c \
-@QAT_OPENSSL_102_FALSE@                    qat_rsa_crt.c \
-@QAT_OPENSSL_102_FALSE@                    e_qat_err.c \
-@QAT_OPENSSL_102_FALSE@                    ${MEM_LIB_SRC}
+OPENSSL_COMMON_SRC = e_qat.c \
+                     qat_fork.c \
+                     qat_events.c \
+                     qat_callback.c \
+                     qat_polling.c \
+                     qat_asym_common.c \
+                     qat_utils.c \
+                     qat_rsa.c \
+                     qat_rsa_crt.c
 
-@QAT_OPENSSL_102_TRUE@libqat_la_SOURCES = e_qat.c \
-@QAT_OPENSSL_102_TRUE@                    qat_fork.c \
-@QAT_OPENSSL_102_TRUE@                    qat_events.c \
-@QAT_OPENSSL_102_TRUE@                    qat_callback.c \
-@QAT_OPENSSL_102_TRUE@                    qat_polling.c \
-@QAT_OPENSSL_102_TRUE@                    qat_aux.c \
-@QAT_OPENSSL_102_TRUE@                    qat_asym_common.c \
-@QAT_OPENSSL_102_TRUE@                    qat_parseconf.c \
-@QAT_OPENSSL_102_TRUE@                    qat_utils.c \
-@QAT_OPENSSL_102_TRUE@                    qat_rsa.c \
-@QAT_OPENSSL_102_TRUE@                    qat_rsa_aux.c \
-@QAT_OPENSSL_102_TRUE@                    qat_rsa_crt.c \
-@QAT_OPENSSL_102_TRUE@                    e_qat_err.c \
-@QAT_OPENSSL_102_TRUE@                    ${MEM_LIB_SRC}
+OPENSSL_COMMON_HDR = e_qat.h \
+                     qat_fork.h \
+                     qat_events.h \
+                     qat_callback.h \
+                     qat_polling.h \
+                     qat_asym_common.h \
+                     qat_utils.h \
+                     qat_rsa.h \
+                     qat_rsa_crt.h
 
-@QAT_OPENSSL_102_FALSE@include_HEADERS = e_qat.h \
-@QAT_OPENSSL_102_FALSE@                    qat_fork.h \
-@QAT_OPENSSL_102_FALSE@                    qat_events.h \
-@QAT_OPENSSL_102_FALSE@                    qat_callback.h \
-@QAT_OPENSSL_102_FALSE@                    qat_polling.h \
-@QAT_OPENSSL_102_FALSE@                    qat_asym_common.h \
-@QAT_OPENSSL_102_FALSE@                    qat_ciphers.h \
-@QAT_OPENSSL_102_FALSE@                    qat_dh.h \
-@QAT_OPENSSL_102_FALSE@                    qat_dsa.h \
-@QAT_OPENSSL_102_FALSE@                    qat_ec.h \
-@QAT_OPENSSL_102_FALSE@                    qat_parseconf.h \
-@QAT_OPENSSL_102_FALSE@                    qat_prf.h \
-@QAT_OPENSSL_102_FALSE@                    qat_utils.h \
-@QAT_OPENSSL_102_FALSE@                    qat_rsa.h \
-@QAT_OPENSSL_102_FALSE@                    qat_rsa_crt.h \
-@QAT_OPENSSL_102_FALSE@                    ${MEM_LIB_HEADER}
+@QAT_OPENSSL_102_FALSE@OPENSSL_VERSION_SPECIFIC_SRC = qat_ciphers.c \
+@QAT_OPENSSL_102_FALSE@                                qat_dh.c \
+@QAT_OPENSSL_102_FALSE@                                qat_dsa.c \
+@QAT_OPENSSL_102_FALSE@                                qat_ec.c \
+@QAT_OPENSSL_102_FALSE@                                qat_prf.c
 
-@QAT_OPENSSL_102_TRUE@include_HEADERS = e_qat.h \
-@QAT_OPENSSL_102_TRUE@                  qat_fork.h \
-@QAT_OPENSSL_102_TRUE@                  qat_events.h \
-@QAT_OPENSSL_102_TRUE@                  qat_callback.h \
-@QAT_OPENSSL_102_TRUE@                  qat_polling.h \
-@QAT_OPENSSL_102_TRUE@                  qat_aux.h \
-@QAT_OPENSSL_102_TRUE@                  qat_asym_common.h \
-@QAT_OPENSSL_102_TRUE@                  qat_parseconf.h \
-@QAT_OPENSSL_102_TRUE@                  qat_utils.h \
-@QAT_OPENSSL_102_TRUE@                  qat_rsa.h \
-@QAT_OPENSSL_102_TRUE@                  qat_rsa_aux.h \
-@QAT_OPENSSL_102_TRUE@                  qat_rsa_crt.h \
-@QAT_OPENSSL_102_TRUE@                  ${MEM_LIB_HEADER}
+@QAT_OPENSSL_102_TRUE@OPENSSL_VERSION_SPECIFIC_SRC = qat_aux.c \
+@QAT_OPENSSL_102_TRUE@                                qat_rsa_aux.c
+
+@QAT_OPENSSL_102_FALSE@OPENSSL_VERSION_SPECIFIC_HDR = qat_ciphers.h \
+@QAT_OPENSSL_102_FALSE@                                qat_dh.h \
+@QAT_OPENSSL_102_FALSE@                                qat_dsa.h \
+@QAT_OPENSSL_102_FALSE@                                qat_ec.h \
+@QAT_OPENSSL_102_FALSE@                                qat_prf.h
+
+@QAT_OPENSSL_102_TRUE@OPENSSL_VERSION_SPECIFIC_HDR = qat_aux.h \
+@QAT_OPENSSL_102_TRUE@                                qat_rsa_aux.h
+
+@OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE@PARSE_CONFIG_FILES_SRC = qat_parseconf.c
+@OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE@PARSE_CONFIG_FILES_HDR = qat_parseconf.h
+libqat_la_SOURCES = ${OPENSSL_COMMON_SRC} \
+                    ${OPENSSL_VERSION_SPECIFIC_SRC} \
+                    ${PARSE_CONFIG_FILES_SRC} \
+                    ${MEM_LIB_SRC} \
+                    e_qat_err.c
+
+include_HEADERS = ${OPENSSL_COMMON_HDR} \
+                  ${OPENSSL_VERSION_SPECIFIC_HDR} \
+                  ${PARSE_CONFIG_FILES_HDR} \
+                  ${MEM_LIB_HEADER} \
+                  e_qat_err.h
 
 AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
 				$(includes_enable_qat_mux)

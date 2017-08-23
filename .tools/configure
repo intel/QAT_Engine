@@ -648,6 +648,8 @@ include_enable_usdm
 cflags_enable_usdm
 cflags_enable_multi_thread
 cflags_qat_contig_mem
+OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE
+OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_TRUE
 cflags_enable_upstream_driver
 cflags_cc_opt
 cflags
@@ -11870,6 +11872,15 @@ fi
 $as_echo "$as_me: Enabling build for Upstream Driver" >&6;}
 fi
 
+ if test "x$enable_upstream_driver" = "xyes"; then
+  OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_TRUE=
+  OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE='#'
+else
+  OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_TRUE='#'
+  OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE=
+fi
+
+
 if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"
 then
   { $as_echo "$as_me:${as_lineno-$LINENO}: Compiling for QAT_CONTIG_MEMORY" >&5
@@ -16637,6 +16648,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_TRUE}" && test -z "${OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER_FALSE}"; then
+  as_fn_error $? "conditional \"OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${QAT_CONTIG_MEM_TRUE}" && test -z "${QAT_CONTIG_MEM_FALSE}"; then

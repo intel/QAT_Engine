@@ -17,72 +17,64 @@ if QAE_MEM
  MEM_LIB_HEADER = cmn_mem_drv_inf.h
 endif
 
-if QAT_OPENSSL_102
-libqat_la_SOURCES = e_qat.c \
-                    qat_fork.c \
-                    qat_events.c \
-                    qat_callback.c \
-                    qat_polling.c \
-                    qat_aux.c \
-                    qat_asym_common.c \
-                    qat_parseconf.c \
-                    qat_utils.c \
-                    qat_rsa.c \
-                    qat_rsa_aux.c \
-                    qat_rsa_crt.c \
-                    e_qat_err.c \
-                    ${MEM_LIB_SRC}
+OPENSSL_COMMON_SRC = e_qat.c \
+                     qat_fork.c \
+                     qat_events.c \
+                     qat_callback.c \
+                     qat_polling.c \
+                     qat_asym_common.c \
+                     qat_utils.c \
+                     qat_rsa.c \
+                     qat_rsa_crt.c
 
-include_HEADERS = e_qat.h \
-                  qat_fork.h \
-                  qat_events.h \
-                  qat_callback.h \
-                  qat_polling.h \
-                  qat_aux.h \
-                  qat_asym_common.h \
-                  qat_parseconf.h \
-                  qat_utils.h \
-                  qat_rsa.h \
-                  qat_rsa_aux.h \
-                  qat_rsa_crt.h \
-                  ${MEM_LIB_HEADER}
+OPENSSL_COMMON_HDR = e_qat.h \
+                     qat_fork.h \
+                     qat_events.h \
+                     qat_callback.h \
+                     qat_polling.h \
+                     qat_asym_common.h \
+                     qat_utils.h \
+                     qat_rsa.h \
+                     qat_rsa_crt.h
+
+if QAT_OPENSSL_102
+ OPENSSL_VERSION_SPECIFIC_SRC = qat_aux.c \
+                                qat_rsa_aux.c
+
+ OPENSSL_VERSION_SPECIFIC_HDR = qat_aux.h \
+                                qat_rsa_aux.h
 
 else
-libqat_la_SOURCES = e_qat.c \
-                    qat_fork.c \
-                    qat_events.c \
-                    qat_callback.c \
-                    qat_polling.c \
-                    qat_asym_common.c \
-                    qat_ciphers.c \
-                    qat_dh.c \
-                    qat_dsa.c \
-                    qat_ec.c \
-                    qat_parseconf.c \
-                    qat_prf.c \
-                    qat_utils.c \
-                    qat_rsa.c \
-                    qat_rsa_crt.c \
-                    e_qat_err.c \
-                    ${MEM_LIB_SRC}
+ OPENSSL_VERSION_SPECIFIC_SRC = qat_ciphers.c \
+                                qat_dh.c \
+                                qat_dsa.c \
+                                qat_ec.c \
+                                qat_prf.c
 
-include_HEADERS = e_qat.h \
-                    qat_fork.h \
-                    qat_events.h \
-                    qat_callback.h \
-                    qat_polling.h \
-                    qat_asym_common.h \
-                    qat_ciphers.h \
-                    qat_dh.h \
-                    qat_dsa.h \
-                    qat_ec.h \
-                    qat_parseconf.h \
-                    qat_prf.h \
-                    qat_utils.h \
-                    qat_rsa.h \
-                    qat_rsa_crt.h \
-                    ${MEM_LIB_HEADER}
+ OPENSSL_VERSION_SPECIFIC_HDR = qat_ciphers.h \
+                                qat_dh.h \
+                                qat_dsa.h \
+                                qat_ec.h \
+                                qat_prf.h
 endif
+
+if !OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+ PARSE_CONFIG_FILES_SRC = qat_parseconf.c
+ PARSE_CONFIG_FILES_HDR = qat_parseconf.h
+endif
+
+libqat_la_SOURCES = ${OPENSSL_COMMON_SRC} \
+                    ${OPENSSL_VERSION_SPECIFIC_SRC} \
+                    ${PARSE_CONFIG_FILES_SRC} \
+                    ${MEM_LIB_SRC} \
+                    e_qat_err.c
+
+include_HEADERS = ${OPENSSL_COMMON_HDR} \
+                  ${OPENSSL_VERSION_SPECIFIC_HDR} \
+                  ${PARSE_CONFIG_FILES_HDR} \
+                  ${MEM_LIB_HEADER} \
+                  e_qat_err.h
+
 
 CC = cc
 AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \

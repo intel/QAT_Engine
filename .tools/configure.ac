@@ -350,6 +350,8 @@ then
   AC_MSG_NOTICE([Enabling build for Upstream Driver])
 fi
 
+AM_CONDITIONAL([OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER], [test "x$enable_upstream_driver" = "xyes"])
+
 if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"
 then
   AC_MSG_NOTICE([Compiling for QAT_CONTIG_MEMORY])
