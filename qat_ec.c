@@ -314,6 +314,8 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         return ret;
     }
 
+    memset(opData, 0, sizeof(CpaCyEcPointMultiplyOpData));
+
     opData->k.pData = NULL;
     opData->xg.pData = NULL;
     opData->yg.pData = NULL;

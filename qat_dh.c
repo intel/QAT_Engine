@@ -230,6 +230,8 @@ int qat_dh_generate_key(DH *dh)
         return ok;
     }
 
+    memset(opData, 0, sizeof(CpaCyDhPhase1KeyGenOpData));
+
     opData->primeP.pData = NULL;
     opData->baseG.pData = NULL;
     opData->privateValueX.pData = NULL;
@@ -524,6 +526,8 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
+
+    memset(opData, 0, sizeof(CpaCyDhPhase2SecretKeyGenOpData));
 
     opData->primeP.pData = NULL;
     opData->remoteOctetStringPV.pData = NULL;
