@@ -1071,16 +1071,17 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int pipe = 0;
     int error = 0;
     int pthread_kill_ret;
+    int outlen = -1;
 
     if (ctx == NULL) {
         WARN("CTX parameter is NULL.\n");
-        return 0;
+        return -1;
     }
 
     qctx = qat_chained_data(ctx);
     if (qctx == NULL || !INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_CTX_INIT)) {
         WARN("%s\n", qctx == NULL ? "QAT CTX NULL" : "QAT Context not initialised");
-        return 0;
+        return -1;
     }
 
     /* Pipeline initialisation requires multiple EVP_CIPHER_CTX_ctrl
@@ -1096,7 +1097,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
              "Pipeline not initialised completely" : len % AES_BLOCK_SIZE
              ? "Buffer Length not multiple of AES block size"
              : "in/out buffer null");
-        return 0;
+        return -1;
     }
 
     enc = EVP_CIPHER_CTX_encrypting(ctx);
@@ -1121,7 +1122,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
         if (sts != CPA_STATUS_SUCCESS) {
             WARN("cpaCySymInitSession failed! Status = %d\n", sts);
-            return 0;
+            return -1;
         }
         INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
     }
@@ -1135,7 +1136,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         if (qctx->aad_ctr != qctx->numpipes) {
             WARN("AAD data missing supplied %u of %u\n",
                  qctx->aad_ctr, qctx->numpipes);
-            return 0;
+            return -1;
         }
     } else {
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
@@ -1145,6 +1146,9 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))
                      (ctx, out, in, len);
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+            if (retVal) {
+                outlen = len;
+            }
             goto cleanup;
         }
 #endif
@@ -1205,7 +1209,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if ((qat_setup_op_params(ctx) != 1) ||
         (qat_init_op_done_pipe(&done, qctx->numpipes) != 1)) {
         WARN("Failure in qat_setup_op_params or qat_init_op_done_pipe\n");
-        return 0;
+        return -1;
     }
 
     if (qat_use_signals()) {
@@ -1214,7 +1218,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         if (pthread_kill_ret != 0) {
             WARN("pthread_kill error\n");
             qat_atomic_dec(num_requests_in_flight);
-            return 0;
+            return -1;
         }
     }
     do {
@@ -1404,8 +1408,11 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     qat_cleanup_op_done_pipe(&done);
     qat_atomic_dec_if_polling(num_requests_in_flight);
 
-    if (error == 0 && (done.opDone.verifyResult == CPA_TRUE))
-        retVal = 1;
+    if (error == 0 && (done.opDone.verifyResult == CPA_TRUE)) {
+        retVal = 1 & pad_check;
+        if (retVal == 1)
+            outlen = 0;
+    }
 
     pipe = 0;
     do {
@@ -1413,6 +1420,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             memcpy(qctx->p_out[pipe] + plen_adj,
                    qctx->qop[pipe].dst_fbuf[1].pData,
                    qctx->p_inlen[pipe] - discardlen - plen_adj);
+            outlen += buflen + plen_adj - discardlen;
         }
         qaeCryptoMemFree(qctx->qop[pipe].src_fbuf[1].pData);
         qctx->qop[pipe].src_fbuf[1].pData = NULL;
@@ -1442,7 +1450,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qctx->npipes_last_used = qctx->numpipes > qctx->npipes_last_used
             ? qctx->numpipes : qctx->npipes_last_used;
     }
-    return retVal & pad_check;
+    return outlen;
 }
 
 /******************************************************************************

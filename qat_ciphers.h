@@ -86,6 +86,7 @@
                                      EVP_CIPH_CBC_MODE | \
                                      EVP_CIPH_CUSTOM_IV)
 # define QAT_CHAINED_FLAG           (QAT_CBC_FLAGS | \
+                                     EVP_CIPH_FLAG_CUSTOM_CIPHER | \
                                      EVP_CIPH_FLAG_AEAD_CIPHER | \
                                      EVP_CIPH_FLAG_PIPELINE)
 
