@@ -90,7 +90,7 @@ void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
         return NULL;
     }
 
-    pAddress = qaeMemAllocNUMA(memsize, 0, QAT_BYTE_ALIGNMENT);
+    pAddress = qaeMemAllocNUMA(memsize, NUMA_ANY_NODE, QAT_BYTE_ALIGNMENT);
     MEM_DEBUG("Address: %p Size: %d File: %s:%d\n", pAddress,
           memsize, file, line);
     if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
