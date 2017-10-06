@@ -399,9 +399,10 @@ application it is usual for the application to create at least one new process
 for each cpu core you want to utilize.
 
 There are also similar config files for if you are using the event driven
-polling feature of the Intel&reg; QAT Driver. Once you have decided which conf
-file you should use, or created your own you should follow the procedure below
-to install it:
+polling feature of the Intel&reg; QAT Driver contained in
+`multi_thread_event-driven_optimized` and `multi_process_event-driven_optimized`
+respectively. Once you have decided which conf file you should use,
+or created your own you should follow the procedure below to install it:
 
 1. Follow the instructions to stop the Acceleration Driver:
 
