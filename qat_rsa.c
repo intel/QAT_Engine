@@ -589,7 +589,7 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (alloc_pad) {
+    if (alloc_pad && (padding != RSA_NO_PADDING)) {
         (*dec_op_data)->inputData.pData =
             qat_alloc_pad((Cpa8U *) from, flen, rsa_len, 1);
     } else {
@@ -604,7 +604,7 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (alloc_pad)
+    if (alloc_pad && (padding != RSA_NO_PADDING))
         (*dec_op_data)->inputData.dataLenInBytes = rsa_len;
     else
         (*dec_op_data)->inputData.dataLenInBytes = flen;
@@ -814,7 +814,7 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (padding != RSA_PKCS1_PADDING) {
+    if ((padding != RSA_NO_PADDING) && (padding != RSA_PKCS1_PADDING)) {
         WARN("Unknown Padding %d\n", padding);
         QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_UNKNOWN_PADDING);
         return 0;
@@ -852,7 +852,7 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (alloc_pad) {
+    if (alloc_pad && (padding != RSA_NO_PADDING)) {
         (*enc_op_data)->inputData.pData =
             qat_alloc_pad((Cpa8U *) from, flen, rsa_len, 0);
     } else {
@@ -867,7 +867,7 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (alloc_pad)
+    if (alloc_pad && (padding != RSA_NO_PADDING))
         (*enc_op_data)->inputData.dataLenInBytes = rsa_len;
     else
         (*enc_op_data)->inputData.dataLenInBytes = flen;
@@ -925,6 +925,7 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1;
+    int padding_adj = RSA_PKCS1_PADDING_SIZE;  /*Default minimum PKCS1 padding length*/
 #ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
     unsigned char *ver_msg = NULL;
     const BIGNUM *n = NULL;
@@ -933,18 +934,27 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 #endif
 
     DEBUG("- Started.\n");
+    if (padding == RSA_NO_PADDING)
+        padding_adj = 0;
 
     /* Parameter Checking */
     /*
-     * The input message length should less than RSA size and also have
-     * minimum space of PKCS1 padding(4 bytes)
+     * The input message length should be less than or equal to RSA size and also have
+     * minimum space of at least 11 bytes of padding if using PKCS1 padding.
      */
     if (rsa == NULL || from == NULL || to == NULL ||
-        (flen > ((rsa_len = RSA_size(rsa)) - 4))
+        (flen > ((rsa_len = RSA_size(rsa)) - padding_adj))
         || flen == 0) {
         WARN("RSA key, input or output is NULL or invalid length, \
               flen = %d, rsa_len = %d\n", flen, rsa_len);
         QATerr(QAT_F_QAT_RSA_PRIV_ENC, QAT_R_RSA_FROM_TO_NULL);
+        goto exit;
+    }
+
+    if ((padding == RSA_NO_PADDING) && (flen < rsa_len)) {
+        WARN("Data smaller than key size for NO_PADDING, flen = %d, \
+              rsa_len = %d\n", flen, rsa_len);
+        QATerr(QAT_F_QAT_RSA_PRIV_ENC, QAT_R_DATA_TOO_SMALL_FOR_KEY_SIZE);
         goto exit;
     }
 
@@ -1163,15 +1173,26 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     CpaCyRsaEncryptOpData *enc_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1;
+    int padding_adj = RSA_PKCS1_PADDING_SIZE;  /*Default minimum PKCS1 padding length*/
 
     DEBUG("- Started\n");
 
+    if (padding == RSA_NO_PADDING)
+        padding_adj = 0;
+
     /* parameter checks */
     if (rsa == NULL || from == NULL || to == NULL ||
-        (flen > (rsa_len = RSA_size(rsa)) - 11)) {
+        (flen > (rsa_len = RSA_size(rsa)) - padding_adj)) {
         WARN("RSA key %p, input %p or output %p are NULL or invalid length, \
               flen = %d, rsa_len = %d\n", rsa, from, to, flen, rsa_len);
         QATerr(QAT_F_QAT_RSA_PUB_ENC, QAT_R_RSA_FROM_TO_NULL);
+        goto exit;
+    }
+
+    if ((padding == RSA_NO_PADDING) && (flen < rsa_len)) {
+        WARN("Data smaller than key size for NO_PADDING, flen = %d, \
+              rsa_len = %d\n", flen, rsa_len);
+        QATerr(QAT_F_QAT_RSA_PUB_ENC, QAT_R_DATA_TOO_SMALL_FOR_KEY_SIZE);
         goto exit;
     }
 
