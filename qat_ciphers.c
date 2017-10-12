@@ -1212,6 +1212,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return -1;
     }
 
+    get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);

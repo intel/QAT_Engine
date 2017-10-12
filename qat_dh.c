@@ -310,6 +310,7 @@ int qat_dh_generate_key(DH *dh)
         goto err;
     }
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
@@ -557,6 +558,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         goto err;
     }
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);

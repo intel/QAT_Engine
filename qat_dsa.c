@@ -392,6 +392,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         goto err;
     }
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
@@ -704,6 +705,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         goto err;
     }
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);

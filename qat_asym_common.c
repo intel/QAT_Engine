@@ -178,6 +178,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         }
     }
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
