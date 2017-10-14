@@ -50,7 +50,7 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
 
 * Synchronous and Asynchronous Operation
 * Asymmetric PKE Offload
-  * RSA Support with PKCS1 Padding for Key Sizes 1024/2048/4096.
+  * RSA Support for Key Sizes 1024/2048/4096.
   * DH Support for Key Sizes 768/1024/1536/2048/3072/4096.
   * DSA Support for Key Sizes 160/1024, 224/2048, 256/2048, 256/3072.
   * ECDH Support for the following curves:
@@ -65,6 +65,9 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
   * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
   * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
 * Pseudo Random Function (PRF) offload.
+
+Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
+engine supports the same padding schemes as OpenSSL does natively.
 
 ## Hardware Requirements
 

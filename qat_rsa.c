@@ -179,180 +179,6 @@ static inline int qat_rsa_range_check(int plen)
 
 /******************************************************************************
 * function:
-*         qat_alloc_pad(unsigned char *in,
-*                       int len,
-*                       int rLen,
-*                       int sign)
-*
-* @param in   [IN] - pointer to Flat Buffer
-* @param len  [IN] - length of input data (hash)
-* @param rLen [IN] - length of RSA
-* @param sign [IN] - 1 for sign operation and 0 for decryption
-*
-* description:
-*   This function is used to add PKCS#1 padding into input data buffer
-*   before it pass to cpaCyRsaDecrypt() function.
-*   The function returns a pointer to unsigned char buffer
-******************************************************************************/
-static unsigned char *qat_alloc_pad(unsigned char *in, int len,
-                                    int rLen, int sign)
-{
-    int i = 0;
-
-    /* out data buffer should have fix length */
-    unsigned char *out = qaeCryptoMemAlloc(rLen, __FILE__, __LINE__);
-
-    DEBUG("- Started\n");
-
-    if (NULL == out) {
-        WARN("out buffer malloc failed\n");
-        QATerr(QAT_F_QAT_ALLOC_PAD, QAT_R_OUT_MALLOC_FAILURE);
-        return NULL;
-    }
-
-    /* First two char are (0x00, 0x01) or (0x00, 0x02) */
-    out[0] = 0x00;
-
-    if (sign) {
-        out[1] = 0x01;
-    } else {
-        out[1] = 0x02;
-    }
-
-    /*
-     * Fill 0xff and end up with 0x00 in out buffer until the length of
-     * actual data space left
-     */
-    for (i = 2; i < (rLen - len - 1); i++) {
-        out[i] = 0xff;
-    }
-    /*
-     * i has been incremented on beyond the last padding byte to exit for
-     * loop
-     */
-    out[i] = 0x00;
-
-    /* shift actual data to the end of out buffer */
-    memcpy((out + rLen - len), in, len);
-
-    DEBUG("- Finished\n");
-    return out;
-}
-
-/******************************************************************************
-* function:
-*         qat_data_len(unsigned char *in
-*                      int  rLen, int sign)
-*
-* @param in   [IN] - pointer to Flat Buffer
-* @param rLen [IN] - length of RSA
-* @param sign [IN] - 1 for sign operation and 0 for decryption
-*
-* description:
-*   This function is used to calculate the length of actual data
-*   and padding size inside of outputBuffer returned from cpaCyRsaEncrypt() function.
-*   The function counts the padding length (i) and return the length
-*   of actual data (dLen) contained in the outputBuffer
-******************************************************************************/
-static int qat_data_len(unsigned char *in, int rLen, int sign)
-{
-    /* first two bytes are 0x00, 0x01 */
-    int i = 0;
-    int dLen = 0;
-    int pLen = 0;
-
-    DEBUG("- Started\n");
-
-    /* First two char of padding should be 0x00, 0x01 */
-    if (sign) {
-        /* First two char of padding should be 0x00, 0x01 */
-        if (in[0] != 0x00 || in[1] != 0x01) {
-            WARN("Sign: Padding format unknown\n");
-            QATerr(QAT_F_QAT_DATA_LEN, ERR_R_INTERNAL_ERROR);
-            return 0;
-        }
-    } else {
-        /* First two char of padding should be 0x00, 0x02 for decryption */
-        if (in[0] != 0x00 || in[1] != 0x02) {
-            WARN("Decryption: Padding format unknown\n");
-            QATerr(QAT_F_QAT_DATA_LEN, ERR_R_INTERNAL_ERROR);
-            return 0;
-        }
-    }
-
-    /*
-     * while loop is design to reach the 0x00 value and count all the 0xFF
-     * value where filled by PKCS#1 padding
-     */
-    while (in[i + 2] != 0x00 && i < rLen)
-        i++;
-
-    /* padding length = 2 + length of 0xFF + 0x00 */
-    pLen = 2 + i + 1;
-    dLen = rLen - pLen;
-
-    if (dLen < 0) {
-        dLen = 0;
-    }
-
-    DEBUG("- Finished\n");
-    return dLen;
-}
-
-/******************************************************************************
-* function:
-*         qat_remove_pad(unsigned char *out
-*                        unsigned char *in,
-*                        int r_len,
-*                        int out_len,
-*                        int sign,
-*                        int padding)
-*
-* @param out     [OUT] - pointer to a Flat Buffer
-* @param in      [IN] -  pointer to a Flat Buffer
-* @param r_len   [IN] -  length of the RSA data
-* @param out_len [OUT] - length of the output data after the padding has
-                         been removed
-* @param sign    [IN] -  1 for sign operation and 0 for decryption
-* @param padding [IN] -  type of padding
-*
-* description:
-*   This function is used to remove PKCS#1 padding from outputBuffer
-*   after cpaCyRsaEncrypt() function during RSA verify if that is the type of
-*   padding passed in.  However, if the type of padding is RSA_NO_PADDING, then
-*   all the data in the 'in' buffer is copied to the 'out' buffer.
-******************************************************************************/
-static int qat_remove_pad(unsigned char *out, unsigned char *in,
-                          int r_len, int *out_len, int sign, int padding)
-{
-    int p_len = 0;
-    int d_len = 0;
-
-    DEBUG("- Started\n");
-
-    if (padding == RSA_NO_PADDING) {
-        memcpy(out, in, r_len);
-        *out_len = r_len;
-    }
-    else { /* should be RSA_PKCS1_PADDING */
-        if (0 == (d_len = qat_data_len(in, r_len, sign))) {
-            WARN("Unable to get Data Length\n");
-            QATerr(QAT_F_QAT_REMOVE_PAD, ERR_R_INTERNAL_ERROR);
-            return 0;
-        }
-        p_len = r_len - d_len;
-
-        /* shift actual data to the beginning of out buffer */
-        memcpy(out, in + p_len, d_len);
-        *out_len = d_len;
-    }
-
-    DEBUG("- Finished\n");
-    return 1;
-}
-
-/******************************************************************************
-* function:
 *         qat_rsaCallbackFn(void *pCallbackTag, CpaStatus status,
 *                           void *pOpData, CpaFlatBuffer * pOut)
 *
@@ -377,7 +203,7 @@ void qat_rsaCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
 
 static void
 rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
-                        CpaFlatBuffer * out_buf, int padding)
+                        CpaFlatBuffer * out_buf)
 {
     CpaCyRsaPrivateKeyRep2 *key = NULL;
     DEBUG("- Started\n");
@@ -524,6 +350,7 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
                      CpaFlatBuffer ** output_buffer, int alloc_pad)
 {
     int rsa_len = 0;
+    int padding_result = 0;
     CpaCyRsaPrivateKey *cpa_prv_key = NULL;
     const BIGNUM *p = NULL;
     const BIGNUM *q = NULL;
@@ -543,8 +370,16 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
+    DEBUG("flen = %d, padding = %d \n", flen, padding);
+    /* output signature should have same length as the RSA size */
+    rsa_len = RSA_size(rsa);
+
     /* Padding check */
-    if ((padding != RSA_NO_PADDING) && (padding != RSA_PKCS1_PADDING)) {
+    if ((padding != RSA_NO_PADDING) &&
+        (padding != RSA_PKCS1_PADDING) &&
+        (padding != RSA_PKCS1_OAEP_PADDING) &&
+        (padding != RSA_SSLV23_PADDING) &&
+        (padding != RSA_X931_PADDING)) {
         WARN("Unknown Padding %d\n", padding);
         QATerr(QAT_F_BUILD_DECRYPT_OP_BUF, QAT_R_PADDING_UNKNOWN);
         return 0;
@@ -557,10 +392,6 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         QATerr(QAT_F_BUILD_DECRYPT_OP_BUF, QAT_R_PRIV_KEY_MALLOC_FAILURE);
         return 0;
     }
-
-    DEBUG("flen =%d, padding = %d \n", flen, padding);
-    /* output signature should have same length as RSA(128) */
-    rsa_len = RSA_size(rsa);
 
     /* output and input data MUST allocate memory for sign process */
     /* memory allocation for DecOpdata[IN] */
@@ -589,14 +420,10 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (alloc_pad && (padding != RSA_NO_PADDING)) {
-        (*dec_op_data)->inputData.pData =
-            qat_alloc_pad((Cpa8U *) from, flen, rsa_len, 1);
-    } else {
-        (*dec_op_data)->inputData.pData =
-            (Cpa8U *) copyAllocPinnedMemory((void *)from, flen, __FILE__,
-                                            __LINE__);
-    }
+    (*dec_op_data)->inputData.pData = (Cpa8U *) qaeCryptoMemAlloc(
+        ((padding != RSA_NO_PADDING) && alloc_pad) ? rsa_len : flen,
+         __FILE__,
+         __LINE__);
 
     if (NULL == (*dec_op_data)->inputData.pData) {
         WARN("Failed to allocate (*dec_op_data)->inputData.pData\n");
@@ -604,10 +431,41 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (alloc_pad && (padding != RSA_NO_PADDING))
-        (*dec_op_data)->inputData.dataLenInBytes = rsa_len;
-    else
-        (*dec_op_data)->inputData.dataLenInBytes = flen;
+    (*dec_op_data)->inputData.dataLenInBytes =
+       (padding != RSA_NO_PADDING) && alloc_pad ? rsa_len : flen;
+
+    if (alloc_pad) {
+        switch (padding) {
+        case RSA_PKCS1_PADDING:
+            padding_result =
+                RSA_padding_add_PKCS1_type_1((*dec_op_data)->inputData.pData,
+                                             rsa_len, from, flen);
+            break;
+        case RSA_X931_PADDING:
+            padding_result =
+                RSA_padding_add_X931((*dec_op_data)->inputData.pData,
+                                     rsa_len, from, flen);
+            break;
+        case RSA_NO_PADDING:
+            padding_result =
+                RSA_padding_add_none((*dec_op_data)->inputData.pData,
+                                     rsa_len, from, flen);
+            break;
+        default:
+            QATerr(QAT_F_BUILD_DECRYPT_OP_BUF, RSA_R_UNKNOWN_PADDING_TYPE);
+            break;
+        }
+    } else {
+        padding_result =
+            RSA_padding_add_none((*dec_op_data)->inputData.pData,
+                                 rsa_len, from, flen);
+    }
+
+    if (padding_result <= 0) {
+        WARN("Failed to add padding\n");
+        /* Error is raised within the padding function. */
+        return 0;
+    }
 
     *output_buffer = OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (NULL == *output_buffer) {
@@ -636,7 +494,7 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
 
 static void
 rsa_encrypt_op_buf_free(CpaCyRsaEncryptOpData * enc_op_data,
-                        CpaFlatBuffer * out_buf, int padding)
+                        CpaFlatBuffer * out_buf)
 {
     DEBUG("- Started\n");
 
@@ -792,13 +650,14 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 }
 
 static int
-build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
-                 RSA *rsa, int padding,
-                 CpaCyRsaEncryptOpData ** enc_op_data,
-                 CpaFlatBuffer ** output_buffer, int alloc_pad)
+build_encrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
+                     RSA *rsa, int padding,
+                     CpaCyRsaEncryptOpData ** enc_op_data,
+                     CpaFlatBuffer ** output_buffer, int alloc_pad)
 {
     CpaCyRsaPublicKey *cpa_pub_key = NULL;
     int rsa_len = 0;
+    int padding_result = 0;
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
@@ -810,31 +669,36 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
     /* Note: not checking 'd' as it is not used */
     if (n == NULL || e == NULL) {
         WARN("RSA key values n = %p or e = %p are NULL\n", n, e);
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_N_E_NULL);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_N_E_NULL);
         return 0;
     }
 
-    if ((padding != RSA_NO_PADDING) && (padding != RSA_PKCS1_PADDING)) {
+    DEBUG("flen =%d, padding = %d \n", flen, padding);
+    rsa_len = RSA_size(rsa);
+
+    if ((padding != RSA_NO_PADDING) &&
+        (padding != RSA_PKCS1_PADDING) &&
+        (padding != RSA_PKCS1_OAEP_PADDING) &&
+        (padding != RSA_X931_PADDING) &&
+        (padding != RSA_SSLV23_PADDING)) {
         WARN("Unknown Padding %d\n", padding);
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_UNKNOWN_PADDING);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_UNKNOWN_PADDING);
         return 0;
     }
 
     cpa_pub_key = OPENSSL_zalloc(sizeof(CpaCyRsaPublicKey));
     if (NULL == cpa_pub_key) {
         WARN("Public Key zalloc failed\n");
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_PUB_KEY_MALLOC_FAILURE);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_PUB_KEY_MALLOC_FAILURE);
         return 0;
     }
-
-    rsa_len = RSA_size(rsa);
 
     /* Output and input data MUST allocate memory for RSA verify process */
     /* Memory allocation for EncOpData[IN] */
     *enc_op_data = OPENSSL_zalloc(sizeof(CpaCyRsaEncryptOpData));
     if (NULL == *enc_op_data) {
         WARN("Failed to allocate enc_op_data\n");
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_ENC_OP_DATA_MALLOC_FAILURE);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_ENC_OP_DATA_MALLOC_FAILURE);
         OPENSSL_free(cpa_pub_key);
         return 0;
     }
@@ -842,35 +706,65 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
     /* Setup the Encrypt operation Data structure */
     (*enc_op_data)->pPublicKey = cpa_pub_key;
 
-    DEBUG("flen=%d padding=%d\n", flen, padding);
-
     /* Passing Public key from big number format to big endian order binary */
     if (qat_BN_to_FB(&cpa_pub_key->modulusN, n) != 1 ||
         qat_BN_to_FB(&cpa_pub_key->publicExponentE, e) != 1) {
         WARN("Failed to convert cpa_pub_key elements to flatbuffer\n");
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_N_E_CONVERT_TO_FB_FAILURE);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_N_E_CONVERT_TO_FB_FAILURE);
         return 0;
     }
 
-    if (alloc_pad && (padding != RSA_NO_PADDING)) {
-        (*enc_op_data)->inputData.pData =
-            qat_alloc_pad((Cpa8U *) from, flen, rsa_len, 0);
-    } else {
-        (*enc_op_data)->inputData.pData =
-            (Cpa8U *) copyAllocPinnedMemory((void *)from, flen, __FILE__,
-                                            __LINE__);
-    }
+    (*enc_op_data)->inputData.pData = (Cpa8U *) qaeCryptoMemAlloc(
+        ((padding != RSA_NO_PADDING) && alloc_pad) ? rsa_len : flen,
+         __FILE__,
+         __LINE__);
 
     if (NULL == (*enc_op_data)->inputData.pData) {
         WARN("Failed to allocate (*enc_op_data)->inputData.pData\n");
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_INPUT_DATA_MALLOC_FAILURE);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_INPUT_DATA_MALLOC_FAILURE);
         return 0;
     }
 
-    if (alloc_pad && (padding != RSA_NO_PADDING))
-        (*enc_op_data)->inputData.dataLenInBytes = rsa_len;
-    else
-        (*enc_op_data)->inputData.dataLenInBytes = flen;
+    (*enc_op_data)->inputData.dataLenInBytes =
+       ((padding != RSA_NO_PADDING) && alloc_pad) ? rsa_len : flen;
+
+    if (alloc_pad) {
+        switch (padding) {
+        case RSA_PKCS1_PADDING:
+            padding_result =
+                RSA_padding_add_PKCS1_type_2((*enc_op_data)->inputData.pData,
+                                             rsa_len, from, flen);
+            break;
+        case RSA_PKCS1_OAEP_PADDING:
+            padding_result =
+                RSA_padding_add_PKCS1_OAEP((*enc_op_data)->inputData.pData,
+                                           rsa_len, from, flen, NULL, 0);
+            break;
+        case RSA_SSLV23_PADDING:
+            padding_result =
+                RSA_padding_add_SSLv23((*enc_op_data)->inputData.pData,
+                                       rsa_len, from, flen);
+            break;
+        case RSA_NO_PADDING:
+            padding_result =
+                RSA_padding_add_none((*enc_op_data)->inputData.pData,
+                                     rsa_len, from, flen);
+            break;
+        default:
+            QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, RSA_R_UNKNOWN_PADDING_TYPE);
+            break;
+        }
+    } else {
+        padding_result =
+            RSA_padding_add_none((*enc_op_data)->inputData.pData,
+                                 rsa_len, from, flen);
+    }
+
+    if (padding_result <= 0) {
+        WARN("Failed to add padding\n");
+        /* Error is raised within the padding function. */
+        return 0;
+    }
 
     /*
      * Memory allocation for outputBuffer[OUT] OutputBuffer size initialize
@@ -880,7 +774,7 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
         (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (NULL == (*output_buffer)) {
         WARN("Failed to allocate output_buffer\n");
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_OUTPUT_BUF_MALLOC_FAILURE);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_OUTPUT_BUF_MALLOC_FAILURE);
         return 0;
     }
 
@@ -892,7 +786,7 @@ build_encrypt_op(int flen, const unsigned char *from, unsigned char *to,
     (*output_buffer)->pData = qaeCryptoMemAlloc(rsa_len, __FILE__, __LINE__);
     if (NULL == (*output_buffer)->pData) {
         WARN("Failed to allocate (*output_buffer)->pData\n");
-        QATerr(QAT_F_BUILD_ENCRYPT_OP, QAT_R_OUTPUT_BUF_PDATA_MALLOC_FAILURE);
+        QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_OUTPUT_BUF_PDATA_MALLOC_FAILURE);
         return 0;;
     }
 
@@ -925,7 +819,6 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1;
-    int padding_adj = RSA_PKCS1_PADDING_SIZE;  /*Default minimum PKCS1 padding length*/
 #ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
     unsigned char *ver_msg = NULL;
     const BIGNUM *n = NULL;
@@ -934,29 +827,20 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 #endif
 
     DEBUG("- Started.\n");
-    if (padding == RSA_NO_PADDING)
-        padding_adj = 0;
 
     /* Parameter Checking */
     /*
      * The input message length should be less than or equal to RSA size and also have
      * minimum space of at least 11 bytes of padding if using PKCS1 padding.
      */
-    if (rsa == NULL || from == NULL || to == NULL ||
-        (flen > ((rsa_len = RSA_size(rsa)) - padding_adj))
-        || flen == 0) {
+    if (rsa == NULL || from == NULL || to == NULL || flen == 0) {
         WARN("RSA key, input or output is NULL or invalid length, \
-              flen = %d, rsa_len = %d\n", flen, rsa_len);
+              flen = %d\n", flen);
         QATerr(QAT_F_QAT_RSA_PRIV_ENC, QAT_R_RSA_FROM_TO_NULL);
         goto exit;
     }
 
-    if ((padding == RSA_NO_PADDING) && (flen < rsa_len)) {
-        WARN("Data smaller than key size for NO_PADDING, flen = %d, \
-              rsa_len = %d\n", flen, rsa_len);
-        QATerr(QAT_F_QAT_RSA_PRIV_ENC, QAT_R_DATA_TOO_SMALL_FOR_KEY_SIZE);
-        goto exit;
-    }
+    rsa_len = RSA_size(rsa);
 
     /*
     * If the op sizes are not in the range supported by QAT engine then fall
@@ -970,20 +854,20 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     if (1 != build_decrypt_op_buf(flen, from, to, rsa, padding,
                                   &dec_op_data, &output_buffer, PADDING)) {
         WARN("Failure in build_decrypt_op_buf\n");
-        QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_INTERNAL_ERROR);
+        /* Errors are already raised within build_decrypt_op_buf. */
         sts = 0;
         goto exit;
     }
 
     if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer)) {
         WARN("Failure in qat_rsa_decrypt\n");
-        QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_INTERNAL_ERROR);
+        /* Errors are already raised within qat_rsa_decrypt. */
         sts = 0;
         goto exit;
     }
     memcpy(to, output_buffer->pData, rsa_len);
 
-    rsa_decrypt_op_buf_free(dec_op_data, output_buffer, PADDING);
+    rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
 
 #ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
     /* Lenstra vulnerability protection: Now call the s/w impl'n of public decrypt in order to
@@ -1015,7 +899,7 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
 exit:
     /* Free all the memory allocated in this function */
-    rsa_decrypt_op_buf_free(dec_op_data, output_buffer, PADDING);
+    rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
 #ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
 exit_lenstra:
 #endif
@@ -1048,7 +932,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
                      unsigned char *to, RSA *rsa, int padding)
 {
     int rsa_len = 0;
-    int output_len = 0;
+    int output_len = -1;
     int sts = 1;
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
@@ -1082,13 +966,14 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     if (1 != build_decrypt_op_buf(flen, from, to, rsa, padding,
                                   &dec_op_data, &output_buffer, NO_PADDING)) {
         WARN("Failure in build_decrypt_op_buf\n");
-        QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
+        /* Errors are already raised within build_decrypt_op_buf. */
         sts = 0;
         goto exit;
     }
 
     if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer)) {
         WARN("Failure in qat_rsa_decrypt\n");
+        /* Errors are already raised within qat_rsa_decrypt. */
         QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
         sts = 0;
         goto exit;
@@ -1113,30 +998,67 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
             || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
             WARN("- Verify of offloaded decrypt operation failed - redoing decrypt operation in s/w\n");
             OPENSSL_free(ver_msg);
-            rsa_decrypt_op_buf_free(dec_op_data, output_buffer, NO_PADDING);
+            rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
             return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
         }
         OPENSSL_free(ver_msg);
     }
 #endif
 
-    /* Copy output to output buffer */
-    if (qat_remove_pad(to, output_buffer->pData, rsa_len, &output_len,
-                       0, padding) != 1) {
-        WARN("Failure in qat_remove_pad\n");
+    switch (padding) {
+    case RSA_PKCS1_PADDING:
+        output_len =
+            RSA_padding_check_PKCS1_type_2(to,
+                                           rsa_len,
+                                           output_buffer->pData,
+                                           output_buffer->dataLenInBytes,
+                                           rsa_len);
+        break;
+    case RSA_PKCS1_OAEP_PADDING:
+        output_len =
+            RSA_padding_check_PKCS1_OAEP(to,
+                                         rsa_len,
+                                         output_buffer->pData,
+                                         output_buffer->dataLenInBytes,
+                                         rsa_len,
+                                         NULL,
+                                         0);
+        break;
+    case RSA_SSLV23_PADDING:
+        output_len =
+            RSA_padding_check_SSLv23(to,
+                                     rsa_len,
+                                     output_buffer->pData,
+                                     output_buffer->dataLenInBytes,
+                                     rsa_len);
+        break;
+    case RSA_NO_PADDING:
+        output_len =
+            RSA_padding_check_none(to,
+                                   rsa_len,
+                                   output_buffer->pData,
+                                   output_buffer->dataLenInBytes,
+                                   rsa_len);
+        break;
+    default:
+        break; /* Do nothing as the error will be caught below. */
+    }
+
+    if (output_len < 0) {
+        WARN("Failure in removing padding\n");
         QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
         sts = 0;
         goto exit;
     }
 
-    rsa_decrypt_op_buf_free(dec_op_data, output_buffer, NO_PADDING);
+    rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
 
     DEBUG("- Finished\n");
     return output_len;
 
  exit:
     /* Free all the memory allocated in this function */
-    rsa_decrypt_op_buf_free(dec_op_data, output_buffer, NO_PADDING);
+    rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
 
     /* set output all 0xff if failed */
     if (!sts && to)
@@ -1173,28 +1095,18 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     CpaCyRsaEncryptOpData *enc_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1;
-    int padding_adj = RSA_PKCS1_PADDING_SIZE;  /*Default minimum PKCS1 padding length*/
 
     DEBUG("- Started\n");
 
-    if (padding == RSA_NO_PADDING)
-        padding_adj = 0;
-
     /* parameter checks */
-    if (rsa == NULL || from == NULL || to == NULL ||
-        (flen > (rsa_len = RSA_size(rsa)) - padding_adj)) {
-        WARN("RSA key %p, input %p or output %p are NULL or invalid length, \
-              flen = %d, rsa_len = %d\n", rsa, from, to, flen, rsa_len);
+    if (rsa == NULL || from == NULL || to == NULL) {
+        WARN("RSA key %p, input %p or output %p are NULL\n",
+              rsa, from, to);
         QATerr(QAT_F_QAT_RSA_PUB_ENC, QAT_R_RSA_FROM_TO_NULL);
         goto exit;
     }
 
-    if ((padding == RSA_NO_PADDING) && (flen < rsa_len)) {
-        WARN("Data smaller than key size for NO_PADDING, flen = %d, \
-              rsa_len = %d\n", flen, rsa_len);
-        QATerr(QAT_F_QAT_RSA_PUB_ENC, QAT_R_DATA_TOO_SMALL_FOR_KEY_SIZE);
-        goto exit;
-    }
+    rsa_len = RSA_size(rsa);
 
     /*
     * If the op sizes are not in the range supported by QAT engine then fall
@@ -1205,30 +1117,30 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
         return RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
                                     (flen, from, to, rsa, padding);
 
-    if (1 != build_encrypt_op(flen, from, to, rsa, padding,
-                              &enc_op_data, &output_buffer, PADDING)) {
-        WARN("Failure in build_encrypt_op\n");
-        QATerr(QAT_F_QAT_RSA_PUB_ENC, ERR_R_INTERNAL_ERROR);
+    if (1 != build_encrypt_op_buf(flen, from, to, rsa, padding,
+                                  &enc_op_data, &output_buffer, PADDING)) {
+        WARN("Failure in build_encrypt_op_buf\n");
+        /* Errors are already raised within build_encrypt_op_buf. */
         sts = 0;
         goto exit;
     }
 
     if (1 != qat_rsa_encrypt(enc_op_data, output_buffer)) {
         WARN("Failure in qat_rsa_encrypt\n");
-        QATerr(QAT_F_QAT_RSA_PUB_ENC, ERR_R_INTERNAL_ERROR);
+        /* Errors are already raised within qat_rsa_encrypt. */
         sts = 0;
         goto exit;
 
     } else {
         memcpy(to, output_buffer->pData, output_buffer->dataLenInBytes);
     }
-    rsa_encrypt_op_buf_free(enc_op_data, output_buffer, PADDING);
+    rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
 
     DEBUG("- Finished\n");
     return rsa_len;
  exit:
     /* Free all the memory allocated in this function */
-    rsa_encrypt_op_buf_free(enc_op_data, output_buffer, PADDING);
+    rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
 
     /* set output all 0xff if failed */
     if (!sts)
@@ -1262,7 +1174,7 @@ qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
                 RSA *rsa, int padding)
 {
     int rsa_len = 0;
-    int output_len = 0;
+    int output_len = -1;
     CpaCyRsaEncryptOpData *enc_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1;
@@ -1287,37 +1199,64 @@ qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
         return RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
                                     (flen, from, to, rsa, padding);
 
-    if (1 != build_encrypt_op(flen, from, to, rsa, padding,
-                              &enc_op_data, &output_buffer, NO_PADDING)) {
-        WARN("Failure in build_encrypt_op\n");
-        QATerr(QAT_F_QAT_RSA_PUB_DEC, ERR_R_INTERNAL_ERROR);
+    if (1 != build_encrypt_op_buf(flen, from, to, rsa, padding,
+                                  &enc_op_data, &output_buffer, NO_PADDING)) {
+        WARN("Failure in build_encrypt_op_buf\n");
+        /* Errors are already raised within build_encrypt_op_buf. */
         sts = 0;
         goto exit;
     }
 
     if (1 != qat_rsa_encrypt(enc_op_data, output_buffer)) {
         WARN("Failure in qat_rsa_encrypt\n");
+        /* Errors are already raised within qat_rsa_encrypt. */
+        sts = 0;
+        goto exit;
+    }
+
+    switch (padding) {
+    case RSA_PKCS1_PADDING:
+        output_len =
+            RSA_padding_check_PKCS1_type_1(to,
+                                           rsa_len,
+                                           output_buffer->pData,
+                                           output_buffer->dataLenInBytes,
+                                           rsa_len);
+        break;
+    case RSA_X931_PADDING:
+        output_len =
+            RSA_padding_check_X931(to,
+                                   rsa_len,
+                                   output_buffer->pData,
+                                   output_buffer->dataLenInBytes,
+                                   rsa_len);
+        break;
+    case RSA_NO_PADDING:
+        output_len =
+            RSA_padding_check_none(to,
+                                   rsa_len,
+                                   output_buffer->pData,
+                                   output_buffer->dataLenInBytes,
+                                   rsa_len);
+        break;
+    default:
+        break; /* Do nothing as the error will be caught below. */
+    }
+
+    if (output_len < 0) {
+        WARN("Failure in removing padding\n");
         QATerr(QAT_F_QAT_RSA_PUB_DEC, ERR_R_INTERNAL_ERROR);
         sts = 0;
         goto exit;
     }
 
-    /* remove the padding from outputBuffer if padding != RSA_NO_PADDING */
-    if (qat_remove_pad(to, output_buffer->pData, rsa_len, &output_len,
-                       1, padding) != 1) {
-        WARN("Failure in qat_remove_pad\n");
-        QATerr(QAT_F_QAT_RSA_PUB_DEC, ERR_R_INTERNAL_ERROR);
-        sts = 0;
-        goto exit;
-    }
-
-    rsa_encrypt_op_buf_free(enc_op_data, output_buffer, NO_PADDING);
+    rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
     DEBUG("- Finished\n");
     return output_len;
 
  exit:
     /* Free all the memory allocated in this function */
-    rsa_encrypt_op_buf_free(enc_op_data, output_buffer, NO_PADDING);
+    rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
 
     /* set output all 0xff if failed */
     if (!sts)
