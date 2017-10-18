@@ -1090,17 +1090,30 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
      * are supplied through ctrl messages.
      */
     if (PIPELINE_INCOMPLETE_INIT(qctx) ||
-        (!PIPELINE_SET(qctx) && (in == NULL || out == NULL
+        (!PIPELINE_SET(qctx) && (out == NULL
                                  || (len % AES_BLOCK_SIZE)))) {
         WARN("%s \n",
              PIPELINE_INCOMPLETE_INIT(qctx) ?
              "Pipeline not initialised completely" : len % AES_BLOCK_SIZE
              ? "Buffer Length not multiple of AES block size"
-             : "in/out buffer null");
+             : "out buffer null");
         return -1;
     }
 
     enc = EVP_CIPHER_CTX_encrypting(ctx);
+
+    /* If we are encrypting and EVP_EncryptFinal_ex is called with a NULL
+       input buffer then return 0. Note: we don't actually support partial
+       requests in the engine but this workaround avoids an error from OpenSSL
+       speed on the last request when measuring cipher performance. Speed is
+       written to measure performance using partial requests.*/
+    if (!PIPELINE_SET(qctx) &&
+        in == NULL &&
+        out != NULL &&
+        enc) {
+        DEBUG("QAT partial requests work-around: NULL input buffer passed.\n");
+        return 0;
+    }
 
     if (!INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_SESSION_INIT)) {
         /* The qat session is initialized when HMAC key is set. In case
