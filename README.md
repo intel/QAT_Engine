@@ -170,7 +170,7 @@ there is no longer any need to specify the `shared` option when running
 `./config`.
 
 Note: It is not recommended to install the accelerated version of OpenSSL\* as
-your default system library. If you do you may find that acceleration is used
+your default system library. If you do, you may find that acceleration is used
 unexpectedly by other applications on the system resulting in
 undesired/unsupported behaviour. The `--prefix` can be used with the `./config`
 command to specify the location that `make install` will copy files to. Please
