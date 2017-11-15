@@ -142,7 +142,6 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     ASYNC_JOB *job = NULL;
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
-    int pthread_kill_ret;
 
     DEBUG(" - Started\n");
 
@@ -180,8 +179,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
             retval = 0;

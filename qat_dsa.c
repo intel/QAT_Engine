@@ -247,7 +247,6 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     int iMsgRetry = getQatMsgRetryCount();
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
     int job_ret = 0;
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -394,8 +393,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);
@@ -585,7 +583,6 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -706,8 +703,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);

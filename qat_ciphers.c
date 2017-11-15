@@ -1070,7 +1070,6 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     char *tls_hdr = NULL;
     int pipe = 0;
     int error = 0;
-    int pthread_kill_ret;
     int outlen = -1;
 
     if (ctx == NULL) {
@@ -1227,8 +1226,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             qat_atomic_dec(num_requests_in_flight);
             return -1;

@@ -270,7 +270,6 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     int iMsgRetry = getQatMsgRetryCount();
     CpaStatus status;
     struct op_done op_done;
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -429,8 +428,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);
@@ -874,7 +872,6 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     const EC_POINT *ec_point = NULL;
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -1084,8 +1081,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     /* perform ECDSA sign */
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);
@@ -1291,7 +1287,6 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -1443,8 +1438,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     /* perform ECDSA verify */
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);

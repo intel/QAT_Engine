@@ -242,14 +242,12 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     CpaInstanceHandle instance_handle = NULL;
     int job_ret = 0;
     int sync_mode_ret = 0;
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);
@@ -530,7 +528,6 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     int qatPerformOpRetries = 0;
     CpaInstanceHandle instance_handle = NULL;
     int job_ret = 0;
-    int pthread_kill_ret;
 
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
@@ -539,8 +536,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);

@@ -720,15 +720,13 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     int ret = 1;
     CpaStatus status = CPA_STATUS_SUCCESS;
     ENGINE_EPOLL_ST *epollst = NULL;
-    int pthread_kill_ret;
 
     DEBUG("---- Engine Finishing...\n\n");
 
     pthread_mutex_lock(&qat_engine_mutex);
     keep_polling = 0;
     if (qat_use_signals()) {
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_PTHREAD_KILL_FAILURE);
             ret = 0;

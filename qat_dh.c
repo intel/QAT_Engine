@@ -189,7 +189,6 @@ int qat_dh_generate_key(DH *dh)
     struct op_done op_done;
     size_t buflen;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -312,8 +311,7 @@ int qat_dh_generate_key(DH *dh)
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);
@@ -475,7 +473,6 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     const BIGNUM *g = NULL;
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
-    int pthread_kill_ret;
 
     DEBUG("- Started\n");
 
@@ -559,8 +556,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);

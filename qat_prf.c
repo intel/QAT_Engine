@@ -583,14 +583,12 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     int iMsgRetry = getQatMsgRetryCount();
     unsigned long int ulPollInterval = getQatPollInterval();
     CpaInstanceHandle instance_handle = NULL;
-    int pthread_kill_ret;
 
     DUMP_PRF_OP_DATA(prf_op_data);
 
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
-        pthread_kill_ret = pthread_kill(timer_poll_func_thread, SIGUSR1);
-        if (pthread_kill_ret != 0) {
+        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
             qat_atomic_dec(num_requests_in_flight);
