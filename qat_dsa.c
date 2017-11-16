@@ -246,7 +246,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
-    int job_ret = 0;
+    int i = 0, job_ret = 0;
 
     DEBUG("- Started\n");
 
@@ -264,15 +264,17 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
          return sig;
     }
 
+    i = BN_num_bits(q);
+
     /*
      * If the sizes of P and Q are not in the range supported by QAT engine
      * then fall back to software
      */
 
-    if (!dsa_range_check(BN_num_bits(p), BN_num_bits(q))) {
+    if (!dsa_range_check(BN_num_bits(p), i)) {
         if (default_dsa_method == NULL) {
             WARN("Failed to get default_dsa_method for bits p = %d & q = %d\n",
-                  BN_num_bits(p), BN_num_bits(q));
+                  BN_num_bits(p), i);
             QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_SW_METHOD_NULL);
             return NULL;
         }
@@ -303,13 +305,15 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         goto err;
     }
 
-    if (dlen > BN_num_bytes(q))
+    buflen = BN_num_bytes(q);
+
+    if (dlen > buflen)
         /*
          * if the digest length is greater than the size of q use the
          * BN_num_bits(q) leftmost bits of the digest, see fips 186-3,
          * 4.2
          */
-        dlen = BN_num_bytes(q);
+        dlen = buflen;
     do {
         if (!BN_rand_range(k, q)) {
             WARN("Failed to generate random number for the range %d\n", dlen);
@@ -319,7 +323,6 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     }
     while (BN_is_zero(k));
 
-    buflen = BN_num_bytes(q);
     pResultR = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (!pResultR) {
         WARN("Failed to allocate memory for pResultR\n");
@@ -600,27 +603,21 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         return ret;
     }
 
+    i = BN_num_bits(q);
+
     /*
      * If the sizes of P and Q are not in the range supported by QAT engine
      * then fall back to software
      */
 
-    if (!dsa_range_check(BN_num_bits(p), BN_num_bits(q))) {
+    if (!dsa_range_check(BN_num_bits(p), i)) {
         if (default_dsa_method == NULL) {
             WARN("Failed to get default_dsa_method for bits p = %d & q = %d\n",
-                  BN_num_bits(p), BN_num_bits(q));
+                  BN_num_bits(p), i);
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_SW_METHOD_NULL);
             return -1;
         }
         return DSA_meth_get_verify(default_dsa_method)(dgst, dgst_len, sig, dsa);
-    }
-
-    i = BN_num_bits(q);
-    /* fips 186-3 allows only different sizes for q */
-    if (i != 160 && i != 224 && i != 256) {
-        WARN("q size %d not supported\n", BN_num_bits(q));
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_Q_SIZE_UNSUPPORTED);
-        return ret;
     }
 
     opData = (CpaCyDsaVerifyOpData *)

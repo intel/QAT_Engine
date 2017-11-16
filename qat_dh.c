@@ -504,12 +504,6 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
     }
 
-    if (BN_num_bits(p) > OPENSSL_DH_MAX_MODULUS_BITS) {
-        WARN("Number of bits for p exceeds maximum\n");
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_P_MODULUS_TOO_LARGE);
-        return -1;
-    }
-
     if (!DH_check_pub_key(dh, in_pub_key, &check_result) || check_result) {
         WARN("Failure checking pub key\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_INVALID_PUB_KEY);
