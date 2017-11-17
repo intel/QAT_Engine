@@ -80,7 +80,7 @@ CC = cc
 AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
 				$(includes_enable_qat_mux)
 
-CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
+AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
 		$(cflags_qat_contig_mem) $(cflags_enable_multi_thread) \
 		$(cflags_enable_usdm) $(cflags_mux) $(enable_qat_rsa) \
 		$(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
