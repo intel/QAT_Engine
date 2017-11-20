@@ -74,14 +74,17 @@ engine supports the same padding schemes as OpenSSL does natively.
 This OpenSSL\* Engine supports crypto offload to the following acceleration
 devices:
 
-* Intel&reg; C62X Series Chipset
-* [Intel&reg; Communications Chipset 8925 to 8955 Series][1]
-* [Intel&reg; Communications Chipset 8900 to 8920 Series][2]
-* [Intel&reg; Atom&trade; Processor C2000][3]
+* [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
+* [Intel&reg; Atom&trade; Processor C3000][2]
+* [Intel&reg; Communications Chipset 8925 to 8955 Series][3]
+* [Intel&reg; Communications Chipset 8900 to 8920 Series][4]
+* [Intel&reg; Atom&trade; Processor C2000][5]
 
-[1]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8950-brief.html
-[2]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8920-brief.html
-[3]:http://www.intel.com/content/www/us/en/embedded/products/rangeley/atom-c2000-product-family-based-platforms-brief.html
+[1]:https://www-ssl.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
+[2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
+[3]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8950-brief.html
+[4]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8920-brief.html
+[5]:https://www.intel.com/content/www/us/en/embedded/products/rangeley/overview.html
 
 ## Software Requirements
 
@@ -100,18 +103,13 @@ if supported by your processor.
 
 ## Additional Information
 
-* [Intel&reg; QuickAssist Technology Driver][4]
-* [White Paper: Intel&reg; Quickassist Technology and OpenSSL-1.1.0:Performance][5]
+* [Intel&reg; QuickAssist Technology Driver][6]
+* [White Paper: Intel&reg; Quickassist Technology and OpenSSL-1.1.0:Performance][7]
 
-[4]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
-[5]:https://01.org/sites/default/files/downloads/intelr-quickassist-technology/intelquickassisttechnologyopensslperformance.pdf
+[6]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
+[7]:https://01.org/sites/default/files/downloads/intelr-quickassist-technology/intelquickassisttechnologyopensslperformance.pdf
 
 ## Limitations
-
-CAUTION: Please note that the software provided in this release is "sample
-software" that is not fully functional or fully tested and is known to contain
-bugs and errors. As such, Intel&reg; does not recommend the use of the software
-in its current state for your production use.
 
 * When forking within an application it is not valid for a cryptographic
   operation to be started in the parent process, and completed in the child
@@ -125,9 +123,9 @@ in its current state for your production use.
   application level. The fix has been delivered in OpenSSL\* 1.1.0e. All
   previous versions of the library are affected. For more information, please
   refer to the following pull request on Github:
-  [Fix waitctx fds removing the fd from the list #2581][6]
+  [Fix waitctx fds removing the fd from the list #2581][8]
 
-[6]:https://github.com/openssl/openssl/pull/2581
+[8]:https://github.com/openssl/openssl/pull/2581
 
 ## Installation Instructions
 
@@ -135,7 +133,9 @@ in its current state for your production use.
 
 Please follow the instructions contained in:
 
-**For Intel&reg; C62X Series Chipset:**
+**For Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset:**
+**For Intel&reg; Atom&trade; Processor:**
+**For Intel&reg; Communications Chipset 8925 to 8955 Series:**
 Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started Guide - HW version 1.7 (336212)
 
 **For Intel&reg; Communications Chipset 89XX Series:**
@@ -148,9 +148,9 @@ Infrastructure Software - Getting Started Guide (333035)
 
 These instructions can be found on the 01.org website in the following section:
 
-[Intel&reg; Quickassist Technology][7]
+[Intel&reg; Quickassist Technology][9]
 
-[7]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
+[9]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
 
 ### Build OpenSSL\*
 
@@ -409,7 +409,9 @@ or created your own you should follow the procedure below to install it:
 
 1. Follow the instructions to stop the Acceleration Driver:
 
-   **For Intel&reg; C62X Series Chipset:**
+   **For Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset:**
+   **For Intel&reg; Atom&trade; Processor: C3000:**
+   **For Intel&reg; Communications Chipset 8925 to 8955 Series:**
    Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started
    Guide - HW version 1.7 (336212) - Section 3.3 Starting/Stopping the
    Acceleration.
@@ -428,7 +430,9 @@ or created your own you should follow the procedure below to install it:
 
 3. Follow the instructions to start the Acceleration Driver:
 
-   **For Intel&reg; C62X Series Chipset:**
+   **For Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset:**
+   **For Intel&reg; Atom&trade; Processor C3000:**
+   **For Intel&reg; Communications Chipset 8925 to 8955 Series:**
    Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started
    Guide - HW version 1.7 (336212) - Section 3.3 Starting/Stopping the
    Acceleration.
@@ -617,7 +621,7 @@ Message String: ENABLE_EVENT_DRIVEN_POLLING_MODE
 Param 3:        0
 Param 4:        NULL
 Description:
-    This message changes the engines mode to use the Intel&reg; QAT Drivers
+    This message changes the engines mode to use the Intel(R) QAT Drivers
     event driven polling feature. It must be sent if required after engine
     creation but before engine initialization.  It should not be sent after
     engine initialization.
@@ -635,7 +639,7 @@ Param 3:        0
 Param 4:        pointer to an int
 Description:
     This message is used to retrieve the total number of crypto instances
-    available as specified in the Intel&reg; QAT Driver config file. The number
+    available as specified in the Intel(R) QAT Driver config file. The number
     of instances is assigned to the dereferenced int that is passed in as Param
     4. This message is used in conjunction with the GET_POLLING_FD message as in
     event driven polling mode with external polling there is an fd to listen to
@@ -647,7 +651,7 @@ Param 3:        int cast to a long
 Param 4:        pointer to an int
 Description:
     This message is used to retrieve the file descriptor that can be used for
-    event notification when the Intel&reg; QAT Driver has had the event driven
+    event notification when the Intel(R) QAT Driver has had the event driven
     polling feature enabled. The value passed in as Param 3 is the instance to
     retrieve the fd for. The fd is returned by assigning to the dereferenced
     int passed as Param4. When retrieving fd's it is usual to first request how
@@ -716,7 +720,7 @@ Param 3:        0
 Param 4:        NULL
 Description:
     This message is used to enable the inline polling mode of operation where
-    a busy loop is used by the Intel&reg; QAT OpenSSL\* Engine to check for
+    a busy loop is used by the Intel(R) QAT OpenSSL* Engine to check for
     messages from the hardware accelerator after requests are sent to it.
     Currently this mode is only available in the synchronous RSA computation.
     It has no parameters or return value. If required this message must be sent
@@ -733,46 +737,46 @@ The following is a list of the options that can be used with the
 Mandatory
 
 --with-qat_dir=/path/to/qat_driver
-    Specify the path to the source code of the Intel&reg; QAT Driver. This path
-    is needed for compilation in order to locate the Intel&reg; QAT header files.
+    Specify the path to the source code of the Intel(R) QAT Driver. This path
+    is needed for compilation in order to locate the Intel(R) QAT header files.
     If you do not specify this the build will fail.
     For example if using the QATmux.L.2.6.0-60.tar.gz driver package that was
-    unpacked to `/QAT`, and you are using an Intel&reg; Communications Chipset
+    unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
     8925 to 8955 Series device then you would use the following setting:
     --with-qat_dir=/QAT/QAT1.6
 
 --with-openssl_dir=/path/to/openssl
-    Specify the path to the top level of the OpenSSL\* source code.  This path
+    Specify the path to the top level of the OpenSSL* source code.  This path
     is needed so that the compilation can locate the OpenSSL header files and
     also because the mkerr.pl script is needed from the OpenSSL source files in
     order to generate the engine specific error source files. If you do not
     specify this the build will fail.
-    For example if you cloned the OpenSSL\* Github\* repository from within `/`
+    For example if you cloned the OpenSSL* Github* repository from within `/`
     then you would use the following setting:
     --with-openssl_dir=/openssl
 
 --with-openssl_install_dir=/path/to/openssl_install
-    Specify the path to the top level where the OpenSSL\* build was installed
+    Specify the path to the top level where the OpenSSL* build was installed
     to. This is needed so that the qat.so engine library can be copied into the
     folder containing the other dynamic engines when you run 'make install'. If
     you do not specify this then 'make install' will fail.
-    For example if you installed OpenSSL to its default location of
+    For example if you installed OpenSSL* to its default location of
     `/usr/local/ssl` then you would use the following setting:
     --with-openssl_install_dir=/usr/local/ssl
 
 Mandatory (when using the Upstream Intel&reg; QAT Driver)
 
 --enable-upstream_driver/--disable-upsteam_driver
-    Enable/Disable linking against the Upstream Intel&reg; QAT Driver. If
-    linking against the Upstream Intel&reg; QAT Driver then this option must be
+    Enable/Disable linking against the Upstream Intel(R) QAT Driver. If
+    linking against the Upstream Intel(R) QAT Driver then this option must be
     enabled (disabled by default).
 
 Optional
 
 --with-qat_build_dir=/path/to/qat_driver/build
-    Specify the path to the location of the built Intel&reg; QAT Driver library
+    Specify the path to the location of the built Intel(R) QAT Driver library
     files. This path is needed in order to link to the userspace libraries of
-    the Intel&reg; QAT Driver.
+    the Intel(R) QAT Driver.
     The default if not specified is to use the path specified by --with-qat_dir
     with '/build' appended.  You only need to specify this parameter if the
     driver library files have been built somewhere other than the default.
@@ -781,7 +785,7 @@ Optional
     Enable/Disable compiling against the USDM component and that the link should
     be configured to link in the userspace library of the USDM component. The
     USDM component is a pinned contiguous memory driver that is distributed with
-    the Upstream Intel&reg; QAT Driver. It can be used instead of the supplied
+    the Upstream Intel(R) QAT Driver. It can be used instead of the supplied
     qat_contig_mem memory driver (disabled by default).
 
 --with-usdm_dir=/path/to/usdm/directory
@@ -792,28 +796,28 @@ Optional
     is different from the default.
 
 --disable-qat_rsa/--enable-qat_rsa
-    Disable/Enable Intel&reg; QAT RSA offload (enabled by default)
+    Disable/Enable Intel(R) QAT RSA offload (enabled by default)
 
 --disable-qat_dsa/--enable-qat_dsa
-    Disable/Enable Intel&reg; QAT DSA offload (enabled by default)
+    Disable/Enable Intel(R) QAT DSA offload (enabled by default)
 
 --disable-qat_dh/--enable-qat_dh
-    Disable/Enable Intel&reg; QAT DH offload (enabled by default)
+    Disable/Enable Intel(R) QAT DH offload (enabled by default)
 
 --disable-qat_ecdh/--enable-qat_ecdh
-    Disable/Enable Intel&reg; QAT ECDH offload (enabled by default)
+    Disable/Enable Intel(R) QAT ECDH offload (enabled by default)
 
 --disable-qat_ecdsa/--enable-qat_ecdsa
-    Disable/Enable Intel&reg; QAT ECDSA offload (enabled by default)
+    Disable/Enable Intel(R) QAT ECDSA offload (enabled by default)
 
 --disable-qat_ciphers/--enable-qat_ciphers
-    Disable/Enable Intel&reg; QAT Chained Cipher offload (enabled by default)
+    Disable/Enable Intel(R) QAT Chained Cipher offload (enabled by default)
 
 --disable-qat_prf/--enable-qat_prf
-    Disable/Enable Intel&reg; QAT PRF offload (enabled by default)
+    Disable/Enable Intel(R) QAT PRF offload (enabled by default)
 
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
-    Enable the offload of small packet cipher operations to Intel&reg; QAT. When
+    Enable the offload of small packet cipher operations to Intel(R) QAT. When
     disabled, these operations are performed using the CPU (disabled by
     default).
 
@@ -872,24 +876,24 @@ Optional
     also does not support processes that fork (disabled by default).
 
 --disable-qat_mux/--enable-qat_mux
-    Disable/Enable support for building using the Mux mode of the Intel&reg;
-    QAT Driver. Mux mode allows you to mix Intel&reg; Communications Chipset
-    8900 to 8920 Series hardware and Intel&reg; Communications Chipset 8925
+    Disable/Enable support for building using the Mux mode of the Intel(R)
+    QAT Driver. Mux mode allows you to mix Intel(R) Communications Chipset
+    8900 to 8920 Series hardware and Intel(R) Communications Chipset 8925
     to 8955 Series hardware within the same system using a common driver
     interface. You should only specify this option if using a mixture of
     hardware (disabled by default).
 
 --disable-qat_lenstra_protection
     Disable protection against Lenstra attack (CVE-2017-5681) (protection is
-    enabled by default). The RSA-CRT implementation in the Intel&reg; QAT
-    OpenSSL\* Engine, for OpenSSL versions prior to v0.5.19, may allow remote
+    enabled by default). The RSA-CRT implementation in the Intel(R) QAT
+    OpenSSL* Engine, for OpenSSL* versions prior to v0.5.19, may allow remote
     attackers to obtain private RSA keys by conducting a Lenstra side-channel
     attack.  From version v0.5.19 onward, protection against this form of
     attack is effected by performing a Verify/Encrypt operation after the
     Sign/Decrypt operation, and if a failure is detected then re-running the
     Sign/Decrypt operation using the CPU.
-    However, future releases of Intel&reg; QAT driver code or firmware may
-    effect this protection instead, in which case the Intel&reg; QAT OpenSSL\*
+    However, future releases of Intel(R) QAT driver code or firmware may
+    effect this protection instead, in which case the Intel(R) QAT OpenSSL*
     Engine code-based protection would no longer be required and this
     configuration option should then be selected.
     For further information, please refer to:-
@@ -897,12 +901,12 @@ Optional
     https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5681
 
 --enable-qat_for_openssl_102
-    Enable the Intel&reg; QAT OpenSSL\* Engine to build against OpenSSL\* 1.0.2.
+    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.0.2.
     Currently if using this build option, only synchronous RSA offload is
     supported.
 
 --enable-qat_for_openssl_master
-    Enable the Intel&reg; QAT OpenSSL\* Engine to build against OpenSSL\* master.
+    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* master.
 
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at
@@ -1047,7 +1051,7 @@ OpenSSL\* manual for more information about pipelining.
 
 ## Legal
 
-Intel, and Intel Atom are trademarks of
+Intel, Intel Atom, and Xeon are trademarks of
 Intel Corporation in the U.S. and/or other countries.
 
 \*Other names and brands may be claimed as the property of others.
