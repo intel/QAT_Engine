@@ -114,11 +114,6 @@
 #include "icp_sal_poll.h"
 #include "qat_parseconf.h"
 
-/* Macro used to handle errors in qat_engine_ctrl() */
-#define BREAK_IF(cond, mesg) \
-    if(unlikely(cond)) { retVal = 0; WARN(mesg); break; }
-
-
 /* Qat engine id declaration */
 const char *engine_qat_id = "qat";
 const char *engine_qat_name =
@@ -149,10 +144,38 @@ sigset_t set = {{0}};
 pthread_t timer_poll_func_thread = 0;
 int cleared_to_start = 0;
 
+static inline int qat_use_signals_no_engine_start(void)
+{
+    return (int)timer_poll_func_thread;
+}
 
 int qat_use_signals(void)
 {
-    return (int)timer_poll_func_thread;
+    /* We check engine_inited outside of a mutex here because it is more
+       efficient and we are only interested in the state if it hasn't been
+       initialised. The usual case is that the engine will have been
+       initialised and we can carry on without locking. If the engine hasn't
+       been initialised then there will be a further check within
+       qat_engine_init inside a mutex to prevent a race condition. */
+
+    if (unlikely(!engine_inited)) {
+        ENGINE* e = ENGINE_by_id(engine_qat_id);
+
+        if (e == NULL) {
+            WARN("Function ENGINE_by_id returned NULL\n");
+            return 0;
+        }
+
+        if (!qat_engine_init(e)) {
+            WARN("Failure in qat_engine_init function\n");
+            ENGINE_free(e);
+            return 0;
+        }
+
+        ENGINE_free(e);
+    }
+
+    return qat_use_signals_no_engine_start();
 }
 
 
@@ -174,7 +197,6 @@ static inline void incr_curr_inst(void)
 CpaInstanceHandle get_next_inst(void)
 {
     CpaInstanceHandle instance_handle = NULL;
-    ENGINE* e = NULL;
 
     if (1 == enable_instance_for_thread) {
         instance_handle = pthread_getspecific(qatInstanceForThread);
@@ -186,21 +208,26 @@ CpaInstanceHandle get_next_inst(void)
         }
     }
 
-    e = ENGINE_by_id(engine_qat_id);
-    if(e == NULL) {
-        WARN("Function ENGINE_by_id returned NULL\n");
-        instance_handle = NULL;
-        return instance_handle;
-    }
+    /* See qat_use_signals() above for more info on why it is safe to
+       check engine_inited outside of a mutex in this case. */
+    if (unlikely(!engine_inited)) {
+        ENGINE* e = ENGINE_by_id(engine_qat_id);
 
-    if(!qat_engine_init(e)){
-        WARN("Failure in qat_engine_init function\n");
-        instance_handle = NULL;
+        if (e == NULL) {
+            WARN("Function ENGINE_by_id returned NULL\n");
+            instance_handle = NULL;
+            return instance_handle;
+        }
+
+        if (!qat_engine_init(e)) {
+            WARN("Failure in qat_engine_init function\n");
+            instance_handle = NULL;
+            ENGINE_free(e);
+            return instance_handle;
+        }
+
         ENGINE_free(e);
-        return instance_handle;
     }
-
-    ENGINE_free(e);
 
     /* Each call to get_next_inst will iterate through the array of instances
        if an instance was not retrieved already from thread specific data. */
@@ -246,7 +273,7 @@ int qat_engine_init(ENGINE *e)
     int ret_pthread_sigmask;
 
     pthread_mutex_lock(&qat_engine_mutex);
-    if(engine_inited) {
+    if (engine_inited) {
         pthread_mutex_unlock(&qat_engine_mutex);
         return 1;
     }
@@ -676,15 +703,15 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 
     case QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD:
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        if(p) {
+        if (p) {
             char *token;
             char str_p[1024];
             char *itr = str_p;
             strncpy(str_p, (const char *)p, 1024);
-            while((token = strsep(&itr, ","))) {
+            while ((token = strsep(&itr, ","))) {
                 char *name_token = strsep(&token,":");
                 char *value_token = strsep(&token,":");
-                if(name_token && value_token) {
+                if (name_token && value_token) {
                     retVal = qat_pkt_threshold_table_set_threshold(
                                 name_token, atoi(value_token));
                 } else {
@@ -707,7 +734,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         retVal = 0;
         break;
     }
-    if(!retVal) {
+    if (!retVal) {
      QATerr(QAT_F_QAT_ENGINE_CTRL, QAT_R_ENGINE_CTRL_CMD_FAILURE);
     }
     return retVal;
@@ -725,7 +752,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
 
     pthread_mutex_lock(&qat_engine_mutex);
     keep_polling = 0;
-    if (qat_use_signals()) {
+    if (qat_use_signals_no_engine_start()) {
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_PTHREAD_KILL_FAILURE);
@@ -735,7 +762,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
 
     if (qat_instance_handles) {
         for (i = 0; i < qat_num_instances; i++) {
-            if(instance_started[i]) {
+            if (instance_started[i]) {
                 status = cpaCyStopInstance(qat_instance_handles[i]);
 
                 if (CPA_STATUS_SUCCESS != status) {

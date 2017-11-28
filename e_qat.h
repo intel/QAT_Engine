@@ -71,7 +71,7 @@
 
 /* Macro used to handle errors in qat_engine_ctrl() */
 #define BREAK_IF(cond, mesg) \
-    if(unlikely(cond)) { retVal = 0; WARN(mesg); break; }
+    if (unlikely(cond)) { retVal = 0; WARN(mesg); break; }
 
 #define QAT_QMEMFREE_BUFF(b) \
             do { \
