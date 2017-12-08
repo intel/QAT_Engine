@@ -261,6 +261,11 @@ void *copyAllocPinnedMemory(void *ptr, size_t size, const char *file,
 {
     void *nptr;
 
+    if (ptr == NULL) {
+        MEM_WARN("Input pointer is NULL\n");
+        return NULL;
+    }
+
     if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
         MEM_WARN("pinned memory allocation failure\n");
         return NULL;
@@ -294,6 +299,16 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
 {
     void *nptr;
 
+    if (ptr == NULL) {
+        MEM_WARN("Input pointer is NULL\n");
+        return NULL;
+    }
+
+    if (original_size > size) {
+        MEM_WARN("original_size : %zd > size : %zd", original_size, size);
+        return NULL;
+    }
+
     if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
         MEM_WARN("pinned memory allocation failure\n");
         return NULL;
@@ -320,6 +335,11 @@ void copyFreePinnedMemory(void *uptr, void *kptr, int size)
 {
     if (uptr == NULL || kptr == NULL) {
         MEM_WARN("Input pointers uptr or kptr are NULL\n");
+        return;
+    }
+
+    if (size > MAX_ALLOC) {
+        MEM_WARN("Size greater than MAX_ALLOC\n");
         return;
     }
 
@@ -846,7 +866,8 @@ void slab_list_stat(qae_slab_pool * list)
     }
     for (slb = list->next, index = 0; index < list->slot_size;
          slb = slb->next) {
-        MEM_DEBUG("Slab index        : %d\n",index++);
+        MEM_DEBUG("Slab index        : %d\n",index);
+        index++;
         MEM_DEBUG("Slab virtual addr : %p\n",
                 (void *)slb->memCfg.virtualAddress);
         MEM_DEBUG("Slab physical addr: %p\n",
@@ -1029,6 +1050,11 @@ void qaeCryptoMemFree(void *ptr)
 void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
                           int line)
 {
+    if (ptr == NULL) {
+        MEM_WARN("Input pointer is NULL\n");
+        return NULL;
+    }
+
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
     if (n == NULL) {
@@ -1069,6 +1095,11 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
                                size_t original_size, const char *file,
                                int line)
 {
+    if (ptr == NULL) {
+        MEM_WARN("Input pointer is NULL\n");
+        return NULL;
+    }
+
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
     if (n == NULL) {
