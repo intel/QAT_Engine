@@ -186,7 +186,7 @@ int qat_dh_generate_key(DH *dh)
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     CpaStatus status;
-    struct op_done op_done;
+    op_done_t op_done;
     size_t buflen;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
 
@@ -466,7 +466,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     CpaStatus status;
-    struct op_done op_done;
+    op_done_t op_done;
     size_t buflen;
     int index = 1;
     const BIGNUM *p = NULL, *q = NULL;

@@ -177,7 +177,7 @@ int qat_clear_async_event_notification() {
     return 1;
 }
 
-int qat_pause_job(ASYNC_JOB *job, int notificationNo)
+int qat_pause_job(volatile ASYNC_JOB *job, int notificationNo)
 {
     /* We will ignore notificationNo for the moment */
     ASYNC_WAIT_CTX *waitctx;
@@ -191,7 +191,7 @@ int qat_pause_job(ASYNC_JOB *job, int notificationNo)
         return ret;
     }
 
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+    if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
         WARN("waitctx == NULL\n");
         return ret;
     }
@@ -209,7 +209,7 @@ int qat_pause_job(ASYNC_JOB *job, int notificationNo)
     return ret;
 }
 
-int qat_wake_job(ASYNC_JOB *job, int notificationNo)
+int qat_wake_job(volatile ASYNC_JOB *job, int notificationNo)
 {
     /* We will ignore notificationNo for the moment */
     ASYNC_WAIT_CTX *waitctx;
@@ -219,7 +219,7 @@ int qat_wake_job(ASYNC_JOB *job, int notificationNo)
     uint64_t buf = 1;
     int ret = 0;
 
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+    if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
         WARN("waitctx == NULL\n");
         return ret;
     }

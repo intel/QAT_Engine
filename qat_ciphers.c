@@ -374,7 +374,7 @@ static inline int qat_pkt_threshold_table_get_threshold(int nid)
 *
 
 * @param pCallbackTag  [IN] -  Opaque value provided by user while making
-*                              individual function call. Cast to op_done_pipe.
+*                              individual function call. Cast to op_done_pipe_t.
 * @param status        [IN] -  Status of the operation.
 * @param operationType [IN] -  Identifies the operation type requested.
 * @param pOpData       [IN] -  Pointer to structure with input parameters.
@@ -392,7 +392,7 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
                                    void *pOpData, CpaBufferList *pDstBuffer,
                                    CpaBoolean verifyResult)
 {
-    struct op_done_pipe *opdone = (struct op_done_pipe *)callbackTag;
+    op_done_pipe_t *opdone = (op_done_pipe_t *)callbackTag;
     CpaBoolean res = CPA_FALSE;
 
     if (opdone == NULL) {
@@ -1057,7 +1057,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int pad_len = 0;
     int plen = 0;
     int plen_adj = 0;
-    struct op_done_pipe done;
+    op_done_pipe_t done;
     qat_chained_ctx *qctx = NULL;
     AES_KEY aes_key;
     unsigned char *inb, *outb;
@@ -1492,7 +1492,7 @@ CpaStatus qat_sym_perform_op(const CpaInstanceHandle instance_handle,
         CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult)
 {
     CpaStatus status;
-    struct op_done *opDone = (struct op_done *)pCallbackTag;
+    op_done_t *opDone = (op_done_t *)pCallbackTag;
     unsigned int uiRetry = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();

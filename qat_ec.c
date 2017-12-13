@@ -269,7 +269,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     CpaStatus status;
-    struct op_done op_done;
+    op_done_t op_done;
 
     DEBUG("- Started\n");
 
@@ -867,7 +867,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     CpaBoolean bEcdsaSignStatus;
     CpaStatus status;
     size_t buflen;
-    struct op_done op_done;
+    op_done_t op_done;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
@@ -1283,7 +1283,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     CpaCyEcdsaVerifyOpData *opData = NULL;
     CpaBoolean bEcdsaVerifyStatus;
     CpaStatus status;
-    struct op_done op_done;
+    op_done_t op_done;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();

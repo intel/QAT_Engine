@@ -79,7 +79,7 @@
 #include "cpa_types.h"
 #include "icp_sal_poll.h"
 
-void qat_init_op_done(struct op_done *opDone)
+void qat_init_op_done(op_done_t *opDone)
 {
     if (opDone == NULL) {
         WARN("opDone is NULL\n");
@@ -94,7 +94,7 @@ void qat_init_op_done(struct op_done *opDone)
 
 }
 
-int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
+int qat_init_op_done_pipe(op_done_pipe_t *opdpipe, unsigned int npipes)
 {
     if (opdpipe == NULL) {
         WARN("opdpipe is NULL\n");
@@ -122,7 +122,7 @@ int qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
     return 1;
 }
 
-int qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+int qat_init_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
 {
     if (opdcrt == NULL) {
         WARN("opdcrt is NULL\n");
@@ -142,7 +142,7 @@ int qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
     return 1;
 }
 
-void qat_cleanup_op_done(struct op_done *opDone)
+void qat_cleanup_op_done(op_done_t *opDone)
 {
     if (opDone == NULL) {
         WARN("opDone is NULL\n");
@@ -159,7 +159,7 @@ void qat_cleanup_op_done(struct op_done *opDone)
     }
 }
 
-void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
+void qat_cleanup_op_done_pipe(op_done_pipe_t *opdone)
 {
     if (opdone == NULL) {
         WARN("opdone is NULL\n");
@@ -173,7 +173,7 @@ void qat_cleanup_op_done_pipe(struct op_done_pipe *opdone)
         opdone->opDone.job = NULL;
 }
 
-void qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+void qat_cleanup_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
 {
     if (opdcrt == NULL) {
         WARN("opdcrt is NULL\n");
@@ -190,7 +190,7 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
                            CpaBufferList * pDstBuffer,
                            CpaBoolean verifyResult)
 {
-    struct op_done *opDone = (struct op_done *)callbackTag;
+    op_done_t *opDone = (op_done_t *)callbackTag;
 
     if (opDone == NULL) {
         WARN("opDone is NULL\n");

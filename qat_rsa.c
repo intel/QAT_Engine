@@ -237,7 +237,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 CpaFlatBuffer * output_buf)
 {
     /* Used for RSA Decrypt and RSA Sign */
-    struct op_done op_done;
+    op_done_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     CpaInstanceHandle instance_handle = NULL;
     int job_ret = 0;
@@ -523,7 +523,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                 CpaFlatBuffer * output_buf)
 {
     /* Used for RSA Encrypt and RSA Verify */
-    struct op_done op_done;
+    op_done_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
     CpaInstanceHandle instance_handle = NULL;

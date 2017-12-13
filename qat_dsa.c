@@ -241,7 +241,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     CpaBoolean bDsaSignStatus;
     CpaStatus status;
     size_t buflen;
-    struct op_done op_done;
+    op_done_t op_done;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
@@ -581,7 +581,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     CpaCyDsaVerifyOpData *opData = NULL;
     CpaBoolean bDsaVerifyStatus;
     CpaStatus status;
-    struct op_done op_done;
+    op_done_t op_done;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();

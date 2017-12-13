@@ -89,7 +89,7 @@
 void qat_rsaCallbackFn_CRT(void *pCallbackTag, CpaStatus status, void *pOpData,
                        CpaFlatBuffer * pOut)
 {
-    struct op_done_rsa_crt *op_done = (struct op_done_rsa_crt *)pCallbackTag;
+    op_done_rsa_crt_t *op_done = (op_done_rsa_crt_t *)pCallbackTag;
     op_done->resp++;
     op_done->opDone.verifyResult *= (status == CPA_STATUS_SUCCESS);
 }
@@ -341,7 +341,7 @@ qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 {
     CpaCyLnModExpOpData crt_op1_data = {{0}}, crt_op2_data = {{0}};
     CpaFlatBuffer crt_out1 = {0}, crt_out2 = {0};
-    struct op_done_rsa_crt op_done;
+    op_done_rsa_crt_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
     CpaInstanceHandle instance_handle = NULL;

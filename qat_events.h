@@ -70,7 +70,7 @@ void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
                     OSSL_ASYNC_FD readfd, void *custom);
 int qat_setup_async_event_notification(int notificationNo);
 int qat_clear_async_event_notification();
-int qat_pause_job(ASYNC_JOB *job, int notificationNo);
-int qat_wake_job(ASYNC_JOB *job, int notificationNo);
+int qat_pause_job(volatile ASYNC_JOB *job, int notificationNo);
+int qat_wake_job(volatile ASYNC_JOB *job, int notificationNo);
 
 #endif   /* QAT_EVENTS_H */

@@ -578,7 +578,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     generated_key->dataLenInBytes = key_length;
 
     /* ---- Perform the operation ---- */
-    struct op_done op_done;
+    op_done_t op_done;
     int qatPerformOpRetries = 0;
     int iMsgRetry = getQatMsgRetryCount();
     unsigned long int ulPollInterval = getQatPollInterval();

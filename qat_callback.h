@@ -59,55 +59,56 @@
 # endif
 
 /* Struct for tracking threaded QAT operation completion. */
-struct op_done {
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-    int flag;
-    CpaBoolean verifyResult;
-    ASYNC_JOB *job;
-};
+typedef struct {
+    volatile int flag;
+    volatile CpaBoolean verifyResult;
+    volatile ASYNC_JOB *job;
+} op_done_t;
 
 /* Use this variant of op_done to track QAT chained cipher
  * operation completion supporting pipelines.
  */
-struct op_done_pipe {
+typedef struct {
     /* Keep this as first member of the structure.
      * to allow inter-changeability by casting pointers.
      */
-    struct op_done opDone;
-    unsigned int num_pipes;
-    unsigned int num_submitted;
-    unsigned int num_processed;
-};
+    op_done_t opDone;
+    volatile unsigned int num_pipes;
+    volatile unsigned int num_submitted;
+    volatile unsigned int num_processed;
+} op_done_pipe_t;
 
 /* Use this variant of op_done to track
  * QAT RSA CRT operation completion.
  */
-struct op_done_rsa_crt {
+typedef struct {
     /* Keep this as first member of the structure.
      * to allow inter-changeability by casting pointers.
      */
-    struct op_done opDone;
+    op_done_t opDone;
     unsigned int req;
-    unsigned int resp;
-};
+    volatile unsigned int resp;
+} op_done_rsa_crt_t;
+
+
 /******************************************************************************
  * function:
- *         qat_init_op_done(struct op_done *opDone)
+ *         qat_init_op_done(op_done_t *opDone)
  *
- * @param opDone [IN] - pointer to op done callback structure
+ * @param opDone [IN] - pointer to op done_t callback structure.
  *
  * description:
  *   Initialise the QAT operation "done" callback structure.
  *
  ******************************************************************************/
-void qat_init_op_done(struct op_done *opDone);
+void qat_init_op_done(op_done_t *opDone);
+
 
 /******************************************************************************
  * function:
- *         qat_init_op_done_pipe(struct op_done_pipe *opdpipe, unsigned int npipes)
+ *         qat_init_op_done_pipe(op_done_pipe_t *opdpipe, unsigned int npipes)
  *
- * @param opdpipe [IN] - pointer to op_done_pipe callback structure
+ * @param opdpipe [IN] - pointer to op_done_pipe_t callback structure
  * @param npipes  [IN] - number of pipes in the pipeline
  *
  * description:
@@ -116,56 +117,61 @@ void qat_init_op_done(struct op_done *opDone);
  *   1 for success and 0 for failure.
  *
  ******************************************************************************/
-int qat_init_op_done_pipe(struct op_done_pipe *opDone, unsigned int npipes);
+int qat_init_op_done_pipe(op_done_pipe_t *opDone, unsigned int npipes);
+
 
 /******************************************************************************
  * function:
- *         qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+ *         qat_init_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
  *
- * @param opdcrt [IN] - pointer to op done callback structure
+ * @param opdcrt [IN] - pointer to op_done_rsa_crt_t callback structure.
  *
  * description:
  *   Initialise the QAT RSA synchronous operation "done" callback structure.
  *   The function returns 1 for success and 0 for failure.
  *
  ******************************************************************************/
-int qat_init_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt);
+int qat_init_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt);
+
 
 /******************************************************************************
  * function:
- *         qat_cleanup_op_done(struct op_done *opDone)
+ *         qat_cleanup_op_done(op_done_t *opDone)
  *
- * @param opDone [IN] - pointer to op done callback structure
+ * @param opDone [IN] - pointer to op_done_t callback structure.
  *
  * description:
  *   Cleanup the data in the "done" callback structure.
  *
  ******************************************************************************/
-void qat_cleanup_op_done(struct op_done *opDone);
+void qat_cleanup_op_done(op_done_t *opDone);
+
 
 /******************************************************************************
  * function:
- *         qat_cleanup_op_done_pipe(struct op_done_pipe *opDone)
+ *         qat_cleanup_op_done_pipe(op_done_pipe_t *opDone)
  *
- * @param opDone [IN] - pointer to op_done_pipe callback structure
+ * @param opDone [IN] - pointer to op_done_pipe_t callback structure.
  *
  * description:
  *   Cleanup the QAT chained operation "done" callback structure.
  *
  ******************************************************************************/
-void qat_cleanup_op_done_pipe(struct op_done_pipe *opDone);
+void qat_cleanup_op_done_pipe(op_done_pipe_t *opDone);
+
 
 /******************************************************************************
  * function:
- *         qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt)
+ *         qat_cleanup_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
  *
- * @param opdcrt [IN] - pointer to op done callback structure
+ * @param opdcrt [IN] - pointer to op_done_rsa_crt_t callback structure.
  *
  * description:
  *   Cleanup the QAT RSA synchronous operation "done" callback structure.
  *
  ******************************************************************************/
-void qat_cleanup_op_done_rsa_crt(struct op_done_rsa_crt *opdcrt);
+void qat_cleanup_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt);
+
 
 /******************************************************************************
  * function:
