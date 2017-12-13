@@ -356,6 +356,9 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 void qat_prf_cb(void *pCallbackTag, CpaStatus status,
                      void *pOpData, CpaFlatBuffer * pOut)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_prf_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, CPA_TRUE);
 }
@@ -675,6 +678,10 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_prf_requests_in_flight);
     }
 
     do {

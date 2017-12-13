@@ -184,6 +184,15 @@ typedef struct {
  */
 #define QAT_MAX_ERROR_STRING 256
 
+/*
+ * Different values passed in as param 3 for the message
+ * QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT to retrieve the number of different kinds
+ * of in-flight requests
+ */
+#define GET_NUM_ASYM_REQUESTS_IN_FLIGHT 1
+#define GET_NUM_PRF_REQUESTS_IN_FLIGHT 2
+#define GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT 3
+
 /* Qat engine id declaration */
 extern const char *engine_qat_id;
 extern const char *engine_qat_name;
@@ -198,6 +207,7 @@ extern int keep_polling;
 extern int enable_external_polling;
 extern int enable_inline_polling;
 extern int enable_event_driven_polling;
+extern int enable_heuristic_polling;
 extern int enable_instance_for_thread;
 extern int qatPerformOpRetries;
 extern int curr_inst;
@@ -210,6 +220,9 @@ extern useconds_t qat_poll_interval;
 extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
 extern int num_requests_in_flight;
+extern int num_asym_requests_in_flight;
+extern int num_prf_requests_in_flight;
+extern int num_cipher_pipeline_requests_in_flight;
 extern sigset_t set;
 extern pthread_t timer_poll_func_thread;
 extern int cleared_to_start;

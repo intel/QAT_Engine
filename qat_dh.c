@@ -158,6 +158,9 @@ int dh_range_check(int plen)
 void qat_dhCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                       CpaFlatBuffer * pPV)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, CPA_TRUE);
 }
@@ -390,6 +393,10 @@ int qat_dh_generate_key(DH *dh)
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {
@@ -639,6 +646,10 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {

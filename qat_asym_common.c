@@ -120,6 +120,10 @@ int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
 void qat_modexpCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                        CpaFlatBuffer * pOut)
 {
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, CPA_TRUE);
 }
@@ -257,6 +261,10 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto exit;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {

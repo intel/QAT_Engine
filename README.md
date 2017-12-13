@@ -733,6 +733,42 @@ Description:
     It has no parameters or return value. If required this message must be sent
     after engine creation and before engine initialization.
 
+Message String: ENABLE_HEURISTIC_POLLING
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message is used to enable the heuristic polling mode of operation where
+    the application can use the GET_NUM_REQUESTS_IN_FLIGHT message below to
+    retrieve the number of different kinds of in-flight requests and
+    intelligently determine the proper moment to perform the polling operation.
+    This mode can be regarded as an improvement of the timer-based external
+    polling. The external polling mode must be enabled first before enabling
+    this mode. If required this message must be sent after engine creation and
+    before engine initialization.
+
+Message String: GET_NUM_REQUESTS_IN_FLIGHT
+Param 3:        int cast to a long
+Param 4:        pointer to an int address
+Description:
+    This message is used when heuristic polling is enabled to retrieve the
+    number of different kinds of in-flight requests.
+    The value passed in as param 3 is the indicator for a specific kind of
+    request:
+        #define GET_NUM_ASYM_REQUESTS_IN_FLIGHT 1
+        #define GET_NUM_PRF_REQUESTS_IN_FLIGHT 2
+        #define GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT 3
+    The first (i.e, value 1) is used to retrieve the number of asymmetric-key
+    in-flight requests. The second (i.e, value 2) is used to retrieve the number
+    of PRF in-flight requests The last (i.e, value 3) is use to retrieve the
+    number of cipher in-flight requests (when OpenSSL\* pipelining feature is
+    not used), or the number of in-flight pipelines (when OpenSSL\* pipelining
+    feature is used).
+    The address of the variable recording the specified info is returned by
+    assigning to the dereferenced int address passed as Param 4. This means the
+    application can directly use this int address to retrieve the specified info
+    afterwards without sending this message again.
+    This message may be sent at any time after engine initialization.
+
 ```
 
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options

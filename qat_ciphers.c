@@ -401,6 +401,7 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
     }
 
     opdone->num_processed++;
+
     res = (status == CPA_STATUS_SUCCESS) && verifyResult ? CPA_TRUE : CPA_FALSE;
 
     /* If any single pipe processing failed, the entire operation
@@ -420,6 +421,10 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
     if ((opdone->num_submitted != opdone->num_pipes) ||
         (opdone->num_submitted != opdone->num_processed))
         return;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_cipher_pipeline_requests_in_flight);
+    }
 
     /* Mark job as done when all the requests have been submitted and
      * subsequently processed.
@@ -1404,6 +1409,10 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             qat_clear_async_event_notification();
         }
         goto end;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_cipher_pipeline_requests_in_flight);
     }
 
     do {

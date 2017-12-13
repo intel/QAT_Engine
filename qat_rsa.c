@@ -197,6 +197,9 @@ static inline int qat_rsa_range_check(int plen)
 void qat_rsaCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                        CpaFlatBuffer * pOut)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, CPA_TRUE);
 }
@@ -320,6 +323,10 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return 0;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {
@@ -628,6 +635,10 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return 0;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {

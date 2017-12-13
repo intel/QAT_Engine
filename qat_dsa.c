@@ -178,6 +178,9 @@ void qat_dsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
                            void *pOpData, CpaBoolean bDsaSignStatus,
                            CpaFlatBuffer * pResultR, CpaFlatBuffer * pResultS)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, bDsaSignStatus);
 }
@@ -186,6 +189,9 @@ void qat_dsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
 void qat_dsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
                              void *pOpData, CpaBoolean bDsaVerifyStatus)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, bDsaVerifyStatus);
 }
@@ -491,6 +497,10 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         goto err;
     }
 
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
+    }
+
     do {
         if(op_done.job != NULL) {
            /* If we get a failure on qat_pause_job then we will
@@ -791,6 +801,10 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {

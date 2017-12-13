@@ -129,6 +129,7 @@ int keep_polling = 1;
 int enable_external_polling = 0;
 int enable_inline_polling = 0;
 int enable_event_driven_polling = 0;
+int enable_heuristic_polling = 0;
 int enable_instance_for_thread = 0;
 int curr_inst = 0;
 pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -140,6 +141,9 @@ useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 int num_requests_in_flight = 0;
+int num_asym_requests_in_flight = 0;
+int num_prf_requests_in_flight = 0;
+int num_cipher_pipeline_requests_in_flight = 0;
 sigset_t set = {{0}};
 pthread_t timer_poll_func_thread = 0;
 int cleared_to_start = 0;
@@ -517,6 +521,8 @@ int qat_engine_init(ENGINE *e)
 #define QAT_CMD_SET_EPOLL_TIMEOUT (ENGINE_CMD_BASE + 10)
 #define QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD (ENGINE_CMD_BASE + 11)
 #define QAT_CMD_ENABLE_INLINE_POLLING (ENGINE_CMD_BASE + 12)
+#define QAT_CMD_ENABLE_HEURISTIC_POLLING (ENGINE_CMD_BASE + 13)
+#define QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT (ENGINE_CMD_BASE + 14)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -584,6 +590,16 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "ENABLE_INLINE_POLLING",
      "Enables the inline polling mode.",
      ENGINE_CMD_FLAG_NO_INPUT},
+    {
+     QAT_CMD_ENABLE_HEURISTIC_POLLING,
+     "ENABLE_HEURISTIC_POLLING",
+     "Enable the heuristic polling mode",
+     ENGINE_CMD_FLAG_NO_INPUT},
+    {
+     QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT,
+     "GET_NUM_REQUESTS_IN_FLIGHT",
+     "Get the number of in-flight requests",
+     ENGINE_CMD_FLAG_NUMERIC},
     {0, NULL, NULL, 0}
 };
 
@@ -755,6 +771,30 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 #endif
         break;
 
+    case QAT_CMD_ENABLE_HEURISTIC_POLLING:
+        BREAK_IF(engine_inited,
+                "ENABLE_HEURISTIC_POLLING failed as the engine is already initialized\n");
+        BREAK_IF(!enable_external_polling,
+                "ENABLE_HEURISTIC_POLLING failed as external polling is not enabled\n");
+        DEBUG("Enabled heuristic polling\n");
+        enable_heuristic_polling = 1;
+        break;
+
+    case QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT:
+        BREAK_IF(p == NULL,
+                "GET_NUM_REQUESTS_IN_FLIGHT failed as the input parameter was NULL\n");
+        if (i == GET_NUM_ASYM_REQUESTS_IN_FLIGHT) {
+            *(int **)p = &num_asym_requests_in_flight;
+        } else if (i == GET_NUM_PRF_REQUESTS_IN_FLIGHT) {
+            *(int **)p = &num_prf_requests_in_flight;
+        } else if (i == GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT) {
+            *(int **)p = &num_cipher_pipeline_requests_in_flight;
+        } else {
+            WARN("Invalid i parameter\n");
+            retVal = 0;
+        }
+        break;
+
     default:
         WARN("CTRL command not implemented\n");
         retVal = 0;
@@ -861,6 +901,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         enable_instance_for_thread = 0;
         qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
         qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
+        enable_heuristic_polling = 0;
     }
 
     pthread_mutex_unlock(&qat_engine_mutex);

@@ -242,6 +242,9 @@ void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                       CpaBoolean multiplyStatus, CpaFlatBuffer * pXk,
                       CpaFlatBuffer * pYk)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, multiplyStatus);
 }
@@ -510,6 +513,10 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {
@@ -824,6 +831,9 @@ void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
                              CpaFlatBuffer * pResultR,
                              CpaFlatBuffer * pResultS)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, bEcdsaSignStatus);
 }
@@ -832,6 +842,9 @@ void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
 void qat_ecdsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
                                void *pOpData, CpaBoolean bEcdsaVerifyStatus)
 {
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_requests_in_flight);
+    }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, bEcdsaVerifyStatus);
 }
@@ -1173,6 +1186,10 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {
@@ -1539,6 +1556,10 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
     do {
