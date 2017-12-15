@@ -72,6 +72,7 @@
 #endif
 #include "qat_utils.h"
 #include "e_qat.h"
+#include "qat_callback.h"
 #include "qat_polling.h"
 #include "qat_events.h"
 #include "e_qat_err.h"
@@ -115,6 +116,14 @@ int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
     return 1;
 }
 
+/* Callback to indicate QAT completion of bignum modular exponentiation */
+void qat_modexpCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
+                       CpaFlatBuffer * pOut)
+{
+    qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
+                          NULL, CPA_TRUE);
+}
+
 /******************************************************************************
 * function:
 *         qat_mod_exp(BIGNUM * r, const BIGNUM * a, const BIGNUM * p,
@@ -132,14 +141,13 @@ int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
 int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
                 const BIGNUM *mod)
 {
-
     CpaCyLnModExpOpData opData;
     CpaFlatBuffer result = { 0, };
     CpaStatus status = 0;
-    int retval = 1;
+    int retval = 1, job_ret = 0;
     CpaInstanceHandle instance_handle;
     int qatPerformOpRetries = 0;
-    ASYNC_JOB *job = NULL;
+    op_done_t op_done;
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
 
@@ -168,15 +176,6 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         goto exit;
     }
 
-    if ((job = ASYNC_get_current_job()) != NULL) {
-        if (qat_setup_async_event_notification(0) == 0) {
-            WARN("Failed to setup async event notifications\n");
-            QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL);
-            retval = 0;
-            goto exit;
-        }
-    }
-
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
@@ -187,21 +186,35 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             goto exit;
         }
     }
+    qat_init_op_done(&op_done);
+    if (op_done.job != NULL) {
+        if (qat_setup_async_event_notification(0) == 0) {
+            WARN("Failed to setup async event notifications\n");
+            QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL);
+            retval = 0;
+            qat_cleanup_op_done(&op_done);
+            qat_atomic_dec_if_polling(num_requests_in_flight);
+            goto exit;
+        }
+    }
+
     do {
         if (NULL == (instance_handle = get_next_inst())) {
             WARN("Failure in get_next_inst()\n");
             QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_GET_NEXT_INST_FAIL);
-            if (job != NULL) {
+            if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
             retval = 0;
+            qat_cleanup_op_done(&op_done);
             qat_atomic_dec_if_polling(num_requests_in_flight);
             goto exit;
         }
 
-        status = cpaCyLnModExp(instance_handle, NULL, NULL, &opData, &result);
+        status = cpaCyLnModExp(instance_handle, qat_modexpCallbackFn, &op_done,
+                               &opData, &result);
         if (status == CPA_STATUS_RETRY) {
-            if (job == NULL) {
+            if (op_done.job == NULL) {
                 usleep(ulPollInterval +
                        (qatPerformOpRetries % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
                 qatPerformOpRetries++;
@@ -212,8 +225,8 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
                     }
                 }
             } else {
-                if ((qat_wake_job(job, 0) == 0) ||
-                    (qat_pause_job(job, 0) == 0)) {
+                if ((qat_wake_job(op_done.job, 0) == 0) ||
+                    (qat_pause_job(op_done.job, 0) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
@@ -225,14 +238,44 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     if (CPA_STATUS_SUCCESS != status) {
         WARN("Failed to submit request to qat - status = %d\n", status);
         QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_LN_MOD_EXP_FAIL);
-        if (job != NULL) {
+        if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         retval = 0;
+        qat_cleanup_op_done(&op_done);
         qat_atomic_dec_if_polling(num_requests_in_flight);
         goto exit;
     }
 
+    do {
+        if(op_done.job != NULL) {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+                pthread_yield();
+        } else {
+            pthread_yield();
+        }
+    }
+    while (!op_done.flag ||
+           QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+
+    if (op_done.verifyResult != CPA_TRUE) {
+        WARN("Verification of result failed\n");
+        QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
+        retval = 0;
+        qat_cleanup_op_done(&op_done);
+        qat_atomic_dec_if_polling(num_requests_in_flight);
+        goto exit;
+    }
+
+    qat_cleanup_op_done(&op_done);
     qat_atomic_dec_if_polling(num_requests_in_flight);
 
     /* Convert the flatbuffer results back to a BN */
