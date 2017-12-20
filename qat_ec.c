@@ -426,6 +426,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         opData->a.pData[0] = 0;
     }
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
@@ -1079,6 +1080,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     pResultS->dataLenInBytes = (Cpa32U) buflen;
 
     /* perform ECDSA sign */
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
@@ -1436,6 +1438,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
 
     /* perform ECDSA verify */
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {

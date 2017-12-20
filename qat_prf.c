@@ -586,6 +586,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
 
     DUMP_PRF_OP_DATA(prf_op_data);
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {

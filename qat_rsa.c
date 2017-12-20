@@ -245,6 +245,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     DEBUG("- Started\n");
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
@@ -534,6 +535,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 
     DEBUG("- Started\n");
 
+    instance_handle = get_next_inst();
     if (qat_use_signals()) {
         qat_atomic_inc(num_requests_in_flight);
         if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
