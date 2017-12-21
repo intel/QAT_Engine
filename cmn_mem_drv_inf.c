@@ -91,7 +91,7 @@ void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
     }
 
     pAddress = qaeMemAllocNUMA(memsize, NUMA_ANY_NODE, QAT_BYTE_ALIGNMENT);
-    MEM_DEBUG("Address: %p Size: %d File: %s:%d\n", pAddress,
+    MEM_DEBUG("Address: %p Size: %zd File: %s:%d\n", pAddress,
           memsize, file, line);
     if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
         MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
@@ -119,7 +119,7 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
     void *nptr;
 
     if (original_size > memsize) {
-        MEM_WARN("original_size : %d > memsize : %d", original_size, memsize);
+        MEM_WARN("original_size : %zd > memsize : %zd", original_size, memsize);
         return NULL;
     }
 

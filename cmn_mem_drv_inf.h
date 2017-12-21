@@ -54,7 +54,7 @@
 extern FILE* qatDebugLogFile;
 
 #ifdef QAT_MEM_DEBUG
-# define MEM_DEBUG(fmt_str, ..)                                    \
+# define MEM_DEBUG(fmt_str, ...)                                    \
     do {                                                           \
         fprintf(qatDebugLogFile,"[MEM_DEBUG][%s:%d:%s()] "fmt_str, \
                 __FILE__, __LINE__, __func__, ##__VA_ARGS__);      \
