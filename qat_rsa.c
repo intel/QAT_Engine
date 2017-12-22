@@ -242,16 +242,26 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     CpaInstanceHandle instance_handle = NULL;
     int job_ret = 0;
     int sync_mode_ret = 0;
+    thread_local_variables_t *tlv = NULL;
 
     DEBUG("- Started\n");
 
-    if (qat_use_signals()) {
-        qat_atomic_inc(num_requests_in_flight);
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+            WARN("could not create local variables\n");
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-            qat_atomic_dec(num_requests_in_flight);
             return 0;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("pthread_kill error\n");
+                QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                return 0;
+            }
         }
     }
     qat_init_op_done(&op_done);
@@ -260,7 +270,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             WARN("Failed to setup async event notifications\n");
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             return 0;
         }
     } else {
@@ -269,7 +279,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
          */
         qat_cleanup_op_done(&op_done);
         sync_mode_ret = qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return sync_mode_ret;
     }
     /*
@@ -287,7 +297,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             qat_clear_async_event_notification();
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             return 0;
         }
         DUMP_RSA_DECRYPT(instance_handle, &op_done, dec_op_data, output_buf);
@@ -308,7 +318,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
         qat_clear_async_event_notification();
         qat_cleanup_op_done(&op_done);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return 0;
     }
 
@@ -329,7 +339,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     DUMP_RSA_DECRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
-    qat_atomic_dec_if_polling(num_requests_in_flight);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
@@ -528,19 +538,29 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     int qatPerformOpRetries = 0;
     CpaInstanceHandle instance_handle = NULL;
     int job_ret = 0;
+    thread_local_variables_t *tlv = NULL;
 
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
 
     DEBUG("- Started\n");
 
-    if (qat_use_signals()) {
-        qat_atomic_inc(num_requests_in_flight);
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+            WARN("could not create local variables\n");
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
-            qat_atomic_dec(num_requests_in_flight);
             return 0;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("pthread_kill error\n");
+                QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                return 0;
+            }
         }
     }
     qat_init_op_done(&op_done);
@@ -549,7 +569,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             return 0;
         }
     }
@@ -570,7 +590,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             return 0;
         }
 
@@ -606,7 +626,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return 0;
     }
 
@@ -634,7 +654,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 
     DUMP_RSA_ENCRYPT_OUTPUT(output_buf);
     qat_cleanup_op_done(&op_done);
-    qat_atomic_dec_if_polling(num_requests_in_flight);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");

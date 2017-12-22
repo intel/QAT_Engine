@@ -70,7 +70,7 @@ void engine_finish_before_fork_handler(void);
 
 /******************************************************************************
  * function:
- *         qat_set_instance_for_thread(long instanceNum)
+ *         int qat_set_instance_for_thread(long instanceNum)
  *
  * @param instanceNum [IN] - logical instance number
  *
@@ -80,6 +80,6 @@ void engine_finish_before_fork_handler(void);
  *   modulus operation is used.
  *
  ******************************************************************************/
-void qat_set_instance_for_thread(long instanceNum);
+int qat_set_instance_for_thread(long instanceNum);
 
 #endif   /* QAT_FORK_H */

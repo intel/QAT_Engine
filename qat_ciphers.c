@@ -1071,6 +1071,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int pipe = 0;
     int error = 0;
     int outlen = -1;
+    thread_local_variables_t *tlv = NULL;
 
     if (ctx == NULL) {
         WARN("CTX parameter is NULL.\n");
@@ -1218,20 +1219,30 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     DEBUG_PPL("[%p] Start Cipher operation with num pipes %u\n",
               ctx, qctx->numpipes);
 
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+            WARN("could not create local variables\n");
+            return -1;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("pthread_kill error\n");
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                return -1;
+            }
+        }
+    }
+
     if ((qat_setup_op_params(ctx) != 1) ||
         (qat_init_op_done_pipe(&done, qctx->numpipes) != 1)) {
         WARN("Failure in qat_setup_op_params or qat_init_op_done_pipe\n");
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return -1;
     }
 
-    if (qat_use_signals()) {
-        qat_atomic_inc(num_requests_in_flight);
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
-            qat_atomic_dec(num_requests_in_flight);
-            return -1;
-        }
-    }
     do {
         opd = &qctx->qop[pipe].op_data;
         tls_hdr = GET_TLS_HDR(qctx, pipe);
@@ -1417,7 +1428,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     qctx->total_op += done.num_processed;
     DUMP_SYM_PERFORM_OP_OUTPUT(&(qctx->session_data->verifyDigest), d_sgl);
     qat_cleanup_op_done_pipe(&done);
-    qat_atomic_dec_if_polling(num_requests_in_flight);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (error == 0 && (done.opDone.verifyResult == CPA_TRUE)) {
         retVal = 1 & pad_check;

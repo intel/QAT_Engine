@@ -245,8 +245,17 @@ CpaStatus poll_instances(void)
     CpaInstanceHandle instance_handle = NULL;
     CpaStatus internal_status = CPA_STATUS_SUCCESS,
         ret_status = CPA_STATUS_SUCCESS;
-    if (enable_instance_for_thread)
-        instance_handle = pthread_getspecific(qatInstanceForThread);
+    if (enable_instance_for_thread) {
+        thread_local_variables_t *tlv = NULL;
+        tlv = qat_check_create_local_variables();
+        if (NULL == tlv) {
+            WARN("could not create local variables\n");
+            QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+            return CPA_STATUS_FAIL;
+        }
+        instance_handle = tlv->qatInstanceForThread;
+    }
+
     if (instance_handle) {
         ret_status = icp_sal_CyPollInstance(instance_handle, 0);
     } else {

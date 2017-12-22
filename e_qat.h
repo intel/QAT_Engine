@@ -63,11 +63,38 @@
 #  define ERR_R_RETRY 57
 # endif
 
+typedef struct {
+    CpaInstanceHandle qatInstanceForThread;
+    unsigned int localOpsInFlight;
+} thread_local_variables_t;
+
 #define likely(x)   __builtin_expect (!!(x), 1)
 #define unlikely(x) __builtin_expect (!!(x), 0)
 
 #define XSTR(x) #x
 #define STR(x) XSTR(x)
+
+#define QAT_ATOMIC_INC(qat_int)              \
+            (__sync_add_and_fetch(&(qat_int), 1))
+
+#define QAT_ATOMIC_DEC(qat_int)              \
+            (__sync_sub_and_fetch(&(qat_int), 1))
+
+#define QAT_INC_IN_FLIGHT_REQS(qat_int, tlv) \
+            do {                             \
+                if (qat_use_signals()) {     \
+                    QAT_ATOMIC_INC(qat_int); \
+                    tlv->localOpsInFlight++; \
+                }                            \
+            } while(0)
+
+#define QAT_DEC_IN_FLIGHT_REQS(qat_int, tlv) \
+            do {                             \
+                if (qat_use_signals()) {     \
+                    tlv->localOpsInFlight--; \
+                    QAT_ATOMIC_DEC(qat_int); \
+                }                            \
+            } while(0)
 
 /* Macro used to handle errors in qat_engine_ctrl() */
 #define BREAK_IF(cond, mesg) \
@@ -157,14 +184,6 @@
  */
 #define QAT_MAX_ERROR_STRING 256
 
-#define qat_atomic_inc(qat_int) \
-    (__sync_add_and_fetch(&(qat_int), 1))
-#define qat_atomic_dec(qat_int) \
-    (__sync_sub_and_fetch(&(qat_int), 1))
-#define qat_atomic_dec_if_polling(qat_int)   \
-    if (qat_use_signals())                   \
-        (__sync_sub_and_fetch(&(qat_int), 1))
-
 /* Qat engine id declaration */
 extern const char *engine_qat_id;
 extern const char *engine_qat_name;
@@ -173,7 +192,7 @@ extern char *ICPConfigSectionName_libcrypto;
 
 extern CpaInstanceHandle *qat_instance_handles;
 extern Cpa16U qat_num_instances;
-extern  pthread_key_t qatInstanceForThread;
+extern  pthread_key_t thread_local_variables;
 extern pthread_t polling_thread;
 extern int keep_polling;
 extern int enable_external_polling;
@@ -218,6 +237,31 @@ int qat_use_signals(void);
  *
  ******************************************************************************/
 CpaInstanceHandle get_next_inst(void);
+
+/******************************************************************************
+ * function:
+ *         qat_local_variable_destructor(void *tlv)
+ *
+ * description:
+ *   This is a cleanup callback function registered when pthread_key_create()
+ *   is called. It will get called when the thread is destroyed and will
+ *   cleanup the thread local variables.
+ *
+ *****************************************************************************/
+void qat_local_variable_destructor(void *tlv);
+
+/******************************************************************************
+ * function:
+ *         qat_check_create_local_variables(void)
+ *
+ * description:
+ *   This function checks whether local variables exist in the current thread.
+ *   If not, then it will attempt to create them. It returns NULL if the local
+ *   variables could not be created, otherwise it returns a pointer to the
+ *   local variables data structure.
+ *
+ ******************************************************************************/
+thread_local_variables_t * qat_check_create_local_variables(void);
 
 /******************************************************************************
  * function:

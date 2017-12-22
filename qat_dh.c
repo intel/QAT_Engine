@@ -189,6 +189,7 @@ int qat_dh_generate_key(DH *dh)
     op_done_t op_done;
     size_t buflen;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
+    thread_local_variables_t *tlv = NULL;
 
     DEBUG("- Started\n");
 
@@ -309,13 +310,22 @@ int qat_dh_generate_key(DH *dh)
         goto err;
     }
 
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+        WARN("could not create local variables\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
-        qat_atomic_inc(num_requests_in_flight);
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
-            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
-            qat_atomic_dec(num_requests_in_flight);
-            goto err;
+        if (tlv->localOpsInFlight == 1) {
+            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("pthread_kill error\n");
+                QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto err;
+            }
         }
     }
     qat_init_op_done(&op_done);
@@ -324,7 +334,7 @@ int qat_dh_generate_key(DH *dh)
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
     }
@@ -338,7 +348,7 @@ int qat_dh_generate_key(DH *dh)
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
 
@@ -378,7 +388,7 @@ int qat_dh_generate_key(DH *dh)
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
     }
 
@@ -403,7 +413,7 @@ int qat_dh_generate_key(DH *dh)
 
     DUMP_DH_GEN_PHASE1_OUTPUT(pPV);
     qat_cleanup_op_done(&op_done);
-    qat_atomic_dec_if_polling(num_requests_in_flight);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
@@ -473,6 +483,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     const BIGNUM *g = NULL;
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
+    thread_local_variables_t *tlv = NULL;
 
     DEBUG("- Started\n");
 
@@ -548,13 +559,22 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         goto err;
     }
 
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+        WARN("could not create local variables\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
-        qat_atomic_inc(num_requests_in_flight);
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
-            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            qat_atomic_dec(num_requests_in_flight);
-            goto err;
+        if (tlv->localOpsInFlight == 1) {
+            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("pthread_kill error\n");
+                QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto err;
+            }
         }
     }
     qat_init_op_done(&op_done);
@@ -563,7 +583,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
     }
@@ -577,7 +597,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
 
@@ -617,7 +637,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
     }
 
@@ -642,7 +662,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     DUMP_DH_GEN_PHASE2_OUTPUT(pSecretKey);
     qat_cleanup_op_done(&op_done);
-    qat_atomic_dec_if_polling(num_requests_in_flight);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");

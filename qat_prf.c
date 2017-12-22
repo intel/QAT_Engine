@@ -377,13 +377,14 @@ void qat_prf_cb(void *pCallbackTag, CpaStatus status,
 static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
                                   CpaCySymHashAlgorithm * hash_algorithm)
 {
+    const EVP_MD *md = NULL;
     if (qat_prf_ctx == NULL || hash_algorithm == NULL) {
         WARN("Either qat_prf_ctx %p or  hash_algorithm %p is NULL\n",
               qat_prf_ctx, hash_algorithm);
         return 0;
     }
 
-    const EVP_MD *md = qat_prf_ctx->md;
+    md = qat_prf_ctx->md;
     if (md == NULL) {
         WARN("md is NULL.\n");
         return 0;
@@ -429,6 +430,7 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
 static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
                                  CpaCyKeyGenTlsOpData * prf_op_data)
 {
+    const void *label = NULL;
     if (qat_prf_ctx == NULL || prf_op_data == NULL) {
         WARN("Either qat_prf_ctx %p or prf_op_data %p is NULL\n", qat_prf_ctx, prf_op_data);
         return 0;
@@ -441,7 +443,7 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
      * The label is stored in userLabel as a string Conversion from string to CPA
      * constant
      */
-    const void *label = qat_prf_ctx->userLabel;
+    label = qat_prf_ctx->userLabel;
     DEBUG("Value of label = %s\n", (char *)label);
 
     prf_op_data->userLabel.pData = NULL;
@@ -518,6 +520,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     CpaFlatBuffer *generated_key = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
+    CpaCySymHashAlgorithm hash_algo = CPA_CY_SYM_HASH_NONE;
+    int key_length = 0;
+    op_done_t op_done;
+    int qatPerformOpRetries = 0;
+    int iMsgRetry = getQatMsgRetryCount();
+    unsigned long int ulPollInterval = getQatPollInterval();
+    CpaInstanceHandle instance_handle = NULL;
+    thread_local_variables_t *tlv = NULL;
 
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
 
@@ -527,15 +537,13 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
         return ret;
     }
 
+    key_length = *olen;
     qat_prf_ctx = (QAT_TLS1_PRF_CTX *) EVP_PKEY_CTX_get_data(ctx);
     if (qat_prf_ctx == NULL) {
         WARN("qat_prf_ctx is NULL\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
         return ret;
     }
-
-    /* ---- Hash algorithm ---- */
-    CpaCySymHashAlgorithm hash_algo = CPA_CY_SYM_HASH_NONE;
 
     /*
      * Only required for TLS1.2 as previous versions always use MD5 and SHA-1
@@ -556,7 +564,6 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     }
 
     /* ---- Generated Key ---- */
-    int key_length = *olen;
     prf_op_data.generatedKeyLenInBytes = key_length;
 
     generated_key =
@@ -578,21 +585,24 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     generated_key->dataLenInBytes = key_length;
 
     /* ---- Perform the operation ---- */
-    op_done_t op_done;
-    int qatPerformOpRetries = 0;
-    int iMsgRetry = getQatMsgRetryCount();
-    unsigned long int ulPollInterval = getQatPollInterval();
-    CpaInstanceHandle instance_handle = NULL;
-
     DUMP_PRF_OP_DATA(prf_op_data);
 
-    if (qat_use_signals()) {
-        qat_atomic_inc(num_requests_in_flight);
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+            WARN("could not create local variables\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-            qat_atomic_dec(num_requests_in_flight);
             goto err;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("pthread_kill error\n");
+                QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto err;
+            }
         }
     }
     qat_init_op_done(&op_done);
@@ -601,7 +611,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
     }
@@ -614,7 +624,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
 
@@ -663,7 +673,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
     }
 
@@ -688,7 +698,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
 
     DUMP_KEYGEN_TLS_OUTPUT(generated_key);
     qat_cleanup_op_done(&op_done);
-    qat_atomic_dec_if_polling(num_requests_in_flight);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");

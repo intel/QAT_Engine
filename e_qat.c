@@ -123,7 +123,7 @@ char *ICPConfigSectionName_libcrypto = "SHIM";
 
 CpaInstanceHandle *qat_instance_handles = NULL;
 Cpa16U qat_num_instances = 0;
-pthread_key_t qatInstanceForThread;
+pthread_key_t thread_local_variables;
 pthread_t polling_thread;
 int keep_polling = 1;
 int enable_external_polling = 0;
@@ -199,7 +199,13 @@ CpaInstanceHandle get_next_inst(void)
     CpaInstanceHandle instance_handle = NULL;
 
     if (1 == enable_instance_for_thread) {
-        instance_handle = pthread_getspecific(qatInstanceForThread);
+        thread_local_variables_t * tlv = NULL;
+        tlv = qat_check_create_local_variables();
+        if (NULL == tlv) {
+            WARN("No local variables are available\n");
+            return instance_handle;
+        }
+        instance_handle = tlv->qatInstanceForThread;
         /* If no thread specific data is found then return NULL
            as there should be as the flag is set */
         if (instance_handle == NULL) {
@@ -265,6 +271,26 @@ static CpaPhysicalAddr virtualToPhysical(void *virtualAddr)
     return qaeCryptoMemV2P(virtualAddr);
 }
 
+thread_local_variables_t * qat_check_create_local_variables(void)
+{
+    thread_local_variables_t * tlv =
+        (thread_local_variables_t *) pthread_getspecific(thread_local_variables);
+    if (tlv != NULL)
+        return tlv;
+    tlv = OPENSSL_zalloc(sizeof(thread_local_variables_t));
+    if (tlv != NULL)
+        pthread_setspecific(thread_local_variables, (void *)tlv);
+    return tlv;
+}
+
+void qat_local_variable_destructor(void *tlv)
+{
+    if (tlv)
+       OPENSSL_free(tlv);
+    pthread_setspecific(thread_local_variables, NULL);
+}
+
+
 int qat_engine_init(ENGINE *e)
 {
     int instNum, err;
@@ -291,7 +317,7 @@ int qat_engine_init(ENGINE *e)
 
     polling_thread = pthread_self();
 
-    if ((err = pthread_key_create(&qatInstanceForThread, NULL)) != 0) {
+    if ((err = pthread_key_create(&thread_local_variables, qat_local_variable_destructor)) != 0) {
         WARN("pthread_key_create failed: %s\n", strerror(err));
         QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_PTHREAD_CREATE_FAILURE);
         pthread_mutex_unlock(&qat_engine_mutex);
@@ -660,7 +686,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         BREAK_IF(qat_instance_handles == NULL,                          \
                  "SET_INSTANCE_FOR_THREAD failed as no instances are available\n");
         DEBUG("Set instance for thread = %ld\n", i);
-        qat_set_instance_for_thread(i);
+        retVal = qat_set_instance_for_thread(i);
         break;
 
     case QAT_CMD_GET_NUM_OP_RETRIES:

@@ -150,6 +150,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     op_done_t op_done;
     int iMsgRetry = getQatMsgRetryCount();
     useconds_t ulPollInterval = getQatPollInterval();
+    thread_local_variables_t *tlv = NULL;
 
     DEBUG(" - Started\n");
 
@@ -176,16 +177,27 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         goto exit;
     }
 
-    if (qat_use_signals()) {
-        qat_atomic_inc(num_requests_in_flight);
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+            WARN("could not create local variables\n");
             QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
             retval = 0;
-            qat_atomic_dec(num_requests_in_flight);
             goto exit;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("pthread_kill error\n");
+                QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
+                retval = 0;
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto exit;
+            }
         }
     }
+
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
@@ -193,7 +205,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL);
             retval = 0;
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto exit;
         }
     }
@@ -207,7 +219,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             }
             retval = 0;
             qat_cleanup_op_done(&op_done);
-            qat_atomic_dec_if_polling(num_requests_in_flight);
+            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto exit;
         }
 
@@ -243,7 +255,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         }
         retval = 0;
         qat_cleanup_op_done(&op_done);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto exit;
     }
 
@@ -271,12 +283,12 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
         retval = 0;
         qat_cleanup_op_done(&op_done);
-        qat_atomic_dec_if_polling(num_requests_in_flight);
+        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto exit;
     }
 
     qat_cleanup_op_done(&op_done);
-    qat_atomic_dec_if_polling(num_requests_in_flight);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     /* Convert the flatbuffer results back to a BN */
     BN_bin2bn(result.pData, result.dataLenInBytes, res);

@@ -81,7 +81,7 @@ void engine_init_child_at_fork_handler(void)
 {
     /* Reinitialise the engine */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
-    if (e == NULL) {
+    if (NULL == e) {
         WARN("Engine pointer is NULL\n");
         QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_NULL);
         return;
@@ -98,7 +98,7 @@ void engine_finish_before_fork_handler(void)
 {
     /* Reset the engine preserving the value of global variables */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
-    if (e == NULL) {
+    if (NULL == e) {
         WARN("Engine pointer is NULL\n");
         QATerr(QAT_F_ENGINE_FINISH_BEFORE_FORK_HANDLER, QAT_R_ENGINE_NULL);
         return;
@@ -110,17 +110,18 @@ void engine_finish_before_fork_handler(void)
     keep_polling = 1;
 }
 
-void qat_set_instance_for_thread(long instanceNum)
+int qat_set_instance_for_thread(long instanceNum)
 {
-    int rc;
-
-    if ((rc =
-         pthread_setspecific(qatInstanceForThread,
-                             qat_instance_handles[instanceNum %
-                                                qat_num_instances])) != 0) {
-        WARN("pthread_setspecific: %s\n", strerror(rc));
-        QATerr(QAT_F_QAT_SET_INSTANCE_FOR_THREAD, QAT_R_PTHREAD_SETSPECIFIC_FAILURE);
-        return;
+    thread_local_variables_t *tlv = NULL;
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv || 0 == qat_num_instances) {
+        WARN("could not create local variables or no instances available\n");
+        QATerr(QAT_F_QAT_SET_INSTANCE_FOR_THREAD, QAT_R_SET_INSTANCE_FAILURE);
+        return 0;
     }
+
+    tlv->qatInstanceForThread =
+        qat_instance_handles[instanceNum % qat_num_instances];
     enable_instance_for_thread = 1;
+    return 1;
 }
