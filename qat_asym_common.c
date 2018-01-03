@@ -96,13 +96,13 @@ int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
     /* Memory allocate for flat buffer */
     fb->dataLenInBytes = (Cpa32U) BN_num_bytes(bn);
     if (0 == fb->dataLenInBytes) {
-        fb->dataLenInBytes = 0;
         fb->pData = NULL;
         DEBUG("Datalen = 0, zero byte memory allocation\n");
         return 1;
     }
     fb->pData = qaeCryptoMemAlloc(fb->dataLenInBytes, __FILE__, __LINE__);
     if (NULL == fb->pData) {
+        fb->dataLenInBytes = 0;
         WARN("Failed to allocate fb->pData\n");
         return 0;
     }
