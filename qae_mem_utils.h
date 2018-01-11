@@ -191,7 +191,7 @@ void *copyAllocPinnedMemory(void *ptr, size_t size, const char *file,
                             int line);
 void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
                                  const char *file, int line);
-void copyFreePinnedMemory(void *uptr, void *kptr, int size);
+int copyFreePinnedMemory(void *uptr, void *kptr, int size);
 
 void qaeCryptoAtFork();
 

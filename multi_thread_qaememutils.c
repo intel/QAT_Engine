@@ -302,15 +302,21 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
 *   buffer and copy data to it.
 *
 ******************************************************************************/
-void copyFreePinnedMemory(void *uptr, void *kptr, int size)
+int copyFreePinnedMemory(void *uptr, void *kptr, int size)
 {
     if (uptr == NULL || kptr == NULL) {
         MEM_WARN("Input pointers uptr or kptr are NULL\n");
-        return;
+        return 0;
+    }
+
+    if (size > MAX_ALLOC) {
+        MEM_WARN("Size greater than MAX_ALLOC\n");
+        return 0;
     }
 
     memcpy(uptr, kptr, size);
     qaeCryptoMemFree(kptr);
+    return 1;
 }
 
 /*****************************************************************************

@@ -157,14 +157,16 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
     return nptr;
 }
 
-void copyFreePinnedMemory(void *uptr, void *kptr, int size)
+int copyFreePinnedMemory(void *uptr, void *kptr, int size)
 {
     if (uptr == NULL || kptr == NULL) {
        MEM_WARN("Input pointers uptr or kptr are NULL\n");
-       return;
+       return 0;
     }
+
     memcpy(uptr, kptr, size);
     qaeCryptoMemFree(kptr);
+    return 1;
 }
 
 CpaPhysicalAddr qaeCryptoMemV2P(void *v)
