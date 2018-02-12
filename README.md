@@ -106,8 +106,15 @@ if supported by your processor.
 * [Intel&reg; QuickAssist Technology Driver][6]
 * [White Paper: Intel&reg; Quickassist Technology and OpenSSL-1.1.0:Performance][7]
 
+Additional Information on integrating the Intel&reg QAT OpenSSL\* Engine with NGINX\*
+including an asynchronous fork of NGINX\* can be found at the following Github\*
+repository:
+
+* [Intel&reg; QuickAssist Technology (QAT) Async Mode NGINX\*][8]
+
 [6]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
 [7]:https://01.org/sites/default/files/downloads/intelr-quickassist-technology/intelquickassisttechnologyopensslperformance.pdf
+[8]:https://github.com/intel/asynch_mode_nginx
 
 ## Limitations
 
@@ -123,9 +130,9 @@ if supported by your processor.
   application level. The fix has been delivered in OpenSSL\* 1.1.0e. All
   previous versions of the library are affected. For more information, please
   refer to the following pull request on Github:
-  [Fix waitctx fds removing the fd from the list #2581][8]
+  [Fix waitctx fds removing the fd from the list #2581][9]
 
-[8]:https://github.com/openssl/openssl/pull/2581
+[9]:https://github.com/openssl/openssl/pull/2581
 
 ## Installation Instructions
 
@@ -148,9 +155,9 @@ Infrastructure Software - Getting Started Guide (333035)
 
 These instructions can be found on the 01.org website in the following section:
 
-[Intel&reg; Quickassist Technology][9]
+[Intel&reg; Quickassist Technology][10]
 
-[9]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
+[10]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
 
 ### Build OpenSSL\*
 
@@ -1045,7 +1052,7 @@ pipelining.  The Intel&reg; QAT OpenSSL\* Engine supports OpenSSL\* pipelining
 capability for chained cipher encryption operations only. The engine provides a
 maximum of 32 pipelines (buffer chunks) with a maximum size of 16,384 bytes for
 each pipeline. When pipelines are used, they are always offloaded to the
-accelerator ignoring the small packet offload threshold.  Please refer to
+accelerator ignoring the small packet offload threshold.  Please refer to the
 OpenSSL\* manual for more information about pipelining.
 <https://www.openssl.org/docs/man1.1.0/ssl/SSL_CTX_set_split_send_fragment.html>
 
