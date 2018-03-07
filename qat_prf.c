@@ -704,14 +704,16 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_KEYGEN_TLS_OUTPUT(generated_key);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
         goto err;
     }
+
+    qat_cleanup_op_done(&op_done);
 
     DUMPL("Generated key", generated_key->pData, key_length);
     memcpy(key, generated_key->pData, key_length);

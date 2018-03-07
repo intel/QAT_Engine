@@ -1436,7 +1436,6 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
  end:
     qctx->total_op += done.num_processed;
     DUMP_SYM_PERFORM_OP_OUTPUT(&(qctx->session_data->verifyDigest), d_sgl);
-    qat_cleanup_op_done_pipe(&done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (error == 0 && (done.opDone.verifyResult == CPA_TRUE)) {
@@ -1444,6 +1443,8 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         if (retVal == 1)
             outlen = 0;
     }
+
+    qat_cleanup_op_done_pipe(&done);
 
     pipe = 0;
     do {

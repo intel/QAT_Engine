@@ -419,14 +419,16 @@ int qat_dh_generate_key(DH *dh)
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_DH_GEN_PHASE1_OUTPUT(pPV);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
+
+    qat_cleanup_op_done(&op_done);
 
     /* Convert the flatbuffer result back to a BN */
     BN_bin2bn(pPV->pData, pPV->dataLenInBytes, pub_key);
@@ -672,14 +674,16 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_DH_GEN_PHASE2_OUTPUT(pSecretKey);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
+
+    qat_cleanup_op_done(&op_done);
 
     /* Remove leading zeros */
     if (!pSecretKey->pData[0]) {

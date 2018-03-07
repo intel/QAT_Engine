@@ -538,17 +538,17 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     while (!op_done.flag ||
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
+    DUMP_EC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of request failed\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         qat_cleanup_op_done(&op_done);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
     }
 
-    DUMP_EC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY);
     qat_cleanup_op_done(&op_done);
-    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     /* KDF, is done in the caller now just copy out bytes */
     if (outX != NULL) {
@@ -1212,14 +1212,16 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_ECDSA_SIGN_OUTPUT(bEcdsaSignStatus, pResultR, pResultS);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         goto err;
     }
+
+    qat_cleanup_op_done(&op_done);
 
     /* Convert the flatbuffer results back to a BN */
     BN_bin2bn(pResultR->pData, pResultR->dataLenInBytes, ecdsa_sig_r);
@@ -1582,11 +1584,12 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("bEcdsaVerifyStatus = %u\n", bEcdsaVerifyStatus);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;
+
+    qat_cleanup_op_done(&op_done);
 
  err:
     if (opData) {

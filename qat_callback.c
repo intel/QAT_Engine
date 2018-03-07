@@ -133,7 +133,6 @@ int qat_init_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
     opdcrt->opDone.flag = 0;
     /* note that the initial value is true in order to judge via AND */
     opdcrt->opDone.verifyResult = CPA_TRUE;
-
     opdcrt->opDone.job = NULL;
 
     opdcrt->req = 0;
@@ -149,10 +148,7 @@ void qat_cleanup_op_done(op_done_t *opDone)
         return;
     }
 
-    /*
-     * op_done:verifyResult is used after return from this function
-     * Donot change this value.
-     */
+    opDone->verifyResult = CPA_FALSE;
 
     if (opDone->job) {
         opDone->job = NULL;
@@ -169,8 +165,7 @@ void qat_cleanup_op_done_pipe(op_done_pipe_t *opdone)
     opdone->num_pipes = 0;
     opdone->num_submitted = 0;
     opdone->num_processed = 0;
-    if (opdone->opDone.job)
-        opdone->opDone.job = NULL;
+    qat_cleanup_op_done(&opdone->opDone);
 }
 
 void qat_cleanup_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
@@ -180,9 +175,9 @@ void qat_cleanup_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
         return;
     }
 
-    opdcrt->opDone.verifyResult = CPA_FALSE;
     opdcrt->req = 0;
     opdcrt->resp = 0;
+    qat_cleanup_op_done(&opdcrt->opDone);
 }
 
 void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,

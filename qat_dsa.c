@@ -520,16 +520,18 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
              QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_DSA_SIGN_OUTPUT(bDsaSignStatus, pResultR, pResultS);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         DSA_SIG_free(sig);
         sig = NULL;
         goto err;
     }
+
+    qat_cleanup_op_done(&op_done);
 
     /* Convert the flatbuffer results back to a BN */
     BN_bin2bn(pResultR->pData, pResultR->dataLenInBytes, r);
@@ -826,12 +828,12 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     while (!op_done.flag ||
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
+    DEBUG("bDsaVerifyStatus = %u\n", bDsaVerifyStatus);
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;
 
-    DEBUG("bDsaVerifyStatus = %u\n", bDsaVerifyStatus);
     qat_cleanup_op_done(&op_done);
-    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
  err:
     if (opData) {

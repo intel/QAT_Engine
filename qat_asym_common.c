@@ -286,17 +286,17 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     while (!op_done.flag ||
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
         retval = 0;
         qat_cleanup_op_done(&op_done);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto exit;
     }
 
     qat_cleanup_op_done(&op_done);
-    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     /* Convert the flatbuffer results back to a BN */
     BN_bin2bn(result.pData, result.dataLenInBytes, res);

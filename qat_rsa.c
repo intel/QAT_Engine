@@ -345,14 +345,16 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_RSA_DECRYPT_OUTPUT(output_buf);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
         return 0;
     }
+
+    qat_cleanup_op_done(&op_done);
 
     DEBUG("- Finished\n");
     return 1;
@@ -664,14 +666,16 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
              QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_RSA_ENCRYPT_OUTPUT(output_buf);
-    qat_cleanup_op_done(&op_done);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
+        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
         QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
         return 0;
     }
+
+    qat_cleanup_op_done(&op_done);
 
     return 1;
 }
