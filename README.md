@@ -555,6 +555,13 @@ If linking against the Upstream Intel&reg; QAT Driver then ensure that the
 mandatory parameter `--enable-upstream_driver` has been specified when running
 `./configure`, or the link will fail.
 
+If building against OpenSSL\* master, it is possible that the
+OpenSSL\* Engine will fail to build with an error message `configdata.pm not
+present in the @INC path`. To resolve this, it is recommended to add the
+OpenSSL source path to the PERL5LIB environment variable as follows:
+
+    export PERL5LIB=$PERL5LIB:/path/to/openssl
+
 ## Intel&reg; Quickassist Technology OpenSSL\* Engine Specific Messages
 
 OpenSSL\* engines support a mechanism whereby custom messages can be defined for
