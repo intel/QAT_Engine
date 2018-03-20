@@ -81,9 +81,9 @@
 #include "icp_sal_user.h"
 #include "icp_sal_poll.h"
 
-struct epoll_event eng_epoll_events[MAX_CRYPTO_INSTANCES] = {{ 0 }};
+struct epoll_event eng_epoll_events[QAT_MAX_CRYPTO_INSTANCES] = {{ 0 }};
 int internal_efd = 0;
-ENGINE_EPOLL_ST eng_poll_st[MAX_CRYPTO_INSTANCES] = {{ -1 }};
+ENGINE_EPOLL_ST eng_poll_st[QAT_MAX_CRYPTO_INSTANCES] = {{ -1 }};
 
 int getQatMsgRetryCount()
 {
@@ -242,7 +242,7 @@ end:
 CpaStatus poll_instances(void)
 {
     unsigned int poll_loop;
-    CpaInstanceHandle instance_handle = NULL;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaStatus internal_status = CPA_STATUS_SUCCESS,
         ret_status = CPA_STATUS_SUCCESS;
     if (enable_instance_for_thread) {
@@ -253,26 +253,35 @@ CpaStatus poll_instances(void)
             QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
             return CPA_STATUS_FAIL;
         }
-        instance_handle = tlv->qatInstanceForThread;
+        inst_num = tlv->qatInstanceNumForThread;
+        if (inst_num != QAT_INVALID_INSTANCE && qat_instance_handles) {
+            return icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+        } else {
+            WARN("could not get a valid instance to poll\n");
+            QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+            return CPA_STATUS_FAIL;
+        }
     }
 
-    if (instance_handle) {
-        ret_status = icp_sal_CyPollInstance(instance_handle, 0);
-    } else {
-        for (poll_loop = 0; poll_loop < qat_num_instances; poll_loop++) {
-            if (qat_instance_handles[poll_loop] != NULL) {
-                internal_status =
-                    icp_sal_CyPollInstance(qat_instance_handles[poll_loop], 0);
-                if (CPA_STATUS_SUCCESS == internal_status) {
-                    /* Do nothing */
-                } else if (CPA_STATUS_RETRY == internal_status) {
-                    ret_status = internal_status;
-                } else {
-                    WARN("icp_sal_CyPollInstance failed - status %d\n", internal_status);
-                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
-                    ret_status = internal_status;
-                    break;
-                }
+    if (NULL == qat_instance_handles) {
+        WARN("qat_instance_handles is NULL\n");
+        QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+        return CPA_STATUS_FAIL;
+    }
+
+    for (poll_loop = 0; poll_loop < qat_num_instances; poll_loop++) {
+        if (qat_instance_handles[poll_loop] != NULL) {
+            internal_status =
+                icp_sal_CyPollInstance(qat_instance_handles[poll_loop], 0);
+            if (CPA_STATUS_SUCCESS == internal_status) {
+                /* Do nothing */
+            } else if (CPA_STATUS_RETRY == internal_status) {
+                ret_status = internal_status;
+            } else {
+                WARN("icp_sal_CyPollInstance failed - status %d\n", internal_status);
+                QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+                ret_status = internal_status;
+                break;
             }
         }
     }

@@ -344,7 +344,7 @@ qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     op_done_rsa_crt_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
-    CpaInstanceHandle instance_handle = NULL;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyRsaPrivateKey *cpa_prv_key = NULL;
 
     int iMsgRetry = getQatMsgRetryCount();
@@ -360,17 +360,17 @@ qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     CRYPTO_QAT_LOG("RSA - %s\n", __func__);
 
-    if (NULL == (instance_handle = get_next_inst())) {
-        WARN("instance_handle is NULL\n");
+    if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        WARN("Failure to get an instance\n");
         QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
         qat_cleanup_op_done_rsa_crt(&op_done);
         return 0;
     }
 
-    DUMP_RSA_DECRYPT(instance_handle, &op_done, dec_op_data, output_buf);
+    DUMP_RSA_DECRYPT(qat_instance_handles[inst_num], &op_done, dec_op_data, output_buf);
 
     rv = CRT_prepare(&crt_out1, &crt_out2, rsa_len, dec_op_data,
-                 &crt_op1_data, &crt_op2_data);
+                     &crt_op1_data, &crt_op2_data);
     if(rv == 0) {
         WARN("failed to execute CRT_prepare\n");
         QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
@@ -380,8 +380,8 @@ qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     /* send the 1st ModExp request */
     do {
-        sts = cpaCyLnModExp(instance_handle, qat_rsaCallbackFn_CRT, &op_done,
-                              &crt_op1_data, &crt_out1);
+        sts = cpaCyLnModExp(qat_instance_handles[inst_num], qat_rsaCallbackFn_CRT, &op_done,
+                            &crt_op1_data, &crt_out1);
         if (sts == CPA_STATUS_RETRY) {
             usleep(ulPollInterval +
                    (qatPerformOpRetries % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
@@ -406,8 +406,8 @@ qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     /* send the 2nd ModExp request */
     do {
-        sts = cpaCyLnModExp(instance_handle, qat_rsaCallbackFn_CRT, &op_done,
-                              &crt_op2_data, &crt_out2);
+        sts = cpaCyLnModExp(qat_instance_handles[inst_num], qat_rsaCallbackFn_CRT, &op_done,
+                            &crt_op2_data, &crt_out2);
         if (sts == CPA_STATUS_RETRY) {
             usleep(ulPollInterval +
                    (qatPerformOpRetries % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
@@ -431,7 +431,7 @@ qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     /* wait for replies */
     do {
         if(getEnableInlinePolling()) {
-            icp_sal_CyPollInstance(instance_handle, 0);
+            icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
         }
         else
             pthread_yield();

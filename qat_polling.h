@@ -59,9 +59,9 @@ typedef struct {
     int inst_index;
 } ENGINE_EPOLL_ST;
 
-extern struct epoll_event eng_epoll_events[MAX_CRYPTO_INSTANCES];
+extern struct epoll_event eng_epoll_events[QAT_MAX_CRYPTO_INSTANCES];
 extern int internal_efd;
-extern ENGINE_EPOLL_ST eng_poll_st[MAX_CRYPTO_INSTANCES];
+extern ENGINE_EPOLL_ST eng_poll_st[QAT_MAX_CRYPTO_INSTANCES];
 
 int getQatMsgRetryCount();
 useconds_t getQatPollInterval();
@@ -112,7 +112,7 @@ int qat_adjust_thread_affinity(pthread_t threadptr);
  * function:
  *         void *timer_poll_func(void *ih)
  *
- * @param ih [IN] - Instance handle
+ * @param ih [IN] - NULL
  *
  * description:
  *   Poll the QAT instances (nanosleep version)

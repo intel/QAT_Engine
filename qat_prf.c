@@ -529,7 +529,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     int qatPerformOpRetries = 0;
     int iMsgRetry = getQatMsgRetryCount();
     unsigned long int ulPollInterval = getQatPollInterval();
-    CpaInstanceHandle instance_handle = NULL;
+    int inst_num = QAT_INVALID_INSTANCE;
     thread_local_variables_t *tlv = NULL;
 
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
@@ -620,7 +620,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
     }
 
     do {
-        if (NULL == (instance_handle = get_next_inst())) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -631,18 +631,18 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
             goto err;
         }
 
-        DUMP_KEYGEN_TLS(instance_handle, generated_key);
+        DUMP_KEYGEN_TLS(qat_instance_handles[inst_num], generated_key);
         /* Call the function of CPA according the to the version of TLS */
         if (EVP_MD_type(qat_prf_ctx->md) != NID_md5_sha1) {
             DEBUG("Calling cpaCyKeyGenTls2 \n");
             status =
-                cpaCyKeyGenTls2(instance_handle, qat_prf_cb,
+                cpaCyKeyGenTls2(qat_instance_handles[inst_num], qat_prf_cb,
                                 &op_done, &prf_op_data, hash_algo,
                                 generated_key);
         } else {
             DEBUG("Calling cpaCyKeyGenTls \n");
             status =
-                cpaCyKeyGenTls(instance_handle, qat_prf_cb, &op_done,
+                cpaCyKeyGenTls(qat_instance_handles[inst_num], qat_prf_cb, &op_done,
                                &prf_op_data, generated_key);
         }
 

@@ -263,7 +263,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     size_t buflen;
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
 
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcPointMultiplyOpData *opData = NULL;
     CpaBoolean bEcStatus;
     CpaFlatBuffer *pResultX = NULL;
@@ -462,7 +462,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     /* Invoke the crypto engine API for EC Point Multiply */
     do {
-        if ((instance_handle = get_next_inst()) == NULL) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -474,8 +474,8 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-        DUMP_EC_POINT_MULTIPLY(instance_handle, opData, pResultX, pResultY);
-        status = cpaCyEcPointMultiply(instance_handle,
+        DUMP_EC_POINT_MULTIPLY(qat_instance_handles[inst_num], opData, pResultX, pResultY);
+        status = cpaCyEcPointMultiply(qat_instance_handles[inst_num],
                                       qat_ecCallbackFn,
                                       &op_done,
                                       opData,
@@ -885,7 +885,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     CpaFlatBuffer *pResultR = NULL;
     CpaFlatBuffer *pResultS = NULL;
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcdsaSignRSOpData *opData = NULL;
     CpaBoolean bEcdsaSignStatus;
     CpaStatus status;
@@ -1135,7 +1135,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     do {
-        if ((instance_handle = get_next_inst()) == NULL) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failure to get another instance\n");
             QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -1147,8 +1147,8 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
-        DUMP_ECDSA_SIGN(instance_handle, opData, pResultR, pResultS);
-        status = cpaCyEcdsaSignRS(instance_handle,
+        DUMP_ECDSA_SIGN(qat_instance_handles[inst_num], opData, pResultR, pResultS);
+        status = cpaCyEcdsaSignRS(qat_instance_handles[inst_num],
                                   qat_ecdsaSignCallbackFn,
                                   &op_done,
                                   opData,
@@ -1319,7 +1319,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     const EC_POINT *ec_point;
     const BIGNUM *sig_r = NULL, *sig_s = NULL;
 
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcdsaVerifyOpData *opData = NULL;
     CpaBoolean bEcdsaVerifyStatus;
     CpaStatus status;
@@ -1509,7 +1509,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     do {
-        if ((instance_handle = get_next_inst()) == NULL) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failure to get another instance\n");
             QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -1521,8 +1521,8 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
-        DUMP_ECDSA_VERIFY(instance_handle, opData);
-        status = cpaCyEcdsaVerify(instance_handle,
+        DUMP_ECDSA_VERIFY(qat_instance_handles[inst_num], opData);
+        status = cpaCyEcdsaVerify(qat_instance_handles[inst_num],
                                   qat_ecdsaVerifyCallbackFn,
                                   &op_done, opData, &bEcdsaVerifyStatus);
 

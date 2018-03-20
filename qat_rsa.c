@@ -242,7 +242,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     /* Used for RSA Decrypt and RSA Sign */
     op_done_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
-    CpaInstanceHandle instance_handle = NULL;
+    int inst_num = QAT_INVALID_INSTANCE;
     int job_ret = 0;
     int sync_mode_ret = 0;
     thread_local_variables_t *tlv = NULL;
@@ -295,7 +295,7 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
      */
     CRYPTO_QAT_LOG("- RSA\n");
     do {
-        if (NULL == (instance_handle = get_next_inst())) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             qat_clear_async_event_notification();
@@ -303,8 +303,8 @@ qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             return 0;
         }
-        DUMP_RSA_DECRYPT(instance_handle, &op_done, dec_op_data, output_buf);
-        sts = cpaCyRsaDecrypt(instance_handle, qat_rsaCallbackFn, &op_done,
+        DUMP_RSA_DECRYPT(qat_instance_handles[inst_num], &op_done, dec_op_data, output_buf);
+        sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn, &op_done,
                               dec_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
             if ((qat_wake_job(op_done.job, 0) == 0) ||
@@ -545,7 +545,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     op_done_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
-    CpaInstanceHandle instance_handle = NULL;
+    int inst_num = QAT_INVALID_INSTANCE;
     int job_ret = 0;
     thread_local_variables_t *tlv = NULL;
 
@@ -592,7 +592,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
      */
     CRYPTO_QAT_LOG("RSA - %s\n", __func__);
     do {
-        if (NULL == (instance_handle = get_next_inst())) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -603,8 +603,8 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             return 0;
         }
 
-        DUMP_RSA_ENCRYPT(instance_handle, &op_done, enc_op_data, output_buf);
-        sts = cpaCyRsaEncrypt(instance_handle, qat_rsaCallbackFn, &op_done,
+        DUMP_RSA_ENCRYPT(qat_instance_handles[inst_num], &op_done, enc_op_data, output_buf);
+        sts = cpaCyRsaEncrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn, &op_done,
                               enc_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -657,7 +657,7 @@ qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                 pthread_yield();
         } else {
             if(getEnableInlinePolling()) {
-                icp_sal_CyPollInstance(instance_handle, 0);
+                icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
             } else {
                 pthread_yield();
             }

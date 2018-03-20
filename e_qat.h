@@ -58,15 +58,21 @@
 
 # define QAT_RETRY_BACKOFF_MODULO_DIVISOR 8
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
+# define QAT_INVALID_INSTANCE -1
 
 # ifndef ERR_R_RETRY
 #  define ERR_R_RETRY 57
 # endif
 
 typedef struct {
-    CpaInstanceHandle qatInstanceForThread;
+    int qatInstanceNumForThread;
     unsigned int localOpsInFlight;
 } thread_local_variables_t;
+
+typedef struct {
+    CpaInstanceInfo2  qat_instance_info;
+    unsigned int qat_instance_started;
+} qat_instance_details_t;
 
 #define likely(x)   __builtin_expect (!!(x), 1)
 #define unlikely(x) __builtin_expect (!!(x), 0)
@@ -150,7 +156,7 @@ typedef struct {
                     QAT_QMEM_FREE_FLATBUFF(b); \
             } while(0)
 
-#define MAX_CRYPTO_INSTANCES 64
+#define QAT_MAX_CRYPTO_INSTANCES 256
 
 /* Behavior of qat_engine_finish_int */
 #define QAT_RETAIN_GLOBALS 0
@@ -210,12 +216,11 @@ extern int enable_event_driven_polling;
 extern int enable_heuristic_polling;
 extern int enable_instance_for_thread;
 extern int qatPerformOpRetries;
-extern int curr_inst;
 extern pthread_mutex_t qat_instance_mutex;
 extern pthread_mutex_t qat_engine_mutex;
 
 extern unsigned int engine_inited;
-extern unsigned int instance_started[MAX_CRYPTO_INSTANCES];
+extern qat_instance_details_t qat_instance_details[QAT_MAX_CRYPTO_INSTANCES];
 extern useconds_t qat_poll_interval;
 extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
@@ -243,13 +248,13 @@ int qat_use_signals(void);
 
 /******************************************************************************
  * function:
- *         get_next_inst(void)
+ *         get_next_inst_num(void)
  *
  * description:
- *   Return the next instance handle to use for an operation.
+ *   Return the next instance number to use for an operation.
  *
  ******************************************************************************/
-CpaInstanceHandle get_next_inst(void);
+int get_next_inst_num(void);
 
 /******************************************************************************
  * function:

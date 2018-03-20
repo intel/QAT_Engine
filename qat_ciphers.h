@@ -136,7 +136,7 @@ typedef struct qat_chained_ctx_t {
     void *sw_ctx_data;
 # endif
     /* QAT Session Params */
-    CpaInstanceHandle instance_handle;
+    int inst_num;
     CpaCySymSessionSetupData *session_data;
     CpaCySymSessionCtx session_ctx;
     int init_flags;
@@ -168,9 +168,11 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
 int qat_pkt_threshold_table_set_threshold(const char *cipher_name,
                                           int threshold);
 # endif
-CpaStatus qat_sym_perform_op(const CpaInstanceHandle instance_handle,
-                             void *pCallbackTag, const CpaCySymOpData * pOpData,
+CpaStatus qat_sym_perform_op(int inst_num,
+                             void *pCallbackTag,
+                             const CpaCySymOpData * pOpData,
                              const CpaBufferList * pSrcBuffer,
-                             CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult);
+                             CpaBufferList * pDstBuffer,
+                             CpaBoolean * pVerifyResult);
 
 #endif                          /* QAT_CIPHERS_H */

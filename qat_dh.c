@@ -182,7 +182,7 @@ int qat_dh_generate_key(DH *dh)
     const BIGNUM *g = NULL;
     BIGNUM *pub_key = NULL, *priv_key = NULL;
     const BIGNUM *temp_pub_key = NULL, *temp_priv_key = NULL;
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyDhPhase1KeyGenOpData *opData = NULL;
     CpaFlatBuffer *pPV = NULL;
     int qatPerformOpRetries = 0;
@@ -344,7 +344,7 @@ int qat_dh_generate_key(DH *dh)
 
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     do {
-        if ((instance_handle = get_next_inst()) == NULL) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -356,10 +356,10 @@ int qat_dh_generate_key(DH *dh)
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-        DUMP_DH_GEN_PHASE1(instance_handle, opData, pPV);
-        status = cpaCyDhKeyGenPhase1(instance_handle,
-                qat_dhCallbackFn,
-                &op_done, opData, pPV);
+        DUMP_DH_GEN_PHASE1(qat_instance_handles[inst_num], opData, pPV);
+        status = cpaCyDhKeyGenPhase1(qat_instance_handles[inst_num],
+                                     qat_dhCallbackFn,
+                                     &op_done, opData, pPV);
 
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -478,7 +478,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 {
     int ret = -1, job_ret = 0;
     int check_result;
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyDhPhase2SecretKeyGenOpData *opData = NULL;
     CpaFlatBuffer *pSecretKey = NULL;
     int qatPerformOpRetries = 0;
@@ -599,7 +599,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     CRYPTO_QAT_LOG("KX - ?%s\n", __func__);
     do {
-        if ((instance_handle = get_next_inst()) == NULL) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -611,10 +611,10 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-        DUMP_DH_GEN_PHASE2(instance_handle, opData, pSecretKey);
-        status = cpaCyDhKeyGenPhase2Secret(instance_handle,
-                qat_dhCallbackFn,
-                &op_done, opData, pSecretKey);
+        DUMP_DH_GEN_PHASE2(qat_instance_handles[inst_num], opData, pSecretKey);
+        status = cpaCyDhKeyGenPhase2Secret(qat_instance_handles[inst_num],
+                                           qat_dhCallbackFn,
+                                           &op_done, opData, pSecretKey);
 
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {

@@ -563,12 +563,12 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
         qctx->qop[i].dst_sgl.pUserData = NULL;
         qctx->qop[i].dst_sgl.pPrivateMetaData = NULL;
 
-        DEBUG("Pipe [%d] instance_handle = %p\n", i, qctx->instance_handle);
+        DEBUG("Pipe [%d] inst_num = %d\n", i, qctx->inst_num);
         DEBUG("Pipe [%d] No of buffers = %d\n", i, qctx->qop[i].src_sgl.numBuffers);
 
         /* setup meta data for buffer lists */
         if (msize == 0 &&
-            cpaCyBufferListGetMetaSize(qctx->instance_handle,
+            cpaCyBufferListGetMetaSize(qat_instance_handles[qctx->inst_num],
                                        qctx->qop[i].src_sgl.numBuffers,
                                        &msize) != CPA_STATUS_SUCCESS) {
             WARN("cpaCyBufferListGetBufferSize failed.\n");
@@ -734,15 +734,15 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     ssd->hashSetupData.authModeSetupData.authKey = qctx->hmac_key;
 
-    qctx->instance_handle = get_next_inst();
-    if (qctx->instance_handle == NULL) {
+    qctx->inst_num = get_next_inst_num();
+    if (qctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get QAT Instance Handle!.\n");
         goto err;
     }
 
-    DEBUG("instance_handle = %p\n", qctx->instance_handle);
+    DEBUG("inst_num = %d\n", qctx->inst_num);
     DUMP_SESSION_SETUP_DATA(ssd);
-    sts = cpaCySymSessionCtxGetSize(qctx->instance_handle, ssd, &sctx_size);
+    sts = cpaCySymSessionCtxGetSize(qat_instance_handles[qctx->inst_num], ssd, &sctx_size);
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to get SessionCtx size.\n");
@@ -857,11 +857,11 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 
         INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_HMAC_KEY_SET);
 
-        DEBUG("instance_handle = %p\n", qctx->instance_handle);
+        DEBUG("inst_num = %d\n", qctx->inst_num);
         DUMP_SESSION_SETUP_DATA(ssd);
         DEBUG("session_ctx = %p\n", qctx->session_ctx);
 
-        sts = cpaCySymInitSession(qctx->instance_handle,
+        sts = cpaCySymInitSession(qat_instance_handles[qctx->inst_num],
                                   qat_chained_callbackFn,
                                   ssd, qctx->session_ctx);
         if (sts != CPA_STATUS_SUCCESS) {
@@ -1009,7 +1009,7 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
     ssd = qctx->session_data;
     if (ssd) {
         if (INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_SESSION_INIT)) {
-            sts = cpaCySymRemoveSession(qctx->instance_handle,
+            sts = cpaCySymRemoveSession(qat_instance_handles[qctx->inst_num],
                                         qctx->session_ctx);
             if (sts != CPA_STATUS_SUCCESS) {
                 WARN("cpaCySymRemoveSession FAILED, sts = %d\n", sts);
@@ -1132,10 +1132,10 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
              */
             qctx->session_data->verifyDigest = CPA_FALSE;
         }
-        DEBUG("instance_handle = %p\n", qctx->instance_handle);
+        DEBUG("inst_num = %d\n", qctx->inst_num);
         DUMP_SESSION_SETUP_DATA(qctx->session_data);
         DEBUG("session_ctx = %p\n", qctx->session_ctx);
-        sts = cpaCySymInitSession(qctx->instance_handle, qat_chained_callbackFn,
+        sts = cpaCySymInitSession(qat_instance_handles[qctx->inst_num], qat_chained_callbackFn,
                                   qctx->session_data, qctx->session_ctx);
 
         if (sts != CPA_STATUS_SUCCESS) {
@@ -1384,9 +1384,9 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                        inb + (buflen - discardlen) - ivlen, ivlen);
         }
 
-        DUMP_SYM_PERFORM_OP(qctx->instance_handle, opd, s_sgl, d_sgl);
-        sts = qat_sym_perform_op(qctx->instance_handle, &done, opd, s_sgl, d_sgl,
-                          &(qctx->session_data->verifyDigest));
+        DUMP_SYM_PERFORM_OP(qat_instance_handles[qctx->inst_num], opd, s_sgl, d_sgl);
+        sts = qat_sym_perform_op(qctx->inst_num, &done, opd, s_sgl,
+                                 d_sgl, &(qctx->session_data->verifyDigest));
         if (sts != CPA_STATUS_SUCCESS) {
             WARN("Failed to submit request to qat - status = %d\n", sts);
             error = 1;
@@ -1486,15 +1486,15 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 }
 
 /******************************************************************************
- *  * function:
- *         CpaStatus qat_sym_perform_op(const CpaInstanceHandle  instance_handle,
- *                     void *                     pCallbackTag,
- *                     const CpaCySymOpData      *pOpData,
- *                     const CpaBufferList       *pSrcBuffer,
- *                     CpaBufferList             *pDstBuffer,
- *                     CpaBoolean                *pVerifyResult)
+ * function:
+ *    CpaStatus qat_sym_perform_op(int                   inst_num,
+ *                                 void                  *pCallbackTag,
+ *                                 const CpaCySymOpData  *pOpData,
+ *                                 const CpaBufferList   *pSrcBuffer,
+ *                                 CpaBufferList         *pDstBuffer,
+ *                                 CpaBoolean            *pVerifyResult)
  *
- * @param instance_handle [IN]  - Instance handle
+ * @param inst_num        [IN]  - The current instance
  * @param pCallbackTag    [IN]  - Pointer to op_done struct
  * @param pOpData         [IN]  - Operation parameters
  * @param pSrcBuffer      [IN]  - Source buffer list
@@ -1506,11 +1506,12 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
  *
  *******************************************************************************/
 
-CpaStatus qat_sym_perform_op(const CpaInstanceHandle instance_handle,
-        void *pCallbackTag,
-        const CpaCySymOpData * pOpData,
-        const CpaBufferList * pSrcBuffer,
-        CpaBufferList * pDstBuffer, CpaBoolean * pVerifyResult)
+CpaStatus qat_sym_perform_op(int inst_num,
+                             void *pCallbackTag,
+                             const CpaCySymOpData * pOpData,
+                             const CpaBufferList * pSrcBuffer,
+                             CpaBufferList * pDstBuffer,
+                             CpaBoolean * pVerifyResult)
 {
     CpaStatus status;
     op_done_t *opDone = (op_done_t *)pCallbackTag;
@@ -1518,10 +1519,12 @@ CpaStatus qat_sym_perform_op(const CpaInstanceHandle instance_handle,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     do {
-        status = cpaCySymPerformOp(instance_handle,
-                pCallbackTag,
-                pOpData,
-                pSrcBuffer, pDstBuffer, pVerifyResult);
+        status = cpaCySymPerformOp(qat_instance_handles[inst_num],
+                                   pCallbackTag,
+                                   pOpData,
+                                   pSrcBuffer,
+                                   pDstBuffer,
+                                   pVerifyResult);
         if (status == CPA_STATUS_RETRY) {
             if (opDone->job) {
                 if ((qat_wake_job(opDone->job, 0) == 0) ||

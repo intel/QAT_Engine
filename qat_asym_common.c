@@ -149,7 +149,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     CpaFlatBuffer result = { 0, };
     CpaStatus status = 0;
     int retval = 1, job_ret = 0;
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     int qatPerformOpRetries = 0;
     op_done_t op_done;
     int iMsgRetry = getQatMsgRetryCount();
@@ -215,8 +215,8 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     }
 
     do {
-        if (NULL == (instance_handle = get_next_inst())) {
-            WARN("Failure in get_next_inst()\n");
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+            WARN("Failure to get an instance\n");
             QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_GET_NEXT_INST_FAIL);
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
@@ -227,7 +227,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             goto exit;
         }
 
-        status = cpaCyLnModExp(instance_handle, qat_modexpCallbackFn, &op_done,
+        status = cpaCyLnModExp(qat_instance_handles[inst_num], qat_modexpCallbackFn, &op_done,
                                &opData, &result);
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {

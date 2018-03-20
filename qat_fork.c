@@ -120,8 +120,7 @@ int qat_set_instance_for_thread(long instanceNum)
         return 0;
     }
 
-    tlv->qatInstanceForThread =
-        qat_instance_handles[instanceNum % qat_num_instances];
+    tlv->qatInstanceNumForThread = instanceNum % qat_num_instances;
     enable_instance_for_thread = 1;
     return 1;
 }

@@ -131,12 +131,13 @@ int enable_inline_polling = 0;
 int enable_event_driven_polling = 0;
 int enable_heuristic_polling = 0;
 int enable_instance_for_thread = 0;
-int curr_inst = 0;
+
 pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 unsigned int engine_inited = 0;
-unsigned int instance_started[MAX_CRYPTO_INSTANCES] = {0};
+qat_instance_details_t qat_instance_details[QAT_MAX_CRYPTO_INSTANCES] = {{{0}}};
+
 useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
@@ -183,40 +184,10 @@ int qat_use_signals(void)
 }
 
 
-/******************************************************************************
-* function:
-*         incr_curr_inst(void)
-*
-* description:
-*   Increment the logical Cy instance number to use for the next operation.
-*
-******************************************************************************/
-static inline void incr_curr_inst(void)
+int get_next_inst_num(void)
 {
-    pthread_mutex_lock(&qat_instance_mutex);
-    curr_inst = (curr_inst + 1) % qat_num_instances;
-    pthread_mutex_unlock(&qat_instance_mutex);
-}
-
-CpaInstanceHandle get_next_inst(void)
-{
-    CpaInstanceHandle instance_handle = NULL;
-
-    if (1 == enable_instance_for_thread) {
-        thread_local_variables_t * tlv = NULL;
-        tlv = qat_check_create_local_variables();
-        if (NULL == tlv) {
-            WARN("No local variables are available\n");
-            return instance_handle;
-        }
-        instance_handle = tlv->qatInstanceForThread;
-        /* If no thread specific data is found then return NULL
-           as there should be as the flag is set */
-        if (instance_handle == NULL) {
-            WARN("No thread specific instance is available\n");
-            return instance_handle;
-        }
-    }
+    int inst_num = QAT_INVALID_INSTANCE;
+    thread_local_variables_t * tlv = NULL;
 
     /* See qat_use_signals() above for more info on why it is safe to
        check engine_inited outside of a mutex in this case. */
@@ -225,33 +196,40 @@ CpaInstanceHandle get_next_inst(void)
 
         if (e == NULL) {
             WARN("Function ENGINE_by_id returned NULL\n");
-            instance_handle = NULL;
-            return instance_handle;
+            return inst_num;
         }
 
         if (!qat_engine_init(e)) {
             WARN("Failure in qat_engine_init function\n");
-            instance_handle = NULL;
             ENGINE_free(e);
-            return instance_handle;
+            return inst_num;
         }
 
         ENGINE_free(e);
     }
 
-    /* Each call to get_next_inst will iterate through the array of instances
-       if an instance was not retrieved already from thread specific data. */
-    if (instance_handle == NULL)
-    {
-        if (qat_instance_handles) {
-            instance_handle = qat_instance_handles[curr_inst];
-            incr_curr_inst();
-        } else {
-            WARN("No instances are available\n");
-            instance_handle = NULL;
+    tlv = qat_check_create_local_variables();
+    if (unlikely(NULL == tlv)) {
+        WARN("No local variables are available\n");
+        return inst_num;
+    }
+
+    if (0 == enable_instance_for_thread) {
+        if (likely(qat_instance_handles && qat_num_instances)) {
+            tlv->qatInstanceNumForThread = (tlv->qatInstanceNumForThread + 1) % qat_num_instances;
+            inst_num = tlv->qatInstanceNumForThread;
+        }
+    } else {
+        if (tlv->qatInstanceNumForThread != QAT_INVALID_INSTANCE) {
+            inst_num = tlv->qatInstanceNumForThread;
         }
     }
-    return instance_handle;
+    /* If no working instance could be found then flag a warning */
+    if (unlikely(inst_num == QAT_INVALID_INSTANCE)) {
+        WARN("No working instance is available\n");
+    }
+
+    return inst_num;
 }
 
 /******************************************************************************
@@ -278,12 +256,14 @@ static CpaPhysicalAddr virtualToPhysical(void *virtualAddr)
 thread_local_variables_t * qat_check_create_local_variables(void)
 {
     thread_local_variables_t * tlv =
-        (thread_local_variables_t *) pthread_getspecific(thread_local_variables);
+        (thread_local_variables_t *)pthread_getspecific(thread_local_variables);
     if (tlv != NULL)
         return tlv;
     tlv = OPENSSL_zalloc(sizeof(thread_local_variables_t));
-    if (tlv != NULL)
+    if (tlv != NULL) {
+        tlv->qatInstanceNumForThread = QAT_INVALID_INSTANCE;
         pthread_setspecific(thread_local_variables, (void *)tlv);
+    }
     return tlv;
 }
 
@@ -442,6 +422,17 @@ int qat_engine_init(ENGINE *e)
 
     /* Set translation function and start each instance */
     for (instNum = 0; instNum < qat_num_instances; instNum++) {
+        /* Retrieve CpaInstanceInfo2 structure for that instance */
+        status = cpaCyInstanceGetInfo2(qat_instance_handles[instNum],
+                                       &qat_instance_details[instNum].qat_instance_info);
+        if (CPA_STATUS_SUCCESS != status ) {
+            WARN("cpaCyInstanceGetInfo2 failed. status = %d\n", status);
+            QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_INSTANCE_INFO_FAILURE);
+            pthread_mutex_unlock(&qat_engine_mutex);
+            qat_engine_finish(e);
+            return 0;
+        }
+
         /* Set the address translation function */
         status = cpaCySetAddressTranslation(qat_instance_handles[instNum],
                                             virtualToPhysical);
@@ -463,7 +454,8 @@ int qat_engine_init(ENGINE *e)
             return 0;
         }
 
-        instance_started[instNum] = 1;
+        qat_instance_details[instNum].qat_instance_started = 1;
+        DEBUG("Started Instance No: %d\n", instNum);
     }
 
     if (!enable_external_polling && !enable_inline_polling) {
@@ -501,8 +493,6 @@ int qat_engine_init(ENGINE *e)
                 sleep(1);
         }
     }
-    /* Reset curr_inst */
-    curr_inst = 0;
     engine_inited = 1;
     pthread_mutex_unlock(&qat_engine_mutex);
     return 1;
@@ -828,7 +818,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
 
     if (qat_instance_handles) {
         for (i = 0; i < qat_num_instances; i++) {
-            if (instance_started[i]) {
+            if (qat_instance_details[i].qat_instance_started) {
                 status = cpaCyStopInstance(qat_instance_handles[i]);
 
                 if (CPA_STATUS_SUCCESS != status) {
@@ -837,7 +827,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
                     ret = 0;
                 }
 
-                instance_started[i] = 0;
+                qat_instance_details[i].qat_instance_started = 0;
             }
         }
     }
@@ -887,7 +877,6 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     internal_efd = 0;
     qat_instance_handles = NULL;
     keep_polling = 1;
-    curr_inst = 0;
     qatPerformOpRetries = 0;
 
     /* Reset the configuration global variables (to their default values) only

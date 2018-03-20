@@ -146,6 +146,8 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
      "get file descriptor failure"},
     {ERR_REASON(QAT_R_GET_GROUP_FAILURE), "get group failure"},
     {ERR_REASON(QAT_R_GET_INSTANCE_FAILURE), "get instance failure"},
+    {ERR_REASON(QAT_R_GET_INSTANCE_INFO_FAILURE),
+     "get instance info failure"},
     {ERR_REASON(QAT_R_GET_NUM_INSTANCE_FAILURE), "get num instance failure"},
     {ERR_REASON(QAT_R_GET_PQG_FAILURE), "get pqg failure"},
     {ERR_REASON(QAT_R_GET_PRIV_KEY_FAILURE), "get priv key failure"},

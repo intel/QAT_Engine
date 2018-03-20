@@ -242,7 +242,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     DSA_SIG *sig = NULL;
     CpaFlatBuffer *pResultR = NULL;
     CpaFlatBuffer *pResultS = NULL;
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyDsaRSSignOpData *opData = NULL;
     CpaBoolean bDsaSignStatus;
     CpaStatus status;
@@ -438,7 +438,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
 
     do {
-        if ((instance_handle = get_next_inst()) == NULL) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -452,10 +452,10 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
-        DUMP_DSA_SIGN(instance_handle, &op_done, opData, &bDsaSignStatus,
+        DUMP_DSA_SIGN(qat_instance_handles[inst_num], &op_done, opData, &bDsaSignStatus,
                       pResultR, pResultS);
 
-        status = cpaCyDsaSignRS(instance_handle,
+        status = cpaCyDsaSignRS(qat_instance_handles[inst_num],
                                 qat_dsaSignCallbackFn,
                                 &op_done,
                                 opData,
@@ -601,7 +601,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     const BIGNUM *g = NULL;
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
     int ret = -1, i = 0, job_ret = 0;
-    CpaInstanceHandle instance_handle;
+    int inst_num = QAT_INVALID_INSTANCE;
     CpaCyDsaVerifyOpData *opData = NULL;
     CpaBoolean bDsaVerifyStatus;
     CpaStatus status;
@@ -754,7 +754,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     do {
-        if ((instance_handle = get_next_inst()) == NULL) {
+        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
@@ -766,9 +766,9 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
-        DUMP_DSA_VERIFY(instance_handle, &op_done, opData, &bDsaVerifyStatus);
+        DUMP_DSA_VERIFY(qat_instance_handles[inst_num], &op_done, opData, &bDsaVerifyStatus);
 
-        status = cpaCyDsaVerify(instance_handle,
+        status = cpaCyDsaVerify(qat_instance_handles[inst_num],
                                 qat_dsaVerifyCallbackFn,
                                 &op_done, opData, &bDsaVerifyStatus);
 
