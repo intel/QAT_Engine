@@ -122,6 +122,9 @@
             qat_chained_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
 #endif
 
+#define GET_NON_CHAINED_CIPHER(ctx) \
+    get_cipher_from_nid(EVP_CIPHER_CTX_nid((ctx)))
+
 #define DEBUG_PPL DEBUG
 #ifndef OPENSSL_DISABLE_QAT_CIPHERS
 static int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
@@ -227,6 +230,22 @@ static inline const EVP_CIPHER *qat_chained_cipher_sw_impl(int nid)
             return NULL;
     }
 }
+
+static inline const EVP_CIPHER *get_cipher_from_nid(int nid)
+{
+    switch (nid) {
+        case NID_aes_128_cbc_hmac_sha1:
+        case NID_aes_128_cbc_hmac_sha256:
+            return EVP_aes_128_cbc();
+        case NID_aes_256_cbc_hmac_sha1:
+        case NID_aes_256_cbc_hmac_sha256:
+            return EVP_aes_256_cbc();
+        default:
+            WARN("Invalid nid %d\n", nid);
+            return NULL;
+    }
+}
+
 
 static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
         unsigned int *num_elem)
@@ -1064,7 +1083,6 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int plen_adj = 0;
     op_done_pipe_t done;
     qat_chained_ctx *qctx = NULL;
-    AES_KEY aes_key;
     unsigned char *inb, *outb;
     unsigned char ivec[AES_BLOCK_SIZE];
     unsigned char out_blk[TLS_MAX_PADDING_LENGTH + 1] = { 0x0 };
@@ -1316,6 +1334,11 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             unsigned int maxpad, res = 0xff;
             size_t j;
             uint8_t cmask, b;
+            int rx_len = 0;
+            EVP_CIPHER_CTX *dctx = NULL;
+            int decryptFinal_out_len = 0;
+            int decrypt_error = 0;
+
 
             if ((buflen - dlen) <= TLS_MAX_PADDING_LENGTH)
                 tmp_padlen = (((buflen - dlen) + (AES_BLOCK_SIZE - 1))
@@ -1323,9 +1346,33 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             in_blk = inb + (buflen - tmp_padlen);
             memcpy(ivec, in_blk - AES_BLOCK_SIZE, AES_BLOCK_SIZE);
 
-            AES_set_decrypt_key(qctx->session_data->cipherSetupData.pCipherKey,
-                                EVP_CIPHER_CTX_key_length(ctx) * 8, &aes_key);
-            AES_cbc_encrypt(in_blk, out_blk, tmp_padlen, &aes_key, ivec, 0);
+            dctx = EVP_CIPHER_CTX_new();
+            if (dctx == NULL) {
+                WARN("Failed to create decrypt context dctx.\n");
+                error = 1;
+                break;
+            }
+            EVP_CIPHER_CTX_init(dctx);
+
+            if (!EVP_DecryptInit_ex(dctx, GET_NON_CHAINED_CIPHER(ctx), NULL,
+                                    qctx->session_data->cipherSetupData.pCipherKey, ivec)) {
+                WARN("DecryptInit error occurred.\n");
+                decrypt_error = 1;
+            } else {
+                EVP_CIPHER_CTX_set_flags(dctx, EVP_CIPH_NO_PADDING);
+                if (!EVP_DecryptUpdate(dctx, out_blk, &rx_len, in_blk, tmp_padlen)
+                    || !EVP_DecryptFinal_ex(dctx, out_blk + rx_len, &decryptFinal_out_len)) {
+                    WARN("Decrypt error occurred.\n");
+                    decrypt_error = 1;
+                }
+            }
+            EVP_CIPHER_CTX_cleanup(dctx);
+            OPENSSL_free(dctx);
+            dctx = NULL;
+            if (decrypt_error) {
+                error = 1;
+                break;
+            }
 
             pad_len = out_blk[tmp_padlen - 1];
             /* Determine the maximum amount of padding that could be present */
