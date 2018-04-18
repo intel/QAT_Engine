@@ -66,8 +66,6 @@
         (x == QAT_JOB_RESUMED_UNEXPECTEDLY)
 
 int qat_is_event_driven();
-void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
-                    OSSL_ASYNC_FD readfd, void *custom);
 int qat_setup_async_event_notification(int notificationNo);
 int qat_clear_async_event_notification();
 int qat_pause_job(volatile ASYNC_JOB *job, int notificationNo);

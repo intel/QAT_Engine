@@ -86,8 +86,8 @@
 #endif
 
 #ifndef OPENSSL_DISABLE_QAT_RSA
-void qat_rsaCallbackFn_CRT(void *pCallbackTag, CpaStatus status, void *pOpData,
-                       CpaFlatBuffer * pOut)
+static void qat_rsaCallbackFn_CRT(void *pCallbackTag, CpaStatus status, void *pOpData,
+                                  CpaFlatBuffer * pOut)
 {
     op_done_rsa_crt_t *op_done = (op_done_rsa_crt_t *)pCallbackTag;
     op_done->resp++;

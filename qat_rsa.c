@@ -100,20 +100,16 @@
 #ifndef OPENSSL_DISABLE_QAT_RSA
 /* Qat engine RSA methods declaration */
 static int qat_rsa_priv_enc(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding);
+                            unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_priv_dec(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding);
+                            unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_pub_enc(int flen, const unsigned char *from,
-                          unsigned char *to, RSA *rsa, int padding);
+                           unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_pub_dec(int flen, const unsigned char *from,
-                          unsigned char *to, RSA *rsa, int padding);
+                           unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
 static int qat_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-                   const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
-
-/* Callback to indicate QAT completion of RSA. */
-void qat_rsaCallbackFn(void *pCallbackTag,
-                       CpaStatus status, void *pOpData, CpaFlatBuffer * pOut);
+                          const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
 #endif
 
 static RSA_METHOD *qat_rsa_method = NULL;
@@ -194,8 +190,8 @@ static inline int qat_rsa_range_check(int plen)
 *   Calls back to qat_crypto_callbackFn() as functionally it does the same.
 *
 ******************************************************************************/
-void qat_rsaCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
-                       CpaFlatBuffer * pOut)
+static void qat_rsaCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
+                              CpaFlatBuffer * pOut)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);
@@ -235,9 +231,9 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
     DEBUG("- Finished\n");
 }
 
-int
-qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
-                CpaFlatBuffer * output_buf)
+
+static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
+                           CpaFlatBuffer * output_buf)
 {
     /* Used for RSA Decrypt and RSA Sign */
     op_done_t op_done;
@@ -537,9 +533,9 @@ rsa_encrypt_op_buf_free(CpaCyRsaEncryptOpData * enc_op_data,
     DEBUG("- Finished\n");
 }
 
-int
-qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
-                CpaFlatBuffer * output_buf)
+
+static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
+                           CpaFlatBuffer * output_buf)
 {
     /* Used for RSA Encrypt and RSA Verify */
     op_done_t op_done;

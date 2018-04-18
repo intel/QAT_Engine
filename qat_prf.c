@@ -353,8 +353,8 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
  * description:
  *   Callback to indicate the completion of PRF
  ******************************************************************************/
-void qat_prf_cb(void *pCallbackTag, CpaStatus status,
-                     void *pOpData, CpaFlatBuffer * pOut)
+static void qat_prf_cb(void *pCallbackTag, CpaStatus status,
+                       void *pOpData, CpaFlatBuffer * pOut)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_prf_requests_in_flight);

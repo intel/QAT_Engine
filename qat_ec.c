@@ -238,9 +238,9 @@ void qat_free_EC_methods(void)
 }
 
 /* Callback to indicate QAT completion of EC point multiply */
-void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
-                      CpaBoolean multiplyStatus, CpaFlatBuffer * pXk,
-                      CpaFlatBuffer * pYk)
+static void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
+                             CpaBoolean multiplyStatus, CpaFlatBuffer * pXk,
+                             CpaFlatBuffer * pYk)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);
@@ -826,10 +826,10 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
 
 #ifndef OPENSSL_DISABLE_QAT_ECDSA
 /* Callback to indicate QAT completion of ECDSA Sign */
-void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
-                             void *pOpData, CpaBoolean bEcdsaSignStatus,
-                             CpaFlatBuffer * pResultR,
-                             CpaFlatBuffer * pResultS)
+static void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
+                                    void *pOpData, CpaBoolean bEcdsaSignStatus,
+                                    CpaFlatBuffer * pResultR,
+                                    CpaFlatBuffer * pResultS)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);
@@ -839,8 +839,8 @@ void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
 }
 
 /* Callback to indicate QAT completion of ECDSA Verify */
-void qat_ecdsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
-                               void *pOpData, CpaBoolean bEcdsaVerifyStatus)
+static void qat_ecdsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
+                                      void *pOpData, CpaBoolean bEcdsaVerifyStatus)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);

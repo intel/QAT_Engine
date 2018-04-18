@@ -168,11 +168,4 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
 int qat_pkt_threshold_table_set_threshold(const char *cipher_name,
                                           int threshold);
 # endif
-CpaStatus qat_sym_perform_op(int inst_num,
-                             void *pCallbackTag,
-                             const CpaCySymOpData * pOpData,
-                             const CpaBufferList * pSrcBuffer,
-                             CpaBufferList * pDstBuffer,
-                             CpaBoolean * pVerifyResult);
-
 #endif                          /* QAT_CIPHERS_H */

@@ -149,6 +149,19 @@ sigset_t set = {{0}};
 pthread_t timer_poll_func_thread = 0;
 int cleared_to_start = 0;
 
+/******************************************************************************
+ * function:
+ *         qat_engine_finish(ENGINE *e)
+ *
+ * @param e [IN] - OpenSSL engine pointer
+ *
+ * description:
+ *   Qat engine finish function with standard signature.
+ *   This is a wrapper for qat_engine_finish_int that always resets all the
+ *   global variables used to store the engine configuration.
+ ******************************************************************************/
+static int qat_engine_finish(ENGINE *e);
+
 static inline int qat_use_signals_no_engine_start(void)
 {
     return (int)timer_poll_func_thread;
@@ -267,7 +280,18 @@ thread_local_variables_t * qat_check_create_local_variables(void)
     return tlv;
 }
 
-void qat_local_variable_destructor(void *tlv)
+
+/******************************************************************************
+ * function:
+ *         qat_local_variable_destructor(void *tlv)
+ *
+ * description:
+ *   This is a cleanup callback function registered when pthread_key_create()
+ *   is called. It will get called when the thread is destroyed and will
+ *   cleanup the thread local variables.
+ *
+ *****************************************************************************/
+static void qat_local_variable_destructor(void *tlv)
 {
     if (tlv)
        OPENSSL_free(tlv);
@@ -900,7 +924,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     return ret;
 }
 
-int qat_engine_finish(ENGINE *e) {
+static int qat_engine_finish(ENGINE *e) {
     return qat_engine_finish_int(e, QAT_RESET_GLOBALS);
 }
 

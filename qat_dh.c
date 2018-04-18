@@ -144,7 +144,7 @@ void qat_free_DH_methods(void)
  * The DH range check is performed so that if the op sizes are not in the
  * range supported by QAT engine then fall back to software
  */
-int dh_range_check(int plen)
+static int dh_range_check(int plen)
 {
     int range = 0;
 
@@ -155,8 +155,8 @@ int dh_range_check(int plen)
 }
 
 /* Callback to indicate QAT completion of DH generate & compute key */
-void qat_dhCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
-                      CpaFlatBuffer * pPV)
+static void qat_dhCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
+                             CpaFlatBuffer * pPV)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);

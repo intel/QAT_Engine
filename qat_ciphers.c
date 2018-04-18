@@ -138,6 +138,12 @@ static int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                                     void *ptr);
 
 #endif
+static CpaStatus qat_sym_perform_op(int inst_num,
+                                    void *pCallbackTag,
+                                    const CpaCySymOpData * pOpData,
+                                    const CpaBufferList * pSrcBuffer,
+                                    CpaBufferList * pDstBuffer,
+                                    CpaBoolean * pVerifyResult);
 
 int qatPerformOpRetries = 0;
 

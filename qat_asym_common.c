@@ -117,10 +117,9 @@ int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
 }
 
 /* Callback to indicate QAT completion of bignum modular exponentiation */
-void qat_modexpCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
-                       CpaFlatBuffer * pOut)
+static void qat_modexpCallbackFn(void *pCallbackTag, CpaStatus status,
+                                 void *pOpData, CpaFlatBuffer * pOut)
 {
-
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);
     }

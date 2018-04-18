@@ -86,7 +86,7 @@ int qat_is_event_driven()
     return enable_event_driven_polling;
 }
 
-void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
+static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
                            OSSL_ASYNC_FD readfd, void *custom)
 {
     if (close(readfd) != 0) {

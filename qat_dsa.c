@@ -159,7 +159,7 @@ int dsa_qat_range[4][2] = {
  * the range supported by QAT engine then fall back to software
  */
 
-int dsa_range_check(int plen, int qlen)
+static int dsa_range_check(int plen, int qlen)
 {
     int i, j, range = 0;
 
@@ -174,9 +174,9 @@ int dsa_range_check(int plen, int qlen)
 }
 
 /* Callback to indicate QAT completion of DSA Sign */
-void qat_dsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
-                           void *pOpData, CpaBoolean bDsaSignStatus,
-                           CpaFlatBuffer * pResultR, CpaFlatBuffer * pResultS)
+static void qat_dsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
+                                  void *pOpData, CpaBoolean bDsaSignStatus,
+                                  CpaFlatBuffer * pResultR, CpaFlatBuffer * pResultS)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);
@@ -186,8 +186,8 @@ void qat_dsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
 }
 
 /* Callback to indicate QAT completion of DSA Verify */
-void qat_dsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
-                             void *pOpData, CpaBoolean bDsaVerifyStatus)
+static void qat_dsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
+                                    void *pOpData, CpaBoolean bDsaVerifyStatus)
 {
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);

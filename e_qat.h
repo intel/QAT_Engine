@@ -256,17 +256,6 @@ int qat_use_signals(void);
  ******************************************************************************/
 int get_next_inst_num(void);
 
-/******************************************************************************
- * function:
- *         qat_local_variable_destructor(void *tlv)
- *
- * description:
- *   This is a cleanup callback function registered when pthread_key_create()
- *   is called. It will get called when the thread is destroyed and will
- *   cleanup the thread local variables.
- *
- *****************************************************************************/
-void qat_local_variable_destructor(void *tlv);
 
 /******************************************************************************
  * function:
@@ -293,18 +282,6 @@ thread_local_variables_t * qat_check_create_local_variables(void);
  ******************************************************************************/
 int qat_engine_init(ENGINE *e);
 
-/******************************************************************************
- * function:
- *         qat_engine_finish(ENGINE *e)
- *
- * @param e [IN] - OpenSSL engine pointer
- *
- * description:
- *   Qat engine finish function with standard signature.
- *   This is a wrapper for qat_engine_finish_int that always resets all the
- *   global variables used to store the engine configuration.
- ******************************************************************************/
-int qat_engine_finish(ENGINE *e);
 
 /******************************************************************************
  * function:
