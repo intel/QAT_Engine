@@ -335,6 +335,7 @@ To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
 ```bash
 cd /QAT_Engine
+./autogen.sh
 ./configure \
 --with-qat_dir=/QAT/QAT1.6 \
 --with-openssl_dir=/openssl \
@@ -345,6 +346,9 @@ make install
 
 In the above example this will create the file `qat.so` and copy it to
 `/usr/local/ssl/lib/engines-1.1`.
+./autogen.sh will regenerate autoconf tools files. The prerequisite to run
+autogen.sh is to have autotools(autoconf, automake and libtool)
+installed in the system.
 
 Note: When building it is possible to specify command line options that can be
 used to turn engine functionality on and off. Please see the Intel&reg; QAT

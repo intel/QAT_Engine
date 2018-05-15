@@ -5,6 +5,7 @@ AC_PREREQ([2.68])
 AC_INIT([libqat], [1.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE([foreign])
 
 #Libtool for generating shared library

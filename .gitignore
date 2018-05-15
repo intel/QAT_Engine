@@ -40,10 +40,11 @@ cscope.out
 *.d
 Makefile
 /.deps
-/.tools/autom4te.cache
+/.tools
+!*/.tools/configure.ac
+!*/.tools/Makefile.am
 config.h
 config.log
 config.status
 libtool
 stamp-h1
-
