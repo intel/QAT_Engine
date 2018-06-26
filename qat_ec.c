@@ -237,6 +237,8 @@ void qat_free_EC_methods(void)
     }
 }
 
+
+#ifndef OPENSSL_DISABLE_QAT_ECDH
 /* Callback to indicate QAT completion of EC point multiply */
 static void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                              CpaBoolean multiplyStatus, CpaFlatBuffer * pXk,
@@ -249,7 +251,7 @@ static void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData
                           NULL, multiplyStatus);
 }
 
-#ifndef OPENSSL_DISABLE_QAT_ECDH
+
 int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                          unsigned char **outY, size_t *outlenY,
                          const EC_POINT *pub_key, const EC_KEY *ecdh)
