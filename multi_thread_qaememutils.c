@@ -867,7 +867,9 @@ static void crypto_init(void)
         pthread_setspecific(qae_key, (void *)tls_ptr);
     }
 
-    for(i = 0 ; i < NUM_SLOT_SIZE ; i++) {
+    MEM_WARN("Memory Driver Warnings Enabled.\n");
+    MEM_DEBUG("Memory Driver Debug Enabled.\n");
+    for (i = 0 ; i < NUM_SLOT_SIZE ; i++) {
         init_pool(&(tls_ptr->available_slab_list[i]));
         init_pool(&(tls_ptr->empty_slab_list[i]));
     }

@@ -52,6 +52,17 @@
 #include "qae_mem.h"
 
 static pthread_mutex_t mem_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int crypto_inited = 0;
+
+
+static void crypto_init(void)
+{
+    MEM_WARN("Memory Driver Warnings Enabled.\n");
+    MEM_DEBUG("Memory Driver Debug Enabled.\n");
+
+    crypto_inited = 1;
+}
+
 
 void qaeCryptoMemFree(void *ptr)
 {
@@ -83,6 +94,9 @@ void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
     int rc;
     void *pAddress = NULL;
+
+    if (!crypto_inited)
+        crypto_init();
 
     MEM_DEBUG("pthread_mutex_lock\n");
     if ((rc = pthread_mutex_lock(&mem_mutex)) != 0) {
