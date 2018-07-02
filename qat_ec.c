@@ -629,11 +629,6 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     size_t temp_yfield_size = 0;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
 
-# ifdef OPENSSL_FIPS
-    if (FIPS_mode())
-        return FIPS_ec_key_generate_key(ecdh);
-# endif
-
     if (ecdh == NULL || ((group = EC_KEY_get0_group(ecdh)) == NULL)) {
         WARN("Either ecdh or group are NULL\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_GROUP_NULL);
