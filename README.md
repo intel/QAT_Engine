@@ -347,7 +347,7 @@ make install
 In the above example this will create the file `qat.so` and copy it to
 `/usr/local/ssl/lib/engines-1.1`.
 ./autogen.sh will regenerate autoconf tools files. The prerequisite to run
-autogen.sh is to have autotools(autoconf, automake and libtool)
+autogen.sh is to have autotools (autoconf, automake and libtool)
 installed in the system.
 
 Note: When building it is possible to specify command line options that can be
@@ -372,6 +372,7 @@ using the USDM component would be as follows:
 
 ```bash
 cd /QAT_Engine
+./autogen.sh
 ./configure \
 --with-qat_dir=/QAT \
 --with-openssl_dir=/openssl \
