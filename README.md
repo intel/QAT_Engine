@@ -828,7 +828,7 @@ Mandatory (when using the Upstream Intel&reg; QAT Driver)
 
 Optional
 
---with-qat_build_dir=/path/to/qat_driver/build
+--with-qat_install_dir=/path/to/qat_driver/build
     Specify the path to the location of the built Intel(R) QAT Driver library
     files. This path is needed in order to link to the userspace libraries of
     the Intel(R) QAT Driver.
