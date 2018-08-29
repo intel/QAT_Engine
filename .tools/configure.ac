@@ -335,8 +335,17 @@ fi
 AC_ARG_WITH(includes, AS_HELP_STRING(), , includes="-I\$(with_openssl_dir)/include")
 AC_SUBST(includes)
 
-AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall")
-AC_SUBST(cflags)
+case `($CC --version) 2>/dev/null` in
+    'gcc (GCC) '[[0-3]].* | \
+    'gcc (GCC) '4.[[0-8]].*)
+         AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fstack-protector")
+         AC_SUBST(cflags)
+         ;;
+    *)
+         AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong")
+         AC_SUBST(cflags)
+         ;;
+esac
 
 if test "x$with_cc_opt" != "x"
 then
