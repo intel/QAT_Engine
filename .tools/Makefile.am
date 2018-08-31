@@ -99,7 +99,11 @@ libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
 if QAT_OPENSSL_102
  ENGINE_LIB = $(with_openssl_install_dir)/lib/engines/libqat.so
 else
+if QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH
+ ENGINE_LIB = $(with_openssl_install_dir)/engines-1.1/qat.so
+else
  ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-1.1/qat.so
+endif
 endif
 
 mostlyclean-generic:

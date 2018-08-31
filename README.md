@@ -383,6 +383,41 @@ make
 make install
 ```
 
+An example to build and install the Intel&reg; QAT OpenSSL\* Engine against a
+packaged prebuilt OpenSSL\* requiring use of the optional configure parameter
+`--enable-openssl_install_build_arch` (described in the 'Optional' configure options section
+below) is as follows.  It assumes that:
+
+* The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
+  of the drive: `/`.
+* The Intel&reg; QAT Driver was unpacked within `/QAT`and is the
+  Upstream Intel&reg; QAT Driver using the USDM component.
+* The OpenSSL\* source comprises a prebuilt (GNU compiled) packaged OpenSSL\* that either
+  forms part of a Debian\* based distribution or else has been installed onto a
+  Debian\* based distribution.
+* The machine processor type is `x86_64`.
+* The OpenSSL\* version is in the `1.1.0` series.
+
+To build and install the Intel&reg; QAT OpenSSL\* Engine:
+
+```bash
+cd /QAT_Engine
+./autogen.sh
+./configure \
+--with-qat_dir=/QAT \
+--with-openssl_dir=/usr \
+--with-openssl_install_dir=/usr/lib/x86_64-linux-gnu \
+--enable-openssl_install_build_arch_path \
+--enable-upstream_driver \
+--enable-usdm
+make
+make install
+```
+
+In the above example this will create the file `qat.so` and copy it to
+`/usr/lib/x86_64-linux-gnu/engines-1.1`.
+
+
 ### Copy the correct Intel&reg; Quickassist Technology Driver config files
 
 The Intel&reg; QAT OpenSSL\* Engine comes with some example conf files to use
@@ -962,6 +997,30 @@ Optional
 
 --enable-qat_for_openssl_master
     Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* master.
+
+--enable-openssl_install_build_arch_path
+    Enable the Intel(R) QAT OpenSSL* Engine to build against a packaged pre-built
+    OpenSSL* that has either been pre-installed in your particular Linux distribution
+    or else that you have installed yourself.
+    For example, for a Debian* based distribution, the OpenSSL* package is either
+    pre-installed or else can be installed with the command:
+    `apt-get install openssl`.
+    This places both static and shared libraries associated with the OpenSSL*
+    package in directory /usr/lib/<architecture>,
+    where <architecture> is a description of the architecture the package is
+    intended to run on (for example, for an Intel(R) x86-based 64-bit architecture, GNU-compiled
+    it would be 'x86_64-linux-gnu').  In addition, for this example Debian* based distribution,
+    the OpenSSL* header files associated with the OpenSSL* package are placed in directory
+    `/usr/include/openssl`.
+    At the time of writing, for a recent Debian* based distribution such as `Ubuntu 18.04.1 LTS`,
+    the version of this packaged OpenSSL* is version `1.1.0g`.  Shared libraries corresponding
+    to this version of OpenSSL* for compiled engine code are placed in directory
+    `usr/lib/<architecture>/engines-1.1`, the `1.1` denoting that the version is in the `1.1.0`
+    series.
+    Use of this option ensures that the Intel(R) QAT OpenSSL* Engine shared library, resulting from
+    carrying out the Intel(R) QAT OpenSSL* Engine build and installation process, is placed in this
+    directory rather than the default.
+    This option is disabled by default.
 
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at

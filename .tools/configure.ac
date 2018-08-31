@@ -167,6 +167,11 @@ AC_ARG_ENABLE(qat_for_openssl_master,
                              [Enable building QAT engine against OpenSSL master branch]))
 AC_SUBST(enable_qat_for_openssl_master)
 
+AC_ARG_ENABLE(openssl_install_build_arch_path,
+              AS_HELP_STRING([--enable-openssl_install_build_arch_path],
+                             [Enable building QAT engine against packaged OpenSSL on, for example, a Debian system]))
+AC_SUBST(enable_openssl_install_build_arch_path)
+
 # ERROR message if mandatory options are not provided
 
 if test "x$with_qat_dir" = "x"
@@ -428,6 +433,12 @@ then
   AC_MSG_NOTICE([Build QAT engine against OpenSSL master])
 fi
 AM_CONDITIONAL([QAT_OPENSSL_MASTER], [test "x$enable_qat_for_openssl_master" = "xyes"])
+
+if test "x$enable_openssl_install_build_arch_path" = "xyes"
+then
+  AC_MSG_NOTICE([Build QAT engine against packaged OpenSSL on, for example, a Debian system])
+fi
+AM_CONDITIONAL([QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH], [test "x$enable_openssl_install_build_arch_path" = "xyes"])
 
 # Adding driver source for building and linking the library
 
