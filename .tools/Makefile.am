@@ -117,13 +117,13 @@ MAKE = rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.e
        -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
 
 else
-if QAT_OPENSSL_MASTER
+if QAT_OPENSSL_110
 MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex $(libqat_la_SOURCES) && make
+       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
 
 else
 MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
+       -rebuild -reindex $(libqat_la_SOURCES) && make
 endif
 endif
 

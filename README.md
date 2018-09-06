@@ -340,6 +340,7 @@ cd /QAT_Engine
 --with-qat_dir=/QAT/QAT1.6 \
 --with-openssl_dir=/openssl \
 --with-openssl_install_dir=/usr/local/ssl
+--enable-qat_for_openssl_110 \
 make
 make install
 ```
@@ -377,6 +378,7 @@ cd /QAT_Engine
 --with-qat_dir=/QAT \
 --with-openssl_dir=/openssl \
 --with-openssl_install_dir=/usr/local/ssl \
+--enable-qat_for_openssl_110 \
 --enable-upstream_driver \
 --enable-usdm
 make
@@ -408,6 +410,7 @@ cd /QAT_Engine
 --with-openssl_dir=/usr \
 --with-openssl_install_dir=/usr/lib/x86_64-linux-gnu \
 --enable-openssl_install_build_arch_path \
+--enable-qat_for_openssl_110 \
 --enable-upstream_driver \
 --enable-usdm
 make
@@ -582,6 +585,8 @@ If this occurs some of the things to check are:
    5. Has the environment variable `OPENSSL_ENGINES` been correctly defined and
       exported to the shell?
       Also check it is really pointing to the correct location.
+   6. If building for OpenSSL 1.1.0 was the configure option
+      `--enable-qat_for_openssl_110` specified?
 
 If running on a Debian\* based OS (Ubuntu\* for example) it is possible that the
 Intel&reg; QAT Driver userspace shared library needed by the Intel&reg; QAT
@@ -995,8 +1000,8 @@ Optional
     Currently if using this build option, only synchronous RSA offload is
     supported.
 
---enable-qat_for_openssl_master
-    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* master.
+--enable-qat_for_openssl_110
+    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.1.0.
 
 --enable-openssl_install_build_arch_path
     Enable the Intel(R) QAT OpenSSL* Engine to build against a packaged pre-built

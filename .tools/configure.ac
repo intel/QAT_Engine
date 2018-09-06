@@ -162,10 +162,10 @@ AC_ARG_ENABLE(qat_for_openssl_102,
                              [Enable building QAT engine against OpenSSL 1.0.2 with only RSA sync offloading]))
 AC_SUBST(enable_qat_for_openssl_102)
 
-AC_ARG_ENABLE(qat_for_openssl_master,
-              AS_HELP_STRING([--enable-qat_for_openssl_master],
-                             [Enable building QAT engine against OpenSSL master branch]))
-AC_SUBST(enable_qat_for_openssl_master)
+AC_ARG_ENABLE(qat_for_openssl_110,
+              AS_HELP_STRING([--enable-qat_for_openssl_110],
+                             [Enable building QAT engine against OpenSSL 1.1.0 branch]))
+AC_SUBST(enable_qat_for_openssl_110)
 
 AC_ARG_ENABLE(openssl_install_build_arch_path,
               AS_HELP_STRING([--enable-openssl_install_build_arch_path],
@@ -428,11 +428,11 @@ fi
 
 AM_CONDITIONAL([QAT_OPENSSL_102], [test "x$enable_qat_for_openssl_102" = "xyes"])
 
-if test "x$enable_qat_for_openssl_master" = "xyes"
+if test "x$enable_qat_for_openssl_110" = "xyes"
 then
-  AC_MSG_NOTICE([Build QAT engine against OpenSSL master])
+  AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.0])
 fi
-AM_CONDITIONAL([QAT_OPENSSL_MASTER], [test "x$enable_qat_for_openssl_master" = "xyes"])
+AM_CONDITIONAL([QAT_OPENSSL_110], [test "x$enable_qat_for_openssl_110" = "xyes"])
 
 if test "x$enable_openssl_install_build_arch_path" = "xyes"
 then
