@@ -812,8 +812,8 @@ Description:
     The first (i.e, value 1) is used to retrieve the number of asymmetric-key
     in-flight requests. The second (i.e, value 2) is used to retrieve the number
     of PRF in-flight requests The last (i.e, value 3) is use to retrieve the
-    number of cipher in-flight requests (when OpenSSL\* pipelining feature is
-    not used), or the number of in-flight pipelines (when OpenSSL\* pipelining
+    number of cipher in-flight requests (when OpenSSL* pipelining feature is
+    not used), or the number of in-flight pipelines (when OpenSSL* pipelining
     feature is used).
     The address of the variable recording the specified info is returned by
     assigning to the dereferenced int address passed as Param 4. This means the
