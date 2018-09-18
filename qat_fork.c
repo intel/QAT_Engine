@@ -79,6 +79,7 @@
 
 void engine_init_child_at_fork_handler(void)
 {
+#ifndef OPENSSL_DISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK
     /* Reinitialise the engine */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (NULL == e) {
@@ -92,6 +93,7 @@ void engine_init_child_at_fork_handler(void)
         QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
     }
     ENGINE_free(e);
+#endif
 }
 
 void engine_finish_before_fork_handler(void)

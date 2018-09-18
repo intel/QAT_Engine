@@ -172,7 +172,13 @@ AC_ARG_ENABLE(openssl_install_build_arch_path,
                              [Enable building QAT engine against packaged OpenSSL on, for example, a Debian system]))
 AC_SUBST(enable_openssl_install_build_arch_path)
 
+AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
+              AS_HELP_STRING([--disable-qat_auto_engine_init_on_fork],
+                             [Disable auto initialization of the engine following a fork]))
+AC_SUBST(enable_qat_auto_engine_init_on_fork)
+
 # ERROR message if mandatory options are not provided
+
 
 if test "x$with_qat_dir" = "x"
 then
@@ -333,6 +339,15 @@ then
 else
   enable_qat_mem_warnings=""
   AC_MSG_NOTICE([Disabling Memory Driver Warning Messages])
+fi
+
+if test "x$enable_qat_auto_engine_init_on_fork" = "xno"
+then
+  enable_qat_auto_engine_init_on_fork="-DOPENSSL_DISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK"
+  AC_MSG_NOTICE([Auto engine init on fork disabled.])
+else
+  enable_qat_auto_engine_init_on_fork=""
+  AC_MSG_NOTICE([Auto Engine init on fork enabled (default).])
 fi
 
 # Check for memory driver and parse the CFLAGS for building library

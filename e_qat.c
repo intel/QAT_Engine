@@ -537,6 +537,7 @@ int qat_engine_init(ENGINE *e)
 #define QAT_CMD_ENABLE_INLINE_POLLING (ENGINE_CMD_BASE + 12)
 #define QAT_CMD_ENABLE_HEURISTIC_POLLING (ENGINE_CMD_BASE + 13)
 #define QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT (ENGINE_CMD_BASE + 14)
+#define QAT_CMD_INIT_ENGINE (ENGINE_CMD_BASE + 15)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -614,6 +615,11 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "GET_NUM_REQUESTS_IN_FLIGHT",
      "Get the number of in-flight requests",
      ENGINE_CMD_FLAG_NUMERIC},
+    {
+     QAT_CMD_INIT_ENGINE,
+     "INIT_ENGINE",
+     "Initializes the engine if not already initialized",
+     ENGINE_CMD_FLAG_NO_INPUT},
     {0, NULL, NULL, 0}
 };
 
@@ -809,13 +815,21 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         break;
 
+    case QAT_CMD_INIT_ENGINE:
+        DEBUG("Init engine\n");
+        if ((retVal = qat_engine_init(e)) == 0) {
+            WARN("Failure initializing engine\n");
+        }
+        break;
+
     default:
         WARN("CTRL command not implemented\n");
         retVal = 0;
         break;
     }
+
     if (!retVal) {
-     QATerr(QAT_F_QAT_ENGINE_CTRL, QAT_R_ENGINE_CTRL_CMD_FAILURE);
+        QATerr(QAT_F_QAT_ENGINE_CTRL, QAT_R_ENGINE_CTRL_CMD_FAILURE);
     }
     return retVal;
 }

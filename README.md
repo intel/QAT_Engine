@@ -656,6 +656,18 @@ Description:
     passed in as Param 4. This message may be sent at any time after engine
     initialization.
 
+Message String: INIT_ENGINE
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message is not normally necessary as the engine will get initialized
+    either via an ENGINE_init() call or automatically following a fork. This
+    message would only be used for performance reasons with an engine compiled
+    with --disable-qat_auto_engine_init_on_fork. In that case it may be
+    desirable to send this engine message in the child rather than wait for the
+    engine to be initialized automatically on the first offloaded crypto
+    request.
+
 Message String: SET_INTERNAL_POLL_INTERVAL
 Param 3:        unsigned long cast to a long
 Param 4:        NULL
@@ -978,15 +990,15 @@ Optional
     interface. You should only specify this option if using a mixture of
     hardware (disabled by default).
 
---disable-qat_lenstra_protection
-    Disable protection against Lenstra attack (CVE-2017-5681) (protection is
-    enabled by default). The RSA-CRT implementation in the Intel(R) QAT
-    OpenSSL* Engine, for OpenSSL* versions prior to v0.5.19, may allow remote
-    attackers to obtain private RSA keys by conducting a Lenstra side-channel
-    attack.  From version v0.5.19 onward, protection against this form of
-    attack is effected by performing a Verify/Encrypt operation after the
-    Sign/Decrypt operation, and if a failure is detected then re-running the
-    Sign/Decrypt operation using the CPU.
+--disable-qat_lenstra_protection/--enable-qat_lenstra_protection
+    Disable/Enable protection against Lenstra attack (CVE-2017-5681)
+    (protection is enabled by default). The RSA-CRT implementation in the
+    Intel(R) QAT OpenSSL* Engine, for OpenSSL* versions prior to v0.5.19,
+    may allow remote attackers to obtain private RSA keys by conducting a
+    Lenstra side-channel attack.  From version v0.5.19 onward, protection
+    against this form of attack is effected by performing a Verify/Encrypt
+    operation after the Sign/Decrypt operation, and if a failure is detected
+    then re-running the Sign/Decrypt operation using the CPU.
     However, future releases of Intel(R) QAT driver code or firmware may
     effect this protection instead, in which case the Intel(R) QAT OpenSSL*
     Engine code-based protection would no longer be required and this
@@ -998,34 +1010,48 @@ Optional
 --enable-qat_for_openssl_102
     Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.0.2.
     Currently if using this build option, only synchronous RSA offload is
-    supported.
+    supported (default is to build for the OpenSSL* 1.1.1/master branch).
 
 --enable-qat_for_openssl_110
-    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.1.0.
+    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.1.0
+    (default is to build for the OpenSSL* 1.1.1/master branch).
 
 --enable-openssl_install_build_arch_path
-    Enable the Intel(R) QAT OpenSSL* Engine to build against a packaged pre-built
-    OpenSSL* that has either been pre-installed in your particular Linux distribution
-    or else that you have installed yourself.
-    For example, for a Debian* based distribution, the OpenSSL* package is either
-    pre-installed or else can be installed with the command:
+    Enable the Intel(R) QAT OpenSSL* Engine to build against a packaged
+    pre-built OpenSSL* that has either been pre-installed in your particular
+    Linux distribution or else that you have installed yourself.
+    For example, for a Debian* based distribution, the OpenSSL* package is
+    either pre-installed or else can be installed with the command:
     `apt-get install openssl`.
     This places both static and shared libraries associated with the OpenSSL*
-    package in directory /usr/lib/<architecture>,
-    where <architecture> is a description of the architecture the package is
-    intended to run on (for example, for an Intel(R) x86-based 64-bit architecture, GNU-compiled
-    it would be 'x86_64-linux-gnu').  In addition, for this example Debian* based distribution,
-    the OpenSSL* header files associated with the OpenSSL* package are placed in directory
+    package in directory /usr/lib/<architecture>, where <architecture> is a
+    description of the architecture the package is intended to run on (for
+    example, for an Intel(R) x86-based 64-bit architecture, GNU-compiled it
+    would be 'x86_64-linux-gnu').  In addition, for this example Debian* based
+    distribution, the OpenSSL* header files associated with the OpenSSL*
+    package are placed in directory
     `/usr/include/openssl`.
-    At the time of writing, for a recent Debian* based distribution such as `Ubuntu 18.04.1 LTS`,
-    the version of this packaged OpenSSL* is version `1.1.0g`.  Shared libraries corresponding
-    to this version of OpenSSL* for compiled engine code are placed in directory
-    `usr/lib/<architecture>/engines-1.1`, the `1.1` denoting that the version is in the `1.1.0`
-    series.
-    Use of this option ensures that the Intel(R) QAT OpenSSL* Engine shared library, resulting from
-    carrying out the Intel(R) QAT OpenSSL* Engine build and installation process, is placed in this
-    directory rather than the default.
-    This option is disabled by default.
+    At the time of writing, for a recent Debian* based distribution such as
+    `Ubuntu 18.04.1 LTS`, the version of this packaged OpenSSL* is version
+    `1.1.0g`.  Shared libraries corresponding to this version of OpenSSL* for
+    compiled engine code are placed in directory
+    `usr/lib/<architecture>/engines-1.1`, the `1.1` denoting that the version
+    is in the `1.1.X` series of API compatible releases.
+    Use of this option ensures that the Intel(R) QAT OpenSSL* Engine shared
+    library, resulting from carrying out the Intel(R) QAT OpenSSL* Engine build
+    and installation process, is placed in this directory rather than the
+    default. This option is disabled by default.
+
+--disable-qat_auto_engine_init_on_fork/--enable-qat_auto_engine_init_on_fork
+    Disable/Enable the engine from being initialized automatically following a
+    fork operation. This is useful in a situation where you want to tightly
+    control how many instances are being used for processes. For instance if an
+    application forks to start a process that does not utilize QAT currently
+    the default behaviour is for the engine to still automatically get started
+    in the child using up an engine instance. After using this flag either the
+    engine needs to be initialized manually using the engine message:
+    INIT_ENGINE or will automatically get initialized on the first QAT crypto
+    operation. The initialization on fork is enabled by default.
 
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at

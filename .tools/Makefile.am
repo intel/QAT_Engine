@@ -78,23 +78,24 @@ include_HEADERS = ${OPENSSL_COMMON_HDR} \
 
 CC = cc
 AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
-				$(includes_enable_qat_mux)
+              $(includes_enable_qat_mux)
 
 AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
-		$(cflags_qat_contig_mem) $(cflags_enable_multi_thread) \
-		$(cflags_enable_usdm) $(cflags_mux) $(enable_qat_rsa) \
-		$(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
-		$(enable_qat_dsa) $(enable_qat_dh) $(enable_qat_prf) \
-		$(enable_qat_small_pkt_offload) \
-		$(enable_qat_lenstra_protection) \
-		$(enable_qat_debug) $(enable_qat_warnings) \
-		$(enable_qat_mem_debug) $(enable_qat_mem_warnings) \
-		$(cflags_qat_debug_file)
+            $(cflags_qat_contig_mem) $(cflags_enable_multi_thread) \
+            $(cflags_enable_usdm) $(cflags_mux) $(enable_qat_rsa) \
+            $(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
+            $(enable_qat_dsa) $(enable_qat_dh) $(enable_qat_prf) \
+            $(enable_qat_small_pkt_offload) \
+            $(enable_qat_lenstra_protection) \
+            $(enable_qat_debug) $(enable_qat_warnings) \
+            $(enable_qat_mem_debug) $(enable_qat_mem_warnings) \
+            $(enable_qat_auto_engine_init_on_fork) \
+            $(cflags_qat_debug_file)
 
 libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
-					$(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER) \
-					$(QAT_SHARED_LIB_DEPS_DRIVER) \
-					$(QAT_SHARED_LIB_DEPS_QAE_MEM)
+                    $(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER) \
+                    $(QAT_SHARED_LIB_DEPS_DRIVER) \
+                    $(QAT_SHARED_LIB_DEPS_QAE_MEM)
 
 if QAT_OPENSSL_102
  ENGINE_LIB = $(with_openssl_install_dir)/lib/engines/libqat.so
