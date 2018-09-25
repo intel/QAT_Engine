@@ -387,17 +387,20 @@ make install
 
 An example to build and install the Intel&reg; QAT OpenSSL\* Engine against a
 packaged prebuilt OpenSSL\* requiring use of the optional configure parameter
-`--enable-openssl_install_build_arch` (described in the 'Optional' configure options section
-below) is as follows.  It assumes that:
+`--enable-openssl_install_build_arch_path` (described in the 'Optional' configure
+options section below) is as follows.  It assumes that:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
 * The Intel&reg; QAT Driver was unpacked within `/QAT`and is the
   Upstream Intel&reg; QAT Driver using the USDM component.
-* The OpenSSL\* source comprises a prebuilt (GNU compiled) packaged OpenSSL\* that either
-  forms part of a Debian\* based distribution or else has been installed onto a
-  Debian\* based distribution.
+* The OpenSSL\* compiled code comprises a prebuilt (GNU compiled) packaged
+  OpenSSL\* that either forms part of a Debian\* based distribution or else has
+  been installed onto a Debian\* based distribution, of which the component
+  libraries are located in directory `/usr/lib/x86_64-linux-gnu`.
 * The machine processor type is `x86_64`.
+* The OpenSSL\* source code was cloned from Github\* to its own location at the root
+  of the drive: `/`.
 * The OpenSSL\* version is in the `1.1.0` series.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
@@ -407,7 +410,7 @@ cd /QAT_Engine
 ./autogen.sh
 ./configure \
 --with-qat_dir=/QAT \
---with-openssl_dir=/usr \
+--with-openssl_dir=/openssl \
 --with-openssl_install_dir=/usr/lib/x86_64-linux-gnu \
 --enable-openssl_install_build_arch_path \
 --enable-qat_for_openssl_110 \
@@ -1020,27 +1023,65 @@ Optional
     Enable the Intel(R) QAT OpenSSL* Engine to build against a packaged
     pre-built OpenSSL* that has either been pre-installed in your particular
     Linux distribution or else that you have installed yourself.
-    For example, for a Debian* based distribution, the OpenSSL* package is
-    either pre-installed or else can be installed with the command:
+    For example, for a Debian* based distribution, the pre-built OpenSSL* package
+    is either pre-installed or else can be installed with the command:
     `apt-get install openssl`.
     This places both static and shared libraries associated with the OpenSSL*
     package in directory /usr/lib/<architecture>, where <architecture> is a
-    description of the architecture the package is intended to run on (for
-    example, for an Intel(R) x86-based 64-bit architecture, GNU-compiled it
-    would be 'x86_64-linux-gnu').  In addition, for this example Debian* based
-    distribution, the OpenSSL* header files associated with the OpenSSL*
-    package are placed in directory
-    `/usr/include/openssl`.
-    At the time of writing, for a recent Debian* based distribution such as
-    `Ubuntu 18.04.1 LTS`, the version of this packaged OpenSSL* is version
-    `1.1.0g`.  Shared libraries corresponding to this version of OpenSSL* for
-    compiled engine code are placed in directory
-    `usr/lib/<architecture>/engines-1.1`, the `1.1` denoting that the version
-    is in the `1.1.X` series of API compatible releases.
-    Use of this option ensures that the Intel(R) QAT OpenSSL* Engine shared
-    library, resulting from carrying out the Intel(R) QAT OpenSSL* Engine build
-    and installation process, is placed in this directory rather than the
-    default. This option is disabled by default.
+    description of the hardware architecture the package is intended to run on
+    (for example, for an Intel(R) x86-based 64-bit architecture, GNU-compiled, it
+    would be 'x86_64-linux-gnu'). This directory is therefore specified via the
+    `--with-openssl_install_dir` mandatory option detailed above.
+    In addition, shared libraries of compiled engine code corresponding to the
+    version of the pre-built OpenSSL* package are located in directory
+    `usr/lib/<architecture>/engines-1.1`, the `1.1` denoting that the version is
+    in the `1.1.X` series of API compatible releases. The shared library
+    resulting from building and installing the Intel(R) QAT OpenSSL* Engine,
+    must be placed in this directory rather than the default.  Use of this
+    option, together with the correct specification of mandatory options
+    `with-openssl_dir` and `with-openssl_install_dir`, ensures this.
+
+    For this example Debian* based distribution, the OpenSSL* header files
+    associated with the OpenSSL* package can also be installed by using the
+    command:
+    `apt-get install libssl-dev`.
+    After running this command, the OpenSSL* header files are located in
+    directory `/usr/include/openssl`.  However, as well as the header files,
+    the build procedure for the Intel&reg; QAT OpenSSL* Engine requires use
+    of an OpenSSL* supplied Perl script named `mkerr.pl`, which is not
+    supplied by this command.  Therefore, rather than install the `libssl-dev`
+    package, it is recommended that you install the OpenSSL* source files to
+    a directory of your choice.  This is done by changing to your chosen
+    directory and then cloning OpenSSL* from Github* at the following location:
+
+    git clone https://github.com/openssl/openssl.git
+
+    You must checkout the same version of OpenSSL* as the pre-built OpenSSL*
+    package.  You can find out the version of the pre-built OpenSSL* package
+    using the command:
+    `apt-cache policy openssl`.
+    Then checkout the git tag corresponding to the version of the pre-built
+    OpenSSL* package.  At the time of writing, for a recent Debian* based
+    distribution such as `Ubuntu 18.04.1 LTS`, the version of this packaged
+    OpenSSL* is version `1.1.0g`.
+    A list of git tags is obtained by using the git command:
+    `git tag -l`.
+    From this list select the tag which corresponds to the version of the
+    pre-built OpenSSL* package.  For example, if the version is `1.1.0g` then
+    the git checkout command would be:
+    `git checkout tags/OpenSSL_1_1_0g`.
+    The OpenSSL* header files and the `mkerr.pl` Perl script should now be
+    available for subsequent use in the build procedure for the
+    Intel&reg; QAT OpenSSL* Engine in your chosen git checkout directory.
+    This directory's path should therefore be specified with the
+    `--with-openssl_dir` mandatory option detailed above.
+
+    In summary, use of the `--enable-openssl_install_build_arch_path` option
+    ensures that the Intel(R) QAT OpenSSL* Engine shared library, resulting from
+    carrying out the Intel(R) QAT OpenSSL* Engine build and installation
+    process, is placed in the directory `usr/lib/<architecture>/engines-1.1`
+    rather than the default.
+    This option is disabled by default.
 
 --disable-qat_auto_engine_init_on_fork/--enable-qat_auto_engine_init_on_fork
     Disable/Enable the engine from being initialized automatically following a
