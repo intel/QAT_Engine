@@ -89,13 +89,13 @@ devices:
 ## Software Requirements
 
 Successful operation of this release requires a software tool chain that
-supports OpenSSL\* 1.1.0.
+supports OpenSSL\* 1.1.1 or OpenSSL\* 1.1.0.
 This release was validated on the following:
 
 * Operating system: Fedora\* 16 64-bit version
 * Kernel: GNU\*/Linux\* 3.1.0.7
 * Intel&reg; Communications Chipset 895x Series Software for Linux\*, version 2.6
-* OpenSSL\* 1.1.0
+* OpenSSL\* 1.1.1 (Up to TLS 1.2 only, not validated using TLS 1.3)
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
 GNU\* C Library version 2.23 or later to take advantage of AVX-512 optimizations
@@ -118,6 +118,11 @@ repository:
 
 ## Limitations
 
+* Although the QAT OpenSSL\* Engine has been tested against OpenSSL\* 1.1.1 it
+  has currently not been verified for acceleration of TLS 1.3 key exchange and
+  authentication such as offloading RSA-PSS and Elliptical Curve operations.
+  Although it is expected to function, such support should be considered
+  experimental at this stage.
 * When forking within an application it is not valid for a cryptographic
   operation to be started in the parent process, and completed in the child
   process.
@@ -127,9 +132,9 @@ repository:
 * The function `ASYNC_WAIT_CTX_get_changed_fds` contained in OpenSSL\* 1.1.0
   might return incorrect values in the case of failures during the submission of
   operations to the hardware accelerator. This could result in errors at the
-  application level. The fix has been delivered in OpenSSL\* 1.1.0e. All
-  previous versions of the library are affected. For more information, please
-  refer to the following pull request on Github:
+  application level. The fix has been delivered in OpenSSL\* 1.1.0e and OpenSSL\*
+  1.1.1. All previous versions of the library are affected.
+  For more information, please refer to the following pull request on Github:
   [Fix waitctx fds removing the fd from the list #2581][9]
 
 [9]:https://github.com/openssl/openssl/pull/2581
@@ -165,16 +170,16 @@ Clone OpenSSL\* from Github\* at the following location:
 
     git clone https://github.com/openssl/openssl.git
 
-It is recommended to checkout and build against the OpenSSL\* 1.1.0 git tag
+It is recommended to checkout and build against the OpenSSL\* 1.1.1 git tag
 specified in the release notes.
-Older versions of OpenSSL\* are not supported.
+Versions of OpenSSL\* before OpenSSL\* 1.1.0 are not supported.
 
 Due to the nature of the Intel&reg; QAT OpenSSL\* Engine being a dynamic engine
 it can only be used with shared library builds of OpenSSL\*.
 
-Note: The OpenSSL\* 1.1.0 baseline builds as a shared library by default now so
-there is no longer any need to specify the `shared` option when running
-`./config`.
+Note: The OpenSSL\* 1.1.0 and 1.1.1 baselines build as a shared library by
+default now so there is no longer any need to specify the `shared` option when
+running `./config`.
 
 Note: It is not recommended to install the accelerated version of OpenSSL\* as
 your default system library. If you do, you may find that acceleration is used
@@ -195,8 +200,8 @@ to install OpenSSL\* in a non-standard location (recommended), the runpath
 directories can be specified via the OpenSSL\* Configure command, which
 recognises the arguments `-rpath` and `-R` to support user-added rpaths.  For
 convenience, a Makefile variable `LIBRPATH` has also been added which is defined
-as the full path to a subdirectory of the installation directory. The subdirectory
-is named `lib` by default.
+as the full path to a subdirectory of the installation directory. The
+subdirectory is named `lib` by default.
 If you do not wish to use `LIBRPATH`, the rpath can be specified directly.
 The syntax for specifying a rpath is as follows:
 
@@ -330,6 +335,7 @@ The following example is assuming:
 * The OpenSSL\* source was cloned from Github\* to its own location at the root
   of the drive: `/`.
 * OpenSSL\* was installed to `/usr/local/ssl`.
+* OpenSSL\* 1.1.1 is being used.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -340,7 +346,6 @@ cd /QAT_Engine
 --with-qat_dir=/QAT/QAT1.6 \
 --with-openssl_dir=/openssl \
 --with-openssl_install_dir=/usr/local/ssl
---enable-qat_for_openssl_110 \
 make
 make install
 ```
@@ -378,7 +383,6 @@ cd /QAT_Engine
 --with-qat_dir=/QAT \
 --with-openssl_dir=/openssl \
 --with-openssl_install_dir=/usr/local/ssl \
---enable-qat_for_openssl_110 \
 --enable-upstream_driver \
 --enable-usdm
 make
@@ -603,7 +607,7 @@ If linking against the Upstream Intel&reg; QAT Driver then ensure that the
 mandatory parameter `--enable-upstream_driver` has been specified when running
 `./configure`, or the link will fail.
 
-If building against OpenSSL\* master, it is possible that the
+If building against OpenSSL\* 1.1.1 or master branch , it is possible that the
 OpenSSL\* Engine will fail to build with an error message `configdata.pm not
 present in the @INC path`. To resolve this, it is recommended to add the
 OpenSSL source path to the PERL5LIB environment variable as follows:
