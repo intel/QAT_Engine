@@ -767,7 +767,8 @@ Description:
 
 Message String: SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD
 Param 3:        0
-Param 4:        string of cipher algorithm name and threshold value
+Param 4:        NULL terminated string of cipher algorithm name and threshold
+                value. Maximum length is 1024 bytes including NULL terminator.
 Description:
     This message is used to set the threshold that determines the size crypto
     packets need to be before they are offloaded to the acceleration device.
@@ -790,6 +791,8 @@ Description:
     including Record Header (5 bytes), IV (16 bytes), Payload, HMAC (20/32
     bytes), Padding (variable but could be max 255 bytes), and Padding Length
     (1 byte).
+    The string should be NULL terminated and not more than 1024 bytes long
+    including NULL terminator.
     This message is not supported when the engine is compiled with the flag
     --enable-qat_small_pkt_offload.
 

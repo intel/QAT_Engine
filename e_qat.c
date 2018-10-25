@@ -114,6 +114,8 @@
 #include "icp_sal_poll.h"
 #include "qat_parseconf.h"
 
+#define QAT_MAX_INPUT_STRING_LENGTH 1024
+
 /* Qat engine id declaration */
 const char *engine_qat_id = "qat";
 const char *engine_qat_name =
@@ -767,9 +769,10 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
         if (p) {
             char *token;
-            char str_p[1024];
+            char str_p[QAT_MAX_INPUT_STRING_LENGTH];
             char *itr = str_p;
-            strncpy(str_p, (const char *)p, 1024);
+            strncpy(str_p, (const char *)p, QAT_MAX_INPUT_STRING_LENGTH - 1);
+            str_p[QAT_MAX_INPUT_STRING_LENGTH - 1] = '\0';
             while ((token = strsep(&itr, ","))) {
                 char *name_token = strsep(&token,":");
                 char *value_token = strsep(&token,":");
