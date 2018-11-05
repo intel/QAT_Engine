@@ -51,6 +51,8 @@
 #include "cmn_mem_drv_inf.h"
 #include "qae_mem.h"
 
+#define unlikely(x) __builtin_expect (!!(x), 0)
+
 static pthread_mutex_t mem_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int crypto_inited = 0;
 
@@ -70,7 +72,7 @@ void qaeCryptoMemFree(void *ptr)
 
     MEM_DEBUG("Address: %p\n", ptr);
 
-    if (NULL == ptr) {
+    if (unlikely(NULL == ptr)) {
         MEM_WARN("qaeCryptoMemFree trying to free NULL pointer.\n");
         return;
     }
@@ -92,6 +94,7 @@ void qaeCryptoMemFree(void *ptr)
 
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
+    /* Input params should already have been sanity-checked by calling function. */
     int rc;
     void *pAddress = NULL;
 
@@ -119,6 +122,7 @@ void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
 {
     void *nptr;
 
+    /* copyAllocPinnedMemory() will check the input params. */
     nptr = copyAllocPinnedMemory(ptr, memsize, file, line);
     if (nptr) {
         qaeCryptoMemFree(ptr);
@@ -132,11 +136,7 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
 {
     void *nptr;
 
-    if (original_size > memsize) {
-        MEM_WARN("original_size : %zd > memsize : %zd", original_size, memsize);
-        return NULL;
-    }
-
+    /* copyAllocPinnedMemoryClean() checks the input params. */
     nptr =
         copyAllocPinnedMemoryClean(ptr, memsize, original_size, file, line);
     if (nptr) {
@@ -150,8 +150,11 @@ void *copyAllocPinnedMemory(void *ptr, size_t size, const char *file,
 {
     void *nptr;
 
-    if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
-        MEM_WARN("pinned memory allocation failure\n");
+    if (unlikely((ptr == NULL) ||
+                 (size == 0) ||
+                 (file == NULL) ||
+                 ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL))) {
+        MEM_WARN("Pinned memory allocation failure\n");
         return NULL;
     }
     memcpy(nptr, ptr, size);
@@ -163,19 +166,31 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
 {
     void *nptr;
 
-    if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
-        MEM_WARN("pinned memory allocation failure\n");
+    if (unlikely((ptr == NULL) ||
+                 (size == 0) ||
+                 (original_size == 0) ||
+                 (file == NULL))) {
+        MEM_WARN("Invalid input params.\n");
         return NULL;
     }
+    if (original_size > size) {
+        MEM_WARN("original_size : %zd > size : %zd", original_size, size);
+        return NULL;
+    }
+    if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
+        MEM_WARN("Clean pinned memory allocation failure\n");
+        return NULL;
+    }
+
     memcpy(nptr, ptr, original_size);
     return nptr;
 }
 
 int copyFreePinnedMemory(void *uptr, void *kptr, int size)
 {
-    if (uptr == NULL || kptr == NULL) {
-       MEM_WARN("Input pointers uptr or kptr are NULL\n");
-       return 0;
+    if (uptr == NULL || kptr == NULL || size <= 0) {
+        MEM_WARN("Input pointers uptr or kptr are NULL, or size invalid.\n");
+        return 0;
     }
 
     memcpy(uptr, kptr, size);
@@ -185,6 +200,10 @@ int copyFreePinnedMemory(void *uptr, void *kptr, int size)
 
 CpaPhysicalAddr qaeCryptoMemV2P(void *v)
 {
+    if (v == NULL) {
+        MEM_WARN("NULL address passed to function\n");
+        return (CpaPhysicalAddr)0;
+    }
     return qaeVirtToPhysNUMA(v);
 }
 

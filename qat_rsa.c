@@ -838,9 +838,8 @@ build_encrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
 * description: Perform an RSA private encrypt (RSA Sign)
 *              We use the decrypt implementation to achieve this.
 ******************************************************************************/
-int
-qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
-                 RSA *rsa, int padding)
+int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
+                     RSA *rsa, int padding)
 {
     int rsa_len = 0;
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
@@ -860,11 +859,11 @@ qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
      * The input message length should be less than or equal to RSA size and also have
      * minimum space of at least 11 bytes of padding if using PKCS1 padding.
      */
-    if (rsa == NULL || from == NULL || to == NULL || flen == 0) {
+    if (unlikely(rsa == NULL || from == NULL || to == NULL || flen <= 0)) {
         WARN("RSA key, input or output is NULL or invalid length, \
               flen = %d\n", flen);
         QATerr(QAT_F_QAT_RSA_PRIV_ENC, QAT_R_RSA_FROM_TO_NULL);
-        goto exit;
+        return 0;
     }
 
     rsa_len = RSA_size(rsa);
@@ -973,8 +972,8 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     DEBUG("- Started.\n");
 
     /* parameter checks */
-    if (rsa == NULL || from == NULL || to == NULL ||
-        (flen != (rsa_len = RSA_size(rsa)))) {
+    if (unlikely(rsa == NULL || from == NULL || to == NULL ||
+                 (flen != (rsa_len = RSA_size(rsa))))) {
         WARN("RSA key, input or output is NULL or invalid length, \
               flen = %d, rsa_len = %d\n", flen, rsa_len);
         QATerr(QAT_F_QAT_RSA_PRIV_DEC, QAT_R_RSA_FROM_TO_NULL);
@@ -1088,7 +1087,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
 
     /* set output all 0xff if failed */
-    if (!sts && to)
+    if (!sts)
         memset(to, 0xff, rsa_len);
 
     /* Return an error */
@@ -1126,11 +1125,11 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     DEBUG("- Started\n");
 
     /* parameter checks */
-    if (rsa == NULL || from == NULL || to == NULL) {
-        WARN("RSA key %p, input %p or output %p are NULL\n",
-              rsa, from, to);
+    if (unlikely(rsa == NULL || from == NULL || to == NULL || flen < 0)) {
+        WARN("RSA key %p, input %p or output %p are NULL, or flen invalid length.\n",
+             rsa, from, to);
         QATerr(QAT_F_QAT_RSA_PUB_ENC, QAT_R_RSA_FROM_TO_NULL);
-        goto exit;
+        return 0;
     }
 
     rsa_len = RSA_size(rsa);
@@ -1196,9 +1195,8 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
 *   The function returns the RSA recovered message output.
 *   We use the encrypt implementation to achieve this.
 ******************************************************************************/
-int
-qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
-                RSA *rsa, int padding)
+int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
+                    RSA *rsa, int padding)
 {
     int rsa_len = 0;
     int output_len = -1;
@@ -1214,7 +1212,7 @@ qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
         WARN("RSA key %p, input %p or output %p are NULL or invalid length, \
               flen = %d, rsa_len = %d\n", rsa, from, to, flen, rsa_len);
         QATerr(QAT_F_QAT_RSA_PUB_DEC, QAT_R_RSA_FROM_TO_NULL);
-        goto exit;
+        return 0;
     }
 
     /*

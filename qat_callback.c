@@ -81,7 +81,7 @@
 
 void qat_init_op_done(op_done_t *opDone)
 {
-    if (opDone == NULL) {
+    if (unlikely(opDone == NULL)) {
         WARN("opDone is NULL\n");
         QATerr(QAT_F_QAT_INIT_OP_DONE, QAT_R_OPDONE_NULL);
         return;
@@ -96,8 +96,8 @@ void qat_init_op_done(op_done_t *opDone)
 
 int qat_init_op_done_pipe(op_done_pipe_t *opdpipe, unsigned int npipes)
 {
-    if (opdpipe == NULL) {
-        WARN("opdpipe is NULL\n");
+    if (unlikely((opdpipe == NULL) || (npipes == 0))) {
+        WARN("opdpipe is NULL or npipes is 0.\n");
         QATerr(QAT_F_QAT_INIT_OP_DONE_PIPE, QAT_R_OPDPIPE_NULL);
         return 0;
     }
@@ -124,7 +124,7 @@ int qat_init_op_done_pipe(op_done_pipe_t *opdpipe, unsigned int npipes)
 
 int qat_init_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
 {
-    if (opdcrt == NULL) {
+    if (unlikely(opdcrt == NULL)) {
         WARN("opdcrt is NULL\n");
         QATerr(QAT_F_QAT_INIT_OP_DONE_RSA_CRT, QAT_R_OPDCRT_NULL);
         return 0;
@@ -143,7 +143,7 @@ int qat_init_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
 
 void qat_cleanup_op_done(op_done_t *opDone)
 {
-    if (opDone == NULL) {
+    if (unlikely(opDone == NULL)) {
         WARN("opDone is NULL\n");
         return;
     }
@@ -157,7 +157,7 @@ void qat_cleanup_op_done(op_done_t *opDone)
 
 void qat_cleanup_op_done_pipe(op_done_pipe_t *opdone)
 {
-    if (opdone == NULL) {
+    if (unlikely(opdone == NULL)) {
         WARN("opdone is NULL\n");
         return;
     }
@@ -170,7 +170,7 @@ void qat_cleanup_op_done_pipe(op_done_pipe_t *opdone)
 
 void qat_cleanup_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
 {
-    if (opdcrt == NULL) {
+    if (unlikely(opdcrt == NULL)) {
         WARN("opdcrt is NULL\n");
         return;
     }
@@ -187,7 +187,7 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
 {
     op_done_t *opDone = (op_done_t *)callbackTag;
 
-    if (opDone == NULL) {
+    if (unlikely(opDone == NULL)) {
         WARN("opDone is NULL\n");
         QATerr(QAT_F_QAT_CRYPTO_CALLBACKFN, QAT_R_OPDONE_NULL);
         return;

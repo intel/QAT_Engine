@@ -170,13 +170,15 @@ int qat_PRF_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                          const int **nids, int nid)
 {
     if (pmeth == NULL) {
+        if (unlikely(nids == NULL)) {
+            WARN("Invalid input params.\n");
+            return 0;
+        }
         *nids = qat_prf_nids;
         return 1;
     }
 
-    if (pmeth)
-        *pmeth = qat_prf_pmeth();
-
+    *pmeth = qat_prf_pmeth();
     return 1;
 }
 
@@ -195,6 +197,11 @@ int qat_PRF_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
 int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 {
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
+
+    if (unlikely(ctx == NULL)) {
+        WARN("Invalid input param.\n");
+        return 0;
+    }
 
     qat_prf_ctx = OPENSSL_zalloc(sizeof(*qat_prf_ctx));
     if (qat_prf_ctx == NULL) {
@@ -219,7 +226,7 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
 {
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
 
-    if (ctx == NULL) {
+    if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
         return;
     }
@@ -261,14 +268,23 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
 ******************************************************************************/
 int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
+    if (unlikely(ctx == NULL)) {
+        WARN("Invalid input param.\n");
+        return 0;
+    }
+
     QAT_TLS1_PRF_CTX *qat_prf_ctx = (QAT_TLS1_PRF_CTX *) EVP_PKEY_CTX_get_data(ctx);
-    if (qat_prf_ctx == NULL) {
+    if (unlikely(qat_prf_ctx == NULL)) {
          WARN("qat_prf_ctx cannot be NULL\n");
          return 0;
     }
 
     switch (type) {
     case EVP_PKEY_CTRL_TLS_MD:
+        if (unlikely(p2 == NULL)) {
+            WARN("Invalid input param.\n");
+            return 0;
+        }
         qat_prf_ctx->md = p2;
         return 1;
 
@@ -534,7 +550,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
 
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
 
-    if (NULL == ctx || NULL == key || NULL == olen) {
+    if (unlikely(NULL == ctx || NULL == key || NULL == olen)) {
         WARN("Either ctx %p, key %p or olen %p is NULL\n", ctx, key, olen);
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_PASSED_NULL_PARAMETER);
         return ret;

@@ -116,7 +116,9 @@ int qat_set_instance_for_thread(long instanceNum)
 {
     thread_local_variables_t *tlv = NULL;
     tlv = qat_check_create_local_variables();
-    if (NULL == tlv || 0 == qat_num_instances) {
+    if (NULL == tlv ||
+        0 == qat_num_instances ||
+        instanceNum < 0) {
         WARN("could not create local variables or no instances available\n");
         QATerr(QAT_F_QAT_SET_INSTANCE_FOR_THREAD, QAT_R_SET_INSTANCE_FAILURE);
         return 0;

@@ -479,6 +479,13 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
 {
     int i;
 
+    if (unlikely((nids == NULL) && ((cipher == NULL) || (nid < 0)))) {
+        WARN("Invalid input param.\n");
+        if (cipher != NULL)
+            *cipher = NULL;
+        return 0;
+    }
+
     /* No specific cipher => return a list of supported nids ... */
     if (cipher == NULL) {
         *nids = qat_cipher_nids;

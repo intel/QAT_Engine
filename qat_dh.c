@@ -496,6 +496,11 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     DEBUG("- Started\n");
 
+    if (unlikely(key == NULL)) {
+        WARN("Invalid variable key is NULL.\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_KEY_NULL);
+        return -1;
+    }
     if (!dh) {
         WARN("Input variable dh is null\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_DH_NULL);

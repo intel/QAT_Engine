@@ -115,6 +115,8 @@ static int slot_sizes_available[] = {
     SLOT_32_KILOBYTES
 };
 
+#define unlikely(x) __builtin_expect (!!(x), 0)
+
 typedef struct _qae_slot {
     struct _qae_slot *next;
     int sig;
@@ -247,11 +249,13 @@ void *copyAllocPinnedMemory(void *ptr, size_t size, const char *file,
 {
     void *nptr;
 
-    if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
+    if (unlikely((ptr == NULL) ||
+                 (size == 0) ||
+                 (file == NULL) ||
+                 ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL))) {
         MEM_WARN("pinned memory allocation failure\n");
         return NULL;
     }
-
     memcpy(nptr, ptr, size);
     return nptr;
 }
@@ -280,8 +284,19 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
 {
     void *nptr;
 
-    if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
+    if (unlikely((ptr == NULL) ||
+                 (size == 0) ||
+                 (original_size == 0) ||
+                 (file == NULL))) {
         MEM_WARN("pinned memory allocation failure\n");
+        return NULL;
+    }
+    if (original_size > size) {
+        MEM_WARN("original_size : %zd > size : %zd", original_size, size);
+        return NULL;
+    }
+    if ((nptr = qaeCryptoMemAlloc(size, file, line)) == NULL) {
+        MEM_WARN("Clean pinned memory allocation failure\n");
         return NULL;
     }
 
@@ -304,16 +319,14 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
 ******************************************************************************/
 int copyFreePinnedMemory(void *uptr, void *kptr, int size)
 {
-    if (uptr == NULL || kptr == NULL) {
-        MEM_WARN("Input pointers uptr or kptr are NULL\n");
+    if (unlikely(uptr == NULL || kptr == NULL || size <= 0)) {
+        MEM_WARN("Input pointers uptr or kptr are NULL, or size invalid.\n");
         return 0;
     }
-
     if (size > MAX_ALLOC) {
         MEM_WARN("Size greater than MAX_ALLOC\n");
         return 0;
     }
-
     memcpy(uptr, kptr, size);
     qaeCryptoMemFree(kptr);
     return 1;
@@ -924,9 +937,9 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
    qat_contig_mem_config *memCfg = NULL;
    void *pVirtPageAddress = NULL;
    ptrdiff_t offset = 0;
-   if(v == NULL) {
+   if (unlikely(v == NULL)) {
        MEM_WARN("NULL address passed to function\n");
-       return (CpaPhysicalAddr) 0;
+       return (CpaPhysicalAddr)0;
    }
 
    /* Get the physical address contained in the slab
@@ -942,7 +955,7 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
    if(memCfg->signature == QAT_CONTIG_MEM_ALLOC_SIG)
        return (CpaPhysicalAddr)(memCfg->physicalAddress + offset);
    MEM_WARN("Virtual to Physical memory lookup failure\n");
-   return (CpaPhysicalAddr) 0;
+   return (CpaPhysicalAddr)0;
 }
 
 /**************************************
@@ -964,9 +977,10 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
 ******************************************************************************/
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
+    /* Input params should already have been sanity-checked by calling function. */
     void *pAddress = crypto_alloc_from_slab(memsize, file, line);
-    MEM_DEBUG("Address: %p Size: %lu File: %s:%d\n", pAddress,
-          memsize, file, line);
+    MEM_DEBUG("Address: %p Size: %lu File: %s:%d\n",
+              pAddress, memsize, file, line);
     return pAddress;
 }
 
@@ -983,8 +997,13 @@ void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 void qaeCryptoMemFree(void *ptr)
 {
     MEM_DEBUG("Address: %p\n", ptr);
-    if (NULL != ptr)
-        crypto_free_to_slab(ptr);
+    {
+        if (NULL != ptr)
+            crypto_free_to_slab(ptr);
+        else {
+            MEM_WARN("qaeCryptoMemFree trying to free NULL pointer.\n");
+        }
+    }
 }
 
 /******************************************************************************
@@ -1006,6 +1025,13 @@ void qaeCryptoMemFree(void *ptr)
 void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
                           int line)
 {
+    if (unlikely((ptr == NULL) ||
+                 (memsize == 0) ||
+                 (file == NULL))) {
+        MEM_WARN("Input parameter invalid.\n");
+        return NULL;
+    }
+
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
     if (n == NULL) {
@@ -1046,6 +1072,18 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
                                size_t original_size, const char *file,
                                int line)
 {
+    if (unlikely((ptr == NULL) ||
+                 (memsize == 0) ||
+                 (original_size == 0) ||
+                 (file == NULL))) {
+        MEM_WARN("Input param. invalid.\n");
+        return NULL;
+    }
+    if (original_size > memsize) {
+        MEM_WARN("original_size : %zd > memsize : %zd", original_size, memsize);
+        return NULL;
+    }
+
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
     if (n == NULL) {

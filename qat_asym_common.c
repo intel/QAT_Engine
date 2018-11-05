@@ -94,6 +94,11 @@
 ******************************************************************************/
 int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn)
 {
+    if (unlikely((fb == NULL ||
+                  bn == NULL ))) {
+        WARN("Invalid input params.\n");
+        return 0;
+    }
     /* Memory allocate for flat buffer */
     fb->dataLenInBytes = (Cpa32U) BN_num_bytes(bn);
     if (0 == fb->dataLenInBytes) {

@@ -279,9 +279,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     DEBUG("- Started\n");
 
-    if (ecdh == NULL || (priv_key = EC_KEY_get0_private_key(ecdh)) == NULL) {
-        WARN("Either ecdh or priv_key is NULL\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_ECDH_PRIVATE_KEY_NULL);
+    if (unlikely(ecdh == NULL ||
+                 ((priv_key = EC_KEY_get0_private_key(ecdh)) == NULL)
+                 || pub_key == NULL)) {
+        WARN("Either ecdh or priv_key or pub_key is NULL\n");
+        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_ECDH_PRIV_KEY_PUB_KEY_NULL);
         return ret;
     }
 
@@ -629,7 +631,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     size_t temp_yfield_size = 0;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
 
-    if (ecdh == NULL || ((group = EC_KEY_get0_group(ecdh)) == NULL)) {
+    if (unlikely(ecdh == NULL || ((group = EC_KEY_get0_group(ecdh)) == NULL))) {
         WARN("Either ecdh or group are NULL\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_GROUP_NULL);
         return 0;
@@ -848,15 +850,29 @@ static void qat_ecdsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
 
 
 int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
-                          unsigned char *sig, unsigned int *siglen,
-                          const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
+                   unsigned char *sig, unsigned int *siglen,
+                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
 {
     ECDSA_SIG *s;
+
+    if (unlikely(dgst == NULL ||
+                 dlen <= 0)) { /* Check these input params before passing to
+                                * RAND_seed(). Rest of the input params. are
+                                * checked by qat_ecdsa_do_sign().
+                                */
+        WARN("Invalid input param.\n");
+        if (siglen != NULL)
+            *siglen = 0;
+        QATerr(QAT_F_QAT_ECDSA_SIGN, QAT_R_INPUT_PARAM_INVALID);
+        return 0;
+    }
     RAND_seed(dgst, dlen);
     s = qat_ecdsa_do_sign(dgst, dlen, kinv, r, eckey);
     if (s == NULL) {
         WARN("Error ECDSA Sign Operation Failed\n");
-        *siglen = 0;
+        if (siglen != NULL)
+            *siglen = 0;
+        QATerr(QAT_F_QAT_ECDSA_SIGN, QAT_R_QAT_ECDSA_DO_SIGN_FAIL);
         return 0;
     }
     *siglen = i2d_ECDSA_SIG(s, &sig);
@@ -866,8 +882,8 @@ int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 
 
 ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
-                                    const BIGNUM *in_kinv, const BIGNUM *in_r,
-                                    EC_KEY *eckey)
+                             const BIGNUM *in_kinv, const BIGNUM *in_r,
+                             EC_KEY *eckey)
 {
     int ok = 0, i, job_ret = 0;
     BIGNUM *m = NULL, *order = NULL;
@@ -895,6 +911,14 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     thread_local_variables_t *tlv = NULL;
 
     DEBUG("- Started\n");
+
+    if (unlikely(dgst == NULL ||
+                 dgst_len <= 0 ||
+                 eckey == NULL)) {
+        WARN("Invalid input param.\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_INPUT_PARAM_INVALID);
+        return NULL;
+    }
 
     group = EC_KEY_get0_group(eckey);
     priv_key = EC_KEY_get0_private_key(eckey);
@@ -1269,7 +1293,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
  *     -1: error
  */
 int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
-                            const unsigned char *sigbuf, int sig_len, EC_KEY *eckey)
+                     const unsigned char *sigbuf, int sig_len, EC_KEY *eckey)
 {
     ECDSA_SIG *s;
     const unsigned char *p = sigbuf;
@@ -1327,6 +1351,11 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     thread_local_variables_t *tlv = NULL;
 
     DEBUG("- Started\n");
+    if (unlikely(dgst == NULL || dgst_len <= 0)) {
+        WARN("Invalid input param.\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_INPUT_PARAM_INVALID);
+        return ret;
+    }
 
     /* check input values */
     if (eckey == NULL || (group = EC_KEY_get0_group(eckey)) == NULL ||

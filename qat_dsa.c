@@ -257,10 +257,15 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     DEBUG("- Started\n");
 
-    if (dsa == NULL || dgst == NULL) {
-         WARN("Either dsa %p or dgst %p are NULL\n", dsa, dgst);
-         QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_DSA_DGST_NULL);
-         return NULL;
+    if (unlikely(dlen <= 0)) {
+        WARN("Invalid input param.\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_DLEN_INVALID);
+        return NULL;
+    }
+    if (unlikely(dsa == NULL || dgst == NULL)) {
+        WARN("Either dsa %p or dgst %p are NULL\n", dsa, dgst);
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_DSA_DGST_NULL);
+        return NULL;
     }
 
     DSA_get0_pqg(dsa, &p, &q, &g);
@@ -580,6 +585,11 @@ int qat_dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in, BIGNUM **kinvp, BIGNUM **rp)
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
     DEBUG("%s been called \n", __func__);
 
+    if (unlikely(dsa == NULL || ctx_in == NULL || kinvp == NULL || rp == NULL)) {
+        WARN("Invalid input param.\n");
+        QATerr(QAT_F_QAT_DSA_SIGN_SETUP, QAT_R_INPUT_PARAM_INVALID);
+        return 0;
+    }
     return DSA_meth_get_sign_setup(default_dsa_method)(dsa, ctx_in, kinvp, rp);
 }
 
@@ -614,6 +624,11 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     DEBUG("- Started\n");
 
+    if (unlikely(dgst_len <= 0)) {
+        WARN("Invalid input param.\n");
+        QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_DGSTLEN_INVALID);
+        return -1;
+    }
     if (dsa == NULL || dgst == NULL || sig == NULL) {
         WARN("Either dsa = %p, dgst = %p or sig = %p are NULL\n", dsa, dgst, sig);
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_DSA_DGST_SIG_NULL);

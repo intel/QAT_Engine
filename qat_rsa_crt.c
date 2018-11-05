@@ -335,9 +335,9 @@ err:
     return ret;
 }
 
-int
-qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
-                    CpaFlatBuffer * output_buf)
+
+int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
+                        CpaFlatBuffer * output_buf)
 {
     CpaCyLnModExpOpData crt_op1_data = {{0}}, crt_op2_data = {{0}};
     CpaFlatBuffer crt_out1 = {0}, crt_out2 = {0};
@@ -353,7 +353,14 @@ qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     DEBUG("- Started\n");
 
-    if(qat_init_op_done_rsa_crt(&op_done) != 1){
+    if (unlikely(rsa_len < 0)) { /* dec_op_data and output_buf are
+                                  * already checked by calling function.
+                                  */
+        WARN("Invalid input param.\n");
+        QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, QAT_R_INPUT_PARAM_INVALID);
+        return 0;
+    }
+    if (qat_init_op_done_rsa_crt(&op_done) != 1) {
         WARN("failed to init opdone for rsa crt\n");
         return 0;
     }

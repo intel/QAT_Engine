@@ -75,7 +75,7 @@ void crypto_qat_debug_init_log()
             WARN("unable to open %s\n",
                  STR(QAT_DEBUG_FILE_PATH));
         } else {
-            debug_file_ref_count++; 
+            debug_file_ref_count++;
         }
     }
     pthread_mutex_unlock(&debug_file_mutex);
@@ -138,7 +138,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
     int i;
 
     fprintf(qatDebugLogFile, "%s: %s: Length %d, Address %p", func, var, l, p);
-    if (NULL != p && l != 0) {
+    if (NULL != p && l > 0) {
         for (i = 0; i < l; i++) {
             if (i % 16 == 0)
                 fputc('\n', qatDebugLogFile);

@@ -767,7 +767,7 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 
     case QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD:
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-        if (p) {
+        if (p != NULL) {
             char *token;
             char str_p[QAT_MAX_INPUT_STRING_LENGTH];
             char *itr = str_p;
@@ -924,7 +924,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
      * if requested, i.e. when we are not re-initializing the engine after
      * forking
      */
-    if (reset_globals) {
+    if (reset_globals == 1) {
         enable_external_polling = 0;
         enable_inline_polling = 0;
         enable_event_driven_polling = 0;
