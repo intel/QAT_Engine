@@ -75,6 +75,7 @@
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/slab.h>
+#include <linux/uaccess.h> 
 
 #include "qat_contig_mem.h"
 
