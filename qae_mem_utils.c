@@ -602,7 +602,7 @@ static void crypto_free_to_slab(void *ptr)
     qae_slot *slt = (void *)((unsigned char *)ptr - sizeof(qae_slot));
     if (!slt) {
         MEM_WARN("Error freeing memory - unknown address\n");
-        goto exit;
+        return;
     }
 
     qae_slab *slb = slt->slab;
