@@ -513,8 +513,9 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
 
         if (NULL == slb) {
             MEM_WARN("error, create_slab failed - memory allocation error\n");
-            if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0)
+            if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0) {
                 MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
+            }
             MEM_DEBUG("pthread_mutex_unlock\n");
             goto exit;
         }
@@ -549,8 +550,9 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
 
     result = (void *)((unsigned char *)slt + sizeof(qae_slot));
 
-    if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0)
+    if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0) {
         MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
+    }
     MEM_DEBUG("pthread_mutex_unlock\n");
 
  exit:
