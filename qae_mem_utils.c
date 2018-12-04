@@ -599,7 +599,7 @@ static void crypto_free_slab(qae_slab *slb)
  *****************************************************************************/
 static void crypto_free_to_slab(void *ptr)
 {
-    qae_slot *slt = (void *)((unsigned char *)ptr - sizeof(qae_slot));
+    qae_slot *slt = (qae_slot *)((unsigned char *)ptr - sizeof(qae_slot));
     if (!slt) {
         MEM_WARN("Error freeing memory - unknown address\n");
         return;
@@ -691,7 +691,7 @@ static int crypto_slot_get_size(void *ptr)
         MEM_WARN("error can't find %p\n", ptr);
         return 0;
     }
-    qae_slot *slt = (void *)((unsigned char *)ptr - sizeof(qae_slot));
+    qae_slot *slt = (qae_slot *)((unsigned char *)ptr - sizeof(qae_slot));
     if (slt->pool_index == (NUM_SLOT_SIZE - 1)) {
         return MAX_ALLOC;
     } else if (slt->pool_index >= 0 && slt->pool_index <= NUM_SLOT_SIZE - 2) {
