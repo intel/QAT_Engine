@@ -92,10 +92,10 @@ Successful operation of this release requires a software tool chain that
 supports OpenSSL\* 1.1.1 or OpenSSL\* 1.1.0.
 This release was validated on the following:
 
-* Operating system: Fedora\* 16 64-bit version
-* Kernel: GNU\*/Linux\* 3.1.0.7
-* Intel&reg; Communications Chipset 895x Series Software for Linux\*, version 2.6
-* OpenSSL\* 1.1.1 (Up to TLS 1.2 only, not validated using TLS 1.3)
+* Operating system: CentOS\* 7.4 64-bit version
+* Kernel: GNU\*/Linux\* 3.10.0-693
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.4
+* OpenSSL\* 1.1.1 (Basic functionality testing done on TLS1.3)
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
 GNU\* C Library version 2.23 or later to take advantage of AVX-512 optimizations
@@ -118,11 +118,12 @@ repository:
 
 ## Limitations
 
-* Although the QAT OpenSSL\* Engine has been tested against OpenSSL\* 1.1.1 it
-  has currently not been verified for acceleration of TLS 1.3 key exchange and
-  authentication such as offloading RSA-PSS and Elliptical Curve operations.
-  Although it is expected to function, such support should be considered
-  experimental at this stage.
+* When using TLS 1.3 only asymmetric PKE offload is supported. TLS 1.3 uses an HKDF
+  instead of a PRF which is not currently accelerated, and the set of
+  symmetric ciphers currently offloaded are not compatible with the TLS 1.3
+  symmetric ciphers which are AES-GCM or ChaCha-Poly based.
+* This release currently does not support building against the OpenSSL\* master
+  branch (Only 1.1.0 and 1.1.1 branches) due to recent incompatible changes in OpenSSL\*.
 * When forking within an application it is not valid for a cryptographic
   operation to be started in the parent process, and completed in the child
   process.
@@ -857,8 +858,12 @@ Mandatory
     Specify the path to the source code of the Intel(R) QAT Driver. This path
     is needed for compilation in order to locate the Intel(R) QAT header files.
     If you do not specify this the build will fail.
-    For example if using the QATmux.L.2.6.0-60.tar.gz driver package that was
+    For example if using Upstream Intel&reg; QAT Driver package that was
     unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
+    C62X Series device then you would use the following setting:
+    --with-qat_dir=/QAT
+    Another example if using the QATmux.L.2.6.0-60.tar.gz driver package that
+    was unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
     8925 to 8955 Series device then you would use the following setting:
     --with-qat_dir=/QAT/QAT1.6
 
