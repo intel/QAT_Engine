@@ -89,19 +89,31 @@ int qat_is_event_driven()
 static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
                            OSSL_ASYNC_FD readfd, void *custom)
 {
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    int (*callback)(void *arg);
+    void *args;
+
+    if (ASYNC_WAIT_CTX_get_callback(ctx, &callback, &args)) {
+        return;
+    }
+#endif
     if (close(readfd) != 0) {
         WARN("Failed to close fd: %d - error: %d\n", readfd, errno);
         QATerr(QAT_F_QAT_FD_CLEANUP, QAT_R_CLOSE_FD_FAILURE);
     }
 }
 
-int qat_setup_async_event_notification(int notificationNo)
+int qat_setup_async_event_notification(int jobStatus)
 {
-    /* We will ignore notificationNo for the moment */
+    /* We will ignore jobStatus for the moment */
     ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    int (*callback)(void *arg);
+    void *args;
+#endif
 
     if ((job = ASYNC_get_current_job()) == NULL) {
         WARN("Could not obtain current job\n");
@@ -112,6 +124,12 @@ int qat_setup_async_event_notification(int notificationNo)
         WARN("Could not obtain wait context for job\n");
         return 0;
     }
+
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
+        return 1;
+    }
+#endif
 
     if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom) == 0) {
@@ -131,14 +149,18 @@ int qat_setup_async_event_notification(int notificationNo)
     return 1;
 }
 
-int qat_clear_async_event_notification() {
-
+int qat_clear_async_event_notification()
+{
     ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
     OSSL_ASYNC_FD efd;
     size_t num_add_fds = 0;
     size_t num_del_fds = 0;
     void *custom = NULL;
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    int (*callback)(void *arg);
+    void *args;
+#endif
 
     if ((job = ASYNC_get_current_job()) == NULL) {
         WARN("Could not obtain current job\n");
@@ -149,6 +171,12 @@ int qat_clear_async_event_notification() {
         WARN("Could not obtain wait context for job\n");
         return 0;
     }
+
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
+        return 1;
+    }
+#endif
 
     if (ASYNC_WAIT_CTX_get_changed_fds(waitctx, NULL, &num_add_fds, NULL,
                                        &num_del_fds) == 0) {
@@ -177,25 +205,41 @@ int qat_clear_async_event_notification() {
     return 1;
 }
 
-int qat_pause_job(volatile ASYNC_JOB *job, int notificationNo)
+int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
 {
-    /* We will ignore notificationNo for the moment */
     ASYNC_WAIT_CTX *waitctx;
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
     uint64_t buf = 0;
     int ret = 0;
-
-    if (ASYNC_pause_job() == 0) {
-        WARN("Failed to pause the job\n");
-        return ret;
-    }
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    int callback_set = 0;
+    int (*callback)(void *arg);
+    void *args;
+#endif
 
     if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
         WARN("waitctx == NULL\n");
         return ret;
     }
 
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
+        callback_set = 1;
+        ASYNC_WAIT_CTX_set_status(waitctx, jobStatus);
+    }
+#endif
+
+    if (ASYNC_pause_job() == 0) {
+        WARN("Failed to pause the job\n");
+        return ret;
+    }
+
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    if (callback_set) {
+        return 1;
+    }
+#endif
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom)) > 0) {
         if (read(efd, &buf, sizeof(uint64_t)) == -1) {
@@ -209,20 +253,38 @@ int qat_pause_job(volatile ASYNC_JOB *job, int notificationNo)
     return ret;
 }
 
-int qat_wake_job(volatile ASYNC_JOB *job, int notificationNo)
+int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
 {
-    /* We will ignore notificationNo for the moment */
     ASYNC_WAIT_CTX *waitctx;
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
     /* Arbitary value '1' to write down the pipe to trigger event */
     uint64_t buf = 1;
     int ret = 0;
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    int (*callback)(void *arg);
+    void *args;
+#endif
 
     if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
         WARN("waitctx == NULL\n");
         return ret;
     }
+
+#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+    if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
+        /* We will go through callback mechanism */
+        if (ASYNC_STATUS_OK == jobStatus)
+        {
+            (*callback)(args);
+        } else {
+            /* In this case, we assume that a possbile retry happened */
+            ASYNC_WAIT_CTX_set_status(waitctx, jobStatus);
+        }
+
+        return 1;
+    }
+#endif
 
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom)) > 0) {
@@ -232,4 +294,3 @@ int qat_wake_job(volatile ASYNC_JOB *job, int notificationNo)
     }
     return ret;
 }
-

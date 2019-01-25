@@ -65,10 +65,21 @@
 #define QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(x) \
         (x == QAT_JOB_RESUMED_UNEXPECTEDLY)
 
+/*
+ * These #defines ensure backward compatibility with OpenSSL versions 1.1.0
+ * and 1.1.1 which do not have asynchronous callback mode.
+ */
+#ifndef SSL_QAT_USE_ASYNC_CALLBACK
+# define ASYNC_STATUS_UNSUPPORTED    0
+# define ASYNC_STATUS_ERR            1
+# define ASYNC_STATUS_OK             2
+# define ASYNC_STATUS_EAGAIN         3
+#endif
+
 int qat_is_event_driven();
-int qat_setup_async_event_notification(int notificationNo);
+int qat_setup_async_event_notification(int jobStatus);
 int qat_clear_async_event_notification();
-int qat_pause_job(volatile ASYNC_JOB *job, int notificationNo);
-int qat_wake_job(volatile ASYNC_JOB *job, int notificationNo);
+int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus);
+int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus);
 
 #endif   /* QAT_EVENTS_H */

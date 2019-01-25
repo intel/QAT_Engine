@@ -199,7 +199,7 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
 
     if (opDone->job) {
         opDone->flag = 1;
-        qat_wake_job(opDone->job, 0);
+        qat_wake_job(opDone->job, ASYNC_STATUS_OK);
     } else {
         opDone->flag = 1;
     }

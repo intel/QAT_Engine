@@ -513,6 +513,16 @@ then
   AC_SUBST(QAT_SHARED_LIB_DEPS_QAE_MEM)
 fi
 
+#check callback in openssl
+if test "`grep -nr ASYNC_WAIT_CTX_get_callback $with_openssl_dir`" = ""
+then
+  #do nothing
+  cflags_SSL_QAT_use_async_callback=""
+else
+  cflags_SSL_QAT_use_async_callback="-DSSL_QAT_USE_ASYNC_CALLBACK"
+fi
+AC_SUBST(cflags_SSL_QAT_use_async_callback)
+
 # Checks for programs.
 AC_PROG_CXX
 AC_PROG_CC

@@ -374,8 +374,8 @@ int qat_dh_generate_key(DH *dh)
                     }
                 }
             } else {
-                if ((qat_wake_job(op_done.job, 0) == 0) ||
-                        (qat_pause_job(op_done.job, 0) == 0)) {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
@@ -409,7 +409,7 @@ int qat_dh_generate_key(DH *dh)
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
@@ -634,8 +634,8 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                     }
                 }
             } else {
-                if ((qat_wake_job(op_done.job, 0) == 0) ||
-                        (qat_pause_job(op_done.job, 0) == 0)) {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
@@ -669,7 +669,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();

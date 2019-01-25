@@ -90,7 +90,8 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
             $(enable_qat_debug) $(enable_qat_warnings) \
             $(enable_qat_mem_debug) $(enable_qat_mem_warnings) \
             $(enable_qat_auto_engine_init_on_fork) \
-            $(cflags_qat_debug_file)
+            $(cflags_qat_debug_file)\
+            $(cflags_SSL_QAT_use_async_callback)
 
 libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
                     $(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER) \

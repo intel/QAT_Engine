@@ -456,7 +456,7 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
      */
     opdone->opDone.flag = 1;
     if (opdone->opDone.job) {
-        qat_wake_job(opdone->opDone.job, 0);
+        qat_wake_job(opdone->opDone.job, ASYNC_STATUS_OK);
     }
 }
 
@@ -1485,7 +1485,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if ((job_ret = qat_pause_job(done.opDone.job, 0)) == 0)
+            if ((job_ret = qat_pause_job(done.opDone.job, ASYNC_STATUS_OK)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
@@ -1587,8 +1587,8 @@ CpaStatus qat_sym_perform_op(int inst_num,
                                    pVerifyResult);
         if (status == CPA_STATUS_RETRY) {
             if (opDone->job) {
-                if ((qat_wake_job(opDone->job, 0) == 0) ||
-                        (qat_pause_job(opDone->job, 0) == 0)) {
+                if ((qat_wake_job(opDone->job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(opDone->job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("Failed to wake or pause job\n");
                     QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_WAKE_PAUSE_JOB_FAILURE);
                     status = CPA_STATUS_FAIL;

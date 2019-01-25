@@ -303,8 +303,8 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn, &op_done,
                               dec_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
-            if ((qat_wake_job(op_done.job, 0) == 0) ||
-                (qat_pause_job(op_done.job, 0) == 0)) {
+            if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                 WARN("qat_wake_job or qat_pause_job failed\n");
                 break;
             }
@@ -334,7 +334,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
            qat_pause_job fails we will just yield and
            loop around and try again until the request
            completes and we can continue. */
-        if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+        if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
             pthread_yield();
     }
     while (!op_done.flag ||
@@ -614,8 +614,8 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                     }
                 }
             } else {
-                if ((qat_wake_job(op_done.job, 0) == 0) ||
-                    (qat_pause_job(op_done.job, 0) == 0)) {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
@@ -649,7 +649,7 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 pthread_yield();
         } else {
             if(getEnableInlinePolling()) {

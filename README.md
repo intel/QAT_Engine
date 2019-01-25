@@ -22,6 +22,7 @@
 - [Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options](#intel-quickassist-technology-openssl-engine-build-options)
 - [Using the OpenSSL\* Configuration File to Load/Initialize Engines](#using-the-openssl-configuration-file-to-loadinitialize-engines)
 - [Using the OpenSSL\* pipelining capability](#using-the-openssl-pipelining-capability)
+- [Using the OpenSSL* asynchronous mode 'ASYNC_JOB' infrastructure](#using-the-openssl-asynchronous-mode-infrastructure)
 - [Legal](#legal)
 
 ## Licensing
@@ -50,20 +51,20 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
 
 * Synchronous and Asynchronous Operation
 * Asymmetric PKE Offload
-  * RSA Support for Key Sizes 1024/2048/4096.
-  * DH Support for Key Sizes 768/1024/1536/2048/3072/4096.
-  * DSA Support for Key Sizes 160/1024, 224/2048, 256/2048, 256/3072.
-  * ECDH Support for the following curves:
-    * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
-    * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
-    * NIST Koblitz Curves: K-163/K-233/K-283/K-409/K-571.
-  * ECDSA Support for the following curves:
-    * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
-    * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
-    * NIST Koblitz Curves: K-163/K-233/K-283/K-409/K-571.
+    * RSA Support for Key Sizes 1024/2048/4096.
+    * DH Support for Key Sizes 768/1024/1536/2048/3072/4096.
+    * DSA Support for Key Sizes 160/1024, 224/2048, 256/2048, 256/3072.
+    * ECDH Support for the following curves:
+        * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
+        * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
+        * NIST Koblitz Curves: K-163/K-233/K-283/K-409/K-571.
+    * ECDSA Support for the following curves:
+        * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
+        * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
+        * NIST Koblitz Curves: K-163/K-233/K-283/K-409/K-571.
 * Symmetric Chained Cipher Offload with pipelining capability:
-  * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
-  * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
+    * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
+    * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
 * Pseudo Random Function (PRF) offload.
 
 Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
@@ -1246,6 +1247,32 @@ each pipeline. When pipelines are used, they are always offloaded to the
 accelerator ignoring the small packet offload threshold.  Please refer to the
 OpenSSL\* manual for more information about pipelining.
 <https://www.openssl.org/docs/man1.1.0/ssl/SSL_CTX_set_split_send_fragment.html>
+
+## Using the OpenSSL\* asynchronous mode 'ASYNC_JOB' infrastructure
+
+Asynchronous operation utilizes the OpenSSL\* asychronous mode (`ASYNC_JOB`
+infrastructure) introduced in OpenSSL\* version 1.1.0.  In the
+OpenSSL\* master branch this infrastructure was augmented to provide an
+additional `callback` method by which the OpenSSL\* Engine can be notified
+of crypto operation request completions by the hardware accelerator. This
+additional method can be used if you think that using the alternative
+`file descriptor` method descriptor is too costly in terms of CPU cycles
+or in some context where a file descriptor is not appropriate.
+
+The QAT OpenSSL\* Engine build system will automatically detect whether the
+OpenSSL\* version being built against supports this additional `callback` method.
+If so, the QAT OpenSSL\* Engine code will use the `callback`
+mechanism for job completion rather than the `file descriptor`
+mechanism if a `callback` function has been set. If a `callback` has not
+been set then the `file descriptor` method will be used.
+
+For further details on using the OpenSSL\* asynchronous mode infrastructure please
+see the OpenSSL\* online documentation located at:
+<https://www.openssl.org/docs/manmaster/man3/ASYNC_start_job.html>
+
+with additional information at:
+<https://www.openssl.org/docs/manmaster/man3/ASYNC_WAIT_CTX_new.html>.
+
 
 ## Legal
 

@@ -308,6 +308,7 @@ int qat_engine_init(ENGINE *e)
     CpaBoolean limitDevAccess = CPA_FALSE;
     int ret_pthread_sigmask;
 
+
     pthread_mutex_lock(&qat_engine_mutex);
     if (engine_inited) {
         pthread_mutex_unlock(&qat_engine_mutex);

@@ -498,8 +498,8 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                     }
                 }
             } else {
-                if ((qat_wake_job(op_done.job, 0) == 0) ||
-                    (qat_pause_job(op_done.job, 0) == 0)) {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
@@ -533,7 +533,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
@@ -1188,8 +1188,8 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                     }
                 }
             } else {
-                if ((qat_wake_job(op_done.job, 0) == 0) ||
-                    (qat_pause_job(op_done.job, 0) == 0)) {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
@@ -1223,7 +1223,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
@@ -1565,8 +1565,8 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                     }
                 }
             } else {
-                if ((qat_wake_job(op_done.job, 0) == 0) ||
-                    (qat_pause_job(op_done.job, 0) == 0)) {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
@@ -1600,7 +1600,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                qat_pause_job fails we will just yield and
                loop around and try again until the request
                completes and we can continue. */
-            if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
+            if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 pthread_yield();
         } else {
             pthread_yield();
