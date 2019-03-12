@@ -4,8 +4,10 @@ ACLOCAL_AMFLAGS = -I m4
 lib_LTLIBRARIES = libqat.la
 
 if QAT_CONTIG_MEM
- MEM_LIB_SRC = qae_mem_utils.c
- MEM_LIB_HEADER = qae_mem_utils.h
+ MEM_LIB_SRC = qae_mem_utils.c \
+               qat_sys_call.c
+ MEM_LIB_HEADER = qae_mem_utils.h \
+                  qat_sys_call.h
 endif
 
 if QAT_MULTI_THREAD

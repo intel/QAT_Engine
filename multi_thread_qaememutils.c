@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2018 Intel Corporation.
+ *   Copyright(c) 2016-2019 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -45,16 +45,15 @@
  *****************************************************************************/
 #define _GNU_SOURCE
 
+#include "qat_sys_call.h"
 #include "qae_mem_utils.h"
 #ifdef USE_QAT_CONTIG_MEM
 #include "qat_contig_mem.h"
 #endif
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <assert.h>
 #include <string.h>
 #include <limits.h>
 #include <pthread.h>
@@ -359,7 +358,7 @@ static qae_slab *crypto_create_slab(int size, int pool_index, int memfd)
 
     qmcfg.length = SLAB_SIZE;
 #ifdef USE_QAT_CONTIG_MEM
-    if (ioctl(memfd, QAT_CONTIG_MEM_MALLOC, &qmcfg) == -1) {
+    if (qat_ioctl(memfd, QAT_CONTIG_MEM_MALLOC, &qmcfg) == -1) {
         static char errmsg[LINE_MAX];
 
         snprintf(errmsg, LINE_MAX, "ioctl QAT_CONTIG_MEM_MALLOC(%d)",
@@ -368,10 +367,10 @@ static qae_slab *crypto_create_slab(int size, int pool_index, int memfd)
         goto exit;
     }
     if ((slb =
-         mmap(NULL, qmcfg.length*QAT_CONTIG_MEM_MMAP_ADJUSTMENT,
-              PROT_READ | PROT_WRITE,
-              MAP_SHARED | MAP_LOCKED, memfd,
-              qmcfg.virtualAddress)) == MAP_FAILED) {
+         qat_mmap(NULL, qmcfg.length*QAT_CONTIG_MEM_MMAP_ADJUSTMENT,
+                  PROT_READ | PROT_WRITE,
+                  MAP_SHARED | MAP_LOCKED, memfd,
+                  qmcfg.virtualAddress)) == MAP_FAILED) {
         static char errmsg[LINE_MAX];
         snprintf(errmsg, LINE_MAX, "mmap: %d %s", errno, strerror(errno));
         perror(errmsg);
@@ -559,12 +558,12 @@ static void crypto_free_slab(qae_slab *slb, void *thread_key)
     MEM_DEBUG("do munmap  of %p\n", slb);
     qmcfg = *((qat_contig_mem_config *) slb);
 
-    if (munmap(slb, SLAB_SIZE) == -1) {
+    if (qat_munmap(slb, SLAB_SIZE) == -1) {
         perror("munmap");
         exit(EXIT_FAILURE);
     }
     MEM_DEBUG("ioctl free of %p\n", slb);
-    if (ioctl(tls_ptr->crypto_qat_contig_memfd, QAT_CONTIG_MEM_FREE, &qmcfg)
+    if (qat_ioctl(tls_ptr->crypto_qat_contig_memfd, QAT_CONTIG_MEM_FREE, &qmcfg)
         == -1) {
         perror("ioctl QAT_CONTIG_MEM_FREE");
         exit(EXIT_FAILURE);
@@ -699,7 +698,7 @@ void fork_slab_list(qae_slab_pool * list, int memfd)
 
     while (count < list->slot_size) {
 #ifdef USE_QAT_CONTIG_MEM
-        if (ioctl(memfd, QAT_CONTIG_MEM_MALLOC, &qmcfg) == -1) {
+        if (qat_ioctl(memfd, QAT_CONTIG_MEM_MALLOC, &qmcfg) == -1) {
             static char errmsg[LINE_MAX];
 
             snprintf(errmsg, LINE_MAX, "ioctl QAT_CONTIG_MEM_MALLOC(%d)",
@@ -709,10 +708,10 @@ void fork_slab_list(qae_slab_pool * list, int memfd)
         }
 
         if ((new_slb =
-             mmap(NULL, qmcfg.length*QAT_CONTIG_MEM_MMAP_ADJUSTMENT,
-                  PROT_READ | PROT_WRITE,
-                  MAP_SHARED | MAP_LOCKED, memfd,
-                  qmcfg.virtualAddress)) == MAP_FAILED) {
+             qat_mmap(NULL, qmcfg.length*QAT_CONTIG_MEM_MMAP_ADJUSTMENT,
+                      PROT_READ | PROT_WRITE,
+                      MAP_SHARED | MAP_LOCKED, memfd,
+                      qmcfg.virtualAddress)) == MAP_FAILED) {
             static char errmsg[LINE_MAX];
             snprintf(errmsg, LINE_MAX, "mmap: %d %s", errno, strerror(errno));
             perror(errmsg);
@@ -725,12 +724,12 @@ void fork_slab_list(qae_slab_pool * list, int memfd)
 #endif
         qae_slab *to_unmap = old_slb;
         old_slb = old_slb->next;
-        if (munmap(to_unmap, SLAB_SIZE) == -1) {
+        if (qat_munmap(to_unmap, SLAB_SIZE) == -1) {
             perror("munmap");
             exit(EXIT_FAILURE);
         }
-        qae_slab *remap = mremap(new_slb, SLAB_SIZE, SLAB_SIZE,
-                                 MREMAP_FIXED | MREMAP_MAYMOVE, to_unmap);
+        qae_slab *remap = qat_mremap(new_slb, SLAB_SIZE, SLAB_SIZE,
+                                     MREMAP_FIXED | MREMAP_MAYMOVE, to_unmap);
         if ((remap == MAP_FAILED) || (remap != to_unmap)) {
             perror("mremap");
             exit(EXIT_FAILURE);
@@ -767,12 +766,12 @@ static void crypto_free_slab_list(qae_slab_pool *list, int memfd)
         MEM_DEBUG("do munmap of %p\n", slb);
         qmcfg = *((qat_contig_mem_config *) slb);
 
-        if (munmap(slb, SLAB_SIZE) == -1) {
+        if (qat_munmap(slb, SLAB_SIZE) == -1) {
             perror("munmap");
             exit(EXIT_FAILURE);
         }
         MEM_DEBUG("ioctl free of %p\n", slb);
-        if (ioctl(memfd, QAT_CONTIG_MEM_FREE, &qmcfg) == -1) {
+        if (qat_ioctl(memfd, QAT_CONTIG_MEM_FREE, &qmcfg) == -1) {
             perror("ioctl QAT_CONTIG_MEM_FREE");
             exit(EXIT_FAILURE);
         }
@@ -846,7 +845,7 @@ void slab_list_stat(qae_slab_pool * list)
 void crypto_cleanup_slabs(void *thread_key)
 {
     qae_slab_pools_local *tls_ptr = (qae_slab_pools_local *)thread_key;
-    crypto_free_empty_slab_list(thread_key);
+    crypto_free_empty_slab_list(tls_ptr);
 #ifdef QAT_MEM_DEBUG
     int i;
     /* statistics of available slab lists */
