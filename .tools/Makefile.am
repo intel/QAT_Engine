@@ -104,9 +104,17 @@ if QAT_OPENSSL_102
  ENGINE_LIB = $(with_openssl_install_dir)/lib/engines/libqat.so
 else
 if QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH
+if QAT_OPENSSL_300
+ ENGINE_LIB = $(with_openssl_install_dir)/engines-3/qat.so
+else
  ENGINE_LIB = $(with_openssl_install_dir)/engines-1.1/qat.so
+endif
+else
+if QAT_OPENSSL_300
+ ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-3/qat.so
 else
  ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-1.1/qat.so
+endif
 endif
 endif
 

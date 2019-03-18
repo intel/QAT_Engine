@@ -209,7 +209,6 @@ fi
 
 ac_default_prefix=$with_openssl_install_dir
 
-
 # Default non mandatory paths if not provided
 
 if test "x$with_qat_install_dir" = "x"
@@ -454,6 +453,12 @@ then
   AC_MSG_NOTICE([Build QAT engine against packaged OpenSSL on, for example, a Debian system])
 fi
 AM_CONDITIONAL([QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH], [test "x$enable_openssl_install_build_arch_path" = "xyes"])
+
+if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"
+then
+  AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
+fi
+AM_CONDITIONAL([QAT_OPENSSL_300], [ test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"])
 
 # Adding driver source for building and linking the library
 
