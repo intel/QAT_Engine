@@ -54,8 +54,9 @@ QAT_F_QAT_RSA_PRIV_DEC:144:qat_rsa_priv_dec
 QAT_F_QAT_RSA_PRIV_ENC:145:qat_rsa_priv_enc
 QAT_F_QAT_RSA_PUB_DEC:146:qat_rsa_pub_dec
 QAT_F_QAT_RSA_PUB_ENC:147:qat_rsa_pub_enc
-QAT_F_QAT_SET_INSTANCE_FOR_THREAD:148:qat_set_instance_for_thread
-QAT_F_QAT_SYM_PERFORM_OP:149:qat_sym_perform_op
+QAT_F_QAT_SET_AFFINE_COORDINATES:148:qat_set_affine_coordinates
+QAT_F_QAT_SET_INSTANCE_FOR_THREAD:149:qat_set_instance_for_thread
+QAT_F_QAT_SYM_PERFORM_OP:150:qat_sym_perform_op
 
 #Reason codes
 QAT_R_ADD_M2_FAILURE:100:add m2 failure

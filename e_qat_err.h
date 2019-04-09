@@ -75,8 +75,9 @@ void ERR_QAT_error(int function, int reason, char *file, int line);
 # define QAT_F_QAT_RSA_PRIV_ENC                           145
 # define QAT_F_QAT_RSA_PUB_DEC                            146
 # define QAT_F_QAT_RSA_PUB_ENC                            147
-# define QAT_F_QAT_SET_INSTANCE_FOR_THREAD                148
-# define QAT_F_QAT_SYM_PERFORM_OP                         149
+# define QAT_F_QAT_SET_AFFINE_COORDINATES                 148
+# define QAT_F_QAT_SET_INSTANCE_FOR_THREAD                149
+# define QAT_F_QAT_SYM_PERFORM_OP                         150
 
 /*
  * QAT reason codes.

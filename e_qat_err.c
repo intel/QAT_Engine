@@ -66,6 +66,8 @@ static ERR_STRING_DATA QAT_str_functs[] = {
     {ERR_PACK(0, QAT_F_QAT_RSA_PRIV_ENC, 0), "qat_rsa_priv_enc"},
     {ERR_PACK(0, QAT_F_QAT_RSA_PUB_DEC, 0), "qat_rsa_pub_dec"},
     {ERR_PACK(0, QAT_F_QAT_RSA_PUB_ENC, 0), "qat_rsa_pub_enc"},
+    {ERR_PACK(0, QAT_F_QAT_SET_AFFINE_COORDINATES, 0),
+     "qat_set_affine_coordinates"},
     {ERR_PACK(0, QAT_F_QAT_SET_INSTANCE_FOR_THREAD, 0),
      "qat_set_instance_for_thread"},
     {ERR_PACK(0, QAT_F_QAT_SYM_PERFORM_OP, 0), "qat_sym_perform_op"},

@@ -238,6 +238,98 @@ void qat_free_EC_methods(void)
 }
 
 
+#if !defined (OPENSSL_DISABLE_QAT_ECDSA) || !defined (OPENSSL_DISABLE_QAT_ECDH)
+CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
+{
+    if (EC_METHOD_get_field_type(EC_GROUP_method_of(group))
+        == NID_X9_62_prime_field)
+        return CPA_CY_EC_FIELD_TYPE_PRIME;
+    else
+        return CPA_CY_EC_FIELD_TYPE_BINARY;
+}
+
+int qat_get_curve(const EC_GROUP *group, BIGNUM *p, BIGNUM *a,
+                  BIGNUM *b, BN_CTX *ctx, CpaCyEcFieldType fieldType)
+{
+# if OPENSSL_VERSION_NUMBER > 0x101000afL
+    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+        WARN("Failure to get the curve\n");
+        return 0;
+    }
+# else
+    if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME) {
+        if (!EC_GROUP_get_curve_GFp(group, p, a, b, ctx)) {
+            WARN("Failure to get the curve for a prime field\n");
+            return 0;
+        }
+    } else {
+        if (!EC_GROUP_get_curve_GF2m(group, p, a, b, ctx)) {
+            WARN("Failure to get the curve for a binary field\n");
+            return 0;
+        }
+    }
+# endif
+    return 1;
+}
+
+int qat_get_affine_coordinates(const EC_GROUP *group, const EC_POINT *p,
+                               BIGNUM *x, BIGNUM *y, BN_CTX *ctx,
+                               CpaCyEcFieldType fieldType)
+{
+# if OPENSSL_VERSION_NUMBER > 0x101000afL
+    if (!EC_POINT_get_affine_coordinates(group, p, x, y, ctx)) {
+        WARN("Failure to get the affine coordinates for fieldType %d\n", fieldType);
+        return 0;
+    }
+# else
+    if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME) {
+        if (!EC_POINT_get_affine_coordinates_GFp(group, p, x, y, ctx)) {
+            WARN("Failure to get the curve for a prime field\n");
+            return 0;
+        }
+    } else {
+        if (!EC_POINT_get_affine_coordinates_GF2m(group, p, x, y, ctx)) {
+            WARN("Failure to get the curve for a binary field\n");
+            return 0;
+        }
+    }
+# endif
+    return 1;
+}
+
+int qat_set_affine_coordinates(const EC_GROUP *group, EC_POINT *p,
+                               BIGNUM *x, BIGNUM *y, BN_CTX *ctx,
+                               CpaCyEcFieldType fieldType)
+{
+# if OPENSSL_VERSION_NUMBER > 0x101000afL
+    if (!EC_POINT_set_affine_coordinates(group, p, x, y, ctx)) {
+        WARN("Failure to set the affine coordinates for fieldType %d\n", fieldType);
+        return 0;
+    }
+# else
+    if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME) {
+        if (!EC_POINT_set_affine_coordinates_GFp(group, p, x, y, ctx)) {
+            WARN("Failure to set the affine coordinates for prime field\n");
+            return 0;
+        }
+    } else {
+        if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) ==
+            NID_X9_62_characteristic_two_field) {
+            if (!EC_POINT_set_affine_coordinates_GF2m(group, p, x, y, ctx)) {
+                WARN("Failure to set the affine coordinates for binary field\n");
+                return 0;
+            }
+        } else {
+            WARN("Error unknown field type for curve\n");
+            QATerr(QAT_F_QAT_SET_AFFINE_COORDINATES, QAT_R_ECDH_UNKNOWN_FIELD_TYPE);
+            return 0;
+        }
+    }
+# endif
+    return 1;
+}
+#endif
+
 #ifndef OPENSSL_DISABLE_QAT_ECDH
 /* Callback to indicate QAT completion of EC point multiply */
 static void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
@@ -250,7 +342,6 @@ static void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, multiplyStatus);
 }
-
 
 int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                          unsigned char **outY, size_t *outlenY,
@@ -382,30 +473,19 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
     pResultY->dataLenInBytes = (Cpa32U) buflen;
 
-    if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) ==
-        NID_X9_62_prime_field) {
-        if (!EC_GROUP_get_curve_GFp(group, p, a, b, ctx)) {
-            WARN("Failure to get the curve for a prime field\n");
-            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
+    opData->fieldType = qat_get_field_type(group);
 
-        if (!EC_POINT_get_affine_coordinates_GFp(group, pub_key, xg, yg, ctx)) {
-            WARN("Failure to get the affine coordinates for a prime field\n");
-            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        opData->fieldType = CPA_CY_EC_FIELD_TYPE_PRIME;
-    } else {
-        if ((!EC_GROUP_get_curve_GF2m(group, p, a, b, ctx)) ||
-            (!EC_POINT_get_affine_coordinates_GF2m(group, pub_key,
-                                                   xg, yg, ctx))) {
-            WARN("Failure to get the curve or coordinates for a binary field\n");
-            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        opData->fieldType = CPA_CY_EC_FIELD_TYPE_BINARY;
+    if (!qat_get_curve(group, p, a, b, ctx, opData->fieldType)) {
+        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
+
+    if (!qat_get_affine_coordinates(group, pub_key, xg, yg, ctx,
+                                    opData->fieldType)) {
+        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+
     if ((qat_BN_to_FB(&(opData->k), (BIGNUM *)priv_key) != 1) ||
         (qat_BN_to_FB(&(opData->xg), xg) != 1) ||
         (qat_BN_to_FB(&(opData->yg), yg) != 1) ||
@@ -618,7 +698,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
 {
     int ok = 0;
     int alloc_priv = 0, alloc_pub = 0;
-    int field_size = 0;
+    int field_size = 0, field_type = 0;
     BN_CTX *ctx = NULL;
     BIGNUM *priv_key = NULL, *order = NULL, *x_bn = NULL,
            *y_bn = NULL, *tx_bn = NULL, *ty_bn = NULL;
@@ -737,72 +817,31 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
 
     x_bn = BN_bin2bn(temp_xbuf, temp_xfield_size, x_bn);
     y_bn = BN_bin2bn(temp_ybuf, temp_yfield_size, y_bn);
-    if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) ==
-        NID_X9_62_prime_field) {
-        if (!EC_POINT_set_affine_coordinates_GFp
-            (group, pub_key, x_bn, y_bn, ctx)) {
-            WARN("Failure to set affine coordinates for prime field\n");
-            QATerr(QAT_F_QAT_ECDH_GENERATE_KEY,
-                   QAT_R_ECDH_SET_AFFINE_COORD_FAILED);
-            goto err;
-        }
-        if (!EC_POINT_get_affine_coordinates_GFp
-            (group, pub_key, tx_bn, ty_bn, ctx)) {
-            WARN("Failure to get affine coordinates for prime field\n");
-            QATerr(QAT_F_QAT_ECDH_GENERATE_KEY,
-                   QAT_R_ECDH_GET_AFFINE_COORD_FAILED);
-            goto err;
-        }
 
-        /*
-         * Check if retrieved coordinates match originals: if not values are
-         * out of range.
-         */
-        if (BN_cmp(x_bn, tx_bn) || BN_cmp(y_bn, ty_bn)) {
-            WARN("Retrieved coordinates do not match the originals\n");
-            QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        if (!EC_KEY_set_public_key(ecdh, pub_key)) {
-            WARN("Error setting pub_key\n");
-            QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-    } else {
-        if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) ==
-            NID_X9_62_characteristic_two_field) {
-            if (!EC_POINT_set_affine_coordinates_GF2m
-                (group, pub_key, x_bn, y_bn, ctx)) {
-                WARN("Failure to set affine coordinates for binary field\n");
-                QATerr(QAT_F_QAT_ECDH_GENERATE_KEY,
-                       QAT_R_ECDH_SET_AFFINE_COORD_FAILED);
-                goto err;
-            }
-            if (!EC_POINT_get_affine_coordinates_GF2m
-                (group, pub_key, tx_bn, ty_bn, ctx)) {
-                WARN("Failure to get affine coordinates for binary field\n");
-                QATerr(QAT_F_QAT_ECDH_GENERATE_KEY,
-                       QAT_R_ECDH_GET_AFFINE_COORD_FAILED);
-                goto err;
-            }
-            if (BN_cmp(x_bn, tx_bn) || BN_cmp(y_bn, ty_bn)) {
-                WARN("Retrieved coordinates do not match the originals\n");
-                QATerr(QAT_F_QAT_ECDH_GENERATE_KEY,
-                       ERR_R_INTERNAL_ERROR);
-                goto err;
-            }
-            if (!EC_KEY_set_public_key(ecdh, pub_key)) {
-                WARN("Error setting pub_key\n");
-                QATerr(QAT_F_QAT_ECDH_GENERATE_KEY,
-                       ERR_R_INTERNAL_ERROR);
-                goto err;
-            }
-        } else {
-            WARN("Error unknown field type for curve\n");
-            QATerr(QAT_F_QAT_ECDH_GENERATE_KEY,
-                   QAT_R_ECDH_UNKNOWN_FIELD_TYPE);
-            goto err;
-        }
+    field_type = qat_get_field_type(group);
+
+    if (!qat_set_affine_coordinates(group, pub_key, x_bn, y_bn, ctx, field_type)) {
+        QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_SET_AFFINE_COORD_FAILED);
+        goto err;
+    }
+    if (!qat_get_affine_coordinates(group, pub_key, tx_bn, ty_bn, ctx, field_type)) {
+        QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_GET_AFFINE_COORD_FAILED);
+        goto err;
+    }
+
+    /*
+    * Check if retrieved coordinates match originals: if not values are
+    * out of range.
+    */
+    if (BN_cmp(x_bn, tx_bn) || BN_cmp(y_bn, ty_bn)) {
+        WARN("Retrieved coordinates do not match the originals\n");
+        QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+    if (!EC_KEY_set_public_key(ecdh, pub_key)) {
+        WARN("Error setting pub_key\n");
+        QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
     ok = 1;
 
@@ -1009,25 +1048,17 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         goto err;
     }
 
-    if (EC_METHOD_get_field_type(EC_GROUP_method_of(group))
-        == NID_X9_62_prime_field) {
-        if ((!EC_GROUP_get_curve_GFp(group, p, a, b, ctx)) ||
-            (!EC_POINT_get_affine_coordinates_GFp(group, ec_point,
-                                                  xg, yg, ctx))) {
-            WARN("Failed to get the curve or coordinates for a prime field\n");
-            QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        opData->fieldType = CPA_CY_EC_FIELD_TYPE_PRIME;
-    } else {
-        if ((!EC_GROUP_get_curve_GF2m(group, p, a, b, ctx)) ||
-            (!EC_POINT_get_affine_coordinates_GF2m(group, ec_point,
-                                                   xg, yg, ctx))) {
-            WARN("Failed to get the curve or coordinates for a binary field\n");
-            QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        opData->fieldType = CPA_CY_EC_FIELD_TYPE_BINARY;
+    opData->fieldType = qat_get_field_type(group);
+
+    if (!qat_get_curve(group, p, a, b, ctx, opData->fieldType)) {
+       QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+       goto err;
+    }
+
+    if (!qat_get_affine_coordinates(group, ec_point, xg, yg, ctx,
+                                    opData->fieldType)) {
+       QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+       goto err;
     }
 
     if (qat_BN_to_FB(&(opData->d), (BIGNUM *)priv_key) != 1 ||
@@ -1442,29 +1473,23 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         goto err;
     }
 
-    if (EC_METHOD_get_field_type(EC_GROUP_method_of(group))
-        == NID_X9_62_prime_field) {
-        if ((!EC_GROUP_get_curve_GFp(group, p, a, b, ctx)) ||
-            (!EC_POINT_get_affine_coordinates_GFp(group, ec_point,
-                                                  xg, yg, ctx)) ||
-            (!EC_POINT_get_affine_coordinates_GFp(group, pub_key,
-                                                  xp, yp, ctx))) {
-            WARN("Failed to get the curve or coordinates for a prime field\n");
-            QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        opData->fieldType = CPA_CY_EC_FIELD_TYPE_PRIME;
-    } else {
-        if ((!EC_GROUP_get_curve_GF2m(group, p, a, b, ctx)) ||
-            (!EC_POINT_get_affine_coordinates_GF2m(group, ec_point,
-                                                   xg, yg, ctx)) ||
-            (!EC_POINT_get_affine_coordinates_GF2m(group, pub_key,
-                                                   xp, yp, ctx))) {
-            WARN("Failed to get the curve or coordinates for a binary field\n");
-            QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-            goto err;
-        }
-        opData->fieldType = CPA_CY_EC_FIELD_TYPE_BINARY;
+    opData->fieldType = qat_get_field_type(group);
+
+    if (!qat_get_curve(group, p, a, b, ctx, opData->fieldType)) {
+       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+       goto err;
+    }
+
+    if (!qat_get_affine_coordinates(group, ec_point, xg, yg, ctx,
+                                    opData->fieldType)) {
+       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+       goto err;
+    }
+
+    if (!qat_get_affine_coordinates(group, pub_key, xp, yp, ctx,
+                                    opData->fieldType)) {
+       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+       goto err;
     }
 
     if ((qat_BN_to_FB(&(opData->m), m) != 1) ||
