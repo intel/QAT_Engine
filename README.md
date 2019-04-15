@@ -436,8 +436,11 @@ The Intel&reg; QAT OpenSSL\* Engine comes with some example conf files to use
 with the Intel&reg; QAT Driver.
 The Intel&reg; QAT OpenSSL\* Engine will not function with the default
 Intel&reg; QAT Driver conf file because the default conf does not contain a
-`[SHIM]` section which the Intel&reg; QAT OpenSSL\* Engine requires. The conf
-files are located at:
+`[SHIM]` section which the Intel&reg; QAT OpenSSL\* Engine requires by default.
+The default section name in the QAT OpenSSL\* Engine can be modified if required
+by either using the engine ctrl command SET_CONFIGURATION_SECTION_NAME or by
+setting the environment variable "QAT_SECTION_NAME".
+The conf files are located at:
 
     /path/to/qat_engine/qat/config
 
@@ -844,6 +847,18 @@ Description:
     application can directly use this int address to retrieve the specified info
     afterwards without sending this message again.
     This message may be sent at any time after engine initialization.
+
+Message String: SET_CONFIGURATION_SECTION_NAME
+Param 3:        0
+Param 4:        NULL terminated string of section name from Intel(R) QAT Driver
+                config file. Maximum length is 64 bytes including
+                NULL terminator.
+Description:
+    This message is used to configure the Intel(R) QAT OpenSSL* Engine to use
+    the string passed in as parameter 4 to be the name for the Intel(R) QAT
+    Driver config section rather than the default `[SHIM]`. It must be sent
+    after engine creation but before engine initialization. It should not be
+    sent after engine initialization.
 
 ```
 
