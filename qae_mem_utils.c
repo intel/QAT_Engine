@@ -513,8 +513,9 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
 
         if (NULL == slb) {
             MEM_WARN("error, create_slab failed - memory allocation error\n");
-            if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0)
+            if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0) {
                 MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
+            }
             MEM_DEBUG("pthread_mutex_unlock\n");
             goto exit;
         }
@@ -549,8 +550,9 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
 
     result = (void *)((unsigned char *)slt + sizeof(qae_slot));
 
-    if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0)
+    if ((rc = pthread_mutex_unlock(&crypto_bsal)) != 0) {
         MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
+    }
     MEM_DEBUG("pthread_mutex_unlock\n");
 
  exit:
@@ -599,10 +601,10 @@ static void crypto_free_slab(qae_slab *slb)
  *****************************************************************************/
 static void crypto_free_to_slab(void *ptr)
 {
-    qae_slot *slt = (void *)((unsigned char *)ptr - sizeof(qae_slot));
+    qae_slot *slt = (qae_slot *)((unsigned char *)ptr - sizeof(qae_slot));
     if (!slt) {
         MEM_WARN("Error freeing memory - unknown address\n");
-        goto exit;
+        return;
     }
 
     qae_slab *slb = slt->slab;
@@ -691,7 +693,7 @@ static int crypto_slot_get_size(void *ptr)
         MEM_WARN("error can't find %p\n", ptr);
         return 0;
     }
-    qae_slot *slt = (void *)((unsigned char *)ptr - sizeof(qae_slot));
+    qae_slot *slt = (qae_slot *)((unsigned char *)ptr - sizeof(qae_slot));
     if (slt->pool_index == (NUM_SLOT_SIZE - 1)) {
         return MAX_ALLOC;
     } else if (slt->pool_index >= 0 && slt->pool_index <= NUM_SLOT_SIZE - 2) {
