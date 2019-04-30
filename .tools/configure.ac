@@ -177,6 +177,11 @@ AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
                              [Disable auto initialization of the engine following a fork]))
 AC_SUBST(enable_qat_auto_engine_init_on_fork)
 
+AC_ARG_ENABLE(qat_skip_err_files_build,
+              AS_HELP_STRING([--enable-qat_skip_err_files_build],
+                             [Enable the skipping of the generation of the errors files in the QAT engine build process]))
+AC_SUBST(enable_qat_skip_err_files_build)
+
 # ERROR message if mandatory options are not provided
 
 
@@ -459,6 +464,12 @@ then
   AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
 fi
 AM_CONDITIONAL([QAT_OPENSSL_300], [ test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"])
+
+if test "x$enable_qat_skip_err_files_build" = "xyes"
+then
+  AC_MSG_NOTICE([Build QAT engine but skipping the generation of the errors files])
+fi
+AM_CONDITIONAL([QAT_SKIP_ERR_FILES_BUILD], [test "x$enable_qat_skip_err_files_build" = "xyes"])
 
 # Adding driver source for building and linking the library
 

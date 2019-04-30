@@ -1122,12 +1122,23 @@ Optional
     INIT_ENGINE or will automatically get initialized on the first QAT crypto
     operation. The initialization on fork is enabled by default.
 
+--enable-qat_skip_err_files_build
+    Enable the skipping of the regeneration of the errors files during the
+    QAT OpenSSL* Engine build process.  Note that if this option is selected
+    then you must ensure that the files e_qat_err.c, e_qat_err.h & e_qat.txt
+    are present in the QAT OpenSSL* Engine source top directory prior to
+    launching the build process.  In addition, these existing files must
+    have been originally generated for the OpenSSL* version you are building
+    against.
+    This option is disabled by default.
+
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at
     compile time.
 
 --with-ld-opt="parameters"
     Sets additional parameters that will be used during linking.
+
 ```
 
 ## Using the OpenSSL\* Configuration File to Load/Initialize Engines

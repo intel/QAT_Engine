@@ -124,20 +124,25 @@ mostlyclean-generic:
 
 	-rm -f $(ENGINE_LIB)
 
-if QAT_OPENSSL_102
-MAKE = rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
-
-else
-if QAT_OPENSSL_110
-MAKE = rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES) && make
-
-else
-MAKE = perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex $(libqat_la_SOURCES) && make
-endif
+if !QAT_SKIP_ERR_FILES_BUILD
+MAKE = make err-files && make
 endif
 
 install-data-am:
 	-cp -f $(prefix)/lib/libqat.so $(ENGINE_LIB)
+
+err-files:
+if QAT_OPENSSL_102
+	rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES)
+
+else
+if QAT_OPENSSL_110
+	rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES)
+
+else
+	rm -f e_qat_err.c e_qat.txt && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+       -rebuild -reindex $(libqat_la_SOURCES)
+endif
+endif
