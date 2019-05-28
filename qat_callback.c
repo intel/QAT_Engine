@@ -89,6 +89,7 @@ void qat_init_op_done(op_done_t *opDone)
 
     opDone->flag = 0;
     opDone->verifyResult = CPA_FALSE;
+    opDone->status = CPA_STATUS_FAIL;
 
     opDone->job = ASYNC_get_current_job();
 
@@ -133,6 +134,8 @@ int qat_init_op_done_rsa_crt(op_done_rsa_crt_t *opdcrt)
     opdcrt->opDone.flag = 0;
     /* note that the initial value is true in order to judge via AND */
     opdcrt->opDone.verifyResult = CPA_TRUE;
+    opdcrt->opDone.status = CPA_STATUS_SUCCESS;
+
     opdcrt->opDone.job = NULL;
 
     opdcrt->req = 0;
@@ -149,6 +152,7 @@ void qat_cleanup_op_done(op_done_t *opDone)
     }
 
     opDone->verifyResult = CPA_FALSE;
+    opDone->status = CPA_STATUS_FAIL;
 
     if (opDone->job) {
         opDone->job = NULL;
@@ -196,6 +200,7 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
     DEBUG("status %d verifyResult %d\n", status, verifyResult);
     opDone->verifyResult = (status == CPA_STATUS_SUCCESS) && verifyResult
                             ? CPA_TRUE : CPA_FALSE;
+    opDone->status = status;
 
     if (opDone->job) {
         opDone->flag = 1;

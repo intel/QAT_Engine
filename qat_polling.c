@@ -58,6 +58,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <signal.h>
+#include <time.h>
 
 /* Local Includes */
 #include "e_qat.h"
@@ -140,6 +141,26 @@ int qat_adjust_thread_affinity(pthread_t threadptr)
     return 1;
 }
 
+static void qat_poll_heartbeat_timer_expiry(struct timespec *previous_time)
+{
+    struct timespec current_time = { 0 };
+    struct timespec diff_time = { 0 };
+
+    clock_gettime(CLOCK_MONOTONIC_RAW, &current_time);
+
+    /* Calculate time difference and poll every one second */
+    if ((current_time.tv_nsec - previous_time->tv_nsec) < 0) {
+        diff_time.tv_sec = current_time.tv_sec - previous_time->tv_sec - 1;
+    } else {
+        diff_time.tv_sec = current_time.tv_sec - previous_time->tv_sec;
+    }
+    if (diff_time.tv_sec > 0) {
+        poll_heartbeat();
+        previous_time->tv_sec = current_time.tv_sec;
+        previous_time->tv_nsec = current_time.tv_nsec;
+    }
+}
+
 void *timer_poll_func(void *ih)
 {
     CpaStatus status = 0;
@@ -147,10 +168,11 @@ void *timer_poll_func(void *ih)
 
     struct timespec req_time = { 0 };
     struct timespec rem_time = { 0 };
+    struct timespec timeout_time = { 0 };
     unsigned int retry_count = 0; /* to prevent too much time drift */
-
-    int ret_sigwait, sig;
-
+    int sig = 0;
+    unsigned int eintr_count = 0;
+    struct timespec previous_time = { 0 };
 
     DEBUG("timer_poll_func started\n");
     timer_poll_func_thread = pthread_self();
@@ -158,13 +180,35 @@ void *timer_poll_func(void *ih)
 
     DEBUG("timer_poll_func_thread = 0x%lx\n", timer_poll_func_thread);
 
+    if (qat_get_sw_fallback_enabled()) {
+        clock_gettime(CLOCK_MONOTONIC_RAW, &previous_time);
+    }
     while (keep_polling) {
         if (num_requests_in_flight == 0) {
-            ret_sigwait = sigwait((const sigset_t *)&set, &sig);
-            if (ret_sigwait != 0) {
-                WARN("sigwait error\n");
-                return NULL;
+            if (qat_get_sw_fallback_enabled()) {
+                qat_poll_heartbeat_timer_expiry(&previous_time);
             }
+
+            timeout_time.tv_sec = QAT_EVENT_TIMEOUT_IN_SEC;
+            timeout_time.tv_nsec = 0;
+            while ((sig = sigtimedwait((const sigset_t *)&set, NULL, &timeout_time)) == -1 &&
+                    errno == EINTR &&
+                    eintr_count < QAT_CRYPTO_NUM_EVENT_RETRIES) {
+                eintr_count++;
+            }
+            eintr_count = 0;
+            if (unlikely(sig == -1)) {
+                if ((qat_get_sw_fallback_enabled())
+                    && (errno == EAGAIN || errno == EINTR)) {
+                    clock_gettime(CLOCK_MONOTONIC_RAW, &previous_time);
+                    poll_heartbeat();
+                }
+                continue;
+            }
+         } else {
+             if (qat_get_sw_fallback_enabled()) {
+                 qat_poll_heartbeat_timer_expiry(&previous_time);
+             }
         }
 
         req_time.tv_nsec = qat_poll_interval;
@@ -175,7 +219,8 @@ void *timer_poll_func(void *ih)
             /* Poll for 0 means process all packets on the instance */
             status = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
             if (unlikely(CPA_STATUS_SUCCESS != status
-                        && CPA_STATUS_RETRY != status)) {
+                         && CPA_STATUS_RESTARTING != status
+                         && CPA_STATUS_RETRY != status)) {
                 WARN("icp_sal_CyPollInstance returned status %d\n", status);
             }
 
@@ -197,7 +242,8 @@ void *timer_poll_func(void *ih)
         while ((retry_count <= QAT_CRYPTO_NUM_POLLING_RETRIES)
                && (EINTR == errno));
     }
-    DEBUG("timer_poll_func finishing\n");
+
+    DEBUG("timer_poll_func finishing - pid = %d\n", getpid());
     timer_poll_func_thread = 0;
     cleared_to_start = 0;
     return NULL;
@@ -208,6 +254,7 @@ void *event_poll_func(void *ih)
     CpaStatus status = 0;
     struct epoll_event *events = NULL;
     ENGINE_EPOLL_ST* epollst = NULL;
+    struct timespec previous_time = { 0 };
 
     /* Buffer where events are returned */
     events = OPENSSL_zalloc(sizeof(struct epoll_event) * MAX_EVENTS);
@@ -216,6 +263,11 @@ void *event_poll_func(void *ih)
         QATerr(QAT_F_EVENT_POLL_FUNC, QAT_R_EVENTS_MALLOC_FAILURE);
         goto end;
     }
+
+    if (qat_get_sw_fallback_enabled()) {
+        clock_gettime(CLOCK_MONOTONIC_RAW, &previous_time);
+    }
+
     while (keep_polling) {
         int n = 0;
         int i = 0;
@@ -231,10 +283,12 @@ void *event_poll_func(void *ih)
                 }
             }
         }
+        if (qat_get_sw_fallback_enabled()) {
+            qat_poll_heartbeat_timer_expiry(&previous_time);
+        }
     }
-
     OPENSSL_free(events);
-    events = 0;
+    events = NULL;
 end:
     return NULL;
 }
@@ -286,5 +340,16 @@ CpaStatus poll_instances(void)
         }
     }
 
+    return ret_status;
+}
+
+CpaStatus poll_heartbeat(void)
+{
+    CpaStatus ret_status = CPA_STATUS_SUCCESS;
+
+    ret_status = icp_sal_poll_device_events();
+    if (unlikely(CPA_STATUS_SUCCESS != ret_status)) {
+        WARN("The call to icp_sal_poll_device_events failed\n");
+    }
     return ret_status;
 }

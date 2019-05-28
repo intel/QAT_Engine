@@ -11,25 +11,26 @@
 - [Installation Instructions](#installation-instructions)
     - [Build Intel&reg; QuickAssist Technology Driver](#build-intel-quickassist-technology-driver)
     - [Build OpenSSL\*](#build-openssl)
-    - [Clone the Intel&reg; Quickassist Technology OpenSSL\* Engine](#clone-the-intel-quickassist-technology-openssl-engine)
+    - [Clone the Intel&reg; QuickAssist Technology OpenSSL\* Engine](#clone-the-intel-quickassist-technology-openssl-engine)
     - [Build and install a contiguous memory driver](#build-and-install-a-contiguous-memory-driver)
-    - [Build the Intel&reg; Quickassist Technology OpenSSL\* Engine](#build-the-intel-quickassist-technology-openssl-engine)
-    - [Copy the correct Intel&reg; Quickassist Technology Driver config files](#copy-the-correct-intel-quickassist-technology-driver-config-files)
-    - [Test the Intel&reg; Quickassist Technology OpenSSL\* Engine](#test-the-intel-quickassist-technology-openssl-engine)
+    - [Build the Intel&reg; QuickAssist Technology OpenSSL\* Engine](#build-the-intel-quickassist-technology-openssl-engine)
+    - [Copy the correct Intel&reg; QuickAssist Technology Driver config files](#copy-the-correct-intel-quickassist-technology-driver-config-files)
+    - [Test the Intel&reg; QuickAssist Technology OpenSSL\* Engine](#test-the-intel-quickassist-technology-openssl-engine)
     - [Run speed with the Intel&reg; Quickassist Technology OpenSSL\* Engine](#run-speed-with-the-intel-quickassist-technology-openssl-engine)
 - [Troubleshooting](#troubleshooting)
-- [Intel&reg; Quickassist Technology OpenSSL\* Engine Specific Messages](#intel-quickassist-technology-openssl-engine-specific-messages)
-- [Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options](#intel-quickassist-technology-openssl-engine-build-options)
+- [Intel&reg; QuickAssist Technology OpenSSL\* Engine Specific Messages](#intel-quickassist-technology-openssl-engine-specific-messages)
+- [Intel&reg; QuickAssist Technology OpenSSL\* Engine Build Options](#intel-quickassist-technology-openssl-engine-build-options)
 - [Using the OpenSSL\* Configuration File to Load/Initialize Engines](#using-the-openssl-configuration-file-to-loadinitialize-engines)
-- [Using the OpenSSL\* pipelining capability](#using-the-openssl-pipelining-capability)
+- [Using the OpenSSL\* Pipelining Capability](#using-the-openssl-pipelining-capability)
 - [Using the OpenSSL* asynchronous mode 'ASYNC_JOB' infrastructure](#using-the-openssl-asynchronous-mode-infrastructure)
+- [Functionality of the Intel&reg; QAT OpenSSL\* Engine Software Fallback Feature](#functionality-of-the-intel-qat-openssl-engine-software-fallback-feature)
 - [Legal](#legal)
 
 ## Licensing
 
 The Licensing of the files within this project is split as follows:
 
-Intel&reg; Quickassist Technology(QAT) OpenSSL\* Engine - BSD License.
+Intel&reg; QuickAssist Technology(QAT) OpenSSL\* Engine - BSD License.
 Please see the `LICENSE` file contained in the top level folder. Some of the
 engine code contains modified code from OpenSSL/BoringSSL. In both cases the
 code is licensed under the OpenSSL license available at
@@ -42,7 +43,7 @@ Please see the file headers within the `qat_contig_mem` folder, and the full
 GPLv2 license contained in the file `LICENSE.GPL` within the `qat_contig_mem`
 folder.
 
-Example Intel&reg; Quickassist Technology Driver Configuration Files contained
+Example Intel&reg; QuickAssist Technology Driver Configuration Files contained
 within the folder hierarchy `qat` - Dual BSD/GPLv2 License.
 Please see the file headers of the configuration files, and the full GPLv2
 license contained in the file `LICENSE.GPL` within the `qat` folder.
@@ -66,20 +67,29 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
     * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
     * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
 * Pseudo Random Function (PRF) offload.
+* Support for the Intel&reg; QuickAssist Technology Driver Heartbeat feature.
 
 Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
 engine supports the same padding schemes as OpenSSL does natively.
 
 ## Hardware Requirements
 
-This OpenSSL\* Engine supports crypto offload to the following acceleration
-devices:
+This Intel&reg; QAT OpenSSL\* Engine supports crypto offload to the following
+acceleration devices:
 
 * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
 * [Intel&reg; Atom&trade; Processor C3000][2]
 * [Intel&reg; Communications Chipset 8925 to 8955 Series][3]
 * [Intel&reg; Communications Chipset 8900 to 8920 Series][4]
 * [Intel&reg; Atom&trade; Processor C2000][5]
+
+This Intel&reg; QAT OpenSSL\* Engine supports the Intel&reg; QAT Driver
+Heartbeat feature from version 4.6 of the following acceleration device:
+
+* [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
+
+Note: Heartbeat feature support currently does not extend to Symmetric Chained
+Cipher Offload and PRF offload.
 
 [1]:https://www-ssl.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
 [2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
@@ -95,7 +105,7 @@ This release was validated on the following:
 
 * Operating system: CentOS\* 7.4 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.4
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.6
 * OpenSSL\* 1.1.1 (Basic functionality testing done on TLS1.3)
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
@@ -105,7 +115,7 @@ if supported by your processor.
 ## Additional Information
 
 * [Intel&reg; QuickAssist Technology Driver][6]
-* [White Paper: Intel&reg; Quickassist Technology and OpenSSL-1.1.0:Performance][7]
+* [White Paper: Intel&reg; QuickAssist Technology and OpenSSL-1.1.0:Performance][7]
 
 Additional Information on integrating the Intel&reg QAT OpenSSL\* Engine with NGINX\*
 including an asynchronous fork of NGINX\* can be found at the following Github\*
@@ -123,8 +133,6 @@ repository:
   instead of a PRF which is not currently accelerated, and the set of
   symmetric ciphers currently offloaded are not compatible with the TLS 1.3
   symmetric ciphers which are AES-GCM or ChaCha-Poly based.
-* This release currently does not support building against the OpenSSL\* master
-  branch (Only 1.1.0 and 1.1.1 branches) due to recent incompatible changes in OpenSSL\*.
 * When forking within an application it is not valid for a cryptographic
   operation to be started in the parent process, and completed in the child
   process.
@@ -162,7 +170,7 @@ Infrastructure Software - Getting Started Guide (333035)
 
 These instructions can be found on the 01.org website in the following section:
 
-[Intel&reg; Quickassist Technology][10]
+[Intel&reg; QuickAssist Technology][10]
 
 [10]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
 
@@ -252,7 +260,7 @@ distributed with the OpenSSL\* source code or on the official OpenSSL\* Wiki in
 the Compilation and Installation section:
 <https://wiki.openssl.org/index.php/Compilation_and_Installation>
 
-### Clone the Intel&reg; Quickassist Technology OpenSSL\* Engine
+### Clone the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
 Clone the Github\* repository containing the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -326,7 +334,7 @@ If not present it can be loaded as follows:
 insmod ./usdm_drv.ko
 ```
 
-### Build the Intel&reg; Quickassist Technology OpenSSL\* Engine
+### Build the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
 The following example is assuming:
 
@@ -430,7 +438,7 @@ In the above example this will create the file `qat.so` and copy it to
 `/usr/lib/x86_64-linux-gnu/engines-1.1`.
 
 
-### Copy the correct Intel&reg; Quickassist Technology Driver config files
+### Copy the correct Intel&reg; QuickAssist Technology Driver config files
 
 The Intel&reg; QAT OpenSSL\* Engine comes with some example conf files to use
 with the Intel&reg; QAT Driver.
@@ -509,7 +517,7 @@ or created your own you should follow the procedure below to install it:
    Infrastructure Software - Getting Started Guide (333035) - Section 9.5
    Starting/Stopping the Acceleration Software.
 
-### Test the Intel&reg; Quickassist Technology OpenSSL\* Engine
+### Test the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
 Run this command to check if the Intel&reg; QAT OpenSSL\* Engine is loaded
 correctly:
@@ -543,11 +551,27 @@ cd /path/to/openssl/apps
           (input flags): NO_INPUT
      SET_EPOLL_TIMEOUT: Set epoll_wait timeout
           (input flags): NUMERIC
+     SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD: Set QAT small packet threshold
+          (input flags): STRING
+     ENABLE_INLINE_POLLING: Enables the inline polling mode.
+          (input flags): NO_INPUT
+     ENABLE_HEURISTIC_POLLING: Enable the heuristic polling mode
+          (input flags): NO_INPUT
+     GET_NUM_REQUESTS_IN_FLIGHT: Get the number of in-flight requests
+          (input flags): NUMERIC
+     INIT_ENGINE: Initializes the engine if not already initialized
+          (input flags): NO_INPUT
+     ENABLE_SW_FALLBACK: Enables the fallback to SW if the acceleration devices go offline
+          (input flags): NO_INPUT
+     HEARTBEAT_POLL: Check the acceleration devices are still functioning
+          (input flags): NO_INPUT
+     DISABLE_QAT_OFFLOAD: Perform crypto operations on core
+          (input flags): NO_INPUT
+
 ```
 
 
-
-### Run speed with the Intel&reg; Quickassist Technology OpenSSL\* Engine
+### Run speed with the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
 ```text
 cd /path/to/openssl/apps
@@ -619,7 +643,7 @@ OpenSSL source path to the PERL5LIB environment variable as follows:
 
     export PERL5LIB=$PERL5LIB:/path/to/openssl
 
-## Intel&reg; Quickassist Technology OpenSSL\* Engine Specific Messages
+## Intel&reg; QuickAssist Technology OpenSSL\* Engine Specific Messages
 
 OpenSSL\* engines support a mechanism whereby custom messages can be defined for
 an application to communicate directly with the engine.  These messages are
@@ -838,7 +862,7 @@ Description:
         #define GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT 3
     The first (i.e, value 1) is used to retrieve the number of asymmetric-key
     in-flight requests. The second (i.e, value 2) is used to retrieve the number
-    of PRF in-flight requests The last (i.e, value 3) is use to retrieve the
+    of PRF in-flight requests.  The last (i.e, value 3) is used to retrieve the
     number of cipher in-flight requests (when OpenSSL* pipelining feature is
     not used), or the number of in-flight pipelines (when OpenSSL* pipelining
     feature is used).
@@ -860,9 +884,49 @@ Description:
     after engine creation but before engine initialization. It should not be
     sent after engine initialization.
 
+Message String: ENABLE_SW_FALLBACK
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message is used to enable fallback to software (on-core) of the crypto
+    operations normally offloaded to the acceleration devices by the
+    Intel&reg; QuickAssist Technology OpenSSL\* Engine.  This command enables
+    the software fallback feature - crypto operations will continue to be offloaded
+    but, with this feature enabled, in the event the accelerations devices
+    subsequently go offline the Intel&reg; QuickAssist Technology OpenSSL\* Engine
+    will automatically switch to performing crypto operations on-core.
+    If required this message must be sent after engine creation and
+    before engine initialization.
+
+Message String: HEARTBEAT_POLL
+Param 3:        0
+Param 4:        pointer to an int
+Description:
+    This message is used to check the acceleration devices are still functioning.
+    It is normally used in conjunction with the Software Fallback feature
+    (see engine command ENABLE_SW_FALLBACK) when using External Polling Mode
+    (see engine command ENABLE_EXTERNAL_POLLING). The result of this
+    engine specific message (success/failure) is assigned to the dereferenced int
+    that is passed in as Param 4.
+    Polling using this message will result in the Intel&reg; QuickAssist Technology
+    OpenSSL\* Engine being notified when instances of an acceleration device go
+    offline or come back online. By sending this message more frequently you can
+    decrease the time taken for the engine to become aware of instances going
+    offline/coming back online at the expense of additional cpu cycles. The
+    suggested polling interval would be around 0.5 seconds to 1 second.
+    This message may be sent at any time after engine initialization.
+
+Message String: DISABLE_QAT_OFFLOAD
+Param 3:        0
+Param 4:        NULL
+Description:
+    This message is used to disable offload of crypto operations to the
+    acceleration devices, with the immediate effect that these operations are
+    performed on-core instead.
+    This message may be sent at any time after engine initialization.
 ```
 
-## Intel&reg; Quickassist Technology OpenSSL\* Engine Build Options
+## Intel&reg; QuickAssist Technology OpenSSL\* Engine Build Options
 
 The following is a list of the options that can be used with the
 `./configure` command when building the Intel&reg; QAT OpenSSL\* Engine:
@@ -1243,6 +1307,7 @@ setting or incorrect behaviour may result. The following messages are supported:
 * `ENABLE_EVENT_DRIVEN_POLLING_MODE`
 * `ENABLE_EXTERNAL_POLLING`
 * `ENABLE_INLINE_POLLING`
+* `ENABLE_SW_FALLBACK`
 * `SET_INTERNAL_POLL_INTERVAL`
 * `SET_EPOLL_TIMEOUT`
 * `SET_MAX_RETRY_COUNT`
@@ -1261,7 +1326,7 @@ By setting up the configuration file as above it is possible for instance to run
 the OpenSSL\* speed application to use the Intel&reg; QAT OpenSSL\* Engine
 without needing to specify `-engine qat` as a command line option.
 
-## Using the OpenSSL\* pipelining capability
+## Using the OpenSSL\* Pipelining Capability
 
 The OpenSSL\* pipelining feature provides the capability to parallelise the
 processing for a single connection. For example a big buffer to be encrypted can
@@ -1298,6 +1363,62 @@ see the OpenSSL\* online documentation located at:
 
 with additional information at:
 <https://www.openssl.org/docs/manmaster/man3/ASYNC_WAIT_CTX_new.html>.
+
+## Functionality of the Intel&reg; QAT OpenSSL\* Engine Software Fallback Feature
+
+###Requirements:
+As stated in the [Hardware Requirements](#hardware-requirements) section
+above,
+ 1. This Intel&reg; QAT OpenSSL\* Engine supports the Intel&reg; QAT Driver
+Heartbeat feature only from version 4.6 of the following device:
+
+    * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
+
+ 2. Intel&reg; QAT OpenSSL\* Engine needs to be configured to disable Symmetric
+Chained Cipher Offload and PRF offload by adding the below two flags in the
+configure command of Intel&reg; QAT OpenSSL\* Engine build.
+
+```bash
+--disable-qat_ciphers --disable-qat_prf
+```
+
+Information on this Heartbeat feature can be found in:
+Intel&reg; QuickAssist Technology Software for Linux\* - Programmer's Guide - HW
+version 1.7 (336210) - Section 3.17 Heartbeat.
+
+This document can be found on the 01.org website at the following hyperlink:
+
+* [Intel&reg; QuickAssist Technology Programmer's Guide][11]
+
+[11]:https://01.org/sites/default/files/downloads//336210-007qatswprogrammersguide.pdf
+
+The Intel&reg; QuickAssist Heartbeat feature provides a mechanism for the
+Intel&reg; QAT OpenSSL\* Engine to detect unresponsive acceleration devices and
+to be notified of the start and end of any reset of the acceleration devices.
+The Heartbeat feature suspends all QAT instances associated with that
+acceleration device between these two reset-start and reset-end events.
+An acceleration device can be configured for automatic reset by the QAT
+framework upon heartbeat failure by using the `AutomaticResetOnError = 1` field
+in the `[GENERAL]` section of device configuration file `/etc/<device>.conf`.
+The Intel&reg; QAT OpenSSL\* Engine's software fallback feature requires this
+field to be set.
+
+The Intel&reg; QAT OpenSSL\* Engine's software fallback feature, when enabled
+by the user, essentially provides continuity of crypto operations for the
+application between the two above-mentioned reset-start & reset-end events.
+It does this by exhibiting the following behaviour:
+
+* Any requests that have already been submitted to the acceleration device that
+goes down but have not completed will be handled as on core requests and will
+complete.
+* Any new requests coming in while the acceleration device is offline will either
+be submitted to the other acceleration devices (if any are available) or if none
+are available then the request will be handled on core.
+* Once the acceleration device has come back online new requests will be able to
+use instances from that acceleration device again.
+
+This should all happen in a transparent way with the only noticeable effects being
+a slow down in performance until the acceleration device comes back online.
 
 
 ## Legal

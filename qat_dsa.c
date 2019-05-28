@@ -90,6 +90,8 @@ static int qat_dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in,
 static int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const
                               BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
                               BN_MONT_CTX *m_ctx);
+static int qat_dsa_init(DSA *dsa);
+static int qat_dsa_finish(DSA *dsa);
 #endif
 
 /* Qat DSA method structure declaration. */
@@ -115,6 +117,8 @@ DSA_METHOD *qat_get_DSA_methods(void)
     res &= DSA_meth_set_sign_setup(qat_dsa_method, qat_dsa_sign_setup);
     res &= DSA_meth_set_verify(qat_dsa_method, qat_dsa_do_verify);
     res &= DSA_meth_set_bn_mod_exp(qat_dsa_method, qat_dsa_bn_mod_exp);
+    res &= DSA_meth_set_init(qat_dsa_method, qat_dsa_init);
+    res &= DSA_meth_set_finish(qat_dsa_method, qat_dsa_finish);
 
     if (res == 0) {
         WARN("Failed to set DSA methods\n");
@@ -217,9 +221,24 @@ static void qat_dsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
 int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
                        const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
 {
+    int ret = 0, fallback = 0;
+
     DEBUG("- Started\n");
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return BN_mod_exp_mont(r, a, p, m, ctx, m_ctx);
+    }
+
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
-    return qat_mod_exp(r, a, p, m);
+    ret = qat_mod_exp(r, a, p, m, &fallback);
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return BN_mod_exp_mont(r, a, p, m, ctx, m_ctx);
+    } else
+        return ret;
 }
 
 /******************************************************************************
@@ -252,7 +271,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
-    int i = 0, job_ret = 0;
+    int i = 0, job_ret = 0, fallback = 0;
     thread_local_variables_t *tlv = NULL;
 
     DEBUG("- Started\n");
@@ -261,6 +280,12 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         WARN("Invalid input param.\n");
         QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_DLEN_INVALID);
         return NULL;
+    }
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return DSA_meth_get_sign(default_dsa_method)(dgst, dlen, dsa);
+
     }
     if (unlikely(dsa == NULL || dgst == NULL)) {
         WARN("Either dsa %p or dgst %p are NULL\n", dsa, dgst);
@@ -445,7 +470,12 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
-            QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -491,7 +521,16 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+           (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
@@ -500,6 +539,12 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         DSA_SIG_free(sig);
         sig = NULL;
         goto err;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -528,9 +573,18 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+            op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        }
+        qat_cleanup_op_done(&op_done);
         DSA_SIG_free(sig);
         sig = NULL;
         goto err;
@@ -567,6 +621,13 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return DSA_meth_get_sign(default_dsa_method)(dgst, dlen, dsa);
+    }
+
     return sig;
 }
 
@@ -610,7 +671,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     const BIGNUM *p = NULL, *q = NULL;
     const BIGNUM *g = NULL;
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
-    int ret = -1, i = 0, job_ret = 0;
+    int ret = -1, i = 0, job_ret = 0, fallback = 0;
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyDsaVerifyOpData *opData = NULL;
     CpaBoolean bDsaVerifyStatus;
@@ -627,12 +688,19 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     if (unlikely(dgst_len <= 0)) {
         WARN("Invalid input param.\n");
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_DGSTLEN_INVALID);
-        return -1;
+        return ret;
     }
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return DSA_meth_get_verify(default_dsa_method)(dgst, dgst_len, sig, dsa);
+
+    }
+
     if (dsa == NULL || dgst == NULL || sig == NULL) {
         WARN("Either dsa = %p, dgst = %p or sig = %p are NULL\n", dsa, dgst, sig);
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_DSA_DGST_SIG_NULL);
-        return -1;
+        return ret;
     }
 
     DSA_get0_pqg(dsa, &p, &q, &g);
@@ -655,7 +723,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
             WARN("Failed to get default_dsa_method for bits p = %d & q = %d\n",
                   BN_num_bits(p), i);
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_SW_METHOD_NULL);
-            return -1;
+            return ret;
         }
         return DSA_meth_get_verify(default_dsa_method)(dgst, dgst_len, sig, dsa);
     }
@@ -771,7 +839,12 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
-            QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -811,13 +884,28 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+           (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -845,8 +933,17 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     DEBUG("bDsaVerifyStatus = %u\n", bDsaVerifyStatus);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;
+    else if (qat_get_sw_fallback_enabled() &&
+             op_done.status == CPA_STATUS_FAIL) {
+        CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
+        fallback = 1;
+    }
 
     qat_cleanup_op_done(&op_done);
 
@@ -867,7 +964,45 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         BN_CTX_free(ctx);
     }
 
-    return (ret);
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return DSA_meth_get_verify(default_dsa_method)(dgst, dgst_len, sig, dsa);
+    }
+    return ret;
 }
+
+/******************************************************************************
+* function:
+*         qat_dsa_init(DSA *dsa)
+*
+* @param dsa   [IN] - Pointer to a OpenSSL DSA struct.
+*
+* description:
+*   Override DSA Init function.
+*   Call SW Implementation to ensure caching flag gets set.
+*
+******************************************************************************/
+int qat_dsa_init(DSA *dsa)
+{
+    return DSA_meth_get_init(DSA_OpenSSL())(dsa);
+}
+
+/******************************************************************************
+* function:
+*         qat_dsa_finish(DSA *dsa)
+*
+* @param dsa   [IN] - Pointer to a OpenSSL DSA struct.
+*
+* description:
+*   Override DSA Finish function.
+*   Call SW Implementation to ensure cleanup of cached data.
+*
+******************************************************************************/
+int qat_dsa_finish(DSA *dsa)
+{
+    return DSA_meth_get_finish(DSA_OpenSSL())(dsa);
+}
+
 #endif /* #ifndef OPENSSL_DISABLE_QAT_DSA */
 

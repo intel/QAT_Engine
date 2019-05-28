@@ -74,6 +74,11 @@ typedef struct {
     unsigned int qat_instance_started;
 } qat_instance_details_t;
 
+typedef struct {
+    unsigned int qat_accel_present;
+    unsigned int qat_accel_reset_status;
+} qat_accel_details_t;
+
 #define likely(x)   __builtin_expect (!!(x), 1)
 #define unlikely(x) __builtin_expect (!!(x), 0)
 
@@ -157,6 +162,7 @@ typedef struct {
             } while(0)
 
 #define QAT_MAX_CRYPTO_INSTANCES 256
+#define QAT_MAX_CRYPTO_ACCELERATORS 16
 
 /* Behavior of qat_engine_finish_int */
 #define QAT_RETAIN_GLOBALS 0
@@ -171,19 +177,31 @@ typedef struct {
  * The number of retries of the nanosleep if it gets interrupted during
  * waiting between polling.
  */
-#define QAT_CRYPTO_NUM_POLLING_RETRIES (5)
+#define QAT_CRYPTO_NUM_POLLING_RETRIES 5
+
+/*
+ * The number of retries of the sigtimedwait if it gets interrupted during
+ * waiting for a signal.
+ */
+#define QAT_CRYPTO_NUM_EVENT_RETRIES 2
 
 /*
  * The number of seconds to wait for a response back after submitting a
  * request before raising an error.
  */
-#define QAT_CRYPTO_RESPONSE_TIMEOUT (5)
+#define QAT_CRYPTO_RESPONSE_TIMEOUT 5
 
 /*
  * The default timeout in milliseconds used for epoll_wait when event driven
  * polling mode is enabled.
  */
 #define QAT_EPOLL_TIMEOUT_IN_MS 1000
+
+/*
+ * The default timeout in seconds used when waiting for events that requests
+ * are inflight.
+ */
+#define QAT_EVENT_TIMEOUT_IN_SEC 1
 
 /*
  * Max Length (bytes) of error string in human readable format
@@ -207,7 +225,8 @@ extern char *ICPConfigSectionName_libcrypto;
 
 extern CpaInstanceHandle *qat_instance_handles;
 extern Cpa16U qat_num_instances;
-extern  pthread_key_t thread_local_variables;
+extern Cpa32U qat_num_devices;
+extern pthread_key_t thread_local_variables;
 extern pthread_t polling_thread;
 extern int keep_polling;
 extern int enable_external_polling;
@@ -221,6 +240,7 @@ extern pthread_mutex_t qat_engine_mutex;
 
 extern unsigned int engine_inited;
 extern qat_instance_details_t qat_instance_details[QAT_MAX_CRYPTO_INSTANCES];
+extern qat_accel_details_t qat_accel_details[QAT_MAX_CRYPTO_ACCELERATORS];
 extern useconds_t qat_poll_interval;
 extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
@@ -232,6 +252,16 @@ extern sigset_t set;
 extern pthread_t timer_poll_func_thread;
 extern int cleared_to_start;
 
+/******************************************************************************
+ * function:
+ *         qat_get_qat_offload_disabled(void)
+ *
+ * description:
+ *   This function indicates whether offloading to the QuickAssist hardware
+ *   has been disabled. If it has then we can still perform crypto oncore.
+ *
+ ******************************************************************************/
+int qat_get_qat_offload_disabled(void);
 
 /******************************************************************************
  * function:
@@ -244,6 +274,42 @@ extern int cleared_to_start;
  *
  ******************************************************************************/
 int qat_use_signals(void);
+
+
+/******************************************************************************
+ * function:
+ *         qat_get_sw_fallback_enabled(void)
+ *
+ * description:
+ *   Return the flag which indicates if QAT engine is enabled to fall back to
+ *   software calculation.
+ *
+ ******************************************************************************/
+int qat_get_sw_fallback_enabled(void);
+
+
+/******************************************************************************
+ * function:
+ *         is_instance_available(int inst_num)
+ *
+ * description:
+ *   Return whether the instance number passed in is a currently available
+ *   instance. Returns 1 if available, 0 otherwise.
+ *
+ ******************************************************************************/
+int is_instance_available(int inst_num);
+
+
+/******************************************************************************
+ * function:
+ *         is_any_device_available(void)
+ *
+ * description:
+ *   Return whether any devices are currently available.
+ *   Returns 1 if at least one device is detected and up, 0 otherwise.
+ *
+ ******************************************************************************/
+int is_any_device_available(void);
 
 
 /******************************************************************************

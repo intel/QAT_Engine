@@ -117,12 +117,11 @@
                     (b2).dataLenInBytes = len; \
                 } while(0)
 
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
 # define GET_SW_CIPHER(ctx) \
-            qat_chained_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
-#endif
+    qat_chained_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
 
-#define GET_NON_CHAINED_CIPHER(ctx) \
+
+#define GET_SW_NON_CHAINED_CIPHER(ctx) \
     get_cipher_from_nid(EVP_CIPHER_CTX_nid((ctx)))
 
 #define DEBUG_PPL DEBUG
@@ -678,6 +677,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     unsigned char *ckey = NULL;
     int ckeylen;
     int dlen;
+    int ret = 0;
 
     if (ctx == NULL || inkey == NULL) {
         WARN("ctx or inkey is NULL.\n");
@@ -712,35 +712,50 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     qctx->numpipes = 1;
     qctx->total_op = 0;
     qctx->npipes_last_used = 1;
+    qctx->fallback = 0;
 
     qctx->hmac_key = OPENSSL_zalloc(HMAC_KEY_SIZE);
     if (qctx->hmac_key == NULL) {
         WARN("Unable to allocate memory for HMAC Key\n");
         goto err;
     }
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+
     const EVP_CIPHER *sw_cipher = GET_SW_CIPHER(ctx);
     unsigned int sw_size = EVP_CIPHER_impl_ctx_size(sw_cipher);
     if (sw_size != 0) {
-        qctx->sw_ctx_data = OPENSSL_zalloc(sw_size);
-        if (qctx->sw_ctx_data == NULL) {
-            WARN("Unable to allocate memory [%u bytes] for sw_ctx_data\n",
+        qctx->sw_ctx_cipher_data = OPENSSL_zalloc(sw_size);
+        if (qctx->sw_ctx_cipher_data == NULL) {
+            WARN("Unable to allocate memory [%u bytes] for sw_ctx_cipher_data\n",
                  sw_size);
             goto err;
         }
     }
 
-    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_data);
-    EVP_CIPHER_meth_get_init(sw_cipher) (ctx, inkey, iv, enc);
+    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
+    /* Run the software init function */
+    ret = EVP_CIPHER_meth_get_init(sw_cipher)(ctx, inkey, iv, enc);
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
-#endif
+    if (ret != 1)
+        goto err;
+    if (qat_get_qat_offload_disabled()) {
+        /*
+         * Setting qctx->fallback as a flag for the other functions.
+         * This means in the other functions (and in the err section in this function)
+         * we no longer need to check qat_get_qat_offload_disabled() but just check
+         * the fallback flag instead.  This has the added benefit that even if
+         * the engine control message to enable HW offload is sent it will not affect
+         * requests that have already been init'd, they will continue to use SW until
+         * the request is complete, i.e. no race condition.
+         */
+        qctx->fallback = 1;
+        goto err;
+    }
 
     ssd = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
     if (ssd == NULL) {
         WARN("Failed to allocate session setup data\n");
         goto err;
     }
-
     qctx->session_data = ssd;
 
     /* Copy over the template for most of the values */
@@ -768,7 +783,11 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     qctx->inst_num = get_next_inst_num();
     if (qctx->inst_num == QAT_INVALID_INSTANCE) {
-        WARN("Failed to get QAT Instance Handle!.\n");
+        WARN("Failed to get a QAT instance.\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            qctx->fallback = 1;
+        }
         goto err;
     }
 
@@ -778,6 +797,13 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to get SessionCtx size.\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           qctx->inst_num,
+                           qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            qctx->fallback = 1;
+        }
         goto err;
     }
 
@@ -800,16 +826,22 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     return 1;
 
  err:
+/* NOTE: no init seq flags will have been set if this 'err:' label code section is entered. */
     QAT_CLEANSE_FREE_BUFF(ckey, ckeylen);
     QAT_CLEANSE_FREE_BUFF(qctx->hmac_key, HMAC_KEY_SIZE);
-    OPENSSL_free(ssd);
+    if (ssd != NULL)
+        OPENSSL_free(ssd);
     qctx->session_data = NULL;
     QAT_QMEMFREE_BUFF(qctx->session_ctx);
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    OPENSSL_free(qctx->sw_ctx_data);
-    qctx->sw_ctx_data = NULL;
-#endif
-
+    if ((qctx->fallback == 1) && (qctx->sw_ctx_cipher_data != NULL) && (ret == 1)) {
+        DEBUG("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return ret; /* result returned from running software init function */
+    }
+    if (qctx->sw_ctx_cipher_data != NULL) {
+        OPENSSL_free(qctx->sw_ctx_cipher_data);
+        qctx->sw_ctx_cipher_data = NULL;
+    }
     return 0;
 }
 
@@ -849,6 +881,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     char *hdr = NULL;
     unsigned int len = 0;
     int retVal = 0;
+    int retVal_sw = 0;
     int dlen = 0;
 
     if (ctx == NULL) {
@@ -863,142 +896,191 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         return -1;
     }
 
+    if (qctx->fallback == 1)
+        goto sw_ctrl;
+
     dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
 
     switch (type) {
-    case EVP_CTRL_AEAD_SET_MAC_KEY:
-        hmac_key = qctx->hmac_key;
-        ssd = qctx->session_data;
+        case EVP_CTRL_AEAD_SET_MAC_KEY:
+            hmac_key = qctx->hmac_key;
+            ssd = qctx->session_data;
 
-        memset(hmac_key, 0, HMAC_KEY_SIZE);
+            memset(hmac_key, 0, HMAC_KEY_SIZE);
 
-        if (arg > HMAC_KEY_SIZE) {
-            if (dlen == SHA_DIGEST_LENGTH) {
-                SHA1_Init(&hkey1);
-                SHA1_Update(&hkey1, ptr, arg);
-                SHA1_Final(hmac_key, &hkey1);
+            if (arg > HMAC_KEY_SIZE) {
+                if (dlen == SHA_DIGEST_LENGTH) {
+                    SHA1_Init(&hkey1);
+                    SHA1_Update(&hkey1, ptr, arg);
+                    SHA1_Final(hmac_key, &hkey1);
+                } else {
+                    SHA256_Init(&hkey256);
+                    SHA256_Update(&hkey256, ptr, arg);
+                    SHA256_Final(hmac_key, &hkey256);
+                }
             } else {
-                SHA256_Init(&hkey256);
-                SHA256_Update(&hkey256, ptr, arg);
-                SHA256_Final(hmac_key, &hkey256);
+                memcpy(hmac_key, ptr, arg);
+                ssd->hashSetupData.authModeSetupData.authKeyLenInBytes = arg;
             }
-        } else {
-            memcpy(hmac_key, ptr, arg);
-            ssd->hashSetupData.authModeSetupData.authKeyLenInBytes = arg;
-        }
 
-        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_HMAC_KEY_SET);
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_HMAC_KEY_SET);
 
-        DEBUG("inst_num = %d\n", qctx->inst_num);
-        DUMP_SESSION_SETUP_DATA(ssd);
-        DEBUG("session_ctx = %p\n", qctx->session_ctx);
+            DEBUG("inst_num = %d\n", qctx->inst_num);
+            DUMP_SESSION_SETUP_DATA(ssd);
+            DEBUG("session_ctx = %p\n", qctx->session_ctx);
 
-        sts = cpaCySymInitSession(qat_instance_handles[qctx->inst_num],
-                                  qat_chained_callbackFn,
-                                  ssd, qctx->session_ctx);
-        if (sts != CPA_STATUS_SUCCESS) {
-            WARN("cpaCySymInitSession failed! Status = %d\n", sts);
-            retVal = 0;
-        } else {
-            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
-            retVal = 1;
-        }
-        break;
-
-    case EVP_CTRL_AEAD_TLS1_AAD:
-        /* This returns the amount of padding required for
-           the send/encrypt direction.
-         */
-        if (arg != TLS_VIRT_HDR_SIZE || qctx->aad_ctr >= QAT_MAX_PIPELINES) {
-            WARN("Invalid argument for AEAD_TLS1_AAD.\n");
-            retVal = -1;
+            if (!(is_instance_available(qctx->inst_num))) {
+                WARN("No QAT instance available so not creating session.\n");
+                if (qat_get_sw_fallback_enabled()) {
+                    CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                    qctx->fallback = 1; /* Set fallback even if already set */
+                }
+                else {
+                    WARN("- No QAT instance available and s/w fallback not enabled.\n");
+                    retVal = 0; /* Fail if software fallback not enabled. */
+                }
+            } else {
+                sts = cpaCySymInitSession(qat_instance_handles[qctx->inst_num],
+                                          qat_chained_callbackFn,
+                                          ssd, qctx->session_ctx);
+                if (sts != CPA_STATUS_SUCCESS) {
+                    WARN("cpaCySymInitSession failed! Status = %d\n", sts);
+                    if (qat_get_sw_fallback_enabled() &&
+                        ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL))) {
+                        CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                                       qctx->inst_num,
+                                       qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                                       __func__);
+                        qctx->fallback = 1;
+                    }
+                    else
+                        retVal = 0;
+                } else {
+                    if (qat_get_sw_fallback_enabled()) {
+                        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                                       qctx->inst_num,
+                                       qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                                       __func__);
+                    }
+                    INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
+                    retVal = 1;
+                }
+            }
             break;
-        }
-        hdr = GET_TLS_HDR(qctx, qctx->aad_ctr);
-        memcpy(hdr, ptr, TLS_VIRT_HDR_SIZE);
-        qctx->aad_ctr++;
-        if (qctx->aad_ctr > 1)
-            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_AADCTR_SET);
 
-        len = GET_TLS_PAYLOAD_LEN(((char *)ptr));
-        if (GET_TLS_VERSION(((char *)ptr)) >= TLS1_1_VERSION) {
-            if (len < EVP_CIPHER_CTX_iv_length(ctx)) {
-                WARN("Length is smaller than the IV length\n");
-                retVal = 0;
+        case EVP_CTRL_AEAD_TLS1_AAD:
+            /* This returns the amount of padding required for
+               the send/encrypt direction.
+            */
+            if (arg != TLS_VIRT_HDR_SIZE || qctx->aad_ctr >= QAT_MAX_PIPELINES) {
+                WARN("Invalid argument for AEAD_TLS1_AAD.\n");
+                retVal = -1;
                 break;
             }
-            len -= EVP_CIPHER_CTX_iv_length(ctx);
-        }
-        else if (qctx->aad_ctr > 1) {
-            /* pipelines are not supported for
-             * TLS version < TLS1.1
-             */
-            WARN("AAD already set for TLS1.0\n");
-            retVal = -1;
+            hdr = GET_TLS_HDR(qctx, qctx->aad_ctr);
+            memcpy(hdr, ptr, TLS_VIRT_HDR_SIZE);
+            qctx->aad_ctr++;
+            if (qctx->aad_ctr > 1)
+                INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_AADCTR_SET);
+
+            len = GET_TLS_PAYLOAD_LEN(((char *)ptr));
+            if (GET_TLS_VERSION(((char *)ptr)) >= TLS1_1_VERSION) {
+                if (len < EVP_CIPHER_CTX_iv_length(ctx)) {
+                    WARN("Length is smaller than the IV length\n");
+                    retVal = 0;
+                    break;
+                }
+                len -= EVP_CIPHER_CTX_iv_length(ctx);
+            } else if (qctx->aad_ctr > 1) {
+                /* pipelines are not supported for
+                 * TLS version < TLS1.1
+                 */
+                WARN("AAD already set for TLS1.0\n");
+                retVal = -1;
+                break;
+            }
+
+            if (EVP_CIPHER_CTX_encrypting(ctx))
+                retVal = (int)(((len + dlen + AES_BLOCK_SIZE)
+                                & -AES_BLOCK_SIZE) - len);
+            else
+                retVal = dlen;
+
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_TLS_HDR_SET);
             break;
-        }
 
-        if (EVP_CIPHER_CTX_encrypting(ctx))
-            retVal = (int)(((len + dlen + AES_BLOCK_SIZE)
-                            & -AES_BLOCK_SIZE) - len);
-        else
-            retVal = dlen;
+            /* All remaining cases are exclusive to pipelines and are not
+             * used with small packet offload feature.
+             */
+        case EVP_CTRL_SET_PIPELINE_OUTPUT_BUFS:
+            if (arg > QAT_MAX_PIPELINES) {
+                WARN("PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
+                     arg, QAT_MAX_PIPELINES);
+                return -1;
+            }
+            qctx->p_out = (unsigned char **)ptr;
+            qctx->numpipes = arg;
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_OBUF_SET);
+            return 1;
 
-        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_TLS_HDR_SET);
-        break;
+        case EVP_CTRL_SET_PIPELINE_INPUT_BUFS:
+            if (arg > QAT_MAX_PIPELINES) {
+                WARN("PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
+                     arg, QAT_MAX_PIPELINES);
+                return -1;
+            }
+            qctx->p_in = (unsigned char **)ptr;
+            qctx->numpipes = arg;
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_IBUF_SET);
+            return 1;
 
-        /* All remaining cases are exclusive to pipelines and are not
-         * used with small packet offload feature.
-         */
-    case EVP_CTRL_SET_PIPELINE_OUTPUT_BUFS:
-        if (arg > QAT_MAX_PIPELINES) {
-            WARN("PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
-                 arg, QAT_MAX_PIPELINES);
+        case EVP_CTRL_SET_PIPELINE_INPUT_LENS:
+            if (arg > QAT_MAX_PIPELINES) {
+                WARN("PIPELINE_INPUT_LENS npipes(%d) > Max(%d).\n",
+                     arg, QAT_MAX_PIPELINES);
+                return -1;
+            }
+            qctx->p_inlen = (size_t *)ptr;
+            qctx->numpipes = arg;
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_BUF_LEN_SET);
+            return 1;
+
+        default:
+            WARN("Unknown type parameter\n");
             return -1;
-        }
-        qctx->p_out = (unsigned char **)ptr;
-        qctx->numpipes = arg;
-        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_OBUF_SET);
-        return 1;
-
-    case EVP_CTRL_SET_PIPELINE_INPUT_BUFS:
-        if (arg > QAT_MAX_PIPELINES) {
-            WARN("PIPELINE_OUTPUT_BUFS npipes(%d) > Max(%d).\n",
-                 arg, QAT_MAX_PIPELINES);
-            return -1;
-        }
-        qctx->p_in = (unsigned char **)ptr;
-        qctx->numpipes = arg;
-        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_IBUF_SET);
-        return 1;
-
-    case EVP_CTRL_SET_PIPELINE_INPUT_LENS:
-        if (arg > QAT_MAX_PIPELINES) {
-            WARN("PIPELINE_INPUT_LENS npipes(%d) > Max(%d).\n",
-                 arg, QAT_MAX_PIPELINES);
-            return -1;
-        }
-        qctx->p_inlen = (size_t *)ptr;
-        qctx->numpipes = arg;
-        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_PPL_BUF_LEN_SET);
-        return 1;
-
-    default:
-        WARN("Unknown type parameter\n");
-        return -1;
     }
 
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
     /* Openssl EVP implementation changes the size of payload encoded in TLS
      * header pointed by ptr for EVP_CTRL_AEAD_TLS1_AAD, hence call is made
      * here after ptr has been processed by engine implementation.
      */
-    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_data);
-    EVP_CIPHER_meth_get_ctrl(GET_SW_CIPHER(ctx)) (ctx, type, arg, ptr);
+sw_ctrl:
+    /* Currently, the s/w fallback feature does not support the use of pipelines.
+     * However, even if the 'type' parameter passed in to this function implies
+     * the use of pipelining, the s/w equivalent function (with this 'type' parameter)
+     * will always be called if this 'sw_ctrl' label is reached.  If the s/w function
+     * succeeds then, if fallback is set, this success is returned to the calling function.
+     * If, however, the s/w function fails, then this s/w failure is always returned
+     * to the calling function regardless of whether fallback is set. An example
+     * would be multiple calls to this function with type == EVP_CTRL_AEAD_TLS1_AAD
+     * such that qctx->aad_ctr becomes > 1, which would imply the use of pipelining.
+     * These multiple calls are always made to the s/w equivalent function.
+     */
+    EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
+    retVal_sw = EVP_CIPHER_meth_get_ctrl(GET_SW_CIPHER(ctx))(ctx, type, arg, ptr);
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
-#endif
+    if ((qctx->fallback == 1) && (retVal_sw > 0)) {
+        DEBUG("- Switched to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return retVal_sw;
+    }
+    if (retVal_sw <= 0) {
+        WARN("s/w chained ciphers ctrl function failed.\n");
+        return retVal_sw;
+    }
     return retVal;
 }
+
 
 /******************************************************************************
 * function:
@@ -1031,9 +1113,11 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
         WARN("qctx parameter is NULL.\n");
         return 0;
     }
-#ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    OPENSSL_free(qctx->sw_ctx_data);
-#endif
+
+    if (qctx->sw_ctx_cipher_data != NULL) {
+        OPENSSL_free(qctx->sw_ctx_cipher_data);
+        qctx->sw_ctx_cipher_data = NULL;
+    }
 
     /* ctx may be cleaned before it gets a chance to allocate qop */
     qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
@@ -1041,11 +1125,15 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
     ssd = qctx->session_data;
     if (ssd) {
         if (INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_SESSION_INIT)) {
-            sts = cpaCySymRemoveSession(qat_instance_handles[qctx->inst_num],
-                                        qctx->session_ctx);
-            if (sts != CPA_STATUS_SUCCESS) {
-                WARN("cpaCySymRemoveSession FAILED, sts = %d\n", sts);
-                retVal = 0;
+            if (is_instance_available(qctx->inst_num)) {
+                /* Clean up session if hardware available regardless of whether in */
+                /* fallback or not, if in INIT_SEQ_QAT_SESSION_INIT */
+                sts = cpaCySymRemoveSession(qat_instance_handles[qctx->inst_num],
+                                            qctx->session_ctx);
+                if (sts != CPA_STATUS_SUCCESS) {
+                    WARN("cpaCySymRemoveSession FAILED, sts = %d\n", sts);
+                    retVal = 0;
+                }
             }
         }
         QAT_QMEMFREE_BUFF(qctx->session_ctx);
@@ -1057,10 +1145,12 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
         OPENSSL_free(ssd);
     }
 
+    qctx->fallback = 0;
     INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
     DEBUG_PPL("[%p] EVP CTX cleaned up\n", ctx);
     return retVal;
 }
+
 
 /******************************************************************************
 * function:
@@ -1115,9 +1205,29 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
 
     qctx = qat_chained_data(ctx);
-    if (qctx == NULL || !INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_CTX_INIT)) {
-        WARN("%s\n", qctx == NULL ? "QAT CTX NULL" : "QAT Context not initialised");
+    if (qctx == NULL) {
+        WARN("QAT CTX NULL\n");
         return -1;
+    }
+
+    if (qctx->fallback == 1)
+        goto fallback;
+
+    if (!(is_instance_available(qctx->inst_num))) {
+        WARN("No QAT instance available.\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            qctx->fallback = 1;
+            goto fallback;
+        } else {
+            WARN("Fail - No QAT instance available and s/w fallback is not enabled.\n");
+            return -1; /* Fail if software fallback not enabled. */
+        }
+    } else {
+        if (!INIT_SEQ_IS_FLAG_SET(qctx, INIT_SEQ_QAT_CTX_INIT)) {
+            WARN("QAT Context not initialised");
+            return -1;
+        }
     }
 
     /* Pipeline initialisation requires multiple EVP_CIPHER_CTX_ctrl
@@ -1166,14 +1276,42 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         DEBUG("inst_num = %d\n", qctx->inst_num);
         DUMP_SESSION_SETUP_DATA(qctx->session_data);
         DEBUG("session_ctx = %p\n", qctx->session_ctx);
-        sts = cpaCySymInitSession(qat_instance_handles[qctx->inst_num], qat_chained_callbackFn,
-                                  qctx->session_data, qctx->session_ctx);
 
-        if (sts != CPA_STATUS_SUCCESS) {
-            WARN("cpaCySymInitSession failed! Status = %d\n", sts);
-            return -1;
+        if (!(is_instance_available(qctx->inst_num))) {
+            WARN("No QAT instance available so not initialising session.\n");
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                qctx->fallback = 1;
+                goto fallback;
+            } else {
+                WARN("Fail - No QAT instance available and s/w fallback is not enabled.\n");
+                return -1; /* Fail if software fallback not enabled. */
+            }
+        } else {
+            sts = cpaCySymInitSession(qat_instance_handles[qctx->inst_num], qat_chained_callbackFn,
+                                      qctx->session_data, qctx->session_ctx);
+            if (sts != CPA_STATUS_SUCCESS) {
+                WARN("cpaCySymInitSession failed! Status = %d\n", sts);
+                if (qat_get_sw_fallback_enabled() &&
+                    ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL))) {
+                    CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                                   qctx->inst_num,
+                                   qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                                   __func__);
+                    qctx->fallback = 1;
+                    goto fallback;
+                }
+                else
+                    return -1;
+            }
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                               qctx->inst_num,
+                               qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                               __func__);
+            }
+            INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
         }
-        INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
     }
 
     ivlen = EVP_CIPHER_CTX_iv_length(ctx);
@@ -1191,7 +1329,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
         if (len <=
             qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
-            EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_data);
+            EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
             retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))
                      (ctx, out, in, len);
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
@@ -1367,7 +1505,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             }
             EVP_CIPHER_CTX_init(dctx);
 
-            if (!EVP_DecryptInit_ex(dctx, GET_NON_CHAINED_CIPHER(ctx), NULL,
+            if (!EVP_DecryptInit_ex(dctx, GET_SW_NON_CHAINED_CIPHER(ctx), NULL,
                                     qctx->session_data->cipherSetupData.pCipherKey, ivec)) {
                 WARN("DecryptInit error occurred.\n");
                 decrypt_error = 1;
@@ -1447,11 +1585,27 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         DUMP_SYM_PERFORM_OP(qat_instance_handles[qctx->inst_num], opd, s_sgl, d_sgl);
         sts = qat_sym_perform_op(qctx->inst_num, &done, opd, s_sgl,
                                  d_sgl, &(qctx->session_data->verifyDigest));
+
         if (sts != CPA_STATUS_SUCCESS) {
+            if (qat_get_sw_fallback_enabled() &&
+                ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL))) {
+                CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                               qctx->inst_num,
+                               qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                               __func__);
+                qctx->fallback = 1;
+            }
             WARN("Failed to submit request to qat - status = %d\n", sts);
             error = 1;
             break;
         }
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                           qctx->inst_num,
+                           qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+        }
+
         /* Increment after successful submission */
         done.num_submitted++;
     } while (++pipe < qctx->numpipes);
@@ -1502,10 +1656,16 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         retVal = 1 & pad_check;
         if (retVal == 1)
             outlen = 0;
+    } else {
+        if (qat_get_sw_fallback_enabled() && done.opDone.verifyResult == CPA_FALSE) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           qctx->inst_num,
+                           qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            qctx->fallback = 1; /* Probably already set anyway */
+        }
     }
-
     qat_cleanup_op_done_pipe(&done);
-
     pipe = 0;
     do {
         if (retVal == 1) {
@@ -1524,9 +1684,26 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                outb + buflen - discardlen - ivlen, ivlen);
 
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
- cleanup:
+cleanup:
 #endif
-    /*Reset the AAD counter forcing that new AAD information is provided
+fallback:
+    if (qctx->fallback == 1) {
+        if (PIPELINE_SET(qctx)) {
+            WARN("Pipelines are set when in s/w fallback mode, which is not supported.\n");
+            return -1;
+        } else {
+            DEBUG("- Switched to software mode.\n");
+            CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+            EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
+            retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))
+                (ctx, out, in, len);
+            EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+            if (retVal)
+                outlen = len;
+        }
+    }
+
+    /* Reset the AAD counter forcing that new AAD information is provided
      * before each repeat invocation of this function.
      */
     qctx->aad_ctr = 0;
@@ -1544,6 +1721,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
     return outlen;
 }
+
 
 /******************************************************************************
  * function:
@@ -1578,6 +1756,7 @@ CpaStatus qat_sym_perform_op(int inst_num,
     unsigned int uiRetry = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
+
     do {
         status = cpaCySymPerformOp(qat_instance_handles[inst_num],
                                    pCallbackTag,
@@ -1597,7 +1776,7 @@ CpaStatus qat_sym_perform_op(int inst_num,
             } else {
                 qatPerformOpRetries++;
                 if (uiRetry >= iMsgRetry
-                        && iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    && iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     WARN("Maximum retries exceeded\n");
                     QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_MAX_RETRIES_EXCEEDED);
                     status = CPA_STATUS_FAIL;
@@ -1605,7 +1784,7 @@ CpaStatus qat_sym_perform_op(int inst_num,
                 }
                 uiRetry++;
                 usleep(ulPollInterval +
-                        (uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                       (uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
             }
         }
     }

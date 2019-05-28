@@ -51,6 +51,7 @@
 # include "cpa.h"
 
 int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn);
-int qat_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, const BIGNUM *m);
+int qat_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, const BIGNUM *m,
+                int *fallback);
 
 #endif                          /* QAT_ASYM_COMMON_H */

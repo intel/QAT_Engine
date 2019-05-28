@@ -127,5 +127,6 @@ void *timer_poll_func(void *ih);
 
 void *event_poll_func(void *ih);
 CpaStatus poll_instances(void);
+CpaStatus poll_heartbeat(void);
 
 #endif   /* QAT_POLLING_H */

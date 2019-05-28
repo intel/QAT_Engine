@@ -63,6 +63,7 @@ typedef struct {
     volatile int flag;
     volatile CpaBoolean verifyResult;
     volatile ASYNC_JOB *job;
+    volatile CpaStatus status;
 } op_done_t;
 
 /* Use this variant of op_done to track QAT chained cipher

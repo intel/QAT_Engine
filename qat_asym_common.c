@@ -134,20 +134,21 @@ static void qat_modexpCallbackFn(void *pCallbackTag, CpaStatus status,
 
 /******************************************************************************
 * function:
-*         qat_mod_exp(BIGNUM * r, const BIGNUM * a, const BIGNUM * p,
-                      const BIGNUM * m, BN_CTX * ctx)
+          qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
+                      const BIGNUM *mod, int *fallback)
 *
-* @param res  [IN] - Result bignum of mod_exp
-* @param base [IN] - Base used for mod_exp
-* @param exp  [IN] - Exponent used for mod_exp
-* @param mod  [IN] - Modulus used for mod_exp
+* @param res       [IN] - Result bignum of mod_exp
+* @param base      [IN] - Base used for mod_exp
+* @param exp       [IN] - Exponent used for mod_exp
+* @param mod       [IN] - Modulus used for mod_exp
+* @param fallback [OUT] - Pointer to Software Fallback flag
 *
 * description:
 *   Bignum modular exponentiation function used in DH and DSA.
 *
 ******************************************************************************/
 int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
-                const BIGNUM *mod)
+                const BIGNUM *mod, int *fallback)
 {
     CpaCyLnModExpOpData opData;
     CpaFlatBuffer result = { 0, };
@@ -221,7 +222,12 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failure to get an instance\n");
-            QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_GET_NEXT_INST_FAIL);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                *fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_GET_NEXT_INST_FAIL);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -257,7 +263,16 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
 
     if (CPA_STATUS_SUCCESS != status) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_LN_MOD_EXP_FAIL);
+        if (qat_get_sw_fallback_enabled() &&
+            (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_LN_MOD_EXP_FAIL);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
@@ -265,6 +280,12 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto exit;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -294,7 +315,15 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
+        }
         retval = 0;
         qat_cleanup_op_done(&op_done);
         goto exit;

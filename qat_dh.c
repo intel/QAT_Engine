@@ -89,6 +89,8 @@ static int qat_dh_compute_key(unsigned char *key, const BIGNUM *pub_key,
 static int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
                           const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
                           BN_MONT_CTX *m_ctx);
+static int qat_dh_init(DH *dh);
+static int qat_dh_finish(DH *dh);
 #endif
 
 static DH_METHOD *qat_dh_method = NULL;
@@ -112,6 +114,8 @@ DH_METHOD *qat_get_DH_methods(void)
     res &= DH_meth_set_generate_key(qat_dh_method, qat_dh_generate_key);
     res &= DH_meth_set_compute_key(qat_dh_method, qat_dh_compute_key);
     res &= DH_meth_set_bn_mod_exp(qat_dh_method, qat_dh_mod_exp);
+    res &= DH_meth_set_init(qat_dh_method, qat_dh_init);
+    res &= DH_meth_set_finish(qat_dh_method, qat_dh_finish);
 
     if (res == 0) {
         WARN("Failure setting DH methods\n");
@@ -174,7 +178,7 @@ static void qat_dhCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData
 ******************************************************************************/
 int qat_dh_generate_key(DH *dh)
 {
-    int ok = 0, job_ret = 0;
+    int ok = 0, job_ret = 0, fallback = 0;
     int generate_new_priv_key = 0;
     int generate_new_pub_key = 0;
     unsigned length = 0;
@@ -195,6 +199,11 @@ int qat_dh_generate_key(DH *dh)
     thread_local_variables_t *tlv = NULL;
 
     DEBUG("- Started\n");
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return DH_meth_get_generate_key(sw_dh_method)(dh);
+    }
 
     if (dh == NULL) {
         WARN("Input variable dh is null\n");
@@ -346,7 +355,12 @@ int qat_dh_generate_key(DH *dh)
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
-            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -386,13 +400,28 @@ int qat_dh_generate_key(DH *dh)
 
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+            (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -422,9 +451,17 @@ int qat_dh_generate_key(DH *dh)
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
@@ -463,7 +500,14 @@ err:
         if (generate_new_priv_key)
             BN_clear_free(priv_key);
     }
-    return (ok);
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return DH_meth_get_generate_key(sw_dh_method)(dh);
+    }
+
+    return ok;
 }
 
 /******************************************************************************
@@ -476,7 +520,7 @@ err:
  ******************************************************************************/
 int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 {
-    int ret = -1, job_ret = 0;
+    int ret = -1, job_ret = 0, fallback = 0;
     int check_result;
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyDhPhase2SecretKeyGenOpData *opData = NULL;
@@ -499,12 +543,19 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     if (unlikely(key == NULL)) {
         WARN("Invalid variable key is NULL.\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_KEY_NULL);
-        return -1;
+        return ret;
     }
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
+
+    }
+
     if (!dh) {
         WARN("Input variable dh is null\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_DH_NULL);
-        return -1;
+        return ret;
     }
 
     DH_get0_pqg(dh, &p, &q, &g);
@@ -512,7 +563,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     if (p == NULL || priv_key == NULL) {
         WARN("Failure getting p or priv_key\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_P_Q_G_NULL);
-        return -1;
+        return ret;
     }
 
     /*
@@ -524,7 +575,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         if (sw_dh_method == NULL) {
             WARN("Failed to get sw_dh_method for bits %d\n", BN_num_bits(p));
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_SW_METHOD_NULL);
-            return -1;
+            return ret;
         }
         return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
     }
@@ -532,7 +583,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     if (!DH_check_pub_key(dh, in_pub_key, &check_result) || check_result) {
         WARN("Failure checking pub key\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_INVALID_PUB_KEY);
-        return -1;
+        return ret;
     }
 
     opData = (CpaCyDhPhase2SecretKeyGenOpData *)
@@ -602,11 +653,16 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         }
     }
 
-    CRYPTO_QAT_LOG("KX - ?%s\n", __func__);
+    CRYPTO_QAT_LOG("KX - %s\n", __func__);
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
-            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -646,13 +702,28 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+            (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -682,9 +753,17 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
@@ -717,7 +796,13 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         OPENSSL_free(opData);
     }
 
-    return (ret);
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
+    }
+
+    return ret;
 }
 
 /******************************************************************************
@@ -742,8 +827,58 @@ int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
                    const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
                    BN_MONT_CTX *m_ctx)
 {
+    int ret = 0, fallback = 0;
+    const DH_METHOD *sw_dh_method = DH_OpenSSL();
+
     DEBUG("- Started\n");
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return DH_meth_get_bn_mod_exp(sw_dh_method)(dh, r, a, p, m, ctx, m_ctx);
+    }
+
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
-    return qat_mod_exp(r, a, p, m);
+    ret = qat_mod_exp(r, a, p, m, &fallback);
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return DH_meth_get_bn_mod_exp(sw_dh_method)(dh, r, a, p, m, ctx, m_ctx);
+    } else
+        return ret;
+
 }
+
+/******************************************************************************
+* function:
+*         qat_dh_init(DH * dh)
+*
+* @param dh    [IN] - Pointer to a OpenSSL DH struct.
+*
+* description:
+*   Overridden init function.
+*   Calls the SW Implementation to ensure caching flag is set.
+*
+******************************************************************************/
+int qat_dh_init(DH *dh)
+{
+    return DH_meth_get_init(DH_OpenSSL())(dh);
+}
+
+/******************************************************************************
+* function:
+*         qat_dh_finish(DH * dh)
+*
+* @param dh    [IN] - Pointer to a OpenSSL DH struct.
+*
+* description:
+*   Overridden finish function.
+*   Calls the SW Implementation to ensure cached data is freed.
+*
+******************************************************************************/
+int qat_dh_finish(DH *dh)
+{
+    return DH_meth_get_finish(DH_OpenSSL())(dh);
+}
+
 #endif /* #ifndef OPENSSL_DISABLE_QAT_DH */

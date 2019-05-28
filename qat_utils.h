@@ -88,7 +88,7 @@ do {                              \
  */
 # ifdef QAT_TESTS_LOG
 
-#  define CRYPTO_QAT_LOG_FILE "/opt/qat-crypto.log"
+#  define QAT_MAX_TEST_FILE_NAME_LENGTH 1024
 
 extern FILE *cryptoQatLogger;
 extern pthread_mutex_t test_file_mutex;

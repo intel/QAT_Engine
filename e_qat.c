@@ -62,6 +62,7 @@
 #else
 # error "No memory driver type defined"
 #endif
+#define NANOSECONDS_TO_MICROSECONDS 1000
 
 /* Standard Includes */
 #include <stdio.h>
@@ -76,6 +77,7 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
 
 /* Local Includes */
 #include "e_qat.h"
@@ -109,6 +111,7 @@
 #endif
 #include "cpa.h"
 #include "cpa_cy_im.h"
+#include "cpa_cy_common.h"
 #include "cpa_types.h"
 #include "icp_sal_user.h"
 #include "icp_sal_poll.h"
@@ -127,6 +130,7 @@ char *ICPConfigSectionName_libcrypto = qat_config_section_name;
 
 CpaInstanceHandle *qat_instance_handles = NULL;
 Cpa16U qat_num_instances = 0;
+Cpa32U qat_num_devices = 0;
 pthread_key_t thread_local_variables;
 pthread_t polling_thread;
 int keep_polling = 1;
@@ -135,12 +139,14 @@ int enable_inline_polling = 0;
 int enable_event_driven_polling = 0;
 int enable_heuristic_polling = 0;
 int enable_instance_for_thread = 0;
-
+int enable_sw_fallback = 0;
+int disable_qat_offload = 0;
 pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 unsigned int engine_inited = 0;
 qat_instance_details_t qat_instance_details[QAT_MAX_CRYPTO_INSTANCES] = {{{0}}};
+qat_accel_details_t qat_accel_details[QAT_MAX_CRYPTO_ACCELERATORS] = {{0}};
 
 useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
@@ -152,6 +158,21 @@ int num_cipher_pipeline_requests_in_flight = 0;
 sigset_t set = {{0}};
 pthread_t timer_poll_func_thread = 0;
 int cleared_to_start = 0;
+
+int qat_get_qat_offload_disabled(void)
+{
+    if (disable_qat_offload ||
+        (qat_get_sw_fallback_enabled() && !is_any_device_available()))
+        return 1;
+    else
+        return 0;
+}
+
+int qat_get_sw_fallback_enabled(void)
+{
+    return enable_sw_fallback;
+}
+
 
 /******************************************************************************
  * function:
@@ -219,9 +240,39 @@ static int validate_configuration_section_name(const char *name)
     return 1;
 }
 
+int is_instance_available(int inst_num)
+{
+   if (inst_num > qat_num_instances)
+       return 0;
+
+   if (!qat_instance_details[inst_num].qat_instance_started)
+       return 0;
+
+   return !qat_accel_details[qat_instance_details[inst_num].
+                             qat_instance_info.
+                             physInstId.packageId].qat_accel_reset_status;
+}
+
+int is_any_device_available(void)
+{
+    int device_num = 0;
+
+    if (qat_num_devices == 0)
+        return 0;
+
+    for (device_num = 0; device_num < qat_num_devices; device_num++) {
+        if (qat_accel_details[device_num].qat_accel_reset_status == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int get_next_inst_num(void)
 {
     int inst_num = QAT_INVALID_INSTANCE;
+    unsigned int inst_count = 0;
     thread_local_variables_t * tlv = NULL;
 
     /* See qat_use_signals() above for more info on why it is safe to
@@ -251,12 +302,21 @@ int get_next_inst_num(void)
 
     if (0 == enable_instance_for_thread) {
         if (likely(qat_instance_handles && qat_num_instances)) {
-            tlv->qatInstanceNumForThread = (tlv->qatInstanceNumForThread + 1) % qat_num_instances;
-            inst_num = tlv->qatInstanceNumForThread;
+            do {
+                inst_count++;
+                tlv->qatInstanceNumForThread = (tlv->qatInstanceNumForThread + 1) %
+                    qat_num_instances;
+            } while (!is_instance_available(tlv->qatInstanceNumForThread) &&
+                     inst_count <= qat_num_instances);
+            if (likely(inst_count <= qat_num_instances)) {
+                inst_num = tlv->qatInstanceNumForThread;
+            }
         }
     } else {
         if (tlv->qatInstanceNumForThread != QAT_INVALID_INSTANCE) {
-            inst_num = tlv->qatInstanceNumForThread;
+            if (is_instance_available(tlv->qatInstanceNumForThread)) {
+                inst_num = tlv->qatInstanceNumForThread;
+            }
         }
     }
     /* If no working instance could be found then flag a warning */
@@ -321,12 +381,55 @@ static void qat_local_variable_destructor(void *tlv)
 }
 
 
+#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *callbackTag,
+                                          const CpaInstanceEvent inst_ev)
+{
+    Cpa32U packageId;
+    struct timespec ts = { 0 };
+
+    switch (inst_ev) {
+        case CPA_INSTANCE_EVENT_FATAL_ERROR:
+            WARN("Received Callback that instance %ld is unavailable\n",
+                  (intptr_t)callbackTag);
+            packageId =
+                qat_instance_details[(intptr_t)callbackTag].qat_instance_info.physInstId.packageId;
+            qat_accel_details[packageId].qat_accel_reset_status = 1;
+            clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+            CRYPTO_QAT_LOG("[%lld.%06ld] Instance: %ld Handle %p Device %d RESTARTING \n",
+                          (long long)ts.tv_sec, ts.tv_nsec / NANOSECONDS_TO_MICROSECONDS,
+                          (intptr_t)callbackTag, ih, packageId);
+            break;
+        case CPA_INSTANCE_EVENT_RESTARTING:
+             WARN("Received Callback that instance %ld is restarting\n",
+                  (intptr_t)callbackTag);
+             break;
+        case CPA_INSTANCE_EVENT_RESTARTED:
+            WARN("Received Callback that instance %ld is available\n",
+                  (intptr_t)callbackTag);
+            packageId =
+                qat_instance_details[(intptr_t)callbackTag].qat_instance_info.physInstId.packageId;
+            qat_accel_details[packageId].qat_accel_reset_status = 0;
+            clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+            CRYPTO_QAT_LOG("[%lld.%06ld] Instance: %ld Handle %p Device %d RESTARTED \n",
+                          (long long)ts.tv_sec, ts.tv_nsec / NANOSECONDS_TO_MICROSECONDS,
+                          (intptr_t)callbackTag, ih, packageId);
+            break;
+        default:
+            WARN("Fatal Error detected for instance: %ld\n", (intptr_t)callbackTag);
+            break;
+    }
+}
+#endif
+
+
 int qat_engine_init(ENGINE *e)
 {
     int instNum, err;
     CpaStatus status = CPA_STATUS_SUCCESS;
     CpaBoolean limitDevAccess = CPA_FALSE;
     int ret_pthread_sigmask;
+    Cpa32U package_id = 0;
 
 
     pthread_mutex_lock(&qat_engine_mutex);
@@ -337,6 +440,7 @@ int qat_engine_init(ENGINE *e)
 
     DEBUG("QAT Engine initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
+    DEBUG("- SW Fallback: %s\n", enable_sw_fallback ? "ON": "OFF");
     DEBUG("- Inline polling: %s\n", enable_inline_polling ? "ON": "OFF");
     DEBUG("- Internal poll interval: %dns\n", qat_poll_interval);
     DEBUG("- Epoll timeout: %dms\n", qat_epoll_timeout);
@@ -480,6 +584,12 @@ int qat_engine_init(ENGINE *e)
             return 0;
         }
 
+        package_id = qat_instance_details[instNum].qat_instance_info.physInstId.packageId;
+        qat_accel_details[package_id].qat_accel_present = 1;
+        if (package_id >= qat_num_devices) {
+            qat_num_devices = package_id + 1;
+        }
+
         /* Set the address translation function */
         status = cpaCySetAddressTranslation(qat_instance_handles[instNum],
                                             virtualToPhysical);
@@ -502,7 +612,23 @@ int qat_engine_init(ENGINE *e)
         }
 
         qat_instance_details[instNum].qat_instance_started = 1;
-        DEBUG("Started Instance No: %d\n", instNum);
+        DEBUG("Started Instance No: %d Located on Device: %d\n", instNum, package_id);
+
+#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+        if (enable_sw_fallback) {
+            DEBUG("cpaCyInstanceSetNotificationCb instNum = %d\n", instNum);
+            status = cpaCyInstanceSetNotificationCb(qat_instance_handles[instNum],
+                                                    qat_instance_notification_callbackFn,
+                                                    (void *)(intptr_t)instNum);
+            if (CPA_STATUS_SUCCESS != status) {
+                WARN("cpaCyInstanceSetNotificationCb failed, status=%d\n", status);
+                QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE);
+                pthread_mutex_unlock(&qat_engine_mutex);
+                qat_engine_finish(e);
+                return 0;
+            }
+        }
+#endif
     }
 
     if (!enable_external_polling && !enable_inline_polling) {
@@ -562,6 +688,9 @@ int qat_engine_init(ENGINE *e)
 #define QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT (ENGINE_CMD_BASE + 14)
 #define QAT_CMD_INIT_ENGINE (ENGINE_CMD_BASE + 15)
 #define QAT_CMD_SET_CONFIGURATION_SECTION_NAME (ENGINE_CMD_BASE + 16)
+#define QAT_CMD_ENABLE_SW_FALLBACK (ENGINE_CMD_BASE + 17)
+#define QAT_CMD_HEARTBEAT_POLL (ENGINE_CMD_BASE + 18)
+#define QAT_CMD_DISABLE_QAT_OFFLOAD (ENGINE_CMD_BASE + 19)
 
 static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -649,6 +778,21 @@ static const ENGINE_CMD_DEFN qat_cmd_defns[] = {
      "SET_CONFIGURATION_SECTION_NAME",
      "Set the configuration section to use in QAT driver configuration file",
      ENGINE_CMD_FLAG_STRING},
+    {
+     QAT_CMD_ENABLE_SW_FALLBACK,
+     "ENABLE_SW_FALLBACK",
+     "Enables the fallback to SW if the acceleration devices go offline",
+     ENGINE_CMD_FLAG_NO_INPUT},
+    {
+     QAT_CMD_HEARTBEAT_POLL,
+     "HEARTBEAT_POLL",
+     "Check the acceleration devices are still functioning",
+     ENGINE_CMD_FLAG_NO_INPUT},
+    {
+     QAT_CMD_DISABLE_QAT_OFFLOAD,
+     "DISABLE_QAT_OFFLOAD",
+     "Perform crypto operations on core",
+     ENGINE_CMD_FLAG_NO_INPUT},
     {0, NULL, NULL, 0}
 };
 
@@ -866,6 +1010,44 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         break;
 
+    case QAT_CMD_ENABLE_SW_FALLBACK:
+#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+        DEBUG("Enabled SW Fallback\n");
+        BREAK_IF(engine_inited, \
+                "ENABLE_SW_FALLBACK failed as the engine is already initialized\n");
+        enable_sw_fallback = 1;
+        CRYPTO_QAT_LOG("SW Fallback enabled - %s\n", __func__);
+#else
+        WARN("QAT_CMD_ENABLE_SW_FALLBACK is not supported\n");
+        retVal = 0;
+#endif
+        break;
+
+    case QAT_CMD_HEARTBEAT_POLL:
+#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+        BREAK_IF(!engine_inited, "HEARTBEAT_POLL failed as engine is not initialized\n");
+        BREAK_IF(qat_instance_handles == NULL,
+                 "HEARTBEAT_POLL failed as no instances are available\n");
+        BREAK_IF(!enable_external_polling,
+                 "HEARTBEAT_POLL failed as external polling is not enabled\n");
+        BREAK_IF(p == NULL, "HEARTBEAT_POLL failed as the input parameter was NULL\n");
+
+        *(int *)p = (int)poll_heartbeat();
+        CRYPTO_QAT_LOG("QAT Engine Heartbeat Poll - %s\n", __func__);
+#else
+        WARN("QAT_CMD_HEARTBEAT_POLL is not supported\n");
+        retVal = 0;
+#endif
+        break;
+
+    case QAT_CMD_DISABLE_QAT_OFFLOAD:
+        DEBUG("Disabled qat offload\n");
+        BREAK_IF(!engine_inited, \
+                "DISABLE_QAT_OFFLOAD failed as the engine is not initialized\n");
+        disable_qat_offload = 1;
+        CRYPTO_QAT_LOG("QAT Engine Offload disabled - %s\n", __func__);
+        break;
+
     default:
         WARN("CTRL command not implemented\n");
         retVal = 0;
@@ -951,9 +1133,12 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         }
     }
 
+    CRYPTO_QAT_LOG("Number of remaining in-flight requests = %d - %s\n",
+                   num_requests_in_flight, __func__);
 
     /* Reset global variables */
     qat_num_instances = 0;
+    qat_num_devices = 0;
     icp_sal_userStop();
     engine_inited = 0;
     internal_efd = 0;
@@ -970,6 +1155,8 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         enable_inline_polling = 0;
         enable_event_driven_polling = 0;
         enable_instance_for_thread = 0;
+        enable_sw_fallback = 0;
+        disable_qat_offload = 0;
         qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
         qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
         enable_heuristic_polling = 0;

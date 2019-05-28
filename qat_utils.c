@@ -54,6 +54,7 @@
 FILE *cryptoQatLogger = NULL;
 pthread_mutex_t test_file_mutex = PTHREAD_MUTEX_INITIALIZER;
 int test_file_ref_count = 0;
+char test_file_name[QAT_MAX_TEST_FILE_NAME_LENGTH];
 
 #endif  /* QAT_TESTS_LOG */
 
@@ -98,34 +99,40 @@ void crypto_qat_debug_close_log()
 
 #ifdef QAT_TESTS_LOG
 
+char *crypto_qat_testing_get_log_filename()
+{
+    snprintf(test_file_name, QAT_MAX_TEST_FILE_NAME_LENGTH,
+             "/opt/qat-crypto-%d.log", getpid());
+    return test_file_name;
+}
+
 void crypto_qat_testing_init_log()
 {
-    pthread_mutex_lock(&testing_file_mutex);
-    if (!testing_file_ref_count) {
-        cryptoQatLogger = fopen(CRYPTO_QAT_LOG_FILE, "w");
+    pthread_mutex_lock(&test_file_mutex);
+    if (!test_file_ref_count) {
+        cryptoQatLogger = fopen(crypto_qat_testing_get_log_filename(), "w");
 
         if (NULL == cryptoQatLogger) {
-            WARN("unable to open %s\n",
-                 CRYPTO_QAT_LOG_FILE);
-            pthread_mutex_unlock(&testing_file_mutex);
+            WARN("unable to open %s\n", test_file_name);
+            pthread_mutex_unlock(&test_file_mutex);
             exit(1);
+        } else {
+            test_file_ref_count++;
         }
-
     }
-    testing_file_ref_count++;
-    pthread_mutex_unlock(&testing_file_mutex);
+    pthread_mutex_unlock(&test_file_mutex);
 }
 
 void crypto_qat_testing_close_log()
 {
-    pthread_mutex_lock(&testing_file_mutex);
-    testing_file_ref_count--;
-    if (!testing_file_ref_count) {
+    pthread_mutex_lock(&test_file_mutex);
+    if (test_file_ref_count) {
         if (cryptoQatLogger != NULL) {
             fclose(cryptoQatLogger);
+            test_file_ref_count--;
         }
     }
-    pthread_mutex_unlock(&testing_file_mutex);
+    pthread_mutex_unlock(&test_file_mutex);
 }
 
 #endif  /* QAT_TESTS_LOG */

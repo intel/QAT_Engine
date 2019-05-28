@@ -92,6 +92,8 @@ static void qat_rsaCallbackFn_CRT(void *pCallbackTag, CpaStatus status, void *pO
     op_done_rsa_crt_t *op_done = (op_done_rsa_crt_t *)pCallbackTag;
     op_done->resp++;
     op_done->opDone.verifyResult *= (status == CPA_STATUS_SUCCESS);
+    if (op_done->opDone.status == CPA_STATUS_SUCCESS)
+        op_done->opDone.status = status;
 }
 
 static inline int
@@ -335,9 +337,8 @@ err:
     return ret;
 }
 
-
 int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
-                        CpaFlatBuffer * output_buf)
+                        CpaFlatBuffer * output_buf, int * fallback)
 {
     CpaCyLnModExpOpData crt_op1_data = {{0}}, crt_op2_data = {{0}};
     CpaFlatBuffer crt_out1 = {0}, crt_out2 = {0};
@@ -369,7 +370,12 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
         WARN("Failure to get an instance\n");
-        QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            *fallback = 1;
+        }
+        else
+            QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
         qat_cleanup_op_done_rsa_crt(&op_done);
         return 0;
     }
@@ -405,11 +411,26 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("sending 1st cpaCyLnModExp failed, sts=%d.\n", sts);
-        QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && (sts == CPA_STATUS_RESTARTING || sts == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        }
+        else
+            QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
         qat_cleanup_op_done_rsa_crt(&op_done);
         goto err;
-    } else
+    } else {
         op_done.req++;
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+        }
+    }
 
     /* send the 2nd ModExp request */
     do {
@@ -431,9 +452,24 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("sending 2nd cpaCyLnModExp failed, sts=%d.\n", sts);
-        QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
-    } else
+        if (qat_get_sw_fallback_enabled() && (sts == CPA_STATUS_RESTARTING || sts == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        }
+        else
+            QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
+    } else {
         op_done.req++;
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+        }
+    }
 
     /* wait for replies */
     do {
@@ -454,7 +490,15 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     if (op_done.opDone.verifyResult != CPA_TRUE) {
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.opDone.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        }
+        else
+            QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
         qat_cleanup_op_done_rsa_crt(&op_done);
         goto err;
     }

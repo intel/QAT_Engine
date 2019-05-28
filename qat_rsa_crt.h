@@ -52,6 +52,7 @@
 #include "cpa_types.h"
 
 int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data,
-                        int rsa_len, CpaFlatBuffer * output_buf);
+                        int rsa_len, CpaFlatBuffer * output_buf,
+                        int * fallback);
 
 #endif                          /* QAT_RSA_CRT_H */

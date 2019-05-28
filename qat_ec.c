@@ -113,7 +113,8 @@ static int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 /* Qat engine ECDH methods declaration */
 static int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                                 unsigned char **outY, size_t *outlenY,
-                                const EC_POINT *pub_key, const EC_KEY *ecdh);
+                                const EC_POINT *pub_key, const EC_KEY *ecdh,
+                                int *fallback);
 
 static int qat_engine_ecdh_compute_key(unsigned char **out, size_t *outlen,
                                        const EC_POINT *pub_key, const EC_KEY *ecdh);
@@ -345,16 +346,16 @@ static void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData
 
 int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                          unsigned char **outY, size_t *outlenY,
-                         const EC_POINT *pub_key, const EC_KEY *ecdh)
+                         const EC_POINT *pub_key, const EC_KEY *ecdh,
+                         int *fallback)
 {
     BN_CTX *ctx = NULL;
     BIGNUM *p = NULL, *a = NULL, *b = NULL;
     BIGNUM *xg = NULL, *yg = NULL;
-    const BIGNUM *priv_key;
-    const EC_GROUP *group;
+    const BIGNUM *priv_key = NULL;
+    const EC_GROUP *group = NULL;
     int ret = -1, job_ret = 0;
     size_t buflen;
-    PFUNC_COMP_KEY comp_key_pfunc = NULL;
 
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcPointMultiplyOpData *opData = NULL;
@@ -378,8 +379,14 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         return ret;
     }
 
+    if (fallback == NULL) {
+        WARN("NULL fallback pointer passed in.\n");
+        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_FALLBACK_POINTER_NULL);
+        return ret;
+    }
+
     if ((outX != NULL && outlenX == NULL) ||
-            (outY != NULL && outlenY == NULL)) {
+        (outY != NULL && outlenY == NULL)) {
         WARN("Either outX, outY, outlenX or outlenY are NULL\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_OUTX_OUTY_LEN_NULL);
         return ret;
@@ -389,19 +396,6 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         WARN("group is NULL\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_GET_GROUP_FAILURE);
         return ret;
-    }
-
-    /* Unsupported curve: X25519.
-     * Detect and call it's software implementation.
-     */
-    if (EC_GROUP_get_curve_name(group) == NID_X25519) {
-        EC_KEY_METHOD_get_compute_key((EC_KEY_METHOD *) EC_KEY_OpenSSL(), &comp_key_pfunc);
-        if (comp_key_pfunc == NULL) {
-            WARN("comp_key_pfunc is NULL\n");
-            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL);
-            return ret;
-        }
-        return (*comp_key_pfunc)(outX, outlenX, pub_key, ecdh);
     }
 
     opData = (CpaCyEcPointMultiplyOpData *)
@@ -548,7 +542,12 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
-            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                *fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -590,13 +589,28 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+            (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -627,7 +641,15 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     if (op_done.verifyResult != CPA_TRUE) {
         WARN("Verification of request failed\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        }
         qat_cleanup_op_done(&op_done);
         goto err;
     }
@@ -683,16 +705,66 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
-    return (ret);
+
+    DEBUG("- Finished\n");
+    return ret;
 }
+
 
 int qat_engine_ecdh_compute_key(unsigned char **out,
                                 size_t *outlen,
                                 const EC_POINT *pub_key,
                                 const EC_KEY *ecdh)
 {
-    return qat_ecdh_compute_key(out, outlen, NULL, NULL, pub_key, ecdh);
+    int fallback = 0;
+    int ret = -1;
+    PFUNC_COMP_KEY comp_key_pfunc = NULL;
+    const EC_GROUP *group = NULL;
+    const BIGNUM *priv_key = NULL;
+
+    DEBUG("- Started\n");
+
+    EC_KEY_METHOD_get_compute_key((EC_KEY_METHOD *)EC_KEY_OpenSSL(), &comp_key_pfunc);
+    if (comp_key_pfunc == NULL) {
+        WARN("comp_key_pfunc is NULL\n");
+        QATerr(QAT_F_QAT_ENGINE_ECDH_COMPUTE_KEY, QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL);
+        return ret;
+    }
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
+    }
+
+    if (ecdh == NULL || (priv_key = EC_KEY_get0_private_key(ecdh)) == NULL) {
+        WARN("Either ecdh or priv_key is NULL\n");
+        QATerr(QAT_F_QAT_ENGINE_ECDH_COMPUTE_KEY, QAT_R_ECDH_PRIVATE_KEY_NULL);
+        return ret;
+    }
+
+    if ((group = EC_KEY_get0_group(ecdh)) == NULL) {
+        WARN("group is NULL\n");
+        QATerr(QAT_F_QAT_ENGINE_ECDH_COMPUTE_KEY, QAT_R_GET_GROUP_FAILURE);
+        return ret;
+    }
+
+    /* Unsupported curve: X25519.
+     * Detect and call it's software implementation.
+     */
+    if (EC_GROUP_get_curve_name(group) == NID_X25519) {
+        return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
+    }
+
+    ret = qat_ecdh_compute_key(out, outlen, NULL, NULL, pub_key, ecdh, &fallback);
+    if (fallback == 1) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
+    }
+    DEBUG("- Finished\n");
+    return ret;
 }
+
 
 int qat_ecdh_generate_key(EC_KEY *ecdh)
 {
@@ -710,6 +782,21 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     size_t temp_xfield_size = 0;
     size_t temp_yfield_size = 0;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
+    int fallback = 0;
+
+    DEBUG("- Started\n");
+
+    EC_KEY_METHOD_get_keygen((EC_KEY_METHOD *) EC_KEY_OpenSSL(), &gen_key_pfunc);
+    if (gen_key_pfunc == NULL) {
+        WARN("get keygen failed\n");
+        QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_SW_GET_KEYGEN_PFUNC_NULL);
+        return 0;
+    }
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return (*gen_key_pfunc)(ecdh);
+    }
 
     if (unlikely(ecdh == NULL || ((group = EC_KEY_get0_group(ecdh)) == NULL))) {
         WARN("Either ecdh or group are NULL\n");
@@ -721,12 +808,6 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
      * Detect and call it's software implementation.
      */
     if (EC_GROUP_get_curve_name(group) == NID_X25519) {
-        EC_KEY_METHOD_get_keygen((EC_KEY_METHOD *) EC_KEY_OpenSSL(), &gen_key_pfunc);
-        if (gen_key_pfunc == NULL) {
-            WARN("get keygen failed\n");
-            QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_SW_GET_KEYGEN_PFUNC_NULL);
-            return 0;
-        }
         return (*gen_key_pfunc)(ecdh);
     }
 
@@ -792,11 +873,14 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     gen = EC_GROUP_get0_generator(group);
     temp_xfield_size = temp_yfield_size = (field_size + 7) / 8;
 
-    if (qat_ecdh_compute_key(&temp_xbuf,
+    if ((qat_ecdh_compute_key(&temp_xbuf,
                               &temp_xfield_size,
                               &temp_ybuf,
                               &temp_yfield_size,
-                              gen, ecdh) <= 0) {
+                              gen,
+                              ecdh,
+                              &fallback) <= 0)
+        || (fallback == 1)) {
         /*
          * No QATerr is raised here because errors are already handled in
          * qat_ecdh_compute_key()
@@ -858,7 +942,14 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         OPENSSL_free(temp_xbuf);
     if (temp_ybuf != NULL)
         OPENSSL_free(temp_ybuf);
-    return (ok);
+
+    DEBUG("- Finished\n");
+
+    if (fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+        return (*gen_key_pfunc)(ecdh);
+    }
+    return ok;
 }
 #endif /* #ifndef OPENSSL_DISABLE_QAT_ECDH */
 
@@ -905,7 +996,6 @@ int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         QATerr(QAT_F_QAT_ECDSA_SIGN, QAT_R_INPUT_PARAM_INVALID);
         return 0;
     }
-    RAND_seed(dgst, dlen);
     s = qat_ecdsa_do_sign(dgst, dlen, kinv, r, eckey);
     if (s == NULL) {
         WARN("Error ECDSA Sign Operation Failed\n");
@@ -924,7 +1014,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                              const BIGNUM *in_kinv, const BIGNUM *in_r,
                              EC_KEY *eckey)
 {
-    int ok = 0, i, job_ret = 0;
+    int ok = 0, i, job_ret = 0, fallback = 0;
     BIGNUM *m = NULL, *order = NULL;
     BN_CTX *ctx = NULL;
     const EC_GROUP *group;
@@ -934,6 +1024,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     BIGNUM *p = NULL, *a = NULL, *b = NULL, *k = NULL;
     BIGNUM *xg = NULL, *yg = NULL;
     const EC_POINT *pub_key = NULL;
+    PFUNC_SIGN_SIG sign_sig_pfunc = NULL;
 
     CpaFlatBuffer *pResultR = NULL;
     CpaFlatBuffer *pResultS = NULL;
@@ -957,6 +1048,19 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         WARN("Invalid input param.\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_INPUT_PARAM_INVALID);
         return NULL;
+    }
+
+    EC_KEY_METHOD_get_sign((EC_KEY_METHOD *) EC_KEY_OpenSSL(),
+                           NULL, NULL, &sign_sig_pfunc);
+    if (sign_sig_pfunc == NULL) {
+        WARN("sign_sig_pfunc is NULL\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL);
+        return ret;
+    }
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return (*sign_sig_pfunc)(dgst, dgst_len, in_kinv, in_r, eckey);
     }
 
     group = EC_KEY_get0_group(eckey);
@@ -1189,7 +1293,12 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failure to get another instance\n");
-            QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -1231,13 +1340,27 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+            (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n", inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -1267,9 +1390,17 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        }
+        qat_cleanup_op_done(&op_done);
         goto err;
     }
 
@@ -1313,6 +1444,13 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return (*sign_sig_pfunc)(dgst, dgst_len, in_kinv, in_r, eckey);
+    }
+    DEBUG("- Finished\n");
     return ret;
 }
 
@@ -1361,7 +1499,7 @@ int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
 int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                         const ECDSA_SIG *sig, EC_KEY *eckey)
 {
-    int ret = -1, i, job_ret = 0;
+    int ret = -1, i, job_ret = 0, fallback = 0;
     BN_CTX *ctx = NULL;
     BIGNUM *order = NULL, *m = NULL;
     const EC_GROUP *group;
@@ -1370,6 +1508,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     BIGNUM *xg = NULL, *yg = NULL, *xp = NULL, *yp = NULL;
     const EC_POINT *ec_point;
     const BIGNUM *sig_r = NULL, *sig_s = NULL;
+    PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
 
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcdsaVerifyOpData *opData = NULL;
@@ -1386,6 +1525,19 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         WARN("Invalid input param.\n");
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_INPUT_PARAM_INVALID);
         return ret;
+    }
+
+    EC_KEY_METHOD_get_verify((EC_KEY_METHOD *) EC_KEY_OpenSSL(),
+                             NULL, &verify_sig_pfunc);
+    if (verify_sig_pfunc == NULL) {
+        WARN("verify_sig_pfunc is NULL\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL);
+        return ret;
+    }
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return (*verify_sig_pfunc)(dgst, dgst_len, sig, eckey);
     }
 
     /* check input values */
@@ -1562,7 +1714,12 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failure to get another instance\n");
-            QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -1602,13 +1759,28 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", status);
-        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() &&
+            (status == CPA_STATUS_RESTARTING || status == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -1639,6 +1811,13 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     if (op_done.verifyResult == CPA_TRUE)
         ret = 1;
+    else if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+        CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
+        fallback = 1;
+    }
 
     qat_cleanup_op_done(&op_done);
 
@@ -1662,7 +1841,13 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return (*verify_sig_pfunc)(dgst, dgst_len, sig, eckey);
+    }
+    DEBUG("- Finished\n");
     return ret;
 }
 #endif /* #ifndef OPENSSL_DISABLE_QAT_ECDSA */
-

@@ -130,11 +130,11 @@ typedef struct qat_op_params_t {
 typedef struct qat_chained_ctx_t {
     /* Crypto */
     unsigned char *hmac_key;
-# ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
-    /* Pointer for context data that will be used by
-     * Small packet offload feature. */
-    void *sw_ctx_data;
-# endif
+
+    /* Pointer to context cipher data (ctx->cipher_data) that will be used by
+     * Small packet offload feature and the s/w fallback feature. */
+    void *sw_ctx_cipher_data;
+
     /* QAT Session Params */
     int inst_num;
     CpaCySymSessionSetupData *session_data;
@@ -158,6 +158,7 @@ typedef struct qat_chained_ctx_t {
     unsigned int numpipes;
     unsigned int npipes_last_used;
     unsigned long total_op;
+    unsigned int fallback;
 } qat_chained_ctx;
 
 void qat_create_ciphers(void);

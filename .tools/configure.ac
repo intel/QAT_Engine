@@ -430,10 +430,17 @@ then
  else
   AC_MSG_NOTICE([glibc version is less than 2.23 - no AVX-512 optimisation supported.])
  fi
+ if test `getconf GNU_LIBC_VERSION | gawk '{print $2<2.17?"1":"0"}' 2>/dev/null` == 1
+ then
+  AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
+  AC_SUBST(LIBS)
+ fi
 else
  AC_MSG_NOTICE([Version of glibc could not be obtained automatically.  Please check manually by running:-])
  AC_MSG_NOTICE(['getconf GNU_LIBC_VERSION' or 'ldd --version'.])
  AC_MSG_NOTICE([If version of glibc returned is greater or equal to 2.23 then glibc AVX-512 optimisation is supported.])
+ AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
+ AC_SUBST(LIBS)
 fi
 
 if test "x$enable_qat_for_openssl_102" = "xyes"

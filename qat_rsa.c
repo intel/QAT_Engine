@@ -108,8 +108,8 @@ static int qat_rsa_pub_enc(int flen, const unsigned char *from,
 static int qat_rsa_pub_dec(int flen, const unsigned char *from,
                            unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
-static int qat_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-                          const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
+static int qat_rsa_init(RSA *rsa);
+static int qat_rsa_finish(RSA *rsa);
 #endif
 
 static RSA_METHOD *qat_rsa_method = NULL;
@@ -135,7 +135,9 @@ RSA_METHOD *qat_get_RSA_methods(void)
     res &= RSA_meth_set_priv_enc(qat_rsa_method, qat_rsa_priv_enc);
     res &= RSA_meth_set_priv_dec(qat_rsa_method, qat_rsa_priv_dec);
     res &= RSA_meth_set_mod_exp(qat_rsa_method, qat_rsa_mod_exp);
-    res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, qat_bn_mod_exp);
+    res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, BN_mod_exp_mont);
+    res &= RSA_meth_set_init(qat_rsa_method, qat_rsa_init);
+    res &= RSA_meth_set_finish(qat_rsa_method, qat_rsa_finish);
 
     if (res == 0) {
         WARN("Failed to set QAT RSA methods\n");
@@ -233,7 +235,7 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
 
 
 static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
-                           CpaFlatBuffer * output_buf)
+                           CpaFlatBuffer * output_buf, int * fallback)
 {
     /* Used for RSA Decrypt and RSA Sign */
     op_done_t op_done;
@@ -247,9 +249,9 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     tlv = qat_check_create_local_variables();
     if (NULL == tlv) {
-            WARN("could not create local variables\n");
-            QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-            return 0;
+        WARN("could not create local variables\n");
+        QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+        return 0;
     }
 
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
@@ -277,7 +279,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
          *  Sync mode
          */
         qat_cleanup_op_done(&op_done);
-        sync_mode_ret = qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf);
+        sync_mode_ret = qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf, fallback);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return sync_mode_ret;
     }
@@ -293,7 +295,12 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
-            QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                *fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+            }
             qat_clear_async_event_notification();
             qat_cleanup_op_done(&op_done);
             QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
@@ -314,11 +321,25 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", sts);
-        QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && (sts == CPA_STATUS_RESTARTING || sts == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+        }
         qat_clear_async_event_notification();
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return 0;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -344,9 +365,17 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+        }
+        qat_cleanup_op_done(&op_done);
         return 0;
     }
 
@@ -535,7 +564,7 @@ rsa_encrypt_op_buf_free(CpaCyRsaEncryptOpData * enc_op_data,
 
 
 static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
-                           CpaFlatBuffer * output_buf)
+                           CpaFlatBuffer * output_buf, int * fallback)
 {
     /* Used for RSA Encrypt and RSA Verify */
     op_done_t op_done;
@@ -590,7 +619,12 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     do {
         if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
-            QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+            if (qat_get_sw_fallback_enabled()) {
+                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+                *fallback = 1;
+            } else {
+                QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+            }
             if (op_done.job != NULL) {
                 qat_clear_async_event_notification();
             }
@@ -626,13 +660,27 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", sts);
-        QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && (sts == CPA_STATUS_RESTARTING || sts == CPA_STATUS_FAIL)) {
+            CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+        }
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return 0;
+    }
+    if (qat_get_sw_fallback_enabled()) {
+        CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
+                       inst_num,
+                       qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                       __func__);
     }
 
     if (enable_heuristic_polling) {
@@ -665,9 +713,17 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (op_done.verifyResult != CPA_TRUE) {
-        qat_cleanup_op_done(&op_done);
         WARN("Verification of result failed\n");
-        QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+            CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
+                           inst_num,
+                           qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
+                           __func__);
+            *fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
+        }
+        qat_cleanup_op_done(&op_done);
         return 0;
     }
 
@@ -844,7 +900,7 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     int rsa_len = 0;
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
-    int sts = 1;
+    int sts = 1, fallback = 0;
 #ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
     unsigned char *ver_msg = NULL;
     const BIGNUM *n = NULL;
@@ -853,6 +909,12 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 #endif
 
     DEBUG("- Started.\n");
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
+                                     (flen, from, to, rsa, padding);
+    }
 
     /* Parameter Checking */
     /*
@@ -885,8 +947,8 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
         goto exit;
     }
 
-    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer)) {
-        WARN("Failure in qat_rsa_decrypt\n");
+    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer, &fallback)) {
+        WARN("Failure in qat_rsa_decrypt  fallback = %d\n", fallback);
         /* Errors are already raised within qat_rsa_decrypt. */
         sts = 0;
         goto exit;
@@ -929,6 +991,14 @@ exit:
 #ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
 exit_lenstra:
 #endif
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
+                                     (flen, from, to, rsa, padding);
+    }
+
     /* set output all 0xff if failed */
     if (!sts)
         memset(to, 0xff, rsa_len);
@@ -959,7 +1029,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
 {
     int rsa_len = 0;
     int output_len = -1;
-    int sts = 1;
+    int sts = 1, fallback = 0;
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
 #ifndef OPENSSL_DISABLE_QAT_LENSTRA_PROTECTION
@@ -970,6 +1040,12 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
 #endif
 
     DEBUG("- Started.\n");
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())
+                                     (flen, from, to, rsa, padding);
+    }
 
     /* parameter checks */
     if (unlikely(rsa == NULL || from == NULL || to == NULL ||
@@ -997,10 +1073,12 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         goto exit;
     }
 
-    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer)) {
+    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer, &fallback)) {
         WARN("Failure in qat_rsa_decrypt\n");
-        /* Errors are already raised within qat_rsa_decrypt. */
-        QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
+        if (fallback == 0) {
+            /* Most but not all error cases are also raised within qat_rsa_decrypt. */
+            QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
+        }
         sts = 0;
         goto exit;
     }
@@ -1086,6 +1164,13 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     /* Free all the memory allocated in this function */
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
 
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())
+                                     (flen, from, to, rsa, padding);
+    }
+
     /* set output all 0xff if failed */
     if (!sts)
         memset(to, 0xff, rsa_len);
@@ -1120,9 +1205,15 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     int rsa_len = 0;
     CpaCyRsaEncryptOpData *enc_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
-    int sts = 1;
+    int sts = 1, fallback = 0;
 
     DEBUG("- Started\n");
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
+                                    (flen, from, to, rsa, padding);
+    }
 
     /* parameter checks */
     if (unlikely(rsa == NULL || from == NULL || to == NULL || flen < 0)) {
@@ -1151,7 +1242,7 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
         goto exit;
     }
 
-    if (1 != qat_rsa_encrypt(enc_op_data, output_buffer)) {
+    if (1 != qat_rsa_encrypt(enc_op_data, output_buffer, &fallback)) {
         WARN("Failure in qat_rsa_encrypt\n");
         /* Errors are already raised within qat_rsa_encrypt. */
         sts = 0;
@@ -1167,6 +1258,13 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
  exit:
     /* Free all the memory allocated in this function */
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
+
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
+                                    (flen, from, to, rsa, padding);
+    }
 
     /* set output all 0xff if failed */
     if (!sts)
@@ -1202,9 +1300,15 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     int output_len = -1;
     CpaCyRsaEncryptOpData *enc_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
-    int sts = 1;
+    int sts = 1, fallback = 0;
 
     DEBUG("- Started\n");
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        return RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
+                                    (flen, from, to, rsa, padding);
+    }
 
     /* parameter checking */
     if (rsa == NULL || from == NULL || to == NULL ||
@@ -1232,7 +1336,7 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
         goto exit;
     }
 
-    if (1 != qat_rsa_encrypt(enc_op_data, output_buffer)) {
+    if (1 != qat_rsa_encrypt(enc_op_data, output_buffer, &fallback)) {
         WARN("Failure in qat_rsa_encrypt\n");
         /* Errors are already raised within qat_rsa_encrypt. */
         sts = 0;
@@ -1283,6 +1387,13 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     /* Free all the memory allocated in this function */
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
 
+    if (fallback) {
+        WARN("- Fallback to software mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        return RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
+                                    (flen, from, to, rsa, padding);
+    }
+
     /* set output all 0xff if failed */
     if (!sts)
         memset(to, 0xff, rsa_len);
@@ -1302,7 +1413,6 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
 *             Returns sw implementation of rsa_mod_exp
 *
 *******************************************************************************/
-
 int
 qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx)
 {
@@ -1312,28 +1422,37 @@ qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx)
 }
 
 /******************************************************************************
- * function:
- *         qat_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
- *                        const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
- *
- * @param r     [IN] - Result bignum of mod_exp
- * @param a     [IN] - Base used for mod_exp
- * @param p     [IN] - Exponent used for mod_exp
- * @param m     [IN] - Modulus used for mod_exp
- * @param ctx   [IN] - EVP context.
- * @param m_ctx [IN] - EVP context for Montgomery multiplication.
- *
- * description:
- *             Returns sw implementation of bn_mod_exp
- *
- ******************************************************************************/
-
+* function:
+*         qat_rsa_init(RSA *rsa)
+*
+* @param rsa   [IN] - The RSA data structure
+*
+* description:
+*             Returns sw implementation of rsa_init.
+*             Needed to ensure correct caching occurs.
+*
+*******************************************************************************/
 int
-qat_bn_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
-               const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx)
+qat_rsa_init(RSA *rsa)
 {
-    DEBUG("- Started\n");
-    return RSA_meth_get_bn_mod_exp(RSA_PKCS1_OpenSSL())
-                                   (r, a, p, m, ctx, m_ctx);
+    return RSA_meth_get_init(RSA_PKCS1_OpenSSL())(rsa);
 }
+
+/******************************************************************************
+* function:
+*         qat_rsa_finish(RSA *rsa)
+*
+* @param rsa   [IN] - The RSA data structure
+*
+* description:
+*             Returns sw implementation of rsa_finish.
+*             Needed to ensure correct cleanup of cached data.
+*
+*******************************************************************************/
+int
+qat_rsa_finish(RSA *rsa)
+{
+    return RSA_meth_get_finish(RSA_PKCS1_OpenSSL())(rsa);
+}
+
 #endif /* #ifndef OPENSSL_DISABLE_QAT_RSA */
