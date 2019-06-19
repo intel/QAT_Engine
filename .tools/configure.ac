@@ -362,11 +362,11 @@ AC_SUBST(includes)
 case `($CC --version) 2>/dev/null` in
     'gcc (GCC) '[[0-3]].* | \
     'gcc (GCC) '4.[[0-8]].*)
-         AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fstack-protector")
+         AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fstack-protector -fno-strict-overflow -fno-delete-null-pointer-checks -fwrapv")
          AC_SUBST(cflags)
          ;;
     *)
-         AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong")
+         AC_ARG_WITH(cflags, AS_HELP_STRING(), , cflags="-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fno-strict-overflow -fno-delete-null-pointer-checks -fwrapv")
          AC_SUBST(cflags)
          ;;
 esac

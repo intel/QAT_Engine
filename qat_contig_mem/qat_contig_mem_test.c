@@ -78,6 +78,7 @@
 #include "qat_contig_mem.h"
 
 #define SEG_LEN 64
+#define TEST_STR_LEN 64
 
 /******************************************************************************
 * function:
@@ -94,6 +95,7 @@ int main(void)
     void *addr = MAP_FAILED;
     qat_contig_mem_config *mem_to_free = NULL;
     int ret = EXIT_SUCCESS;
+    char test_str[TEST_STR_LEN] = "Hello world!";
 
     if ((qat_contig_memfd = open("/dev/qat_contig_mem", O_RDWR)) == -1) {
         perror("# FAIL open qat_contig_mem");
@@ -118,7 +120,7 @@ int main(void)
     mem_to_free = addr;
     printf("seg mapped to %p, virtualAddress in seg %p, length %d\n", addr,
            (void *)mem_to_free->virtualAddress, mem_to_free->length);
-    strcpy(addr + sizeof(qat_contig_mem_config), "Hello world!");
+    strncpy(addr + sizeof(qat_contig_mem_config), test_str, TEST_STR_LEN);
     puts(addr + sizeof(qat_contig_mem_config));
  cleanup:
     if (qat_contig_memfd != -1 && mem_to_free != NULL
