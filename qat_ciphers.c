@@ -1583,6 +1583,10 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         }
 
         DUMP_SYM_PERFORM_OP(qat_instance_handles[qctx->inst_num], opd, s_sgl, d_sgl);
+
+        /* Increment prior to successful submission */
+        done.num_submitted++;
+
         sts = qat_sym_perform_op(qctx->inst_num, &done, opd, s_sgl,
                                  d_sgl, &(qctx->session_data->verifyDigest));
 
@@ -1597,6 +1601,8 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             }
             WARN("Failed to submit request to qat - status = %d\n", sts);
             error = 1;
+            /* Decrement after failed submission */
+            done.num_submitted--;
             break;
         }
         if (qat_get_sw_fallback_enabled()) {
@@ -1605,9 +1611,6 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                            qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
         }
-
-        /* Increment after successful submission */
-        done.num_submitted++;
     } while (++pipe < qctx->numpipes);
 
     /* If there has been an error during submission of the pipes
