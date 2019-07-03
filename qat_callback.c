@@ -189,6 +189,7 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
                            CpaBufferList * pDstBuffer,
                            CpaBoolean verifyResult)
 {
+    ASYNC_JOB *job = NULL;
     op_done_t *opDone = (op_done_t *)callbackTag;
 
     if (unlikely(opDone == NULL)) {
@@ -202,10 +203,13 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
                             ? CPA_TRUE : CPA_FALSE;
     opDone->status = status;
 
-    if (opDone->job) {
-        opDone->flag = 1;
-        qat_wake_job(opDone->job, ASYNC_STATUS_OK);
-    } else {
-        opDone->flag = 1;
+    /* Cache job pointer to avoid a race condition if opDone gets cleaned up
+     * in the calling thread.
+     */
+    job = (ASYNC_JOB *)opDone->job;
+
+    opDone->flag = 1;
+    if (job) {
+        qat_wake_job(job, ASYNC_STATUS_OK);
     }
 }

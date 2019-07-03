@@ -416,6 +416,7 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
                                    void *pOpData, CpaBufferList *pDstBuffer,
                                    CpaBoolean verifyResult)
 {
+    ASYNC_JOB *job = NULL;
     op_done_pipe_t *opdone = (op_done_pipe_t *)callbackTag;
     CpaBoolean res = CPA_FALSE;
 
@@ -450,12 +451,17 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
         QAT_ATOMIC_DEC(num_cipher_pipeline_requests_in_flight);
     }
 
+    /* Cache job pointer to avoid a race condition if opdone gets cleaned up
+     * in the calling thread.
+     */
+    job = (ASYNC_JOB *)opdone->opDone.job;
+
     /* Mark job as done when all the requests have been submitted and
      * subsequently processed.
      */
     opdone->opDone.flag = 1;
-    if (opdone->opDone.job) {
-        qat_wake_job(opdone->opDone.job, ASYNC_STATUS_OK);
+    if (job) {
+       qat_wake_job(job, ASYNC_STATUS_OK);
     }
 }
 
