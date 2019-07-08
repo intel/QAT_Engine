@@ -496,24 +496,24 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
     if (0 ==
         strncmp(label, TLS_MD_MASTER_SECRET_CONST,
                 TLS_MD_MASTER_SECRET_CONST_SIZE)) {
-        prf_op_data->tlsOp = CPA_CY_KEY_SSL_OP_MASTER_SECRET_DERIVE;
+        prf_op_data->tlsOp = (CpaCyKeyTlsOp) CPA_CY_KEY_SSL_OP_MASTER_SECRET_DERIVE;
     } else if (0 ==
                strncmp(label, TLS_MD_KEY_EXPANSION_CONST,
                        TLS_MD_KEY_EXPANSION_CONST_SIZE)) {
-        prf_op_data->tlsOp = CPA_CY_KEY_TLS_OP_KEY_MATERIAL_DERIVE;
+        prf_op_data->tlsOp = (CpaCyKeyTlsOp) CPA_CY_KEY_TLS_OP_KEY_MATERIAL_DERIVE;
     } else if (0 ==
                strncmp(label, TLS_MD_CLIENT_FINISH_CONST,
                        TLS_MD_CLIENT_FINISH_CONST_SIZE)) {
-        prf_op_data->tlsOp = CPA_CY_KEY_TLS_OP_CLIENT_FINISHED_DERIVE;
+        prf_op_data->tlsOp = (CpaCyKeyTlsOp) CPA_CY_KEY_TLS_OP_CLIENT_FINISHED_DERIVE;
     } else if (0 ==
                strncmp(label, TLS_MD_SERVER_FINISH_CONST,
                        TLS_MD_SERVER_FINISH_CONST_SIZE)) {
-        prf_op_data->tlsOp = CPA_CY_KEY_TLS_OP_SERVER_FINISHED_DERIVE;
+        prf_op_data->tlsOp = (CpaCyKeyTlsOp) CPA_CY_KEY_TLS_OP_SERVER_FINISHED_DERIVE;
     } else {
         /* Allocate and copy the user label contained in userLabel */
         /* TODO we must test this case to see if it works OK */
         DEBUG("Using USER_DEFINED label = %s\n", (char*)label);
-        prf_op_data->tlsOp = CPA_CY_KEY_TLS_OP_USER_DEFINED;
+        prf_op_data->tlsOp = (CpaCyKeyTlsOp) CPA_CY_KEY_TLS_OP_USER_DEFINED;
         prf_op_data->userLabel.pData = (Cpa8U *) qat_prf_ctx->qat_userLabel;
         prf_op_data->userLabel.dataLenInBytes = qat_prf_ctx->qat_userLabel_len;
     }
@@ -656,8 +656,8 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("pthread_kill error\n");
+            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
                 QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 goto err;

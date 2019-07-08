@@ -54,8 +54,9 @@
 #  include "multibuff_init.h"
 # endif
 
-# include <sys/epoll.h>
-
+# ifndef __FreeBSD__
+#  include <sys/epoll.h>
+# endif
 # define MAX_EVENTS 32
 
 /* Globals */
@@ -64,9 +65,11 @@ typedef struct {
     int inst_index;
 } ENGINE_EPOLL_ST;
 
+# ifndef __FreeBSD__
 extern struct epoll_event eng_epoll_events[QAT_MAX_CRYPTO_INSTANCES];
-extern int internal_efd;
 extern ENGINE_EPOLL_ST eng_poll_st[QAT_MAX_CRYPTO_INSTANCES];
+# endif
+extern int internal_efd;
 
 int getQatMsgRetryCount();
 useconds_t getQatPollInterval();
@@ -92,7 +95,7 @@ int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
  * function:
  *         int qat_join_thread(pthread_t threadId, void **retval)
  *
- * @param pThreadId  [IN ] - Thread ID of the created thread
+ * @param pThreadId  [IN]  - Thread ID of the created thread
  * @param retval     [OUT] - Pointer that contains thread's exit status
  *
  * description:
@@ -100,6 +103,40 @@ int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
  ******************************************************************************/
 int qat_join_thread(pthread_t threadId, void **retval);
 
+/******************************************************************************
+ * function:
+ *         int qat_kill_thread(pthread_t threadId, int sig)
+ *
+ * @param pThreadId  [IN] - Thread ID of the created thread
+ * @param sig        [IN] - Signal number
+ *
+ * description:
+ *   Wrapper function for pthread_kill
+ ******************************************************************************/
+int qat_kill_thread(pthread_t threadId, int sig);
+
+/******************************************************************************
+ * function:
+ *         int qat_setspecific_thread(pthread_key_t key, const void *value)
+ *
+ * @param key   [IN] - key obtained from pthread_key_create()
+ * @param value [IN] - Thread specific value
+ *
+ * description:
+ *   Wrapper function for pthread_setspecific
+ ******************************************************************************/
+int qat_setspecific_thread(pthread_key_t key, const void *value);
+
+/******************************************************************************
+ * function:
+ *         int qat_getspecific_thread(pthread_key_t key)
+ *
+ * @param key   [IN] - key obtained from pthread_key_create()
+ *
+ * description:
+ *   Wrapper function for pthread_getspecific
+ ******************************************************************************/
+void *qat_getspecific_thread(pthread_key_t key);
 
 /******************************************************************************
  * function:
@@ -130,7 +167,9 @@ int qat_adjust_thread_affinity(pthread_t threadptr);
  ******************************************************************************/
 void *timer_poll_func(void *ih);
 
+# ifndef __FreeBSD__
 void *event_poll_func(void *ih);
+# endif
 CpaStatus poll_instances(void);
 CpaStatus poll_heartbeat(void);
 

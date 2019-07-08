@@ -62,9 +62,11 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <fcntl.h>
-#include <sys/epoll.h>
-#include <sys/types.h>
-#include <sys/eventfd.h>
+#ifndef __FreeBSD__
+# include <sys/epoll.h>
+# include <sys/types.h>
+# include <sys/eventfd.h>
+#endif
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
@@ -174,7 +176,7 @@ int qat_engine_finish(ENGINE *e);
 
 static inline int qat_use_signals_no_engine_start(void)
 {
-    return (int)timer_poll_func_thread;
+    return (int) (intptr_t) timer_poll_func_thread;
 }
 
 int qat_use_signals(void)
@@ -208,10 +210,9 @@ int qat_use_signals(void)
 
 int validate_configuration_section_name(const char *name)
 {
-    int len;
+    int len = 0;
 
     if (name == NULL) {
-        WARN("Section name is NULL\n");
         return 0;
     }
 
@@ -336,13 +337,13 @@ static CpaPhysicalAddr virtualToPhysical(void *virtualAddr)
 thread_local_variables_t * qat_check_create_local_variables(void)
 {
     thread_local_variables_t * tlv =
-        (thread_local_variables_t *)pthread_getspecific(thread_local_variables);
+        (thread_local_variables_t *)qat_getspecific_thread(thread_local_variables);
     if (tlv != NULL)
         return tlv;
     tlv = OPENSSL_zalloc(sizeof(thread_local_variables_t));
     if (tlv != NULL) {
         tlv->qatInstanceNumForThread = QAT_INVALID_INSTANCE;
-        pthread_setspecific(thread_local_variables, (void *)tlv);
+        qat_setspecific_thread(thread_local_variables, (void *)tlv);
     }
     return tlv;
 }
@@ -362,13 +363,14 @@ static void qat_local_variable_destructor(void *tlv)
 {
     if (tlv)
         OPENSSL_free(tlv);
-    pthread_setspecific(thread_local_variables, NULL);
+    qat_setspecific_thread(thread_local_variables, NULL);
 }
 
 
 #ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+# ifndef __FreeBSD__
 void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *callbackTag,
-        const CpaInstanceEvent inst_ev)
+                                          const CpaInstanceEvent inst_ev)
 {
     Cpa32U packageId;
     struct timespec ts = { 0 };
@@ -405,8 +407,8 @@ void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *call
             break;
     }
 }
+# endif
 #endif
-
 
 int qat_engine_init(ENGINE *e)
 {
@@ -508,6 +510,7 @@ int qat_engine_init(ENGINE *e)
     }
 
     if (!enable_external_polling && !enable_inline_polling) {
+#ifndef __FreeBSD__
         if (qat_is_event_driven()) {
             CpaStatus status;
             int flags;
@@ -555,6 +558,7 @@ int qat_engine_init(ENGINE *e)
                 }
             }
         }
+#endif
     }
 
     /* Set translation function and start each instance */
@@ -601,6 +605,7 @@ int qat_engine_init(ENGINE *e)
         DEBUG("Started Instance No: %d Located on Device: %d\n", instNum, package_id);
 
 #ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+# ifndef __FreeBSD__
         if (enable_sw_fallback) {
             DEBUG("cpaCyInstanceSetNotificationCb instNum = %d\n", instNum);
             status = cpaCyInstanceSetNotificationCb(qat_instance_handles[instNum],
@@ -614,6 +619,7 @@ int qat_engine_init(ENGINE *e)
                 return 0;
             }
         }
+# endif
 #endif
     }
 
@@ -630,9 +636,12 @@ int qat_engine_init(ENGINE *e)
                 return 0;
             }
         }
-
-        if (qat_create_thread(&polling_thread, NULL,
-                    qat_is_event_driven() ? event_poll_func : timer_poll_func, NULL)) {
+#ifndef __FreeBSD__
+        if (qat_create_thread(&polling_thread, NULL, qat_is_event_driven() ?
+                              event_poll_func : timer_poll_func, NULL)) {
+#else
+        if (qat_create_thread(&polling_thread, NULL, timer_poll_func, NULL)) {
+#endif
             WARN("Creation of polling thread failed\n");
             QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_POLLING_THREAD_CREATE_FAILURE);
             polling_thread = pthread_self();
@@ -681,9 +690,13 @@ int qat_engine_init(ENGINE *e)
 int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 {
     unsigned int retVal = 1;
+#ifndef __FreeBSD__
     CpaStatus status = CPA_STATUS_SUCCESS;
     int flags = 0;
     int fd = 0;
+#endif
+
+
 
     switch (cmd) {
     case QAT_CMD_POLL:
@@ -711,6 +724,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         enable_external_polling = 0;
         break;
 
+#ifndef __FreeBSD__
     case QAT_CMD_GET_EXTERNAL_POLLING_FD:
         BREAK_IF(!enable_event_driven_polling || !enable_external_polling, \
                 "GET_EXTERNAL_POLLING_FD failed as this engine message is only supported \
@@ -748,6 +762,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
                 "DISABLE_EVENT_DRIVEN_POLLING_MODE failed as the engine is already initialized\n");
         enable_event_driven_polling = 0;
         break;
+#endif
 
     case QAT_CMD_SET_INSTANCE_FOR_THREAD:
         BREAK_IF(!engine_inited, \
@@ -866,29 +881,33 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         if (p) {
             retVal = validate_configuration_section_name(p);
             if (retVal) {
-                strncpy(qat_config_section_name, p, QAT_CONFIG_SECTION_NAME_SIZE);
+                strncpy(qat_config_section_name, p, QAT_CONFIG_SECTION_NAME_SIZE - 1);
+                qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE - 1]   = '\0';
+            } else  {
+                WARN("Section name is NULL or invalid length\n");
+                retVal = 0;
             }
         } else {
             WARN("Invalid p parameter\n");
             retVal = 0;
         }
         break;
-
+#ifndef __FreeBSD__
     case QAT_CMD_ENABLE_SW_FALLBACK:
-#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+# ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
         DEBUG("Enabled SW Fallback\n");
         BREAK_IF(engine_inited, \
                 "ENABLE_SW_FALLBACK failed as the engine is already initialized\n");
         enable_sw_fallback = 1;
         CRYPTO_QAT_LOG("SW Fallback enabled - %s\n", __func__);
-#else
+# else
         WARN("QAT_CMD_ENABLE_SW_FALLBACK is not supported\n");
         retVal = 0;
-#endif
+# endif
         break;
 
     case QAT_CMD_HEARTBEAT_POLL:
-#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+# ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
         BREAK_IF(!engine_inited, "HEARTBEAT_POLL failed as engine is not initialized\n");
         BREAK_IF(qat_instance_handles == NULL,
                  "HEARTBEAT_POLL failed as no instances are available\n");
@@ -898,11 +917,12 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 
         *(int *)p = (int)poll_heartbeat();
         CRYPTO_QAT_LOG("QAT Engine Heartbeat Poll - %s\n", __func__);
-#else
+# else
         WARN("QAT_CMD_HEARTBEAT_POLL is not supported\n");
         retVal = 0;
-#endif
+# endif
         break;
+#endif
 
     case QAT_CMD_DISABLE_QAT_OFFLOAD:
         DEBUG("Disabled qat offload\n");
@@ -930,15 +950,17 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     int i;
     int ret = 1;
     CpaStatus status = CPA_STATUS_SUCCESS;
+#ifndef __FreeBSD__
     ENGINE_EPOLL_ST *epollst = NULL;
+#endif
 
     DEBUG("---- Engine Finishing...\n\n");
 
     pthread_mutex_lock(&qat_engine_mutex);
     keep_polling = 0;
     if (qat_use_signals_no_engine_start()) {
-        if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
+        if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+            WARN("qat_kill_thread error\n");
             QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_PTHREAD_KILL_FAILURE);
             ret = 0;
         }
@@ -979,22 +1001,24 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         qat_instance_handles = NULL;
     }
 
-    if (!enable_external_polling && !enable_inline_polling &&
-        qat_is_event_driven()) {
-        for (i = 0; i < qat_num_instances; i++) {
-            epollst = (ENGINE_EPOLL_ST*)eng_epoll_events[i].data.ptr;
-            if (epollst) {
-                if (-1 ==
-                    epoll_ctl(internal_efd, EPOLL_CTL_DEL,
-                              epollst->eng_fd,
-                              &eng_epoll_events[i])) {
-                    WARN("Error removing fd from epoll\n");
-                    QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_EPOLL_CTL_FAILURE);
-                    ret = 0;
+    if (!enable_external_polling && !enable_inline_polling) {
+#ifndef __FreeBSD__
+        if (qat_is_event_driven()) {
+            for (i = 0; i < qat_num_instances; i++) {
+                epollst = (ENGINE_EPOLL_ST*)eng_epoll_events[i].data.ptr;
+                if (epollst) {
+                    if (-1 == epoll_ctl(internal_efd, EPOLL_CTL_DEL,
+                                        epollst->eng_fd,
+                                        &eng_epoll_events[i])) {
+                        WARN("Error removing fd from epoll\n");
+                        QATerr(QAT_F_QAT_ENGINE_FINISH_INT, QAT_R_EPOLL_CTL_FAILURE);
+                        ret = 0;
+                    }
+                    close(epollst->eng_fd);
                 }
-                close(epollst->eng_fd);
             }
         }
+#endif
     }
 
     CRYPTO_QAT_LOG("Number of remaining in-flight requests = %d - %s\n",

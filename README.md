@@ -92,7 +92,8 @@ Heartbeat feature from version 4.6 of the following acceleration device:
 * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
 
 Note: Heartbeat feature support currently does not extend to Symmetric Chained
-Cipher Offload, PRF, HKDF & X25519/X448 offload.
+Cipher Offload, PRF, HKDF & X25519/X448 offload. The heartbeat feature is also
+not available when running under the FreeBSD operating system.
 
 [1]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
 [2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
@@ -106,14 +107,15 @@ Successful operation of this release requires a software tool chain that
 supports OpenSSL\* 1.1.1 or OpenSSL\* 1.1.0.
 This release was validated on the following:
 
-* Operating system: CentOS\* 7.4 64-bit version
+* Operating system: CentOS\* 7.4 64-bit version & FreeBSD\* 11.3 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
 * Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.9
+* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version 3.7
 * OpenSSL\* 1.1.1 (Basic functionality testing done on TLS1.3)
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
 GNU\* C Library version 2.23 or later to take advantage of AVX-512 optimizations
-if supported by your processor.
+if supported by your processor (Linux Specific).
 
 ## Additional Information
 
@@ -148,6 +150,10 @@ repository:
   1.1.1. All previous versions of the library are affected.
   For more information, please refer to the following pull request on Github:
   [Fix waitctx fds removing the fd from the list #2581][9]
+* Event driven mode of polling operation is not supported in the FreeBSD Operating system.
+* qat_contig_mem memory driver is not supported when running under FreeBSD
+  Operating system. The default is to use the USDM memory driver supplied as
+  part of the Intel&reg; QAT Driver.
 
 [9]:https://github.com/openssl/openssl/pull/2581
 
@@ -485,7 +491,8 @@ for each cpu core you want to utilize.
 There are also similar config files for if you are using the event driven
 polling feature of the Intel&reg; QAT Driver contained in
 `multi_thread_event-driven_optimized` and `multi_process_event-driven_optimized`
-respectively. Once you have decided which conf file you should use,
+respectively. Event driven config files are only supported in Linux.
+Once you have decided which config file you should use,
 or created your own you should follow the procedure below to install it:
 
 1. Follow the instructions to stop the Acceleration Driver:
@@ -619,8 +626,9 @@ If this occurs some of the things to check are:
 
    1. Has the qat\_contig\_mem driver been loaded successfully? If not the
       engine will fail to initialise. Check by running `lsmod`, qat\_contig\_mem
-      should be in the list. The same applies if using the alternative USDM
-      component, but instead look for usdm_drv when running `lsmod`.
+      should be in the list (Linux Specific). The same applies if using
+      the alternative USDM component, but instead look for usdm_drv
+      when running `lsmod` for Linux and `kldstat` for FreeBSD
    2. Has the correct Intel&reg; QAT Driver config file been copied to `/etc`?
       Check it has a `[SHIM]` section and that the Intel&reg; QAT Driver
       software was restarted so that it picked up the new config file.
@@ -634,7 +642,7 @@ If this occurs some of the things to check are:
       exported to the shell?
       Also check it is really pointing to the correct location.
    6. If building for OpenSSL 1.1.0 was the configure option
-      `--enable-qat_for_openssl_110` specified?
+      `--enable-qat_for_openssl_110` specified? (Linux Specific)
 
 If running on a Debian\* based OS (Ubuntu\* for example) it is possible that the
 Intel&reg; QAT Driver userspace shared library needed by the Intel&reg; QAT
@@ -733,8 +741,8 @@ Description:
     This message is used to set the timeout in milli seconds used for
     epoll_wait() when event driven polling mode is enabled. The value should be
     passed in as Param 3. The default is 1,000, the min value is 1, and the max
-    value is 10,000. This message can be sent at any time after the engine
-    has been created.
+    value is 10,000. This message can be sent at any time after the engine has
+    been created. This message is not supported in the FreeBSD operating system.
 
 Message String: ENABLE_EVENT_DRIVEN_POLLING_MODE
 Param 3:        0
@@ -743,7 +751,8 @@ Description:
     This message changes the engines mode to use the Intel(R) QAT Drivers
     event driven polling feature. It must be sent if required after engine
     creation but before engine initialization.  It should not be sent after
-    engine initialization.
+    engine initialization. This message is not supported in the FreeBSD
+    operating system.
 
 Message String: DISABLE_EVENT_DRIVEN_POLLING_MODE
 Param 3:        0
@@ -752,6 +761,7 @@ Description:
     This message changes the engines mode to use the timer based polling
     feature. It must be sent if required after engine creation but before
     engine initialization. It should not be sent after engine initialization.
+    This message is not supported in the FreeBSD operating system.
 
 Message String: GET_NUM_CRYPTO_INSTANCES
 Param 3:        0
@@ -777,7 +787,8 @@ Description:
     many instances there are with the GET_NUM_CRYPTO_INSTANCES message and then
     use a for loop to iterate through the instances starting from 0 and use
     this message to retrieve the fd for each instance. This message must be
-    sent if required after the engine has been initialized.
+    sent if required after the engine has been initialized. This message is
+    not supported in the FreeBSD operating system.
 
 Message String: SET_INSTANCE_FOR_THREAD
 Param 3:        long
@@ -908,7 +919,8 @@ Description:
     subsequently go offline the Intel&reg; QuickAssist Technology OpenSSL\* Engine
     will automatically switch to performing crypto operations on-core.
     If required this message must be sent after engine creation and
-    before engine initialization.
+    before engine initialization. This message is not supported in the FreeBSD
+    operating system.
 
 Message String: HEARTBEAT_POLL
 Param 3:        0
@@ -927,6 +939,7 @@ Description:
     offline/coming back online at the expense of additional cpu cycles. The
     suggested polling interval would be around 0.5 seconds to 1 second.
     This message may be sent at any time after engine initialization.
+    This message is not supported in the FreeBSD operating system.
 
 Message String: DISABLE_QAT_OFFLOAD
 Param 3:        0
@@ -1471,6 +1484,7 @@ use instances from that acceleration device again.
 
 This should all happen in a transparent way with the only noticeable effects being
 a slow down in performance until the acceleration device comes back online.
+The Heartbeat feature is not supported in the FreeBSD operating system.
 
 ## Intel&reg; QAT OpenSSL\* Engine HKDF Support
 

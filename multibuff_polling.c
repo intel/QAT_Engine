@@ -149,6 +149,11 @@ int multibuff_join_thread(pthread_t threadId, void **retval)
     return pthread_join(threadId, retval);
 }
 
+int multibuff_kill_thread(pthread_t threadId, int sig)
+{
+    return pthread_kill(threadId, sig);
+}
+
 static int multibuff_poll_check_for_timeout(struct timespec timeout_time,
                                             struct timespec previous_time,
                                             struct timespec current_time)

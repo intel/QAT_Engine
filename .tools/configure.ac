@@ -528,29 +528,37 @@ then
   AC_MSG_NOTICE([Enabling writing debug to file])
 fi
 
-AC_CHECK_PROG(USE_LDD, ldd, yes, no)
-AC_CHECK_PROG(USE_HEAD, head, yes, no)
-if test $USE_LDD == "yes" -a $USE_HEAD
-then
- AC_MSG_NOTICE([Getting glibc version ...])
- if test `ldd --version | head -1 | awk '{print $4>=2.23?"1":"0"}' 2>/dev/null` == 1
- then
-  AC_MSG_NOTICE([glibc version is greater or equal to 2.23 so AVX-512 optimisations are supported.])
- else
-  AC_MSG_NOTICE([glibc version is less than 2.23 - no AVX-512 optimisation supported.])
- fi
- if test `ldd --version | head -1 | awk '{print $4<2.17?"1":"0"}' 2>/dev/null` == 1
- then
-  AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
-  AC_SUBST(LIBS)
- fi
-else
- AC_MSG_NOTICE([Version of glibc could not be obtained automatically.  Please check manually by running:-])
- AC_MSG_NOTICE(['getconf GNU_LIBC_VERSION' or 'ldd --version'.])
- AC_MSG_NOTICE([If version of glibc returned is greater or equal to 2.23 then glibc AVX-512 optimisation is supported.])
- AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
- AC_SUBST(LIBS)
-fi
+case "$host_os" in
+linux*)
+  AC_CHECK_PROG(USE_LDD, ldd, yes, no)
+  AC_CHECK_PROG(USE_HEAD, head, yes, no)
+  if test $USE_LDD == "yes" -a $USE_HEAD
+  then
+    AC_MSG_NOTICE([Getting glibc version ...])
+    if test `ldd --version | head -1 | awk '{print $4>=2.23?"1":"0"}' 2>/dev/null` == 1
+    then
+      AC_MSG_NOTICE([glibc version is greater or equal to 2.23 so AVX-512 optimisations are supported.])
+    else
+      AC_MSG_NOTICE([glibc version is less than 2.23 - no AVX-512 optimisation supported.])
+    fi
+    if test `ldd --version | head -1 | awk '{print $4<2.17?"1":"0"}' 2>/dev/null` == 1
+    then
+      AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
+      AC_SUBST(LIBS)
+    fi
+  else
+    AC_MSG_NOTICE([Version of glibc could not be obtained automatically.  Please check manually by running:-])
+    AC_MSG_NOTICE(['getconf GNU_LIBC_VERSION' or 'ldd --version'.])
+    AC_MSG_NOTICE([If version of glibc(Linux) returned is greater or equal to 2.23 then glibc AVX-512 optimisation is supported.])
+    if test `ldd --version | head -1 | awk '{print $4<2.17?"1":"0"}' 2>/dev/null` == 1
+    then
+      AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
+      AC_SUBST(LIBS)
+    fi
+  fi
+  ;;
+  *)
+esac
 
 if test "x$enable_qat_for_openssl_102" = "xyes"
 then

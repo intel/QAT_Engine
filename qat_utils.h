@@ -136,7 +136,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                 " Thread [%lx][%s:%d:%s()] "fmt_str,           \
                 (long long)ts.tv_sec,                          \
                 ts.tv_nsec / NANO_TO_MICROSECS,                \
-                getpid(), pthread_self(),  __FILE__,           \
+                getpid(), (long)pthread_self(),  __FILE__,     \
                 __LINE__,__func__,##__VA_ARGS__);              \
         fflush(qatDebugLogFile);                               \
     } while (0)
@@ -155,7 +155,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                 " Thread [%lx][%s:%d:%s()] "fmt_str,          \
                 (long long)ts.tv_sec,                         \
                 ts.tv_nsec / NANO_TO_MICROSECS,               \
-                getpid(), pthread_self(),  __FILE__,          \
+                getpid(), (long)pthread_self(),  __FILE__,    \
                 __LINE__,__func__,##__VA_ARGS__);             \
         fflush(qatDebugLogFile);                              \
     } while (0)

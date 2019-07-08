@@ -1408,8 +1408,8 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("pthread_kill error\n");
+            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 return -1;
             }

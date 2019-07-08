@@ -89,7 +89,7 @@ QAT_R_ALLOC_QAT_RSA_METH_FAILURE:105:alloc qat rsa meth failure
 QAT_R_ALLOC_QAT_X25519_METH_FAILURE:106:alloc qat x25519 meth failure
 QAT_R_ALLOC_QAT_X448_METH_FAILURE:107:alloc qat x448 meth failure
 QAT_R_BUF_CONV_FAIL:108:buf conv fail
-QAT_R_CLOSE_FD_FAILURE:109:close fd failure
+QAT_R_CLOSE_READFD_FAILURE:109:close readfd failure
 QAT_R_COMPUTE_H_MULTIPLY_Q_FAILURE:110:compute h multiply q failure
 QAT_R_CP_BUF_MALLOC_FAILURE:111:cp buf malloc failure
 QAT_R_CQ_BUF_MALLOC_FAILURE:112:cq buf malloc failure

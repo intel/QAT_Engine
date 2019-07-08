@@ -73,6 +73,11 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <fcntl.h>
+#ifndef __FreeBSD__
+# include <sys/epoll.h>
+# include <sys/types.h>
+# include <sys/eventfd.h>
+#endif
 #include <unistd.h>
 #include <signal.h>
 #include <time.h>
@@ -144,6 +149,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "SET_INTERNAL_POLL_INTERVAL",
         "Set internal polling interval",
         ENGINE_CMD_FLAG_NUMERIC},
+#ifndef __FreeBSD__
     {
         QAT_CMD_GET_EXTERNAL_POLLING_FD,
         "GET_EXTERNAL_POLLING_FD",
@@ -154,16 +160,19 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "ENABLE_EVENT_DRIVEN_POLLING_MODE",
         "Set event driven polling mode",
         ENGINE_CMD_FLAG_NO_INPUT},
+#endif
     {
         QAT_CMD_GET_NUM_CRYPTO_INSTANCES,
         "GET_NUM_CRYPTO_INSTANCES",
         "Get the number of crypto instances",
         ENGINE_CMD_FLAG_NO_INPUT},
+#ifndef __FreeBSD__
     {
         QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE,
         "DISABLE_EVENT_DRIVEN_POLLING_MODE",
         "Unset event driven polling mode",
         ENGINE_CMD_FLAG_NO_INPUT},
+#endif
     {
         QAT_CMD_SET_EPOLL_TIMEOUT,
         "SET_EPOLL_TIMEOUT",
@@ -199,6 +208,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "SET_CONFIGURATION_SECTION_NAME",
         "Set the configuration section to use in QAT driver configuration file",
         ENGINE_CMD_FLAG_STRING},
+#ifndef __FreeBSD__
     {
         QAT_CMD_ENABLE_SW_FALLBACK,
         "ENABLE_SW_FALLBACK",
@@ -209,6 +219,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "HEARTBEAT_POLL",
         "Check the acceleration devices are still functioning",
         ENGINE_CMD_FLAG_NO_INPUT},
+#endif
     {
         QAT_CMD_DISABLE_QAT_OFFLOAD,
         "DISABLE_QAT_OFFLOAD",
@@ -420,13 +431,18 @@ static int bind_qat(ENGINE *e, const char *id)
      */
 
 #ifndef OPENSSL_MULTIBUFF_OFFLOAD
-# if __GLIBC_PREREQ(2, 17)
+# ifndef __FreeBSD__
+#  if __GLIBC_PREREQ(2, 17)
     config_section = secure_getenv("QAT_SECTION_NAME");
+#  else
+    config_section = getenv("QAT_SECTION_NAME");
+#  endif
 # else
     config_section = getenv("QAT_SECTION_NAME");
 # endif
     if (validate_configuration_section_name(config_section)) {
-        strncpy(qat_config_section_name, config_section, QAT_CONFIG_SECTION_NAME_SIZE);
+        strncpy(qat_config_section_name, config_section, QAT_CONFIG_SECTION_NAME_SIZE - 1);
+        qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE - 1]   = '\0';
     }
 #endif
 

@@ -118,7 +118,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_ALLOC_QAT_X448_METH_FAILURE),
     "alloc qat x448 meth failure"},
     {ERR_PACK(0, 0, QAT_R_BUF_CONV_FAIL), "buf conv fail"},
-    {ERR_PACK(0, 0, QAT_R_CLOSE_FD_FAILURE), "close fd failure"},
+    {ERR_PACK(0, 0, QAT_R_CLOSE_READFD_FAILURE), "close readfd failure"},
     {ERR_PACK(0, 0, QAT_R_COMPUTE_H_MULTIPLY_Q_FAILURE),
     "compute h multiply q failure"},
     {ERR_PACK(0, 0, QAT_R_CP_BUF_MALLOC_FAILURE), "cp buf malloc failure"},

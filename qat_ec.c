@@ -516,8 +516,8 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("pthread_kill error\n");
+            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
                 QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 goto err;
@@ -1252,8 +1252,8 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("pthread_kill error\n");
+            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
                 QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 goto err;
@@ -1671,8 +1671,8 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (pthread_kill(timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("pthread_kill error\n");
+            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
                 QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 goto err;

@@ -76,6 +76,10 @@
 # define ASYNC_STATUS_EAGAIN         3
 #endif
 
+#ifdef __FreeBSD__
+# define QAT_EVENT_NUM 1
+#endif
+
 int qat_is_event_driven();
 int qat_setup_async_event_notification(int jobStatus);
 int qat_clear_async_event_notification();

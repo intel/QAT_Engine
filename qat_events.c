@@ -57,9 +57,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#include <sys/epoll.h>
-#include <sys/eventfd.h>
+#ifndef __FreeBSD__
+# include <sys/epoll.h>
+# include <sys/eventfd.h>
+#else
+# include <sys/types.h>
+# include <sys/event.h>
+#endif
 #include <unistd.h>
+#include <fcntl.h>
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
@@ -103,8 +109,8 @@ static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
     }
 #endif
     if (close(readfd) != 0) {
-        WARN("Failed to close fd: %d - error: %d\n", readfd, errno);
-        QATerr(QAT_F_QAT_FD_CLEANUP, QAT_R_CLOSE_FD_FAILURE);
+        WARN("Failed to close readfd: %d - error: %d\n", readfd, errno);
+        QATerr(QAT_F_QAT_FD_CLEANUP, QAT_R_CLOSE_READFD_FAILURE);
     }
 }
 
@@ -113,11 +119,15 @@ int qat_setup_async_event_notification(int jobStatus)
     /* We will ignore jobStatus for the moment */
     ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
-    void *custom = NULL;
 #ifdef SSL_QAT_USE_ASYNC_CALLBACK
     int (*callback)(void *arg);
     void *args;
+#endif
+    OSSL_ASYNC_FD efd;
+    void *custom = NULL;
+
+#ifdef __FreeBSD__
+    struct kevent event;
 #endif
 
     if ((job = ASYNC_get_current_job()) == NULL) {
@@ -138,11 +148,28 @@ int qat_setup_async_event_notification(int jobStatus)
 
     if (ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                               &custom) == 0) {
+#ifdef __FreeBSD__
+        efd = kqueue();
+        if (efd == -1) {
+            WARN("Failed to get kqueue fd = %d\n", errno);
+            return 0;
+        }
+        /* Initialize the event */
+        EV_SET(&event, QAT_EVENT_NUM, EVFILT_USER, EV_ADD | EV_CLEAR, NOTE_WRITE,
+               0, NULL);
+        if (kevent(efd, &event, QAT_EVENT_NUM, NULL, 0, NULL) == -1) {
+            WARN("Failed to register event for the fd = %d\n", efd);
+            close(efd);
+            return 0;
+        }
+
+#else
         efd = eventfd(0, EFD_NONBLOCK);
         if (efd == -1) {
             WARN("Failed to get eventfd = %d\n", errno);
             return 0;
         }
+#endif
 
         if (ASYNC_WAIT_CTX_set_wait_fd(waitctx, engine_qat_id, efd,
                                        custom, qat_fd_cleanup) == 0) {
@@ -158,14 +185,14 @@ int qat_clear_async_event_notification()
 {
     ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
     size_t num_add_fds = 0;
     size_t num_del_fds = 0;
-    void *custom = NULL;
 #ifdef SSL_QAT_USE_ASYNC_CALLBACK
     int (*callback)(void *arg);
     void *args;
 #endif
+    OSSL_ASYNC_FD efd;
+    void *custom = NULL;
 
     if ((job = ASYNC_get_current_job()) == NULL) {
         WARN("Could not obtain current job\n");
@@ -206,21 +233,24 @@ int qat_clear_async_event_notification()
             return 0;
         }
     }
-
     return 1;
 }
 
 int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
 {
     ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
-    void *custom = NULL;
-    uint64_t buf = 0;
     int ret = 0;
 #ifdef SSL_QAT_USE_ASYNC_CALLBACK
     int callback_set = 0;
     int (*callback)(void *arg);
     void *args;
+#endif
+    OSSL_ASYNC_FD readfd;
+    void *custom = NULL;
+#ifdef __FreeBSD__
+    struct kevent event;
+#else
+    uint64_t buf = 0;
 #endif
 
     if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
@@ -245,15 +275,23 @@ int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
         return 1;
     }
 #endif
-    if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
-                              &custom)) > 0) {
-        if (read(efd, &buf, sizeof(uint64_t)) == -1) {
+    if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &readfd,
+                                     &custom)) > 0) {
+#ifndef __FreeBSD__
+        if (read(readfd, &buf, sizeof(uint64_t)) == -1) {
             if (errno != EAGAIN) {
-                WARN("Failed to read from fd: %d - error: %d\n", efd, errno);
+                WARN("Failed to read from fd: %d - error: %d\n", readfd, errno);
             }
             /* Not resumed by the expected qat_wake_job() */
             return QAT_JOB_RESUMED_UNEXPECTEDLY;
         }
+#else
+        if (kevent(readfd, NULL, 0, &event, QAT_EVENT_NUM, NULL) == -1) {
+            WARN("Failed to get event from fd: %d - error: %d\n", readfd, errno);
+            /* Not resumed by the expected qat_wake_job() */
+            return QAT_JOB_RESUMED_UNEXPECTEDLY;
+        }
+#endif
     }
     return ret;
 }
@@ -261,14 +299,18 @@ int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
 int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
 {
     ASYNC_WAIT_CTX *waitctx;
-    OSSL_ASYNC_FD efd;
-    void *custom = NULL;
-    /* Arbitary value '1' to write down the pipe to trigger event */
-    uint64_t buf = 1;
     int ret = 0;
 #ifdef SSL_QAT_USE_ASYNC_CALLBACK
     int (*callback)(void *arg);
     void *args;
+#endif
+    OSSL_ASYNC_FD efd;
+    void *custom = NULL;
+#ifdef __FreeBSD__
+    struct kevent event;
+#else
+    /* Arbitary value '1' to write down the pipe to trigger event */
+    uint64_t buf = 1;
 #endif
 
     if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
@@ -292,10 +334,17 @@ int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
 #endif
 
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
-                              &custom)) > 0) {
+                                     &custom)) > 0) {
+#ifndef __FreeBSD__
         if (write(efd, &buf, sizeof(uint64_t)) == -1) {
             WARN("Failed to write to fd: %d - error: %d\n", efd, errno);
         }
+#else
+        EV_SET(&event, QAT_EVENT_NUM, EVFILT_USER, EV_ADD, NOTE_TRIGGER, 0, NULL);
+        if (kevent(efd, &event, QAT_EVENT_NUM, NULL, 0, NULL) == -1) {
+            WARN("Failed to trigger event to fd: %d - error: %d\n", efd, errno);
+        }
+#endif
     }
     return ret;
 }

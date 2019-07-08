@@ -77,6 +77,17 @@ int multibuff_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
  ******************************************************************************/
 int multibuff_join_thread(pthread_t threadId, void **retval);
 
+/******************************************************************************
+ * function:
+ *         int multibuff_kill_thread(pthread_t threadId, int sig)
+ *
+ * @param pThreadId  [IN] - Thread ID of the created thread
+ * @param sig        [IN] - Signal number
+ *
+ * description:
+ *   Wrapper function for pthread_kill
+ ******************************************************************************/
+int multibuff_kill_thread(pthread_t threadId, int sig);
 
 /******************************************************************************
  * function:

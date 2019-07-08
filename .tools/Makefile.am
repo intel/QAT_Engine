@@ -115,7 +115,7 @@ include_HEADERS = ${OPENSSL_COMMON_HDR}     \
                   ${PARSE_CONFIG_FILES_HDR} \
                   ${MEM_LIB_HDR}
 
-CC = cc
+CC = gcc
 if !OPENSSL_MULTIBUFF_OFFLOAD
 AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
               $(includes_enable_qat_mux)
@@ -128,7 +128,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver)             \
             $(cflags_SSL_QAT_use_async_callback) $(cflags_multibuff_offload) \
             $(enable_qat_rsa) $(enable_qat_ciphers) $(enable_qat_ecdh)       \
             $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_dh)           \
-            $(enable_qat_prf) $(enable_qat_hkdf)  $(enable_qat_ecx)          \
+            $(enable_qat_prf) $(enable_qat_hkdf) $(enable_qat_ecx)           \
             $(enable_qat_small_pkt_offload)                                  \
             $(enable_qat_auto_engine_init_on_fork)                           \
             $(enable_qat_lenstra_protection)                                 \

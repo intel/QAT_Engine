@@ -89,9 +89,20 @@
 # include "icp_sal_poll.h"
 #endif
 
+#ifndef __FreeBSD__
 struct epoll_event eng_epoll_events[QAT_MAX_CRYPTO_INSTANCES] = {{ 0 }};
-int internal_efd = 0;
 ENGINE_EPOLL_ST eng_poll_st[QAT_MAX_CRYPTO_INSTANCES] = {{ -1 }};
+#endif
+int internal_efd = 0;
+#ifndef __FreeBSD__
+typedef  cpu_set_t qat_cpuset;
+clock_t clock_id = CLOCK_MONOTONIC_RAW;
+#else
+# include <pthread_np.h>
+typedef  cpuset_t  qat_cpuset;
+clock_t clock_id = CLOCK_MONOTONIC_PRECISE;
+#endif
+
 
 int getQatMsgRetryCount()
 {
@@ -119,22 +130,37 @@ int qat_join_thread(pthread_t threadId, void **retval)
     return pthread_join(threadId, retval);
 }
 
+int qat_kill_thread(pthread_t threadId, int sig)
+{
+    return pthread_kill(threadId, sig);
+}
+
+int qat_setspecific_thread(pthread_key_t key, const void *value)
+{
+    return pthread_setspecific(key, value);
+}
+
+void *qat_getspecific_thread(pthread_key_t key)
+{
+    return pthread_getspecific(key);
+}
+
 int qat_adjust_thread_affinity(pthread_t threadptr)
 {
 #ifdef QAT_POLL_CORE_AFFINITY
     int coreID = 0;
     int sts = 1;
-    cpu_set_t cpuset;
+    qat_cpuset cpuset;
     CPU_ZERO(&cpuset);
     CPU_SET(coreID, &cpuset);
 
-    sts = pthread_setaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
+    sts = pthread_setaffinity_np(threadptr, sizeof(qat_cpuset), &cpuset);
     if (sts != 0) {
         WARN("pthread_setaffinity_np error, status = %d\n", sts);
         QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_SETAFFINITY_FAILURE);
         return 0;
     }
-    sts = pthread_getaffinity_np(threadptr, sizeof(cpu_set_t), &cpuset);
+    sts = pthread_getaffinity_np(threadptr, sizeof(qat_cpuset), &cpuset);
     if (sts != 0) {
         WARN("pthread_getaffinity_np error, status = %d\n", sts);
         QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_GETAFFINITY_FAILURE);
@@ -153,7 +179,7 @@ static void qat_poll_heartbeat_timer_expiry(struct timespec *previous_time)
     struct timespec current_time = { 0 };
     struct timespec diff_time = { 0 };
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &current_time);
+    clock_gettime(clock_id, &current_time);
 
     /* Calculate time difference and poll every one second */
     if ((current_time.tv_nsec - previous_time->tv_nsec) < 0) {
@@ -185,10 +211,10 @@ void *timer_poll_func(void *ih)
     timer_poll_func_thread = pthread_self();
     cleared_to_start = 1;
 
-    DEBUG("timer_poll_func_thread = 0x%lx\n", timer_poll_func_thread);
+    DEBUG("timer_poll_func_thread = 0x%lx\n", (unsigned long)timer_poll_func_thread);
 
     if (qat_get_sw_fallback_enabled()) {
-        clock_gettime(CLOCK_MONOTONIC_RAW, &previous_time);
+        clock_gettime(clock_id, &previous_time);
     }
     while (keep_polling) {
         if (num_requests_in_flight == 0) {
@@ -207,7 +233,7 @@ void *timer_poll_func(void *ih)
             if (unlikely(sig == -1)) {
                 if ((qat_get_sw_fallback_enabled())
                     && (errno == EAGAIN || errno == EINTR)) {
-                    clock_gettime(CLOCK_MONOTONIC_RAW, &previous_time);
+                    clock_gettime(clock_id, &previous_time);
                     poll_heartbeat();
                 }
                 continue;
@@ -256,6 +282,7 @@ void *timer_poll_func(void *ih)
     return NULL;
 }
 
+#ifndef __FreeBSD__
 void *event_poll_func(void *ih)
 {
     CpaStatus status = 0;
@@ -272,7 +299,7 @@ void *event_poll_func(void *ih)
     }
 
     if (qat_get_sw_fallback_enabled()) {
-        clock_gettime(CLOCK_MONOTONIC_RAW, &previous_time);
+        clock_gettime(clock_id, &previous_time);
     }
 
     while (keep_polling) {
@@ -299,6 +326,7 @@ void *event_poll_func(void *ih)
 end:
     return NULL;
 }
+#endif
 
 CpaStatus poll_instances(void)
 {

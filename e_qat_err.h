@@ -114,7 +114,7 @@ void ERR_QAT_error(int function, int reason, char *file, int line);
 # define QAT_R_ALLOC_QAT_X25519_METH_FAILURE              106
 # define QAT_R_ALLOC_QAT_X448_METH_FAILURE                107
 # define QAT_R_BUF_CONV_FAIL                              108
-# define QAT_R_CLOSE_FD_FAILURE                           109
+# define QAT_R_CLOSE_READFD_FAILURE                       109
 # define QAT_R_COMPUTE_H_MULTIPLY_Q_FAILURE               110
 # define QAT_R_CP_BUF_MALLOC_FAILURE                      111
 # define QAT_R_CQ_BUF_MALLOC_FAILURE                      112
