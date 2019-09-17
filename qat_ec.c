@@ -399,14 +399,12 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
 
     opData = (CpaCyEcPointMultiplyOpData *)
-        OPENSSL_malloc(sizeof(CpaCyEcPointMultiplyOpData));
+        OPENSSL_zalloc(sizeof(CpaCyEcPointMultiplyOpData));
     if (opData == NULL) {
         WARN("Failure to allocate opData\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
-
-    memset(opData, 0, sizeof(CpaCyEcPointMultiplyOpData));
 
     opData->k.pData = NULL;
     opData->xg.pData = NULL;
@@ -1080,14 +1078,12 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
 
     opData = (CpaCyEcdsaSignRSOpData *)
-        OPENSSL_malloc(sizeof(CpaCyEcdsaSignRSOpData));
+        OPENSSL_zalloc(sizeof(CpaCyEcdsaSignRSOpData));
     if (opData == NULL) {
         WARN("Failure to allocate opData\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
-
-    memset(opData, 0, sizeof(CpaCyEcdsaSignRSOpData));
 
     if ((ret = ECDSA_SIG_new()) == NULL) {
         WARN("Failure to allocate ECDSA_SIG\n");
@@ -1555,14 +1551,12 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
 
     opData = (CpaCyEcdsaVerifyOpData *)
-        OPENSSL_malloc(sizeof(CpaCyEcdsaVerifyOpData));
+        OPENSSL_zalloc(sizeof(CpaCyEcdsaVerifyOpData));
     if (opData == NULL) {
         WARN("Failure to allocate opData\n");
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
-
-    memset(opData, 0, sizeof(CpaCyEcdsaVerifyOpData));
 
     if ((ctx = BN_CTX_new()) == NULL) {
         WARN("Failure to allocate ctx\n");

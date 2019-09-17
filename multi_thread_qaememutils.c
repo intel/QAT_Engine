@@ -169,7 +169,7 @@ static void qae_make_key()
 /* init the head node of a linked list*/
 static void init_pool(qae_slab_pool *list)
 {
-    memset(list,0,sizeof(qae_slab_pool));
+    memset(list, 0, sizeof(qae_slab_pool));
     list->next = (qae_slab *)list;
     list->prev = (qae_slab *)list;
     list->slot_size = 0;

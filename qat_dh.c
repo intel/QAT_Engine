@@ -235,14 +235,12 @@ int qat_dh_generate_key(DH *dh)
     DH_get0_key(dh, &temp_pub_key, &temp_priv_key);
 
     opData = (CpaCyDhPhase1KeyGenOpData *)
-        OPENSSL_malloc(sizeof(CpaCyDhPhase1KeyGenOpData));
+        OPENSSL_zalloc(sizeof(CpaCyDhPhase1KeyGenOpData));
     if (opData == NULL) {
         WARN("Failure allocating memory for opData\n");
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ok;
     }
-
-    memset(opData, 0, sizeof(CpaCyDhPhase1KeyGenOpData));
 
     opData->primeP.pData = NULL;
     opData->baseG.pData = NULL;
@@ -587,14 +585,12 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     }
 
     opData = (CpaCyDhPhase2SecretKeyGenOpData *)
-        OPENSSL_malloc(sizeof(CpaCyDhPhase2SecretKeyGenOpData));
+        OPENSSL_zalloc(sizeof(CpaCyDhPhase2SecretKeyGenOpData));
     if (opData == NULL) {
         WARN("Failure allocating memory for opData\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
-
-    memset(opData, 0, sizeof(CpaCyDhPhase2SecretKeyGenOpData));
 
     opData->primeP.pData = NULL;
     opData->remoteOctetStringPV.pData = NULL;

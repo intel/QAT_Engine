@@ -537,7 +537,7 @@ then
 fi
 
 #check callback in openssl
-if test "`grep -nr ASYNC_WAIT_CTX_get_callback $with_openssl_dir`" = ""
+if test "`grep -nr ASYNC_WAIT_CTX_get_callback $with_openssl_dir/util/libcrypto.num`" = ""
 then
   #do nothing
   cflags_SSL_QAT_use_async_callback=""

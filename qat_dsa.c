@@ -319,14 +319,12 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     }
 
     opData = (CpaCyDsaRSSignOpData *)
-        OPENSSL_malloc(sizeof(CpaCyDsaRSSignOpData));
+        OPENSSL_zalloc(sizeof(CpaCyDsaRSSignOpData));
     if (opData == NULL) {
         WARN("Failed to allocate memory for opData\n");
         QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_OPDATA_MALLOC_FAILURE);
         return sig;
     }
-
-    memset(opData, 0, sizeof(CpaCyDsaRSSignOpData));
 
     if ((ctx = BN_CTX_new()) == NULL) {
         WARN("Failed to allocate memory for ctx\n");
@@ -729,14 +727,12 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     }
 
     opData = (CpaCyDsaVerifyOpData *)
-        OPENSSL_malloc(sizeof(CpaCyDsaVerifyOpData));
+        OPENSSL_zalloc(sizeof(CpaCyDsaVerifyOpData));
     if (opData == NULL) {
         WARN("Failed to allocate memory for opData\n");
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_OPDATA_MALLOC_FAILURE);
         return ret;
     }
-
-    memset(opData, 0, sizeof(CpaCyDsaVerifyOpData));
 
     if ((ctx = BN_CTX_new()) == NULL) {
         WARN("Failed to allocate memory for ctx\n");

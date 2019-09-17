@@ -999,9 +999,8 @@ exit_lenstra:
                                      (flen, from, to, rsa, padding);
     }
 
-    /* set output all 0xff if failed */
     if (!sts)
-        memset(to, 0xff, rsa_len);
+        OPENSSL_cleanse(to, rsa_len);
 
     /* Return an error */
     return 0;
@@ -1171,9 +1170,8 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
                                      (flen, from, to, rsa, padding);
     }
 
-    /* set output all 0xff if failed */
     if (!sts)
-        memset(to, 0xff, rsa_len);
+        OPENSSL_cleanse(to, rsa_len);
 
     /* Return an error */
     return 0;
@@ -1266,9 +1264,8 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
                                     (flen, from, to, rsa, padding);
     }
 
-    /* set output all 0xff if failed */
     if (!sts)
-        memset(to, 0xff, rsa_len);
+        OPENSSL_cleanse(to, rsa_len);
     return 0;
 }
 
@@ -1394,9 +1391,8 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
                                     (flen, from, to, rsa, padding);
     }
 
-    /* set output all 0xff if failed */
     if (!sts)
-        memset(to, 0xff, rsa_len);
+        OPENSSL_cleanse(to, rsa_len);
     return 0;
 }
 
