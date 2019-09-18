@@ -55,7 +55,7 @@
 #include "openssl/kdf.h"
 #include "openssl/evp.h"
 #include "openssl/ssl.h"
-#include "qat_prf.h"
+#include "qat_evp.h"
 #include "qat_utils.h"
 #include "qat_asym_common.h"
 #include "e_qat.h"
@@ -91,11 +91,6 @@
 #define QAT_TLS1_PRF_SEED_MAXBUF 64
 #define QAT_TLS1_PRF_LABEL_MAXBUF 136
 
-/* PRF nid */
-int qat_prf_nids[] = {
-    EVP_PKEY_TLS1_PRF
-};
-
 #ifndef OPENSSL_DISABLE_QAT_PRF
 /* QAT TLS  pkey context structure */
 typedef struct {
@@ -127,7 +122,7 @@ static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 static const EVP_PKEY_METHOD *sw_prf_pmeth = NULL;
 #endif
 
-static EVP_PKEY_METHOD *qat_prf_pmeth(void)
+EVP_PKEY_METHOD *qat_prf_pmeth(void)
 {
 #ifdef OPENSSL_DISABLE_QAT_PRF
     const EVP_PKEY_METHOD *current_prf_pmeth = NULL;
@@ -162,37 +157,6 @@ static EVP_PKEY_METHOD *qat_prf_pmeth(void)
     EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
 #endif
     return _hidden_prf_pmeth;
-}
-
-/******************************************************************************
-* function:
-*         qat_PRF_pkey_methods(ENGINE *e,
-*                              const EVP_PKEY_METHOD **pmeth,
-*                              const int **nids,
-*                              int nid)
-*
-* @param e      [IN] - OpenSSL engine pointer
-* @param pmeth  [IN] - PRF methods structure pointer
-* @param nids   [IN] - PRF functions nids
-* @param nid    [IN] - PRF operation id
-*
-* description:
-*   Qat engine digest operations registrar
-******************************************************************************/
-int qat_PRF_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
-                         const int **nids, int nid)
-{
-    if (pmeth == NULL) {
-        if (unlikely(nids == NULL)) {
-            WARN("Invalid input params.\n");
-            return 0;
-        }
-        *nids = qat_prf_nids;
-        return 1;
-    }
-
-    *pmeth = qat_prf_pmeth();
-    return 1;
 }
 
 #ifndef OPENSSL_DISABLE_QAT_PRF
@@ -432,7 +396,7 @@ static void qat_prf_cb(void *pCallbackTag, CpaStatus status,
                        void *pOpData, CpaFlatBuffer * pOut)
 {
     if (enable_heuristic_polling) {
-        QAT_ATOMIC_DEC(num_prf_requests_in_flight);
+        QAT_ATOMIC_DEC(num_kdf_requests_in_flight);
     }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, CPA_TRUE);
@@ -783,7 +747,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     if (enable_heuristic_polling) {
-        QAT_ATOMIC_INC(num_prf_requests_in_flight);
+        QAT_ATOMIC_INC(num_kdf_requests_in_flight);
     }
 
     do {

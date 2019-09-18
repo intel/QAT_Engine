@@ -67,6 +67,7 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
     * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
     * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
 * Pseudo Random Function (PRF) offload.
+* HMAC Key Derivation Function (HKDF) Offload.
 * Support for the Intel&reg; QuickAssist Technology Driver Heartbeat feature.
 
 Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
@@ -89,7 +90,7 @@ Heartbeat feature from version 4.6 of the following acceleration device:
 * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
 
 Note: Heartbeat feature support currently does not extend to Symmetric Chained
-Cipher Offload and PRF offload.
+Cipher Offload, PRF and HKDF offload.
 
 [1]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
 [2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
@@ -105,7 +106,7 @@ This release was validated on the following:
 
 * Operating system: CentOS\* 7.4 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.6
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.8
 * OpenSSL\* 1.1.1 (Basic functionality testing done on TLS1.3)
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
@@ -129,10 +130,9 @@ repository:
 
 ## Limitations
 
-* When using TLS 1.3 only asymmetric PKE offload is supported. TLS 1.3 uses an HKDF
-  instead of a PRF which is not currently accelerated, and the set of
-  symmetric ciphers currently offloaded are not compatible with the TLS 1.3
-  symmetric ciphers which are AES-GCM or ChaCha-Poly based.
+* When using TLS 1.3 only asymmetric PKE and HKDF offload is supported.
+  And the symmetric ciphers currently offloaded are not compatible with
+  the TLS 1.3 symmetric ciphers which are AES-GCM or ChaCha-Poly based.
 * When forking within an application it is not valid for a cryptographic
   operation to be started in the parent process, and completed in the child
   process.
@@ -538,7 +538,7 @@ cd /path/to/openssl/apps
 ./openssl engine -t -c -vvvv qat
 (qat) Reference implementation of QAT crypto engine
  [RSA, DSA, DH, AES-128-CBC-HMAC-SHA1, AES-256-CBC-HMAC-SHA1,
- AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256, TLS1-PRF]
+ AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256, TLS1-PRF, HKDF]
      [ available ]
      ENABLE_EXTERNAL_POLLING: Enables the external polling interface to the engine.
           (input flags): NO_INPUT
@@ -869,14 +869,14 @@ Description:
     The value passed in as param 3 is the indicator for a specific kind of
     request:
         #define GET_NUM_ASYM_REQUESTS_IN_FLIGHT 1
-        #define GET_NUM_PRF_REQUESTS_IN_FLIGHT 2
+        #define GET_NUM_KDF_REQUESTS_IN_FLIGHT 2
         #define GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT 3
     The first (i.e, value 1) is used to retrieve the number of asymmetric-key
     in-flight requests. The second (i.e, value 2) is used to retrieve the number
-    of PRF in-flight requests.  The last (i.e, value 3) is used to retrieve the
-    number of cipher in-flight requests (when OpenSSL* pipelining feature is
-    not used), or the number of in-flight pipelines (when OpenSSL* pipelining
-    feature is used).
+    of KDF(PRF and HKDF) in-flight requests.  The last (i.e, value 3) is used to
+    retrieve the number of cipher in-flight requests (when OpenSSL* pipelining
+    feature is not used), or the number of in-flight pipelines (when OpenSSL*
+    pipelining feature is used).
     The address of the variable recording the specified info is returned by
     assigning to the dereferenced int address passed as Param 4. This means the
     application can directly use this int address to retrieve the specified info
@@ -1028,6 +1028,9 @@ Optional
 
 --disable-qat_prf/--enable-qat_prf
     Disable/Enable Intel(R) QAT PRF offload (enabled by default)
+
+--disable-qat_hkdf/--enable-qat_hkdf
+    Disable/Enable Intel(R) QAT HKDF offload (enabled by default)
 
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
     Enable the offload of small packet cipher operations to Intel(R) QAT. When
@@ -1377,7 +1380,7 @@ with additional information at:
 
 ## Functionality of the Intel&reg; QAT OpenSSL\* Engine Software Fallback Feature
 
-###Requirements:
+### Requirements:
 As stated in the [Hardware Requirements](#hardware-requirements) section
 above,
  1. This Intel&reg; QAT OpenSSL\* Engine supports the Intel&reg; QAT Driver
@@ -1386,11 +1389,11 @@ Heartbeat feature only from version 4.6 of the following device:
     * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
 
  2. Intel&reg; QAT OpenSSL\* Engine needs to be configured to disable Symmetric
-Chained Cipher Offload and PRF offload by adding the below two flags in the
-configure command of Intel&reg; QAT OpenSSL\* Engine build.
+Chained Cipher Offload, PRF and HKDF offload by adding the below three flags in
+the configure command of Intel&reg; QAT OpenSSL\* Engine build.
 
 ```bash
---disable-qat_ciphers --disable-qat_prf
+--disable-qat_ciphers --disable-qat_prf --disable-qat_hkdf
 ```
 
 Information on this Heartbeat feature can be found in:
@@ -1431,6 +1434,16 @@ use instances from that acceleration device again.
 This should all happen in a transparent way with the only noticeable effects being
 a slow down in performance until the acceleration device comes back online.
 
+## Intel&reg; QAT OpenSSL\* Engine HKDF Support
+
+The HKDF support in the Intel&reg; QAT OpenSSL\* Engine is available only from
+Version 4.8 of Intel&reg; QuickAssist Technology Driver for Linux HW Version 1.7.
+If any other lower version of driver is used then the Intel&reg; QAT OpenSSL\* Engine
+needs to be configured to disable HKDF offload using the below flag.
+
+```bash
+--disable-qat_hkdf
+```
 
 ## Legal
 

@@ -599,6 +599,21 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
+#  define DUMP_HKDF_OP_DATA(hkdfOpData)                                        \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"HKDF Op Data: %p\n", &hkdfOpData);            \
+        if (hkdfOpData->hkdfKeyOp == CPA_CY_HKDF_KEY_EXTRACT_EXPAND)           \
+            fprintf(qatDebugLogFile,"hkdfOp: HKDF_EXTRACT_AND_EXPAND \n");     \
+        if (hkdfOpData->hkdfKeyOp == CPA_CY_HKDF_KEY_EXTRACT)                  \
+            fprintf(qatDebugLogFile,"hkdfOp: HKDF_EXTRACT \n");                \
+        if (hkdfOpData->hkdfKeyOp == CPA_CY_HKDF_KEY_EXPAND)                   \
+            fprintf(qatDebugLogFile,"hkdfOp: HKDF_EXPAND \n");                 \
+        DUMPL("Secret", hkdfOpData->secret, hkdfOpData->secretLen);            \
+        DUMPL("Seed", hkdfOpData->seed, hkdfOpData->seedLen);                  \
+        DUMPL("Info", hkdfOpData->info  , hkdfOpData->infoLen);                \
+    } while (0)
+
 # else
 #  define DUMP_DH_GEN_PHASE1(...)
 #  define DUMP_DH_GEN_PHASE2(...)
@@ -622,6 +637,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_SYM_PERFORM_OP(...)
 #  define DUMP_SYM_PERFORM_OP_OUTPUT(...)
 #  define DUMP_PRF_OP_DATA(...)
+#  define DUMP_HKDF_OP_DATA(...)
 # endif                         /* QAT_DEBUG */
 
 #endif                          /* QAT_UTILS_H */

@@ -90,9 +90,9 @@
 #include "qat_dsa.h"
 #include "qat_dh.h"
 #include "qat_ec.h"
+#include "qat_evp.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
-#include "qat_prf.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
@@ -153,7 +153,7 @@ int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 int num_requests_in_flight = 0;
 int num_asym_requests_in_flight = 0;
-int num_prf_requests_in_flight = 0;
+int num_kdf_requests_in_flight = 0;
 int num_cipher_pipeline_requests_in_flight = 0;
 sigset_t set = {{0}};
 pthread_t timer_poll_func_thread = 0;
@@ -980,8 +980,8 @@ qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
                 "GET_NUM_REQUESTS_IN_FLIGHT failed as the input parameter was NULL\n");
         if (i == GET_NUM_ASYM_REQUESTS_IN_FLIGHT) {
             *(int **)p = &num_asym_requests_in_flight;
-        } else if (i == GET_NUM_PRF_REQUESTS_IN_FLIGHT) {
-            *(int **)p = &num_prf_requests_in_flight;
+        } else if (i == GET_NUM_KDF_REQUESTS_IN_FLIGHT) {
+            *(int **)p = &num_kdf_requests_in_flight;
         } else if (i == GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT) {
             *(int **)p = &num_cipher_pipeline_requests_in_flight;
         } else {
@@ -1299,7 +1299,7 @@ static int bind_qat(ENGINE *e, const char *id)
         goto end;
     }
 
-    if (!ENGINE_set_pkey_meths(e, qat_PRF_pkey_methods)) {
+    if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
         WARN("ENGINE_set_pkey_meths failed\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_PKEY_FAILURE);
         goto end;

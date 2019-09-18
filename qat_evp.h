@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2019 Intel Corporation.
+ *   Copyright(c) 2019 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -37,20 +37,21 @@
  */
 
 /*****************************************************************************
- * @file qat_prf.h
+ * @file qat_evp.h
  *
- * This file provides an interface for PRF operations
+ * This file provides an interface for PRF and HKDF operations
  *
  *****************************************************************************/
 
-# ifndef QAT_PRF_H
-#  define QAT_PRF_H
-
+#ifndef QAT_EVP_H
+# define QAT_EVP_H
 
 # include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
 
-int qat_PRF_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth, const int **nids,
-                         int nid);
+int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
+                     const int **nids, int nid);
+EVP_PKEY_METHOD *qat_prf_pmeth(void);
+EVP_PKEY_METHOD *qat_hkdf_pmeth(void);
 
-# endif
+#endif

@@ -214,7 +214,7 @@ typedef struct {
  * of in-flight requests
  */
 #define GET_NUM_ASYM_REQUESTS_IN_FLIGHT 1
-#define GET_NUM_PRF_REQUESTS_IN_FLIGHT 2
+#define GET_NUM_KDF_REQUESTS_IN_FLIGHT 2
 #define GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT 3
 
 /* Qat engine id declaration */
@@ -246,7 +246,7 @@ extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
 extern int num_requests_in_flight;
 extern int num_asym_requests_in_flight;
-extern int num_prf_requests_in_flight;
+extern int num_kdf_requests_in_flight;
 extern int num_cipher_pipeline_requests_in_flight;
 extern sigset_t set;
 extern pthread_t timer_poll_func_thread;

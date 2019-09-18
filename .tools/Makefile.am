@@ -52,13 +52,15 @@ else
                                 qat_dh.c \
                                 qat_dsa.c \
                                 qat_ec.c \
-                                qat_prf.c
+                                qat_prf.c \
+                                qat_hkdf.c \
+                                qat_evp.c
 
  OPENSSL_VERSION_SPECIFIC_HDR = qat_ciphers.h \
                                 qat_dh.h \
                                 qat_dsa.h \
                                 qat_ec.h \
-                                qat_prf.h
+                                qat_evp.h
 endif
 
 if !OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
@@ -88,6 +90,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
             $(cflags_enable_usdm) $(cflags_mux) $(enable_qat_rsa) \
             $(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
             $(enable_qat_dsa) $(enable_qat_dh) $(enable_qat_prf) \
+            $(enable_qat_hkdf) \
             $(enable_qat_small_pkt_offload) \
             $(enable_qat_lenstra_protection) \
             $(enable_qat_debug) $(enable_qat_warnings) \
