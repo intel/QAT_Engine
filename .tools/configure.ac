@@ -97,13 +97,6 @@ AC_ARG_WITH(qat_dir,
                              [Path to the Intel Quickassist Technology Driver source code]))
 AC_SUBST(with_qat_dir)
 
-
-AC_ARG_WITH(openssl_dir,
-              AS_HELP_STRING([--with-openssl_dir],
-                             [Path to the OpenSSL source code]))
-AC_SUBST(with_openssl_dir)
-
-
 AC_ARG_WITH(openssl_install_dir,
               AS_HELP_STRING([--with-openssl_install_dir],
                              [Path to where the OpenSSL libraries are installed to. The Engine will be installed to the lib/engines subdirectory of this path]))
@@ -111,24 +104,29 @@ AC_SUBST(with_openssl_install_dir)
 
 # Other non mandatory parameters
 
+AC_ARG_WITH(openssl_dir,
+              AS_HELP_STRING([--with-openssl_dir],
+                             [Path to the OpenSSL source code. The error files will get regenerated using the mkerr.pl script included with the OpenSSL source]))
+AC_SUBST(with_openssl_dir)
+
 AC_ARG_WITH(qat_install_dir,
               AS_HELP_STRING([--with-qat_install_dir],
                              [Path to the Intel Quickassist Technology Driver build output]))
 AC_SUBST(with_qat_install_dir)
 
-AC_ARG_ENABLE(upstream_driver,
-              AS_HELP_STRING([--enable-upstream_driver],
-                             [Enable using the upstream Intel Quickassist Technology Driver]))
-AC_SUBST(enable_upstream_driver)
+AC_ARG_ENABLE(qat16_driver,
+              AS_HELP_STRING([--enable_qat16_driver],
+                             [Enable using the QAT1.6 Intel Quickassist Technology Driver]))
+AC_SUBST(enable_qat16_driver)
 
-AC_ARG_ENABLE(usdm,
-              AS_HELP_STRING([--enable-usdm],
-                             [This should be specified to force the Engine to use the USDM Component rather than the supplied memory driver]))
-AC_SUBST(enable_usdm)
+AC_ARG_ENABLE(qat_contig_mem,
+              AS_HELP_STRING([--enable-qat_contig_mem],
+                             [This should be specified to force the Engine to use the qat_contig_mem component supplied within the QAT Engine release package]))
+AC_SUBST(enable_qat_contig_mem)
 
 AC_ARG_WITH(usdm_dir,
               AS_HELP_STRING([--with-usdm_dir],
-                             [Path to the USDM Component source code. This should be used to specify a path other than the standard default path within the Upstream Intel Quickassist Technology Driver source code]))
+                             [Path to the USDM Component source code. This should be used to specify a path to the USDM Component source other than the standard default path within the QAT1.7 Intel Quickassist Technology Driver source code]))
 AC_SUBST(with_usdm_dir)
 
 AC_ARG_WITH(qat_debug_file,
@@ -181,11 +179,6 @@ AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
                              [Disable auto initialization of the engine following a fork]))
 AC_SUBST(enable_qat_auto_engine_init_on_fork)
 
-AC_ARG_ENABLE(qat_skip_err_files_build,
-              AS_HELP_STRING([--enable-qat_skip_err_files_build],
-                             [Enable the skipping of the generation of the errors files in the QAT engine build process]))
-AC_SUBST(enable_qat_skip_err_files_build)
-
 # ERROR message if mandatory options are not provided
 
 
@@ -195,15 +188,6 @@ then
 else if test "x$with_qat_dir" = "xno"
 then
   AC_MSG_ERROR([--without-qat_dir is invalid, set using --with-qat_dir to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver])
-fi
-fi
-
-if test "x$with_openssl_dir" = "x"
-then
-  AC_MSG_ERROR([--with-openssl_dir is not set, set it to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl])
-else if test "x$with_openssl_dir" = "xno"
-then
-  AC_MSG_ERROR([--without-openssl_dir is invalid, set using --with-openssl_dir to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl])
 fi
 fi
 
@@ -219,6 +203,16 @@ fi
 ac_default_prefix=$with_openssl_install_dir
 
 # Default non mandatory paths if not provided
+
+if test "x$with_openssl_dir" = "x"
+then
+  AC_MSG_NOTICE([Build with existing error files without regenerating from OpenSSL source])
+else if test "x$with_openssl_dir" = "xno"
+then
+  AC_MSG_ERROR([--without-openssl_dir is invalid, set using --with-openssl_dir to the path to the OpenSSL source code. e.g: --with-openssl_dir=/path/to/openssl])
+fi
+fi
+AM_CONDITIONAL([QAT_ERR_FILES_BUILD], [test "x$with_openssl_dir" != "x"])
 
 if test "x$with_qat_install_dir" = "x"
 then
@@ -369,7 +363,7 @@ fi
 
 # Check for memory driver and parse the CFLAGS for building library
 
-AC_ARG_WITH(includes, AS_HELP_STRING(), , includes="-I\$(with_openssl_dir)/include")
+AC_ARG_WITH(includes, AS_HELP_STRING(), , includes="-I\$(with_openssl_install_dir)/include")
 AC_SUBST(includes)
 
 case `($CC --version) 2>/dev/null` in
@@ -390,35 +384,29 @@ then
   AC_SUBST(cflags_cc_opt)
 fi
 
-if test "x$enable_upstream_driver" = "xyes"
-then
-  AC_ARG_WITH(cflags_enable_upstream_driver, AS_HELP_STRING(), , cflags_enable_upstream_driver="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER")
-  AC_SUBST(cflags_enable_upstream_driver)
-  AC_MSG_NOTICE([Enabling build for Upstream Driver])
-fi
 
-AM_CONDITIONAL([OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER], [test "x$enable_upstream_driver" = "xyes"])
-
-if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"
+if test "x$enable_qat_contig_mem" = "xyes" -a "x$enable_multi_thread" != "xyes"
 then
-  AC_MSG_NOTICE([Compiling for QAT_CONTIG_MEMORY])
-  AC_ARG_WITH(cflags_qat_contig_mem, AS_HELP_STRING(), , cflags_qat_contig_mem="-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem")
-  AC_SUBST(cflags_qat_contig_mem)
-else if test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" = "xyes"
+  AC_MSG_NOTICE([Compiling for qat_contig_mem])
+  AC_ARG_WITH(cflags_mem_driver, AS_HELP_STRING(), , cflags_mem_driver="-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem")
+  AC_SUBST(cflags_mem_driver)
+else if test "x$enable_multi_thread" = "xyes"
 then
-  AC_MSG_NOTICE([Compiling for MULTI_THREAD])
-  AC_ARG_WITH(cflags_enable_multi_thread, AS_HELP_STRING(), , cflags_enable_multi_thread="-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem")
-  AC_SUBST(cflags_enable_multi_thread)
-else if test "x$enable_usdm" = "xyes"
-then
+  AC_MSG_NOTICE([Compiling for multi_thread])
+  AC_ARG_WITH(cflags_mem_driver, AS_HELP_STRING(), , cflags_mem_driver="-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem")
+  AC_SUBST(cflags_mem_driver)
+else
   AC_MSG_NOTICE([Compiling for USDM])
-  AC_ARG_WITH(cflags_enable_usdm, AS_HELP_STRING(), , cflags_enable_usdm="-DUSE_QAE_MEM")
-  AC_SUBST(cflags_enable_usdm)
-  AC_ARG_WITH(includes_enable_usdm, AS_HELP_STRING(), , include_enable_usdm="-I\$(with_usdm_dir)")
+  AC_ARG_WITH(cflags_mem_driver, AS_HELP_STRING(), , cflags_mem_driver="-DUSE_QAE_MEM")
+  AC_SUBST(cflags_mem_driver)
+  AC_ARG_WITH(include_enable_usdm, AS_HELP_STRING(), , include_enable_usdm="-I\$(with_usdm_dir)")
   AC_SUBST(include_enable_usdm)
 fi
 fi
-fi
+
+AM_CONDITIONAL([QAT_CONTIG_MEM], [test "x$enable_qat_contig_mem" = "xyes" -a "x$enable_multi_thread" != "xyes"])
+AM_CONDITIONAL([QAT_MULTI_THREAD], [test "x$enable_multi_thread" = "xyes"])
+AM_CONDITIONAL([QAE_MEM], [test "x$enable_qat_contig_mem" != "xyes" -a "x$enable_multi_thread" != "xyes"])
 
 if test "x$with_qat_debug_file" != "x"
 then
@@ -427,10 +415,6 @@ then
   AC_MSG_NOTICE([Enabling writing debug to file])
 fi
 
-
-AM_CONDITIONAL([QAT_CONTIG_MEM], [test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" != "xyes"])
-AM_CONDITIONAL([QAT_MULTI_THREAD], [test "x$enable_usdm" != "xyes" -a "x$enable_multi_thread" = "xyes"])
-AM_CONDITIONAL([QAE_MEM], [test "x$enable_usdm" = "xyes"])
 
 AC_CHECK_PROG(USE_GETCONF, getconf, yes, no)
 AC_PROG_AWK
@@ -479,17 +463,11 @@ then
 fi
 AM_CONDITIONAL([QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH], [test "x$enable_openssl_install_build_arch_path" = "xyes"])
 
-if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"
+if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"
 then
   AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
 fi
-AM_CONDITIONAL([QAT_OPENSSL_300], [ test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"])
-
-if test "x$enable_qat_skip_err_files_build" = "xyes"
-then
-  AC_MSG_NOTICE([Build QAT engine but skipping the generation of the errors files])
-fi
-AM_CONDITIONAL([QAT_SKIP_ERR_FILES_BUILD], [test "x$enable_qat_skip_err_files_build" = "xyes"])
+AM_CONDITIONAL([QAT_OPENSSL_300], [ test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"])
 
 # Adding driver source for building and linking the library
 
@@ -505,19 +483,31 @@ AC_SUBST(with_ICP_LAC_API_DIR)
 AC_ARG_WITH(includes_driver, AS_HELP_STRING(), , includes_driver="-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR)")
 AC_SUBST(includes_driver)
 
-AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="icp_qa_al")
+AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
 AC_SUBST(DRIVER)
 
 if test "x$enable_qat_mux" = "xyes"
 then
   AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat_mux")
   AC_SUBST(DRIVER)
-else if test "x$enable_upstream_driver" = "xyes"
+  AC_ARG_WITH(cflags_upstream_driver, AS_HELP_STRING(), , cflags_upstream_driver="")
+  AC_SUBST(cflags_upstream_driver)
+  AC_MSG_NOTICE([Enabling build for Mux Driver])
+else if test "x$enable_qat16_driver" = "xyes"
 then
-  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
+  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="icp_qa_al")
   AC_SUBST(DRIVER)
+  AC_ARG_WITH(cflags_upstream_driver, AS_HELP_STRING(), , cflags_upstream_driver="")
+  AC_SUBST(cflags_upstream_driver)
+  AC_MSG_NOTICE([Enabling build for QAT1.6 Driver])
+else
+  AC_ARG_WITH(cflags_upstream_driver, AS_HELP_STRING(), , cflags_upstream_driver="-DOPENSSL_ENABLE_QAT_UPSTREAM_DRIVER")
+  AC_SUBST(cflags_upstream_driver)
+  AC_MSG_NOTICE([Enabling build for Upstream Driver])
 fi
 fi
+
+AM_CONDITIONAL([OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER], [test "x$enable_qat16_driver" != "xyes"])
 
 if test "x$enable_qat_mux" = "xyes"
 then
@@ -543,21 +533,11 @@ then
   AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
 fi
 
-if test "x$enable_usdm" = "xyes" -a "x$enable_multi_thread" != "xyes" -a "$enable_upstream_driver" != "xyes"
+if test "x$enable_qat_contig_mem" != "xyes" -a "x$enable_multi_thread" != "xyes" -a "$enable_qat16_driver" = "xyes"
 then
   AC_ARG_WITH(QAT_SHARED_LIB_DEPS_QAE_MEM, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_QAE_MEM=["-Wl,-rpath,\$(with_usdm_dir) -L\$(with_usdm_dir) -lusdm_drv_s"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_QAE_MEM)
 fi
-
-#check callback in openssl
-if test "`grep -nr ASYNC_WAIT_CTX_get_callback $with_openssl_dir/util/libcrypto.num`" = ""
-then
-  #do nothing
-  cflags_SSL_QAT_use_async_callback=""
-else
-  cflags_SSL_QAT_use_async_callback="-DSSL_QAT_USE_ASYNC_CALLBACK"
-fi
-AC_SUBST(cflags_SSL_QAT_use_async_callback)
 
 # Checks for programs.
 AC_PROG_CXX

@@ -68,6 +68,11 @@ if !OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
  PARSE_CONFIG_FILES_HDR = qat_parseconf.h
 endif
 
+
+if QAT_OPENSSL_300
+ cflags_SSL_QAT_use_async_callback="-DSSL_QAT_USE_ASYNC_CALLBACK"
+endif
+
 libqat_la_SOURCES = ${OPENSSL_COMMON_SRC} \
                     ${OPENSSL_VERSION_SPECIFIC_SRC} \
                     ${PARSE_CONFIG_FILES_SRC} \
@@ -85,9 +90,8 @@ CC = cc
 AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
               $(includes_enable_qat_mux)
 
-AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_enable_upstream_driver) \
-            $(cflags_qat_contig_mem) $(cflags_enable_multi_thread) \
-            $(cflags_enable_usdm) $(cflags_mux) $(enable_qat_rsa) \
+AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver) \
+            $(cflags_mem_driver) $(cflags_mux) $(enable_qat_rsa) \
             $(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
             $(enable_qat_dsa) $(enable_qat_dh) $(enable_qat_prf) \
             $(enable_qat_hkdf) \
@@ -128,7 +132,7 @@ mostlyclean-generic:
 
 	-rm -f $(ENGINE_LIB)
 
-if !QAT_SKIP_ERR_FILES_BUILD
+if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make
 endif
 

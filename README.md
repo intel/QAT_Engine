@@ -291,16 +291,44 @@ support DMA operations. You must either supply your own contiguous memory driver
 and make changes to the engine to make use of it or use one of the following
 drivers:
 
+#### (Optional) Load the User Space DMA-able Memory (USDM) Component
+
+The Intel&reg; QAT Driver HW Version 1.7 comes with its own
+contiguous pinned memory driver that is compatible with the Intel&reg; QAT
+OpenSSL\* Engine. The USDM component is of a higher quality than the
+qat\_contig\_mem driver provided within the Intel&reg; QAT OpenSSL\* Engine,
+and is the preferred option. Unfortunately the USDM component may not be
+available if using older Intel&reg; QAT Driver versions. The USDM component
+is used by the Intel&reg; QAT Driver HW Version 1.7 itself, and also has
+the following additional features:
+
+* Support for virtualization
+* Support for configurable slab sizes
+* Support for configurable secure freeing of memory (overwrite with zeros)
+* Support for configurable slab caching
+* Support for newer kernels
+
+The USDM component is located within the Intel&reg; QAT Driver HW Version 1.7
+source code in the following subdirectory: `quickassist/utilities/libusdm_drv`.
+As the USDM component is also used by the 1.7 driver itself it will have
+already been built when the driver was built. It may also already be loaded as
+well, and you can check by running `lsmod` and looking for usdm_drv in the list.
+If not present it can be loaded as follows:
+
+```bash
+insmod ./usdm_drv.ko
+```
+
 #### (Optional) Build and load the example contiguous memory driver - qat\_contig\_mem
 
-The Intel&reg; QAT OpenSSL\* Engine comes with an example kernel space
-contiguous memory driver that can be used to try out operation of the engine. It
-is considered to be an example only and is not written to be a production
-quality driver.
+This step is not needed if using the default USDM driver above. The Intel&reg;
+QAT OpenSSL\* Engine comes with an example kernel space contiguous memory driver
+that can be used to try out operation of the engine. It is considered to be an
+example only and is not written to be a production quality driver.
 
 The following example is assuming:
-* The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
-  of the drive: `/`.
+* The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the
+  root of the drive: `/`.
 
 To build/install the qat\_contig\_mem driver follow these steps:
 
@@ -319,42 +347,15 @@ following:
     Hello world!
     # PASS Verify for QAT Contig Mem Test
 
-#### (Optional) Load the User Space DMA-able Memory (USDM) Component
-
-As an alternative the Upstream Intel&reg; QAT Driver comes with its own
-contiguous pinned memory driver that is compatible with the Intel&reg; QAT
-OpenSSL\* Engine. The USDM component is of a higher quality than the
-qat\_contig\_mem driver, and is the preferred option.
-Unfortunately the USDM component may not be available if using older Intel&reg;
-QAT Driver versions. The USDM component is used by the Upstream Intel&reg; QAT
-Driver itself, and also has the following additional features:
-
-* Support for virtualization
-* Support for configurable slab sizes
-* Support for configurable secure freeing of memory (overwrite with zeros)
-* Support for configurable slab caching
-
-The USDM component is located within the Upstream Intel&reg; QAT Driver source
-code in the following subdirectory: `quickassist/utilities/libusdm_drv`.
-As the USDM component is also used by the upstream driver itself it will have
-already been built when the driver was built. It may also already be loaded as
-well, and you can check by running `lsmod` and looking for usdm_drv in the list.
-If not present it can be loaded as follows:
-
-```bash
-insmod ./usdm_drv.ko
-```
-
 ### Build the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
 The following example is assuming:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
-* The Intel&reg; QAT Driver was unpacked within `/QAT`.
-* An Intel&reg; Communications Chipset 8925 to 8955 Series device is fitted.
-* The OpenSSL\* source was cloned from Github\* to its own location at the root
-  of the drive: `/`.
+* The Intel&reg; QAT Driver HW Version 1.7 was unpacked within `/QAT` and using
+  the USDM component.
+* An Intel&reg; Communications Chipset C62X Series device is fitted.
 * OpenSSL\* was installed to `/usr/local/ssl`.
 * OpenSSL\* 1.1.1 is being used.
 
@@ -364,8 +365,7 @@ To build and install the Intel&reg; QAT OpenSSL\* Engine:
 cd /QAT_Engine
 ./autogen.sh
 ./configure \
---with-qat_dir=/QAT/QAT1.6 \
---with-openssl_dir=/openssl \
+--with-qat_dir=/QAT \
 --with-openssl_install_dir=/usr/local/ssl
 make
 make install
@@ -382,30 +382,30 @@ used to turn engine functionality on and off. Please see the Intel&reg; QAT
 OpenSSL\* Engine Build Options section below for a full description of the
 options that can be specified. The above options are all mandatory.
 
-If you plan to link against the Upstream Intel&reg; QAT userspace shared library
-then there are some additional options that may be required:
+If you plan to link against the Intel&reg; QAT Driver HW Version 1.6 userspace
+shared library then there are some additional options that may be required:
 
-* The `--enable-upstream_driver` is a mandatory parameter to the `./configure`
-  that tells the build that you are going to link against the upstream version
-  of the Intel&reg; QAT Driver and ensures the link step is setup correctly.
-* The `--enable-usdm` is an optional parameter to the `./configure` that tells
-  the build that it should be compiled to use the usdm component and that the
-  link should be configured to link in the userspace library of the usdm
-  component.
+* The `--enable-qat16_driver` is a mandatory parameter to the `./configure`
+  that tells the build that you are going to link against the Intel&reg;
+  QAT 1.6 Driver and ensures the link step is setup correctly.
+* The `--enable-qat_contig_mem` is an optional parameter to the `./configure`
+  that tells the build that it should be compiled to use the qat_contig_mem
+  component and that the link should be configured to link in the userspace
+  library of the qat_contig_mem component.
 
 An example to build and install the Intel&reg; QAT OpenSSL\* Engine based on the
-example above, but building against the Upstream Intel&reg; QAT Driver, and
-using the USDM component would be as follows:
+example above, but building against the Intel&reg; QAT Driver HW Version 1.6
+with the Intel&reg; Communications Chipset 8925 to 8955 Series device and using
+the qat_contig_mem component would be as follows:
 
 ```bash
 cd /QAT_Engine
 ./autogen.sh
 ./configure \
---with-qat_dir=/QAT \
---with-openssl_dir=/openssl \
+--with-qat_dir=/QAT/QAT1.6 \
 --with-openssl_install_dir=/usr/local/ssl \
---enable-upstream_driver \
---enable-usdm
+--enable-qat16_driver \
+--enable-qat_contig_mem
 make
 make install
 ```
@@ -417,15 +417,13 @@ options section below) is as follows.  It assumes that:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
-* The Intel&reg; QAT Driver was unpacked within `/QAT`and is the
-  Upstream Intel&reg; QAT Driver using the USDM component.
+* The Intel&reg; QAT Driver HW Version 1.7 was unpacked within `/QAT` and using
+  the USDM component.
 * The OpenSSL\* compiled code comprises a prebuilt (GNU compiled) packaged
   OpenSSL\* that either forms part of a Debian\* based distribution or else has
   been installed onto a Debian\* based distribution, of which the component
   libraries are located in directory `/usr/lib/x86_64-linux-gnu`.
 * The machine processor type is `x86_64`.
-* The OpenSSL\* source code was cloned from Github\* to its own location at the root
-  of the drive: `/`.
 * The OpenSSL\* version is in the `1.1.0` series.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
@@ -435,12 +433,9 @@ cd /QAT_Engine
 ./autogen.sh
 ./configure \
 --with-qat_dir=/QAT \
---with-openssl_dir=/openssl \
 --with-openssl_install_dir=/usr/lib/x86_64-linux-gnu \
 --enable-openssl_install_build_arch_path \
---enable-qat_for_openssl_110 \
---enable-upstream_driver \
---enable-usdm
+--enable-qat_for_openssl_110
 make
 make install
 ```
@@ -465,7 +460,7 @@ The conf files are located at:
 
 The files are grouped by acceleration device, please choose the files
 appropriate to your acceleration device only.
-If building to link against the Upstream Intel&reg; QAT userspace shared library
+If building to link against the Intel&reg; QAT HW Version 1.7 userspace shared library
 then you should use the files in `dh895xcc_upstream`, or `c6xx`.
 
 The files are also split into `multi_process_optimized` and
@@ -623,8 +618,8 @@ If this occurs some of the things to check are:
    2. Has the correct Intel&reg; QAT Driver config file been copied to `/etc`?
       Check it has a `[SHIM]` section and that the Intel&reg; QAT Driver
       software was restarted so that it picked up the new config file.
-   3. Is the Intel&reg; QAT Driver up and running?
-      Check by running `lsmod`, icp_qa_al should be in the list.
+   3. Is the Intel&reg; QAT Driver up and running?  Check by running `adf_ctl`,
+      device details along with the state should be `state: up`.
       Also check the Intel&reg; QAT Driver software has been started.
    4. Were the paths set correctly so that the `qat.so` engine file was copied
       to the correct location?
@@ -643,8 +638,8 @@ environment variable as follows:
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
 
-If linking against the Upstream Intel&reg; QAT Driver then ensure that the
-mandatory parameter `--enable-upstream_driver` has been specified when running
+If linking against the Intel&reg; QAT Driver HW Version 1.6 then ensure that the
+mandatory parameter `--enable-qat16_driver` has been specified when running
 `./configure`, or the link will fail.
 
 If building against OpenSSL\* 1.1.1 or master branch , it is possible that the
@@ -949,7 +944,7 @@ Mandatory
     Specify the path to the source code of the Intel(R) QAT Driver. This path
     is needed for compilation in order to locate the Intel(R) QAT header files.
     If you do not specify this the build will fail.
-    For example if using Upstream Intel&reg; QAT Driver package that was
+    For example if using Intel&reg; QAT Driver HW version 1.7 package that was
     unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
     C62X Series device then you would use the following setting:
     --with-qat_dir=/QAT
@@ -958,33 +953,37 @@ Mandatory
     8925 to 8955 Series device then you would use the following setting:
     --with-qat_dir=/QAT/QAT1.6
 
---with-openssl_dir=/path/to/openssl
-    Specify the path to the top level of the OpenSSL* source code.  This path
-    is needed so that the compilation can locate the OpenSSL header files and
-    also because the mkerr.pl script is needed from the OpenSSL source files in
-    order to generate the engine specific error source files. If you do not
-    specify this the build will fail.
-    For example if you cloned the OpenSSL* Github* repository from within `/`
-    then you would use the following setting:
-    --with-openssl_dir=/openssl
-
 --with-openssl_install_dir=/path/to/openssl_install
     Specify the path to the top level where the OpenSSL* build was installed
-    to. This is needed so that the qat.so engine library can be copied into the
-    folder containing the other dynamic engines when you run 'make install'. If
-    you do not specify this then 'make install' will fail.
+    to. This is needed so that compilation can locate OpenSSL header files and
+    the qat.so engine library can be copied into the folder containing the
+    other dynamic engines when you run 'make install'. If you do not specify
+    this then compilation will fail.
     For example if you installed OpenSSL* to its default location of
     `/usr/local/ssl` then you would use the following setting:
     --with-openssl_install_dir=/usr/local/ssl
 
-Mandatory (when using the Upstream Intel&reg; QAT Driver)
+Mandatory (when using the Intel&reg; QAT Driver HW Version 1.6)
 
---enable-upstream_driver/--disable-upsteam_driver
-    Enable/Disable linking against the Upstream Intel(R) QAT Driver. If
-    linking against the Upstream Intel(R) QAT Driver then this option must be
-    enabled (disabled by default).
+--enable-qat16_driver/--disable-qat16_driver
+    Enable/Disable linking against the Intel(R) QAT Driver HW Version 1.6. If
+    linking against the Intel(R) QAT Driver HW Version 1.6 then this option
+    must be enabled (disabled by default).
 
 Optional
+
+--with-openssl_dir=/path/to/openssl
+    Specify the path to the top level of the OpenSSL* source code.  This path
+    is only needed to regenerate engine specific error source files using the
+    mkerr.pl script from the OpenSSL source files. This option needs to be used
+    if there is any new error message added in the QAT Engine source files
+    and the error files will get updated using the mkerr.pl script. The default
+    if not provided will build QAT Engine from the existing error files
+    e_qat_err.c, e_qat_err.h & e_qat.txt in the QAT Engine dir which is
+    generated from OpenSSL release mentioned in the github release page.
+    For example if you cloned the OpenSSL* Github* repository from within `/`
+    then you would use the following setting:
+    --with-openssl_dir=/openssl
 
 --with-qat_install_dir=/path/to/qat_driver/build
     Specify the path to the location of the built Intel(R) QAT Driver library
@@ -994,12 +993,11 @@ Optional
     with '/build' appended.  You only need to specify this parameter if the
     driver library files have been built somewhere other than the default.
 
---enable-usdm/--disable-usdm
-    Enable/Disable compiling against the USDM component and that the link should
-    be configured to link in the userspace library of the USDM component. The
-    USDM component is a pinned contiguous memory driver that is distributed with
-    the Upstream Intel(R) QAT Driver. It can be used instead of the supplied
-    qat_contig_mem memory driver (disabled by default).
+--enable-qat_contig_mem/--disable-qat_contig_mem
+    Enable/Disable compiling against the qat_contig_mem driver supplied within
+    QAT Engine when using the Intel(R) QAT Driver HW Version 1.6. It can also be
+    used instead of the USDM component distributed with the Intel(R) QAT Driver
+    HW Version 1.7 (disabled by default).
 
 --with-usdm_dir=/path/to/usdm/directory
     Specify the path to the location of the USDM component.
@@ -1144,8 +1142,8 @@ Optional
     in the `1.1.X` series of API compatible releases. The shared library
     resulting from building and installing the Intel(R) QAT OpenSSL* Engine,
     must be placed in this directory rather than the default.  Use of this
-    option, together with the correct specification of mandatory options
-    `with-openssl_dir` and `with-openssl_install_dir`, ensures this.
+    option, together with the correct specification of option
+    `with-openssl_install_dir`, ensures this.
 
     For this example Debian* based distribution, the OpenSSL* header files
     associated with the OpenSSL* package can also be installed by using the
@@ -1180,7 +1178,7 @@ Optional
     available for subsequent use in the build procedure for the
     Intel&reg; QAT OpenSSL* Engine in your chosen git checkout directory.
     This directory's path should therefore be specified with the
-    `--with-openssl_dir` mandatory option detailed above.
+    `--with-openssl_dir` option detailed above.
 
     In summary, use of the `--enable-openssl_install_build_arch_path` option
     ensures that the Intel(R) QAT OpenSSL* Engine shared library, resulting from
@@ -1199,16 +1197,6 @@ Optional
     engine needs to be initialized manually using the engine message:
     INIT_ENGINE or will automatically get initialized on the first QAT crypto
     operation. The initialization on fork is enabled by default.
-
---enable-qat_skip_err_files_build
-    Enable the skipping of the regeneration of the errors files during the
-    QAT OpenSSL* Engine build process.  Note that if this option is selected
-    then you must ensure that the files e_qat_err.c, e_qat_err.h & e_qat.txt
-    are present in the QAT OpenSSL* Engine source top directory prior to
-    launching the build process.  In addition, these existing files must
-    have been originally generated for the OpenSSL* version you are building
-    against.
-    This option is disabled by default.
 
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at
