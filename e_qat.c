@@ -476,6 +476,7 @@ int qat_engine_init(ENGINE *e)
                                       limitDevAccess)) {
         WARN("icp_sal_userStart failed\n");
         QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_ICP_SAL_USERSTART_FAIL);
+        pthread_key_delete(thread_local_variables);
         pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
     }
@@ -485,6 +486,7 @@ int qat_engine_init(ENGINE *e)
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyGetNumInstances failed, status=%d\n", status);
         QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_NUM_INSTANCE_FAILURE);
+        pthread_key_delete(thread_local_variables);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -492,6 +494,7 @@ int qat_engine_init(ENGINE *e)
     if (!qat_num_instances) {
         WARN("No crypto instances found\n");
         QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_INSTANCE_UNAVAILABLE);
+        pthread_key_delete(thread_local_variables);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -506,6 +509,7 @@ int qat_engine_init(ENGINE *e)
     if (NULL == qat_instance_handles) {
         WARN("OPENSSL_zalloc() failed for instance handles.\n");
         QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_INSTANCE_HANDLE_MALLOC_FAILURE);
+        pthread_key_delete(thread_local_variables);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -516,6 +520,7 @@ int qat_engine_init(ENGINE *e)
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyGetInstances failed, status=%d\n", status);
         QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_INSTANCE_FAILURE);
+        pthread_key_delete(thread_local_variables);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
@@ -532,6 +537,7 @@ int qat_engine_init(ENGINE *e)
             if (-1 == internal_efd) {
                 WARN("Error creating epoll fd\n");
                 QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_EPOLL_CREATE_FAILURE);
+                pthread_key_delete(thread_local_variables);
                 pthread_mutex_unlock(&qat_engine_mutex);
                 qat_engine_finish(e);
                 return 0;
@@ -545,6 +551,7 @@ int qat_engine_init(ENGINE *e)
                 if (CPA_STATUS_FAIL == status) {
                     WARN("Error getting file descriptor for instance\n");
                     QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_FILE_DESCRIPTOR_FAILURE);
+                    pthread_key_delete(thread_local_variables);
                     pthread_mutex_unlock(&qat_engine_mutex);
                     qat_engine_finish(e);
                     return 0;
@@ -563,6 +570,7 @@ int qat_engine_init(ENGINE *e)
                               &eng_epoll_events[instNum])) {
                     WARN("Error adding fd to epoll\n");
                     QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_EPOLL_CTL_FAILURE);
+                    pthread_key_delete(thread_local_variables);
                     pthread_mutex_unlock(&qat_engine_mutex);
                     qat_engine_finish(e);
                     return 0;
@@ -579,6 +587,7 @@ int qat_engine_init(ENGINE *e)
         if (CPA_STATUS_SUCCESS != status ) {
             WARN("cpaCyInstanceGetInfo2 failed. status = %d\n", status);
             QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_GET_INSTANCE_INFO_FAILURE);
+            pthread_key_delete(thread_local_variables);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -596,6 +605,7 @@ int qat_engine_init(ENGINE *e)
         if (CPA_STATUS_SUCCESS != status) {
             WARN("cpaCySetAddressTranslation failed, status=%d\n", status);
             QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_SET_ADDRESS_TRANSLATION_FAILURE);
+            pthread_key_delete(thread_local_variables);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -606,6 +616,7 @@ int qat_engine_init(ENGINE *e)
         if (CPA_STATUS_SUCCESS != status) {
             WARN("cpaCyStartInstance failed, status=%d\n", status);
             QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_START_INSTANCE_FAILURE);
+            pthread_key_delete(thread_local_variables);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -623,6 +634,7 @@ int qat_engine_init(ENGINE *e)
             if (CPA_STATUS_SUCCESS != status) {
                 WARN("cpaCyInstanceSetNotificationCb failed, status=%d\n", status);
                 QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE);
+                pthread_key_delete(thread_local_variables);
                 pthread_mutex_unlock(&qat_engine_mutex);
                 qat_engine_finish(e);
                 return 0;
@@ -639,6 +651,7 @@ int qat_engine_init(ENGINE *e)
             if (ret_pthread_sigmask != 0) {
                 WARN("pthread_sigmask error\n");
                 QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_POLLING_THREAD_SIGMASK_FAILURE);
+                pthread_key_delete(thread_local_variables);
                 pthread_mutex_unlock(&qat_engine_mutex);
                 qat_engine_finish(e);
                 return 0;
@@ -650,6 +663,7 @@ int qat_engine_init(ENGINE *e)
             WARN("Creation of polling thread failed\n");
             QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_POLLING_THREAD_CREATE_FAILURE);
             polling_thread = pthread_self();
+            pthread_key_delete(thread_local_variables);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
@@ -657,6 +671,7 @@ int qat_engine_init(ENGINE *e)
         if (qat_adjust_thread_affinity(polling_thread) == 0) {
             WARN("Setting polling thread affinity failed\n");
             QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE);
+            pthread_key_delete(thread_local_variables);
             pthread_mutex_unlock(&qat_engine_mutex);
             qat_engine_finish(e);
             return 0;
