@@ -91,7 +91,7 @@ Heartbeat feature from version 4.6 of the following acceleration device:
 Note: Heartbeat feature support currently does not extend to Symmetric Chained
 Cipher Offload and PRF offload.
 
-[1]:https://www-ssl.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
+[1]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
 [2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
 [3]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8950-brief.html
 [4]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8920-brief.html
@@ -149,6 +149,17 @@ repository:
 
 [9]:https://github.com/openssl/openssl/pull/2581
 
+* Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
+  in release OpenSSL\* 1.1.1d.  This was fixed in a subsequent commit to
+  the OpenSSL\* 1.1.1 stable branch. As there were no high or medium security fixes
+  between OpenSSL\* 1.1.1c and OpenSSL\* 1.1.1d then it is recommended that you
+  use OpenSSL\* 1.1.1c.  If you are, however, using specific features of OpenSSL\* 1.1.1d
+  it is recommended that you rather build against an OpenSSL\* pulled from
+  the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715] [10] in which the
+  problem was fixed, or a later commit from this branch.
+
+[10]:https://github.com/openssl/openssl/pull/10080
+
 ## Installation Instructions
 
 ### Build Intel&reg; QuickAssist Technology Driver
@@ -170,9 +181,9 @@ Infrastructure Software - Getting Started Guide (333035)
 
 These instructions can be found on the 01.org website in the following section:
 
-[Intel&reg; QuickAssist Technology][10]
+[Intel&reg; QuickAssist Technology][11]
 
-[10]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
+[11]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
 
 ### Build OpenSSL\*
 
@@ -1388,9 +1399,9 @@ version 1.7 (336210) - Section 3.17 Heartbeat.
 
 This document can be found on the 01.org website at the following hyperlink:
 
-* [Intel&reg; QuickAssist Technology Programmer's Guide][11]
+* [Intel&reg; QuickAssist Technology Programmer's Guide][12]
 
-[11]:https://01.org/sites/default/files/downloads//336210-007qatswprogrammersguide.pdf
+[12]:https://01.org/sites/default/files/downloads/336210-007qatswprogrammersguide.pdf
 
 The Intel&reg; QuickAssist Heartbeat feature provides a mechanism for the
 Intel&reg; QAT OpenSSL\* Engine to detect unresponsive acceleration devices and
