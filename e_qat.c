@@ -476,6 +476,7 @@ int qat_engine_init(ENGINE *e)
                                       limitDevAccess)) {
         WARN("icp_sal_userStart failed\n");
         QATerr(QAT_F_QAT_ENGINE_INIT, QAT_R_ICP_SAL_USERSTART_FAIL);
+        pthread_key_delete(thread_local_variables);
         pthread_mutex_unlock(&qat_engine_mutex);
         return 0;
     }
@@ -1145,6 +1146,10 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     qat_instance_handles = NULL;
     keep_polling = 1;
     qatPerformOpRetries = 0;
+
+    DEBUG("Calling pthread_key_delete()\n");
+    pthread_key_delete(thread_local_variables);
+
 
     /* Reset the configuration global variables (to their default values) only
      * if requested, i.e. when we are not re-initializing the engine after
