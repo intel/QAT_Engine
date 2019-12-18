@@ -59,6 +59,7 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
         * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
         * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
         * NIST Koblitz Curves: K-163/K-233/K-283/K-409/K-571.
+        * Montgomery EC Curves: X25519/X448 (ECX).
     * ECDSA Support for the following curves:
         * NIST Prime Curves: P-192/P-224/P-256/P-384/P-521.
         * NIST Binary Curves: B-163/B-233/B-283/B-409/B-571.
@@ -90,7 +91,7 @@ Heartbeat feature from version 4.6 of the following acceleration device:
 * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
 
 Note: Heartbeat feature support currently does not extend to Symmetric Chained
-Cipher Offload, PRF and HKDF offload.
+Cipher Offload, PRF, HKDF & X25519/X448 offload.
 
 [1]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
 [2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
@@ -533,7 +534,8 @@ cd /path/to/openssl/apps
 ./openssl engine -t -c -vvvv qat
 (qat) Reference implementation of QAT crypto engine
  [RSA, DSA, DH, AES-128-CBC-HMAC-SHA1, AES-256-CBC-HMAC-SHA1,
- AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256, TLS1-PRF, HKDF]
+ AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256,
+ TLS1-PRF, HKDF, X25519, X448]
      [ available ]
      ENABLE_EXTERNAL_POLLING: Enables the external polling interface to the engine.
           (input flags): NO_INPUT
@@ -1030,6 +1032,9 @@ Optional
 --disable-qat_hkdf/--enable-qat_hkdf
     Disable/Enable Intel(R) QAT HKDF offload (enabled by default)
 
+--disable-qat_ecx/--enable-qat_ecx
+    Disable/Enable Intel(R) QAT X25519/X448 offload (enabled by default)
+
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
     Enable the offload of small packet cipher operations to Intel(R) QAT. When
     disabled, these operations are performed using the CPU (disabled by
@@ -1377,11 +1382,11 @@ Heartbeat feature only from version 4.6 of the following device:
     * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
 
  2. Intel&reg; QAT OpenSSL\* Engine needs to be configured to disable Symmetric
-Chained Cipher Offload, PRF and HKDF offload by adding the below three flags in
+Chained Cipher Offload, PRF, HKDF & X25519/X448 offload by adding the below four flags in
 the configure command of Intel&reg; QAT OpenSSL\* Engine build.
 
 ```bash
---disable-qat_ciphers --disable-qat_prf --disable-qat_hkdf
+--disable-qat_ciphers --disable-qat_prf --disable-qat_hkdf --disable-qat_ecx
 ```
 
 Information on this Heartbeat feature can be found in:

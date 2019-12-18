@@ -227,14 +227,29 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
+
+#  define DUMP_EC_MONTEDWDS_POINT_MULTIPLY(instance_handle, opData, pXk, pYk)  \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"EC ECX Point Multiply Request: %p\n", opData);\
+        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
+        DUMPL("k.pData", opData->k.pData, opData->k.dataLenInBytes);           \
+        DUMPL("x.pData", opData->x.pData, opData->x.dataLenInBytes);           \
+        fprintf(qatDebugLogFile,"opData: curveType = %d\n", opData->curveType);\
+        fprintf(qatDebugLogFile,"opData: generator = %d\n", opData->generator);\
+        fprintf(qatDebugLogFile,"pXk->dataLenInBytes = %u "                    \
+                "pXk->pData = %p\n", pXk->dataLenInBytes, pXk->pData);         \
+        fprintf(qatDebugLogFile,"=========================\n\n");              \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
 #  define DUMP_EC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY)         \
     do {                                                                       \
         fprintf(qatDebugLogFile,"=========================\n");                \
-        fprintf(qatDebugLogFile,"EC Point Multiply Output: pResultX %p, "      \
-                "pResultY %p\n", pResultX, pResultY);                          \
+        fprintf(qatDebugLogFile,"EC Point Multiply Output: pResultX %p \n",    \
+                pResultX);                          \
         fprintf(qatDebugLogFile,"bEcStatus = %u\n", bEcStatus);                \
         DUMPL("pResultX->pData", pResultX->pData, pResultX->dataLenInBytes);   \
-        DUMPL("pResultY->pData", pResultY->pData, pResultY->dataLenInBytes);   \
         fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
@@ -620,6 +635,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_DH_GEN_PHASE1_OUTPUT(...)
 #  define DUMP_DH_GEN_PHASE2_OUTPUT(...)
 #  define DUMP_EC_POINT_MULTIPLY(...)
+#  define DUMP_EC_MONTEDWDS_POINT_MULTIPLY(...)
 #  define DUMP_EC_POINT_MULTIPLY_OUTPUT(...)
 #  define DUMP_ECDSA_SIGN(...)
 #  define DUMP_ECDSA_SIGN_OUTPUT(...)

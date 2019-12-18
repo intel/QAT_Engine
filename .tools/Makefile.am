@@ -54,7 +54,8 @@ else
                                 qat_ec.c \
                                 qat_prf.c \
                                 qat_hkdf.c \
-                                qat_evp.c
+                                qat_evp.c \
+                                qat_ecx.c
 
  OPENSSL_VERSION_SPECIFIC_HDR = qat_ciphers.h \
                                 qat_dh.h \
@@ -94,7 +95,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver) \
             $(cflags_mem_driver) $(cflags_mux) $(enable_qat_rsa) \
             $(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
             $(enable_qat_dsa) $(enable_qat_dh) $(enable_qat_prf) \
-            $(enable_qat_hkdf) \
+            $(enable_qat_hkdf)  $(enable_qat_ecx) \
             $(enable_qat_small_pkt_offload) \
             $(enable_qat_lenstra_protection) \
             $(enable_qat_debug) $(enable_qat_warnings) \

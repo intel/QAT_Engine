@@ -53,5 +53,7 @@ int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
 EVP_PKEY_METHOD *qat_prf_pmeth(void);
 EVP_PKEY_METHOD *qat_hkdf_pmeth(void);
+EVP_PKEY_METHOD *qat_x25519_pmeth(void);
+EVP_PKEY_METHOD *qat_x448_pmeth(void);
 
 #endif

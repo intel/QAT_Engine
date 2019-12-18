@@ -746,13 +746,6 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
         return ret;
     }
 
-    /* Unsupported curve: X25519.
-     * Detect and call it's software implementation.
-     */
-    if (EC_GROUP_get_curve_name(group) == NID_X25519) {
-        return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
-    }
-
     ret = qat_ecdh_compute_key(out, outlen, NULL, NULL, pub_key, ecdh, &fallback);
     if (fallback == 1) {
         WARN("- Fallback to software mode.\n");
@@ -800,13 +793,6 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         WARN("Either ecdh or group are NULL\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_GROUP_NULL);
         return 0;
-    }
-
-    /* Unsupported curve: X25519.
-     * Detect and call it's software implementation.
-     */
-    if (EC_GROUP_get_curve_name(group) == NID_X25519) {
-        return (*gen_key_pfunc)(ecdh);
     }
 
     if ((ctx = BN_CTX_new()) == NULL) {

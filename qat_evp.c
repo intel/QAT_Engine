@@ -57,7 +57,9 @@
 /* Supported EVP nids */
 int qat_evp_nids[] = {
     EVP_PKEY_TLS1_PRF,
-    EVP_PKEY_HKDF
+    EVP_PKEY_HKDF,
+    EVP_PKEY_X25519,
+    EVP_PKEY_X448
 };
 const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
 
@@ -77,6 +79,10 @@ static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
             return qat_prf_pmeth();
         case EVP_PKEY_HKDF:
             return qat_hkdf_pmeth();
+        case EVP_PKEY_X25519:
+            return qat_x25519_pmeth();
+        case EVP_PKEY_X448:
+            return qat_x448_pmeth();
         default:
             WARN("Invalid nid %d\n", nid);
             return NULL;
@@ -96,10 +102,10 @@ static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
  * @param nid    [IN] - EVP operation id
  *
  * description:
- *   Qat engine digest operations registrar
+ *   QAT engine digest operations registrar
 ******************************************************************************/
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
-                         const int **nids, int nid)
+                     const int **nids, int nid)
 {
     int i;
     if (pmeth == NULL) {

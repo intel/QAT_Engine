@@ -62,6 +62,13 @@ AC_ARG_ENABLE(qat_hkdf,
                              [Enable accelerated HKDF offload]))
 AC_SUBST(enable_qat_hkdf)
 
+
+AC_ARG_ENABLE(qat_ecx,
+              AS_HELP_STRING([--disable-qat_ecx],
+                             [Disable accelerated X25519/X448 offload]))
+AC_SUBST(enable_qat_ecx)
+
+
 AC_ARG_ENABLE(qat_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_small_pkt_offload],
                              [Enable accelerated small packet CIPHER offload]))
@@ -297,6 +304,17 @@ else
   enable_qat_hkdf="-DOPENSSL_DISABLE_QAT_HKDF"
   AC_MSG_NOTICE([Not Offloading HKDF to Hardware])
 fi
+
+
+if test "x$enable_qat_ecx" != "xno"
+then
+  enable_qat_ecx="-DOPENSSL_ENABLE_QAT_ECX"
+  AC_MSG_NOTICE([Offloading X25519/X448 to Hardware])
+else
+  enable_qat_ecx="-DOPENSSL_DISABLE_QAT_ECX"
+  AC_MSG_NOTICE([Not Offloading X25519/X448 to Hardware])
+fi
+
 
 if test "x$enable_qat_small_pkt_offload" = "xyes"
 then
