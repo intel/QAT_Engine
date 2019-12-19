@@ -104,11 +104,14 @@ const RSA_METHOD *RSA_PKCS1_OpenSSL(void)
 
 RSA_METHOD *RSA_meth_new(const char *name, int flags)
 {
-    RSA_METHOD *meth = OPENSSL_malloc(sizeof(RSA_METHOD));
+    RSA_METHOD *meth = OPENSSL_zalloc(sizeof(RSA_METHOD));
 
     if (meth != NULL) {
-        memset(meth, 0, sizeof(RSA_METHOD));
         meth->name = OPENSSL_strdup(name);
+        if (meth->name == NULL) {
+            OPENSSL_free(meth);
+            return NULL;
+        }
         meth->flags = flags;
     }
 
