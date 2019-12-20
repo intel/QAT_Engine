@@ -264,7 +264,7 @@ the Compilation and Installation section:
 
 Clone the Github\* repository containing the Intel&reg; QAT OpenSSL\* Engine:
 
-    git clone https://github.com/01org/QAT_Engine.git
+    git clone https://github.com/intel/QAT_Engine.git
 
 The repository can be cloned to either a subdirectory within the OpenSSL\*
 repository, for instance if the OpenSSL\* source is located at `/openssl` then
