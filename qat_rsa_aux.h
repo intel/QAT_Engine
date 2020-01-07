@@ -103,6 +103,11 @@ int RSA_meth_set_bn_mod_exp(RSA_METHOD *meth,
                                                BN_CTX *ctx,
                                                BN_MONT_CTX *m_ctx));
 
+int (*RSA_meth_get_init(const RSA_METHOD *meth)) (RSA *rsa);
+int RSA_meth_set_init(RSA_METHOD *rsa, int (*init) (RSA *rsa));
+int (*RSA_meth_get_finish(const RSA_METHOD *meth)) (RSA *rsa);
+int RSA_meth_set_finish(RSA_METHOD *rsa, int (*finish) (RSA *rsa));
+
 #endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
 
 

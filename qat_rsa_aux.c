@@ -223,4 +223,26 @@ int RSA_meth_set_bn_mod_exp(RSA_METHOD *meth,
     return 1;
 }
 
+int RSA_meth_set_init(RSA_METHOD *meth, int (*init) (RSA *rsa))
+{
+    meth->init = init;
+    return 1;
+}
+
+int (*RSA_meth_get_init(const RSA_METHOD *meth)) (RSA *rsa)
+{
+    return meth->init;
+}
+
+int RSA_meth_set_finish(RSA_METHOD *meth, int (*finish) (RSA *rsa))
+{
+    meth->finish = finish;
+    return 1;
+}
+
+int (*RSA_meth_get_finish(const RSA_METHOD *meth)) (RSA *rsa)
+{
+    return meth->finish;
+}
+
 #endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
