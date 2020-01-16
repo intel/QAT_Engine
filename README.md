@@ -675,12 +675,12 @@ defined as follows:
 
 Where:
 
-   - &lt;Engine&gt; is a pointer to the Intel&reg; QAT enabled OpenSSL\* Engine.
-   - &lt;Message String&gt; is a string representing the message type.
-   - &lt;Param 3&gt; is a long that can be used to pass a number, or a pointer
+   - `<Engine>` is a pointer to the Intel&reg; QAT enabled OpenSSL\* Engine.
+   - `<Message String>` is a string representing the message type.
+   - `<Param 3>` is a long that can be used to pass a number, or a pointer
      can be cast to it.
-   - &lt;Param 4&gt; is a void pointer used to pass data structures in.
-   - The last 2 parameters are always NULL and 0 when used with the Intel&reg;
+   - `<Param 4>` is a void pointer used to pass data structures in.
+   - The last two parameters are always `NULL` and 0 when used with the Intel&reg;
      QAT OpenSSL\* Engine.
 
 ```text
