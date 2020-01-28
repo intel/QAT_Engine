@@ -11,7 +11,8 @@ if QAT_CONTIG_MEM
 endif
 
 if QAT_MULTI_THREAD
- MEM_LIB_SRC = multi_thread_qaememutils.c
+ MEM_LIB_SRC = multi_thread_qaememutils.c \
+               qat_sys_call.c
 endif
 
 if QAE_MEM

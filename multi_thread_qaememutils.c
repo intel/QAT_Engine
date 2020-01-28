@@ -113,8 +113,8 @@ static int slot_sizes_available[] = {
     SLOT_16_KILOBYTES,
     SLOT_32_KILOBYTES
 };
-
 #define unlikely(x) __builtin_expect (!!(x), 0)
+static int crypto_inited = 0;
 
 typedef struct _qae_slot {
     struct _qae_slot *next;
@@ -179,7 +179,7 @@ static void init_pool(qae_slab_pool *list)
 static qae_slab * get_node_from_head(qae_slab_pool *list)
 {
     qae_slab *ret = NULL;
-    if(list->slot_size <= 0)
+    if (list->slot_size <= 0)
         return ret;
     ret = list->next;
     ret->next->prev = (qae_slab *)list;
@@ -192,7 +192,7 @@ static qae_slab * get_node_from_head(qae_slab_pool *list)
 /* remove the node from a list */
 static unsigned int remove_node_from_list(qae_slab_pool *list, qae_slab *node)
 {
-    if(!(node && list->slot_size > 0)) {
+    if (!(node && list->slot_size > 0)) {
         return 0;
     }
     node->prev->next = node->next;
@@ -437,7 +437,7 @@ static qae_slab *crypto_get_empty_slab(int size, int pool_index,
     qae_slab *result = NULL;
     qae_slab_pools_local *tls_ptr = (qae_slab_pools_local *)thread_key;
     result = get_node_from_head(&tls_ptr->empty_slab_list[pool_index]);
-    if(result == NULL) {
+    if (result == NULL) {
         result = crypto_create_slab(size,pool_index,
                                     tls_ptr->crypto_qat_contig_memfd);
     }
@@ -468,11 +468,10 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
 
     tls_ptr = (qae_slab_pools_local *)pthread_getspecific(qae_key);
 
-    if(tls_ptr == NULL) {
-        crypto_init();
-        tls_ptr = (qae_slab_pools_local *)pthread_getspecific(qae_key);
+    if (tls_ptr == NULL) {
+        MEM_WARN("error, unable to initialise slab allocator\n");
+        goto exit;
     }
-
     size += sizeof(qae_slot);
     size += QAE_BYTE_ALIGNMENT;
 
@@ -494,7 +493,7 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
         }
     }
 
-    if(tls_ptr->available_slab_list[i].slot_size > 0) {
+    if (tls_ptr->available_slab_list[i].slot_size > 0) {
         slt = tls_ptr->available_slab_list[i].next->next_slot;
     } else {
         /* no free slots need to allocate new slab */
@@ -527,7 +526,7 @@ static void *crypto_alloc_from_slab(int size, const char *file, int line)
     slt->next = NULL;
     /* if current slab has no slot available, remove the slab from
      * available slab list and add it to the full slab list */
-    if(slb->used_slots >= slb->total_slots) {
+    if (slb->used_slots >= slb->total_slots) {
         remove_node_from_list(&tls_ptr->available_slab_list[i],slb);
         insert_node_at_end(&tls_ptr->full_slab_list,slb);
         slb->list_index = IN_FULL_LIST;
@@ -612,7 +611,7 @@ static void crypto_free_to_slab(void *ptr)
     slb->used_slots--;
     /* if the used_slots is 0, this slab is empty, it should be
      * processed properly */
-    if(slb->used_slots == 0) {
+    if (slb->used_slots == 0) {
         /* remove this slab from the slab list */
         switch(slb->list_index) {
             case IN_AVAILABLE_LIST:
@@ -625,7 +624,7 @@ static void crypto_free_to_slab(void *ptr)
                 break;
         }
         /* free slab or assign it to the head of the empty slab list */
-        if(tls_ptr->empty_slab_list[i].slot_size >= MAX_EMPTY_SLAB) {
+        if (tls_ptr->empty_slab_list[i].slot_size >= MAX_EMPTY_SLAB) {
             crypto_free_slab(slb,(void *)tls_ptr);
             slb = NULL;
         } else {
@@ -796,7 +795,7 @@ void crypto_free_empty_slab_list(void *thread_key)
 {
     int i;
     qae_slab_pools_local *tls_ptr = (qae_slab_pools_local *)thread_key;
-    for(i = 0; i < NUM_SLOT_SIZE; i++) {
+    for (i = 0; i < NUM_SLOT_SIZE; i++) {
         crypto_free_slab_list(&tls_ptr->empty_slab_list[i],
                               tls_ptr->crypto_qat_contig_memfd);
     }
@@ -814,7 +813,7 @@ void slab_list_stat(qae_slab_pool * list)
 {
     qae_slab *slb;
     int index;
-    if(0 == list->slot_size) {
+    if (0 == list->slot_size) {
         MEM_DEBUG("The list is empty.\n");
         return;
     }
@@ -849,7 +848,7 @@ void crypto_cleanup_slabs(void *thread_key)
 #ifdef QAT_MEM_DEBUG
     int i;
     /* statistics of available slab lists */
-    for(i = 0;  i < NUM_SLOT_SIZE; i++) {
+    for (i = 0;  i < NUM_SLOT_SIZE; i++) {
         MEM_DEBUG("available_slab_list[%d]:\n",i);
         slab_list_stat(&tls_ptr->available_slab_list[i]);
     }
@@ -894,6 +893,7 @@ static void crypto_init(void)
         exit(EXIT_FAILURE);
     }
 #endif
+    crypto_inited = 1;
 }
 
 /*****************************************************************************
@@ -911,7 +911,7 @@ void qaeCryptoAtFork()
                     (qae_slab_pools_local *)pthread_getspecific(qae_key);
 
     fork_slab_list(&tls_ptr->full_slab_list,tls_ptr->crypto_qat_contig_memfd);
-    for(i = 0;i < NUM_SLOT_SIZE; i++) {
+    for (i = 0;i < NUM_SLOT_SIZE; i++) {
         fork_slab_list(&tls_ptr->empty_slab_list[i],
                        tls_ptr->crypto_qat_contig_memfd);
         fork_slab_list(&tls_ptr->available_slab_list[i],
@@ -951,7 +951,7 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
             (ptrdiff_t)(MAX_PAGES*PAGE_SIZE-1);
 
    memCfg = (qat_contig_mem_config *)pVirtPageAddress;
-   if(memCfg->signature == QAT_CONTIG_MEM_ALLOC_SIG)
+   if (memCfg->signature == QAT_CONTIG_MEM_ALLOC_SIG)
        return (CpaPhysicalAddr)(memCfg->physicalAddress + offset);
    MEM_WARN("Virtual to Physical memory lookup failure\n");
    return (CpaPhysicalAddr)0;
@@ -976,6 +976,8 @@ CpaPhysicalAddr qaeCryptoMemV2P(void *v)
 ******************************************************************************/
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
+    if (!crypto_inited)
+        crypto_init();
     /* Input params should already have been sanity-checked by calling function. */
     void *pAddress = crypto_alloc_from_slab(memsize, file, line);
     MEM_DEBUG("Address: %p Size: %lu File: %s:%d\n",
@@ -1031,6 +1033,8 @@ void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
         return NULL;
     }
 
+    if (!crypto_inited)
+        crypto_init();
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
     if (n == NULL) {
@@ -1082,6 +1086,8 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
         MEM_WARN("original_size : %zd > memsize : %zd", original_size, memsize);
         return NULL;
     }
+    if (!crypto_inited)
+        crypto_init();
 
     int copy = crypto_slot_get_size(ptr);
     void *n = crypto_alloc_from_slab(memsize, file, line);
