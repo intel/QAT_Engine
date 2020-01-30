@@ -5,7 +5,7 @@
  *
  *   GPL LICENSE SUMMARY
  *
- *   Copyright(c) 2007-2019 Intel Corporation.
+ *   Copyright(c) 2007-2020 Intel Corporation.
  *   All rights reserved.
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2007-2019 Intel Corporation.
+ *   Copyright(c) 2007-2020 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without

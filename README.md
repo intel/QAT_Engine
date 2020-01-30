@@ -131,7 +131,7 @@ repository:
 ## Limitations
 
 * When using TLS 1.3 only asymmetric PKE and HKDF offload is supported.
-  And the symmetric ciphers currently offloaded are not compatible with
+  The symmetric ciphers currently offloaded are not compatible with
   the TLS 1.3 symmetric ciphers which are AES-GCM or ChaCha-Poly based.
 * When forking within an application it is not valid for a cryptographic
   operation to be started in the parent process, and completed in the child
@@ -874,8 +874,8 @@ Description:
     The first (i.e, value 1) is used to retrieve the number of asymmetric-key
     in-flight requests. The second (i.e, value 2) is used to retrieve the number
     of KDF(PRF and HKDF) in-flight requests.  The last (i.e, value 3) is used to
-    retrieve the number of cipher in-flight requests (when OpenSSL* pipelining
-    feature is not used), or the number of in-flight pipelines (when OpenSSL*
+    retrieve the number of cipher in-flight requests (when the OpenSSL* pipelining
+    feature is not used), or the number of in-flight pipelines (when the OpenSSL*
     pipelining feature is used).
     The address of the variable recording the specified info is returned by
     assigning to the dereferenced int address passed as Param 4. This means the
@@ -1452,4 +1452,4 @@ Intel Corporation in the U.S. and/or other countries.
 
 \*Other names and brands may be claimed as the property of others.
 
-Copyright &copy; 2016-2019, Intel Corporation. All rights reserved.
+Copyright &copy; 2016-2020, Intel Corporation. All rights reserved.
