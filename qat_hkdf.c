@@ -562,9 +562,8 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         goto err;
     }
 
-    generated_key =
-        (CpaFlatBuffer *) qaeCryptoMemAlloc(sizeof(CpaFlatBuffer), __FILE__,
-                                            __LINE__);
+    generated_key = (CpaFlatBuffer *) OPENSSL_zalloc(sizeof(CpaFlatBuffer));
+
     if (NULL == generated_key) {
         WARN("Failed to allocate memory for generated_key\n");
         QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_MALLOC_FAILURE);
@@ -752,18 +751,12 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
  err:
     /* Clean the memory  */
     if (NULL != qat_hkdf_ctx->hkdf_op_data) {
-        OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->seed,
-                        qat_hkdf_ctx->hkdf_op_data->seedLen);
-        OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->secret,
-                        qat_hkdf_ctx->hkdf_op_data->secretLen);
-        OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->info,
-                        qat_hkdf_ctx->hkdf_op_data->infoLen);
         if (NULL != generated_key) {
             if (NULL != generated_key->pData) {
                 OPENSSL_cleanse(generated_key->pData, key_length);
                 qaeCryptoMemFree(generated_key->pData);
             }
-            qaeCryptoMemFree(generated_key);
+            OPENSSL_free(generated_key);
         }
     }
 
