@@ -586,6 +586,15 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         return ret;
     }
 
+    if ((qat_prf_ctx->qat_md == NULL) || (qat_prf_ctx->qat_sec == NULL) ||
+        (qat_prf_ctx->qat_seedlen == 0)) {
+        WARN("Either md %p, secret %p, or seedlen %zu is ZERO\n",
+             qat_prf_ctx->qat_md, qat_prf_ctx->qat_sec,
+             qat_prf_ctx->qat_seedlen);
+        QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_PASSED_NULL_PARAMETER);
+        return ret;
+    }
+
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
     key_length = *olen;
 
