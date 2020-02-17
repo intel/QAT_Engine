@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2020 Intel Corporation.
+ *   Copyright(c) 2020 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -37,54 +37,39 @@
  */
 
 /*****************************************************************************
- * @file qat_fork.h
+ * @file multibuff_freelist.h
  *
- * This file provides an interface for forking in engine
+ * This file provides the data structure for storing unused multibuff requests
+ * avoiding expensive malloc/frees in the data path.
  *
  *****************************************************************************/
 
-#ifndef QAT_FORK_H
-# define QAT_FORK_H
+#ifndef MULTIBUFF_FREELIST_H
+# define MULTIBUFF_FREELIST_H
 
-# ifndef OPENSSL_MULTIBUFF_OFFLOAD
-#  include "qat_init.h"
-# else
-#  include "multibuff_init.h"
-# endif
+# include <stdio.h>
+# include "multibuff_request.h"
 
+typedef struct _mb_flist_rsa_priv
+{
+    pthread_mutex_t mb_flist_mutex;
+    rsa_priv_op_data *head;
+} mb_flist_rsa_priv;
 
-/******************************************************************************
- * function:
- *         void engine_init_child_at_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be invoked in the child process prior to fork() returning.
- ******************************************************************************/
-void engine_init_child_at_fork_handler(void);
+typedef struct _mb_flist_rsa_pub
+{
+    pthread_mutex_t mb_flist_mutex;
+    rsa_pub_op_data *head;
+} mb_flist_rsa_pub;
 
-/******************************************************************************
- * function:
- *         void engine_finish_before_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be run (by the parent process) before a fork() function.
- ******************************************************************************/
-void engine_finish_before_fork_handler(void);
+int mb_flist_rsa_priv_create(mb_flist_rsa_priv *freelist, int num_items);
+int mb_flist_rsa_priv_cleanup(mb_flist_rsa_priv *freelist);
+int mb_flist_rsa_priv_push(mb_flist_rsa_priv *freelist, rsa_priv_op_data *item);
+rsa_priv_op_data * mb_flist_rsa_priv_pop(mb_flist_rsa_priv *flist);
 
-/******************************************************************************
- * function:
- *         int qat_set_instance_for_thread(long instanceNum)
- *
- * @param instanceNum [IN] - logical instance number
- *
- * description:
- *   Bind the current thread to a particular logical Cy instance. Note that if
- *   instanceNum is greater than the number of configured instances, the
- *   modulus operation is used.
- *
- ******************************************************************************/
-int qat_set_instance_for_thread(long instanceNum);
+int mb_flist_rsa_pub_create(mb_flist_rsa_pub *freelist, int num_items);
+int mb_flist_rsa_pub_cleanup(mb_flist_rsa_pub *freelist);
+int mb_flist_rsa_pub_push(mb_flist_rsa_pub *freelist, rsa_pub_op_data *item);
+rsa_pub_op_data * mb_flist_rsa_pub_pop(mb_flist_rsa_pub *flist);
 
-#endif   /* QAT_FORK_H */
+#endif /* MULTIBUFF_FREELIST_H */

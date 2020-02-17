@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2020 Intel Corporation.
+ *   Copyright(c) 2020 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -37,45 +37,22 @@
  */
 
 /*****************************************************************************
- * @file qat_polling.h
+ * @file multibuff_polling.h
  *
- * This file provides an interface for polling in QAT engine
+ * This file provides an interface for multibuff polling in QAT engine
  *
  *****************************************************************************/
 
-#ifndef QAT_POLLING_H
-# define QAT_POLLING_H
+#ifndef MULIBUFF_POLLING_H
+# define MULTIBUFF_POLLING_H
 
-# ifndef OPENSSL_MULTIBUFF_OFFLOAD
-#  include "cpa.h"
-#  include "cpa_types.h"
-#  include "qat_init.h"
-# else
-#  include "multibuff_init.h"
-# endif
+#include "multibuff_init.h"
 
-# include <sys/epoll.h>
-
-# define MAX_EVENTS 32
-
-/* Globals */
-typedef struct {
-    int eng_fd;
-    int inst_index;
-} ENGINE_EPOLL_ST;
-
-extern struct epoll_event eng_epoll_events[QAT_MAX_CRYPTO_INSTANCES];
-extern int internal_efd;
-extern ENGINE_EPOLL_ST eng_poll_st[QAT_MAX_CRYPTO_INSTANCES];
-
-int getQatMsgRetryCount();
-useconds_t getQatPollInterval();
-int getEnableInlinePolling();
 /******************************************************************************
  * function:
- *         int qat_create_thread(pthread_t *pThreadId,
- *                               const pthread_attr_t *attr,
- *                               void *(*start_func) (void *), void *pArg)
+ *         int multibuff_create_thread(pthread_t *pThreadId,
+ *                                     const pthread_attr_t *attr,
+ *                                     void *(*start_func) (void *), void *pArg)
  *
  * @param pThreadId  [OUT] - Pointer to Thread ID
  * @param start_func [IN]  - Pointer to Thread Start routine
@@ -85,12 +62,12 @@ int getEnableInlinePolling();
  * description:
  *   Wrapper function for pthread_create
  ******************************************************************************/
-int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
-                      void *(*start_func) (void *), void *pArg);
+int multibuff_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
+                            void *(*start_func) (void *), void *pArg);
 
 /******************************************************************************
  * function:
- *         int qat_join_thread(pthread_t threadId, void **retval)
+ *         int multibuff_join_thread(pthread_t threadId, void **retval)
  *
  * @param pThreadId  [IN ] - Thread ID of the created thread
  * @param retval     [OUT] - Pointer that contains thread's exit status
@@ -98,12 +75,12 @@ int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
  * description:
  *   Wrapper function for pthread_create
  ******************************************************************************/
-int qat_join_thread(pthread_t threadId, void **retval);
+int multibuff_join_thread(pthread_t threadId, void **retval);
 
 
 /******************************************************************************
  * function:
- *         int qat_adjust_thread_affinity(pthread_t threadptr);
+ *         int multibuff_adjust_thread_affinity(pthread_t threadptr);
  *
  * @param threadptr[IN ] - Thread ID
  *
@@ -111,7 +88,7 @@ int qat_join_thread(pthread_t threadId, void **retval);
  *    Sets the CPU affinity mask using pthread_setaffinity_np
  *    and returns the CPU affinity mask using pthread_getaffinity_np
  ******************************************************************************/
-int qat_adjust_thread_affinity(pthread_t threadptr);
+int multibuff_adjust_thread_affinity(pthread_t threadptr);
 
 /******************************************************************************
  * function:
@@ -120,18 +97,13 @@ int qat_adjust_thread_affinity(pthread_t threadptr);
  * @param ih [IN] - NULL
  *
  * description:
- *   Poll the QAT instances (nanosleep version)
- *     NB: Delay in this function is set by default at runtime by an engine
- *     specific message. If not set then the default is QAT_POLL_PERIOD_IN_NS.
- *     This function uses pthread signals to wait for a signal
- *     that there is traffic to process and therefore that QAT engine polling
- *     needs to be started/resumed.
+ *   Poll the multibuff request (nanosleep version)
+ *   NB: Delay in this function is set by default at runtime by an engine
+ *   specific message. If not set then the default is QAT_POLL_PERIOD_IN_NS.
  *
  ******************************************************************************/
 void *timer_poll_func(void *ih);
 
-void *event_poll_func(void *ih);
-CpaStatus poll_instances(void);
-CpaStatus poll_heartbeat(void);
+int multibuff_poll();
 
-#endif   /* QAT_POLLING_H */
+#endif   /* MULTIBUFF_POLLING_H */

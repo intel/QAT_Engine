@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2020 Intel Corporation.
+ *   Copyright(c) 2020 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -37,54 +37,25 @@
  */
 
 /*****************************************************************************
- * @file qat_fork.h
+ * @file multibuff_rsa.h
  *
- * This file provides an interface for forking in engine
+ * This file provides an RSA interface for multibuffer implemention of an
+ * OpenSSL engine
  *
  *****************************************************************************/
 
-#ifndef QAT_FORK_H
-# define QAT_FORK_H
+#ifndef MULTIBUFF_RSA_H
+# define MULTIBUFF_RSA_H
 
-# ifndef OPENSSL_MULTIBUFF_OFFLOAD
-#  include "qat_init.h"
-# else
-#  include "multibuff_init.h"
-# endif
+# include <openssl/rsa.h>
 
+/* Multibuffer RSA methods declaration */
 
-/******************************************************************************
- * function:
- *         void engine_init_child_at_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be invoked in the child process prior to fork() returning.
- ******************************************************************************/
-void engine_init_child_at_fork_handler(void);
+RSA_METHOD *multibuff_get_RSA_methods(void);
 
-/******************************************************************************
- * function:
- *         void engine_finish_before_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be run (by the parent process) before a fork() function.
- ******************************************************************************/
-void engine_finish_before_fork_handler(void);
+void multibuff_free_RSA_methods(void);
 
-/******************************************************************************
- * function:
- *         int qat_set_instance_for_thread(long instanceNum)
- *
- * @param instanceNum [IN] - logical instance number
- *
- * description:
- *   Bind the current thread to a particular logical Cy instance. Note that if
- *   instanceNum is greater than the number of configured instances, the
- *   modulus operation is used.
- *
- ******************************************************************************/
-int qat_set_instance_for_thread(long instanceNum);
+void process_RSA_priv_reqs();
+void process_RSA_pub_reqs();
 
-#endif   /* QAT_FORK_H */
+#endif /* MULTIBUFF_RSA_H */

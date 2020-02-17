@@ -61,30 +61,35 @@
 #include <sys/eventfd.h>
 #include <unistd.h>
 
-/* Local Includes */
-#include "e_qat.h"
-#include "qat_events.h"
-#include "qat_utils.h"
-#include "e_qat_err.h"
-
 /* OpenSSL Includes */
 #include <openssl/err.h>
 
 /* QAT includes */
-#ifdef USE_QAT_CONTIG_MEM
-# include "qae_mem_utils.h"
+#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+# ifdef USE_QAT_CONTIG_MEM
+#  include "qae_mem_utils.h"
+# endif
+# ifdef USE_QAE_MEM
+#  include "cmn_mem_drv_inf.h"
+# endif
+# include "cpa.h"
+# include "cpa_types.h"
+# include "qat_init.h"
+#else
+# include "multibuff_init.h"
 #endif
-#ifdef USE_QAE_MEM
-# include "cmn_mem_drv_inf.h"
-#endif
-#include "cpa.h"
-#include "cpa_types.h"
 
+/* Local Includes */
+#include "qat_events.h"
+#include "qat_utils.h"
+#include "e_qat_err.h"
 
+#ifndef OPENSSL_MULTIBUFF_OFFLOAD
 int qat_is_event_driven()
 {
     return enable_event_driven_polling;
 }
+#endif
 
 static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
                            OSSL_ASYNC_FD readfd, void *custom)

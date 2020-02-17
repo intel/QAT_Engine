@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2020 Intel Corporation.
+ *   Copyright(c) 2020 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -37,54 +37,59 @@
  */
 
 /*****************************************************************************
- * @file qat_fork.h
+ * @file multibuff_request.h
  *
- * This file provides an interface for forking in engine
+ * This file provides the data structure for buffering mulibuff requests
  *
  *****************************************************************************/
 
-#ifndef QAT_FORK_H
-# define QAT_FORK_H
+#ifndef MULTIBUFF_REQUEST_H
+# define MULTIBUFF_REQUEST_H
 
-# ifndef OPENSSL_MULTIBUFF_OFFLOAD
-#  include "qat_init.h"
-# else
-#  include "multibuff_init.h"
-# endif
+# include <stdio.h>
+# include <stdint.h>
+# include <openssl/async.h>
+# include <openssl/bn.h>
+# include <openssl/rsa.h>
 
+typedef struct _rsa_priv_op_data {
+    struct _rsa_priv_op_data *next;
+    struct _rsa_priv_op_data *prev;
+    int type;
+    int flen;
+    const unsigned char * from;
+    unsigned char padded_buf[512];
+    unsigned char *to;
+    unsigned char lenstra_to[512];
+    const BIGNUM *d;
+    const BIGNUM *e;
+    const BIGNUM *n;
+    const BIGNUM *p;
+    const BIGNUM *q;
+    const BIGNUM *dmp1;
+    const BIGNUM *dmq1;
+    const BIGNUM *iqmp;
+    RSA *rsa;
+    int padding;
+    ASYNC_JOB *job;
+    int *sts;
+    int disable_lenstra_check;
+} rsa_priv_op_data;
 
-/******************************************************************************
- * function:
- *         void engine_init_child_at_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be invoked in the child process prior to fork() returning.
- ******************************************************************************/
-void engine_init_child_at_fork_handler(void);
+typedef struct _rsa_pub_op_data {
+    struct _rsa_pub_op_data *next;
+    struct _rsa_pub_op_data *prev;
+    int type;
+    int flen;
+    const unsigned char *from;
+    unsigned char padded_buf[512];
+    unsigned char *to;
+    const BIGNUM *e;
+    const BIGNUM *n;
+    RSA *rsa;
+    int padding;
+    ASYNC_JOB *job;
+    int *sts;
+} rsa_pub_op_data;
 
-/******************************************************************************
- * function:
- *         void engine_finish_before_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be run (by the parent process) before a fork() function.
- ******************************************************************************/
-void engine_finish_before_fork_handler(void);
-
-/******************************************************************************
- * function:
- *         int qat_set_instance_for_thread(long instanceNum)
- *
- * @param instanceNum [IN] - logical instance number
- *
- * description:
- *   Bind the current thread to a particular logical Cy instance. Note that if
- *   instanceNum is greater than the number of configured instances, the
- *   modulus operation is used.
- *
- ******************************************************************************/
-int qat_set_instance_for_thread(long instanceNum);
-
-#endif   /* QAT_FORK_H */
+#endif /* MULTIBUFF_REQUEST_H */

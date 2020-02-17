@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2020 Intel Corporation.
+ *   Copyright(c) 2020 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -37,54 +37,49 @@
  */
 
 /*****************************************************************************
- * @file qat_fork.h
+ * @file multibuff_queue.h
  *
- * This file provides an interface for forking in engine
+ * This file provides the data structure for storing up multibuff requests
+ * so multiple request can be processed in one operation.
  *
  *****************************************************************************/
 
-#ifndef QAT_FORK_H
-# define QAT_FORK_H
+#ifndef MULTIBUFF_QUEUE_H
+# define MULTIBUFF_QUEUE_H
 
-# ifndef OPENSSL_MULTIBUFF_OFFLOAD
-#  include "qat_init.h"
-# else
-#  include "multibuff_init.h"
-# endif
+# include <stdio.h>
+# include "multibuff_request.h"
 
+typedef struct _mb_queue_rsa_priv
+{
+    pthread_mutex_t mb_queue_mutex;
+    rsa_priv_op_data *head;
+    rsa_priv_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_rsa_priv;
 
-/******************************************************************************
- * function:
- *         void engine_init_child_at_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be invoked in the child process prior to fork() returning.
- ******************************************************************************/
-void engine_init_child_at_fork_handler(void);
+typedef struct _mb_queue_rsa_pub
+{
+    pthread_mutex_t mb_queue_mutex;
+    rsa_pub_op_data *head;
+    rsa_pub_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_rsa_pub;
 
-/******************************************************************************
- * function:
- *         void engine_finish_before_fork_handler(void)
- *
- * description:
- *   This function is registered, by the call to pthread_atfork(), as
- *   a function to be run (by the parent process) before a fork() function.
- ******************************************************************************/
-void engine_finish_before_fork_handler(void);
+int mb_queue_rsa_priv_create(mb_queue_rsa_priv *queue);
+int mb_queue_rsa_priv_disable(mb_queue_rsa_priv * queue);
+int mb_queue_rsa_priv_cleanup(mb_queue_rsa_priv * queue);
+int mb_queue_rsa_priv_enqueue(mb_queue_rsa_priv *queue, rsa_priv_op_data *item);
+rsa_priv_op_data *mb_queue_rsa_priv_dequeue(mb_queue_rsa_priv *queue);
+int mb_queue_rsa_priv_get_size(mb_queue_rsa_priv *queue);
 
-/******************************************************************************
- * function:
- *         int qat_set_instance_for_thread(long instanceNum)
- *
- * @param instanceNum [IN] - logical instance number
- *
- * description:
- *   Bind the current thread to a particular logical Cy instance. Note that if
- *   instanceNum is greater than the number of configured instances, the
- *   modulus operation is used.
- *
- ******************************************************************************/
-int qat_set_instance_for_thread(long instanceNum);
+int mb_queue_rsa_pub_create(mb_queue_rsa_pub *queue);
+int mb_queue_rsa_pub_disable(mb_queue_rsa_pub * queue);
+int mb_queue_rsa_pub_cleanup(mb_queue_rsa_pub * queue);
+int mb_queue_rsa_pub_enqueue(mb_queue_rsa_pub *queue, rsa_pub_op_data *item);
+rsa_pub_op_data *mb_queue_rsa_pub_dequeue(mb_queue_rsa_pub *queue);
+int mb_queue_rsa_pub_get_size(mb_queue_rsa_pub *queue);
 
-#endif   /* QAT_FORK_H */
+#endif /* MULTIBUFF_QUEUE_H */

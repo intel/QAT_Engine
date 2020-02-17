@@ -48,15 +48,19 @@
 
 # include <stdio.h>
 # include <pthread.h>
-# include "cpa.h"
-# include "cpa_cy_sym.h"
+# include <unistd.h>
+# include <stdint.h>
+# ifndef OPENSSL_MULTIBUFF_OFFLOAD
+#  include "cpa.h"
+#  include "cpa_cy_sym.h"
+# endif
 
 # define QAT_BYTE_ALIGNMENT 64
+# define NANO_TO_MICROSECS 1000
 /* For best performance data buffers should be 64-byte aligned */
 # define QAT_CONTIG_MEM_ALIGN(x)                              \
          (void *)(((uintptr_t)(x) + QAT_BYTE_ALIGNMENT - 1) & \
          (~(uintptr_t)(QAT_BYTE_ALIGNMENT-1)))
-
 
 extern FILE* qatDebugLogFile;
 
@@ -124,11 +128,17 @@ do {                                                \
 void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                   int l);
 
-#  define DEBUG(fmt_str, ...)                                    \
-    do {                                                         \
-        fprintf(qatDebugLogFile,"[DEBUG][%s:%d:%s()] "fmt_str,   \
-                __FILE__, __LINE__, __func__, ##__VA_ARGS__);    \
-        fflush(qatDebugLogFile);                                 \
+#  define DEBUG(fmt_str, ...)                                  \
+    do {                                                       \
+        struct timespec ts = { 0 };                            \
+        clock_gettime(CLOCK_MONOTONIC, &ts);                   \
+        fprintf(qatDebugLogFile,"[DEBUG][%lld.%06ld] PID [%d]" \
+                " Thread [%lx][%s:%d:%s()] "fmt_str,           \
+                (long long)ts.tv_sec,                          \
+                ts.tv_nsec / NANO_TO_MICROSECS,                \
+                getpid(), pthread_self(),  __FILE__,           \
+                __LINE__,__func__,##__VA_ARGS__);              \
+        fflush(qatDebugLogFile);                               \
     } while (0)
 #  define DUMPL(var,p,l) qat_hex_dump(__func__,var,p,l);
 # else
@@ -137,11 +147,17 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 # endif
 
 # if defined(QAT_WARN) || defined(QAT_DEBUG)
-#  define WARN(fmt_str, ...)                                     \
-    do {                                                         \
-        fprintf(qatDebugLogFile,"[WARNING][%s:%d:%s()] "fmt_str, \
-                __FILE__, __LINE__, __func__, ##__VA_ARGS__);    \
-        fflush(qatDebugLogFile);                                 \
+#  define WARN(fmt_str, ...)                                  \
+    do {                                                      \
+        struct timespec ts = { 0 };                           \
+        clock_gettime(CLOCK_MONOTONIC, &ts);                  \
+        fprintf(qatDebugLogFile,"[WARN][%lld.%06ld] PID [%d]" \
+                " Thread [%lx][%s:%d:%s()] "fmt_str,          \
+                (long long)ts.tv_sec,                         \
+                ts.tv_nsec / NANO_TO_MICROSECS,               \
+                getpid(), pthread_self(),  __FILE__,          \
+                __LINE__,__func__,##__VA_ARGS__);             \
+        fflush(qatDebugLogFile);                              \
     } while (0)
 # else
 #  define WARN(...)
@@ -655,5 +671,144 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_PRF_OP_DATA(...)
 #  define DUMP_HKDF_OP_DATA(...)
 # endif                         /* QAT_DEBUG */
+
+
+# ifdef QAT_CPU_CYCLES_COUNT
+#  define GCC_ALWAYS_INLINE static __attribute__((always_inline)) inline
+
+typedef struct rdtsc_prof {
+    volatile uint64_t clk_start;
+    volatile uint64_t clk_avgc; /* count to calculate an average */
+    volatile double clk_avg; /* cumulative sum to calculate an average */
+    volatile double clk_diff_cost_adjusted;
+    volatile double cost;
+    volatile uint32_t bytes;
+    volatile int started;
+} rdtsc_prof_t;
+
+extern rdtsc_prof_t rsa_cycles_priv_enc_setup;
+extern rdtsc_prof_t rsa_cycles_priv_dec_setup;
+extern rdtsc_prof_t rsa_cycles_priv_execute;
+extern rdtsc_prof_t rsa_cycles_pub_enc_setup;
+extern rdtsc_prof_t rsa_cycles_pub_dec_setup;
+extern rdtsc_prof_t rsa_cycles_pub_execute;
+
+extern int print_cycle_count;
+
+/**
+ * * LFENCE used to serialize code execution (no OOO)
+ * * Load buffers get are empty after lfence, no deliberate restrictions put on store buffers
+ * */
+
+GCC_ALWAYS_INLINE uint64_t rdtsc_start(void)
+{
+    uint32_t cycles_high;
+    uint32_t cycles_low;
+
+    asm volatile("lfence\n\t"
+            "rdtscp\n\t"
+            "mov %%edx, %0\n\t"
+            "mov %%eax, %1\n\t"
+            : "=r" (cycles_high), "=r" (cycles_low)
+            : : "%rax", "%rdx", "%rcx");
+
+    return (((uint64_t)cycles_high << 32) | cycles_low);
+}
+
+
+GCC_ALWAYS_INLINE uint64_t rdtsc_end(void)
+{
+    uint32_t cycles_high;
+    uint32_t cycles_low;
+
+    asm volatile("rdtscp\n\t"
+            "mov %%edx, %0\n\t"
+            "mov %%eax, %1\n\t"
+            "lfence\n\t"
+            : "=r" (cycles_high), "=r" (cycles_low)
+            : : "%rax", "%rdx", "%rcx");
+
+    return (((uint64_t)cycles_high << 32) | cycles_low);
+}
+
+GCC_ALWAYS_INLINE void rdtsc_prof_start(rdtsc_prof_t *p)
+{
+    p->started = 1;
+    p->clk_start = rdtsc_start();
+}
+
+
+GCC_ALWAYS_INLINE void rdtsc_prof_end(rdtsc_prof_t *p,
+        const unsigned inc,
+        char *name)
+{
+    if (p->started) {
+        /*
+         * int64_t not uint64_t because it may happen that
+         * for low cost operations, measured time is less than
+         * the subtracted average cost of measurement
+         */
+        volatile double clk_diff = (double)(rdtsc_end() - p->clk_start);
+        p->clk_avgc += inc;
+# ifdef QAT_CPU_CYCLE_MEASUREMENT_COST
+        p->clk_avg += (clk_diff - p->cost);
+        p->clk_diff_cost_adjusted += (clk_diff - p->cost);
+# else
+        p->clk_avg += clk_diff;
+        p->clk_diff_cost_adjusted += clk_diff;
+# endif
+        p->started = 0;
+        if (inc != 0) {
+            if (print_cycle_count)
+                fprintf(qatDebugLogFile, "%s - cycles taken = %.1f\n",
+                        name, p->clk_diff_cost_adjusted);
+            p->clk_diff_cost_adjusted = 0.0;
+        }
+    }
+}
+
+void rdtsc_initialize(void);
+void rdtsc_prof_init(rdtsc_prof_t *p, const uint32_t bytes);
+void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
+
+#  define INITIALISE_RDTSC_CLOCKS()                        \
+    do {                                                   \
+        rdtsc_initialize();                                \
+        rdtsc_prof_init(&rsa_cycles_priv_enc_setup, 0);    \
+        rdtsc_prof_init(&rsa_cycles_priv_dec_setup, 0);    \
+        rdtsc_prof_init(&rsa_cycles_priv_execute, 0);      \
+        rdtsc_prof_init(&rsa_cycles_pub_enc_setup, 0);     \
+        rdtsc_prof_init(&rsa_cycles_pub_dec_setup, 0);     \
+        rdtsc_prof_init(&rsa_cycles_pub_execute, 0);       \
+    } while (0)
+
+
+#  define PRINT_RDTSC_AVERAGES() \
+    do {                         \
+        fprintf(qatDebugLogFile,"=========================\n");             \
+        fprintf(qatDebugLogFile,"Average Cycle Counts.\n");                 \
+        fprintf(qatDebugLogFile,"=========================\n");             \
+        rdtsc_prof_print(&rsa_cycles_priv_enc_setup, "[RSA:priv_enc_setup]");     \
+        rdtsc_prof_print(&rsa_cycles_priv_dec_setup, "[RSA:priv_dec_setup]");     \
+        rdtsc_prof_print(&rsa_cycles_priv_execute, "[RSA:priv_execute]");         \
+        rdtsc_prof_print(&rsa_cycles_pub_enc_setup, "[RSA:pub_enc_setup]");       \
+        rdtsc_prof_print(&rsa_cycles_pub_dec_setup, "[RSA:pub_dec_setup]");       \
+        rdtsc_prof_print(&rsa_cycles_pub_execute, "[RSA:pub_execute]");           \
+    } while (0)
+
+#  define START_RDTSC(ptr_clock)     \
+    do {                             \
+        rdtsc_prof_start(ptr_clock); \
+    } while (0)
+#  define STOP_RDTSC(ptr_clock, inc, ptr_name)    \
+    do {                                          \
+        rdtsc_prof_end(ptr_clock, inc, ptr_name); \
+    } while (0)
+# else
+#  define INITIALISE_RDTSC_CLOCKS()
+#  define PRINT_RDTSC_AVERAGES()
+#  define START_RDTSC(ptr_clock)
+#  define STOP_RDTSC(ptr_clock, inc, ptr_name)
+# endif /* QAT_CPU_CYCLES_COUNT */
 
 #endif                          /* QAT_UTILS_H */

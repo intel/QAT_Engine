@@ -37,14 +37,14 @@
  */
 
 /*****************************************************************************
- * @file e_qat.h
+ * @file qat_init.h
  *
  * This file provides and interface for an OpenSSL QAT engine implemenation
  *
  *****************************************************************************/
 
-#ifndef E_QAT_H
-# define E_QAT_H
+#ifndef QAT_INIT_H
+# define QAT_INIT_H
 
 # include <openssl/engine.h>
 # include <sys/types.h>
@@ -216,11 +216,16 @@ typedef struct {
 #define GET_NUM_ASYM_REQUESTS_IN_FLIGHT 1
 #define GET_NUM_KDF_REQUESTS_IN_FLIGHT 2
 #define GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT 3
+#define GET_NUM_ITEMS_RSA_PRIV_QUEUE 4
+#define GET_NUM_ITEMS_RSA_PUB_QUEUE 5
+
+#define QAT_CONFIG_SECTION_NAME_SIZE 64
 
 /* Qat engine id declaration */
 extern const char *engine_qat_id;
 extern const char *engine_qat_name;
 
+extern char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE];
 extern char *ICPConfigSectionName_libcrypto;
 
 extern CpaInstanceHandle *qat_instance_handles;
@@ -251,6 +256,27 @@ extern int num_cipher_pipeline_requests_in_flight;
 extern sigset_t set;
 extern pthread_t timer_poll_func_thread;
 extern int cleared_to_start;
+
+#define QAT_CMD_ENABLE_EXTERNAL_POLLING ENGINE_CMD_BASE
+#define QAT_CMD_POLL (ENGINE_CMD_BASE + 1)
+#define QAT_CMD_SET_INSTANCE_FOR_THREAD (ENGINE_CMD_BASE + 2)
+#define QAT_CMD_GET_NUM_OP_RETRIES (ENGINE_CMD_BASE + 3)
+#define QAT_CMD_SET_MAX_RETRY_COUNT (ENGINE_CMD_BASE + 4)
+#define QAT_CMD_SET_INTERNAL_POLL_INTERVAL (ENGINE_CMD_BASE + 5)
+#define QAT_CMD_GET_EXTERNAL_POLLING_FD (ENGINE_CMD_BASE + 6)
+#define QAT_CMD_ENABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 7)
+#define QAT_CMD_GET_NUM_CRYPTO_INSTANCES (ENGINE_CMD_BASE + 8)
+#define QAT_CMD_DISABLE_EVENT_DRIVEN_POLLING_MODE (ENGINE_CMD_BASE + 9)
+#define QAT_CMD_SET_EPOLL_TIMEOUT (ENGINE_CMD_BASE + 10)
+#define QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD (ENGINE_CMD_BASE + 11)
+#define QAT_CMD_ENABLE_INLINE_POLLING (ENGINE_CMD_BASE + 12)
+#define QAT_CMD_ENABLE_HEURISTIC_POLLING (ENGINE_CMD_BASE + 13)
+#define QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT (ENGINE_CMD_BASE + 14)
+#define QAT_CMD_INIT_ENGINE (ENGINE_CMD_BASE + 15)
+#define QAT_CMD_SET_CONFIGURATION_SECTION_NAME (ENGINE_CMD_BASE + 16)
+#define QAT_CMD_ENABLE_SW_FALLBACK (ENGINE_CMD_BASE + 17)
+#define QAT_CMD_HEARTBEAT_POLL (ENGINE_CMD_BASE + 18)
+#define QAT_CMD_DISABLE_QAT_OFFLOAD (ENGINE_CMD_BASE + 19)
 
 /******************************************************************************
  * function:
@@ -287,6 +313,17 @@ int qat_use_signals(void);
  ******************************************************************************/
 int qat_get_sw_fallback_enabled(void);
 
+/******************************************************************************
+ * function:
+ *         int validate_configuration_section_name(const char *name)
+ *
+ * description:
+ *   This function validates whether the section name has valid length and
+ *   address. If so, then one is returned else zero is returned.
+ *
+ ******************************************************************************/
+
+int validate_configuration_section_name(const char *name);
 
 /******************************************************************************
  * function:
@@ -348,6 +385,40 @@ thread_local_variables_t * qat_check_create_local_variables(void);
  ******************************************************************************/
 int qat_engine_init(ENGINE *e);
 
+/******************************************************************************
+* function:
+*         qat_engine_ctrl(ENGINE *e, int cmd, long i,
+*                         void *p, void (*f)(void))
+*
+* @param e   [IN] - OpenSSL engine pointer
+* @param cmd [IN] - Control Command
+* @param i   [IN] - Unused
+* @param p   [IN] - Parameters for the command
+* @param f   [IN] - Callback function
+*
+* description:
+*   Qat engine control functions.
+*   Note: QAT_CMD_ENABLE_EXTERNAL_POLLING should be called at the following
+*         point during startup:
+*         ENGINE_load_qat
+*         ENGINE_by_id
+*    ---> ENGINE_ctrl_cmd(QAT_CMD_ENABLE_EXTERNAL_POLLING)
+*         ENGINE_init
+******************************************************************************/
+
+int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void));
+
+/******************************************************************************
+ * function:
+ *         qat_engine_finish(ENGINE *e)
+ *
+ * @param e [IN] - OpenSSL engine pointer
+ *
+ * description:
+ *   Qat engine finish function.
+ ******************************************************************************/
+
+int qat_engine_finish(ENGINE *e);
 
 /******************************************************************************
  * function:
@@ -363,4 +434,4 @@ int qat_engine_init(ENGINE *e);
  ******************************************************************************/
 int qat_engine_finish_int(ENGINE *e, int reset_globals);
 
-#endif   /* E_QAT_H */
+#endif   /* QAT_INIT_H */

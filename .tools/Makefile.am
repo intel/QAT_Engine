@@ -3,11 +3,12 @@ ACLOCAL_AMFLAGS = -I m4
 
 lib_LTLIBRARIES = libqat.la
 
+if !OPENSSL_MULTIBUFF_OFFLOAD
 if QAT_CONTIG_MEM
  MEM_LIB_SRC = qae_mem_utils.c \
                qat_sys_call.c
- MEM_LIB_HEADER = qae_mem_utils.h \
-                  qat_sys_call.h
+ MEM_LIB_HDR = qae_mem_utils.h \
+               qat_sys_call.h
 endif
 
 if QAT_MULTI_THREAD
@@ -17,51 +18,77 @@ endif
 
 if QAE_MEM
  MEM_LIB_SRC = cmn_mem_drv_inf.c
- MEM_LIB_HEADER = cmn_mem_drv_inf.h
+ MEM_LIB_HDR = cmn_mem_drv_inf.h
+endif
 endif
 
-OPENSSL_COMMON_SRC = e_qat.c \
-                     qat_fork.c \
-                     qat_events.c \
-                     qat_callback.c \
-                     qat_polling.c \
-                     qat_asym_common.c \
-                     qat_utils.c \
-                     qat_rsa.c \
-                     qat_rsa_crt.c
+OPENSSL_COMMON_SRC = e_qat.c        \
+                     qat_fork.c     \
+                     qat_events.c   \
+                     qat_utils.c    \
+                     e_qat_err.c
 
-OPENSSL_COMMON_HDR = e_qat.h \
-                     qat_fork.h \
-                     qat_events.h \
-                     qat_callback.h \
-                     qat_polling.h \
-                     qat_asym_common.h \
-                     qat_utils.h \
-                     qat_rsa.h \
-                     qat_rsa_crt.h
+OPENSSL_COMMON_HDR = qat_fork.h     \
+                     qat_events.h   \
+                     qat_utils.h    \
+                     e_qat_err.h
+
 
 if QAT_OPENSSL_102
- OPENSSL_VERSION_SPECIFIC_SRC = qat_aux.c \
-                                qat_rsa_aux.c
+ OPENSSL_102_SRC = qat_rsa.c     \
+                   qat_rsa_crt.c \
+                   qat_aux.c     \
+                   qat_rsa_aux.c
 
- OPENSSL_VERSION_SPECIFIC_HDR = qat_aux.h \
-                                qat_rsa_aux.h
+ OPENSSL_102_HDR = qat_rsa.h     \
+                   qat_rsa_crt.h \
+                   qat_aux.h     \
+                   qat_rsa_aux.h
+else
+if OPENSSL_MULTIBUFF_OFFLOAD
+ OPENSSL_MULTIBUFF_SRC = multibuff_init.c     \
+                         multibuff_polling.c  \
+                         multibuff_rsa.c      \
+                         multibuff_freelist.c \
+                         multibuff_queue.c
+
+ OPENSSL_MULTIBUFF_HDR = multibuff_init.h     \
+                         multibuff_polling.h  \
+                         multibuff_rsa.h      \
+                         multibuff_freelist.h \
+                         multibuff_queue.h
 
 else
- OPENSSL_VERSION_SPECIFIC_SRC = qat_ciphers.c \
-                                qat_dh.c \
-                                qat_dsa.c \
-                                qat_ec.c \
-                                qat_prf.c \
-                                qat_hkdf.c \
-                                qat_evp.c \
-                                qat_ecx.c
+ OPENSSL_QAT_SRC = qat_init.c        \
+                   qat_asym_common.c \
+                   qat_polling.c     \
+                   qat_callback.c    \
+                   qat_rsa.c         \
+                   qat_rsa_crt.c     \
+                   qat_ciphers.c     \
+                   qat_dh.c          \
+                   qat_dsa.c         \
+                   qat_ec.c          \
+                   qat_prf.c         \
+                   qat_evp.c
 
- OPENSSL_VERSION_SPECIFIC_HDR = qat_ciphers.h \
-                                qat_dh.h \
-                                qat_dsa.h \
-                                qat_ec.h \
-                                qat_evp.h
+if !QAT_OPENSSL_110
+ OPENSSL_111_SRC = qat_hkdf.c        \
+                   qat_ecx.c
+endif
+
+ OPENSSL_QAT_HDR = qat_init.h        \
+                   qat_asym_common.h \
+                   qat_polling.h     \
+                   qat_callback.h    \
+                   qat_rsa.h         \
+                   qat_rsa_crt.h     \
+                   qat_ciphers.h     \
+                   qat_dh.h          \
+                   qat_dsa.h         \
+                   qat_ec.h          \
+                   qat_evp.h
+endif
 endif
 
 if !OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
@@ -69,45 +96,57 @@ if !OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
  PARSE_CONFIG_FILES_HDR = qat_parseconf.h
 endif
 
-
 if QAT_OPENSSL_300
  cflags_SSL_QAT_use_async_callback="-DSSL_QAT_USE_ASYNC_CALLBACK"
 endif
 
-libqat_la_SOURCES = ${OPENSSL_COMMON_SRC} \
-                    ${OPENSSL_VERSION_SPECIFIC_SRC} \
+libqat_la_SOURCES = ${OPENSSL_COMMON_SRC}     \
+                    ${OPENSSL_102_SRC}        \
+                    ${OPENSSL_QAT_SRC}        \
+                    ${OPENSSL_111_SRC}        \
+                    ${OPENSSL_MULTIBUFF_SRC}  \
                     ${PARSE_CONFIG_FILES_SRC} \
-                    ${MEM_LIB_SRC} \
-                    e_qat_err.c
+                    ${MEM_LIB_SRC}
 
-include_HEADERS = ${OPENSSL_COMMON_HDR} \
-                  ${OPENSSL_VERSION_SPECIFIC_HDR} \
+include_HEADERS = ${OPENSSL_COMMON_HDR}     \
+                  ${OPENSSL_102_HDR}        \
+                  ${OPENSSL_QAT_HDR}        \
+                  ${OPENSSL_MULTIBUFF_HDR}  \
                   ${PARSE_CONFIG_FILES_HDR} \
-                  ${MEM_LIB_HEADER} \
-                  e_qat_err.h
-
+                  ${MEM_LIB_HDR}
 
 CC = cc
+if !OPENSSL_MULTIBUFF_OFFLOAD
 AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
               $(includes_enable_qat_mux)
+else
+AM_CPPFLAGS = $(includes) $(includes_multibuff)
+endif
 
-AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver) \
-            $(cflags_mem_driver) $(cflags_mux) $(enable_qat_rsa) \
-            $(enable_qat_ciphers) $(enable_qat_ecdh) $(enable_qat_ecdsa) \
-            $(enable_qat_dsa) $(enable_qat_dh) $(enable_qat_prf) \
-            $(enable_qat_hkdf)  $(enable_qat_ecx) \
-            $(enable_qat_small_pkt_offload) \
-            $(enable_qat_lenstra_protection) \
-            $(enable_qat_debug) $(enable_qat_warnings) \
-            $(enable_qat_mem_debug) $(enable_qat_mem_warnings) \
-            $(enable_qat_auto_engine_init_on_fork) \
-            $(cflags_qat_debug_file)\
-            $(cflags_SSL_QAT_use_async_callback)
+AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver)             \
+            $(cflags_mem_driver) $(cflags_mux) $(cflags_qat_debug_file)      \
+            $(cflags_SSL_QAT_use_async_callback) $(cflags_multibuff_offload) \
+            $(enable_qat_rsa) $(enable_qat_ciphers) $(enable_qat_ecdh)       \
+            $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_dh)           \
+            $(enable_qat_prf) $(enable_qat_hkdf)  $(enable_qat_ecx)          \
+            $(enable_qat_small_pkt_offload)                                  \
+            $(enable_qat_auto_engine_init_on_fork)                           \
+            $(enable_qat_lenstra_protection)                                 \
+            $(enable_qat_debug) $(enable_qat_warnings)                       \
+            $(enable_qat_mem_debug) $(enable_qat_mem_warnings)               \
+            $(enable_qat_cycle_counts) $(enable_multibuff_rsa)               \
+            $(enable_multibuff_heuristic_timeout) $(enable_multibuff_sync)
 
-libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD) \
+
+if !OPENSSL_MULTIBUFF_OFFLOAD
+libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)              \
                     $(QAT_SHARED_LIB_DEPS_UPSTREAM_DRIVER) \
-                    $(QAT_SHARED_LIB_DEPS_DRIVER) \
+                    $(QAT_SHARED_LIB_DEPS_DRIVER)          \
                     $(QAT_SHARED_LIB_DEPS_QAE_MEM)
+else
+libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)              \
+                    $(QAT_SHARED_LIB_DEPS_MULTIBUFF)
+endif
 
 if QAT_OPENSSL_102
  ENGINE_LIB = $(with_openssl_install_dir)/lib/engines/libqat.so
@@ -143,15 +182,15 @@ install-data-am:
 err-files:
 if QAT_OPENSSL_102
 	rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES)
+       -rebuild -reindex -nostatic -write *.c
 
 else
 if QAT_OPENSSL_110
 	rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex -nostatic -write $(libqat_la_SOURCES)
+       -rebuild -reindex -nostatic -write *.c
 
 else
 	rm -f e_qat_err.c e_qat.txt && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex $(libqat_la_SOURCES)
+       -rebuild -reindex *.c
 endif
 endif

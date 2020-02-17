@@ -22,8 +22,9 @@
 - [Intel&reg; QuickAssist Technology OpenSSL\* Engine Build Options](#intel-quickassist-technology-openssl-engine-build-options)
 - [Using the OpenSSL\* Configuration File to Load/Initialize Engines](#using-the-openssl-configuration-file-to-loadinitialize-engines)
 - [Using the OpenSSL\* Pipelining Capability](#using-the-openssl-pipelining-capability)
-- [Using the OpenSSL* asynchronous mode 'ASYNC_JOB' infrastructure](#using-the-openssl-asynchronous-mode-infrastructure)
+- [Using the OpenSSL* asynchronous mode 'ASYNC_JOB' infrastructure](#using-the-openssl-asynchronous-mode-async_job-infrastructure)
 - [Functionality of the Intel&reg; QAT OpenSSL\* Engine Software Fallback Feature](#functionality-of-the-intel-qat-openssl-engine-software-fallback-feature)
+- [Intel&reg; QAT OpenSSL\* Engine Multibuffer Support](#intel-qat-openssl-engine-multibuffer-support)
 - [Legal](#legal)
 
 ## Licensing
@@ -156,10 +157,13 @@ repository:
   between OpenSSL\* 1.1.1c and OpenSSL\* 1.1.1d then it is recommended that you
   use OpenSSL\* 1.1.1c.  If you are, however, using specific features of OpenSSL\* 1.1.1d
   it is recommended that you rather build against an OpenSSL\* pulled from
-  the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715] [10] in which the
+  the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715][10] in which the
   problem was fixed, or a later commit from this branch.
 
 [10]:https://github.com/openssl/openssl/pull/10080
+
+* Support for Multibuffer offload is extended to RSA 2k only and other algorithms will
+  use the standard OpenSSL implemenation when this feature is enabled.
 
 ## Installation Instructions
 
@@ -972,6 +976,18 @@ Mandatory (when using the Intel&reg; QAT Driver HW Version 1.6)
     linking against the Intel(R) QAT Driver HW Version 1.6 then this option
     must be enabled (disabled by default).
 
+Mandatory (when using the Intel&reg; IFMA Mutibuffer Library)
+
+--with-multibuff_dir=/path/to/ifma_source
+    Specify the path to the source code of the Intel(R) IFMA Mutibuffer library.
+    This path is needed for compilation in order to locate the Intel(R) IFMA
+    Multibuffer header files. If you do not specify this the build will fail.
+    For example if using Intel&reg; IFMA Mutibuffer library that was
+    unpacked to `/IFMA`, and you are using the Intel(R) Icelake Server or Client
+    platform for multibuff offload then you would use the following setting:
+    --with-multibuff_dir=/IFMA
+
+
 Optional
 
 --with-openssl_dir=/path/to/openssl
@@ -995,6 +1011,13 @@ Optional
     with '/build' appended.  You only need to specify this parameter if the
     driver library files have been built somewhere other than the default.
 
+--with-multibuff_install_dir=/path/to/ifma_buid
+    Specify the path of the built Intel(R) IFMA Mutibuffer library. This path
+    is needed in order to link to the IFMA Mutibuffer library.
+    The default if not specified is to use the standard installation path
+    which is '/usr/local/lib'. You only need to specify this parameter if the
+    IFMA library files have been built somewhere other than the default.
+
 --enable-qat_contig_mem/--disable-qat_contig_mem
     Enable/Disable compiling against the qat_contig_mem driver supplied within
     QAT Engine when using the Intel(R) QAT Driver HW Version 1.6. It can also be
@@ -1010,6 +1033,11 @@ Optional
 
 --disable-qat_rsa/--enable-qat_rsa
     Disable/Enable Intel(R) QAT RSA offload (enabled by default)
+
+--disable-multibuff_rsa/--enable-multibuff_rsa
+    Disable/Enable Intel(R) Multibuff RSA offload. This flag is valid only
+    when multibuffer support is enabled using the flag --with-multibuff_dir
+    (disabled by default).
 
 --disable-qat_dsa/--enable-qat_dsa
     Disable/Enable Intel(R) QAT DSA offload (enabled by default)
@@ -1039,6 +1067,14 @@ Optional
     Enable the offload of small packet cipher operations to Intel(R) QAT. When
     disabled, these operations are performed using the CPU (disabled by
     default).
+
+--disable-multibuff_offload/--enable-multibuff_offload
+    Disable/Enable Intel(R) Multibuffer offload feature. This flag is valid only
+    incase of multibuffer offload which is enabled using the flag
+    --with-multibuff_dir. If both QAT and multibuff support is available then
+    this flag can be used to enable/disable multibuffer to dictate the feature
+    to be enabled or disabled. This Flag if not specifed will enable the QAT
+    Offload (disabled by default).
 
 --disable-qat_warnings/--enable-qat_warnings
     Disable/Enable warnings to aid debugging. Warning: This option should never
@@ -1202,6 +1238,16 @@ Optional
     engine needs to be initialized manually using the engine message:
     INIT_ENGINE or will automatically get initialized on the first QAT crypto
     operation. The initialization on fork is enabled by default.
+
+--disable-multibuff_heuristic_timeout/--enable-multibuff_heuristic_timeout
+    Disable/Enable self tuning of the timeout in the polling thread in the
+    Intel(R) Multibuffer offload. This flag is valid only
+    incase of multibuffer offload (enabled by default).
+
+--disable-qat_cycle_counts/--enable-qat_cycle_counts
+    Disable/Enable cycle count measurement in the Intel(R) Multibuffer offload.
+    This support is only extended to  multibuffer offload code path
+    (disabled by default).
 
 --with-cc-opt="parameters"
     Sets additional parameters that will be added to the CFLAGS variable at
@@ -1436,6 +1482,62 @@ It can be enabled using the below flag in the configure command.
 
 ```bash
 --enable-qat_hkdf
+```
+
+## Intel&reg; QAT OpenSSL\* Engine Multibuffer Support
+
+This Intel&reg; QAT OpenSSL\* Engine supports Multibuffer based software
+optimizations for RSA using the Multibuffer based Intel&reg; AVX-512 Integer Fused
+Multiply Add (IFMA) library.
+
+The Intel&reg; QAT OpenSSL\* Engine Multibuffer Support, when enabled by the user
+using the build instructions mentioned below performs operation by batching up
+multiple requests maintained in queues and uses the OpenSSL async infrastucture
+to submit the batched requests upto 8 to IFMA API which processes them in
+parallel using AVX512 vector instructions. Multibuffer optimizations will be
+beneficial to use in asynchronous operations where there are many parallel
+connections.
+
+### Requirements
+1. This Intel&reg; QAT OpenSSL\* Engine supports Multibuffer based software
+optimizations for RSA only in the Ice Lake Server(ICX) or Ice Lake Client(ICL)
+platform and not supported in any other platform.
+2. Successful operation of the Multibuffer support requires a software tool
+chain that supports OpenSSL\* 1.1.1 and Intel&reg; AVX-512 Integer Fused
+Multiply Add (IFMA) library version 0.5.3 cloned and installed using the
+instructions in the Readme from the [IFMA GitHub][13]
+
+[13]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/ifma_rsa_mb
+
+### Build Instructions for Intel&reg; QAT OpenSSL\* Engine to enable Multibuffer Support
+
+The following example is assuming:
+
+* The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
+  of the drive: `/`.
+* The Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) library was cloned from the
+  [IFMA Github][13] to its own location at the root of the drive: `/IFMA` and installed
+  to `/usr/local/lib`
+* OpenSSL\* 1.1.1 was installed to `/usr/local/ssl`.
+
+To build and install the Intel&reg; QAT OpenSSL\* Engine with Multibuffer offload:
+
+```bash
+cd /QAT_Engine
+./autogen.sh
+./configure \
+--with-multibuff_dir=/IFMA \
+--with-openssl_install_dir=/usr/local/ssl
+make
+make install
+```
+
+### Testing with OpenSSL Speed
+```text
+cd /path/to/openssl/apps
+
+* RSA 2K
+    ./openssl speed -engine qat -elapsed -async_jobs 8 rsa2048
 ```
 
 ## Legal

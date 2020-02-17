@@ -22,6 +22,10 @@ AC_ARG_ENABLE(qat_rsa,
                              [Disable accelerated RSA offload]))
 AC_SUBST(enable_qat_rsa)
 
+AC_ARG_ENABLE(multibuff_rsa,
+              AS_HELP_STRING([--disable-multibuff_rsa],
+                             [Disable multibuff RSA offload]))
+AC_SUBST(enable_multibuff_rsa)
 
 AC_ARG_ENABLE(qat_ciphers,
               AS_HELP_STRING([--disable-qat_ciphers],
@@ -62,17 +66,32 @@ AC_ARG_ENABLE(qat_hkdf,
                              [Enable accelerated HKDF offload]))
 AC_SUBST(enable_qat_hkdf)
 
-
 AC_ARG_ENABLE(qat_ecx,
               AS_HELP_STRING([--disable-qat_ecx],
                              [Disable accelerated X25519/X448 offload]))
 AC_SUBST(enable_qat_ecx)
 
-
 AC_ARG_ENABLE(qat_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_small_pkt_offload],
                              [Enable accelerated small packet CIPHER offload]))
 AC_SUBST(enable_qat_small_pkt_offload)
+
+AC_ARG_ENABLE(multibuff_offload,
+              AS_HELP_STRING([--enable-multibuff_offload],
+                             [Enable Multibuff offload]))
+AC_SUBST(enable_multibuff_offload)
+
+# Parameter parsing for self tuning of the timeout in the multibuff polling thread
+
+AC_ARG_ENABLE(multibuff_heuristic_timeout,
+              AS_HELP_STRING([--disable-multibuff_heuristic_timeout],
+                             [Disable self tuning of the timeout in the multibuff polling thread]))
+AC_SUBST(enable_multibuff_heuristic_timeout)
+
+AC_ARG_ENABLE(qat_cycle_counts,
+              AS_HELP_STRING([--enable-qat_cycle_counts],
+                             [Enable CPU Cycle Counts]))
+AC_SUBST(enable_qat_cycle_counts)
 
 # Parameter parsing for enabling debug/warnings
 
@@ -80,7 +99,6 @@ AC_ARG_ENABLE(qat_debug,
               AS_HELP_STRING([--enable-qat_debug],
                              [Enable Engine Debug Messages]))
 AC_SUBST(enable_qat_debug)
-
 
 AC_ARG_ENABLE(qat_warnings,
               AS_HELP_STRING([--enable-qat_warnings],
@@ -104,6 +122,11 @@ AC_ARG_WITH(qat_dir,
                              [Path to the Intel Quickassist Technology Driver source code]))
 AC_SUBST(with_qat_dir)
 
+AC_ARG_WITH(multibuff_dir,
+              AS_HELP_STRING([--with-multibuff_dir],
+                             [Path to the Multibuffer based Intel(R) AVX-512 Integer Fused Multiply Add (IFMA) library source code]))
+AC_SUBST(with_multibuff_dir)
+
 AC_ARG_WITH(openssl_install_dir,
               AS_HELP_STRING([--with-openssl_install_dir],
                              [Path to where the OpenSSL libraries are installed to. The Engine will be installed to the lib/engines subdirectory of this path]))
@@ -120,6 +143,11 @@ AC_ARG_WITH(qat_install_dir,
               AS_HELP_STRING([--with-qat_install_dir],
                              [Path to the Intel Quickassist Technology Driver build output]))
 AC_SUBST(with_qat_install_dir)
+
+AC_ARG_WITH(multibuff_install_dir,
+              AS_HELP_STRING([--with-multibuff_install_dir],
+                             [Path to the Multibuffer based Intel(R) AVX-512 Integer Fused Multiply Add (IFMA) library build output]))
+AC_SUBST(with_multibuff_install_dir)
 
 AC_ARG_ENABLE(qat16_driver,
               AS_HELP_STRING([--enable_qat16_driver],
@@ -186,16 +214,22 @@ AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
                              [Disable auto initialization of the engine following a fork]))
 AC_SUBST(enable_qat_auto_engine_init_on_fork)
 
+
 # ERROR message if mandatory options are not provided
 
 
-if test "x$with_qat_dir" = "x"
+if test "x$with_qat_dir" = "x" -a "x$with_multibuff_dir" = "x"
 then
-  AC_MSG_ERROR([--with-qat_dir is not set, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver])
+  AC_MSG_ERROR([Either --with-qat_dir or --with-multibuff_dir is not set, If you like to use QAT offload, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver or If you like to use multibuffer Software offload instead, set it to the path to the Intel IFMA library source code.])
 else if test "x$with_qat_dir" = "xno"
 then
   AC_MSG_ERROR([--without-qat_dir is invalid, set using --with-qat_dir to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver])
 fi
+fi
+
+if test "x$with_multibuff_dir" = "xno"
+then
+  AC_MSG_ERROR([--without-multibuff_dir is invalid, set using --with-multibuff_dir to the path to the Intel Multibuffer crypto library source code. e.g: --with-multibuff_dir=/path/to/multibuffer_library])
 fi
 
 if test "x$with_openssl_install_dir" = "x"
@@ -208,6 +242,27 @@ fi
 fi
 
 ac_default_prefix=$with_openssl_install_dir
+
+# If both qat_dir and multibuff_dir are present, then check the libraries from standard location and use it
+if test "x$with_qat_dir" != "x" -a "x$with_multibuff_dir" != "x"
+then
+  AC_CHECK_LIB(qat_s, cpaCyRsaDecrypt, [AC_MSG_NOTICE([QAT Offload with libraries from standard location])], [AC_MSG_NOTICE([QAT Library not found in the standard location])], [])
+if test "x$ac_cv_lib_qat_s_cpaCyRsaDecrypt" = "xno"
+then
+  AC_CHECK_LIB(crypto-mb, ifma_getversion, [AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")], [AC_MSG_ERROR([Both QAT and Multibuff IFMA Library not found in the standard path. Install either QAT or IFMA library])], [])
+  AC_SUBST(cflags_multibuff_offload)
+  AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$ac_cv_lib_crypto_mb_ifma_getversion" = "xyes"])
+fi
+fi
+
+# multibuff_dir only configured, enable multibuff offload
+if test "x$with_multibuff_dir" != "x" -a "x$with_qat_dir" = "x"
+then
+  AC_MSG_NOTICE([Build with Multibuff Offload])
+  AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")
+  AC_SUBST(cflags_multibuff_offload)
+  AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$ac_cv_lib_crypto_mb_ifma_getversion" = "xyes"])
+fi
 
 # Default non mandatory paths if not provided
 
@@ -226,6 +281,12 @@ then
   with_qat_install_dir="\$(with_qat_dir)/build"
 fi
 
+if test "x$with_multibuff_install_dir" = "x" -a "x$cflags_multibuff_offload" != "x"
+then
+  AC_CHECK_LIB(crypto-mb, ifma_getversion, [AC_MSG_NOTICE([Using from IFMA Library from Default location])], [AC_MSG_ERROR([IFMA Library not found, Install the IFMA library or provide the path to the library using --with-multibuff_install_dir])],[])
+  with_multibuff_install_dir="/usr/local/lib"
+fi
+
 if test "x$with_usdm_dir" = "x"
 then
   with_usdm_dir="\$(with_qat_dir)/quickassist/utilities/libusdm_drv"
@@ -233,7 +294,15 @@ fi
 
 # Checking the parameters given and parsing the relevant flags
 
-if test "x$enable_qat_rsa" != "xno"
+if test "x$enable_multibuff_offload" = "xyes"
+then
+   AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")
+   AC_SUBST(cflags_multibuff_offload)
+   AC_MSG_NOTICE([Enabling build for Multibuff Offload])
+fi
+AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$cflags_multibuff_offload" != "x"])
+
+if test "x$enable_qat_rsa" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_rsa="-DOPENSSL_ENABLE_QAT_RSA"
   AC_MSG_NOTICE([Offloading RSA to Hardware])
@@ -242,7 +311,16 @@ else
   AC_MSG_NOTICE([Not Offloading RSA to Hardware])
 fi
 
-if test "x$enable_qat_ciphers" != "xno"
+if test "x$enable_multibuff_rsa" != "xno" -a "x$cflags_multibuff_offload" != "x"
+then
+  enable_multibuff_rsa="-DOPENSSL_ENABLE_MULTIBUFF_RSA"
+  AC_MSG_NOTICE([Offloading RSA using Multibuffer])
+else
+  enable_multibuff_rsa="-DOPENSSL_DISABLE_MULTIBUFF_RSA"
+  AC_MSG_NOTICE([Not Offloading RSA using Multibuffer])
+fi
+
+if test "x$enable_qat_ciphers" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_ciphers="-DOPENSSL_ENABLE_QAT_CIPHERS"
   AC_MSG_NOTICE([Offloading CIPHERS to Hardware])
@@ -251,7 +329,7 @@ else
   AC_MSG_NOTICE([Not Offloading CIPHERS to Hardware])
 fi
 
-if test "x$enable_qat_ecdh" != "xno"
+if test "x$enable_qat_ecdh" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_ecdh="-DOPENSSL_ENABLE_QAT_ECDH"
   AC_MSG_NOTICE([Offloading ECDH to Hardware])
@@ -260,7 +338,7 @@ else
   AC_MSG_NOTICE([Not Offloading ECDH to Hardware])
 fi
 
-if test "x$enable_qat_ecdsa" != "xno"
+if test "x$enable_qat_ecdsa" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_ecdsa="-DOPENSSL_ENABLE_QAT_ECDSA"
   AC_MSG_NOTICE([Offloading ECDSA to Hardware])
@@ -269,7 +347,7 @@ else
   AC_MSG_NOTICE([Not Offloading ECDSA to Hardware])
 fi
 
-if test "x$enable_qat_dsa" != "xno"
+if test "x$enable_qat_dsa" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_dsa="-DOPENSSL_ENABLE_QAT_DSA"
   AC_MSG_NOTICE([Offloading DSA to Hardware])
@@ -278,7 +356,7 @@ else
   AC_MSG_NOTICE([Not Offloading DSA to Hardware])
 fi
 
-if test "x$enable_qat_dh" != "xno"
+if test "x$enable_qat_dh" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_dh="-DOPENSSL_ENABLE_QAT_DH"
   AC_MSG_NOTICE([Offloading DH to Hardware])
@@ -287,7 +365,7 @@ else
   AC_MSG_NOTICE([Not Offloading DH to Hardware])
 fi
 
-if test "x$enable_qat_prf" != "xno"
+if test "x$enable_qat_prf" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_prf="-DOPENSSL_ENABLE_QAT_PRF"
   AC_MSG_NOTICE([Offloading PRF to Hardware])
@@ -296,7 +374,7 @@ else
   AC_MSG_NOTICE([Not Offloading PRF to Hardware])
 fi
 
-if test "x$enable_qat_hkdf" = "xyes"
+if test "x$enable_qat_hkdf" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_hkdf="-DOPENSSL_ENABLE_QAT_HKDF"
   AC_MSG_NOTICE([Offloading HKDF to Hardware])
@@ -305,8 +383,7 @@ else
   AC_MSG_NOTICE([Not Offloading HKDF to Hardware])
 fi
 
-
-if test "x$enable_qat_ecx" != "xno"
+if test "x$enable_qat_ecx" != "xno" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_ecx="-DOPENSSL_ENABLE_QAT_ECX"
   AC_MSG_NOTICE([Offloading X25519/X448 to Hardware])
@@ -314,7 +391,6 @@ else
   enable_qat_ecx="-DOPENSSL_DISABLE_QAT_ECX"
   AC_MSG_NOTICE([Not Offloading X25519/X448 to Hardware])
 fi
-
 
 if test "x$enable_qat_small_pkt_offload" = "xyes"
 then
@@ -378,6 +454,25 @@ else
   enable_qat_auto_engine_init_on_fork=""
   AC_MSG_NOTICE([Auto Engine init on fork enabled (default).])
 fi
+
+if test "x$enable_multibuff_heuristic_timeout" != "xno"
+then
+  enable_multibuff_heuristic_timeout="-DMULTIBUFF_HEURISTIC_TIMEOUT"
+  AC_MSG_NOTICE([Enabling Multibuffer Heuristic Timeout])
+else
+  enable_multibuff_heuristic_timeout=""
+  AC_MSG_NOTICE([Disabling Multibuffer Heuristic Timeout])
+fi
+
+if test "x$enable_qat_cycle_counts" = "xyes"
+then
+  enable_qat_cycle_counts="-DQAT_CPU_CYCLES_COUNT"
+  AC_MSG_NOTICE([Enabling CPU Cycle Counts])
+else
+  enable_qat_cycle_counts=""
+  AC_MSG_NOTICE([Disabling CPU Cycle Counts])
+fi
+
 
 # Check for memory driver and parse the CFLAGS for building library
 
@@ -500,6 +595,9 @@ AC_SUBST(with_ICP_LAC_API_DIR)
 AC_ARG_WITH(includes_driver, AS_HELP_STRING(), , includes_driver="-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR)")
 AC_SUBST(includes_driver)
 
+AC_ARG_WITH(includes_multibuff, AS_HELP_STRING(), , includes_multibuff="-I\$(with_multibuff_dir)/include/public")
+AC_SUBST(includes_multibuff)
+
 AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
 AC_SUBST(DRIVER)
 
@@ -548,6 +646,12 @@ if test "x$with_qat_install_dir" != "x"
 then
   AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-Wl,-rpath,\$(with_qat_install_dir) -L\$(with_qat_install_dir) -l\$(DRIVER)_s"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
+fi
+
+if test "x$with_multibuff_install_dir" != "x" -a "x$cflags_multibuff_offload" != "x"
+then
+  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_MULTIBUFF, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_MULTIBUFF=["-Wl,-rpath,\$(with_multibuff_install_dir) -L\$(with_multibuff_install_dir) -lcrypto-mb"])
+  AC_SUBST(QAT_SHARED_LIB_DEPS_MULTIBUFF)
 fi
 
 if test "x$enable_qat_contig_mem" != "xyes" -a "x$enable_multi_thread" != "xyes"

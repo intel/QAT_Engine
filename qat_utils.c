@@ -45,9 +45,15 @@
 
 #include <stdio.h>
 #include <pthread.h>
-#include "cpa.h"
 #include "qat_utils.h"
-#include "e_qat.h"
+
+#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+# include "qat_init.h"
+# include "cpa.h"
+#else
+# include "multibuff_init.h"
+#endif
+
 
 #ifdef QAT_TESTS_LOG
 
@@ -59,6 +65,18 @@ char test_file_name[QAT_MAX_TEST_FILE_NAME_LENGTH];
 #endif  /* QAT_TESTS_LOG */
 
 FILE *qatDebugLogFile = NULL;
+
+#ifdef QAT_CPU_CYCLES_COUNT
+rdtsc_prof_t rsa_cycles_priv_enc_setup;
+rdtsc_prof_t rsa_cycles_priv_dec_setup;
+rdtsc_prof_t rsa_cycles_priv_execute;
+rdtsc_prof_t rsa_cycles_pub_enc_setup;
+rdtsc_prof_t rsa_cycles_pub_dec_setup;
+rdtsc_prof_t rsa_cycles_pub_execute;
+
+volatile static double rdtsc_prof_cost = 0.0; /* cost of measurement */
+int print_cycle_count = 1;
+#endif
 
 #ifdef QAT_DEBUG_FILE_PATH
 
@@ -158,3 +176,62 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 }
 
 #endif
+
+#ifdef QAT_CPU_CYCLES_COUNT
+
+void rdtsc_prof_init(rdtsc_prof_t *p, const uint32_t bytes)
+{
+    p->bytes = bytes;
+    p->clk_start = 0;
+    p->clk_avg = 0.0;
+    p->clk_avgc = 0;
+    p->clk_diff_cost_adjusted = 0.0;
+    p->started = 0;
+    p->cost = rdtsc_prof_cost;
+}
+
+void rdtsc_prof_print(rdtsc_prof_t *p, char *name)
+{
+    if (p == NULL) {
+        fprintf(qatDebugLogFile, "%s\tavg\n", "    ");
+    }
+    else {
+        if (p->clk_avgc > 0) {
+            double avg_c = (p->clk_avg / ((double)p->clk_avgc));
+
+# ifdef QAT_CPU_CYCLE_MEASUREMENT_COST
+            fprintf(qatDebugLogFile, "\n%s - avg cycles per job (mca ENABLED):  %.1f - number of samples = %ld\n", name, avg_c, p->clk_avgc);
+# else
+            fprintf(qatDebugLogFile, "%s,%.1f,%ld\n", name, avg_c, p->clk_avgc);
+# endif
+            if (p->bytes > 0) {
+                double avg_pb = avg_c / ((double)p->bytes);
+                fprintf(qatDebugLogFile, " - avg cycles per byte: %.1f\n", avg_pb);
+            }
+        }
+    }
+}
+
+void rdtsc_initialize(void)
+{
+    rdtsc_prof_t p;
+    unsigned i;
+
+    /*
+     * Figure out cost of measurement
+     */
+    rdtsc_prof_init(&p, 0);
+    print_cycle_count = 0;
+    for (i = 0; i < 10000; i++) {
+        rdtsc_prof_start(&p);
+        rdtsc_prof_end(&p, 1, "Measurement cost");
+    }
+# ifdef QAT_CPU_CYCLE_COUNT_DEBUG
+    print_cycle_count = 1;
+# endif
+    rdtsc_prof_print(&p, "Cost of CPU cycle measurement ");
+    rdtsc_prof_cost = p.clk_avg / (double)p.clk_avgc;
+    fprintf(qatDebugLogFile, "[%s] - cost of measurement is subtracted from subsequent tests if build flag QAT_CPU_CYCLE_MEASUREMENT_COST is set.\n\n", __func__);
+}
+
+#endif /* QAT_CPU_CYCLES_COUNT */

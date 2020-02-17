@@ -61,26 +61,33 @@
 #include <time.h>
 
 /* Local Includes */
-#include "e_qat.h"
 #include "qat_polling.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
+#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+# include "qat_init.h"
+#else
+# include "multibuff_init.h"
+#endif
+
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
 
 /* QAT includes */
-#ifdef USE_QAT_CONTIG_MEM
-# include "qae_mem_utils.h"
+#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+# ifdef USE_QAT_CONTIG_MEM
+#  include "qae_mem_utils.h"
+# endif
+# ifdef USE_QAE_MEM
+#  include "cmn_mem_drv_inf.h"
+# endif
+# include "cpa.h"
+# include "cpa_cy_im.h"
+# include "cpa_types.h"
+# include "icp_sal_user.h"
+# include "icp_sal_poll.h"
 #endif
-#ifdef USE_QAE_MEM
-# include "cmn_mem_drv_inf.h"
-#endif
-#include "cpa.h"
-#include "cpa_cy_im.h"
-#include "cpa_types.h"
-#include "icp_sal_user.h"
-#include "icp_sal_poll.h"
 
 struct epoll_event eng_epoll_events[QAT_MAX_CRYPTO_INSTANCES] = {{ 0 }};
 int internal_efd = 0;

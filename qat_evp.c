@@ -52,14 +52,16 @@
 #include "openssl/evp.h"
 #include "qat_utils.h"
 #include "qat_evp.h"
-#include "e_qat.h"
+#include "qat_init.h"
 
 /* Supported EVP nids */
 int qat_evp_nids[] = {
     EVP_PKEY_TLS1_PRF,
+#if OPENSSL_VERSION_NUMBER > 0x10101000L
     EVP_PKEY_HKDF,
     EVP_PKEY_X25519,
     EVP_PKEY_X448
+#endif
 };
 const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
 
@@ -77,12 +79,14 @@ static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
     switch (nid) {
         case EVP_PKEY_TLS1_PRF:
             return qat_prf_pmeth();
+#if OPENSSL_VERSION_NUMBER > 0x10101000L
         case EVP_PKEY_HKDF:
             return qat_hkdf_pmeth();
         case EVP_PKEY_X25519:
             return qat_x25519_pmeth();
         case EVP_PKEY_X448:
             return qat_x448_pmeth();
+#endif
         default:
             WARN("Invalid nid %d\n", nid);
             return NULL;

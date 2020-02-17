@@ -57,7 +57,7 @@
 #include "openssl/ssl.h"
 #include "qat_evp.h"
 #include "qat_utils.h"
-#include "e_qat.h"
+#include "qat_init.h"
 #include "qat_callback.h"
 #include "qat_polling.h"
 #include "qat_events.h"
