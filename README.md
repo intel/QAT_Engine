@@ -1426,11 +1426,11 @@ a slow down in performance until the acceleration device comes back online.
 
 The HKDF support in the Intel&reg; QAT OpenSSL\* Engine is available only from
 Version 4.8 of Intel&reg; QuickAssist Technology Driver for Linux HW Version 1.7.
-If any other lower version of driver is used then the Intel&reg; QAT OpenSSL\* Engine
-needs to be configured to disable HKDF offload using the below flag.
+By default this support is disabled as it is added as an experimental feature.
+It can be enabled using the below flag in the configure command.
 
 ```bash
---disable-qat_hkdf
+--enable-qat_hkdf
 ```
 
 ## Legal

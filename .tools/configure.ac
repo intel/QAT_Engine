@@ -58,8 +58,8 @@ AC_ARG_ENABLE(qat_prf,
 AC_SUBST(enable_qat_prf)
 
 AC_ARG_ENABLE(qat_hkdf,
-              AS_HELP_STRING([--disable-qat_hkdf],
-                             [Disable accelerated HKDF offload]))
+              AS_HELP_STRING([--enable-qat_hkdf],
+                             [Enable accelerated HKDF offload]))
 AC_SUBST(enable_qat_hkdf)
 
 AC_ARG_ENABLE(qat_small_pkt_offload,
@@ -289,7 +289,7 @@ else
   AC_MSG_NOTICE([Not Offloading PRF to Hardware])
 fi
 
-if test "x$enable_qat_hkdf" != "xno"
+if test "x$enable_qat_hkdf" = "xyes"
 then
   enable_qat_hkdf="-DOPENSSL_ENABLE_QAT_HKDF"
   AC_MSG_NOTICE([Offloading HKDF to Hardware])
