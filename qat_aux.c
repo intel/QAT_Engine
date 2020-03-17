@@ -159,7 +159,7 @@ void qat_free_DSA_methods(void)
     return;
 }
 
-int qat_PRF_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
+int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                          const int **nids, int nid)
 {
     return 0;

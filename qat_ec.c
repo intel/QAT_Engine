@@ -252,7 +252,7 @@ CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
 int qat_get_curve(const EC_GROUP *group, BIGNUM *p, BIGNUM *a,
                   BIGNUM *b, BN_CTX *ctx, CpaCyEcFieldType fieldType)
 {
-# if OPENSSL_VERSION_NUMBER > 0x101000afL
+# if OPENSSL_VERSION_NUMBER > 0x10200000L
     if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
         WARN("Failure to get the curve\n");
         return 0;
@@ -277,7 +277,7 @@ int qat_get_affine_coordinates(const EC_GROUP *group, const EC_POINT *p,
                                BIGNUM *x, BIGNUM *y, BN_CTX *ctx,
                                CpaCyEcFieldType fieldType)
 {
-# if OPENSSL_VERSION_NUMBER > 0x101000afL
+# if OPENSSL_VERSION_NUMBER > 0x10200000L
     if (!EC_POINT_get_affine_coordinates(group, p, x, y, ctx)) {
         WARN("Failure to get the affine coordinates for fieldType %d\n", fieldType);
         return 0;
@@ -302,7 +302,7 @@ int qat_set_affine_coordinates(const EC_GROUP *group, EC_POINT *p,
                                BIGNUM *x, BIGNUM *y, BN_CTX *ctx,
                                CpaCyEcFieldType fieldType)
 {
-# if OPENSSL_VERSION_NUMBER > 0x101000afL
+# if OPENSSL_VERSION_NUMBER > 0x10200000L
     if (!EC_POINT_set_affine_coordinates(group, p, x, y, ctx)) {
         WARN("Failure to set the affine coordinates for fieldType %d\n", fieldType);
         return 0;
