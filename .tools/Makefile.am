@@ -138,7 +138,7 @@ MAKE = make err-files && make
 endif
 
 install-data-am:
-	-cp -f $(prefix)/lib/libqat.so $(ENGINE_LIB)
+	cp -L --remove-destination .libs/libqat.so $(ENGINE_LIB)
 
 err-files:
 if QAT_OPENSSL_102

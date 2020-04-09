@@ -433,19 +433,18 @@ then
   AC_MSG_NOTICE([Enabling writing debug to file])
 fi
 
-
-AC_CHECK_PROG(USE_GETCONF, getconf, yes, no)
-AC_PROG_AWK
-if test $AWK == "gawk" -a $USE_GETCONF == "yes"
+AC_CHECK_PROG(USE_LDD, ldd, yes, no)
+AC_CHECK_PROG(USE_HEAD, head, yes, no)
+if test $USE_LDD == "yes" -a $USE_HEAD
 then
  AC_MSG_NOTICE([Getting glibc version ...])
- if test `getconf GNU_LIBC_VERSION | gawk '{print $2>=2.23?"1":"0"}' 2>/dev/null` == 1
+ if test `ldd --version | head -1 | awk '{print $4>=2.23?"1":"0"}' 2>/dev/null` == 1
  then
   AC_MSG_NOTICE([glibc version is greater or equal to 2.23 so AVX-512 optimisations are supported.])
  else
   AC_MSG_NOTICE([glibc version is less than 2.23 - no AVX-512 optimisation supported.])
  fi
- if test `getconf GNU_LIBC_VERSION | gawk '{print $2<2.17?"1":"0"}' 2>/dev/null` == 1
+ if test `ldd --version | head -1 | awk '{print $4<2.17?"1":"0"}' 2>/dev/null` == 1
  then
   AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
   AC_SUBST(LIBS)
@@ -481,11 +480,11 @@ then
 fi
 AM_CONDITIONAL([QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH], [test "x$enable_openssl_install_build_arch_path" = "xyes"])
 
-if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"
+if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
 then
   AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
 fi
-AM_CONDITIONAL([QAT_OPENSSL_300], [ test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | gawk '{print $4}'`" = "3"])
+AM_CONDITIONAL([QAT_OPENSSL_300], [ test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"])
 
 # Adding driver source for building and linking the library
 
@@ -551,7 +550,7 @@ then
   AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
 fi
 
-if test "x$enable_qat_contig_mem" != "xyes" -a "x$enable_multi_thread" != "xyes" -a "$enable_qat16_driver" = "xyes"
+if test "x$enable_qat_contig_mem" != "xyes" -a "x$enable_multi_thread" != "xyes"
 then
   AC_ARG_WITH(QAT_SHARED_LIB_DEPS_QAE_MEM, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_QAE_MEM=["-Wl,-rpath,\$(with_usdm_dir) -L\$(with_usdm_dir) -lusdm_drv_s"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_QAE_MEM)

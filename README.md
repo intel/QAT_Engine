@@ -107,7 +107,7 @@ This release was validated on the following:
 
 * Operating system: CentOS\* 7.4 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.8
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.9
 * OpenSSL\* 1.1.1 (Basic functionality testing done on TLS1.3)
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
@@ -1030,7 +1030,7 @@ Optional
     Disable/Enable Intel(R) QAT PRF offload (enabled by default)
 
 --disable-qat_hkdf/--enable-qat_hkdf
-    Disable/Enable Intel(R) QAT HKDF offload (enabled by default)
+    Disable/Enable Intel(R) QAT HKDF offload (disabled by default)
 
 --disable-qat_ecx/--enable-qat_ecx
     Disable/Enable Intel(R) QAT X25519/X448 offload (enabled by default)

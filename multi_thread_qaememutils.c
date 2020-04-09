@@ -114,7 +114,7 @@ static int slot_sizes_available[] = {
     SLOT_32_KILOBYTES
 };
 #define unlikely(x) __builtin_expect (!!(x), 0)
-static int crypto_inited = 0;
+static __thread int crypto_inited = 0;
 
 typedef struct _qae_slot {
     struct _qae_slot *next;
