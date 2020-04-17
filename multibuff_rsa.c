@@ -57,7 +57,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "rsa_ifma.h"
+#include "crypto_mb/rsa_ifma.h"
 #include "multibuff_init.h"
 #include "multibuff_rsa.h"
 #include "qat_events.h"

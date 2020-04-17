@@ -162,8 +162,8 @@ repository:
 
 [10]:https://github.com/openssl/openssl/pull/10080
 
-* Support for Multibuffer offload is extended to RSA 2k only and other algorithms will
-  use the standard OpenSSL implemenation when this feature is enabled.
+* Support for Multibuffer offload is extended to RSA 2k only. Other key sizes will
+  use the standard OpenSSL implementation when this feature is enabled.
 
 ## Installation Instructions
 
@@ -982,10 +982,9 @@ Mandatory (when using the Intel&reg; IFMA Mutibuffer Library)
     Specify the path to the source code of the Intel(R) IFMA Mutibuffer library.
     This path is needed for compilation in order to locate the Intel(R) IFMA
     Multibuffer header files. If you do not specify this the build will fail.
-    For example if using Intel&reg; IFMA Mutibuffer library that was
-    unpacked to `/IFMA`, and you are using the Intel(R) Icelake Server or Client
-    platform for multibuff offload then you would use the following setting:
-    --with-multibuff_dir=/IFMA
+    For example if using Intel&reg; IFMA Mutibuffer library that was cloned from
+    the ipp-crypto GitHub to `/ipp-crypto`, then you would use the following
+    setting: --with-multibuff_dir=/ipp-crypto/sources/ippcp/crypto_mb
 
 
 Optional
@@ -1492,22 +1491,22 @@ Multiply Add (IFMA) library.
 
 The Intel&reg; QAT OpenSSL\* Engine Multibuffer Support, when enabled by the user
 using the build instructions mentioned below performs operation by batching up
-multiple requests maintained in queues and uses the OpenSSL async infrastucture
+multiple requests maintained in queues and uses the OpenSSL async infrastructure
 to submit the batched requests upto 8 to IFMA API which processes them in
 parallel using AVX512 vector instructions. Multibuffer optimizations will be
 beneficial to use in asynchronous operations where there are many parallel
 connections.
 
 ### Requirements
-1. This Intel&reg; QAT OpenSSL\* Engine supports Multibuffer based software
-optimizations for RSA only in the Ice Lake Server(ICX) or Ice Lake Client(ICL)
-platform and not supported in any other platform.
-2. Successful operation of the Multibuffer support requires a software tool
-chain that supports OpenSSL\* 1.1.1 and Intel&reg; AVX-512 Integer Fused
-Multiply Add (IFMA) library version 0.5.3 cloned and installed using the
-instructions in the Readme from the [IFMA GitHub][13]
 
-[13]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/ifma_rsa_mb
+Successful operation of the Multibuffer support requires a software tool
+chain that supports OpenSSL\* 1.1.1 and Intel&reg; AVX-512 Integer Fused
+Multiply Add (IFMA) library version 0.5.3 or above cloned from the
+[ipp-crypto GitHub][13] repo and installed using the instructions in
+the Readme from [IFMA Source][14]
+
+[13]:https://github.com/intel/ipp-crypto
+[14]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
 
 ### Build Instructions for Intel&reg; QAT OpenSSL\* Engine to enable Multibuffer Support
 
@@ -1515,9 +1514,9 @@ The following example is assuming:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
-* The Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) library was cloned from the
-  [IFMA Github][13] to its own location at the root of the drive: `/IFMA` and installed
-  to `/usr/local/lib`
+* The Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) library was cloned
+  from the [ipp-crypto GitHub][13] to its own location at the root of the
+  drive: `/` and IFMA Multibuffer library installed to `/usr/local/lib`
 * OpenSSL\* 1.1.1 was installed to `/usr/local/ssl`.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine with Multibuffer offload:
@@ -1526,7 +1525,7 @@ To build and install the Intel&reg; QAT OpenSSL\* Engine with Multibuffer offloa
 cd /QAT_Engine
 ./autogen.sh
 ./configure \
---with-multibuff_dir=/IFMA \
+--with-multibuff_dir=/ipp-crypto/sources/ippcp/crypto_mb \
 --with-openssl_install_dir=/usr/local/ssl
 make
 make install

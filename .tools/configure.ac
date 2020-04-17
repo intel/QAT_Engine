@@ -249,7 +249,7 @@ then
   AC_CHECK_LIB(qat_s, cpaCyRsaDecrypt, [AC_MSG_NOTICE([QAT Offload with libraries from standard location])], [AC_MSG_NOTICE([QAT Library not found in the standard location])], [])
 if test "x$ac_cv_lib_qat_s_cpaCyRsaDecrypt" = "xno"
 then
-  AC_CHECK_LIB(crypto-mb, ifma_getversion, [AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")], [AC_MSG_ERROR([Both QAT and Multibuff IFMA Library not found in the standard path. Install either QAT or IFMA library])], [])
+  AC_CHECK_LIB(crypto_mb, ifma_getversion, [AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")], [AC_MSG_ERROR([Both QAT and Multibuff IFMA Library not found in the standard path. Install either QAT or IFMA library])], [])
   AC_SUBST(cflags_multibuff_offload)
   AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$ac_cv_lib_crypto_mb_ifma_getversion" = "xyes"])
 fi
@@ -283,7 +283,7 @@ fi
 
 if test "x$with_multibuff_install_dir" = "x" -a "x$cflags_multibuff_offload" != "x"
 then
-  AC_CHECK_LIB(crypto-mb, ifma_getversion, [AC_MSG_NOTICE([Using from IFMA Library from Default location])], [AC_MSG_ERROR([IFMA Library not found, Install the IFMA library or provide the path to the library using --with-multibuff_install_dir])],[])
+  AC_CHECK_LIB(crypto_mb, ifma_getversion, [AC_MSG_NOTICE([Using from IFMA Library from Default location])], [AC_MSG_ERROR([IFMA Library not found, Install the IFMA library or provide the path to the library using --with-multibuff_install_dir])],[])
   with_multibuff_install_dir="/usr/local/lib"
 fi
 
@@ -595,7 +595,7 @@ AC_SUBST(with_ICP_LAC_API_DIR)
 AC_ARG_WITH(includes_driver, AS_HELP_STRING(), , includes_driver="-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR)")
 AC_SUBST(includes_driver)
 
-AC_ARG_WITH(includes_multibuff, AS_HELP_STRING(), , includes_multibuff="-I\$(with_multibuff_dir)/include/public")
+AC_ARG_WITH(includes_multibuff, AS_HELP_STRING(), , includes_multibuff="-I\$(with_multibuff_dir)/include")
 AC_SUBST(includes_multibuff)
 
 AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
@@ -650,7 +650,7 @@ fi
 
 if test "x$with_multibuff_install_dir" != "x" -a "x$cflags_multibuff_offload" != "x"
 then
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_MULTIBUFF, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_MULTIBUFF=["-Wl,-rpath,\$(with_multibuff_install_dir) -L\$(with_multibuff_install_dir) -lcrypto-mb"])
+  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_MULTIBUFF, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_MULTIBUFF=["-Wl,-rpath,\$(with_multibuff_install_dir) -L\$(with_multibuff_install_dir) -lcrypto_mb"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_MULTIBUFF)
 fi
 
