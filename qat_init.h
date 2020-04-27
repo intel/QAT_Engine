@@ -162,7 +162,7 @@ typedef struct {
             } while(0)
 
 #define QAT_MAX_CRYPTO_INSTANCES 256
-#define QAT_MAX_CRYPTO_ACCELERATORS 16
+#define QAT_MAX_CRYPTO_ACCELERATORS 512
 
 /* Behavior of qat_engine_finish_int */
 #define QAT_RETAIN_GLOBALS 0
