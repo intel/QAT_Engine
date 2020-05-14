@@ -374,7 +374,7 @@ else
   AC_MSG_NOTICE([Not Offloading PRF to Hardware])
 fi
 
-if test "x$enable_qat_hkdf" != "xno" -a "x$cflags_multibuff_offload" = "x"
+if test "x$enable_qat_hkdf" = "xyes" -a "x$cflags_multibuff_offload" = "x"
 then
   enable_qat_hkdf="-DOPENSSL_ENABLE_QAT_HKDF"
   AC_MSG_NOTICE([Offloading HKDF to Hardware])
