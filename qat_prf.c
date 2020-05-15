@@ -246,12 +246,12 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
 
     if (qat_prf_ctx->qat_sec != NULL) {
         OPENSSL_cleanse(qat_prf_ctx->qat_sec, qat_prf_ctx->qat_seclen);
-        qaeCryptoMemFree(qat_prf_ctx->qat_sec);
+        qaeCryptoMemFreeNonZero(qat_prf_ctx->qat_sec);
     }
     if (qat_prf_ctx->qat_seedlen)
         OPENSSL_cleanse(qat_prf_ctx->qat_seed, qat_prf_ctx->qat_seedlen);
     if (qat_prf_ctx->qat_userLabel != NULL)
-        qaeCryptoMemFree(qat_prf_ctx->qat_userLabel);
+        qaeCryptoMemFreeNonZero(qat_prf_ctx->qat_userLabel);
     OPENSSL_free(qat_prf_ctx);
 
     EVP_PKEY_CTX_set_data(ctx, NULL);
@@ -320,7 +320,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             }
             if (qat_prf_ctx->qat_sec != NULL) {
                 OPENSSL_cleanse(qat_prf_ctx->qat_sec, qat_prf_ctx->qat_seclen);
-                qaeCryptoMemFree(qat_prf_ctx->qat_sec);
+                qaeCryptoMemFreeNonZero(qat_prf_ctx->qat_sec);
                 qat_prf_ctx->qat_seclen = 0;
             }
             OPENSSL_cleanse(qat_prf_ctx->qat_seed, qat_prf_ctx->qat_seedlen);
@@ -350,7 +350,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                     return 0;
                 } else {
                     if (qat_prf_ctx->qat_userLabel != NULL) {
-                        qaeCryptoMemFree(qat_prf_ctx->qat_userLabel);
+                        qaeCryptoMemFreeNonZero(qat_prf_ctx->qat_userLabel);
                     }
                     qat_prf_ctx->qat_userLabel = copyAllocPinnedMemory(p2, p1,
                                                                        __FILE__, __LINE__);
@@ -807,14 +807,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     /* Free the memory  */
     if (prf_op_data.seed.pData) {
          OPENSSL_cleanse(prf_op_data.seed.pData, prf_op_data.seed.dataLenInBytes);
-         qaeCryptoMemFree(prf_op_data.seed.pData);
+         qaeCryptoMemFreeNonZero(prf_op_data.seed.pData);
     }
     if (NULL != generated_key) {
         if (NULL != generated_key->pData) {
             OPENSSL_cleanse(generated_key->pData, key_length);
-            qaeCryptoMemFree(generated_key->pData);
+            qaeCryptoMemFreeNonZero(generated_key->pData);
         }
-        qaeCryptoMemFree(generated_key);
+        qaeCryptoMemFreeNonZero(generated_key);
     }
     if (fallback) {
         WARN("- Fallback to software mode.\n");

@@ -1009,6 +1009,22 @@ void qaeCryptoMemFree(void *ptr)
 
 /******************************************************************************
 * function:
+*         qaeCryptoMemFreeNonZero(void *ptr)
+*
+* @param[in] ptr, address of start of usable memory
+*
+* description:
+*   It calls qaeCryptoMemFree() as NonZeroNUMA API is invoked only with the
+*   upstream driver.
+*
+******************************************************************************/
+void qaeCryptoMemFreeNonZero(void *ptr)
+{
+    qaeCryptoMemFree(ptr);
+}
+
+/******************************************************************************
+* function:
 *         qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
 *                             int line)
 *

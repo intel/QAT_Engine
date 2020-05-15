@@ -209,24 +209,25 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
     DEBUG("- Started\n");
 
     if (dec_op_data) {
-        if (dec_op_data->inputData.pData)
-            qaeCryptoMemFree(dec_op_data->inputData.pData);
-
+        if (dec_op_data->inputData.pData) {
+            qaeCryptoMemFreeNonZero(dec_op_data->inputData.pData);
+        }
         if (dec_op_data->pRecipientPrivateKey) {
             key = &dec_op_data->pRecipientPrivateKey->privateKeyRep2;
-            QAT_CHK_CLNSE_QMFREE_FLATBUFF(key->prime1P);
-            QAT_CHK_CLNSE_QMFREE_FLATBUFF(key->prime2Q);
-            QAT_CHK_CLNSE_QMFREE_FLATBUFF(key->exponent1Dp);
-            QAT_CHK_CLNSE_QMFREE_FLATBUFF(key->exponent2Dq);
-            QAT_CHK_CLNSE_QMFREE_FLATBUFF(key->coefficientQInv);
+            QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(key->prime1P);
+            QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(key->prime2Q);
+            QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(key->exponent1Dp);
+            QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(key->exponent2Dq);
+            QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(key->coefficientQInv);
             OPENSSL_free(dec_op_data->pRecipientPrivateKey);
         }
         OPENSSL_free(dec_op_data);
     }
 
     if (out_buf) {
-        if (out_buf->pData)
-            qaeCryptoMemFree(out_buf->pData);
+        if (out_buf->pData) {
+            qaeCryptoMemFreeNonZero(out_buf->pData);
+        }
         OPENSSL_free(out_buf);
     }
     DEBUG("- Finished\n");
@@ -541,21 +542,28 @@ rsa_encrypt_op_buf_free(CpaCyRsaEncryptOpData * enc_op_data,
 
     if (enc_op_data) {
         if (enc_op_data->pPublicKey) {
-            if (enc_op_data->pPublicKey->modulusN.pData)
-                qaeCryptoMemFree(enc_op_data->pPublicKey->modulusN.pData);
-            if (enc_op_data->pPublicKey->publicExponentE.pData)
-                qaeCryptoMemFree(enc_op_data->pPublicKey->
+            if (enc_op_data->pPublicKey->modulusN.pData) {
+                OPENSSL_cleanse(enc_op_data->pPublicKey->modulusN.pData, enc_op_data->pPublicKey->modulusN.dataLenInBytes);
+                qaeCryptoMemFreeNonZero(enc_op_data->pPublicKey->modulusN.pData);
+            }
+            if (enc_op_data->pPublicKey->publicExponentE.pData) {
+                OPENSSL_cleanse(enc_op_data->pPublicKey->publicExponentE.pData, enc_op_data->pPublicKey->publicExponentE.dataLenInBytes);
+                qaeCryptoMemFreeNonZero(enc_op_data->pPublicKey->
                                  publicExponentE.pData);
+            }
             OPENSSL_free(enc_op_data->pPublicKey);
         }
-        if (enc_op_data->inputData.pData)
-            qaeCryptoMemFree(enc_op_data->inputData.pData);
+        if (enc_op_data->inputData.pData) {
+            OPENSSL_cleanse(enc_op_data->inputData.pData, enc_op_data->inputData.dataLenInBytes);
+            qaeCryptoMemFreeNonZero(enc_op_data->inputData.pData);
+        }
         OPENSSL_free(enc_op_data);
     }
 
     if (out_buf) {
-        if (out_buf->pData)
-            qaeCryptoMemFree(out_buf->pData);
+        if (out_buf->pData) {
+            qaeCryptoMemFreeNonZero(out_buf->pData);
+        }
         OPENSSL_free(out_buf);
     }
     DEBUG("- Finished\n");

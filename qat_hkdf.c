@@ -259,7 +259,7 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
             OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->info,
                             qat_hkdf_ctx->hkdf_op_data->infoLen);
 
-        qaeCryptoMemFree(qat_hkdf_ctx->hkdf_op_data);
+        qaeCryptoMemFreeNonZero(qat_hkdf_ctx->hkdf_op_data);
     }
 
     OPENSSL_free(qat_hkdf_ctx);
@@ -754,7 +754,7 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         if (NULL != generated_key) {
             if (NULL != generated_key->pData) {
                 OPENSSL_cleanse(generated_key->pData, key_length);
-                qaeCryptoMemFree(generated_key->pData);
+                qaeCryptoMemFreeNonZero(generated_key->pData);
             }
             OPENSSL_free(generated_key);
         }

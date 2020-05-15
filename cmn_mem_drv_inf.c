@@ -92,6 +92,34 @@ void qaeCryptoMemFree(void *ptr)
     MEM_DEBUG("pthread_mutex_unlock\n");
 }
 
+void qaeCryptoMemFreeNonZero(void *ptr)
+{
+    int rc;
+
+    MEM_DEBUG("Address: %p\n", ptr);
+
+    if (unlikely(NULL == ptr)) {
+        MEM_WARN("qaeCryptoMemFreeNonZero trying to free NULL pointer.\n");
+        return;
+    }
+
+    MEM_DEBUG("pthread_mutex_lock\n");
+    if ((rc = pthread_mutex_lock(&mem_mutex)) != 0) {
+        MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
+        return;
+    }
+#ifndef QAT_DISABLE_NONZERO_MEMFREE
+    qaeMemFreeNonZeroNUMA(&ptr);
+#else
+    qaeMemFreeNUMA(&ptr);
+#endif
+    if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
+        MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
+        return;
+    }
+    MEM_DEBUG("pthread_mutex_unlock\n");
+}
+
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
     /* Input params should already have been sanity-checked by calling function. */

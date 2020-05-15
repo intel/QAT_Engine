@@ -488,7 +488,7 @@ err:
             qaeCryptoMemFree(opData->primeP.pData);
         if (opData->baseG.pData)
             qaeCryptoMemFree(opData->baseG.pData);
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(opData->privateValueX);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->privateValueX);
         OPENSSL_free(opData);
     }
 
@@ -779,7 +779,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
  err:
     if (pSecretKey) {
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(*pSecretKey);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(*pSecretKey);
         OPENSSL_free(pSecretKey);
     }
 
@@ -788,7 +788,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
             qaeCryptoMemFree(opData->primeP.pData);
         if (opData->remoteOctetStringPV.pData)
             qaeCryptoMemFree(opData->remoteOctetStringPV.pData);
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(opData->privateValueX);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->privateValueX);
         OPENSSL_free(opData);
     }
 

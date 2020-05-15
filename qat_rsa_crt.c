@@ -516,11 +516,10 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     ret = 1;
 
 err:
-    QAT_CHK_CLNSE_QMFREE_FLATBUFF(crt_op1_data.base);
-    QAT_CHK_CLNSE_QMFREE_FLATBUFF(crt_op2_data.base);
-    QAT_CHK_CLNSE_QMFREE_FLATBUFF(crt_out1);
-    QAT_CHK_CLNSE_QMFREE_FLATBUFF(crt_out2);
-
+    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_op1_data.base);
+    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_op2_data.base);
+    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_out1);
+    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_out2);
     DEBUG("- Finished\n");
     return ret;
 }

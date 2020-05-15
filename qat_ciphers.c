@@ -1683,7 +1683,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                    qctx->p_inlen[pipe] - discardlen - plen_adj);
             outlen += buflen + plen_adj - discardlen;
         }
-        qaeCryptoMemFree(qctx->qop[pipe].src_fbuf[1].pData);
+        qaeCryptoMemFreeNonZero(qctx->qop[pipe].src_fbuf[1].pData);
         qctx->qop[pipe].src_fbuf[1].pData = NULL;
         qctx->qop[pipe].dst_fbuf[1].pData = NULL;
     } while (++pipe < qctx->numpipes);

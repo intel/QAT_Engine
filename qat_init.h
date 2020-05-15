@@ -143,10 +143,25 @@ typedef struct {
 #define QAT_QMEM_FREE_FLATBUFF(b) \
             qaeCryptoMemFree((b).pData)
 
+#define QAT_QMEM_FREE_NONZERO_FLATBUFF(b) \
+            qaeCryptoMemFreeNonZero((b).pData)
+
 #define QAT_CLEANSE_QMEMFREE_FLATBUFF(b) \
             do { \
                 QAT_CLEANSE_FLATBUFF(b); \
                 QAT_QMEM_FREE_FLATBUFF(b); \
+            } while(0)
+
+#define QAT_CLEANSE_QMEMFREE_NONZERO_FLATBUFF(b) \
+            do { \
+                QAT_CLEANSE_FLATBUFF(b); \
+                QAT_QMEM_FREE_NONZERO_FLATBUFF(b); \
+            } while(0)
+
+#define QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(b) \
+            do { \
+                if ((b).pData != NULL) \
+                    QAT_CLEANSE_QMEMFREE_NONZERO_FLATBUFF(b); \
             } while(0)
 
 #define QAT_CHK_CLNSE_QMFREE_FLATBUFF(b) \
@@ -159,6 +174,12 @@ typedef struct {
             do { \
                 if ((b).pData != NULL) \
                     QAT_QMEM_FREE_FLATBUFF(b); \
+            } while(0)
+
+#define QAT_CHK_QMFREE_NONZERO_FLATBUFF(b) \
+            do { \
+                if ((b).pData != NULL) \
+                    QAT_QMEM_FREE_NONZERO_FLATBUFF(b); \
             } while(0)
 
 #define QAT_MAX_CRYPTO_INSTANCES 256

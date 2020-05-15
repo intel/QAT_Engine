@@ -608,8 +608,8 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         QAT_CHK_QMFREE_FLATBUFF(opData->Q);
         QAT_CHK_QMFREE_FLATBUFF(opData->G);
         QAT_CHK_QMFREE_FLATBUFF(opData->Z);
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(opData->X);
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(opData->K);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->X);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->K);
         OPENSSL_free(opData);
     }
 

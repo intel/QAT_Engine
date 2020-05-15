@@ -83,6 +83,7 @@ extern FILE* qatDebugLogFile;
 #endif
 
 void qaeCryptoMemFree(void *ptr);
+void qaeCryptoMemFreeNonZero(void *ptr);
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line);
 void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
                           int line);

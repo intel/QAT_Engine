@@ -537,7 +537,7 @@ err:
     if (pXk != NULL) {
         if (pXk->pData != NULL) {
             OPENSSL_cleanse(pXk->pData, qat_keylen);
-            qaeCryptoMemFree(pXk->pData);
+            qaeCryptoMemFreeNonZero(pXk->pData);
         }
         OPENSSL_free(pXk);
     }
@@ -545,9 +545,9 @@ err:
     if (NULL != qat_ecx_op_data) {
         if (qat_ecx_op_data->k.pData != NULL) {
             OPENSSL_cleanse(qat_ecx_op_data->k.pData, qat_keylen);
-            qaeCryptoMemFree(qat_ecx_op_data->k.pData);
+            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
         }
-        qaeCryptoMemFree(qat_ecx_op_data);
+        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
         qat_ecx_op_data = NULL;
     }
 
@@ -874,7 +874,7 @@ err:
     if (pXk != NULL) {
         if (pXk->pData != NULL) {
             OPENSSL_cleanse(pXk->pData, dataLenInBytes);
-            qaeCryptoMemFree(pXk->pData);
+            qaeCryptoMemFreeNonZero(pXk->pData);
         }
         OPENSSL_free(pXk);
     }
@@ -882,13 +882,13 @@ err:
     if (NULL != qat_ecx_op_data) {
         if (qat_ecx_op_data->k.pData != NULL) {
             OPENSSL_cleanse(qat_ecx_op_data->k.pData, dataLenInBytes);
-            qaeCryptoMemFree(qat_ecx_op_data->k.pData);
+            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
         }
         if (qat_ecx_op_data->x.pData != NULL) {
             OPENSSL_cleanse(qat_ecx_op_data->x.pData, dataLenInBytes);
-            qaeCryptoMemFree(qat_ecx_op_data->x.pData);
+            qaeCryptoMemFreeNonZero(qat_ecx_op_data->x.pData);
         }
-        qaeCryptoMemFree(qat_ecx_op_data);
+        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
         qat_ecx_op_data = NULL;
     }
 
@@ -1166,7 +1166,7 @@ err:
     if (pXk != NULL) {
         if (pXk->pData != NULL) {
             OPENSSL_cleanse(pXk->pData, QAT_X448_DATALEN);
-            qaeCryptoMemFree(pXk->pData);
+            qaeCryptoMemFreeNonZero(pXk->pData);
         }
         OPENSSL_free(pXk);
     }
@@ -1174,13 +1174,13 @@ err:
     if (NULL != qat_ecx_op_data) {
         if (qat_ecx_op_data->k.pData != NULL) {
             OPENSSL_cleanse(qat_ecx_op_data->k.pData, QAT_X448_DATALEN);
-            qaeCryptoMemFree(qat_ecx_op_data->k.pData);
+            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
         }
         if (qat_ecx_op_data->x.pData != NULL) {
             OPENSSL_cleanse(qat_ecx_op_data->x.pData, QAT_X448_DATALEN);
-            qaeCryptoMemFree(qat_ecx_op_data->x.pData);
+            qaeCryptoMemFreeNonZero(qat_ecx_op_data->x.pData);
         }
-        qaeCryptoMemFree(qat_ecx_op_data);
+        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
         qat_ecx_op_data = NULL;
     }
 

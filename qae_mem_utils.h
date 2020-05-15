@@ -160,6 +160,22 @@ void qaeCryptoMemFree(void *ptr);
 
 /*****************************************************************************
  * function:
+ *         qaeCryptoMemFreeNonZero(void *ptr)
+ *
+ * @description
+ *      frees memory without clearing the contents of the buffer
+ *      allocated by the qaeCryptoMemAlloc function
+ *
+ *
+ * @param[in] pointer to the memory to be freed
+ *
+ * @retval none
+ *
+ *****************************************************************************/
+void qaeCryptoMemFreeNonZero(void *ptr);
+
+/*****************************************************************************
+ * function:
  *         qaeCryptoMemV2P(void *v)
  *
  * @description

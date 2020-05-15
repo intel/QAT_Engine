@@ -684,14 +684,14 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
  err:
     if (pResultX) {
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(*pResultX);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(*pResultX);
         OPENSSL_free(pResultX);
     }
     if (pResultY) {
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(*pResultY);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(*pResultY);
         OPENSSL_free(pResultY);
     }
-    QAT_CHK_CLNSE_QMFREE_FLATBUFF(opData->k);
+    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->k);
     QAT_CHK_QMFREE_FLATBUFF(opData->xg);
     QAT_CHK_QMFREE_FLATBUFF(opData->yg);
     QAT_CHK_QMFREE_FLATBUFF(opData->a);
@@ -1417,8 +1417,8 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         QAT_CHK_QMFREE_FLATBUFF(opData->a);
         QAT_CHK_QMFREE_FLATBUFF(opData->b);
         QAT_CHK_QMFREE_FLATBUFF(opData->q);
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(opData->k);
-        QAT_CHK_CLNSE_QMFREE_FLATBUFF(opData->d);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->k);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->d);
         OPENSSL_free(opData);
     }
 
