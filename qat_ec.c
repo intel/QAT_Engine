@@ -354,7 +354,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     BIGNUM *xg = NULL, *yg = NULL;
     const BIGNUM *priv_key = NULL;
     const EC_GROUP *group = NULL;
-    int ret = -1, job_ret = 0;
+    int ret = 0, job_ret = 0;
     size_t buflen;
 
     int inst_num = QAT_INVALID_INSTANCE;
@@ -715,7 +715,7 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
                                 const EC_KEY *ecdh)
 {
     int fallback = 0;
-    int ret = -1;
+    int ret = 0;
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
     const EC_GROUP *group = NULL;
     const BIGNUM *priv_key = NULL;
@@ -1456,7 +1456,7 @@ int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
     if (s == NULL) {
         WARN("Failure to allocate ECDSA_SIG s\n");
         QATerr(QAT_F_QAT_ECDSA_VERIFY, QAT_R_S_NULL);
-        return (ret);
+        return ret;
     }
     if (d2i_ECDSA_SIG(&s, &p, sig_len) == NULL) {
         WARN("Failure to convert sig_buf and sig_len to s\n");
