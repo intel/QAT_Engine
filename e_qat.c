@@ -111,7 +111,7 @@
 /* Qat engine id declaration */
 const char *engine_qat_id = "qat";
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine";
+    "Reference implementation of QAT crypto engine v0.5.45";
 
 #ifndef OPENSSL_MULTIBUFF_OFFLOAD
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
@@ -310,7 +310,7 @@ static int bind_qat(ENGINE *e, const char *id)
 
     WARN("QAT Warnings enabled.\n");
     DEBUG("QAT Debug enabled.\n");
-    DEBUG("id=%s\n", id);
+    WARN("%s - %s \n", id, engine_qat_name);
 
 
 #ifndef OPENSSL_MULTIBUFF_OFFLOAD

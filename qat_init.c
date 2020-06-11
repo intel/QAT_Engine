@@ -85,7 +85,6 @@
 #include "qat_utils.h"
 #include "qat_evp.h"
 #include "qat_parseconf.h"
-#include "qat_sys_call.h"
 #include "e_qat_err.h"
 
 /* OpenSSL Includes */

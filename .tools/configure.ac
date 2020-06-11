@@ -455,7 +455,7 @@ else
   AC_MSG_NOTICE([Auto Engine init on fork enabled (default).])
 fi
 
-if test "x$enable_multibuff_heuristic_timeout" != "xno"
+if test "x$enable_multibuff_heuristic_timeout" != "xno" -a "x$cflags_multibuff_offload" != "x"
 then
   enable_multibuff_heuristic_timeout="-DMULTIBUFF_HEURISTIC_TIMEOUT"
   AC_MSG_NOTICE([Enabling Multibuffer Heuristic Timeout])
