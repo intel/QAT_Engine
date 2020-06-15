@@ -85,6 +85,7 @@
 #include "qat_utils.h"
 #include "qat_evp.h"
 #include "qat_parseconf.h"
+#include "qat_sys_call.h"
 #include "e_qat_err.h"
 
 /* OpenSSL Includes */
@@ -542,8 +543,15 @@ int qat_engine_init(ENGINE *e)
                 eng_poll_st[instNum].eng_fd = engine_fd;
                 eng_poll_st[instNum].inst_index = instNum;
 
-                flags = fcntl(engine_fd, F_GETFL, 0);
-                fcntl(engine_fd, F_SETFL, flags | O_NONBLOCK);
+                flags = qat_fcntl(engine_fd, F_GETFL, 0);
+                if (qat_fcntl(engine_fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+                    WARN("Failed to set engine_fd as NON BLOCKING\n");
+                    QATerr(QAT_F_QAT_ENGINE_INIT,
+                           QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE);
+                    pthread_mutex_unlock(&qat_engine_mutex);
+                    qat_engine_finish(e);
+                    return 0;
+                }
 
                 eng_epoll_events[instNum].data.ptr = &eng_poll_st[instNum];
                 eng_epoll_events[instNum].events = EPOLLIN | EPOLLET;
@@ -694,6 +702,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     CpaStatus status = CPA_STATUS_SUCCESS;
     int flags = 0;
     int fd = 0;
+    int fcntl_ret = -1;
 #endif
 
 
@@ -742,8 +751,10 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         BREAK_IF(CPA_STATUS_FAIL == status, \
                 "GET_EXTERNAL_POLLING_FD failed as there was an error retrieving the fd\n");
         /* Make the file descriptor non-blocking */
-        flags = fcntl(fd, F_GETFL, 0);
-        fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        flags = qat_fcntl(fd, F_GETFL, 0);
+        fcntl_ret = qat_fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        BREAK_IF(fcntl_ret == -1, \
+                 "GET_EXTERNAL_POLLING_FD failed as there was an error in setting the fd as NONBLOCKING\n");
 
         DEBUG("External polling FD for instance[%ld] = %d\n", i, fd);
         *(int *)p = fd;

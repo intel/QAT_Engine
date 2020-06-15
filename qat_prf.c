@@ -178,7 +178,7 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
     int (*sw_init_fn_ptr)(EVP_PKEY_CTX *) = NULL;
     int ret = 0;
 
-    if (ctx == NULL) {
+    if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
         return 0;
     }
@@ -191,11 +191,6 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
             WARN("s/w tls1_prf_init fn failed.\n");
             return 0;
         }
-    }
-
-    if (unlikely(ctx == NULL)) {
-        WARN("Invalid input param.\n");
-        return 0;
     }
 
     qat_prf_ctx = OPENSSL_zalloc(sizeof(*qat_prf_ctx));

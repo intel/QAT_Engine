@@ -351,6 +351,8 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     "setup async event failure"},
     {ERR_PACK(0, 0, QAT_R_SET_ADDRESS_TRANSLATION_FAILURE),
     "set address translation failure"},
+    {ERR_PACK(0, 0, QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE),
+    "set file descriptor nonblocking failure"},
     {ERR_PACK(0, 0, QAT_R_SET_INSTANCE_FAILURE), "set instance failure"},
     {ERR_PACK(0, 0, QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE),
     "set multibuff rsa meth failure"},

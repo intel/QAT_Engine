@@ -167,6 +167,8 @@ int qat_adjust_thread_affinity(pthread_t threadptr);
  ******************************************************************************/
 void *timer_poll_func(void *ih);
 
+int qat_fcntl(int fd, int cmd, int arg);
+
 # ifndef __FreeBSD__
 void *event_poll_func(void *ih);
 # endif

@@ -1472,7 +1472,7 @@ int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
     }
     ret = qat_ecdsa_do_verify(dgst, dgst_len, s, eckey);
  err:
-    OPENSSL_clear_free(der, derlen);
+    OPENSSL_free(der);
     ECDSA_SIG_free(s);
     return ret;
 }

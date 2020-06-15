@@ -255,27 +255,29 @@ QAT_R_SECRET_KEY_MALLOC_FAILURE:264:secret key malloc failure
 QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE:265:secret key pdata malloc failure
 QAT_R_SETUP_ASYNC_EVENT_FAILURE:266:setup async event failure
 QAT_R_SET_ADDRESS_TRANSLATION_FAILURE:267:set address translation failure
-QAT_R_SET_INSTANCE_FAILURE:268:set instance failure
-QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE:269:set multibuff rsa meth failure
-QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE:270:set notification callback failure
-QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE:271:\
+QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE:268:\
+	set file descriptor nonblocking failure
+QAT_R_SET_INSTANCE_FAILURE:269:set instance failure
+QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE:270:set multibuff rsa meth failure
+QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE:271:set notification callback failure
+QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE:272:\
 	set polling thread affinity failure
-QAT_R_SET_PRIV_KEY_FAILURE:272:set priv key failure
-QAT_R_SET_QAT_DSA_METH_FAILURE:273:set qat dsa meth failure
-QAT_R_SET_QAT_RSA_METH_FAILURE:274:set qat rsa meth failure
-QAT_R_SIG_GET_R_S_FAILURE:275:sig get r s failure
-QAT_R_SIG_MALLOC_FAILURE:276:sig malloc failure
-QAT_R_START_INSTANCE_FAILURE:277:start instance failure
-QAT_R_STOP_INSTANCE_FAILURE:278:stop instance failure
-QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:279:sw get compute key pfunc null
-QAT_R_SW_GET_KEYGEN_PFUNC_NULL:280:sw get keygen pfunc null
-QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:281:sw get sign sig pfunc null
-QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:282:sw get verify sig pfunc null
-QAT_R_SW_METHOD_NULL:283:sw method null
-QAT_R_S_NULL:284:s null
-QAT_R_S_Q_COMPARE_FAILURE:285:s q compare failure
-QAT_R_UNKNOWN_PADDING:286:unknown padding
-QAT_R_UNKNOWN_PADDING_TYPE:287:unknown padding type
-QAT_R_WAKE_PAUSE_JOB_FAILURE:288:wake pause job failure
-QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:289:x y tx ty bn malloc failure
-QAT_R_Z_ALLOCATE_FAILURE:290:z allocate failure
+QAT_R_SET_PRIV_KEY_FAILURE:273:set priv key failure
+QAT_R_SET_QAT_DSA_METH_FAILURE:274:set qat dsa meth failure
+QAT_R_SET_QAT_RSA_METH_FAILURE:275:set qat rsa meth failure
+QAT_R_SIG_GET_R_S_FAILURE:276:sig get r s failure
+QAT_R_SIG_MALLOC_FAILURE:277:sig malloc failure
+QAT_R_START_INSTANCE_FAILURE:278:start instance failure
+QAT_R_STOP_INSTANCE_FAILURE:279:stop instance failure
+QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:280:sw get compute key pfunc null
+QAT_R_SW_GET_KEYGEN_PFUNC_NULL:281:sw get keygen pfunc null
+QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:282:sw get sign sig pfunc null
+QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:283:sw get verify sig pfunc null
+QAT_R_SW_METHOD_NULL:284:sw method null
+QAT_R_S_NULL:285:s null
+QAT_R_S_Q_COMPARE_FAILURE:286:s q compare failure
+QAT_R_UNKNOWN_PADDING:287:unknown padding
+QAT_R_UNKNOWN_PADDING_TYPE:288:unknown padding type
+QAT_R_WAKE_PAUSE_JOB_FAILURE:289:wake pause job failure
+QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:290:x y tx ty bn malloc failure
+QAT_R_Z_ALLOCATE_FAILURE:291:z allocate failure

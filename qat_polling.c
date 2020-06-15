@@ -59,6 +59,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <time.h>
+#include <fcntl.h>
 
 /* Local Includes */
 #include "qat_polling.h"
@@ -172,6 +173,11 @@ int qat_adjust_thread_affinity(pthread_t threadptr)
     }
 #endif
     return 1;
+}
+
+int qat_fcntl(int fd, int cmd, int arg)
+{
+   return fcntl(fd, cmd, arg);
 }
 
 static void qat_poll_heartbeat_timer_expiry(struct timespec *previous_time)
