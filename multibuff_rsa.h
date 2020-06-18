@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file multibuff_rsa.h
  *
- * This file provides an RSA interface for multibuffer implemention of an
+ * This file provides an RSA interface for Multi-buffer implemention of an
  * OpenSSL engine
  *
  *****************************************************************************/

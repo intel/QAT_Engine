@@ -61,8 +61,8 @@
 #include <time.h>
 
 /* Local Includes */
+#include "e_qat.h"
 #include "multibuff_polling.h"
-#include "multibuff_init.h"
 #include "multibuff_rsa.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
@@ -256,7 +256,7 @@ void multibuff_update_req_timeout(mb_req_rates * req_rates)
 }
 #endif
 
-void *timer_poll_func(void *ih)
+void *multibuff_timer_poll_func(void *ih)
 {
     struct timespec timeout_time;
     int sig = 0;
@@ -265,14 +265,14 @@ void *timer_poll_func(void *ih)
     unsigned int submission_count;
 #endif
 
-    timer_poll_func_thread = pthread_self();
+    multibuff_timer_poll_func_thread = pthread_self();
     cleared_to_start = 1;
     multibuff_init_req_rates(&mb_rsa_priv_req_rates);
     multibuff_init_req_rates(&mb_rsa_pub_req_rates);
 
-    DEBUG("timer_poll_func_thread = 0x%lx\n", timer_poll_func_thread);
+    DEBUG("timer_poll_func_thread = 0x%lx\n", multibuff_timer_poll_func_thread);
 
-    while (keep_polling) {
+    while (multibuff_keep_polling) {
         timeout_time = mb_rsa_priv_req_rates.timeout_time;
         while ((sig = sigtimedwait((const sigset_t *)&set, NULL, &timeout_time)) == -1 &&
                 errno == EINTR &&
@@ -347,7 +347,7 @@ void *timer_poll_func(void *ih)
     }
 
     DEBUG("timer_poll_func finishing - pid = %d\n", getpid());
-    timer_poll_func_thread = 0;
+    multibuff_timer_poll_func_thread = 0;
     cleared_to_start = 0;
     return NULL;
 }

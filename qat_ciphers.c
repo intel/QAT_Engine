@@ -71,7 +71,7 @@
 #endif
 
 #include "qat_utils.h"
-#include "qat_init.h"
+#include "e_qat.h"
 #include "qat_callback.h"
 #include "qat_polling.h"
 #include "qat_events.h"
@@ -145,29 +145,6 @@ static CpaStatus qat_sym_perform_op(int inst_num,
                                     CpaBoolean * pVerifyResult);
 
 int qatPerformOpRetries = 0;
-
-typedef struct _chained_info {
-    const int nid;
-    EVP_CIPHER *cipher;
-    const int keylen;
-} chained_info;
-
-static chained_info info[] = {
-    {NID_aes_128_cbc_hmac_sha1, NULL, AES_KEY_SIZE_128},
-    {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
-    {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
-    {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
-};
-
-static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
-
-/* Qat Symmetric cipher function register */
-int qat_cipher_nids[] = {
-    NID_aes_128_cbc_hmac_sha1,
-    NID_aes_128_cbc_hmac_sha256,
-    NID_aes_256_cbc_hmac_sha1,
-    NID_aes_256_cbc_hmac_sha256,
-};
 
 /* Setup template for Session Setup Data as most of the fields
  * are constant. The constant values of some of the fields are
@@ -271,7 +248,7 @@ static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
     }
 }
 
-static const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
+const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
 {
 #ifndef OPENSSL_DISABLE_QAT_CIPHERS
     EVP_CIPHER *c = NULL;
@@ -304,32 +281,6 @@ static const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
 #else
     return qat_chained_cipher_sw_impl(nid);
 #endif
-}
-
-void qat_create_ciphers(void)
-{
-    int i;
-
-    for (i = 0; i < num_cc; i++) {
-        if (info[i].cipher == NULL) {
-            info[i].cipher = (EVP_CIPHER *)
-                qat_create_cipher_meth(info[i].nid, info[i].keylen);
-        }
-    }
-}
-
-void qat_free_ciphers(void)
-{
-    int i;
-
-    for (i = 0; i < num_cc; i++) {
-        if (info[i].cipher != NULL) {
-#ifndef OPENSSL_DISABLE_QAT_CIPHERS
-            EVP_CIPHER_meth_free(info[i].cipher);
-#endif
-            info[i].cipher = NULL;
-        }
-    }
 }
 
 #ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
@@ -463,53 +414,6 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
     if (job) {
        qat_wake_job(job, ASYNC_STATUS_OK);
     }
-}
-
-/******************************************************************************
-* function:
-*         qat_ciphers(ENGINE *e,
-*                     const EVP_CIPHER **cipher,
-*                     const int **nids,
-*                     int nid)
-*
-* @param e      [IN] - OpenSSL engine pointer
-* @param cipher [IN] - cipher structure pointer
-* @param nids   [IN] - cipher function nids
-* @param nid    [IN] - cipher operation id
-*
-* description:
-*   Qat engine cipher operations registrar
-******************************************************************************/
-int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
-{
-    int i;
-
-    if (unlikely((nids == NULL) && ((cipher == NULL) || (nid < 0)))) {
-        WARN("Invalid input param.\n");
-        if (cipher != NULL)
-            *cipher = NULL;
-        return 0;
-    }
-
-    /* No specific cipher => return a list of supported nids ... */
-    if (cipher == NULL) {
-        *nids = qat_cipher_nids;
-        /* num ciphers supported (size of array/size of 1 element) */
-        return (sizeof(qat_cipher_nids) / sizeof(qat_cipher_nids[0]));
-    }
-
-    for (i = 0; i < num_cc; i++) {
-        if (nid == info[i].nid) {
-            if (info[i].cipher == NULL)
-                qat_create_ciphers();
-            *cipher = info[i].cipher;
-            return 1;
-        }
-    }
-
-    WARN("NID %d not supported\n", nid);
-    *cipher = NULL;
-    return 0;
 }
 
 /******************************************************************************
@@ -1408,7 +1312,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
                 WARN("qat_kill_thread error\n");
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 return -1;

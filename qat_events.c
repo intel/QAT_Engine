@@ -71,7 +71,7 @@
 #include <openssl/err.h>
 
 /* QAT includes */
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef OPENSSL_QAT_OFFLOAD
 # ifdef USE_QAT_CONTIG_MEM
 #  include "qae_mem_utils.h"
 # endif
@@ -80,17 +80,15 @@
 # endif
 # include "cpa.h"
 # include "cpa_types.h"
-# include "qat_init.h"
-#else
-# include "multibuff_init.h"
 #endif
 
 /* Local Includes */
+#include "e_qat.h"
 #include "qat_events.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
 
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef OPENSSL_QAT_OFFLOAD
 int qat_is_event_driven()
 {
     return enable_event_driven_polling;

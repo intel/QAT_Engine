@@ -46,7 +46,7 @@
 #ifndef MULIBUFF_POLLING_H
 # define MULTIBUFF_POLLING_H
 
-#include "multibuff_init.h"
+#include "e_qat.h"
 
 /******************************************************************************
  * function:
@@ -113,7 +113,7 @@ int multibuff_adjust_thread_affinity(pthread_t threadptr);
  *   specific message. If not set then the default is QAT_POLL_PERIOD_IN_NS.
  *
  ******************************************************************************/
-void *timer_poll_func(void *ih);
+void *multibuff_timer_poll_func(void *ih);
 
 int multibuff_poll();
 

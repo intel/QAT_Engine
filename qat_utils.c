@@ -46,12 +46,10 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "qat_utils.h"
+#include "e_qat.h"
 
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
-# include "qat_init.h"
+#ifdef OPENSSL_QAT_OFFLOAD
 # include "cpa.h"
-#else
-# include "multibuff_init.h"
 #endif
 
 

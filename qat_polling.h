@@ -49,9 +49,9 @@
 # ifndef OPENSSL_MULTIBUFF_OFFLOAD
 #  include "cpa.h"
 #  include "cpa_types.h"
-#  include "qat_init.h"
+#  include "e_qat.h"
 # else
-#  include "multibuff_init.h"
+#  include "e_qat.h"
 # endif
 
 # ifndef __FreeBSD__
@@ -152,7 +152,7 @@ int qat_adjust_thread_affinity(pthread_t threadptr);
 
 /******************************************************************************
  * function:
- *         void *timer_poll_func(void *ih)
+ *         void *qat_timer_poll_func(void *ih)
  *
  * @param ih [IN] - NULL
  *
@@ -165,7 +165,7 @@ int qat_adjust_thread_affinity(pthread_t threadptr);
  *     needs to be started/resumed.
  *
  ******************************************************************************/
-void *timer_poll_func(void *ih);
+void *qat_timer_poll_func(void *ih);
 
 int qat_fcntl(int fd, int cmd, int arg);
 

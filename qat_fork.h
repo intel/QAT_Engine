@@ -46,12 +46,7 @@
 #ifndef QAT_FORK_H
 # define QAT_FORK_H
 
-# ifndef OPENSSL_MULTIBUFF_OFFLOAD
-#  include "qat_init.h"
-# else
-#  include "multibuff_init.h"
-# endif
-
+#  include "e_qat.h"
 
 /******************************************************************************
  * function:

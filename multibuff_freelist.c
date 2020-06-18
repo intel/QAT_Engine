@@ -48,7 +48,7 @@
 #include <pthread.h>
 
 /* Local Includes */
-#include "multibuff_init.h"
+#include "e_qat.h"
 #include "multibuff_freelist.h"
 #include "multibuff_request.h"
 #include "e_qat_err.h"

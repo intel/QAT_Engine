@@ -58,7 +58,7 @@
 #include "qat_evp.h"
 #include "qat_utils.h"
 #include "qat_asym_common.h"
-#include "qat_init.h"
+#include "e_qat.h"
 #include "qat_callback.h"
 #include "qat_polling.h"
 #include "qat_events.h"
@@ -383,7 +383,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
                 WARN("qat_kill_thread error\n");
                 QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
@@ -721,7 +721,7 @@ static int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
                 WARN("qat_kill_thread error\n");
                 QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
@@ -1013,7 +1013,7 @@ static int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t 
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(timer_poll_func_thread, SIGUSR1) != 0) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
                 WARN("qat_kill_thread error\n");
                 QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);

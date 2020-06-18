@@ -49,11 +49,20 @@
 # include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
 
+# define AES_KEY_SIZE_128           16
+# define AES_KEY_SIZE_192           24
+# define AES_KEY_SIZE_256           32
+
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
 EVP_PKEY_METHOD *qat_prf_pmeth(void);
 EVP_PKEY_METHOD *qat_hkdf_pmeth(void);
 EVP_PKEY_METHOD *qat_x25519_pmeth(void);
 EVP_PKEY_METHOD *qat_x448_pmeth(void);
+
+void qat_create_ciphers(void);
+void qat_free_ciphers(void);
+int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
+                int nid);
 
 #endif

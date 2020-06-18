@@ -68,7 +68,7 @@
 #include <openssl/err.h>
 
 /* QAT includes */
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef OPENSSL_QAT_OFFLOAD
 # ifdef USE_QAT_CONTIG_MEM
 #  include "qae_mem_utils.h"
 # endif
@@ -90,11 +90,7 @@ void engine_init_child_at_fork_handler(void)
         return;
     }
 
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
     if (qat_engine_init(e) != 1) {
-#else
-    if (multibuff_engine_init(e) != 1) {
-#endif
         WARN("Failure in qat_engine_init function\n");
         QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
     }
@@ -112,17 +108,14 @@ void engine_finish_before_fork_handler(void)
         return;
     }
 
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
     qat_engine_finish_int(e, QAT_RETAIN_GLOBALS);
-#else
-    multibuff_engine_finish_int(e, QAT_RETAIN_GLOBALS);
-#endif
     ENGINE_free(e);
 
-    keep_polling = 1;
+    qat_keep_polling = 1;
+    multibuff_keep_polling = 1;
 }
 
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef OPENSSL_QAT_OFFLOAD
 int qat_set_instance_for_thread(long instanceNum)
 {
     thread_local_variables_t *tlv = NULL;

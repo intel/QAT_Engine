@@ -24,7 +24,8 @@
 - [Using the OpenSSL\* Pipelining Capability](#using-the-openssl-pipelining-capability)
 - [Using the OpenSSL* asynchronous mode 'ASYNC_JOB' infrastructure](#using-the-openssl-asynchronous-mode-async_job-infrastructure)
 - [Functionality of the Intel&reg; QAT OpenSSL\* Engine Software Fallback Feature](#functionality-of-the-intel-qat-openssl-engine-software-fallback-feature)
-- [Intel&reg; QAT OpenSSL\* Engine Multibuffer Support](#intel-qat-openssl-engine-multibuffer-support)
+- [Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support](#intel-qat-openssl-engine-multi-buffer-support)
+- [Intel&reg; QAT OpenSSL\* Engine IPsec Vectorized AES Support](#intel-qat-openssl-engine-ipsec-vectorized-aes-support)
 - [Legal](#legal)
 
 ## Licensing
@@ -71,6 +72,8 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
 * Pseudo Random Function (PRF) offload.
 * HMAC Key Derivation Function (HKDF) Offload.
 * Support for the Intel&reg; QuickAssist Technology Driver Heartbeat feature.
+* Multi-buffer RSA Support for Key Size 2048. (Software Optimization using Intel&reg; Crypto Multi-buffer Library)
+* AES128-GCM, AES192-GCM and AES256-GCM. (Software Optimization using Intel&reg; Multi-Buffer Crypto for IPsec Library)
 
 Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
 engine supports the same padding schemes as OpenSSL does natively.
@@ -164,7 +167,7 @@ repository:
   the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715][10] in which the
   problem was fixed, or a later commit from this branch.
 [10]:https://github.com/openssl/openssl/pull/10080
-* Support for Multibuffer offload is extended to RSA 2k only. Other key sizes will
+* Support for Multi-buffer offload is extended to RSA 2k only. Other key sizes will
   use the standard OpenSSL implementation when this feature is enabled.
 * X25519/X448 support is available only from version 4.9 of the Intel&reg; QAT
   driver for Linux. Use `--disable-qat_ecx` in the Intel&reg; QAT OpenSSL\* Engine
@@ -996,16 +999,25 @@ Mandatory (when using the Intel&reg; QAT Driver HW Version 1.6)
     linking against the Intel(R) QAT Driver HW Version 1.6 then this option
     must be enabled (disabled by default).
 
-Mandatory (when using the Intel&reg; IFMA Mutibuffer Library)
+Mandatory (when using the Intel&reg; Crypto Multi-buffer Library)
 
---with-multibuff_dir=/path/to/ifma_source
-    Specify the path to the source code of the Intel(R) IFMA Mutibuffer library.
-    This path is needed for compilation in order to locate the Intel(R) IFMA
-    Multibuffer header files. If you do not specify this the build will fail.
-    For example if using Intel&reg; IFMA Mutibuffer library that was cloned from
-    the ipp-crypto GitHub to `/ipp-crypto`, then you would use the following
-    setting: --with-multibuff_dir=/ipp-crypto/sources/ippcp/crypto_mb
+--enable-multibuff_offload/--disable-multibuff_offload
+    Enable/Disable Intel(R) Multi-buffer offload feature. This flag needs to be
+    enabled if Multi-buffer based software optimizations needs to be used. This
+    flag when enabled uses Intel&reg; Crypto Multi-buffer library and include
+    s from the default path (/usr/local). If the crypto_mb library is installed
+    in the path other than the default then --with-multibuff_install_dir needs
+    to be set with the path where its installed (disabled by default).
 
+Mandatory (when using the Intel&reg; Multi-Buffer Crypto for IPsec Library)
+
+--enable-ipsec_offload/--disable-ipsec_offload
+    Enable/Disable Intel(R) IPsec offload. This flag needs to be enabled if
+    IPsec based software optimizations needs to be used. This flag when enabled
+    uses Intel&reg; IPsec library and headers from the default path (/usr).
+    If the Intel&reg; IPsec library is installed in the path other than the
+    default then --with-ipsec_install_dir needs to be set with the path where
+    its installed (disabled by default).
 
 Optional
 
@@ -1030,12 +1042,20 @@ Optional
     with '/build' appended.  You only need to specify this parameter if the
     driver library files have been built somewhere other than the default.
 
---with-multibuff_install_dir=/path/to/ifma_buid
-    Specify the path of the built Intel(R) IFMA Mutibuffer library. This path
-    is needed in order to link to the IFMA Mutibuffer library.
+--with-multibuff_install_dir=/path/to/ipp-crypto_Multi-buffer_build
+    Specify the path of the built Intel(R) Crypto Multi-buffer library.
+    This path is needed in order to link to the Crypto Multi-buffer library.
+    The default if not specified is to use the standard installation path which
+    is '/usr/local'. You only need to specify this parameter if the ipp-crypto
+    Multi-buffer library files have been built somewhere other than the default.
+
+--with-ipsec_install_dir=/path/to/intel-ipsec_mb_build
+    Specify the path of the built Intel(R) IPsec library. This path
+    is needed in order to link to the Intel(R) IPsec library.
     The default if not specified is to use the standard installation path
-    which is '/usr/local/lib'. You only need to specify this parameter if the
-    IFMA library files have been built somewhere other than the default.
+    which is '/usr'. You only need to specify this parameter if the
+    Intel&reg; IPsec library files have been built somewhere other than the
+    default.
 
 --enable-qat_contig_mem/--disable-qat_contig_mem
     Enable/Disable compiling against the qat_contig_mem driver supplied within
@@ -1055,8 +1075,8 @@ Optional
 
 --disable-multibuff_rsa/--enable-multibuff_rsa
     Disable/Enable Intel(R) Multibuff RSA offload. This flag is valid only
-    when multibuffer support is enabled using the flag --with-multibuff_dir
-    (disabled by default).
+    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
+    (enabled by default if multibuff_offload is enabled).
 
 --disable-qat_dsa/--enable-qat_dsa
     Disable/Enable Intel(R) QAT DSA offload (enabled by default)
@@ -1082,18 +1102,15 @@ Optional
 --disable-qat_ecx/--enable-qat_ecx
     Disable/Enable Intel(R) QAT X25519/X448 offload (enabled by default)
 
+--disable-vaes_gcm/--enable-vaes_gcm
+    Disable/Enable Intel(R) IPsec Vectorized AES-GCM offload.
+    This flag is valid only when Intel(R) IPsec support is enabled using the
+    flag --enable-ipsec_offload (enabled by default if ipsec_offload is enabled).
+
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
     Enable the offload of small packet cipher operations to Intel(R) QAT. When
     disabled, these operations are performed using the CPU (disabled by
     default).
-
---disable-multibuff_offload/--enable-multibuff_offload
-    Disable/Enable Intel(R) Multibuffer offload feature. This flag is valid only
-    incase of multibuffer offload which is enabled using the flag
-    --with-multibuff_dir. If both QAT and multibuff support is available then
-    this flag can be used to enable/disable multibuffer to dictate the feature
-    to be enabled or disabled. This Flag if not specifed will enable the QAT
-    Offload (disabled by default).
 
 --disable-qat_warnings/--enable-qat_warnings
     Disable/Enable warnings to aid debugging. Warning: This option should never
@@ -1258,14 +1275,14 @@ Optional
     INIT_ENGINE or will automatically get initialized on the first QAT crypto
     operation. The initialization on fork is enabled by default.
 
---disable-multibuff_heuristic_timeout/--enable-multibuff_heuristic_timeout
+--enable-multibuff_heuristic_timeout/--disable-multibuff_heuristic_timeout
     Disable/Enable self tuning of the timeout in the polling thread in the
-    Intel(R) Multibuffer offload. This flag is valid only
-    incase of multibuffer offload (enabled by default).
+    Intel(R) Multi-buffer offload. This flag is valid only
+    incase of Multi-buffer offload (disabled by default).
 
 --disable-qat_cycle_counts/--enable-qat_cycle_counts
-    Disable/Enable cycle count measurement in the Intel(R) Multibuffer offload.
-    This support is only extended to  multibuffer offload code path
+    Disable/Enable cycle count measurement in the Intel(R) Multi-buffer offload.
+    This support is only extended to Multi-buffer offload code path
     (disabled by default).
 
 --with-cc-opt="parameters"
@@ -1504,49 +1521,49 @@ It can be enabled using the below flag in the configure command.
 --enable-qat_hkdf
 ```
 
-## Intel&reg; QAT OpenSSL\* Engine Multibuffer Support
+## Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support
 
-This Intel&reg; QAT OpenSSL\* Engine supports Multibuffer based software
-optimizations for RSA using the Multibuffer based Intel&reg; AVX-512 Integer Fused
-Multiply Add (IFMA) library.
+This Intel&reg; QAT OpenSSL\* Engine supports Multi-buffer based software
+optimizations for RSA using the Intel&reg; Crypto Multi-buffer library based on
+Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) operations.
 
-The Intel&reg; QAT OpenSSL\* Engine Multibuffer Support, when enabled by the user
-using the build instructions mentioned below performs operation by batching up
-multiple requests maintained in queues and uses the OpenSSL async infrastructure
-to submit the batched requests upto 8 to IFMA API which processes them in
-parallel using AVX512 vector instructions. Multibuffer optimizations will be
-beneficial to use in asynchronous operations where there are many parallel
-connections.
+The Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support, when enabled by the
+user using the build instructions mentioned below performs operation by
+batching up multiple requests maintained in queues and uses the OpenSSL
+asynchronous infrastructure to submit the batched requests upto 8 to Crypto
+Multi-buffer API which processes them in parallel using AVX512 vector
+instructions. Multi-buffer optimizations will be beneficial to use in
+asynchronous operations where there are many parallel connections.
 
 ### Requirements
 
-Successful operation of the Multibuffer support requires a software tool
-chain that supports OpenSSL\* 1.1.1 and Intel&reg; AVX-512 Integer Fused
-Multiply Add (IFMA) library version 0.5.3 or above cloned from the
-[ipp-crypto GitHub][13] repo and installed using the instructions in
-the Readme from [IFMA Source][14]
+Successful operation of the Multi-buffer support requires a software tool
+chain that supports OpenSSL\* 1.1.1 and Intel&reg; Crypto Multi-buffer
+library version 0.5.3 or above cloned from the [ipp-crypto GitHub][13] repo
+and installed using the instructions (Building with OpenSSL) in the Readme from
+[Crypto Multi-buffer Library][14]. This support is not available in the
+FreeBSD operating system.
 
 [13]:https://github.com/intel/ipp-crypto
 [14]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
 
-### Build Instructions for Intel&reg; QAT OpenSSL\* Engine to enable Multibuffer Support
+### Build Instructions for Intel&reg; QAT OpenSSL\* Engine to enable Multi-buffer Support
 
 The following example is assuming:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
-* The Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) library was cloned
-  from the [ipp-crypto GitHub][13] to its own location at the root of the
-  drive: `/` and IFMA Multibuffer library installed to `/usr/local/lib`
+* The Intel&reg; Crypto Multi-buffer library was installed to the default path
+  (/usr/local).
 * OpenSSL\* 1.1.1 was installed to `/usr/local/ssl`.
 
-To build and install the Intel&reg; QAT OpenSSL\* Engine with Multibuffer offload:
+To build and install the Intel&reg; QAT OpenSSL\* Engine with Multi-buffer offload:
 
 ```bash
 cd /QAT_Engine
 ./autogen.sh
 ./configure \
---with-multibuff_dir=/ipp-crypto/sources/ippcp/crypto_mb \
+--enable-multibuff_offload \
 --with-openssl_install_dir=/usr/local/ssl
 make
 make install
@@ -1558,6 +1575,49 @@ cd /path/to/openssl/apps
 
 * RSA 2K
     ./openssl speed -engine qat -elapsed -async_jobs 8 rsa2048
+```
+
+## Intel&reg; QAT OpenSSL\* Engine IPsec Vectorized AES Support
+
+This Intel&reg; QAT OpenSSL\* Engine supports software based optimizations
+for AES-GCM using the Intel&reg; Multi-Buffer Crypto for IPsec Library.
+
+The Intel&reg; QAT OpenSSL\* Engine IPsec VAES support, when enabled by the user
+using the build instructions mentioned below performs operation by submitting
+requests synchronously with IPsec API which accelarates using the vectorized AES
+and AVX512 instructions from the processor.
+
+### Requirements
+
+Successful operation of the IPsec offload requires a software tool chain that
+supports OpenSSL\* 1.1.1 and Intel&reg; Multi-Buffer crypto for IPsec Library
+version v0.54 or above cloned from the [intel-ipsec-mb][15] repo and installed
+using the instructions from the intel-ipsec [README with security
+considerations][16]. This support is not available in the
+FreeBSD operating system.
+
+[15]:https://github.com/intel/intel-ipsec-mb
+[16]:https://github.com/intel/intel-ipsec-mb#6-security-considerations--options-for-increased-security
+
+### Build Instructions to enable Intel&reg; IPsec Vectorized AES Support
+
+This support can be enabled using the below flag along with other flags
+for QAT and Multibuff offload in the configure command.
+
+```bash
+--enable-ipsec_offload
+```
+
+### Testing with OpenSSL Speed
+```text
+cd /path/to/openssl/apps
+
+*AES-128-GCM
+    ./openssl speed -engine qat -elapsed aes-128-gcm
+*AES-192-GCM
+    ./openssl speed -engine qat -elapsed aes-192-gcm
+*AES-256-GCM
+    ./openssl speed -engine qat -elapsed aes-256-gcm
 ```
 
 ## Legal

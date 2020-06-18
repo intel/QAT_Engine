@@ -59,7 +59,7 @@
 #include <pthread.h>
 
 /* Local Includes */
-#include "qat_init.h"
+#include "e_qat.h"
 #include "qat_callback.h"
 #include "qat_events.h"
 #include "qat_utils.h"

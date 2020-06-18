@@ -65,18 +65,13 @@
 #include "qat_polling.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
-# include "qat_init.h"
-#else
-# include "multibuff_init.h"
-#endif
-
+# include "e_qat.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
 
 /* QAT includes */
-#ifndef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef OPENSSL_QAT_OFFLOAD
 # ifdef USE_QAT_CONTIG_MEM
 #  include "qae_mem_utils.h"
 # endif
@@ -200,7 +195,7 @@ static void qat_poll_heartbeat_timer_expiry(struct timespec *previous_time)
     }
 }
 
-void *timer_poll_func(void *ih)
+void *qat_timer_poll_func(void *ih)
 {
     CpaStatus status = 0;
     Cpa16U inst_num = 0;
@@ -214,15 +209,15 @@ void *timer_poll_func(void *ih)
     struct timespec previous_time = { 0 };
 
     DEBUG("timer_poll_func started\n");
-    timer_poll_func_thread = pthread_self();
+    qat_timer_poll_func_thread = pthread_self();
     cleared_to_start = 1;
 
-    DEBUG("timer_poll_func_thread = 0x%lx\n", (unsigned long)timer_poll_func_thread);
+    DEBUG("qat_timer_poll_func_thread = 0x%lx\n", (unsigned long)qat_timer_poll_func_thread);
 
     if (qat_get_sw_fallback_enabled()) {
         clock_gettime(clock_id, &previous_time);
     }
-    while (keep_polling) {
+    while (qat_keep_polling) {
         if (num_requests_in_flight == 0) {
             if (qat_get_sw_fallback_enabled()) {
                 qat_poll_heartbeat_timer_expiry(&previous_time);
@@ -263,7 +258,7 @@ void *timer_poll_func(void *ih)
                 WARN("icp_sal_CyPollInstance returned status %d\n", status);
             }
 
-            if (unlikely(!keep_polling))
+            if (unlikely(!qat_keep_polling))
                 break;
         }
 
@@ -283,7 +278,7 @@ void *timer_poll_func(void *ih)
     }
 
     DEBUG("timer_poll_func finishing - pid = %d\n", getpid());
-    timer_poll_func_thread = 0;
+    qat_timer_poll_func_thread = 0;
     cleared_to_start = 0;
     return NULL;
 }
@@ -308,7 +303,7 @@ void *event_poll_func(void *ih)
         clock_gettime(clock_id, &previous_time);
     }
 
-    while (keep_polling) {
+    while (qat_keep_polling) {
         int n = 0;
         int i = 0;
 
