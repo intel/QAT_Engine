@@ -663,6 +663,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_OUTX_MALLOC_FAILURE);
             goto err;
         }
+        if (unlikely(pResultX->pData == NULL)) {
+            WARN("pResultX->pData is NULL\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            goto err;
+        }
         memcpy(*outX, pResultX->pData, *outlenX);
     }
 
@@ -676,6 +681,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         if (*outY == NULL) {
             WARN("Failure to allocate outY\n");
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_OUTY_MALLOC_FAILURE);
+            goto err;
+        }
+        if (unlikely(pResultY->pData == NULL)) {
+            WARN("pResultY->pData is NULL\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
             goto err;
         }
         memcpy(*outY, pResultY->pData, pResultY->dataLenInBytes);

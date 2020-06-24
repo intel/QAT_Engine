@@ -960,6 +960,14 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
         sts = 0;
         goto exit;
     }
+
+    if (unlikely(output_buffer->pData == NULL)) {
+        WARN("output_buffer->pData is NULL\n");
+        QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_INTERNAL_ERROR);
+        sts = 0;
+        goto exit;
+    }
+
     memcpy(to, output_buffer->pData, rsa_len);
 
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
@@ -1254,6 +1262,12 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
         goto exit;
 
     } else {
+        if (unlikely(output_buffer->pData == NULL)) {
+            WARN("output_buffer->pData is NULL\n");
+            QATerr(QAT_F_QAT_RSA_PUB_ENC, ERR_R_INTERNAL_ERROR);
+            sts = 0;
+            goto exit;
+        }
         memcpy(to, output_buffer->pData, output_buffer->dataLenInBytes);
     }
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer);

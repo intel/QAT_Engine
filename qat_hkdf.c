@@ -745,6 +745,13 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     qat_cleanup_op_done(&op_done);
 
     DUMPL("Generated key", generated_key->pData, key_length);
+
+    if (unlikely(generated_key->pData == NULL)) {
+        WARN("generated_key->pData is NULL\n");
+        QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+
     memcpy(key, generated_key->pData + offset, *olen);
     ret = 1;
 

@@ -765,6 +765,12 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     qat_cleanup_op_done(&op_done);
 
+    if (unlikely(pSecretKey->pData == NULL)) {
+        WARN("pSecretKey->pData is NULL\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+
     /* Remove leading zeros */
     if (!pSecretKey->pData[0]) {
         while (index < pSecretKey->dataLenInBytes && !pSecretKey->pData[index])
