@@ -108,10 +108,10 @@ void qaeCryptoMemFreeNonZero(void *ptr)
         MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
         return;
     }
-#if defined(__FreeBSD__) && !defined(QAT_DISABLE_NONZERO_MEMFREE)
-    qaeMemFreeNonZeroNUMA(&ptr);
-#else
+#ifdef QAT_DISABLE_NONZERO_MEMFREE
     qaeMemFreeNUMA(&ptr);
+#else
+    qaeMemFreeNonZeroNUMA(&ptr);
 #endif
     if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
         MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));

@@ -109,7 +109,7 @@ This release was validated on the following:
 
 * Operating system: CentOS\* 7.4 64-bit version & FreeBSD\* 11.3 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.9
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.10
 * Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version 3.7
 * OpenSSL\* 1.1.1 (Basic functionality testing done on TLS1.3)
 
@@ -154,9 +154,7 @@ repository:
 * qat_contig_mem memory driver is not supported when running under FreeBSD
   Operating system. The default is to use the USDM memory driver supplied as
   part of the Intel&reg; QAT Driver.
-
 [9]:https://github.com/openssl/openssl/pull/2581
-
 * Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
   in release OpenSSL\* 1.1.1d.  This was fixed in a subsequent commit to
   the OpenSSL\* 1.1.1 stable branch. As there were no high or medium security fixes
@@ -165,11 +163,16 @@ repository:
   it is recommended that you rather build against an OpenSSL\* pulled from
   the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715][10] in which the
   problem was fixed, or a later commit from this branch.
-
 [10]:https://github.com/openssl/openssl/pull/10080
-
 * Support for Multibuffer offload is extended to RSA 2k only. Other key sizes will
   use the standard OpenSSL implementation when this feature is enabled.
+* X25519/X448 support is available only from version 4.9 of the Intel&reg; QAT
+  driver for Linux. Use `--disable-qat_ecx` in the Intel&reg; QAT OpenSSL\* Engine
+  configure when building against earlier versions of the Linux driver.
+* Support for qaeMemFreeNonZeroNUMA() USDM API is available only from version 4.10
+  of the Intel&reg; QAT driver for Linux. Use `--with-cc-opt="-DQAT_DISABLE_NONZERO_MEMFREE"`
+  in the Intel&reg; QAT OpenSSL\* Engine configuration when building against earlier
+  versions of the Linux driver.
 
 ## Installation Instructions
 
@@ -662,6 +665,10 @@ present in the @INC path`. To resolve this, it is recommended to add the
 OpenSSL source path to the PERL5LIB environment variable as follows:
 
     export PERL5LIB=$PERL5LIB:/path/to/openssl
+
+If seeing failures with USDM memory allocation, either with non-root or root user
+check memlock limit with `ulimit -l` and increase the memlock limit to
+desired value if it is low.
 
 ## Intel&reg; QuickAssist Technology OpenSSL\* Engine Specific Messages
 
