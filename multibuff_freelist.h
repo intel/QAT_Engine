@@ -62,6 +62,18 @@ typedef struct _mb_flist_rsa_pub
     rsa_pub_op_data *head;
 } mb_flist_rsa_pub;
 
+typedef struct _mb_flist_x25519_keygen
+{
+    pthread_mutex_t mb_flist_mutex;
+    x25519_keygen_op_data *head;
+} mb_flist_x25519_keygen;
+
+typedef struct _mb_flist_x25519_derive
+{
+    pthread_mutex_t mb_flist_mutex;
+    x25519_derive_op_data *head;
+} mb_flist_x25519_derive;
+
 int mb_flist_rsa_priv_create(mb_flist_rsa_priv *freelist, int num_items);
 int mb_flist_rsa_priv_cleanup(mb_flist_rsa_priv *freelist);
 int mb_flist_rsa_priv_push(mb_flist_rsa_priv *freelist, rsa_priv_op_data *item);
@@ -71,5 +83,17 @@ int mb_flist_rsa_pub_create(mb_flist_rsa_pub *freelist, int num_items);
 int mb_flist_rsa_pub_cleanup(mb_flist_rsa_pub *freelist);
 int mb_flist_rsa_pub_push(mb_flist_rsa_pub *freelist, rsa_pub_op_data *item);
 rsa_pub_op_data * mb_flist_rsa_pub_pop(mb_flist_rsa_pub *flist);
+
+int mb_flist_x25519_keygen_create(mb_flist_x25519_keygen *freelist, int num_items);
+int mb_flist_x25519_keygen_cleanup(mb_flist_x25519_keygen *freelist);
+int mb_flist_x25519_keygen_push(mb_flist_x25519_keygen *freelist,
+                                x25519_keygen_op_data *item);
+x25519_keygen_op_data * mb_flist_x25519_keygen_pop(mb_flist_x25519_keygen *flist);
+
+int mb_flist_x25519_derive_create(mb_flist_x25519_derive *freelist, int num_items);
+int mb_flist_x25519_derive_cleanup(mb_flist_x25519_derive *freelist);
+int mb_flist_x25519_derive_push(mb_flist_x25519_derive *freelist,
+                                x25519_derive_op_data *item);
+x25519_derive_op_data * mb_flist_x25519_derive_pop(mb_flist_x25519_derive *flist);
 
 #endif /* MULTIBUFF_FREELIST_H */

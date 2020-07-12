@@ -72,7 +72,9 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
 * Pseudo Random Function (PRF) offload.
 * HMAC Key Derivation Function (HKDF) Offload.
 * Support for the Intel&reg; QuickAssist Technology Driver Heartbeat feature.
-* Multi-buffer RSA Support for Key Size 2048. (Software Optimization using Intel&reg; Crypto Multi-buffer Library)
+* Multi-buffer Software optimization. (Software Optimization using Intel&reg; Crypto Multi-buffer Library)
+    * RSA Support for Key size 2048
+    * ECDH Support for Montgomery EC Curve: X25519
 * AES128-GCM, AES192-GCM and AES256-GCM. (Software Optimization using Intel&reg; Multi-Buffer Crypto for IPsec Library)
 
 Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
@@ -1003,11 +1005,11 @@ Mandatory (when using the Intel&reg; Crypto Multi-buffer Library)
 
 --enable-multibuff_offload/--disable-multibuff_offload
     Enable/Disable Intel(R) Multi-buffer offload feature. This flag needs to be
-    enabled if Multi-buffer based software optimizations needs to be used. This
-    flag when enabled uses Intel&reg; Crypto Multi-buffer library and include
-    s from the default path (/usr/local). If the crypto_mb library is installed
-    in the path other than the default then --with-multibuff_install_dir needs
-    to be set with the path where its installed (disabled by default).
+    enabled if Multi-buffer based software optimizations need to be used. This
+    flag when enabled uses Intel&reg; Crypto Multi-buffer library and includes
+    from the default path (/usr/local). If the crypto_mb library is installed
+    in a path other than the default then --with-multibuff_install_dir needs
+    to be set to the path where it is installed (disabled by default).
 
 Mandatory (when using the Intel&reg; Multi-Buffer Crypto for IPsec Library)
 
@@ -1073,11 +1075,6 @@ Optional
 --disable-qat_rsa/--enable-qat_rsa
     Disable/Enable Intel(R) QAT RSA offload (enabled by default)
 
---disable-multibuff_rsa/--enable-multibuff_rsa
-    Disable/Enable Intel(R) Multibuff RSA offload. This flag is valid only
-    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
-    (enabled by default if multibuff_offload is enabled).
-
 --disable-qat_dsa/--enable-qat_dsa
     Disable/Enable Intel(R) QAT DSA offload (enabled by default)
 
@@ -1106,6 +1103,16 @@ Optional
     Disable/Enable Intel(R) IPsec Vectorized AES-GCM offload.
     This flag is valid only when Intel(R) IPsec support is enabled using the
     flag --enable-ipsec_offload (enabled by default if ipsec_offload is enabled).
+
+--disable-multibuff_rsa/--enable-multibuff_rsa
+    Disable/Enable Intel(R) Multibuff RSA offload. This flag is valid only
+    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
+    (enabled by default if multibuff_offload is enabled).
+
+--disable-multibuff_ecx/--enable-multibuff_ecx
+    Disable/Enable Intel(R) Multibuff X25519 offload. This flag is valid only
+    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
+    (enabled by default if multibuff_offload is enabled).
 
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
     Enable the offload of small packet cipher operations to Intel(R) QAT. When
@@ -1524,8 +1531,8 @@ It can be enabled using the below flag in the configure command.
 ## Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support
 
 This Intel&reg; QAT OpenSSL\* Engine supports Multi-buffer based software
-optimizations for RSA using the Intel&reg; Crypto Multi-buffer library based on
-Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) operations.
+optimizations for RSA and X25519 using the Intel&reg; Crypto Multi-buffer
+library based on Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) operations.
 
 The Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support, when enabled by the
 user using the build instructions mentioned below performs operation by
@@ -1575,6 +1582,8 @@ cd /path/to/openssl/apps
 
 * RSA 2K
     ./openssl speed -engine qat -elapsed -async_jobs 8 rsa2048
+* X25519
+    ./openssl speed -engine qat -elapsed -async_jobs 8 ecdhx25519
 ```
 
 ## Intel&reg; QAT OpenSSL\* Engine IPsec Vectorized AES Support
@@ -1613,11 +1622,11 @@ for QAT and Multibuff offload in the configure command.
 cd /path/to/openssl/apps
 
 *AES-128-GCM
-    ./openssl speed -engine qat -elapsed aes-128-gcm
+    ./openssl speed -engine qat -elapsed -evp aes-128-gcm
 *AES-192-GCM
-    ./openssl speed -engine qat -elapsed aes-192-gcm
+    ./openssl speed -engine qat -elapsed -evp aes-192-gcm
 *AES-256-GCM
-    ./openssl speed -engine qat -elapsed aes-256-gcm
+    ./openssl speed -engine qat -elapsed -evp aes-256-gcm
 ```
 
 ## Legal

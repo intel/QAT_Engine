@@ -71,9 +71,9 @@ int mb_flist_rsa_priv_create(mb_flist_rsa_priv *freelist, int num_items)
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(rsa_priv_op_data));
         if (item == NULL)
-             return 1;
+            return 1;
         if (mb_flist_rsa_priv_push(freelist, item) != 0)
-             return 1;
+            return 1;
         num_items--;
     }
     return 0;
@@ -157,9 +157,9 @@ int mb_flist_rsa_pub_create(mb_flist_rsa_pub *freelist, int num_items)
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(rsa_pub_op_data));
         if (item == NULL)
-             return 1;
+            return 1;
         if (mb_flist_rsa_pub_push(freelist, item) != 0)
-             return 1;
+            return 1;
         num_items--;
     }
     return 0;
@@ -203,6 +203,182 @@ int mb_flist_rsa_pub_push(mb_flist_rsa_pub *freelist, rsa_pub_op_data *item)
 rsa_pub_op_data * mb_flist_rsa_pub_pop(mb_flist_rsa_pub *freelist)
 {
     rsa_pub_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    if (freelist->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&freelist->mb_flist_mutex);
+        }
+        return NULL;
+    }
+
+    item = freelist->head;
+    freelist->head = item->next;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+
+    return item;
+}
+
+int mb_flist_x25519_keygen_create(mb_flist_x25519_keygen *freelist,
+                                  int num_items)
+{
+    x25519_keygen_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
+    }
+    freelist->head = NULL;
+
+    while (num_items > 0) {
+        item = OPENSSL_zalloc(sizeof(x25519_keygen_op_data));
+        if (item == NULL)
+            return 1;
+        if (mb_flist_x25519_keygen_push(freelist, item) != 0)
+            return 1;
+        num_items--;
+    }
+    return 0;
+}
+
+int mb_flist_x25519_keygen_cleanup(mb_flist_x25519_keygen *freelist)
+{
+    x25519_keygen_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return 1;
+
+    while ((item = mb_flist_x25519_keygen_pop(freelist)) != NULL) {
+       OPENSSL_free(item);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&freelist->mb_flist_mutex);
+    }
+    return 0;
+}
+
+int mb_flist_x25519_keygen_push(mb_flist_x25519_keygen *freelist,
+                                x25519_keygen_op_data *item)
+{
+    if (freelist == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    item->next = freelist->head;
+    freelist->head = item;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+    return 0;
+}
+
+x25519_keygen_op_data *mb_flist_x25519_keygen_pop(mb_flist_x25519_keygen *freelist)
+{
+    x25519_keygen_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    if (freelist->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&freelist->mb_flist_mutex);
+        }
+        return NULL;
+    }
+
+    item = freelist->head;
+    freelist->head = item->next;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+
+    return item;
+}
+
+int mb_flist_x25519_derive_create(mb_flist_x25519_derive *freelist,
+                                  int num_items)
+{
+    x25519_derive_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
+    }
+    freelist->head = NULL;
+
+    while (num_items > 0) {
+        item = OPENSSL_zalloc(sizeof(x25519_derive_op_data));
+        if (item == NULL)
+            return 1;
+        if (mb_flist_x25519_derive_push(freelist, item) != 0)
+            return 1;
+        num_items--;
+    }
+    return 0;
+}
+
+int mb_flist_x25519_derive_cleanup(mb_flist_x25519_derive *freelist)
+{
+    x25519_derive_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return 1;
+
+    while ((item = mb_flist_x25519_derive_pop(freelist)) != NULL) {
+       OPENSSL_free(item);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&freelist->mb_flist_mutex);
+    }
+    return 0;
+}
+
+int mb_flist_x25519_derive_push(mb_flist_x25519_derive *freelist,
+                                x25519_derive_op_data *item)
+{
+    if (freelist == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    item->next = freelist->head;
+    freelist->head = item;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+    return 0;
+}
+
+x25519_derive_op_data *mb_flist_x25519_derive_pop(mb_flist_x25519_derive *freelist)
+{
+    x25519_derive_op_data *item = NULL;
 
     if (freelist == NULL)
         return NULL;

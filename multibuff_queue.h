@@ -68,10 +68,29 @@ typedef struct _mb_queue_rsa_pub
     int disabled;
 } mb_queue_rsa_pub;
 
+typedef struct _mb_queue_x25519_keygen
+{
+    pthread_mutex_t mb_queue_mutex;
+    x25519_keygen_op_data *head;
+    x25519_keygen_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_x25519_keygen;
+
+typedef struct _mb_queue_x25519_derive
+{
+    pthread_mutex_t mb_queue_mutex;
+    x25519_derive_op_data *head;
+    x25519_derive_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_x25519_derive;
+
 int mb_queue_rsa_priv_create(mb_queue_rsa_priv *queue);
 int mb_queue_rsa_priv_disable(mb_queue_rsa_priv * queue);
 int mb_queue_rsa_priv_cleanup(mb_queue_rsa_priv * queue);
-int mb_queue_rsa_priv_enqueue(mb_queue_rsa_priv *queue, rsa_priv_op_data *item);
+int mb_queue_rsa_priv_enqueue(mb_queue_rsa_priv *queue,
+                              rsa_priv_op_data *item);
 rsa_priv_op_data *mb_queue_rsa_priv_dequeue(mb_queue_rsa_priv *queue);
 int mb_queue_rsa_priv_get_size(mb_queue_rsa_priv *queue);
 
@@ -81,5 +100,23 @@ int mb_queue_rsa_pub_cleanup(mb_queue_rsa_pub * queue);
 int mb_queue_rsa_pub_enqueue(mb_queue_rsa_pub *queue, rsa_pub_op_data *item);
 rsa_pub_op_data *mb_queue_rsa_pub_dequeue(mb_queue_rsa_pub *queue);
 int mb_queue_rsa_pub_get_size(mb_queue_rsa_pub *queue);
+
+int mb_queue_x25519_keygen_create(mb_queue_x25519_keygen *queue);
+int mb_queue_x25519_keygen_disable(mb_queue_x25519_keygen * queue);
+int mb_queue_x25519_keygen_cleanup(mb_queue_x25519_keygen * queue);
+int mb_queue_x25519_keygen_enqueue(mb_queue_x25519_keygen *queue,
+                                   x25519_keygen_op_data *item);
+x25519_keygen_op_data
+    *mb_queue_x25519_keygen_dequeue(mb_queue_x25519_keygen *queue);
+int mb_queue_x25519_keygen_get_size(mb_queue_x25519_keygen *queue);
+
+int mb_queue_x25519_derive_create(mb_queue_x25519_derive *queue);
+int mb_queue_x25519_derive_disable(mb_queue_x25519_derive * queue);
+int mb_queue_x25519_derive_cleanup(mb_queue_x25519_derive * queue);
+int mb_queue_x25519_derive_enqueue(mb_queue_x25519_derive *queue,
+                                   x25519_derive_op_data *item);
+x25519_derive_op_data
+    *mb_queue_x25519_derive_dequeue(mb_queue_x25519_derive *queue);
+int mb_queue_x25519_derive_get_size(mb_queue_x25519_derive *queue);
 
 #endif /* MULTIBUFF_QUEUE_H */

@@ -363,6 +363,7 @@ int qat_init(ENGINE *e)
 
     DEBUG("QAT Engine initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
+    DEBUG("- Heuristic polling: %s\n", enable_heuristic_polling ? "ON": "OFF");
     DEBUG("- SW Fallback: %s\n", enable_sw_fallback ? "ON": "OFF");
     DEBUG("- Inline polling: %s\n", enable_inline_polling ? "ON": "OFF");
     DEBUG("- Internal poll interval: %dns\n", qat_poll_interval);

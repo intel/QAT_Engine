@@ -22,11 +22,6 @@ AC_ARG_ENABLE(qat_rsa,
                              [Disable accelerated RSA offload]))
 AC_SUBST(enable_qat_rsa)
 
-AC_ARG_ENABLE(multibuff_rsa,
-              AS_HELP_STRING([--disable-multibuff_rsa],
-                             [Disable multibuff RSA offload]))
-AC_SUBST(enable_multibuff_rsa)
-
 AC_ARG_ENABLE(qat_ciphers,
               AS_HELP_STRING([--disable-qat_ciphers],
                              [Disable accelerated CIPHERS offload]))
@@ -75,6 +70,16 @@ AC_ARG_ENABLE(vaes_gcm,
               AS_HELP_STRING([--disable-vaes_gcm],
                              [Disable vectorized AES-GCM offload]))
 AC_SUBST(enable_vaes_gcm)
+
+AC_ARG_ENABLE(multibuff_rsa,
+              AS_HELP_STRING([--disable-multibuff_rsa],
+                             [Disable multibuff RSA offload]))
+AC_SUBST(enable_multibuff_rsa)
+
+AC_ARG_ENABLE(multibuff_ecx,
+              AS_HELP_STRING([--disable-multibuff_ecx],
+                             [Disable multibuff X25519 offload]))
+AC_SUBST(enable_multibuff_ecx)
 
 AC_ARG_ENABLE(qat_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_small_pkt_offload],
@@ -328,15 +333,6 @@ else
   AC_MSG_NOTICE([Not Offloading RSA to Hardware])
 fi
 
-if test "x$enable_multibuff_rsa" != "xno" -a "x$cflags_multibuff_offload" != "x"
-then
-  enable_multibuff_rsa="-DOPENSSL_ENABLE_MULTIBUFF_RSA"
-  AC_MSG_NOTICE([Offloading RSA using Multi-buffer])
-else
-  enable_multibuff_rsa="-DOPENSSL_DISABLE_MULTIBUFF_RSA"
-  AC_MSG_NOTICE([Not Offloading RSA using Multi-buffer])
-fi
-
 if test "x$enable_qat_ciphers" != "xno" -a "x$cflags_qat_offload" != "x"
 then
   enable_qat_ciphers="-DOPENSSL_ENABLE_QAT_CIPHERS"
@@ -416,6 +412,24 @@ then
 else
   enable_vaes_gcm="-DOPENSSL_DISABLE_VAES_GCM"
   AC_MSG_NOTICE([Not Offloading AES-GCM using Intel IPSec libary])
+fi
+
+if test "x$enable_multibuff_rsa" != "xno" -a "x$cflags_multibuff_offload" != "x"
+then
+  enable_multibuff_rsa="-DOPENSSL_ENABLE_MULTIBUFF_RSA"
+  AC_MSG_NOTICE([Offloading RSA using Multi-buffer])
+else
+  enable_multibuff_rsa="-DOPENSSL_DISABLE_MULTIBUFF_RSA"
+  AC_MSG_NOTICE([Not Offloading RSA using Multi-buffer])
+fi
+
+if test "x$enable_multibuff_ecx" != "xno" -a "x$cflags_multibuff_offload" != "x"
+then
+    enable_multibuff_ecx="-DOPENSSL_ENABLE_MULTIBUFF_ECX"
+    AC_MSG_NOTICE([Offloading X25519 using Multi-buffer])
+else
+    enable_multibuff_ecx="-DOPENSSL_DISABLE_MULTIBUFF_ECX"
+    AC_MSG_NOTICE([Not Offloading X25519 using Multi-buffer])
 fi
 
 if test "x$enable_qat_small_pkt_offload" = "xyes" -a "x$cflags_qat_offload" != "x"

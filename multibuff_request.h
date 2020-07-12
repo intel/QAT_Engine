@@ -51,6 +51,16 @@
 # include <openssl/async.h>
 # include <openssl/bn.h>
 # include <openssl/rsa.h>
+# include <openssl/kdf.h>
+# include <openssl/evp.h>
+
+#define X25519_KEYLEN 32
+#define MAX_KEYLEN  57
+
+typedef struct {
+    unsigned char pubkey[MAX_KEYLEN];
+    unsigned char *privkey;
+} ECX_KEY;
 
 typedef struct _rsa_priv_op_data {
     struct _rsa_priv_op_data *next;
@@ -91,5 +101,29 @@ typedef struct _rsa_pub_op_data {
     ASYNC_JOB *job;
     int *sts;
 } rsa_pub_op_data;
+
+typedef struct _x25519_keygen_op_data {
+    struct _x25519_keygen_op_data *next;
+    struct _x25519_keygen_op_data *prev;
+    EVP_PKEY_CTX *ctx;
+    EVP_PKEY *pkey;
+    const unsigned char *privkey;
+    unsigned char *pubkey;
+    ECX_KEY *key;
+    ASYNC_JOB *job;
+    int *sts;
+} x25519_keygen_op_data;
+
+typedef struct _x25519_derive_op_data {
+    struct _x25519_derive_op_data *next;
+    struct _x25519_derive_op_data *prev;
+    EVP_PKEY_CTX *ctx;
+    unsigned char *key;
+    const unsigned char *privkey;
+    const unsigned char *pubkey;
+    size_t *keylen;
+    ASYNC_JOB *job;
+    int *sts;
+} x25519_derive_op_data;
 
 #endif /* MULTIBUFF_REQUEST_H */

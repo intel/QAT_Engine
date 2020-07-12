@@ -71,6 +71,7 @@
 #include "e_qat.h"
 #include "multibuff_polling.h"
 #include "multibuff_rsa.h"
+#include "multibuff_ecx.h"
 #include "multibuff_request.h"
 #include "multibuff_freelist.h"
 #include "multibuff_queue.h"
@@ -96,28 +97,31 @@ int multibuff_init(ENGINE *e)
     e_check = BN_new();
     if (NULL == e_check) {
         WARN("Failure to allocate e_check\n");
-        QATerr(QAT_F_MULTIBUFF_INIT,
-                     QAT_R_ALLOC_E_CHECK_FAILURE);
+        QATerr(QAT_F_MULTIBUFF_INIT, QAT_R_ALLOC_E_CHECK_FAILURE);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
     }
     BN_add_word(e_check, 65537);
 
-    if ((mb_flist_rsa_priv_create(&rsa_priv_freelist, MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_flist_rsa_pub_create(&rsa_pub_freelist, MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+    if ((mb_flist_rsa_priv_create(&rsa_priv_freelist,
+                                  MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_flist_rsa_pub_create(&rsa_pub_freelist,
+                                 MULTIBUFF_MAX_INFLIGHTS) != 0) ||
         (mb_queue_rsa_priv_create(&rsa_priv_queue) != 0) ||
-        (mb_queue_rsa_pub_create(&rsa_pub_queue) != 0)) {
+        (mb_queue_rsa_pub_create(&rsa_pub_queue) != 0) ||
+        (mb_flist_x25519_keygen_create(&x25519_keygen_freelist,
+                                       MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_flist_x25519_derive_create(&x25519_derive_freelist,
+                                       MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_queue_x25519_keygen_create(&x25519_keygen_queue) != 0) ||
+        (mb_queue_x25519_derive_create(&x25519_derive_queue) != 0)) {
         WARN("Failure to allocate req arrays\n");
         QATerr(QAT_F_MULTIBUFF_INIT,
                      QAT_R_CREATE_FREELIST_QUEUE_FAILURE);
         pthread_mutex_unlock(&qat_engine_mutex);
         qat_engine_finish(e);
         return 0;
-    }
-    if (enable_heuristic_polling == 1) {
-        num_items_rsa_priv_queue = &rsa_priv_queue.num_items;
-        num_items_rsa_pub_queue = &rsa_pub_queue.num_items;
     }
 
     multibuff_polling_thread = pthread_self();
@@ -135,7 +139,8 @@ int multibuff_init(ENGINE *e)
             return 0;
         }
 
-        if (multibuff_create_thread(&multibuff_polling_thread, NULL, multibuff_timer_poll_func, NULL)) {
+        if (multibuff_create_thread(&multibuff_polling_thread,
+                                    NULL, multibuff_timer_poll_func, NULL)) {
             WARN("Creation of polling thread failed\n");
             QATerr(QAT_F_MULTIBUFF_INIT,
                          QAT_R_POLLING_THREAD_CREATE_FAILURE);
@@ -157,6 +162,8 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     int ret = 1;
     rsa_priv_op_data *rsa_priv_req = NULL;
     rsa_pub_op_data *rsa_pub_req = NULL;
+    x25519_keygen_op_data *x25519_keygen_req = NULL;
+    x25519_derive_op_data *x25519_derive_req = NULL;
 
     DEBUG("---- Multibuff Finishing...\n\n");
 
@@ -166,8 +173,7 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
         if (pthread_equal(multibuff_polling_thread, pthread_self()) == 0) {
             if (multibuff_join_thread(multibuff_polling_thread, NULL) != 0) {
                 WARN("Polling thread join failed with status: %d\n", ret);
-                QATerr(QAT_F_MULTIBUFF_FINISH_INT,
-                             QAT_R_PTHREAD_JOIN_FAILURE);
+                QATerr(QAT_F_MULTIBUFF_FINISH_INT, QAT_R_PTHREAD_JOIN_FAILURE);
                 ret = 0;
             }
         }
@@ -177,8 +183,11 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
 
     mb_queue_rsa_priv_disable(&rsa_priv_queue);
     mb_queue_rsa_pub_disable(&rsa_pub_queue);
+    mb_queue_x25519_keygen_disable(&x25519_keygen_queue);
+    mb_queue_x25519_derive_disable(&x25519_derive_queue);
 
-    while ((rsa_priv_req = mb_queue_rsa_priv_dequeue(&rsa_priv_queue)) != NULL) {
+    while ((rsa_priv_req =
+           mb_queue_rsa_priv_dequeue(&rsa_priv_queue)) != NULL) {
         *rsa_priv_req->sts = -1;
         qat_wake_job(rsa_priv_req->job, 0);
         OPENSSL_free(rsa_priv_req);
@@ -192,8 +201,26 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     }
     mb_queue_rsa_pub_cleanup(&rsa_pub_queue);
 
+    while ((x25519_keygen_req =
+           mb_queue_x25519_keygen_dequeue(&x25519_keygen_queue)) != NULL) {
+        *x25519_keygen_req->sts = -1;
+        qat_wake_job(x25519_keygen_req->job, 0);
+        OPENSSL_free(x25519_keygen_req);
+    }
+    mb_queue_x25519_keygen_cleanup(&x25519_keygen_queue);
+
+    while ((x25519_derive_req =
+           mb_queue_x25519_derive_dequeue(&x25519_derive_queue)) != NULL) {
+        *x25519_derive_req->sts = -1;
+        qat_wake_job(x25519_derive_req->job, 0);
+        OPENSSL_free(x25519_derive_req);
+    }
+    mb_queue_x25519_derive_cleanup(&x25519_derive_queue);
+
     mb_flist_rsa_priv_cleanup(&rsa_priv_freelist);
     mb_flist_rsa_pub_cleanup(&rsa_pub_freelist);
+    mb_flist_x25519_keygen_cleanup(&x25519_keygen_freelist);
+    mb_flist_x25519_derive_cleanup(&x25519_derive_freelist);
 
     if (e_check != NULL) {
         BN_free(e_check);

@@ -108,6 +108,7 @@
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
 # include "multibuff_rsa.h"
+# include "multibuff_ecx.h"
 # include "multibuff_polling.h"
 #endif
 
@@ -153,20 +154,15 @@ pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t qat_polling_thread;
 pthread_t multibuff_polling_thread;
 
+/* QAT number of inflight requests */
 int num_requests_in_flight = 0;
 int num_asym_requests_in_flight = 0;
 int num_kdf_requests_in_flight = 0;
 int num_cipher_pipeline_requests_in_flight = 0;
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
-/* Multi-buffer case, address is assigned during multibuff_init */
-int *num_items_rsa_priv_queue = 0;
-int *num_items_rsa_pub_queue = 0;
-#else
-/* Not used with QAT Offload */
-int num_items = 0;
-int *num_items_rsa_priv_queue = &num_items;
-int *num_items_rsa_pub_queue =  &num_items;
-#endif
+/* Multi-buffer number of items in queue */
+int num_asym_mb_items_in_queue = 0;
+int num_kdf_mb_items_in_queue = 0;
+int num_cipher_mb_items_in_queue = 0;
 
 sigset_t set = {{0}};
 pthread_t qat_timer_poll_func_thread = 0;
@@ -196,11 +192,19 @@ int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 #endif
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
+/* RSA */
 BIGNUM *e_check = NULL;
 mb_flist_rsa_priv rsa_priv_freelist;
 mb_flist_rsa_pub rsa_pub_freelist;
 mb_queue_rsa_priv rsa_priv_queue;
 mb_queue_rsa_pub rsa_pub_queue;
+
+/* X25519 */
+mb_flist_x25519_keygen x25519_keygen_freelist;
+mb_flist_x25519_derive x25519_derive_freelist;
+mb_queue_x25519_keygen x25519_keygen_queue;
+mb_queue_x25519_derive x25519_derive_queue;
+
 #endif
 
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
@@ -347,7 +351,9 @@ static int qat_engine_destroy(ENGINE *e)
 #endif
 
 #ifdef OPENSSL_IPSEC_OFFLOAD
+# ifndef OPENSSL_DISABLE_VAES_GCM
     vaesgcm_free_ipsec_mb_mgr();
+# endif
 #endif
 
     QAT_DEBUG_LOG_CLOSE();
@@ -677,10 +683,12 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             *(int **)p = &num_kdf_requests_in_flight;
         } else if (i == GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT) {
             *(int **)p = &num_cipher_pipeline_requests_in_flight;
-        } else if (i == GET_NUM_ITEMS_RSA_PRIV_QUEUE) {
-            *(int **)p = num_items_rsa_priv_queue;
-        } else if (i == GET_NUM_ITEMS_RSA_PUB_QUEUE) {
-            *(int **)p = num_items_rsa_pub_queue;
+        } else if (i == GET_NUM_ASYM_MB_ITEMS_IN_QUEUE) {
+            *(int **)p = &num_asym_mb_items_in_queue;
+        } else if (i == GET_NUM_KDF_MB_ITEMS_IN_QUEUE) {
+            *(int **)p = &num_kdf_mb_items_in_queue;
+        } else if (i == GET_NUM_SYM_MB_ITEMS_IN_QUEUE) {
+            *(int **)p = &num_cipher_mb_items_in_queue;
         } else {
             WARN("Invalid i parameter\n");
             retVal = 0;
@@ -876,6 +884,11 @@ static int bind_qat(ENGINE *e, const char *id)
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
         goto end;
     }
+    if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
+        WARN("ENGINE_set_pkey_meths failed\n");
+        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_X25519_FAILURE);
+        goto end;
+    }
 #endif
 
 #ifdef OPENSSL_IPSEC_OFFLOAD
@@ -884,12 +897,13 @@ static int bind_qat(ENGINE *e, const char *id)
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_HW_NOT_SUPPORTED);
         goto end;
     }
-
+# ifndef OPENSSL_DISABLE_VAES_GCM
     if (!vaesgcm_init_ipsec_mb_mgr()) {
         WARN("IPSec Multi-Buffer Manager Initialization failed\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_GCM_CIPHERS_FAILURE);
         goto end;
     }
+# endif
 #endif
 
 #if defined(OPENSSL_QAT_OFFLOAD) || defined(OPENSSL_IPSEC_OFFLOAD)

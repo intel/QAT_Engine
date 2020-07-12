@@ -351,16 +351,16 @@ static int multibuff_rsa_add_padding_pub_enc(const unsigned char *from,
 
 void process_RSA_priv_reqs()
 {
-    rsa_priv_op_data *rsa_priv_req_array[MULTIBUFF_RSA_BATCH] = {0};
-    const unsigned char *rsa_priv_from[MULTIBUFF_RSA_BATCH] = {0};
-    unsigned char *rsa_priv_to[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM *rsa_lenstra_e[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM *rsa_lenstra_n[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM *rsa_priv_p[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM *rsa_priv_q[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM *rsa_priv_dmp1[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM *rsa_priv_dmq1[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM *rsa_priv_iqmp[MULTIBUFF_RSA_BATCH] = {0};
+    rsa_priv_op_data *rsa_priv_req_array[MULTIBUFF_BATCH] = {0};
+    const unsigned char *rsa_priv_from[MULTIBUFF_BATCH] = {0};
+    unsigned char *rsa_priv_to[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *rsa_lenstra_e[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *rsa_lenstra_n[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *rsa_priv_p[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *rsa_priv_q[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *rsa_priv_dmp1[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *rsa_priv_dmq1[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *rsa_priv_iqmp[MULTIBUFF_BATCH] = {0};
     unsigned int rsa_sts = 0;
     int req_num = 0;
     int local_request_no = 0;
@@ -382,10 +382,11 @@ void process_RSA_priv_reqs()
         rsa_priv_iqmp[req_num] = rsa_priv_req_array[req_num]->iqmp;
 
         req_num++;
-        if (req_num == MULTIBUFF_RSA_MIN_BATCH)
+        if (req_num == MULTIBUFF_MIN_BATCH)
             break;
     }
     local_request_no = req_num;
+    DEBUG("Submitting %d priv requests\n", local_request_no);
 
     rsa_sts = ifma_rsa52_private_crt_mb8(rsa_priv_from,
                                          rsa_priv_to,
@@ -399,8 +400,10 @@ void process_RSA_priv_reqs()
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_priv_req_array[req_num]->sts != NULL) {
             if (IFMA_GET_STS(rsa_sts, req_num) == IFMA_STATUS_OK) {
+                DEBUG("Multibuffer rsa priv crt req[%d] success\n", req_num);
                 *rsa_priv_req_array[req_num]->sts = 1;
             } else {
+                WARN("Multibuffer rsa priv crt req[%d] failure\n", req_num);
                 *rsa_priv_req_array[req_num]->sts = -1;
             }
             if (rsa_priv_req_array[req_num]->disable_lenstra_check) {
@@ -427,8 +430,10 @@ void process_RSA_priv_reqs()
         if (rsa_priv_req_array[req_num]->sts != NULL) {
             if (IFMA_GET_STS(rsa_sts, req_num) == IFMA_STATUS_OK) {
                 if (*rsa_priv_req_array[req_num]->sts < 0) {
+                    WARN("Multibuffer rsa priv req[%d] failure\n", req_num);
                     *rsa_priv_req_array[req_num]->sts = -1;
                 } else {
+                    DEBUG("Multibuffer rsa priv req[%d] success\n", req_num);
                     *rsa_priv_req_array[req_num]->sts = 1;
                 }
                 if (!rsa_priv_req_array[req_num]->disable_lenstra_check) {
@@ -436,15 +441,18 @@ void process_RSA_priv_reqs()
                                       rsa_priv_to[req_num],
                                       rsa_priv_req_array[req_num]->flen) == 0) {
                         if (*rsa_priv_req_array[req_num]->sts < 0) {
+                            WARN("Lenstra check[%d] failure\n", req_num);
                             *rsa_priv_req_array[req_num]->sts = -1;
                         } else {
                             *rsa_priv_req_array[req_num]->sts = 1;
                         }
                     } else {
+                        WARN("Lenstra memcmp[%d] failure\n", req_num);
                         *rsa_priv_req_array[req_num]->sts = -1;
                     }
                 }
             } else {
+                 WARN("ifma_rsa52_public_mb8[%d] failure\n", req_num);
                 *rsa_priv_req_array[req_num]->sts = -1;
             }
             /* Remove Padding here if needed */
@@ -469,16 +477,16 @@ void process_RSA_priv_reqs()
 # endif
 
     STOP_RDTSC(&rsa_cycles_priv_execute, 1, "[RSA:priv_execute]");
-    DEBUG("- Processed Final Request\n");
+    DEBUG("Processed Final Request\n");
 }
 
 void process_RSA_pub_reqs()
 {
-    rsa_pub_op_data *rsa_pub_req_array[MULTIBUFF_RSA_BATCH] = {0};
-    const unsigned char * rsa_pub_from[MULTIBUFF_RSA_BATCH] = {0};
-    unsigned char * rsa_pub_to[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM * rsa_pub_e[MULTIBUFF_RSA_BATCH] = {0};
-    const BIGNUM * rsa_pub_n[MULTIBUFF_RSA_BATCH] = {0};
+    rsa_pub_op_data *rsa_pub_req_array[MULTIBUFF_BATCH] = {0};
+    const unsigned char * rsa_pub_from[MULTIBUFF_BATCH] = {0};
+    unsigned char * rsa_pub_to[MULTIBUFF_BATCH] = {0};
+    const BIGNUM * rsa_pub_e[MULTIBUFF_BATCH] = {0};
+    const BIGNUM * rsa_pub_n[MULTIBUFF_BATCH] = {0};
     unsigned int rsa_sts = 0;
     int local_request_no = 0;
     int req_num = 0;
@@ -497,10 +505,11 @@ void process_RSA_pub_reqs()
         rsa_pub_n[req_num] = rsa_pub_req_array[req_num]->n;
 
         req_num++;
-        if (req_num == MULTIBUFF_RSA_MIN_BATCH)
+        if (req_num == MULTIBUFF_MIN_BATCH)
             break;
     }
     local_request_no = req_num;
+    DEBUG("Submitting %d pub requests\n", local_request_no);
 
     rsa_sts = ifma_rsa52_public_mb8(rsa_pub_from,
                                     rsa_pub_to,
@@ -511,8 +520,10 @@ void process_RSA_pub_reqs()
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_pub_req_array[req_num]->sts != NULL) {
             if (IFMA_GET_STS(rsa_sts, req_num) == IFMA_STATUS_OK) {
+                DEBUG("Multibuffer RSA pub req[%d] success\n", req_num);
                 *rsa_pub_req_array[req_num]->sts = 1;
             } else {
+                DEBUG("Multibuffer RSA pub req[%d] failure\n", req_num);
                 *rsa_pub_req_array[req_num]->sts = -1;
             }
             /* Remove Padding here if needed */
@@ -537,7 +548,7 @@ void process_RSA_pub_reqs()
 # endif
 
     STOP_RDTSC(&rsa_cycles_pub_execute, 1, "[RSA:pub_execute]");
-    DEBUG("- Processed Final Request\n");
+    DEBUG("Processed Final Request\n");
 }
 
 int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
@@ -556,6 +567,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     const BIGNUM *dmp1 = NULL;
     const BIGNUM *dmq1 = NULL;
     const BIGNUM *iqmp = NULL;
+    int job_ret = 0;
 
     /* Check input parameters */
     if (unlikely(NULL == rsa || NULL == from || NULL == to || flen <= 0)) {
@@ -580,7 +592,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
-        DEBUG("Running synchronously for this request\n");
+        DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
     }
 
@@ -595,7 +607,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("- Started request: %p\n", rsa_priv_req);
+    DEBUG("Started request: %p\n", rsa_priv_req);
     START_RDTSC(&rsa_cycles_priv_enc_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -674,15 +686,27 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
     if (0 == enable_external_polling) {
         if (multibuff_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("mutltibuff_kill_thread error\n");
+            WARN("multibuff_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }
      }
 
-    qat_pause_job(job, 0);
+    DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
+    do {
+        /* If we get a failure on qat_pause_job then we will
+           not flag an error here and quit because we have
+           an asynchronous request in flight.
+           We don't want to start cleaning up data
+           structures that are still being used. If
+           qat_pause_job fails we will just yield and
+           loop around and try again until the request
+           completes and we can continue. */
+        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+            pthread_yield();
+    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("- Finished: %p - status = %d\n", rsa_priv_req, sts);
+    DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
 
     if (sts > 0) {
         return rsa_len;
@@ -695,7 +719,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
 use_sw_method:
     sts = RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
-    DEBUG("- SW Finished\n");
+    DEBUG("SW Finished\n");
     return sts;
 }
 
@@ -714,6 +738,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     const BIGNUM *dmp1 = NULL;
     const BIGNUM *dmq1 = NULL;
     const BIGNUM *iqmp = NULL;
+    int job_ret = 0;
 
     /* Check input parameters */
     if (unlikely(rsa == NULL || from == NULL || to == NULL ||
@@ -737,7 +762,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
-        DEBUG("Running synchronously using SW Method for this request\n");
+        DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
     }
 
@@ -752,7 +777,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("- Started request: %p\n", rsa_priv_req);
+    DEBUG("Started request: %p\n", rsa_priv_req);
     START_RDTSC(&rsa_cycles_priv_dec_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -819,8 +844,21 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
         }
     }
 
-    qat_pause_job(job, ASYNC_STATUS_OK);
-    DEBUG("- Finished: %p - status = %d\n", rsa_priv_req, sts);
+    DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
+    do {
+        /* If we get a failure on qat_pause_job then we will
+           not flag an error here and quit because we have
+           an asynchronous request in flight.
+           We don't want to start cleaning up data
+           structures that are still being used. If
+           qat_pause_job fails we will just yield and
+           loop around and try again until the request
+           completes and we can continue. */
+        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+            pthread_yield();
+    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+
+    DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
 
     if (sts < 1 ) {
         WARN("Failure in Private Decrypt\n");
@@ -831,7 +869,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 
 use_sw_method:
     sts = RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
-    DEBUG("- SW Finished\n");
+    DEBUG("SW Finished\n");
     return sts;
 }
 
@@ -846,6 +884,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
+    int job_ret = 0;
 
     /* Check Parameters */
     if (rsa == NULL || from == NULL || to == NULL || flen < 0) {
@@ -863,7 +902,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
-        DEBUG("Running synchronously using SW Method for this request\n");
+        DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
     }
 
@@ -878,7 +917,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("- Started request: %p\n", rsa_pub_req);
+    DEBUG("Started request: %p\n", rsa_pub_req);
     START_RDTSC(&rsa_cycles_pub_enc_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -942,8 +981,21 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         }
     }
 
-    qat_pause_job(job, ASYNC_STATUS_OK);
-    DEBUG("- Finished: %p - status = %d\n", rsa_pub_req, sts);
+    DEBUG("Pausing: %p status = %d\n", rsa_pub_req, sts);
+    do {
+        /* If we get a failure on qat_pause_job then we will
+           not flag an error here and quit because we have
+           an asynchronous request in flight.
+           We don't want to start cleaning up data
+           structures that are still being used. If
+           qat_pause_job fails we will just yield and
+           loop around and try again until the request
+           completes and we can continue. */
+        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+            pthread_yield();
+    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+
+    DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);
 
     if (sts > 0) {
         return rsa_len;
@@ -956,7 +1008,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
 
 use_sw_method:
     sts = RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
-    DEBUG("- SW Finished\n");
+    DEBUG("SW Finished\n");
     return sts;
 }
 
@@ -970,6 +1022,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
+    int job_ret = 0;
 
     /* Check Parameters */
     if (rsa == NULL || from == NULL || to == NULL ||
@@ -986,7 +1039,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
-        DEBUG("Running synchronously using SW Method for this request\n");
+        DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
     }
 
@@ -1001,7 +1054,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("- Started request: %p\n", rsa_pub_req);
+    DEBUG("Started request: %p\n", rsa_pub_req);
     START_RDTSC(&rsa_cycles_pub_dec_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -1047,8 +1100,21 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         }
     }
 
-    qat_pause_job(job, ASYNC_STATUS_OK);
-    DEBUG("- Finished: %p - status = %d\n", rsa_pub_req, sts);
+    DEBUG("Pausing: %p status = %d\n", rsa_pub_req, sts);
+    do {
+        /* If we get a failure on qat_pause_job then we will
+           not flag an error here and quit because we have
+           an asynchronous request in flight.
+           We don't want to start cleaning up data
+           structures that are still being used. If
+           qat_pause_job fails we will just yield and
+           loop around and try again until the request
+           completes and we can continue. */
+        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+            pthread_yield();
+    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+
+    DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);
 
     if (sts < 1) {
         WARN("Failure in Public Decrypt\n");
@@ -1059,7 +1125,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
 
 use_sw_method:
     sts = RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
-    DEBUG("- SW Finished\n");
+    DEBUG("SW Finished\n");
     return sts;
 }
 

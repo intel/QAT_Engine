@@ -85,17 +85,24 @@
 /*
  * Different values passed in as param 3 for the message
  * QAT_CMD_GET_NUM_REQUESTS_IN_FLIGHT to retrieve the number of different kinds
- * of in-flight requests
+ * of in-flight requests and number of items in queue for Multi-buffer
  */
 # define GET_NUM_ASYM_REQUESTS_IN_FLIGHT 1
 # define GET_NUM_KDF_REQUESTS_IN_FLIGHT 2
 # define GET_NUM_CIPHER_PIPELINE_REQUESTS_IN_FLIGHT 3
-# define GET_NUM_ITEMS_RSA_PRIV_QUEUE 4
-# define GET_NUM_ITEMS_RSA_PUB_QUEUE 5
+# define GET_NUM_ASYM_MB_ITEMS_IN_QUEUE 4
+# define GET_NUM_KDF_MB_ITEMS_IN_QUEUE 5
+# define GET_NUM_SYM_MB_ITEMS_IN_QUEUE 6
 
 /* Behavior of qat_engine_finish_int */
 # define QAT_RETAIN_GLOBALS 0
 # define QAT_RESET_GLOBALS 1
+
+# define QAT_ATOMIC_INC(qat_int)              \
+            (__sync_add_and_fetch(&(qat_int), 1))
+
+# define QAT_ATOMIC_DEC(qat_int)              \
+            (__sync_sub_and_fetch(&(qat_int), 1))
 
 # ifdef OPENSSL_QAT_OFFLOAD
 typedef struct {
@@ -116,12 +123,6 @@ typedef struct {
 # define QAT_RETRY_BACKOFF_MODULO_DIVISOR 8
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
 # define QAT_INVALID_INSTANCE -1
-
-# define QAT_ATOMIC_INC(qat_int)              \
-            (__sync_add_and_fetch(&(qat_int), 1))
-
-# define QAT_ATOMIC_DEC(qat_int)              \
-            (__sync_sub_and_fetch(&(qat_int), 1))
 
 # define QAT_INC_IN_FLIGHT_REQS(qat_int, tlv) \
             do {                              \
@@ -263,29 +264,29 @@ typedef struct {
  * a continuous loop in the situation where requests are getting
  * submitted faster than they are getting processed.
  */
-# define MULTIBUFF_RSA_MAX_SUBMISSIONS 4
+# define MULTIBUFF_MAX_SUBMISSIONS 4
 
 /*
  * Additional define just for the prototype to force batching
- * of requests less than MULTIBUFF_RSA_BATCH.
+ * of requests less than MULTIBUFF_BATCH.
  */
-# ifndef MULTIBUFF_RSA_MIN_BATCH
-#  define MULTIBUFF_RSA_MIN_BATCH 8
+# ifndef MULTIBUFF_MIN_BATCH
+#  define MULTIBUFF_MIN_BATCH 8
 # endif
 
 /*
  * Number of RSA Requests to wait until are queued before
  * attempting to process them.
  */
-# ifndef MULTIBUFF_RSA_MAX_BATCH
-#  define MULTIBUFF_RSA_MAX_BATCH 8
+# ifndef MULTIBUFF_MAX_BATCH
+#  define MULTIBUFF_MAX_BATCH 8
 # endif
 
 /*
  * Number of RSA Requests to submit to the ifma rsa library
  * for processing in one go.
  */
-# define MULTIBUFF_RSA_BATCH 8
+# define MULTIBUFF_BATCH 8
 #endif
 
 /* Qat engine id declaration */
@@ -305,8 +306,9 @@ extern int num_requests_in_flight;
 extern int num_asym_requests_in_flight;
 extern int num_kdf_requests_in_flight;
 extern int num_cipher_pipeline_requests_in_flight;
-extern int *num_items_rsa_priv_queue;
-extern int *num_items_rsa_pub_queue;
+extern int num_asym_mb_items_in_queue;
+extern int num_kdf_mb_items_in_queue;
+extern int num_cipher_mb_items_in_queue;
 
 extern sigset_t set;
 extern pthread_t qat_timer_poll_func_thread;
@@ -335,6 +337,7 @@ extern int qat_max_retry_count;
 # endif
 
 # ifdef OPENSSL_MULTIBUFF_OFFLOAD
+/* RSA */
 extern BIGNUM *e_check;
 extern mb_flist_rsa_priv rsa_priv_freelist;
 extern mb_flist_rsa_pub rsa_pub_freelist;
@@ -342,6 +345,14 @@ extern mb_queue_rsa_priv rsa_priv_queue;
 extern mb_queue_rsa_pub rsa_pub_queue;
 extern int mb_rsa_priv_req_this_period;
 extern int mb_rsa_pub_req_this_period;
+
+/* X25519 */
+extern mb_flist_x25519_keygen x25519_keygen_freelist;
+extern mb_flist_x25519_derive x25519_derive_freelist;
+extern mb_queue_x25519_keygen x25519_keygen_queue;
+extern mb_queue_x25519_derive x25519_derive_queue;
+extern int mb_x25519_keygen_req_this_period;
+extern int mb_x25519_derive_req_this_period;
 
 typedef struct _mb_req_rates {
     int req_this_period;

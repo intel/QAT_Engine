@@ -29,7 +29,8 @@ OPENSSL_COMMON_SRC = e_qat.c        \
                      qat_evp.c      \
                      e_qat_err.c
 
-OPENSSL_COMMON_HDR = qat_fork.h     \
+OPENSSL_COMMON_HDR = e_qat.h        \
+                     qat_fork.h     \
                      qat_events.h   \
                      qat_utils.h    \
                      qat_evp.h      \
@@ -51,14 +52,16 @@ endif
 if OPENSSL_MULTIBUFF_OFFLOAD
  OPENSSL_MULTIBUFF_SRC = multibuff_init.c     \
                          multibuff_polling.c  \
-                         multibuff_rsa.c      \
                          multibuff_freelist.c \
-                         multibuff_queue.c
+                         multibuff_queue.c    \
+                         multibuff_rsa.c      \
+                         multibuff_ecx.c
 
  OPENSSL_MULTIBUFF_HDR = multibuff_polling.h  \
-                         multibuff_rsa.h      \
                          multibuff_freelist.h \
-                         multibuff_queue.h
+                         multibuff_queue.h    \
+                         multibuff_rsa.h      \
+                         multibuff_ecx.h
 endif
 
 if OPENSSL_QAT_OFFLOAD
@@ -141,7 +144,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver)             \
             $(enable_qat_debug) $(enable_qat_warnings)                       \
             $(enable_qat_mem_debug) $(enable_qat_mem_warnings)               \
             $(enable_qat_cycle_counts) $(enable_multibuff_rsa)               \
-            $(enable_multibuff_heuristic_timeout)
+            $(enable_multibuff_ecx) $(enable_multibuff_heuristic_timeout)
 
 
 libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)              \
