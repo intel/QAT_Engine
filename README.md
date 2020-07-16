@@ -1326,8 +1326,8 @@ Cipher Offload, PRF, HKDF & X25519/X448 offload. The heartbeat feature is also
 not available when running under the FreeBSD operating system or in the qatlib RPM.
 
  2. Intel&reg; QAT OpenSSL\* Engine needs to be configured to disable Symmetric
-Chained Cipher Offload, PRF, HKDF & X25519/X448 offload by adding the below four flags in
-the configure command of Intel&reg; QAT OpenSSL\* Engine build.
+Chained Cipher Offload, HKDF & X25519/X448 offload by adding the below
+four flags in the configure command of Intel&reg; QAT OpenSSL\* Engine build.
 
 ```bash
 --disable-qat_ciphers --disable-qat_prf --disable-qat_hkdf --disable-qat_ecx

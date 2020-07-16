@@ -45,7 +45,8 @@ if OPENSSL_QAT_OFFLOAD
                    qat_dh.c          \
                    qat_dsa.c         \
                    qat_ec.c          \
-                   qat_prf.c
+                   qat_prf.c         \
+                   qat_gcm.c
 
 if !QAT_OPENSSL_110
  OPENSSL_111_SRC = qat_hkdf.c        \
@@ -72,8 +73,8 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_intree)           \
             $(cflags_mem_driver) $(cflags_openssl_300)                \
             $(cflags_qat_offload) $(cflags_multibuff_offload)         \
             $(cflags_ipsec_offload) $(enable_qat_rsa)                 \
-            $(enable_qat_ciphers) $(enable_qat_ecdh)                  \
-            $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_dh)    \
+            $(enable_qat_ciphers) $(enable_qat_gcm) $(enable_qat_dh)  \
+            $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_ecdh)  \
             $(enable_qat_prf) $(enable_qat_hkdf) $(enable_qat_ecx)    \
             $(enable_vaes_gcm) $(enable_multibuff_rsa)                \
             $(enable_multibuff_ecx) $(enable_qat_small_pkt_offload)   \

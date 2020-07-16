@@ -601,6 +601,51 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
+#  define DUMP_SYM_PERFORM_OP_GCM(instance_handle, pOpData, pSrcBuffer,        \
+                                  pDstBuffer)                                  \
+    do {                                                                       \
+        unsigned int index = 0;                                                \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"Symmetric GCM crypto perform op req: %p\n",   \
+                &pOpData);                                                     \
+        fprintf(qatDebugLogFile,"Instance Handle = %p\n", instance_handle);    \
+        fprintf(qatDebugLogFile,"pOpData.packetType = %d\n",                   \
+                pOpData.packetType);                                           \
+        DUMPL("Cipher IV", pOpData.pIv, pOpData.ivLenInBytes);                 \
+        fprintf(qatDebugLogFile,"pOpData.cryptoStartSrcOffsetInBytes = %u\n",  \
+                pOpData.cryptoStartSrcOffsetInBytes);                          \
+        fprintf(qatDebugLogFile,"pOpData.messageLenToCipherInBytes = %u\n",    \
+                pOpData.messageLenToCipherInBytes);                            \
+        fprintf(qatDebugLogFile,"pOpData.hashStartSrcOffsetInBytes = %u\n",    \
+                pOpData.hashStartSrcOffsetInBytes);                            \
+        fprintf(qatDebugLogFile,"pOpData.messageLenToHashInBytes = %u\n",      \
+                pOpData.messageLenToHashInBytes);                              \
+        fprintf(qatDebugLogFile,"pOpData.pDigestResult = %p\n",                \
+                pOpData.pDigestResult);                                        \
+        for (index = 0; index < pSrcBuffer.numBuffers; index++) {              \
+            DUMPL("pSrcBuffer.pBuffers[%u].pData",                             \
+                   pSrcBuffer.pBuffers[index].pData,                           \
+                   pSrcBuffer.pBuffers[index].dataLenInBytes);                 \
+        }                                                                      \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
+#  define DUMP_SYM_PERFORM_OP_GCM_OUTPUT(pDstBuffer)                           \
+    do {                                                                       \
+        unsigned int index = 0;                                                \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"Symmetric crypto perform op Output: %p\n",    \
+                &pDstBuffer);                                                  \
+        for (index = 0; index < pDstBuffer.numBuffers; index++) {              \
+            DUMPL("pDstBuffer.pBuffers[%u].pData",                             \
+                   pDstBuffer.pBuffers[index].pData,                           \
+                   pDstBuffer.pBuffers[index].dataLenInBytes);                 \
+        }                                                                      \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
 #  define DUMP_PRF_OP_DATA(prfOpData)                                          \
     do {                                                                       \
         fprintf(qatDebugLogFile,"=========================\n");                \
@@ -668,6 +713,8 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_SESSION_SETUP_DATA(...)
 #  define DUMP_SYM_PERFORM_OP(...)
 #  define DUMP_SYM_PERFORM_OP_OUTPUT(...)
+#  define DUMP_SYM_PERFORM_OP_GCM(...)
+#  define DUMP_SYM_PERFORM_OP_GCM_OUTPUT(...)
 #  define DUMP_PRF_OP_DATA(...)
 #  define DUMP_HKDF_OP_DATA(...)
 # endif                         /* QAT_DEBUG */

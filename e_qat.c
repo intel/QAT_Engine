@@ -95,6 +95,7 @@
 # include "qat_dsa.h"
 # include "qat_dh.h"
 # include "qat_ec.h"
+# include "qat_gcm.h"
 
 /* QAT includes */
 # include "cpa.h"

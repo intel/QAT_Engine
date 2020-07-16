@@ -161,6 +161,13 @@ typedef struct qat_chained_ctx_t {
     unsigned int fallback;
 } qat_chained_ctx;
 
+CpaStatus qat_sym_perform_op(int inst_num,
+                             void *pCallbackTag,
+                             const CpaCySymOpData * pOpData,
+                             const CpaBufferList * pSrcBuffer,
+                             CpaBufferList * pDstBuffer,
+                             CpaBoolean * pVerifyResult);
+
 const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen);
 # ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
 int qat_pkt_threshold_table_set_threshold(const char *cipher_name,

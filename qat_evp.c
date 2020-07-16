@@ -59,6 +59,7 @@
 
 #ifdef OPENSSL_QAT_OFFLOAD
 # include "qat_ciphers.h"
+# include "qat_gcm.h"
 #endif
 
 #ifdef OPENSSL_IPSEC_OFFLOAD
@@ -77,6 +78,10 @@ static chained_info info[] = {
     {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
     {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
+# ifdef OPENSSL_ENABLE_QAT_GCM_CIPHERS
+    {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
+    {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
+# endif
 #endif
 #ifdef OPENSSL_IPSEC_OFFLOAD
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
@@ -94,6 +99,10 @@ int qat_cipher_nids[] = {
     NID_aes_128_cbc_hmac_sha256,
     NID_aes_256_cbc_hmac_sha1,
     NID_aes_256_cbc_hmac_sha256,
+# ifdef OPENSSL_ENABLE_QAT_GCM_CIPHERS
+    NID_aes_128_gcm,
+    NID_aes_256_gcm,
+# endif
 #endif
 #ifdef OPENSSL_IPSEC_OFFLOAD
     NID_aes_128_gcm,
@@ -102,7 +111,7 @@ int qat_cipher_nids[] = {
 #endif
 };
 
-#ifdef  OPENSSL_QAT_OFFLOAD
+#ifdef OPENSSL_QAT_OFFLOAD
 /* Supported EVP nids */
 int qat_evp_nids[] = {
     EVP_PKEY_TLS1_PRF,
@@ -189,22 +198,29 @@ void qat_create_ciphers(void)
 
     for (i = 0; i < num_cc; i++) {
         if (info[i].cipher == NULL) {
+#ifdef OPENSSL_IPSEC_OFFLOAD
             if (info[i].nid == NID_aes_128_gcm ||
                 info[i].nid == NID_aes_192_gcm ||
                 info[i].nid == NID_aes_256_gcm) {
-#ifdef OPENSSL_IPSEC_OFFLOAD
                 info[i].cipher = (EVP_CIPHER *)
                     vaesgcm_create_cipher_meth(info[i].nid, info[i].keylen);
+	        }
 #endif
-	    }
-            else {
+
 #ifdef OPENSSL_QAT_OFFLOAD
-                if (qat_offload) {
+            if (qat_offload) {
+                if (info[i].nid == NID_aes_128_gcm ||
+                    info[i].nid == NID_aes_256_gcm) {
+# ifdef OPENSSL_ENABLE_QAT_GCM_CIPHERS
+                    info[i].cipher = (EVP_CIPHER *)
+                        qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
+# endif
+                } else {
                     info[i].cipher = (EVP_CIPHER *)
                         qat_create_cipher_meth(info[i].nid, info[i].keylen);
                 }
+            }
 #endif
-	    }
         }
     }
 }
@@ -222,7 +238,7 @@ void qat_free_ciphers(void)
                 EVP_CIPHER_meth_free(info[i].cipher);
 #endif
              } else {
-#ifndef OPENSSL_DISABLE_QAT_CIPHERS
+#if !defined(OPENSSL_DISABLE_QAT_CIPHERS) || !defined(OPENSSL_DISABLE_QAT_GCM_CIPHERS)
                 EVP_CIPHER_meth_free(info[i].cipher);
 #endif
             }

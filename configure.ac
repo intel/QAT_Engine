@@ -63,6 +63,11 @@ AC_ARG_ENABLE(qat_ecx,
                              [Disable accelerated X25519/X448 offload]))
 AC_SUBST(enable_qat_ecx)
 
+AC_ARG_ENABLE(qat_gcm,
+              AS_HELP_STRING([--enable-qat_gcm],
+                             [Enable accelerated AES-GCM offload (experimental)]))
+AC_SUBST(enable_qat_gcm)
+
 AC_ARG_ENABLE(vaes_gcm,
               AS_HELP_STRING([--disable-vaes_gcm],
                              [Disable vectorized AES-GCM offload]))
@@ -425,6 +430,15 @@ then
 else
   enable_qat_ecx="-DOPENSSL_DISABLE_QAT_ECX"
   AC_MSG_NOTICE([Not Offloading X25519/X448 to Hardware])
+fi
+
+if test "x$enable_qat_gcm" = "xyes" -a "x$cflags_qat_offload" != "x"
+then
+  enable_qat_gcm="-DOPENSSL_ENABLE_QAT_GCM_CIPHERS"
+  AC_MSG_NOTICE([Offloading AES-GCM to Hardware (experimental)])
+else
+  enable_qat_gcm="-DOPENSSL_DISABLE_QAT_GCM_CIPHERS"
+  AC_MSG_NOTICE([Not Offloading AES-GCM to Hardware])
 fi
 
 if test "x$enable_vaes_gcm" != "xno" -a "x$cflags_ipsec_offload" != "x"
