@@ -1198,11 +1198,6 @@ Optional
     https://security-center.intel.com/advisory.aspx?intelid=INTEL-SA-00071&languageid=en-fr
     https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5681
 
---enable-qat_for_openssl_102
-    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.0.2.
-    Currently if using this build option, only synchronous RSA offload is
-    supported (default is to build for the OpenSSL* 1.1.1/master branch).
-
 --enable-qat_for_openssl_110
     Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.1.0
     (default is to build for the OpenSSL* 1.1.1/master branch).

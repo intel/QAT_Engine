@@ -54,8 +54,6 @@
 # ifdef OPENSSL_QAT_OFFLOAD
 #  include "cpa.h"
 #  include "cpa_types.h"
-
-#  include "qat_aux.h"
 # endif
 
 # ifdef OPENSSL_MULTIBUFF_OFFLOAD

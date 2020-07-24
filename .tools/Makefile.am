@@ -37,18 +37,6 @@ OPENSSL_COMMON_HDR = e_qat.h        \
                      e_qat_err.h
 
 
-if QAT_OPENSSL_102
- OPENSSL_102_SRC = qat_rsa.c     \
-                   qat_rsa_crt.c \
-                   qat_aux.c     \
-                   qat_rsa_aux.c
-
- OPENSSL_102_HDR = qat_rsa.h     \
-                   qat_rsa_crt.h \
-                   qat_aux.h     \
-                   qat_rsa_aux.h
-endif
-
 if OPENSSL_MULTIBUFF_OFFLOAD
  OPENSSL_MULTIBUFF_SRC = multibuff_init.c     \
                          multibuff_polling.c  \
@@ -109,7 +97,6 @@ if QAT_OPENSSL_300
 endif
 
 libqat_la_SOURCES = ${OPENSSL_COMMON_SRC}     \
-                    ${OPENSSL_102_SRC}        \
                     ${OPENSSL_QAT_SRC}        \
                     ${OPENSSL_111_SRC}        \
                     ${OPENSSL_MULTIBUFF_SRC}  \
@@ -118,7 +105,6 @@ libqat_la_SOURCES = ${OPENSSL_COMMON_SRC}     \
                     ${OPENSSL_VAES_SRC}
 
 include_HEADERS = ${OPENSSL_COMMON_HDR}     \
-                  ${OPENSSL_102_HDR}        \
                   ${OPENSSL_QAT_HDR}        \
                   ${OPENSSL_MULTIBUFF_HDR}  \
                   ${PARSE_CONFIG_FILES_HDR} \
@@ -153,9 +139,6 @@ libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)              \
                     $(QAT_SHARED_LIB_DEPS_MULTIBUFF)       \
                     $(QAT_SHARED_LIB_DEPS_IPSEC)
 
-if QAT_OPENSSL_102
- ENGINE_LIB = $(with_openssl_install_dir)/lib/engines/libqat.so
-else
 if QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH
 if QAT_OPENSSL_300
  ENGINE_LIB = $(with_openssl_install_dir)/engines-3/qat.so
@@ -169,7 +152,7 @@ else
  ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-1.1/qat.so
 endif
 endif
-endif
+
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
@@ -185,11 +168,6 @@ install-data-am:
 	cp -f .libs/libqat.so $(ENGINE_LIB)
 
 err-files:
-if QAT_OPENSSL_102
-	rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex -nostatic -write *.c
-
-else
 if QAT_OPENSSL_110
 	rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
        -rebuild -reindex -nostatic -write *.c
@@ -197,5 +175,4 @@ if QAT_OPENSSL_110
 else
 	rm -f e_qat_err.c e_qat.txt && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
        -rebuild -reindex *.c
-endif
 endif

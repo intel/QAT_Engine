@@ -71,7 +71,6 @@
 
 #include "cpa_cy_rsa.h"
 #include "cpa_cy_ln.h"
-#include "qat_aux.h"
 #include "qat_rsa.h"
 #include "qat_rsa_crt.h"
 #include "qat_asym_common.h"
