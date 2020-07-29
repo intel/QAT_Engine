@@ -1613,11 +1613,11 @@ for QAT and Multibuff offload in the configure command.
 cd /path/to/openssl/apps
 
 *AES-128-GCM
-    ./openssl speed -engine qat -elapsed aes-128-gcm
+    ./openssl speed -engine qat -elapsed -evp aes-128-gcm
 *AES-192-GCM
-    ./openssl speed -engine qat -elapsed aes-192-gcm
+    ./openssl speed -engine qat -elapsed -evp aes-192-gcm
 *AES-256-GCM
-    ./openssl speed -engine qat -elapsed aes-256-gcm
+    ./openssl speed -engine qat -elapsed -evp aes-256-gcm
 ```
 
 ## Legal
