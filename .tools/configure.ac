@@ -248,9 +248,9 @@ then
 # Check if QAT is installed, otherwise use Multibuff
 if test "x$ac_cv_lib_qat_s_cpaCyRsaDecrypt" = "xno"
 then
-  AC_CHECK_LIB(crypto_mb, ifma_getversion, [AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")], [AC_MSG_ERROR([Both QAT and Crypto Multi-buffer library not found in the standard path. Install either QAT or Crypto Multi-buffer library])], [])
+  AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")], [AC_MSG_ERROR([Both QAT and Crypto Multi-buffer library not found in the standard path. Install either QAT or Crypto Multi-buffer library])], [])
   AC_SUBST(cflags_multibuff_offload)
-  AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$ac_cv_lib_crypto_mb_ifma_getversion" = "xyes"])
+  AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"])
 fi
 fi
 
@@ -302,7 +302,7 @@ fi
 
 if test "x$with_multibuff_install_dir" = "x" -a "x$cflags_multibuff_offload" != "x"
 then
-  AC_CHECK_LIB(crypto_mb, ifma_getversion, [AC_MSG_NOTICE([Using crypto_mb Library from default location])], [AC_MSG_ERROR([crypto_mb Library not found, Install the crypto_mb library or provide the path to the library using --with-multibuff_install_dir])],[])
+  AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Using crypto_mb Library from default location])], [AC_MSG_ERROR([crypto_mb Library not found, Install the crypto_mb library or provide the path to the library using --with-multibuff_install_dir])],[])
   with_multibuff_install_dir="/usr/local/"
 fi
 

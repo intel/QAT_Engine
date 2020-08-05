@@ -273,7 +273,7 @@ typedef struct {
 # endif
 
 /*
- * Number of RSA Requests to wait until are queued before
+ * Number of multi-buffer requests to wait until are queued before
  * attempting to process them.
  */
 # ifndef MULTIBUFF_MAX_BATCH
@@ -281,7 +281,7 @@ typedef struct {
 # endif
 
 /*
- * Number of RSA Requests to submit to the ifma rsa library
+ * Number of multi-buffer requests to submit to the crypto_mb library
  * for processing in one go.
  */
 # define MULTIBUFF_BATCH 8
@@ -341,27 +341,23 @@ extern mb_flist_rsa_priv rsa_priv_freelist;
 extern mb_flist_rsa_pub rsa_pub_freelist;
 extern mb_queue_rsa_priv rsa_priv_queue;
 extern mb_queue_rsa_pub rsa_pub_queue;
-extern int mb_rsa_priv_req_this_period;
-extern int mb_rsa_pub_req_this_period;
 
 /* X25519 */
 extern mb_flist_x25519_keygen x25519_keygen_freelist;
 extern mb_flist_x25519_derive x25519_derive_freelist;
 extern mb_queue_x25519_keygen x25519_keygen_queue;
 extern mb_queue_x25519_derive x25519_derive_queue;
-extern int mb_x25519_keygen_req_this_period;
-extern int mb_x25519_derive_req_this_period;
 
 typedef struct _mb_req_rates {
     int req_this_period;
-    unsigned int timeout_level;
-    struct timespec timeout_time;
     struct timespec previous_time;
     struct timespec current_time;
 } mb_req_rates;
 
 extern mb_req_rates mb_rsa_priv_req_rates;
 extern mb_req_rates mb_rsa_pub_req_rates;
+extern mb_req_rates mb_x25519_keygen_req_rates;
+extern mb_req_rates mb_x25519_derive_req_rates;
 # endif
 
 # define QAT_CMD_ENABLE_EXTERNAL_POLLING ENGINE_CMD_BASE

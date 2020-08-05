@@ -67,7 +67,7 @@
 #include "multibuff_polling.h"
 
 /* Crypto_mb includes */
-#include "crypto_mb/ed25519_ifma.h"
+#include "crypto_mb/x25519.h"
 
 #ifdef OPENSSL_ENABLE_MULTIBUFF_ECX
 # ifdef OPENSSL_DISABLE_MULTIBUFF_ECX
@@ -174,12 +174,12 @@ void process_x25519_keygen_reqs()
     local_request_no = req_num;
     DEBUG("Submitting %d keygen requests\n", local_request_no);
 
-    x25519_sts = x25519_public_key_mb8(x25519_keygen_pubkey,
-                                       x25519_keygen_privkey);
+    x25519_sts = mbx_x25519_public_key_mb8(x25519_keygen_pubkey,
+                                           x25519_keygen_privkey);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
 	    if (x25519_keygen_req_array[req_num]->sts != NULL) {
-             if (IFMA_GET_STS(x25519_sts, req_num) == IFMA_STATUS_OK) {
+             if (MBX_GET_STS(x25519_sts, req_num) == MBX_STATUS_OK) {
                  DEBUG("Multibuffer Keygen request[%d] success\n", req_num);
                  *x25519_keygen_req_array[req_num]->sts = 1;
              } else {
@@ -230,12 +230,12 @@ void process_x25519_derive_reqs()
     local_request_no = req_num;
     DEBUG("Submitting %d derive requests\n", local_request_no);
 
-    x25519_sts = x25519_mb8(x25519_derive_sharedkey,
-                            x25519_derive_privkey,
-                            x25519_derive_pubkey);
+    x25519_sts = mbx_x25519_mb8(x25519_derive_sharedkey,
+                                x25519_derive_privkey,
+                                x25519_derive_pubkey);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
-        if (IFMA_GET_STS(x25519_sts, req_num) == IFMA_STATUS_OK) {
+        if (MBX_GET_STS(x25519_sts, req_num) == MBX_STATUS_OK) {
             DEBUG("Multibuffer Derive request[%d] success\n", req_num);
             *x25519_derive_req_array[req_num]->sts = 1;
         } else {

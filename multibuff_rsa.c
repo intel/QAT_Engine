@@ -57,7 +57,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "crypto_mb/rsa_ifma.h"
+#include "crypto_mb/rsa.h"
 #include "e_qat.h"
 #include "multibuff_polling.h"
 #include "multibuff_rsa.h"
@@ -388,18 +388,18 @@ void process_RSA_priv_reqs()
     local_request_no = req_num;
     DEBUG("Submitting %d priv requests\n", local_request_no);
 
-    rsa_sts = ifma_rsa52_private_crt_mb8(rsa_priv_from,
-                                         rsa_priv_to,
-                                         rsa_priv_p,
-                                         rsa_priv_q,
-                                         rsa_priv_dmp1,
-                                         rsa_priv_dmq1,
-                                         rsa_priv_iqmp,
-                                         RSA_MULTIBUFF_BIT_DEPTH);
+    rsa_sts = mbx_rsa_private_crt_ssl_mb8(rsa_priv_from,
+                                          rsa_priv_to,
+                                          rsa_priv_p,
+                                          rsa_priv_q,
+                                          rsa_priv_dmp1,
+                                          rsa_priv_dmq1,
+                                          rsa_priv_iqmp,
+                                          RSA_MULTIBUFF_BIT_DEPTH);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_priv_req_array[req_num]->sts != NULL) {
-            if (IFMA_GET_STS(rsa_sts, req_num) == IFMA_STATUS_OK) {
+            if (MBX_GET_STS(rsa_sts, req_num) == MBX_STATUS_OK) {
                 DEBUG("Multibuffer rsa priv crt req[%d] success\n", req_num);
                 *rsa_priv_req_array[req_num]->sts = 1;
             } else {
@@ -420,15 +420,15 @@ void process_RSA_priv_reqs()
         }
     }
 
-    rsa_sts = ifma_rsa52_public_mb8(rsa_priv_from,
-                                    rsa_priv_to,
-                                    rsa_lenstra_e,
-                                    rsa_lenstra_n,
-                                    RSA_MULTIBUFF_BIT_DEPTH);
+    rsa_sts = mbx_rsa_public_ssl_mb8(rsa_priv_from,
+                                     rsa_priv_to,
+                                     rsa_lenstra_e,
+                                     rsa_lenstra_n,
+                                     RSA_MULTIBUFF_BIT_DEPTH);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_priv_req_array[req_num]->sts != NULL) {
-            if (IFMA_GET_STS(rsa_sts, req_num) == IFMA_STATUS_OK) {
+            if (MBX_GET_STS(rsa_sts, req_num) == MBX_STATUS_OK) {
                 if (*rsa_priv_req_array[req_num]->sts < 0) {
                     WARN("Multibuffer rsa priv req[%d] failure\n", req_num);
                     *rsa_priv_req_array[req_num]->sts = -1;
@@ -452,7 +452,7 @@ void process_RSA_priv_reqs()
                     }
                 }
             } else {
-                 WARN("ifma_rsa52_public_mb8[%d] failure\n", req_num);
+                 WARN("mbx_rsa_public_ssl_mb8[%d] failure\n", req_num);
                 *rsa_priv_req_array[req_num]->sts = -1;
             }
             /* Remove Padding here if needed */
@@ -511,15 +511,15 @@ void process_RSA_pub_reqs()
     local_request_no = req_num;
     DEBUG("Submitting %d pub requests\n", local_request_no);
 
-    rsa_sts = ifma_rsa52_public_mb8(rsa_pub_from,
-                                    rsa_pub_to,
-                                    rsa_pub_e,
-                                    rsa_pub_n,
-                                    RSA_MULTIBUFF_BIT_DEPTH);
+    rsa_sts = mbx_rsa_public_ssl_mb8(rsa_pub_from,
+                                     rsa_pub_to,
+                                     rsa_pub_e,
+                                     rsa_pub_n,
+                                     RSA_MULTIBUFF_BIT_DEPTH);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_pub_req_array[req_num]->sts != NULL) {
-            if (IFMA_GET_STS(rsa_sts, req_num) == IFMA_STATUS_OK) {
+            if (MBX_GET_STS(rsa_sts, req_num) == MBX_STATUS_OK) {
                 DEBUG("Multibuffer RSA pub req[%d] success\n", req_num);
                 *rsa_pub_req_array[req_num]->sts = 1;
             } else {

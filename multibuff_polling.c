@@ -90,20 +90,18 @@
 #define MULTIBUFF_NSEC_TIMEOUT_TIME_L6 12500000
 #define MULTIBUFF_NSEC_TIMEOUT_TIME_L7 10000000
 
+struct timespec mb_poll_timeout_time = { 0, 10000000 }; /* default 100th sec */
+unsigned int mb_timeout_level = MULTIBUFF_TIMEOUT_LEVEL_MAX;
+
 /* RSA */
 struct timespec rsa_priv_previous_time = { 0 };
 struct timespec rsa_pub_previous_time = { 0 };
-struct timespec rsa_poll_timeout_time = { 0, 10000000 }; /* default 100th sec */
-int mb_rsa_priv_req_this_period = 0;
-int mb_rsa_pub_req_this_period = 0;
 mb_req_rates mb_rsa_priv_req_rates = { 0 };
 mb_req_rates mb_rsa_pub_req_rates = { 0 };
 
 /* X25519 */
 struct timespec x25519_keygen_previous_time = { 0 };
 struct timespec x25519_derive_previous_time = { 0 };
-int mb_x25519_keygen_req_this_period = 0;
-int mb_x25519_derive_req_this_period = 0;
 mb_req_rates mb_x25519_keygen_req_rates = { 0 };
 mb_req_rates mb_x25519_derive_req_rates = { 0 };
 
@@ -224,22 +222,28 @@ void multibuff_get_timeout_time(struct timespec *timeout_time,
 void multibuff_init_req_rates(mb_req_rates * req_rates)
 {
     req_rates->req_this_period = 0;
-    req_rates->timeout_level = MULTIBUFF_TIMEOUT_LEVEL_MAX;
-    multibuff_get_timeout_time(&req_rates->timeout_time, req_rates->timeout_level);
+    multibuff_get_timeout_time(&mb_poll_timeout_time, mb_timeout_level);
     clock_gettime(CLOCK_MONOTONIC_RAW, &req_rates->previous_time);
     req_rates->current_time = req_rates->previous_time;
 }
 
 #ifdef MULTIBUFF_HEURISTIC_TIMEOUT
-unsigned int multibuff_calc_timeout_level(unsigned int timeout_level,
-                                          int req_this_period)
+unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
 {
-    if ((req_this_period < MULTIBUFF_MIN_BATCH) &&
+    if (((mb_rsa_priv_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_rsa_pub_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_x25519_keygen_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_x25519_derive_req_rates.req_this_period < MULTIBUFF_MIN_BATCH)) &&
         (timeout_level > MULTIBUFF_TIMEOUT_LEVEL_MIN))
         return timeout_level-1;
-    if ((req_this_period > MULTIBUFF_MAX_BATCH*2) &&
+
+    if (((mb_rsa_priv_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_rsa_pub_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_x25519_keygen_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_x25519_derive_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2)) &&
         (timeout_level < MULTIBUFF_TIMEOUT_LEVEL_MAX))
         return timeout_level+1;
+
     return timeout_level;
 }
 
@@ -248,19 +252,17 @@ void multibuff_update_req_timeout(mb_req_rates * req_rates)
     unsigned int existing_timeout_level;
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &req_rates->current_time);
-    if (multibuff_poll_check_for_timeout(req_rates->timeout_time,
+    if (multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                          req_rates->previous_time,
                                          req_rates->current_time) == 0) {
         DEBUG("Currently a timeout period has not elapsed\n");
         return;
     }
-    DEBUG("Timeout period is past with requests: %d\n", req_rates->req_this_period);
-    existing_timeout_level = req_rates->timeout_level;
-    req_rates->timeout_level = multibuff_calc_timeout_level(req_rates->timeout_level,
-                                                            req_rates->req_this_period);
-    if (req_rates->timeout_level != existing_timeout_level) {
-        multibuff_get_timeout_time(&req_rates->timeout_time, req_rates->timeout_level);
-        DEBUG("Adjusting timeout level to: %d\n", req_rates->timeout_level);
+    existing_timeout_level = mb_timeout_level;
+    mb_timeout_level = multibuff_calc_timeout_level(mb_timeout_level);
+    if (mb_timeout_level != existing_timeout_level) {
+        multibuff_get_timeout_time(&mb_poll_timeout_time, mb_timeout_level);
+        DEBUG("Adjusting timeout level to: %d\n", mb_timeout_level);
     }
     req_rates->req_this_period = 0;
     req_rates->previous_time = req_rates->current_time;
@@ -269,7 +271,6 @@ void multibuff_update_req_timeout(mb_req_rates * req_rates)
 
 void *multibuff_timer_poll_func(void *ih)
 {
-    struct timespec timeout_time;
     int sig = 0;
     unsigned int eintr_count = 0;
 #if defined(OPENSSL_ENABLE_MULTIBUFF_RSA) || defined(OPENSSL_ENABLE_MULTIBUFF_ECX)
@@ -286,8 +287,7 @@ void *multibuff_timer_poll_func(void *ih)
     DEBUG("timer_poll_func_thread = 0x%lx\n", multibuff_timer_poll_func_thread);
 
     while (multibuff_keep_polling) {
-        timeout_time = mb_rsa_priv_req_rates.timeout_time;
-        while ((sig = sigtimedwait((const sigset_t *)&set, NULL, &timeout_time)) == -1 &&
+        while ((sig = sigtimedwait((const sigset_t *)&set, NULL, &mb_poll_timeout_time)) == -1 &&
                 errno == EINTR &&
                 eintr_count < MULTIBUFF_NUM_EVENT_RETRIES) {
             eintr_count++;
@@ -450,7 +450,7 @@ int multibuff_poll()
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
-            multibuff_poll_check_for_timeout(rsa_poll_timeout_time,
+            multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                              rsa_priv_previous_time,
                                              current_time) == 1) {
             process_RSA_priv_reqs();
@@ -468,7 +468,7 @@ int multibuff_poll()
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
-            multibuff_poll_check_for_timeout(rsa_poll_timeout_time,
+            multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                              rsa_pub_previous_time,
                                              current_time) == 1) {
             process_RSA_pub_reqs();
@@ -489,7 +489,7 @@ int multibuff_poll()
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
-                multibuff_poll_check_for_timeout(rsa_poll_timeout_time,
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  x25519_keygen_previous_time,
                                                  current_time) == 1) {
             process_x25519_keygen_reqs();
@@ -508,7 +508,7 @@ int multibuff_poll()
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
-                multibuff_poll_check_for_timeout(rsa_poll_timeout_time,
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  x25519_derive_previous_time,
                                                  current_time) == 1) {
             process_x25519_derive_reqs();
