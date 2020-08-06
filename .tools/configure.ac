@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([libqat], [1.0], [])
+AC_INIT([libqatengine], [1.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -27,24 +27,20 @@ AC_ARG_ENABLE(qat_ciphers,
                              [Disable accelerated CIPHERS offload]))
 AC_SUBST(enable_qat_ciphers)
 
-
 AC_ARG_ENABLE(qat_ecdh,
               AS_HELP_STRING([--disable-qat_ecdh],
                              [Disable accelerated ECDH offload]))
 AC_SUBST(enable_qat_ecdh)
-
 
 AC_ARG_ENABLE(qat_ecdsa,
               AS_HELP_STRING([--disable-qat_ecdsa],
                              [Disable accelerated ECDSA offload]))
 AC_SUBST(enable_qat_ecdsa)
 
-
 AC_ARG_ENABLE(qat_dsa,
               AS_HELP_STRING([--disable-qat_dsa],
                              [Disable accelerated DSA offload]))
 AC_SUBST(enable_qat_dsa)
-
 
 AC_ARG_ENABLE(qat_dh,
               AS_HELP_STRING([--disable-qat_dh],
@@ -85,6 +81,11 @@ AC_ARG_ENABLE(qat_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_small_pkt_offload],
                              [Enable accelerated small packet CIPHER offload]))
 AC_SUBST(enable_qat_small_pkt_offload)
+
+AC_ARG_ENABLE(qat_offload,
+              AS_HELP_STRING([--disable-qat_offload],
+                             [Disable Intel(R) QAT Hardware offload]))
+AC_SUBST(enable_qat_offload)
 
 AC_ARG_ENABLE(multibuff_offload,
               AS_HELP_STRING([--enable-multibuff_offload],
@@ -184,6 +185,11 @@ AC_ARG_WITH(qat_debug_file,
                              [Path and filename to log debug output to. Combine with other flags that enable the debug and warning output]))
 AC_SUBST(with_qat_debug_file)
 
+AC_ARG_WITH(qat_engine_id,
+              AS_HELP_STRING([--with-qat_engine_id],
+                             [This should be specified to force the Engine to use engine id other than default "qatengine"]))
+AC_SUBST(with_qat_engine_id)
+
 AC_ARG_WITH(cc_opt,
               AS_HELP_STRING([--with-cc_opt],
                              [Sets additional parameters that will be added to the CFLAGS]))
@@ -209,66 +215,122 @@ AC_ARG_ENABLE(qat_lenstra_protection,
                              [Disable protection against Lenstra attack]))
 AC_SUBST(enable_qat_lenstra_protection)
 
-AC_ARG_ENABLE(qat_for_openssl_110,
-              AS_HELP_STRING([--enable-qat_for_openssl_110],
-                             [Enable building QAT engine against OpenSSL 1.1.0 branch]))
-AC_SUBST(enable_qat_for_openssl_110)
-
-AC_ARG_ENABLE(openssl_install_build_arch_path,
-              AS_HELP_STRING([--enable-openssl_install_build_arch_path],
-                             [Enable building QAT engine against packaged OpenSSL on, for example, a Debian system]))
-AC_SUBST(enable_openssl_install_build_arch_path)
-
 AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
               AS_HELP_STRING([--disable-qat_auto_engine_init_on_fork],
                              [Disable auto initialization of the engine following a fork]))
 AC_SUBST(enable_qat_auto_engine_init_on_fork)
 
+if test "x$with_qat_dir" = "x"
+then
+  AC_CHECK_FILE(/usr/include/qat/icp_sal_versions.h, , [])
+  if test "x$ac_cv_file__usr_include_qat_icp_sal_versions_h" = "xyes"
+  then
+    if test `grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" /usr/include/qat/icp_sal_versions.h | wc -l` = "1"
+    then
+      AC_SUBST(cflags_qat_intree, "-DQAT_DRIVER_INTREE -DQAT_DISABLE_NONZERO_MEMFREE")
+      AC_SUBST(with_qat_dir, "/usr/lib64")
+      AC_SUBST(with_qat_install_dir, "\$(with_qat_dir)")
+      AC_SUBST(with_usdm_dir, "\$(with_qat_dir)")
+      AC_MSG_NOTICE([QAT intree driver using QATlib RPM])
+    fi
+  fi
+fi
 
 # ERROR message if mandatory options are not provided
-
-if test "x$with_qat_dir" = "x" -a "x$enable_multibuff_offload" = "x" -a  "x$enable_ipsec_offload" = "x"
+if test "x$cflags_qat_intree" = "x"
 then
-  AC_MSG_ERROR([--with-qat_dir or --enable-multibuff_offload or --enable-ipsec_offload not set, If you like to use QAT offload, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver or If you like to use Multi-buffer Software offload using Intel crypto_mb, enable using --enable-multibuff_offload or if you like to use Intel IPSec offload, enable using --enable-ipsec_offload.])
+  if test "x$with_qat_dir" = "x" -a "x$enable_multibuff_offload" = "x" -a  "x$enable_ipsec_offload" = "x"
+  then
+    AC_MSG_ERROR([--with-qat_dir or --enable-multibuff_offload or --enable-ipsec_offload not set, If you like to use QAT offload, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_dir=/path/to/qat_driver or If you like to use Multi-buffer Software offload using Intel crypto_mb, enable using --enable-multibuff_offload or if you like to use Intel IPSec offload, enable using --enable-ipsec_offload.])
+  fi
 fi
 
-if test "x$with_openssl_install_dir" = "x"
+if test "x$with_openssl_install_dir" != "x"
 then
-  AC_MSG_ERROR([--with-openssl_install_dir is not set, set it to the path to where the OpenSSL libraries are installed. e.g: --with-openssl_install_dir=/path/to/openssl_install])
-else if test "x$with_openssl_install_dir" = "xno"
-then
-  AC_MSG_ERROR([--without-openssl_install_dir is invalid, set using --with-openssl_install_dir to the path to where the OpenSSL libraries are installed. e.g: --with-openssl_install_dir=/path/to/openssl_install])
+  ac_default_prefix=$with_openssl_install_dir
+  if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
+  then
+    AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
+    AC_ARG_WITH(cflags_openssl_300, AS_HELP_STRING(), , cflags_openssl_300="-DSSL_QAT_USE_ASYNC_CALLBACK")
+    AC_SUBST(cflags_openssl_300)
+    engine_install_dir="\$(with_openssl_install_dir)/lib/engines-3"
+  else
+    AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.x])
+    engine_install_dir="\$(with_openssl_install_dir)/lib/engines-1.1"
+    if test "`grep "define OPENSSL_VERSION_NUMBER  0x10100" $with_openssl_install_dir/include/openssl/opensslv.h | wc -l`" = "1"
+    then
+      if test "x$with_openssl_dir" = "x"
+      then
+        AC_MSG_ERROR([OpenSSL version 1.1.0! Additional flag "--with-openssl_dir" pointing to the OpenSSL source dir needs to be configured for OpenSSL 1.1.0 to regenerate err files])
+      fi
+      AC_ARG_WITH(cflags_openssl_110, AS_HELP_STRING(), , cflags_openssl_110="-DQAT_OPENSSL_110")
+      AC_SUBST(cflags_openssl_110)
+    fi
+  fi
+  AC_ARG_WITH(includes_openssl, AS_HELP_STRING(), , includes_openssl="-I\$(with_openssl_install_dir)/include")
+else
+  AC_PATH_TOOL(PKGCONFIG, pkg-config)
+  AS_IF([test "x$PKGCONFIG" = "x"], [AC_MSG_ERROR(pkg-config not found.)], )
+  ac_default_prefix="/usr/local"
+  includes_openssl="`pkg-config --variable=includedir libcrypto`"
+  if test "`grep "define OPENSSL_VERSION_MAJOR" $includes_openssl/openssl/opensslv.h | awk '{print $4}'`" = "3"
+  then
+    AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
+    AC_ARG_WITH(cflags_openssl_300, AS_HELP_STRING(), , cflags_openssl_300="-DSSL_QAT_USE_ASYNC_CALLBACK")
+    AC_SUBST(cflags_openssl_300)
+  else
+    if test "`grep "define OPENSSL_VERSION_NUMBER  0x10100" $includes_openssl/openssl/opensslv.h | wc -l`" = "1"
+    then
+      AC_MSG_ERROR([OpenSSL version in the system is less than 1.1.1. Either update system OpenSSL to 1.1.1 or Use "--with-openssl_install_dir" pointing to the path where OpenSSL downloaded from source is installed. Additional flag "--with-openssl_dir" pointing to the OpenSSL source dir needs to be configured for OpenSSL 1.1.0])
+    fi
+  fi
+  engine_install_dir="`pkg-config --variable=enginesdir libcrypto`"
+  AC_ARG_WITH(includes_openssl, AS_HELP_STRING(), , includes_openssl="-I`pkg-config --variable=includedir libcrypto`")
+  AC_MSG_NOTICE([Install engine in the system OpenSSL enginesdir Path])
 fi
-fi
+AM_CONDITIONAL([QAT_OPENSSL_110], [test "x$cflags_openssl_110" != "x"])
+AC_SUBST(includes_openssl)
+AC_SUBST(engine_install_dir)
 
 # If both QAT and Multibuff configured, then check the libraries from standard location and use accordingly.
-if test "x$with_qat_dir" != "x" -a "x$enable_multibuff_offload" = "xyes"
+if test "x$cflags_qat_intree" = "x"
 then
-  AC_CHECK_LIB(qat_s, cpaCyRsaDecrypt, [AC_MSG_NOTICE([QAT Offload with libraries from standard location])], [AC_MSG_NOTICE([QAT Library not found in the standard location])], [])
-# Check if QAT is installed, otherwise use Multibuff
-if test "x$ac_cv_lib_qat_s_cpaCyRsaDecrypt" = "xno"
-then
-  AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")], [AC_MSG_ERROR([Both QAT and Crypto Multi-buffer library not found in the standard path. Install either QAT or Crypto Multi-buffer library])], [])
-  AC_SUBST(cflags_multibuff_offload)
-  AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"])
-fi
+  if test "x$with_qat_dir" != "x" -a "x$enable_multibuff_offload" = "xyes"
+  then
+    AC_CHECK_LIB(qat_s, cpaCyRsaDecrypt, [AC_MSG_NOTICE([QAT libraries found in the system])], [AC_MSG_NOTICE([QAT Library not found in the standard location])], [])
+    # Check if QAT is installed, otherwise use Multibuff
+    if test "x$ac_cv_lib_qat_s_cpaCyRsaDecrypt" = "xno"
+    then
+      AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")], [AC_MSG_ERROR([Both QAT and Crypto Multi-buffer library not found in the standard path. Install either QAT or Crypto Multi-buffer library])], [])
+      AC_SUBST(cflags_multibuff_offload)
+      AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"])
+    fi
+  fi
 fi
 
 # qat_dir configured, enable qat offload
-if test "x$with_qat_dir" != "x" -a "x$cflags_multibuff_offload" = "x"
+if test "x$with_qat_dir" != "x"
 then
-  AC_ARG_WITH(cflags_qat_offload, AS_HELP_STRING(), , cflags_qat_offload="-DOPENSSL_QAT_OFFLOAD")
-  AC_SUBST(cflags_qat_offload)
-  AC_MSG_NOTICE([Enabling build for QAT Offload])
+  if test "x$enable_qat_offload" != "xno"
+  then
+    AC_ARG_WITH(cflags_qat_offload, AS_HELP_STRING(), , cflags_qat_offload="-DOPENSSL_QAT_OFFLOAD")
+    AC_SUBST(cflags_qat_offload)
+    AC_MSG_NOTICE([Enabling build for QAT Offload])
+  else
+    AC_MSG_NOTICE([Disabling build for QAT Offload])
+  fi
 fi
-AM_CONDITIONAL([OPENSSL_QAT_OFFLOAD], [test "x$with_qat_dir" != "x"])
+AM_CONDITIONAL([OPENSSL_QAT_OFFLOAD], [test "x$cflags_qat_offload" != "x"])
 
 # Multibuff offload enabled
-if test "x$enable_multibuff_offload" = "xyes" -a "x$cflags_qat_offload" = "x"
+if test "x$enable_multibuff_offload" = "xyes"
 then
-   AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")
-   AC_SUBST(cflags_multibuff_offload)
-   AC_MSG_NOTICE([Enabling build for Multibuff Offload])
+  if test "x$cflags_qat_offload" = "x"
+  then
+    AC_ARG_WITH(cflags_multibuff_offload, AS_HELP_STRING(), , cflags_multibuff_offload="-DOPENSSL_MULTIBUFF_OFFLOAD")
+    AC_SUBST(cflags_multibuff_offload)
+    AC_MSG_NOTICE([Enabling build for Multibuff Offload])
+  fi
 fi
 AM_CONDITIONAL([OPENSSL_MULTIBUFF_OFFLOAD], [test "x$cflags_multibuff_offload" != "x"])
 
@@ -280,8 +342,6 @@ then
    AC_MSG_NOTICE([Enabling build for Intel IPSec Offload])
 fi
 AM_CONDITIONAL([OPENSSL_IPSEC_OFFLOAD], [test "x$enable_ipsec_offload" = "xyes"])
-
-ac_default_prefix=$with_openssl_install_dir
 
 # Default non mandatory paths if not provided
 
@@ -303,7 +363,7 @@ fi
 if test "x$with_multibuff_install_dir" = "x" -a "x$cflags_multibuff_offload" != "x"
 then
   AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Using crypto_mb Library from default location])], [AC_MSG_ERROR([crypto_mb Library not found, Install the crypto_mb library or provide the path to the library using --with-multibuff_install_dir])],[])
-  with_multibuff_install_dir="/usr/local/"
+  with_multibuff_install_dir="/usr/local"
 fi
 
 if test "x$with_ipsec_install_dir" = "x" -a "x$enable_ipsec_offload" = "xyes"
@@ -382,7 +442,7 @@ else
   AC_MSG_NOTICE([Not Offloading PRF to Hardware])
 fi
 
-if test "x$enable_qat_hkdf" = "xyes" -a "x$cflags_qat_offload" != "x"
+if test "x$enable_qat_hkdf" = "xyes" -a "x$cflags_qat_offload" != "x" -a "x$cflags_qat_intree" = "x"
 then
   enable_qat_hkdf="-DOPENSSL_ENABLE_QAT_HKDF"
   AC_MSG_NOTICE([Offloading HKDF to Hardware])
@@ -391,7 +451,7 @@ else
   AC_MSG_NOTICE([Not Offloading HKDF to Hardware])
 fi
 
-if test "x$enable_qat_ecx" != "xno" -a "x$cflags_qat_offload" != "x"
+if test "x$enable_qat_ecx" != "xno" -a "x$cflags_qat_offload" != "x" -a "x$cflags_qat_intree" = "x"
 then
   enable_qat_ecx="-DOPENSSL_ENABLE_QAT_ECX"
   AC_MSG_NOTICE([Offloading X25519/X448 to Hardware])
@@ -511,9 +571,6 @@ fi
 
 # Check for memory driver and parse the CFLAGS for building library
 
-AC_ARG_WITH(includes, AS_HELP_STRING(), , includes="-I\$(with_openssl_install_dir)/include")
-AC_SUBST(includes)
-
 case `($CC --version) 2>/dev/null` in
     'gcc (GCC) '[[0-3]].* | \
     'gcc (GCC) '4.[[0-8]].*)
@@ -548,8 +605,11 @@ then
     AC_MSG_NOTICE([Compiling for USDM])
     AC_ARG_WITH(cflags_mem_driver, AS_HELP_STRING(), , cflags_mem_driver="-DUSE_QAE_MEM")
     AC_SUBST(cflags_mem_driver)
-    AC_ARG_WITH(include_enable_usdm, AS_HELP_STRING(), , include_enable_usdm="-I\$(with_usdm_dir)")
-    AC_SUBST(include_enable_usdm)
+    if test "x$cflags_qat_intree" = "x"
+    then
+      AC_ARG_WITH(include_enable_usdm, AS_HELP_STRING(), , include_enable_usdm="-I\$(with_usdm_dir)")
+      AC_SUBST(include_enable_usdm)
+    fi
   fi
   fi
 fi
@@ -563,6 +623,16 @@ then
   AC_ARG_WITH(cflags_qat_debug_file, AS_HELP_STRING(), , cflags_qat_debug_file="-DQAT_DEBUG_FILE_PATH=\$(with_qat_debug_file)")
   AC_SUBST(cflags_qat_debug_file)
   AC_MSG_NOTICE([Enabling writing debug to file])
+fi
+
+if test "x$with_qat_engine_id" != "x"
+then
+  AC_ARG_WITH(cflags_qat_engine_id, AS_HELP_STRING(), , cflags_qat_engine_id="-DQAT_ENGINE_ID=\$(with_qat_engine_id)")
+  AC_SUBST(cflags_qat_engine_id)
+  AC_MSG_NOTICE([Using engine id other than default])
+else
+  AC_SUBST(with_qat_engine_id, qatengine)
+  AC_MSG_NOTICE([Using default engine id "qatengine"])
 fi
 
 case "$host_os" in
@@ -595,50 +665,43 @@ linux*)
   *)
 esac
 
-if test "x$enable_qat_for_openssl_110" = "xyes"
-then
-  AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.0])
-fi
-AM_CONDITIONAL([QAT_OPENSSL_110], [test "x$enable_qat_for_openssl_110" = "xyes"])
-
-if test "x$enable_openssl_install_build_arch_path" = "xyes"
-then
-  AC_MSG_NOTICE([Build QAT engine against packaged OpenSSL on, for example, a Debian system])
-fi
-AM_CONDITIONAL([QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH], [test "x$enable_openssl_install_build_arch_path" = "xyes"])
-
-if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
-then
-  AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
-fi
-AM_CONDITIONAL([QAT_OPENSSL_300], [ test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"])
-
 # Adding driver source for building and linking the library
 
-AC_ARG_WITH(ICP_API_DIR, AS_HELP_STRING(), ,with_ICP_API_DIR="\$(with_qat_dir)/quickassist/include")
-AC_SUBST(with_ICP_API_DIR)
+if test "x$cflags_qat_intree" != "x"
+then
+  AC_ARG_WITH(includes_driver, AS_HELP_STRING(), , includes_driver="-I/usr/include/qat")
+  AC_SUBST(includes_driver)
+else
+  if test "x$cflags_qat_offload" != "x"
+  then
+    AC_ARG_WITH(ICP_API_DIR, AS_HELP_STRING(), ,with_ICP_API_DIR="\$(with_qat_dir)/quickassist/include")
+    AC_SUBST(with_ICP_API_DIR)
 
-AC_ARG_WITH(ICP_SAL_API_DIR, AS_HELP_STRING(), ,with_ICP_SAL_API_DIR="\$(with_qat_dir)/quickassist/lookaside/access_layer/include")
-AC_SUBST(with_ICP_SAL_API_DIR)
+    AC_ARG_WITH(ICP_SAL_API_DIR, AS_HELP_STRING(), ,with_ICP_SAL_API_DIR="\$(with_qat_dir)/quickassist/lookaside/access_layer/include")
+    AC_SUBST(with_ICP_SAL_API_DIR)
 
-AC_ARG_WITH(ICP_LAC_API_DIR, AS_HELP_STRING(), ,with_ICP_LAC_API_DIR="\$(with_ICP_API_DIR)/lac")
-AC_SUBST(with_ICP_LAC_API_DIR)
+    AC_ARG_WITH(ICP_LAC_API_DIR, AS_HELP_STRING(), ,with_ICP_LAC_API_DIR="\$(with_ICP_API_DIR)/lac")
+    AC_SUBST(with_ICP_LAC_API_DIR)
 
-AC_ARG_WITH(includes_driver, AS_HELP_STRING(), , includes_driver="-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR)")
-AC_SUBST(includes_driver)
+    AC_ARG_WITH(includes_driver, AS_HELP_STRING(), , includes_driver="-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR)")
+    AC_SUBST(includes_driver)
+  fi
+fi
 
-AC_ARG_WITH(includes_multibuff, AS_HELP_STRING(), , includes_multibuff="-I\$(with_multibuff_install_dir)/include")
-AC_SUBST(includes_multibuff)
-
-AC_ARG_WITH(includes_ipsec, AS_HELP_STRING(), , includes_ipsec="-I/\$(with_ipsec_install_dir)/include")
-AC_SUBST(includes_ipsec)
-
-AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
+if test "x$cflags_qat_intree" != "x"
+then
+  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat")
+  AC_ARG_WITH(USDM, AS_HELP_STRING(), , USDM="usdm")
+else
+  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat_s")
+  AC_ARG_WITH(USDM, AS_HELP_STRING(), , USDM="usdm_drv_s")
+fi
 AC_SUBST(DRIVER)
+AC_SUBST(USDM)
 
 if test "x$enable_qat_mux" = "xyes"
 then
-  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat_mux")
+  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="qat_mux_s")
   AC_SUBST(DRIVER)
   AC_ARG_WITH(cflags_upstream_driver, AS_HELP_STRING(), , cflags_upstream_driver="")
   AC_SUBST(cflags_upstream_driver)
@@ -648,12 +711,12 @@ then
   AC_SUBST(with_ICP_DC_DIR)
   AC_ARG_WITH(cflags_mux, AS_HELP_STRING(), , cflags_mux="-DWITH_CPA_MUX")
   AC_SUBST(cflags_mux)
-  AC_ARG_WITH(includes_enable_qat_mux, AS_HELP_STRING(), , includes_enable_qat_mux="-I\$(with_ICP_MUX_DIR) -I\$(with_ICP_DC_DIR)")
-  AC_SUBST(includes_enable_qat_mux)
+  AC_ARG_WITH(includes_qat_mux, AS_HELP_STRING(), , includes_qat_mux="-I\$(with_ICP_MUX_DIR) -I\$(with_ICP_DC_DIR)")
+  AC_SUBST(includes_qat_mux)
   AC_MSG_NOTICE([Enabling build for Mux Driver])
 else if test "x$enable_qat16_driver" = "xyes"
 then
-  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="icp_qa_al")
+  AC_ARG_WITH(DRIVER, AS_HELP_STRING(), , DRIVER="icp_qa_al_s")
   AC_SUBST(DRIVER)
   AC_ARG_WITH(cflags_upstream_driver, AS_HELP_STRING(), , cflags_upstream_driver="")
   AC_SUBST(cflags_upstream_driver)
@@ -675,18 +738,22 @@ fi
 
 if test "x$with_qat_install_dir" != "x" -a "x$cflags_qat_offload" != "x"
 then
-  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-Wl,-rpath,\$(with_qat_install_dir) -L\$(with_qat_install_dir) -l\$(DRIVER)_s"])
+  AC_ARG_WITH(QAT_SHARED_LIB_DEPS_DRIVER, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_DRIVER=["-Wl,-rpath,\$(with_qat_install_dir) -L\$(with_qat_install_dir) -l\$(DRIVER)"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_DRIVER)
 fi
 
 if test "x$with_multibuff_install_dir" != "x" -a "x$cflags_multibuff_offload" != "x"
 then
+  AC_ARG_WITH(includes_multibuff, AS_HELP_STRING(), , includes_multibuff="-I\$(with_multibuff_install_dir)/include")
+  AC_SUBST(includes_multibuff)
   AC_ARG_WITH(QAT_SHARED_LIB_DEPS_MULTIBUFF, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_MULTIBUFF=["-Wl,-rpath,\$(with_multibuff_install_dir)/lib -L\$(with_multibuff_install_dir)/lib -lcrypto_mb"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_MULTIBUFF)
 fi
 
 if test "x$with_ipsec_install_dir" != "x" -a "x$cflags_ipsec_offload" != "x"
 then
+  AC_ARG_WITH(includes_ipsec, AS_HELP_STRING(), , includes_ipsec="-I\$(with_ipsec_install_dir)/include")
+  AC_SUBST(includes_ipsec)
   AC_ARG_WITH(QAT_SHARED_LIB_DEPS_IPSEC, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_IPSEC=["-Wl,-rpath,\$(with_ipsec_install_dir)/lib -L\$(with_ipsec_install_dir)/lib -lIPSec_MB"])
   AC_SUBST(QAT_SHARED_LIB_DEPS_IPSEC)
 fi
@@ -695,7 +762,7 @@ if test "x$cflags_qat_offload" != "x"
 then
   if test "x$enable_qat_contig_mem" != "xyes" -a "x$enable_multi_thread" != "xyes"
   then
-    AC_ARG_WITH(QAT_SHARED_LIB_DEPS_QAE_MEM, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_QAE_MEM=["-Wl,-rpath,\$(with_usdm_dir) -L\$(with_usdm_dir) -lusdm_drv_s"])
+    AC_ARG_WITH(QAT_SHARED_LIB_DEPS_QAE_MEM, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_QAE_MEM=["-Wl,-rpath,\$(with_usdm_dir) -L\$(with_usdm_dir) -l\$(USDM)"])
    AC_SUBST(QAT_SHARED_LIB_DEPS_QAE_MEM)
   fi
 fi

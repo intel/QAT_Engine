@@ -265,7 +265,7 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     ASYNC_JOB *job;
     x25519_keygen_op_data *x25519_keygen_req = NULL;
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
-    ECX_KEY *key = NULL;
+    MB_ECX_KEY *key = NULL;
     unsigned char *privkey = NULL;
     unsigned char *pubkey = NULL;
     int job_ret = 0;
@@ -391,7 +391,7 @@ static int multibuff_validate_ecx_derive(EVP_PKEY_CTX *ctx,
                                          const unsigned char **privkey,
                                          const unsigned char **pubkey)
 {
-    const ECX_KEY *ecxkey, *peerecxkey;
+    const MB_ECX_KEY *ecxkey, *peerecxkey;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY *peerkey = NULL;
 
@@ -402,8 +402,8 @@ static int multibuff_validate_ecx_derive(EVP_PKEY_CTX *ctx,
         return 0;
     }
 
-    ecxkey = (const ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)pkey);
-    peerecxkey = (const ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)peerkey);
+    ecxkey = (const MB_ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)pkey);
+    peerecxkey = (const MB_ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)peerkey);
 
     if (ecxkey == NULL || ecxkey->privkey == NULL) {
         DEBUG("ecxkey or ecxkey->privkey is NULL\n");

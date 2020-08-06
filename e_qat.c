@@ -110,6 +110,7 @@
 # include "multibuff_rsa.h"
 # include "multibuff_ecx.h"
 # include "multibuff_polling.h"
+# include "crypto_mb/cpu_features.h"
 #endif
 
 #ifdef OPENSSL_IPSEC_OFFLOAD
@@ -140,12 +141,17 @@
 
 #define QAT_MAX_INPUT_STRING_LENGTH 1024
 
+#ifndef QAT_ENGINE_ID
+# define QAT_ENGINE_ID qatengine
+#endif
+
 /* Qat engine id declaration */
-const char *engine_qat_id = "qat";
+const char *engine_qat_id = STR(QAT_ENGINE_ID);
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine v0.5.46";
+    "Reference implementation of QAT crypto engine v0.6.1";
 unsigned int engine_inited = 0;
 
+int qat_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -356,6 +362,7 @@ static int qat_engine_destroy(ENGINE *e)
 # endif
 #endif
 
+    qat_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
@@ -376,7 +383,6 @@ static int hw_support(void) {
     if (*ebx != Genu || *ecx != ntel || *edx != ineI)
         return 0;
 
-    /* Does the CPU support Intel SGX? */
     __cpuid(info, 0x07, 0);
 
     unsigned int avx512f = 0;
@@ -393,13 +399,13 @@ static int hw_support(void) {
 	    vpclmulqdq = 1;
 
     DEBUG("Processor Support - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
-	   avx512f, vaes, vpclmulqdq);
+          avx512f, vaes, vpclmulqdq);
 
-    if (avx512f && vaes && vpclmulqdq)
+    if (avx512f && vaes && vpclmulqdq) {
 	return 1;
-    else {
+    } else {
         WARN("Processor unsupported - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
-              avx512f, vaes, vpclmulqdq);
+             avx512f, vaes, vpclmulqdq);
 	return 0;
     }
 }
@@ -417,16 +423,20 @@ int qat_engine_init(ENGINE *e)
     CRYPTO_INIT_QAT_LOG();
 
 #ifdef OPENSSL_QAT_OFFLOAD
-    if (!qat_init(e)) {
-        WARN("QAT initialization Failed\n");
-        return 0;
+    if (qat_offload) {
+        if (!qat_init(e)) {
+            WARN("QAT initialization Failed\n");
+            return 0;
+        }
     }
 #endif
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
-    if (!multibuff_init(e)) {
-        WARN("Multibuff initialization Failed\n");
-        return 0;
+    if (!qat_offload) {
+        if (!multibuff_init(e)) {
+            WARN("Multibuff initialization Failed\n");
+            return 0;
+        }
     }
 #endif
 
@@ -444,11 +454,15 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     pthread_mutex_lock(&qat_engine_mutex);
 
 #ifdef OPENSSL_QAT_OFFLOAD
-    ret = qat_finish_int(e, reset_globals);
+    if (qat_offload) {
+        ret = qat_finish_int(e, reset_globals);
+    }
 #endif
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
-    ret = multibuff_finish_int(e, reset_globals);
+    if (!qat_offload) {
+       ret = multibuff_finish_int(e, reset_globals);
+    }
 #endif
 
     engine_inited = 0;
@@ -720,7 +734,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             retVal = 0;
         }
         break;
-# ifndef __FreeBSD__
+# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
         case QAT_CMD_ENABLE_SW_FALLBACK:
 #  ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
         DEBUG("Enabled SW Fallback\n");
@@ -804,11 +818,13 @@ static int bind_qat(ENGINE *e, const char *id)
     WARN("%s - %s \n", id, engine_qat_name);
 
 #ifdef OPENSSL_QAT_OFFLOAD
+# ifndef QAT_DRIVER_INTREE
     if (access(QAT_DEV, F_OK) != 0) {
         WARN("Qat memory driver not present\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_MEM_DRV_NOT_PRESENT);
         goto end;
     }
+# endif
 
 # ifndef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
     if (!getDevices(devmasks, &upstream_flags)) {
@@ -820,7 +836,7 @@ static int bind_qat(ENGINE *e, const char *id)
 #endif
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
-        WARN("ENGINE_id defined already!\n");
+        WARN("ENGINE_id defined already! %s - %s\n", id, engine_qat_id);
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_ID_ALREADY_DEFINED);
         goto end;
     }
@@ -841,53 +857,69 @@ static int bind_qat(ENGINE *e, const char *id)
     ERR_load_QAT_strings();
 
 #ifdef OPENSSL_QAT_OFFLOAD
-    /*
-     * Create static structures for ciphers now
-     * as this function will be called by a single thread.
-     */
-    qat_create_ciphers();
 
-    if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
-        WARN("ENGINE_set_RSA failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
-        goto end;
-    }
+# ifdef QAT_INTREE
+    if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
+# endif
+        DEBUG("Registering QAT supported algorithms\n");
+        qat_offload = 1;
 
-    if (!ENGINE_set_DSA(e, qat_get_DSA_methods())) {
-        WARN("ENGINE_set_DSA failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DSA_FAILURE);
-        goto end;
-    }
+        /* Create static structures for ciphers now
+         * as this function will be called by a single thread. */
+        qat_create_ciphers();
 
-    if (!ENGINE_set_DH(e, qat_get_DH_methods())) {
-        WARN("ENGINE_set_DH failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DH_FAILURE);
-        goto end;
-    }
+        if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
+            WARN("ENGINE_set_RSA failed\n");
+            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
+            goto end;
+        }
 
-    if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
-        WARN("ENGINE_set_EC failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_EC_FAILURE);
-        goto end;
-    }
+        if (!ENGINE_set_DSA(e, qat_get_DSA_methods())) {
+            WARN("ENGINE_set_DSA failed\n");
+            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DSA_FAILURE);
+            goto end;
+        }
 
-    if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
-        WARN("ENGINE_set_pkey_meths failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_PKEY_FAILURE);
-        goto end;
+        if (!ENGINE_set_DH(e, qat_get_DH_methods())) {
+            WARN("ENGINE_set_DH failed\n");
+            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DH_FAILURE);
+            goto end;
+        }
+
+        if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
+            WARN("ENGINE_set_EC failed\n");
+            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_EC_FAILURE);
+            goto end;
+        }
+
+        if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
+            WARN("ENGINE_set_pkey_meths failed\n");
+            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_PKEY_FAILURE);
+            goto end;
+        }
+# ifdef QAT_INTREE
     }
+# endif
 #endif
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
-    if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
-        WARN("ENGINE_set_RSA failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
-        goto end;
-    }
-    if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
-        WARN("ENGINE_set_pkey_meths failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_X25519_FAILURE);
-        goto end;
+    if (!qat_offload) {
+        if (mbx_get_algo_info(MBX_ALGO_RSA_2K)) {
+            DEBUG("Multibuffer RSA Supported\n");
+            if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
+                WARN("ENGINE_set_RSA failed\n");
+                QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
+                goto end;
+            }
+        }
+        if (mbx_get_algo_info(MBX_ALGO_X25519)) {
+            DEBUG("Multibuffer X25519 Supported\n");
+            if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
+                WARN("ENGINE_set_pkey_meths failed\n");
+                QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_X25519_FAILURE);
+                goto end;
+            }
+        }
     }
 #endif
 
@@ -937,7 +969,7 @@ static int bind_qat(ENGINE *e, const char *id)
      */
 
 #ifdef OPENSSL_QAT_OFFLOAD
-# ifndef __FreeBSD__
+# ifdef __GLIBC_PREREQ
 #  if __GLIBC_PREREQ(2, 17)
     config_section = secure_getenv("QAT_SECTION_NAME");
 #  else

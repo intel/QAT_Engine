@@ -60,7 +60,7 @@
 typedef struct {
     unsigned char pubkey[MAX_KEYLEN];
     unsigned char *privkey;
-} ECX_KEY;
+} MB_ECX_KEY;
 
 typedef struct _rsa_priv_op_data {
     struct _rsa_priv_op_data *next;
@@ -109,7 +109,7 @@ typedef struct _x25519_keygen_op_data {
     EVP_PKEY *pkey;
     const unsigned char *privkey;
     unsigned char *pubkey;
-    ECX_KEY *key;
+    MB_ECX_KEY *key;
     ASYNC_JOB *job;
     int *sts;
 } x25519_keygen_op_data;

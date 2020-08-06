@@ -47,6 +47,8 @@
 # define _GNU_SOURCE
 #endif
 
+#include <stddef.h>
+#include <stdarg.h>
 #include "openssl/ossl_typ.h"
 #include "openssl/kdf.h"
 #include "openssl/evp.h"
@@ -197,8 +199,10 @@ void qat_create_ciphers(void)
 	    }
             else {
 #ifdef OPENSSL_QAT_OFFLOAD
-                info[i].cipher = (EVP_CIPHER *)
-                    qat_create_cipher_meth(info[i].nid, info[i].keylen);
+                if (qat_offload) {
+                    info[i].cipher = (EVP_CIPHER *)
+                        qat_create_cipher_meth(info[i].nid, info[i].keylen);
+                }
 #endif
 	    }
         }

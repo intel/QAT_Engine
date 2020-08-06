@@ -49,6 +49,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <signal.h>
+#include <stdarg.h>
 
 #include "openssl/ossl_typ.h"
 #include "openssl/async.h"

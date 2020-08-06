@@ -559,6 +559,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
     CpaCySymHashAlgorithm hash_algo = CPA_CY_SYM_HASH_NONE;
     int key_length = 0;
+    int md_nid = 0;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
     int iMsgRetry = getQatMsgRetryCount();
@@ -592,6 +593,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
     key_length = *olen;
+    md_nid = EVP_MD_type(qat_prf_ctx->qat_md);
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
@@ -599,10 +601,23 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         goto err;
     }
 
+#ifdef QAT_DRIVER_INTREE
+    if (md_nid == NID_md5_sha1) {
+        if (qat_get_sw_fallback_enabled()){
+            DEBUG("TLS < 1.2 not supported. Fallback to software\n");
+            fallback = 1;
+            goto err;
+        }
+        WARN("TLS < 1.2 not supported in the in-tree driver\n");
+        QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
+        goto err;
+    }
+#endif
+
     /*
      * Only required for TLS1.2 as previous versions always use MD5 and SHA-1
      */
-    if (EVP_MD_type(qat_prf_ctx->qat_md) != NID_md5_sha1) {
+    if (md_nid != NID_md5_sha1) {
         if (!qat_get_hash_algorithm(qat_prf_ctx, &hash_algo)) {
             WARN("Failed to get hash algorithm\n");
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
@@ -689,7 +704,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 
         DUMP_KEYGEN_TLS(qat_instance_handles[inst_num], generated_key);
         /* Call the function of CPA according the to the version of TLS */
-        if (EVP_MD_type(qat_prf_ctx->qat_md) != NID_md5_sha1) {
+        if (md_nid != NID_md5_sha1) {
             DEBUG("Calling cpaCyKeyGenTls2 \n");
             status =
                 cpaCyKeyGenTls2(qat_instance_handles[inst_num], qat_prf_cb,

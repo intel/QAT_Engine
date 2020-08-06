@@ -1,7 +1,7 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-lib_LTLIBRARIES = libqat.la
+lib_LTLIBRARIES = libqatengine.la
 
 if OPENSSL_QAT_OFFLOAD
 if QAT_CONTIG_MEM
@@ -23,18 +23,18 @@ endif
 endif
 
 OPENSSL_COMMON_SRC = e_qat.c        \
+                     e_qat_err.c    \
                      qat_fork.c     \
                      qat_events.c   \
                      qat_utils.c    \
-                     qat_evp.c      \
-                     e_qat_err.c
+                     qat_evp.c
 
 OPENSSL_COMMON_HDR = e_qat.h        \
+                     e_qat_err.h    \
                      qat_fork.h     \
                      qat_events.h   \
                      qat_utils.h    \
-                     qat_evp.h      \
-                     e_qat_err.h
+                     qat_evp.h
 
 
 if OPENSSL_MULTIBUFF_OFFLOAD
@@ -92,17 +92,13 @@ if !OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
  PARSE_CONFIG_FILES_HDR = qat_parseconf.h
 endif
 
-if QAT_OPENSSL_300
- cflags_SSL_QAT_use_async_callback="-DSSL_QAT_USE_ASYNC_CALLBACK"
-endif
-
-libqat_la_SOURCES = ${OPENSSL_COMMON_SRC}     \
-                    ${OPENSSL_QAT_SRC}        \
-                    ${OPENSSL_111_SRC}        \
-                    ${OPENSSL_MULTIBUFF_SRC}  \
-                    ${PARSE_CONFIG_FILES_SRC} \
-                    ${MEM_LIB_SRC}            \
-                    ${OPENSSL_VAES_SRC}
+libqatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}     \
+                          ${OPENSSL_QAT_SRC}        \
+                          ${OPENSSL_111_SRC}        \
+                          ${OPENSSL_MULTIBUFF_SRC}  \
+                          ${PARSE_CONFIG_FILES_SRC} \
+                          ${MEM_LIB_SRC}            \
+                          ${OPENSSL_VAES_SRC}
 
 include_HEADERS = ${OPENSSL_COMMON_HDR}     \
                   ${OPENSSL_QAT_HDR}        \
@@ -113,59 +109,43 @@ include_HEADERS = ${OPENSSL_COMMON_HDR}     \
 
 CC = gcc
 
-AM_CPPFLAGS = $(includes) $(include_enable_usdm) $(includes_driver) \
-              $(includes_enable_qat_mux) $(includes_multibuff)      \
-              $(includes_ipsec)
+AM_CPPFLAGS = $(includes_openssl) $(include_enable_usdm) $(includes_driver) \
+              $(includes_qat_mux) $(includes_multibuff) $(includes_ipsec)
 
 AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver)             \
             $(cflags_mem_driver) $(cflags_mux) $(cflags_qat_debug_file)      \
-            $(cflags_SSL_QAT_use_async_callback) $(cflags_multibuff_offload) \
+            $(cflags_openssl_300) $(cflags_multibuff_offload)                \
             $(cflags_qat_offload) $(cflags_ipsec_offload)                    \
             $(enable_qat_rsa) $(enable_qat_ciphers) $(enable_qat_ecdh)       \
             $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_dh)           \
             $(enable_qat_prf) $(enable_qat_hkdf) $(enable_qat_ecx)           \
             $(enable_vaes_gcm) $(enable_qat_small_pkt_offload)               \
             $(enable_qat_auto_engine_init_on_fork)                           \
-            $(enable_qat_lenstra_protection)                                 \
-            $(enable_qat_debug) $(enable_qat_warnings)                       \
+            $(enable_qat_lenstra_protection) $(cflags_qat_engine_id)         \
+            $(cflags_qat_intree) $(enable_qat_debug) $(enable_qat_warnings)  \
             $(enable_qat_mem_debug) $(enable_qat_mem_warnings)               \
             $(enable_qat_cycle_counts) $(enable_multibuff_rsa)               \
             $(enable_multibuff_ecx) $(enable_multibuff_heuristic_timeout)
 
 
-libqat_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)              \
-                    $(QAT_SHARED_LIB_DEPS_DRIVER)          \
-                    $(QAT_SHARED_LIB_DEPS_QAE_MEM)         \
-                    $(QAT_SHARED_LIB_DEPS_MULTIBUFF)       \
-                    $(QAT_SHARED_LIB_DEPS_IPSEC)
-
-if QAT_OPENSSL_PACKAGE_BUILD_ARCH_PATH
-if QAT_OPENSSL_300
- ENGINE_LIB = $(with_openssl_install_dir)/engines-3/qat.so
-else
- ENGINE_LIB = $(with_openssl_install_dir)/engines-1.1/qat.so
-endif
-else
-if QAT_OPENSSL_300
- ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-3/qat.so
-else
- ENGINE_LIB = $(with_openssl_install_dir)/lib/engines-1.1/qat.so
-endif
-endif
-
+libqatengine_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)        \
+                          $(QAT_SHARED_LIB_DEPS_DRIVER)    \
+                          $(QAT_SHARED_LIB_DEPS_QAE_MEM)   \
+                          $(QAT_SHARED_LIB_DEPS_MULTIBUFF) \
+                          $(QAT_SHARED_LIB_DEPS_IPSEC)
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
 	*.old *.bak fluff *.so *.sl *.dll
 
-	-rm -f $(ENGINE_LIB)
+	-rm -f $(engine_install_dir)/$(with_qat_engine_id).so
 
 if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make
 endif
 
 install-data-am:
-	cp -f .libs/libqat.so $(ENGINE_LIB)
+	cp -f .libs/libqatengine.so $(engine_install_dir)/$(with_qat_engine_id).so
 
 err-files:
 if QAT_OPENSSL_110

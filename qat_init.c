@@ -361,7 +361,7 @@ int qat_init(ENGINE *e)
     int ret_pthread_sigmask;
     Cpa32U package_id = 0;
 
-    DEBUG("QAT Engine initialization:\n");
+    DEBUG("QAT initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
     DEBUG("- Heuristic polling: %s\n", enable_heuristic_polling ? "ON": "OFF");
     DEBUG("- SW Fallback: %s\n", enable_sw_fallback ? "ON": "OFF");
@@ -547,7 +547,7 @@ int qat_init(ENGINE *e)
         DEBUG("Started Instance No: %d Located on Device: %d\n", instNum, package_id);
 
 #ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-# ifndef __FreeBSD__
+# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
         if (enable_sw_fallback) {
             DEBUG("cpaCyInstanceSetNotificationCb instNum = %d\n", instNum);
             status = cpaCyInstanceSetNotificationCb(qat_instance_handles[instNum],

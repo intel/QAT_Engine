@@ -98,7 +98,7 @@ Heartbeat feature from version 4.6 of the following acceleration device:
 
 Note: Heartbeat feature support currently does not extend to Symmetric Chained
 Cipher Offload, PRF, HKDF & X25519/X448 offload. The heartbeat feature is also
-not available when running under the FreeBSD operating system.
+not available when running under the FreeBSD operating system or in the qatlib RPM.
 
 [1]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
 [2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
@@ -141,7 +141,7 @@ repository:
 
 * When using TLS 1.3 only asymmetric PKE and HKDF offload is supported.
   The symmetric ciphers currently offloaded are not compatible with
-  the TLS 1.3 symmetric ciphers which are AES-GCM or ChaCha-Poly based.
+  the TLS 1.3 symmetric ciphers which are ChaCha-Poly based.
 * When forking within an application it is not valid for a cryptographic
   operation to be started in the parent process, and completed in the child
   process.
@@ -155,10 +155,11 @@ repository:
   1.1.1. All previous versions of the library are affected.
   For more information, please refer to the following pull request on Github:
   [Fix waitctx fds removing the fd from the list #2581][9]
-* Event driven mode of polling operation is not supported in the FreeBSD Operating system.
+* Event driven mode of polling operation is not supported in the FreeBSD
+  Operating system or in the qatlib RPM.
 * qat_contig_mem memory driver is not supported when running under FreeBSD
-  Operating system. The default is to use the USDM memory driver supplied as
-  part of the Intel&reg; QAT Driver.
+  Operating system or in the qatlib RPM. The default is to use the USDM memory
+  driver supplied as part of the Intel&reg; QAT Driver.
 [9]:https://github.com/openssl/openssl/pull/2581
 * Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
   in release OpenSSL\* 1.1.1d.  This was fixed in a subsequent commit to
@@ -205,6 +206,8 @@ These instructions can be found on the 01.org website in the following section:
 [11]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
 
 ### Build OpenSSL\*
+
+This step is not needed if building against system prebuilt OpenSSL\* 1.1.1.
 
 Clone OpenSSL\* from Github\* at the following location:
 
@@ -376,7 +379,7 @@ The following example is assuming:
   the USDM component.
 * An Intel&reg; Communications Chipset C62X Series device is fitted.
 * OpenSSL\* was installed to `/usr/local/ssl`.
-* OpenSSL\* 1.1.1 is being used.
+* OpenSSL\* 1.1.1 built from source is being used.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -390,10 +393,10 @@ make
 make install
 ```
 
-In the above example this will create the file `qat.so` and copy it to
+In the above example this will create the file `qatengine.so` and copy it to
 `/usr/local/ssl/lib/engines-1.1`.
 ./autogen.sh will regenerate autoconf tools files. The prerequisite to run
-autogen.sh is to have autotools (autoconf, automake and libtool)
+autogen.sh is to have autotools (autoconf, automake, libtool and pkg-config)
 installed in the system.
 
 Note: When building it is possible to specify command line options that can be
@@ -430,38 +433,33 @@ make install
 ```
 
 An example to build and install the Intel&reg; QAT OpenSSL\* Engine against a
-packaged prebuilt OpenSSL\* requiring use of the optional configure parameter
-`--enable-openssl_install_build_arch_path` (described in the 'Optional' configure
-options section below) is as follows.  It assumes that:
+prebuilt OpenSSL\* 1.1.1 from the system is as follows. It assumes that:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
 * The Intel&reg; QAT Driver HW Version 1.7 was unpacked within `/QAT` and using
   the USDM component.
-* The OpenSSL\* compiled code comprises a prebuilt (GNU compiled) packaged
-  OpenSSL\* that either forms part of a Debian\* based distribution or else has
-  been installed onto a Debian\* based distribution, of which the component
-  libraries are located in directory `/usr/lib/x86_64-linux-gnu`.
-* The machine processor type is `x86_64`.
-* The OpenSSL\* version is in the `1.1.0` series.
+* Prebuilt OpenSSL\* (both library and devel RPM packages) are installed in
+  the system and the OpenSSL\* version is in the `1.1.1` series.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
 ```bash
 cd /QAT_Engine
 ./autogen.sh
-./configure \
---with-qat_dir=/QAT \
---with-openssl_install_dir=/usr/lib/x86_64-linux-gnu \
---enable-openssl_install_build_arch_path \
---enable-qat_for_openssl_110
+./configure  --with-qat_dir=/QAT
 make
 make install
 ```
+If OpenSSL\* version in the system can not be updated to 1.1.1 series, then
+the engine needs to be built from source using the option
+`--with-openssl_install_dir`. An additional option `--with-openssl_dir` pointing
+to the top directory of the OpenSSL\* needs to be provided for building against
+OpenSSL\* 1.1.0 as the engine err files need to be regenerated for 1.1.0.
 
-In the above example this will create the file `qat.so` and copy it to
-`/usr/lib/x86_64-linux-gnu/engines-1.1`.
-
+In the above example this will create the file `qatengine.so` and copy it to
+the engines dir of the system which can be checked using
+`pkg-config --variable=enginesdir libcrypto`.
 
 ### Copy the correct Intel&reg; QuickAssist Technology Driver config files
 
@@ -643,14 +641,16 @@ If this occurs some of the things to check are:
    3. Is the Intel&reg; QAT Driver up and running?  Check by running `adf_ctl`,
       device details along with the state should be `state: up`.
       Also check the Intel&reg; QAT Driver software has been started.
-   4. Were the paths set correctly so that the `qat.so` engine file was copied
-      to the correct location?
-      Check they really are there.
+   4. Were the paths set correctly so that the `qatengine.so` engine file was
+      copied to the correct location? Check they really are there.
    5. Has the environment variable `OPENSSL_ENGINES` been correctly defined and
       exported to the shell?
       Also check it is really pointing to the correct location.
    6. If building for OpenSSL 1.1.0 was the configure option
-      `--enable-qat_for_openssl_110` specified? (Linux Specific)
+      `--with-openssl_dir` specified? (Linux Specific)
+   7. If building from OpenSSL prebuilt RPM Package, has the OpenSSL developement
+      packages (openssl-devel for Redhat* based distribution and libssl-devel
+      for Debian* based distibution) been installed ?
 
 If running on a Debian\* based OS (Ubuntu\* for example) it is possible that the
 Intel&reg; QAT Driver userspace shared library needed by the Intel&reg; QAT
@@ -754,7 +754,8 @@ Description:
     epoll_wait() when event driven polling mode is enabled. The value should be
     passed in as Param 3. The default is 1,000, the min value is 1, and the max
     value is 10,000. This message can be sent at any time after the engine has
-    been created. This message is not supported in the FreeBSD operating system.
+    been created. This message is not supported in the FreeBSD operating system
+    or in the qatlib RPM.
 
 Message String: ENABLE_EVENT_DRIVEN_POLLING_MODE
 Param 3:        0
@@ -764,7 +765,7 @@ Description:
     event driven polling feature. It must be sent if required after engine
     creation but before engine initialization.  It should not be sent after
     engine initialization. This message is not supported in the FreeBSD
-    operating system.
+    operating system or in the qatlib RPM.
 
 Message String: DISABLE_EVENT_DRIVEN_POLLING_MODE
 Param 3:        0
@@ -773,7 +774,8 @@ Description:
     This message changes the engines mode to use the timer based polling
     feature. It must be sent if required after engine creation but before
     engine initialization. It should not be sent after engine initialization.
-    This message is not supported in the FreeBSD operating system.
+    This message is not supported in the FreeBSD operating system or in the
+    qatlib RPM.
 
 Message String: GET_NUM_CRYPTO_INSTANCES
 Param 3:        0
@@ -800,7 +802,7 @@ Description:
     use a for loop to iterate through the instances starting from 0 and use
     this message to retrieve the fd for each instance. This message must be
     sent if required after the engine has been initialized. This message is
-    not supported in the FreeBSD operating system.
+    not supported in the FreeBSD operating system or in the qatlib RPM.
 
 Message String: SET_INSTANCE_FOR_THREAD
 Param 3:        long
@@ -932,7 +934,7 @@ Description:
     will automatically switch to performing crypto operations on-core.
     If required this message must be sent after engine creation and
     before engine initialization. This message is not supported in the FreeBSD
-    operating system.
+    operating system or in the qatlib RPM.
 
 Message String: HEARTBEAT_POLL
 Param 3:        0
@@ -949,17 +951,17 @@ Description:
     offline or come back online. By sending this message more frequently you can
     decrease the time taken for the engine to become aware of instances going
     offline/coming back online at the expense of additional cpu cycles. The
-    suggested polling interval would be around 0.5 seconds to 1 second.
-    This message may be sent at any time after engine initialization.
-    This message is not supported in the FreeBSD operating system.
+    suggested polling interval would be around 0.5 seconds to 1 second. This
+    message may be sent at any time after engine initialization. This message
+    is not supported in the FreeBSD operating system or in the qatlib RPM.
 
 Message String: DISABLE_QAT_OFFLOAD
 Param 3:        0
 Param 4:        NULL
 Description:
     This message is used to disable offload of crypto operations to the
-    acceleration devices, with the immediate effect that these operations are
-    performed on-core instead.
+    acceleration devices when QAT Offload is enabled, with the immediate effect
+    that these operations are performed on-core instead.
     This message may be sent at any time after engine initialization.
 ```
 
@@ -969,12 +971,11 @@ The following is a list of the options that can be used with the
 `./configure` command when building the Intel&reg; QAT OpenSSL\* Engine:
 
 ```
-Mandatory
+Mandatory (when building against QAT Driver HW version 1.7 package)
 
 --with-qat_dir=/path/to/qat_driver
     Specify the path to the source code of the Intel(R) QAT Driver. This path
     is needed for compilation in order to locate the Intel(R) QAT header files.
-    If you do not specify this the build will fail.
     For example if using Intel&reg; QAT Driver HW version 1.7 package that was
     unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
     C62X Series device then you would use the following setting:
@@ -983,16 +984,41 @@ Mandatory
     was unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
     8925 to 8955 Series device then you would use the following setting:
     --with-qat_dir=/QAT/QAT1.6
+    This option is not needed if you are building against the in-tree driver
+    installed via qatlib RPM. Also, if use of Multi-buffer Software optimization
+    over QAT is preferred, then this option is not needed.
+
+Mandatory (when building against OpenSSL from source)
 
 --with-openssl_install_dir=/path/to/openssl_install
-    Specify the path to the top level where the OpenSSL* build was installed
-    to. This is needed so that compilation can locate OpenSSL header files and
-    the qat.so engine library can be copied into the folder containing the
-    other dynamic engines when you run 'make install'. If you do not specify
-    this then compilation will fail.
+    Specify the path to the top level where the OpenSSL* build was installed to.
+    If this path is specified then qatengine.so engine library will be copied
+    into the folder containing the other dynamic engines when you run
+    'make install'. This option, if not specified uses system OpenSSL if the
+    version is 1.1.1 and installs qatengine.so in the system enginesdir
+    (eg: /usr/lib64/engine-1.1). OpenSSL library and devel package needs to be
+    installed and should be version 1.1.1 series if this option is not specified.
     For example if you installed OpenSSL* to its default location of
     `/usr/local/ssl` then you would use the following setting:
     --with-openssl_install_dir=/usr/local/ssl
+
+Mandatory (when building against OpenSSL 1.1.0)
+
+--with-openssl_dir=/path/to/openssl
+    Specify the path to the top level of the OpenSSL* source code.  This path
+    is only needed to regenerate engine specific error source files using the
+    mkerr.pl script from the OpenSSL source files. This option needs to be used
+    if there is any new error message added in the QAT Engine source files
+    and the error files will get updated using the mkerr.pl script. The default
+    if not provided will build QAT Engine from the existing error files
+    e_qat_err.c, e_qat_err.h & e_qat.txt in the QAT Engine dir which is
+    generated from OpenSSL release mentioned in the github release page.
+    This option is mandatory when building against OpenSSL* 1.1.0 as existing
+    err files is generated for 1.1.1 which is not compatible for 1.1.0 and
+    `--with-openssl_install_dir` needs to be provided to regenerate it.
+    For example if you cloned the OpenSSL* Github* repository from within `/`
+    then you would use the following setting:
+    --with-openssl_dir=/openssl
 
 Mandatory (when using the Intel&reg; QAT Driver HW Version 1.6)
 
@@ -1018,23 +1044,24 @@ Mandatory (when using the Intel&reg; Multi-Buffer Crypto for IPsec Library)
     IPsec based software optimizations needs to be used. This flag when enabled
     uses Intel&reg; IPsec library and headers from the default path (/usr).
     If the Intel&reg; IPsec library is installed in the path other than the
-    default then --with-ipsec_install_dir needs to be set with the path where
+    default then `--with-ipsec_install_dir` needs to be set with the path where
     its installed (disabled by default).
 
-Optional
+Mandatory (When both QAT and Multi-buffer capabilties are present in the system
+and use of Multi-buffer optimization over QAT is preferred)
 
---with-openssl_dir=/path/to/openssl
-    Specify the path to the top level of the OpenSSL* source code.  This path
-    is only needed to regenerate engine specific error source files using the
-    mkerr.pl script from the OpenSSL source files. This option needs to be used
-    if there is any new error message added in the QAT Engine source files
-    and the error files will get updated using the mkerr.pl script. The default
-    if not provided will build QAT Engine from the existing error files
-    e_qat_err.c, e_qat_err.h & e_qat.txt in the QAT Engine dir which is
-    generated from OpenSSL release mentioned in the github release page.
-    For example if you cloned the OpenSSL* Github* repository from within `/`
-    then you would use the following setting:
-    --with-openssl_dir=/openssl
+--disable-qat_offload
+    Disable Intel(R) QAT Hardware offload. This flag needs to be enabled if
+    the system has both QAT Hardware and Multi-buffer Software optimization
+    capabilities and the in-tree driver is installed in the system via `qatlib`
+    RPM and use of Multi-buffer optimization over QAT is prefered. Incase of
+    the in-tree driver eventhough Multi-buffer optimization is enabled via
+    use of the `--enable-multibuff_offload` option, if both capabilities are
+    available (both QAT offload or Multi-buffer offload) then QAT offload will
+    be used by default. However, use of this --disable-qat_offload option will
+    force the use of Multi-buffer optimization.
+
+Optional
 
 --with-qat_install_dir=/path/to/qat_driver/build
     Specify the path to the location of the built Intel(R) QAT Driver library
@@ -1163,6 +1190,12 @@ Optional
     production environment as private key information and plaintext data will
     be logged to the file (logging to file is disabled by default).
 
+--with-engine_id="<engine_id>"
+   This option needs to be specified if you want to use an engine id other than
+   the default which is now "qatengine" (previously it was "qat"). This option
+   can be used to set engine id as "qat" for application that still uses older
+   engine id within the application(disabled by default).
+
 --disable-multi_thread/--enable-multi_thread
     Disable/Enable an alternative way of managing within userspace the pinned
     contiguous memory allocated by the qat_contig_mem driver. This alternative
@@ -1197,74 +1230,6 @@ Optional
     For further information, please refer to:-
     https://security-center.intel.com/advisory.aspx?intelid=INTEL-SA-00071&languageid=en-fr
     https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5681
-
---enable-qat_for_openssl_110
-    Enable the Intel(R) QAT OpenSSL* Engine to build against OpenSSL* 1.1.0
-    (default is to build for the OpenSSL* 1.1.1/master branch).
-
---enable-openssl_install_build_arch_path
-    Enable the Intel(R) QAT OpenSSL* Engine to build against a packaged
-    pre-built OpenSSL* that has either been pre-installed in your particular
-    Linux distribution or else that you have installed yourself.
-    For example, for a Debian* based distribution, the pre-built OpenSSL* package
-    is either pre-installed or else can be installed with the command:
-    `apt-get install openssl`.
-    This places both static and shared libraries associated with the OpenSSL*
-    package in directory /usr/lib/<architecture>, where <architecture> is a
-    description of the hardware architecture the package is intended to run on
-    (for example, for an Intel(R) x86-based 64-bit architecture, GNU-compiled, it
-    would be 'x86_64-linux-gnu'). This directory is therefore specified via the
-    `--with-openssl_install_dir` mandatory option detailed above.
-    In addition, shared libraries of compiled engine code corresponding to the
-    version of the pre-built OpenSSL* package are located in directory
-    `usr/lib/<architecture>/engines-1.1`, the `1.1` denoting that the version is
-    in the `1.1.X` series of API compatible releases. The shared library
-    resulting from building and installing the Intel(R) QAT OpenSSL* Engine,
-    must be placed in this directory rather than the default.  Use of this
-    option, together with the correct specification of option
-    `with-openssl_install_dir`, ensures this.
-
-    For this example Debian* based distribution, the OpenSSL* header files
-    associated with the OpenSSL* package can also be installed by using the
-    command:
-    `apt-get install libssl-dev`.
-    After running this command, the OpenSSL* header files are located in
-    directory `/usr/include/openssl`.  However, as well as the header files,
-    the build procedure for the Intel&reg; QAT OpenSSL* Engine requires use
-    of an OpenSSL* supplied Perl script named `mkerr.pl`, which is not
-    supplied by this command.  Therefore, rather than install the `libssl-dev`
-    package, it is recommended that you install the OpenSSL* source files to
-    a directory of your choice.  This is done by changing to your chosen
-    directory and then cloning OpenSSL* from Github* at the following location:
-
-    git clone https://github.com/openssl/openssl.git
-
-    You must checkout the same version of OpenSSL* as the pre-built OpenSSL*
-    package.  You can find out the version of the pre-built OpenSSL* package
-    using the command:
-    `apt-cache policy openssl`.
-    Then checkout the git tag corresponding to the version of the pre-built
-    OpenSSL* package.  At the time of writing, for a recent Debian* based
-    distribution such as `Ubuntu 18.04.1 LTS`, the version of this packaged
-    OpenSSL* is version `1.1.0g`.
-    A list of git tags is obtained by using the git command:
-    `git tag -l`.
-    From this list select the tag which corresponds to the version of the
-    pre-built OpenSSL* package.  For example, if the version is `1.1.0g` then
-    the git checkout command would be:
-    `git checkout tags/OpenSSL_1_1_0g`.
-    The OpenSSL* header files and the `mkerr.pl` Perl script should now be
-    available for subsequent use in the build procedure for the
-    Intel&reg; QAT OpenSSL* Engine in your chosen git checkout directory.
-    This directory's path should therefore be specified with the
-    `--with-openssl_dir` option detailed above.
-
-    In summary, use of the `--enable-openssl_install_build_arch_path` option
-    ensures that the Intel(R) QAT OpenSSL* Engine shared library, resulting from
-    carrying out the Intel(R) QAT OpenSSL* Engine build and installation
-    process, is placed in the directory `usr/lib/<architecture>/engines-1.1`
-    rather than the default.
-    This option is disabled by default.
 
 --disable-qat_auto_engine_init_on_fork/--enable-qat_auto_engine_init_on_fork
     Disable/Enable the engine from being initialized automatically following a
@@ -1361,7 +1326,7 @@ For instance it may contain:
 
     [ qat_section ]
     engine_id = qat
-    dynamic_path = /usr/local/ssl/lib/engines-1.1/qat.so
+    dynamic_path = /usr/local/ssl/lib/engines-1.1/qatengine.so
     # Add engine specific messages here
     default_algorithms = ALL
 
@@ -1510,7 +1475,8 @@ use instances from that acceleration device again.
 
 This should all happen in a transparent way with the only noticeable effects being
 a slow down in performance until the acceleration device comes back online.
-The Heartbeat feature is not supported in the FreeBSD operating system.
+The Heartbeat feature is not supported in the FreeBSD operating system or in the
+qatlib RPM.
 
 ## Intel&reg; QAT OpenSSL\* Engine HKDF Support
 
@@ -1559,16 +1525,14 @@ The following example is assuming:
   of the drive: `/`.
 * The Intel&reg; Crypto Multi-buffer library was installed to the default path
   (/usr/local).
-* OpenSSL\* 1.1.1 was installed to `/usr/local/ssl`.
+* Prebuilt OpenSSL\* 1.1.1 from the system is used.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine with Multi-buffer offload:
 
 ```bash
 cd /QAT_Engine
 ./autogen.sh
-./configure \
---enable-multibuff_offload \
---with-openssl_install_dir=/usr/local/ssl
+./configure --enable-multibuff_offload
 make
 make install
 ```
