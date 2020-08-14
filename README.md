@@ -1517,7 +1517,9 @@ The Heartbeat feature is not supported in the FreeBSD operating system.
 The HKDF support in the Intel&reg; QAT OpenSSL\* Engine is available only from
 Version 4.8 of Intel&reg; QuickAssist Technology Driver for Linux HW Version 1.7.
 By default this support is disabled as it is added as an experimental feature.
-It can be enabled using the below flag in the configure command.
+It can be enabled using the below flag in the configure command combined with
+modifying the Intel&reg; QuickAssist Technology Driver file's config variable
+'ServicesProfile' from its default value of 'DEFAULT' to 'CRYPTO'.
 
 ```bash
 --enable-qat_hkdf
