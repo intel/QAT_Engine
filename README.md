@@ -40,7 +40,7 @@ code is licensed under the OpenSSL license available at
 the file headers of the relevant files.
 
 Example Intel&reg; Contiguous Memory Driver contained within the folder
-`qat_contig_mem` - Dual BSD/GPLv2 License.
+`qat_contig_mem` - GPLv2 License.
 Please see the file headers within the `qat_contig_mem` folder, and the full
 GPLv2 license contained in the file `LICENSE.GPL` within the `qat_contig_mem`
 folder.
