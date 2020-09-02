@@ -95,7 +95,6 @@
 # include "qat_dsa.h"
 # include "qat_dh.h"
 # include "qat_ec.h"
-# include "qat_parseconf.h"
 
 /* QAT includes */
 # include "cpa.h"
@@ -734,22 +733,21 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             retVal = 0;
         }
         break;
-# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
         case QAT_CMD_ENABLE_SW_FALLBACK:
-#  ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
         DEBUG("Enabled SW Fallback\n");
         BREAK_IF(engine_inited, \
                 "ENABLE_SW_FALLBACK failed as the engine is already initialized\n");
         enable_sw_fallback = 1;
         CRYPTO_QAT_LOG("SW Fallback enabled - %s\n", __func__);
-#  else
+# else
         WARN("QAT_CMD_ENABLE_SW_FALLBACK is not supported\n");
         retVal = 0;
-#  endif
+# endif
         break;
 
         case QAT_CMD_HEARTBEAT_POLL:
-#  ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
+# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
         BREAK_IF(!engine_inited, "HEARTBEAT_POLL failed as engine is not initialized\n");
         BREAK_IF(qat_instance_handles == NULL,
                 "HEARTBEAT_POLL failed as no instances are available\n");
@@ -759,12 +757,11 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 
         *(int *)p = (int)poll_heartbeat();
         CRYPTO_QAT_LOG("QAT Engine Heartbeat Poll - %s\n", __func__);
-#  else
+# else
         WARN("QAT_CMD_HEARTBEAT_POLL is not supported\n");
         retVal = 0;
-#  endif
-        break;
 # endif
+        break;
 
         case QAT_CMD_DISABLE_QAT_OFFLOAD:
         DEBUG("Disabled qat offload\n");
@@ -804,11 +801,6 @@ static int bind_qat(ENGINE *e, const char *id)
     int ret = 0;
 
 #ifdef OPENSSL_QAT_OFFLOAD
-# ifndef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-    int upstream_flags = 0;
-    unsigned int devmasks[] = { 0, 0, 0, 0, 0 };
-# endif
-
     char *config_section = NULL;
 #endif
     QAT_DEBUG_LOG_INIT();
@@ -817,22 +809,12 @@ static int bind_qat(ENGINE *e, const char *id)
     DEBUG("QAT Debug enabled.\n");
     WARN("%s - %s \n", id, engine_qat_name);
 
-#ifdef OPENSSL_QAT_OFFLOAD
-# ifndef QAT_DRIVER_INTREE
+#if defined(OPENSSL_QAT_OFFLOAD) && !defined(QAT_DRIVER_INTREE)
     if (access(QAT_DEV, F_OK) != 0) {
         WARN("Qat memory driver not present\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_MEM_DRV_NOT_PRESENT);
         goto end;
     }
-# endif
-
-# ifndef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-    if (!getDevices(devmasks, &upstream_flags)) {
-        WARN("Qat device not present\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_QAT_DEV_NOT_PRESENT);
-        goto end;
-    }
-# endif
 #endif
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {

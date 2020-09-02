@@ -78,7 +78,6 @@
 #include "qat_callback.h"
 #include "qat_polling.h"
 #include "qat_utils.h"
-#include "qat_parseconf.h"
 #include "e_qat_err.h"
 
 /* OpenSSL Includes */
@@ -310,8 +309,7 @@ static void qat_local_variable_destructor(void *tlv)
 }
 
 
-#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-# ifndef __FreeBSD__
+#ifndef __FreeBSD__
 void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *callbackTag,
                                           const CpaInstanceEvent inst_ev)
 {
@@ -350,14 +348,12 @@ void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *call
             break;
     }
 }
-# endif
 #endif
 
 int qat_init(ENGINE *e)
 {
     int instNum, err;
     CpaStatus status = CPA_STATUS_SUCCESS;
-    CpaBoolean limitDevAccess = CPA_FALSE;
     int ret_pthread_sigmask;
     Cpa32U package_id = 0;
 
@@ -381,21 +377,9 @@ int qat_init(ENGINE *e)
         return 0;
     }
 
-#ifndef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-    /* limitDevAccess is passed as an input to icp_sal_userStartMultiProcess().
-     * However, in upstream driver the value is ignored and read directly from
-     * the configuration file -> No need to parse the file here.
-     */
-    if (!checkLimitDevAccessValue((int *)&limitDevAccess,
-                                    ICPConfigSectionName_libcrypto)) {
-        WARN("Could not load driver config file. Assuming LimitDevAccess = 0\n");
-    }
-#endif
-
     /* Initialise the QAT hardware */
     if (CPA_STATUS_SUCCESS !=
-        icp_sal_userStartMultiProcess(ICPConfigSectionName_libcrypto,
-                                      limitDevAccess)) {
+        icp_sal_userStart(ICPConfigSectionName_libcrypto)) {
         WARN("icp_sal_userStart failed\n");
         QATerr(QAT_F_QAT_INIT, QAT_R_ICP_SAL_USERSTART_FAIL);
         pthread_key_delete(thread_local_variables);
@@ -546,8 +530,7 @@ int qat_init(ENGINE *e)
         qat_instance_details[instNum].qat_instance_started = 1;
         DEBUG("Started Instance No: %d Located on Device: %d\n", instNum, package_id);
 
-#ifdef OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
-# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
+#if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
         if (enable_sw_fallback) {
             DEBUG("cpaCyInstanceSetNotificationCb instNum = %d\n", instNum);
             status = cpaCyInstanceSetNotificationCb(qat_instance_handles[instNum],
@@ -561,7 +544,6 @@ int qat_init(ENGINE *e)
                 return 0;
             }
         }
-# endif
 #endif
     }
 

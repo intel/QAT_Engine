@@ -364,7 +364,6 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     "qat alloc dh meth failure"},
     {ERR_PACK(0, 0, QAT_R_QAT_CREATE_ENGINE_FAILURE),
     "qat create engine failure"},
-    {ERR_PACK(0, 0, QAT_R_QAT_DEV_NOT_PRESENT), "qat dev not present"},
     {ERR_PACK(0, 0, QAT_R_QAT_ECDSA_DO_SIGN_FAIL), "qat ecdsa do sign fail"},
     {ERR_PACK(0, 0, QAT_R_QAT_FREE_EC_METHOD_FAILURE),
     "qat free ec method failure"},

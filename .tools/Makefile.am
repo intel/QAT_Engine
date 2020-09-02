@@ -87,45 +87,37 @@ if OPENSSL_IPSEC_OFFLOAD
   OPENSSL_VAES_HDR = vaes_gcm.h
 endif
 
-if !OPENSSL_ENABLE_QAT_UPSTREAM_DRIVER
- PARSE_CONFIG_FILES_SRC = qat_parseconf.c
- PARSE_CONFIG_FILES_HDR = qat_parseconf.h
-endif
-
-libqatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}     \
-                          ${OPENSSL_QAT_SRC}        \
-                          ${OPENSSL_111_SRC}        \
-                          ${OPENSSL_MULTIBUFF_SRC}  \
-                          ${PARSE_CONFIG_FILES_SRC} \
-                          ${MEM_LIB_SRC}            \
+libqatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}    \
+                          ${OPENSSL_QAT_SRC}       \
+                          ${OPENSSL_111_SRC}       \
+                          ${OPENSSL_MULTIBUFF_SRC} \
+                          ${MEM_LIB_SRC}           \
                           ${OPENSSL_VAES_SRC}
 
-include_HEADERS = ${OPENSSL_COMMON_HDR}     \
-                  ${OPENSSL_QAT_HDR}        \
-                  ${OPENSSL_MULTIBUFF_HDR}  \
-                  ${PARSE_CONFIG_FILES_HDR} \
-                  ${MEM_LIB_HDR}            \
+include_HEADERS = ${OPENSSL_COMMON_HDR}    \
+                  ${OPENSSL_QAT_HDR}       \
+                  ${OPENSSL_MULTIBUFF_HDR} \
+                  ${MEM_LIB_HDR}           \
                   ${OPENSSL_VAES_HDR}
 
-CC = gcc
+AM_CPPFLAGS = $(includes_openssl) $(includes_usdm) $(includes_driver) \
+              $(includes_multibuff) $(includes_ipsec)
 
-AM_CPPFLAGS = $(includes_openssl) $(include_enable_usdm) $(includes_driver) \
-              $(includes_qat_mux) $(includes_multibuff) $(includes_ipsec)
-
-AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_upstream_driver)             \
-            $(cflags_mem_driver) $(cflags_mux) $(cflags_qat_debug_file)      \
-            $(cflags_openssl_300) $(cflags_multibuff_offload)                \
-            $(cflags_qat_offload) $(cflags_ipsec_offload)                    \
-            $(enable_qat_rsa) $(enable_qat_ciphers) $(enable_qat_ecdh)       \
-            $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_dh)           \
-            $(enable_qat_prf) $(enable_qat_hkdf) $(enable_qat_ecx)           \
-            $(enable_vaes_gcm) $(enable_qat_small_pkt_offload)               \
-            $(enable_qat_auto_engine_init_on_fork)                           \
-            $(enable_qat_lenstra_protection) $(cflags_qat_engine_id)         \
-            $(cflags_qat_intree) $(enable_qat_debug) $(enable_qat_warnings)  \
-            $(enable_qat_mem_debug) $(enable_qat_mem_warnings)               \
-            $(enable_qat_cycle_counts) $(enable_multibuff_rsa)               \
-            $(enable_multibuff_ecx) $(enable_multibuff_heuristic_timeout)
+AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_intree)           \
+            $(cflags_mem_driver) $(cflags_openssl_300)                \
+            $(cflags_qat_offload) $(cflags_multibuff_offload)         \
+            $(cflags_ipsec_offload) $(enable_qat_rsa)                 \
+            $(enable_qat_ciphers) $(enable_qat_ecdh)                  \
+            $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_dh)    \
+            $(enable_qat_prf) $(enable_qat_hkdf) $(enable_qat_ecx)    \
+            $(enable_vaes_gcm) $(enable_multibuff_rsa)                \
+            $(enable_multibuff_ecx) $(enable_qat_small_pkt_offload)   \
+            $(enable_qat_auto_engine_init_on_fork)                    \
+            $(enable_qat_lenstra_protection) $(cflags_qat_engine_id)  \
+            $(enable_qat_debug) $(enable_qat_warnings)                \
+            $(enable_qat_mem_debug) $(enable_qat_mem_warnings)        \
+            $(cflags_qat_debug_file) $(enable_qat_cycle_counts)       \
+            $(enable_multibuff_heuristic_timeout)
 
 
 libqatengine_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)        \

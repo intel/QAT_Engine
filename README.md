@@ -14,7 +14,7 @@
     - [Clone the Intel&reg; QuickAssist Technology OpenSSL\* Engine](#clone-the-intel-quickassist-technology-openssl-engine)
     - [Build and install a contiguous memory driver](#build-and-install-a-contiguous-memory-driver)
     - [Build the Intel&reg; QuickAssist Technology OpenSSL\* Engine](#build-the-intel-quickassist-technology-openssl-engine)
-    - [Copy the correct Intel&reg; QuickAssist Technology Driver config files](#copy-the-correct-intel-quickassist-technology-driver-config-files)
+    - [Copy the Intel&reg; QuickAssist Technology Driver config files](#copy-the-intel-quickassist-technology-driver-config-files)
     - [Test the Intel&reg; QuickAssist Technology OpenSSL\* Engine](#test-the-intel-quickassist-technology-openssl-engine)
     - [Run speed with the Intel&reg; Quickassist Technology OpenSSL\* Engine](#run-speed-with-the-intel-quickassist-technology-openssl-engine)
 - [Troubleshooting](#troubleshooting)
@@ -88,23 +88,10 @@ acceleration devices:
 * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
 * [Intel&reg; Atom&trade; Processor C3000][2]
 * [Intel&reg; Communications Chipset 8925 to 8955 Series][3]
-* [Intel&reg; Communications Chipset 8900 to 8920 Series][4]
-* [Intel&reg; Atom&trade; Processor C2000][5]
-
-This Intel&reg; QAT OpenSSL\* Engine supports the Intel&reg; QAT Driver
-Heartbeat feature from version 4.6 of the following acceleration device:
-
-* [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
-
-Note: Heartbeat feature support currently does not extend to Symmetric Chained
-Cipher Offload, PRF, HKDF & X25519/X448 offload. The heartbeat feature is also
-not available when running under the FreeBSD operating system or in the qatlib RPM.
 
 [1]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/purley/intel-xeon-scalable-processors.html
 [2]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
 [3]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8950-brief.html
-[4]:https://www.intel.com/content/www/us/en/ethernet-products/gigabit-server-adapters/quickassist-adapter-8920-brief.html
-[5]:https://www.intel.com/content/www/us/en/embedded/products/rangeley/overview.html
 
 ## Software Requirements
 
@@ -116,7 +103,7 @@ This release was validated on the following:
 * Kernel: GNU\*/Linux\* 3.10.0-693
 * Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.10
 * Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version 3.7
-* OpenSSL\* 1.1.1 (Basic functionality testing done on TLS1.3)
+* OpenSSL\* 1.1.1
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
 GNU\* C Library version 2.23 or later to take advantage of AVX-512 optimizations
@@ -124,18 +111,18 @@ if supported by your processor (Linux Specific).
 
 ## Additional Information
 
-* [Intel&reg; QuickAssist Technology Driver][6]
-* [White Paper: Intel&reg; QuickAssist Technology and OpenSSL-1.1.0:Performance][7]
+* [Intel&reg; QuickAssist Technology Driver][4]
+* [White Paper: Intel&reg; QuickAssist Technology and OpenSSL-1.1.0:Performance][5]
 
 Additional Information on integrating the Intel&reg QAT OpenSSL\* Engine with NGINX\*
 including an asynchronous fork of NGINX\* can be found at the following Github\*
 repository:
 
-* [Intel&reg; QuickAssist Technology (QAT) Async Mode NGINX\*][8]
+* [Intel&reg; QuickAssist Technology (QAT) Async Mode NGINX\*][6]
 
-[6]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
-[7]:https://01.org/sites/default/files/downloads/intelr-quickassist-technology/intelquickassisttechnologyopensslperformance.pdf
-[8]:https://github.com/intel/asynch_mode_nginx
+[4]:https://01.org/intel-quickassist-technology
+[5]:https://01.org/sites/default/files/downloads/intelr-quickassist-technology/337003-001-intelquickassisttechnologyandopenssl-110.pdf
+[6]:https://github.com/intel/asynch_mode_nginx
 
 ## Limitations
 
@@ -154,22 +141,20 @@ repository:
   application level. The fix has been delivered in OpenSSL\* 1.1.0e and OpenSSL\*
   1.1.1. All previous versions of the library are affected.
   For more information, please refer to the following pull request on Github:
-  [Fix waitctx fds removing the fd from the list #2581][9]
+  [Fix waitctx fds removing the fd from the list #2581][7]
 * Event driven mode of polling operation is not supported in the FreeBSD
   Operating system or in the qatlib RPM.
 * qat_contig_mem memory driver is not supported when running under FreeBSD
   Operating system or in the qatlib RPM. The default is to use the USDM memory
   driver supplied as part of the Intel&reg; QAT Driver.
-[9]:https://github.com/openssl/openssl/pull/2581
 * Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
   in release OpenSSL\* 1.1.1d.  This was fixed in a subsequent commit to
   the OpenSSL\* 1.1.1 stable branch. As there were no high or medium security fixes
   between OpenSSL\* 1.1.1c and OpenSSL\* 1.1.1d then it is recommended that you
   use OpenSSL\* 1.1.1c.  If you are, however, using specific features of OpenSSL\* 1.1.1d
   it is recommended that you rather build against an OpenSSL\* pulled from
-  the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715][10] in which the
+  the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715][8] in which the
   problem was fixed, or a later commit from this branch.
-[10]:https://github.com/openssl/openssl/pull/10080
 * Support for Multi-buffer offload is extended to RSA 2k only. Other key sizes will
   use the standard OpenSSL implementation when this feature is enabled.
 * X25519/X448 support is available only from version 4.9 of the Intel&reg; QAT
@@ -180,6 +165,9 @@ repository:
   in the Intel&reg; QAT OpenSSL\* Engine configuration when building against earlier
   versions of the Linux driver.
 
+[7]:https://github.com/openssl/openssl/pull/2581
+[8]:https://github.com/openssl/openssl/pull/10080
+
 ## Installation Instructions
 
 ### Build Intel&reg; QuickAssist Technology Driver
@@ -189,25 +177,21 @@ Please follow the instructions contained in:
 **For Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset:**
 **For Intel&reg; Atom&trade; Processor:**
 **For Intel&reg; Communications Chipset 8925 to 8955 Series:**
-Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started Guide - HW version 1.7 (336212)
+Intel&reg; QuickAssist Technology Software for Linux\* -
+[Getting Started Guide - HW version 1.7 (336212)][9]
 
-**For Intel&reg; Communications Chipset 89XX Series:**
-Intel&reg; Communications Chipset 89xx Series Software for Linux\* - Getting
-Started Guide (330750)
+[9]:https://01.org/sites/default/files/downloads/336212007qatswgsg.pdf
 
-**For Intel&reg; Atom&trade; Processor C2000:**
-Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
-Infrastructure Software - Getting Started Guide (333035)
+Other technical collaterals of the Intel&reg; QuickAssist Technology driver
+can be found in the below 01.org page.
 
-These instructions can be found on the 01.org website in the following section:
-
-[Intel&reg; QuickAssist Technology][11]
-
-[11]:https://01.org/packet-processing/intel%C2%AE-quickassist-technology-drivers-and-patches
+[Intel&reg; QuickAssist Technology][4]
 
 ### Build OpenSSL\*
 
-This step is not needed if building against system prebuilt OpenSSL\* 1.1.1.
+This step is not needed if building the Intel&reg; QAT OpenSSL\* Engine
+against system prebuilt OpenSSL\* 1.1.1 and thereby installs engine library
+in the system OpenSSL engines directory.
 
 Clone OpenSSL\* from Github\* at the following location:
 
@@ -319,10 +303,8 @@ The Intel&reg; QAT Driver HW Version 1.7 comes with its own
 contiguous pinned memory driver that is compatible with the Intel&reg; QAT
 OpenSSL\* Engine. The USDM component is of a higher quality than the
 qat\_contig\_mem driver provided within the Intel&reg; QAT OpenSSL\* Engine,
-and is the preferred option. Unfortunately the USDM component may not be
-available if using older Intel&reg; QAT Driver versions. The USDM component
-is used by the Intel&reg; QAT Driver HW Version 1.7 itself, and also has
-the following additional features:
+and is the preferred option. The USDM component is used by the Intel&reg; QAT
+Driver HW Version 1.7 itself, and also has the following additional features:
 
 * Support for virtualization
 * Support for configurable slab sizes
@@ -347,6 +329,10 @@ This step is not needed if using the default USDM driver above. The Intel&reg;
 QAT OpenSSL\* Engine comes with an example kernel space contiguous memory driver
 that can be used to try out operation of the engine. It is considered to be an
 example only and is not written to be a production quality driver.
+The use of the qat\_contig\_mem driver can be enabled using the configure
+option `--enable-qat_contig_mem` that tells the build that the Intel&reg;
+QAT OpenSSL\* Engine should be compiled to use the qat_contig_mem component
+instead of the USDM memory driver above.
 
 The following example is assuming:
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the
@@ -378,8 +364,7 @@ The following example is assuming:
 * The Intel&reg; QAT Driver HW Version 1.7 was unpacked within `/QAT` and using
   the USDM component.
 * An Intel&reg; Communications Chipset C62X Series device is fitted.
-* OpenSSL\* was installed to `/usr/local/ssl`.
-* OpenSSL\* 1.1.1 built from source is being used.
+* OpenSSL\* 1.1.1 built from source is being used and installed to `/usr/local/ssl`.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -402,35 +387,7 @@ installed in the system.
 Note: When building it is possible to specify command line options that can be
 used to turn engine functionality on and off. Please see the Intel&reg; QAT
 OpenSSL\* Engine Build Options section below for a full description of the
-options that can be specified. The above options are all mandatory.
-
-If you plan to link against the Intel&reg; QAT Driver HW Version 1.6 userspace
-shared library then there are some additional options that may be required:
-
-* The `--enable-qat16_driver` is a mandatory parameter to the `./configure`
-  that tells the build that you are going to link against the Intel&reg;
-  QAT 1.6 Driver and ensures the link step is setup correctly.
-* The `--enable-qat_contig_mem` is an optional parameter to the `./configure`
-  that tells the build that it should be compiled to use the qat_contig_mem
-  component and that the link should be configured to link in the userspace
-  library of the qat_contig_mem component.
-
-An example to build and install the Intel&reg; QAT OpenSSL\* Engine based on the
-example above, but building against the Intel&reg; QAT Driver HW Version 1.6
-with the Intel&reg; Communications Chipset 8925 to 8955 Series device and using
-the qat_contig_mem component would be as follows:
-
-```bash
-cd /QAT_Engine
-./autogen.sh
-./configure \
---with-qat_dir=/QAT/QAT1.6 \
---with-openssl_install_dir=/usr/local/ssl \
---enable-qat16_driver \
---enable-qat_contig_mem
-make
-make install
-```
+options that can be specified.
 
 An example to build and install the Intel&reg; QAT OpenSSL\* Engine against a
 prebuilt OpenSSL\* 1.1.1 from the system is as follows. It assumes that:
@@ -451,17 +408,17 @@ cd /QAT_Engine
 make
 make install
 ```
-If OpenSSL\* version in the system can not be updated to 1.1.1 series, then
-the engine needs to be built from source using the option
-`--with-openssl_install_dir`. An additional option `--with-openssl_dir` pointing
-to the top directory of the OpenSSL\* needs to be provided for building against
-OpenSSL\* 1.1.0 as the engine err files need to be regenerated for 1.1.0.
-
 In the above example this will create the file `qatengine.so` and copy it to
 the engines dir of the system which can be checked using
 `pkg-config --variable=enginesdir libcrypto`.
 
-### Copy the correct Intel&reg; QuickAssist Technology Driver config files
+If OpenSSL\* version in the system can not be updated to 1.1.1 series, then
+the engine needs to be built from source using the option
+`--with-openssl_install_dir`. An additional option `--with-openssl_dir` pointing
+to the top directory of the OpenSSL\* source needs to be provided for building
+against OpenSSL\* 1.1.0 as the engine err files need to be regenerated for 1.1.0.
+
+### Copy the Intel&reg; QuickAssist Technology Driver config files
 
 The Intel&reg; QAT OpenSSL\* Engine comes with some example conf files to use
 with the Intel&reg; QAT Driver.
@@ -475,10 +432,8 @@ The conf files are located at:
 
     /path/to/qat_engine/qat/config
 
-The files are grouped by acceleration device, please choose the files
-appropriate to your acceleration device only.
-If building to link against the Intel&reg; QAT HW Version 1.7 userspace shared library
-then you should use the files in `dh895xcc_upstream`, or `c6xx`.
+The files are grouped by acceleration device(dh895xcc or c6xx or c3xxx), please
+choose the files appropriate to your acceleration device only.
 
 The files are also split into `multi_process_optimized` and
 `multi_thread_optimized`.
@@ -501,45 +456,15 @@ respectively. Event driven config files are only supported in Linux.
 Once you have decided which config file you should use,
 or created your own you should follow the procedure below to install it:
 
-1. Follow the instructions to stop the Acceleration Driver:
-
-   **For Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset:**
-   **For Intel&reg; Atom&trade; Processor: C3000:**
-   **For Intel&reg; Communications Chipset 8925 to 8955 Series:**
-   Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started
-   Guide - HW version 1.7 (336212) - Section 3.3 Starting/Stopping the
-   Acceleration.
-
-   **For Intel&reg; Communications Chipset 89XX Series:**
-   Intel&reg; Communications Chipset 89xx Series Software for Linux\* - Getting
-   Started Guide (330750) - Section 3.4 Starting/Stopping the Acceleration
-   Software.
-
-   **For Intel&reg; Atom&trade; Processor C2000:**
-   Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
-   Infrastructure Software - Getting Started Guide (333035) - Section 9.5
-   Starting/Stopping the Acceleration Software.
+1. Stop the acceleration driver as decribed in the Section 3.4
+   Starting/Stopping the Acceleration software from the
+   [Getting Started Guide - HW version 1.7 (336212)][9]
 
 2. Copy the appropriate `.conf` file to `/etc`
 
-3. Follow the instructions to start the Acceleration Driver:
-
-   **For Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset:**
-   **For Intel&reg; Atom&trade; Processor C3000:**
-   **For Intel&reg; Communications Chipset 8925 to 8955 Series:**
-   Intel&reg; QuickAssist Technology Software for Linux\* - Getting Started
-   Guide - HW version 1.7 (336212) - Section 3.3 Starting/Stopping the
-   Acceleration.
-
-   **For Intel&reg; Communications Chipset 89XX Series:**
-   Intel&reg; Communications Chipset 89xx Series Software for Linux\* - Getting
-   Started Guide (330750) - Section 3.4 Starting/Stopping the Acceleration
-   Software.
-
-   **For Intel&reg; Atom&trade; Processor C2000:**
-   Intel&reg; Atom&trade; Processor C2000 Product Family for Communications
-   Infrastructure Software - Getting Started Guide (333035) - Section 9.5
-   Starting/Stopping the Acceleration Software.
+3. Start the acceleration driver as decribed in the Section 3.4
+   Starting/Stopping the Acceleration software from the
+   [Getting Started Guide - HW version 1.7 (336212)][9]
 
 ### Test the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
@@ -547,9 +472,9 @@ Run this command to check if the Intel&reg; QAT OpenSSL\* Engine is loaded
 correctly:
 
 ```text
-cd /path/to/openssl/apps
-./openssl engine -t -c -vvvv qat
-(qat) Reference implementation of QAT crypto engine
+cd /path/to/openssl_install/bin
+./openssl engine -t -c -vvvv qatengine
+(qatengine) Reference implementation of QAT crypto engine
  [RSA, DSA, DH, AES-128-CBC-HMAC-SHA1, AES-256-CBC-HMAC-SHA1,
  AES-128-CBC-HMAC-SHA256, AES-256-CBC-HMAC-SHA256,
  TLS1-PRF, HKDF, X25519, X448]
@@ -599,27 +524,27 @@ cd /path/to/openssl/apps
 ### Run speed with the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
 ```text
-cd /path/to/openssl/apps
+cd /path/to/openssl_install/bin
 
 * RSA 2K
   * Asynchronous
-  ./openssl speed -engine qat -elapsed -async_jobs 72 rsa2048
+  ./openssl speed -engine qatengine -elapsed -async_jobs 72 rsa2048
   * Synchronous
-  ./openssl speed -engine qat -elapsed rsa2048
+  ./openssl speed -engine qatengine -elapsed rsa2048
   * Software
   ./openssl speed -elapsed rsa2048
 * ECDH Compute Key
   * Asynchronous
-  ./openssl speed -engine qat -elapsed -async_jobs 36 ecdh
+  ./openssl speed -engine qatengine -elapsed -async_jobs 36 ecdh
   * Synchronous
-  ./openssl speed -engine qat -elapsed ecdh
+  ./openssl speed -engine qatengine -elapsed ecdh
   * Software
   ./openssl speed -elapsed ecdh
 * Chained Cipher: aes-128-cbc-hmac-sha1
   * Asynchronous
-  ./openssl speed -engine qat -elapsed -async_jobs 128 -multi 2 -evp aes-128-cbc-hmac-sha1
+  ./openssl speed -engine qatengine -elapsed -async_jobs 128 -multi 2 -evp aes-128-cbc-hmac-sha1
   * Synchronous
-  ./openssl speed -engine qat -elapsed -multi 2 -evp aes-128-cbc-hmac-sha1
+  ./openssl speed -engine qatengine -elapsed -multi 2 -evp aes-128-cbc-hmac-sha1
   * Software
   ./openssl speed -elapsed -multi 2 -evp aes-128-cbc-hmac-sha1
 ```
@@ -630,11 +555,10 @@ The most likely failure point is that the Intel&reg; QAT OpenSSL\* Engine is not
 loading successfully.
 If this occurs some of the things to check are:
 
-   1. Has the qat\_contig\_mem driver been loaded successfully? If not the
-      engine will fail to initialise. Check by running `lsmod`, qat\_contig\_mem
-      should be in the list (Linux Specific). The same applies if using
-      the alternative USDM component, but instead look for usdm_drv
-      when running `lsmod` for Linux and `kldstat` for FreeBSD
+   1. Has the USDM memory driver been loaded successfully? If not the engine
+      will fail to initialise. Check by running `lsmod` for Linux and `kldstat`
+      for FreeBSD, usdm_drv should be in the list. If using the alternative
+      qat\_contig\_mem driver, look for qat\_contig\_mem.
    2. Has the correct Intel&reg; QAT Driver config file been copied to `/etc`?
       Check it has a `[SHIM]` section and that the Intel&reg; QAT Driver
       software was restarted so that it picked up the new config file.
@@ -659,10 +583,6 @@ resolve this it is recommended to add the /lib64 folder to the LD_LIBRARY_PATH
 environment variable as follows:
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
-
-If linking against the Intel&reg; QAT Driver HW Version 1.6 then ensure that the
-mandatory parameter `--enable-qat16_driver` has been specified when running
-`./configure`, or the link will fail.
 
 If building against OpenSSL\* 1.1.1 or master branch , it is possible that the
 OpenSSL\* Engine will fail to build with an error message `configdata.pm not
@@ -980,10 +900,6 @@ Mandatory (when building against QAT Driver HW version 1.7 package)
     unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
     C62X Series device then you would use the following setting:
     --with-qat_dir=/QAT
-    Another example if using the QATmux.L.2.6.0-60.tar.gz driver package that
-    was unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
-    8925 to 8955 Series device then you would use the following setting:
-    --with-qat_dir=/QAT/QAT1.6
     This option is not needed if you are building against the in-tree driver
     installed via qatlib RPM. Also, if use of Multi-buffer Software optimization
     over QAT is preferred, then this option is not needed.
@@ -1019,13 +935,6 @@ Mandatory (when building against OpenSSL 1.1.0)
     For example if you cloned the OpenSSL* Github* repository from within `/`
     then you would use the following setting:
     --with-openssl_dir=/openssl
-
-Mandatory (when using the Intel&reg; QAT Driver HW Version 1.6)
-
---enable-qat16_driver/--disable-qat16_driver
-    Enable/Disable linking against the Intel(R) QAT Driver HW Version 1.6. If
-    linking against the Intel(R) QAT Driver HW Version 1.6 then this option
-    must be enabled (disabled by default).
 
 Mandatory (when using the Intel&reg; Crypto Multi-buffer Library)
 
@@ -1088,14 +997,13 @@ Optional
 
 --enable-qat_contig_mem/--disable-qat_contig_mem
     Enable/Disable compiling against the qat_contig_mem driver supplied within
-    QAT Engine when using the Intel(R) QAT Driver HW Version 1.6. It can also be
-    used instead of the USDM component distributed with the Intel(R) QAT Driver
-    HW Version 1.7 (disabled by default).
+    QAT Engine instead of the USDM component distributed with the Intel(R) QAT
+    Driver HW Version 1.7 (disabled by default).
 
 --with-usdm_dir=/path/to/usdm/directory
     Specify the path to the location of the USDM component.
     The default if not specified is to use the path specified by --with-qat_dir
-    with '/quickassist/utilities/libusdm_drv' appended.  You only only need to
+    with '/quickassist/utilities/libusdm_drv' appended.  You only need to
     specify this parameter if using the USDM component, and if the path to it
     is different from the default.
 
@@ -1205,14 +1113,6 @@ Optional
     as the memory slabs will be utilized less efficiently, and you cannot
     allocate in one thread and free in another thread.  Running in this mode
     also does not support processes that fork (disabled by default).
-
---disable-qat_mux/--enable-qat_mux
-    Disable/Enable support for building using the Mux mode of the Intel(R)
-    QAT Driver. Mux mode allows you to mix Intel(R) Communications Chipset
-    8900 to 8920 Series hardware and Intel(R) Communications Chipset 8925
-    to 8955 Series hardware within the same system using a common driver
-    interface. You should only specify this option if using a mixture of
-    hardware (disabled by default).
 
 --disable-qat_lenstra_protection/--enable-qat_lenstra_protection
     Disable/Enable protection against Lenstra attack (CVE-2017-5681)
@@ -1325,12 +1225,12 @@ The `qat_section` contains all the settings relating to that particular engine.
 For instance it may contain:
 
     [ qat_section ]
-    engine_id = qat
+    engine_id = qatengine
     dynamic_path = /usr/local/ssl/lib/engines-1.1/qatengine.so
     # Add engine specific messages here
     default_algorithms = ALL
 
-Where `engine_id` specifies the name of engine to load (should be `qat`).
+Where `engine_id` specifies the name of engine to load (should be `qatengine`).
 
 Where `dynamic_path` is the location of the loadable shared library implementing
 the engine. There is no need to specify this line if the engine is located
@@ -1380,7 +1280,7 @@ OpenSSL\* online documentation located at:
 
 By setting up the configuration file as above it is possible for instance to run
 the OpenSSL\* speed application to use the Intel&reg; QAT OpenSSL\* Engine
-without needing to specify `-engine qat` as a command line option.
+without needing to specify `-engine qatengine` as a command line option.
 
 ## Using the OpenSSL\* Pipelining Capability
 
@@ -1423,12 +1323,13 @@ with additional information at:
 ## Functionality of the Intel&reg; QAT OpenSSL\* Engine Software Fallback Feature
 
 ### Requirements:
-As stated in the [Hardware Requirements](#hardware-requirements) section
-above,
  1. This Intel&reg; QAT OpenSSL\* Engine supports the Intel&reg; QAT Driver
 Heartbeat feature only from version 4.6 of the following device:
-
     * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
+
+Note: Heartbeat feature support currently does not extend to Symmetric Chained
+Cipher Offload, PRF, HKDF & X25519/X448 offload. The heartbeat feature is also
+not available when running under the FreeBSD operating system or in the qatlib RPM.
 
  2. Intel&reg; QAT OpenSSL\* Engine needs to be configured to disable Symmetric
 Chained Cipher Offload, PRF, HKDF & X25519/X448 offload by adding the below four flags in
@@ -1443,10 +1344,9 @@ Intel&reg; QuickAssist Technology Software for Linux\* - Programmer's Guide - HW
 version 1.7 (336210) - Section 3.17 Heartbeat.
 
 This document can be found on the 01.org website at the following hyperlink:
+* [Intel&reg; QuickAssist Technology Programmer's Guide][10]
 
-* [Intel&reg; QuickAssist Technology Programmer's Guide][12]
-
-[12]:https://01.org/sites/default/files/downloads/336210-007qatswprogrammersguide.pdf
+[10]:https://01.org/sites/default/files/downloads/336210qatswpg-013.pdf
 
 The Intel&reg; QuickAssist Heartbeat feature provides a mechanism for the
 Intel&reg; QAT OpenSSL\* Engine to detect unresponsive acceleration devices and
@@ -1483,13 +1383,9 @@ qatlib RPM.
 The HKDF support in the Intel&reg; QAT OpenSSL\* Engine is available only from
 Version 4.8 of Intel&reg; QuickAssist Technology Driver for Linux HW Version 1.7.
 By default this support is disabled as it is added as an experimental feature.
-It can be enabled using the below flag in the configure command combined with
-modifying the Intel&reg; QuickAssist Technology Driver file's config variable
-'ServicesProfile' from its default value of 'DEFAULT' to 'CRYPTO'.
-
-```bash
---enable-qat_hkdf
-```
+It can be enabled using the flag `--enable-qat_hkdf` in the configure command
+combined with modifying the Intel&reg; QuickAssist Technology Driver file's
+config variable 'ServicesProfile' from its default value of 'DEFAULT' to 'CRYPTO'.
 
 ## Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support
 
@@ -1509,13 +1405,14 @@ asynchronous operations where there are many parallel connections.
 
 Successful operation of the Multi-buffer support requires a software tool
 chain that supports OpenSSL\* 1.1.1 and Intel&reg; Crypto Multi-buffer
-library version 0.5.3 or above cloned from the [ipp-crypto GitHub][13] repo
-and installed using the instructions (Building with OpenSSL) in the Readme from
-[Crypto Multi-buffer Library][14]. This support is not available in the
+library version 0.5.3 cloned from the [ipp-crypto GitHub][11] repo
+and installed using the instructions in the Readme from
+[Crypto Multi-buffer Library][12]. The crypto-mb release commit to clone
+is specified in the QAT Engine release notes. This support is not available in the
 FreeBSD operating system.
 
-[13]:https://github.com/intel/ipp-crypto
-[14]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
+[11]:https://github.com/intel/ipp-crypto
+[12]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
 
 ### Build Instructions for Intel&reg; QAT OpenSSL\* Engine to enable Multi-buffer Support
 
@@ -1539,12 +1436,12 @@ make install
 
 ### Testing with OpenSSL Speed
 ```text
-cd /path/to/openssl/apps
+cd /path/to/openssl_install/bin
 
 * RSA 2K
-    ./openssl speed -engine qat -elapsed -async_jobs 8 rsa2048
-* X25519
-    ./openssl speed -engine qat -elapsed -async_jobs 8 ecdhx25519
+    ./openssl speed -engine qatengine -elapsed -async_jobs 8 rsa2048
+* ECDH X25519
+    ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdhx25519
 ```
 
 ## Intel&reg; QAT OpenSSL\* Engine IPsec Vectorized AES Support
@@ -1561,33 +1458,29 @@ and AVX512 instructions from the processor.
 
 Successful operation of the IPsec offload requires a software tool chain that
 supports OpenSSL\* 1.1.1 and Intel&reg; Multi-Buffer crypto for IPsec Library
-version v0.54 or above cloned from the [intel-ipsec-mb][15] repo and installed
-using the instructions from the intel-ipsec [README with security
-considerations][16]. This support is not available in the
+release version v0.54 or above cloned from the [intel-ipsec-mb][13] repo and
+installed using the instructions from the intel-ipsec [README with security
+considerations][14]. This support is not tested in the
 FreeBSD operating system.
 
-[15]:https://github.com/intel/intel-ipsec-mb
-[16]:https://github.com/intel/intel-ipsec-mb#6-security-considerations--options-for-increased-security
+[13]:https://github.com/intel/intel-ipsec-mb
+[14]:https://github.com/intel/intel-ipsec-mb#6-security-considerations--options-for-increased-security
 
-### Build Instructions to enable Intel&reg; IPsec Vectorized AES Support
+### Build flag to enable Intel&reg; IPsec Vectorized AES Support
 
-This support can be enabled using the below flag along with other flags
-for QAT and Multibuff offload in the configure command.
-
-```bash
---enable-ipsec_offload
-```
+This support can be enabled using the flag `--enable-ipsec_offload` along
+with other flags for QAT and Multibuff offload in the configure command.
 
 ### Testing with OpenSSL Speed
 ```text
-cd /path/to/openssl/apps
+cd /path/to/openssl_install/bin
 
 *AES-128-GCM
-    ./openssl speed -engine qat -elapsed -evp aes-128-gcm
+    ./openssl speed -engine qatengine -elapsed -evp aes-128-gcm
 *AES-192-GCM
-    ./openssl speed -engine qat -elapsed -evp aes-192-gcm
+    ./openssl speed -engine qatengine -elapsed -evp aes-192-gcm
 *AES-256-GCM
-    ./openssl speed -engine qat -elapsed -evp aes-256-gcm
+    ./openssl speed -engine qatengine -elapsed -evp aes-256-gcm
 ```
 
 ## Legal

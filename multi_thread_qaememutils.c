@@ -875,7 +875,7 @@ static void crypto_init(void)
     if ((tls_ptr = (qae_slab_pools_local *)pthread_getspecific(qae_key))
         == NULL) {
         tls_ptr = malloc(sizeof(qae_slab_pools_local));
-        qat_setspecific_thread(qae_key, (void *)tls_ptr);
+        pthread_setspecific(qae_key, (void *)tls_ptr);
     }
 
     MEM_WARN("Memory Driver Warnings Enabled.\n");
