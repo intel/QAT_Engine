@@ -1,6 +1,6 @@
 /***************************************************************************
  *
- * This file is provided under a dual BSD/GPLv2 license.  When using or
+ * This file is provided under a GPLv2 license.  When using or
  *   redistributing this file, you may do so under either license.
  *
  *   GPL LICENSE SUMMARY
@@ -510,5 +510,5 @@ void qat_contig_mem_exit(void)
 module_init(qat_contig_mem_init);
 module_exit(qat_contig_mem_exit);
 MODULE_AUTHOR("Intel Corporation");
-MODULE_LICENSE("Dual BSD/GPL");
+MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("QAT Contig Mem");
