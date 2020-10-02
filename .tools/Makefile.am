@@ -137,7 +137,7 @@ MAKE = make err-files && make
 endif
 
 install-data-am:
-	cp -f .libs/libqatengine.so $(engine_install_dir)/$(with_qat_engine_id).so
+	install -D .libs/libqatengine.so $(engine_install_dir)/$(with_qat_engine_id).so
 
 err-files:
 if QAT_OPENSSL_110
