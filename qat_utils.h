@@ -692,6 +692,10 @@ extern rdtsc_prof_t rsa_cycles_priv_execute;
 extern rdtsc_prof_t rsa_cycles_pub_enc_setup;
 extern rdtsc_prof_t rsa_cycles_pub_dec_setup;
 extern rdtsc_prof_t rsa_cycles_pub_execute;
+extern rdtsc_prof_t x25519_cycles_keygen_setup;
+extern rdtsc_prof_t x25519_cycles_keygen_execute;
+extern rdtsc_prof_t x25519_cycles_derive_setup;
+extern rdtsc_prof_t x25519_cycles_derive_execute;
 
 extern int print_cycle_count;
 
@@ -780,20 +784,28 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&rsa_cycles_pub_enc_setup, 0);     \
         rdtsc_prof_init(&rsa_cycles_pub_dec_setup, 0);     \
         rdtsc_prof_init(&rsa_cycles_pub_execute, 0);       \
+        rdtsc_prof_init(&x25519_cycles_keygen_setup, 0);   \
+        rdtsc_prof_init(&x25519_cycles_keygen_execute, 0); \
+        rdtsc_prof_init(&x25519_cycles_derive_setup, 0);   \
+        rdtsc_prof_init(&x25519_cycles_derive_execute, 0); \
     } while (0)
 
 
 #  define PRINT_RDTSC_AVERAGES() \
     do {                         \
-        fprintf(qatDebugLogFile,"=========================\n");             \
-        fprintf(qatDebugLogFile,"Average Cycle Counts.\n");                 \
-        fprintf(qatDebugLogFile,"=========================\n");             \
-        rdtsc_prof_print(&rsa_cycles_priv_enc_setup, "[RSA:priv_enc_setup]");     \
-        rdtsc_prof_print(&rsa_cycles_priv_dec_setup, "[RSA:priv_dec_setup]");     \
-        rdtsc_prof_print(&rsa_cycles_priv_execute, "[RSA:priv_execute]");         \
-        rdtsc_prof_print(&rsa_cycles_pub_enc_setup, "[RSA:pub_enc_setup]");       \
-        rdtsc_prof_print(&rsa_cycles_pub_dec_setup, "[RSA:pub_dec_setup]");       \
-        rdtsc_prof_print(&rsa_cycles_pub_execute, "[RSA:pub_execute]");           \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"Average Cycle Counts.\n");                    \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        rdtsc_prof_print(&rsa_cycles_priv_enc_setup, "[RSA:priv_enc_setup]");  \
+        rdtsc_prof_print(&rsa_cycles_priv_dec_setup, "[RSA:priv_dec_setup]");  \
+        rdtsc_prof_print(&rsa_cycles_priv_execute, "[RSA:priv_execute]");      \
+        rdtsc_prof_print(&rsa_cycles_pub_enc_setup, "[RSA:pub_enc_setup]");    \
+        rdtsc_prof_print(&rsa_cycles_pub_dec_setup, "[RSA:pub_dec_setup]");    \
+        rdtsc_prof_print(&rsa_cycles_pub_execute, "[RSA:pub_execute]");        \
+        rdtsc_prof_print(&x25519_cycles_keygen_setup, "[X22519:keygen_setup]");     \
+        rdtsc_prof_print(&x25519_cycles_keygen_execute, "[X22519:keygen_execute]"); \
+        rdtsc_prof_print(&x25519_cycles_derive_setup, "[X22519:derive_setup]");     \
+        rdtsc_prof_print(&x25519_cycles_derive_execute, "[X22519:derive_execute]"); \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \

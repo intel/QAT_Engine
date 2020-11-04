@@ -105,7 +105,6 @@ typedef struct _rsa_pub_op_data {
 typedef struct _x25519_keygen_op_data {
     struct _x25519_keygen_op_data *next;
     struct _x25519_keygen_op_data *prev;
-    EVP_PKEY_CTX *ctx;
     EVP_PKEY *pkey;
     const unsigned char *privkey;
     unsigned char *pubkey;
@@ -117,11 +116,9 @@ typedef struct _x25519_keygen_op_data {
 typedef struct _x25519_derive_op_data {
     struct _x25519_derive_op_data *next;
     struct _x25519_derive_op_data *prev;
-    EVP_PKEY_CTX *ctx;
     unsigned char *key;
     const unsigned char *privkey;
     const unsigned char *pubkey;
-    size_t *keylen;
     ASYNC_JOB *job;
     int *sts;
 } x25519_derive_op_data;

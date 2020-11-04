@@ -71,6 +71,10 @@ rdtsc_prof_t rsa_cycles_priv_execute;
 rdtsc_prof_t rsa_cycles_pub_enc_setup;
 rdtsc_prof_t rsa_cycles_pub_dec_setup;
 rdtsc_prof_t rsa_cycles_pub_execute;
+rdtsc_prof_t x25519_cycles_keygen_setup;
+rdtsc_prof_t x25519_cycles_keygen_execute;
+rdtsc_prof_t x25519_cycles_derive_setup;
+rdtsc_prof_t x25519_cycles_derive_execute;
 
 volatile static double rdtsc_prof_cost = 0.0; /* cost of measurement */
 int print_cycle_count = 1;

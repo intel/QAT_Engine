@@ -322,7 +322,6 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         goto err;
     }
 
-    x25519_keygen_req->ctx = ctx;
     x25519_keygen_req->pkey = pkey;
     x25519_keygen_req->privkey =  privkey;
     x25519_keygen_req->pubkey =  pubkey;
@@ -469,9 +468,7 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     if (!multibuff_validate_ecx_derive(ctx, &privkey, &pubkey))
         return sts;
 
-    x25519_derive_req->ctx = ctx;
     x25519_derive_req->key = key;
-    x25519_derive_req->keylen = keylen;
     x25519_derive_req->privkey = privkey;
     x25519_derive_req->pubkey = pubkey;
     x25519_derive_req->job = job;
