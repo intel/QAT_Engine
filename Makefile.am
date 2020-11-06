@@ -7,8 +7,6 @@ if OPENSSL_QAT_OFFLOAD
 if QAT_CONTIG_MEM
  MEM_LIB_SRC = qae_mem_utils.c \
                qat_sys_call.c
- MEM_LIB_HDR = qae_mem_utils.h \
-               qat_sys_call.h
 endif
 
 if QAT_MULTI_THREAD
@@ -18,7 +16,6 @@ endif
 
 if QAE_MEM
  MEM_LIB_SRC = cmn_mem_drv_inf.c
- MEM_LIB_HDR = cmn_mem_drv_inf.h
 endif
 endif
 
@@ -29,14 +26,6 @@ OPENSSL_COMMON_SRC = e_qat.c        \
                      qat_utils.c    \
                      qat_evp.c
 
-OPENSSL_COMMON_HDR = e_qat.h        \
-                     e_qat_err.h    \
-                     qat_fork.h     \
-                     qat_events.h   \
-                     qat_utils.h    \
-                     qat_evp.h
-
-
 if OPENSSL_MULTIBUFF_OFFLOAD
  OPENSSL_MULTIBUFF_SRC = multibuff_init.c     \
                          multibuff_polling.c  \
@@ -44,12 +33,6 @@ if OPENSSL_MULTIBUFF_OFFLOAD
                          multibuff_queue.c    \
                          multibuff_rsa.c      \
                          multibuff_ecx.c
-
- OPENSSL_MULTIBUFF_HDR = multibuff_polling.h  \
-                         multibuff_freelist.h \
-                         multibuff_queue.h    \
-                         multibuff_rsa.h      \
-                         multibuff_ecx.h
 endif
 
 if OPENSSL_QAT_OFFLOAD
@@ -69,22 +52,11 @@ if !QAT_OPENSSL_110
  OPENSSL_111_SRC = qat_hkdf.c        \
                    qat_ecx.c
 endif
-
- OPENSSL_QAT_HDR = qat_asym_common.h \
-                   qat_polling.h     \
-                   qat_callback.h    \
-                   qat_rsa.h         \
-                   qat_rsa_crt.h     \
-                   qat_ciphers.h     \
-                   qat_dh.h          \
-                   qat_dsa.h         \
-                   qat_ec.h
 endif
 
 if OPENSSL_IPSEC_OFFLOAD
   OPENSSL_VAES_SRC = vaes_gcm.c      \
                      vaes_ipsec_inf.c
-  OPENSSL_VAES_HDR = vaes_gcm.h
 endif
 
 libqatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}    \
@@ -93,12 +65,6 @@ libqatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}    \
                           ${OPENSSL_MULTIBUFF_SRC} \
                           ${MEM_LIB_SRC}           \
                           ${OPENSSL_VAES_SRC}
-
-include_HEADERS = ${OPENSSL_COMMON_HDR}    \
-                  ${OPENSSL_QAT_HDR}       \
-                  ${OPENSSL_MULTIBUFF_HDR} \
-                  ${MEM_LIB_HDR}           \
-                  ${OPENSSL_VAES_HDR}
 
 AM_CPPFLAGS = $(includes_openssl) $(includes_usdm) $(includes_driver) \
               $(includes_multibuff) $(includes_ipsec)
@@ -130,14 +96,18 @@ mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
 	*.old *.bak fluff *.so *.sl *.dll
 
-	-rm -f $(engine_install_dir)/$(with_qat_engine_id).so
 
 if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make
 endif
 
-install-data-am:
-	cp -f .libs/libqatengine.so $(engine_install_dir)/$(with_qat_engine_id).so
+install-exec-hook:
+	mkdir -p $(DESTDIR)$(libdir)/$(engine_dir)
+	ln -s -f ../`readlink $(DESTDIR)$(libdir)/libqatengine.so` \
+	$(DESTDIR)$(libdir)/$(engine_dir)/qatengine.so
+
+uninstall-hook:
+	-rm -f $(DESTDIR)$(libdir)/$(engine_dir)/$(with_qat_engine_id).so
 
 err-files:
 if QAT_OPENSSL_110

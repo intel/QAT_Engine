@@ -10,7 +10,6 @@ AM_INIT_AUTOMAKE([foreign])
 
 #Libtool for generating shared library
 LT_INIT
-AC_PROG_LIBTOOL
 AC_PROG_LN_S
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -240,10 +239,10 @@ then
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
     AC_ARG_WITH(cflags_openssl_300, AS_HELP_STRING(), , cflags_openssl_300="-DSSL_QAT_USE_ASYNC_CALLBACK")
     AC_SUBST(cflags_openssl_300)
-    engine_install_dir="\$(with_openssl_install_dir)/lib/engines-3"
+    engine_dir="engines-3"
   else
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.x])
-    engine_install_dir="\$(with_openssl_install_dir)/lib/engines-1.1"
+    engine_dir="engines-1.1"
     if test "`grep "define OPENSSL_VERSION_NUMBER  0x10100" $with_openssl_install_dir/include/openssl/opensslv.h | wc -l`" = "1"
     then
       if test "x$with_openssl_dir" = "x"
@@ -258,25 +257,29 @@ then
 else
   AC_PATH_TOOL(PKGCONFIG, pkg-config)
   AS_IF([test "x$PKGCONFIG" = "x"], [AC_MSG_ERROR(pkg-config not found.)], )
+  libdir="`pkg-config --variable=libdir libcrypto`"
   includes_openssl="`pkg-config --variable=includedir libcrypto`"
   if test "`grep "define OPENSSL_VERSION_MAJOR" $includes_openssl/openssl/opensslv.h | awk '{print $4}'`" = "3"
   then
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
     AC_ARG_WITH(cflags_openssl_300, AS_HELP_STRING(), , cflags_openssl_300="-DSSL_QAT_USE_ASYNC_CALLBACK")
+    engine_dir="engines-3"
     AC_SUBST(cflags_openssl_300)
   else
+    engine_dir="engines-1.1"
     if test "`grep "define OPENSSL_VERSION_NUMBER  0x10100" $includes_openssl/openssl/opensslv.h | wc -l`" = "1"
     then
       AC_MSG_ERROR([OpenSSL version in the system is less than 1.1.1. Either update system OpenSSL to 1.1.1 or Use "--with-openssl_install_dir" pointing to the path where OpenSSL downloaded from source is installed. Additional flag "--with-openssl_dir" pointing to the OpenSSL source dir needs to be configured for OpenSSL 1.1.0])
     fi
   fi
-  engine_install_dir="`pkg-config --variable=enginesdir libcrypto`"
   AC_ARG_WITH(includes_openssl, AS_HELP_STRING(), , includes_openssl="-I`pkg-config --variable=includedir libcrypto`")
   AC_MSG_NOTICE([Install engine in the system OpenSSL enginesdir Path])
+  AC_SUBST(libdir)
 fi
 AM_CONDITIONAL([QAT_OPENSSL_110], [test "x$cflags_openssl_110" != "x"])
 AC_SUBST(includes_openssl)
-AC_SUBST(engine_install_dir)
+AC_SUBST(engine_dir)
+
 
 # If both QAT and Multibuff configured, then check the libraries from standard location and use accordingly.
 if test "x$cflags_qat_intree" = "x"
@@ -682,9 +685,10 @@ then
     AC_ARG_WITH(includes_multibuff, AS_HELP_STRING(), , includes_multibuff="-I\$(with_multibuff_install_dir)/include")
     AC_ARG_WITH(QAT_SHARED_LIB_DEPS_MULTIBUFF, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_MULTIBUFF=["-Wl,-rpath,\$(with_multibuff_install_dir)/lib -L\$(with_multibuff_install_dir)/lib -lcrypto_mb"])
   else
+    with_multibuff_install_dir="/usr/local"
     AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Using crypto_mb Library from default location])], [AC_MSG_ERROR([crypto_mb Library not found, Install the crypto_mb library or provide the path to the library using --with-multibuff_install_dir])],[])
     AC_ARG_WITH(includes_multibuff, AS_HELP_STRING(), , includes_multibuff="-I/usr/local/include -I/usr/include")
-    AC_ARG_WITH(QAT_SHARED_LIB_DEPS_MULTIBUFF, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_MULTIBUFF=["-lcrypto_mb"])
+    AC_ARG_WITH(QAT_SHARED_LIB_DEPS_MULTIBUFF, AS_HELP_STRING(), , QAT_SHARED_LIB_DEPS_MULTIBUFF=["-Wl,-rpath,\$(with_multibuff_install_dir)/lib -L\$(with_multibuff_install_dir)/lib -lcrypto_mb"])
   fi
 AC_SUBST(includes_multibuff)
 AC_SUBST(QAT_SHARED_LIB_DEPS_MULTIBUFF)
