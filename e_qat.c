@@ -147,7 +147,7 @@
 /* Qat engine id declaration */
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine v0.6.1";
+    "Reference implementation of QAT crypto engine v0.6.2";
 unsigned int engine_inited = 0;
 
 int qat_offload = 0;

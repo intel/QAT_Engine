@@ -101,8 +101,8 @@ This release was validated on the following:
 
 * Operating system: CentOS\* 7.4 64-bit version & FreeBSD\* 11.3 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.10
-* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version 3.7
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version 4.11
+* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version 3.8
 * OpenSSL\* 1.1.1
 
 It is recommended that the Intel&reg; QAT OpenSSL\* Engine is built against
@@ -148,13 +148,7 @@ repository:
   Operating system or in the qatlib RPM. The default is to use the USDM memory
   driver supplied as part of the Intel&reg; QAT Driver.
 * Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
-  in release OpenSSL\* 1.1.1d.  This was fixed in a subsequent commit to
-  the OpenSSL\* 1.1.1 stable branch. As there were no high or medium security fixes
-  between OpenSSL\* 1.1.1c and OpenSSL\* 1.1.1d then it is recommended that you
-  use OpenSSL\* 1.1.1c.  If you are, however, using specific features of OpenSSL\* 1.1.1d
-  it is recommended that you rather build against an OpenSSL\* pulled from
-  the OpenSSL\* 1.1.1 stable branch that includes commit [61cc715][8] in which the
-  problem was fixed, or a later commit from this branch.
+  in release OpenSSL\* 1.1.1d. This was later fixed in OpenSSL\* 1.1.1e release.
 * Support for Multi-buffer offload is extended to RSA 2k only. Other key sizes will
   use the standard OpenSSL implementation when this feature is enabled.
 * X25519/X448 support is available only from version 4.9 of the Intel&reg; QAT
@@ -166,7 +160,6 @@ repository:
   versions of the Linux driver.
 
 [7]:https://github.com/openssl/openssl/pull/2581
-[8]:https://github.com/openssl/openssl/pull/10080
 
 ## Installation Instructions
 
@@ -178,9 +171,9 @@ Please follow the instructions contained in:
 **For Intel&reg; Atom&trade; Processor:**
 **For Intel&reg; Communications Chipset 8925 to 8955 Series:**
 Intel&reg; QuickAssist Technology Software for Linux\* -
-[Getting Started Guide - HW version 1.7 (336212)][9]
+[Getting Started Guide - HW version 1.7 (336212)][8]
 
-[9]:https://01.org/sites/default/files/downloads/336212007qatswgsg.pdf
+[8]:https://01.org/sites/default/files/downloads/336212007qatswgsg.pdf
 
 Other technical collaterals of the Intel&reg; QuickAssist Technology driver
 can be found in the below 01.org page.
@@ -218,7 +211,7 @@ option.
 
 From OpenSSL\* version 1.1.0c onwards, automatic RPATH has been removed.
 The reason for this is that before OpenSSL\* version 1.1.0, binaries were
-installed in a non-standard location by default, and runpath driectories were
+installed in a non-standard location by default, and runpath directories were
 therefore added in those binaries, to make sure the executables would be able to
 find the shared libraries they were linked with.  However, with OpenSSL\* version
 1.1.0 and on, binaries are installed in standard directories by default, and the
@@ -456,15 +449,15 @@ respectively. Event driven config files are only supported in Linux.
 Once you have decided which config file you should use,
 or created your own you should follow the procedure below to install it:
 
-1. Stop the acceleration driver as decribed in the Section 3.4
+1. Stop the acceleration driver as described in the Section 3.4
    Starting/Stopping the Acceleration software from the
-   [Getting Started Guide - HW version 1.7 (336212)][9]
+   [Getting Started Guide - HW version 1.7 (336212)][8]
 
 2. Copy the appropriate `.conf` file to `/etc`
 
-3. Start the acceleration driver as decribed in the Section 3.4
+3. Start the acceleration driver as described in the Section 3.4
    Starting/Stopping the Acceleration software from the
-   [Getting Started Guide - HW version 1.7 (336212)][9]
+   [Getting Started Guide - HW version 1.7 (336212)][8]
 
 ### Test the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
@@ -574,7 +567,7 @@ If this occurs some of the things to check are:
       `--with-openssl_dir` specified? (Linux Specific)
    7. If building from OpenSSL prebuilt RPM Package, has the OpenSSL developement
       packages (openssl-devel for Redhat* based distribution and libssl-devel
-      for Debian* based distibution) been installed ?
+      for Debian* based distribution) been installed ?
 
 If running on a Debian\* based OS (Ubuntu\* for example) it is possible that the
 Intel&reg; QAT Driver userspace shared library needed by the Intel&reg; QAT
@@ -1344,9 +1337,9 @@ Intel&reg; QuickAssist Technology Software for Linux\* - Programmer's Guide - HW
 version 1.7 (336210) - Section 3.17 Heartbeat.
 
 This document can be found on the 01.org website at the following hyperlink:
-* [Intel&reg; QuickAssist Technology Programmer's Guide][10]
+* [Intel&reg; QuickAssist Technology Programmer's Guide][9]
 
-[10]:https://01.org/sites/default/files/downloads/336210qatswpg-013.pdf
+[9]:https://01.org/sites/default/files/downloads/336210qatswpg-013.pdf
 
 The Intel&reg; QuickAssist Heartbeat feature provides a mechanism for the
 Intel&reg; QAT OpenSSL\* Engine to detect unresponsive acceleration devices and
@@ -1354,7 +1347,7 @@ to be notified of the start and end of any reset of the acceleration devices.
 The Heartbeat feature suspends all QAT instances associated with that
 acceleration device between these two reset-start and reset-end events.
 An acceleration device can be configured for automatic reset by the QAT
-framework upon heartbeat failure by using the `AutomaticResetOnError = 1` field
+framework upon heartbeat failure by using the `AutoResetOnError = 1` field
 in the `[GENERAL]` section of device configuration file `/etc/<device>.conf`.
 The Intel&reg; QAT OpenSSL\* Engine's software fallback feature requires this
 field to be set.
@@ -1403,16 +1396,15 @@ asynchronous operations where there are many parallel connections.
 
 ### Requirements
 
-Successful operation of the Multi-buffer support requires a software tool
-chain that supports OpenSSL\* 1.1.1 and Intel&reg; Crypto Multi-buffer
-library version 0.5.3 cloned from the [ipp-crypto GitHub][11] repo
-and installed using the instructions in the Readme from
-[Crypto Multi-buffer Library][12]. The crypto-mb release commit to clone
-is specified in the QAT Engine release notes. This support is not available in the
-FreeBSD operating system.
+Successful operation of the Multi-buffer Software optmization requires a
+software tool chain that supports OpenSSL\* 1.1.1 and Intel&reg; Crypto
+Multi-buffer library cloned from the [ipp-crypto][10] release version
+**IPP Crypto 2020 Update 3**. The crypto_mb library needs to be installed
+using the instructions in the Readme from [Crypto Multi-buffer Library][11].
+This support is not available in the FreeBSD operating system.
 
-[11]:https://github.com/intel/ipp-crypto
-[12]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
+[10]:https://github.com/intel/ipp-crypto
+[11]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
 
 ### Build Instructions for Intel&reg; QAT OpenSSL\* Engine to enable Multi-buffer Support
 
@@ -1458,13 +1450,11 @@ and AVX512 instructions from the processor.
 
 Successful operation of the IPsec offload requires a software tool chain that
 supports OpenSSL\* 1.1.1 and Intel&reg; Multi-Buffer crypto for IPsec Library
-release version v0.54 or above cloned from the [intel-ipsec-mb][13] repo and
-installed using the instructions from the intel-ipsec [README with security
-considerations][14]. This support is not tested in the
-FreeBSD operating system.
+release version **v0.55** cloned from the [intel-ipsec-mb][12] repo and
+installed using the instructions from the intel-ipsec README. This support is
+not tested in the FreeBSD operating system.
 
-[13]:https://github.com/intel/intel-ipsec-mb
-[14]:https://github.com/intel/intel-ipsec-mb#6-security-considerations--options-for-increased-security
+[12]:https://github.com/intel/intel-ipsec-mb
 
 ### Build flag to enable Intel&reg; IPsec Vectorized AES Support
 
