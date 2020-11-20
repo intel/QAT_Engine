@@ -40,9 +40,9 @@ autoreconf -ivf
 %license LICENSE
 %doc README.md
 %{_libdir}/libqatengine.so.%{soversion}*
-%{_libdir}/libqatengine.so
 %{enginesdir}/qatengine.so
 %exclude %{_libdir}/libqatengine.la
+%exclude %{_libdir}/libqatengine.so
 
 %changelog
 * Wed Nov 18 2020 Dinesh Balakrishnan <dineshx.balakrishnan@intel.com> 0.6.2-1
