@@ -1,7 +1,6 @@
-
 ACLOCAL_AMFLAGS = -I m4
 
-lib_LTLIBRARIES = libqatengine.la
+lib_LTLIBRARIES = qatengine.la
 
 if OPENSSL_QAT_OFFLOAD
 if QAT_CONTIG_MEM
@@ -59,12 +58,12 @@ if OPENSSL_IPSEC_OFFLOAD
                      vaes_ipsec_inf.c
 endif
 
-libqatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}    \
-                          ${OPENSSL_QAT_SRC}       \
-                          ${OPENSSL_111_SRC}       \
-                          ${OPENSSL_MULTIBUFF_SRC} \
-                          ${MEM_LIB_SRC}           \
-                          ${OPENSSL_VAES_SRC}
+qatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}    \
+                       ${OPENSSL_QAT_SRC}       \
+                       ${OPENSSL_111_SRC}       \
+                       ${OPENSSL_MULTIBUFF_SRC} \
+                       ${MEM_LIB_SRC}           \
+                       ${OPENSSL_VAES_SRC}
 
 AM_CPPFLAGS = $(includes_openssl) $(includes_usdm) $(includes_driver) \
               $(includes_multibuff) $(includes_ipsec)
@@ -86,28 +85,20 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_intree)           \
             $(enable_multibuff_heuristic_timeout)
 
 
-libqatengine_la_LDFLAGS = $(QAT_SHARED_LIB_DEPS_LD)        \
-                          $(QAT_SHARED_LIB_DEPS_DRIVER)    \
-                          $(QAT_SHARED_LIB_DEPS_QAE_MEM)   \
-                          $(QAT_SHARED_LIB_DEPS_MULTIBUFF) \
-                          $(QAT_SHARED_LIB_DEPS_IPSEC)
+qatengine_la_LDFLAGS = -module -no-undefined -avoid-version \
+                       -shared $(QAT_SHARED_LIB_DEPS_LD)    \
+                       $(QAT_SHARED_LIB_DEPS_DRIVER)        \
+                       $(QAT_SHARED_LIB_DEPS_QAE_MEM)       \
+                       $(QAT_SHARED_LIB_DEPS_MULTIBUFF)     \
+                       $(QAT_SHARED_LIB_DEPS_IPSEC)
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
 	*.old *.bak fluff *.so *.sl *.dll
 
-
 if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make
 endif
-
-install-exec-hook:
-	mkdir -p $(DESTDIR)$(libdir)/$(engine_dir)
-	ln -s -f ../`readlink $(DESTDIR)$(libdir)/libqatengine.so` \
-	$(DESTDIR)$(libdir)/$(engine_dir)/qatengine.so
-
-uninstall-hook:
-	-rm -f $(DESTDIR)$(libdir)/$(engine_dir)/$(with_qat_engine_id).so
 
 err-files:
 if QAT_OPENSSL_110

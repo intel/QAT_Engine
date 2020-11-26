@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: MIT
 
 %global githubname QAT_Engine
-%global soversion 0
 %global enginesdir %(pkg-config --variable=enginesdir libcrypto)
 
 Name:           qatengine
-Version:        0.6.2
+Version:        0.6.3
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
-License:        BSD
+# The QAT Engine license is BSD, some of the code is derived from OpenSSL
+License:        BSD and OpenSSL
 URL:            https://github.com/intel/%{githubname}
 Source0:        https://github.com/intel/%{githubname}/archive/v%{version}/%{name}-%{version}.tar.gz
 
@@ -37,14 +37,15 @@ autoreconf -ivf
 %make_install
 
 %files
-%license LICENSE
+%license LICENSE*
 %doc README.md
-%{_libdir}/libqatengine.so.%{soversion}*
 %{enginesdir}/qatengine.so
-%exclude %{_libdir}/libqatengine.la
-%exclude %{_libdir}/libqatengine.so
+%exclude %{enginesdir}/qatengine.la
 
 %changelog
+* Mon Nov 30 2020 Yogaraj Alamenda <yogarajx.alamenda@intel.com> 0.6.3-1
+- Update to qatengine v0.6.3
+- Update License and library installation
 * Wed Nov 18 2020 Dinesh Balakrishnan <dineshx.balakrishnan@intel.com> 0.6.2-1
 - Update to qatengine v0.6.2
 - Address review comments

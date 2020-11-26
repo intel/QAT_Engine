@@ -33,11 +33,10 @@
 The Licensing of the files within this project is split as follows:
 
 Intel&reg; QuickAssist Technology(QAT) OpenSSL\* Engine - BSD License.
-Please see the `LICENSE` file contained in the top level folder. Some of the
-engine code contains modified code from OpenSSL/BoringSSL. In both cases the
-code is licensed under the OpenSSL license available at
-<https://www.openssl.org/source/license.html>. Further details can be found in
-the file headers of the relevant files.
+This product includes software developed by the OpenSSL Project for use in the
+OpenSSL Toolkit (http://www.openssl.org/).
+Please see the `LICENSE` and `LICENSE.OPENSSL` file contained in the top level folder.
+Further details can be found in the file headers of the relevant files.
 
 Example Intel&reg; Contiguous Memory Driver contained within the folder
 `qat_contig_mem` - GPLv2 License.
@@ -1095,7 +1094,9 @@ Optional
    This option needs to be specified if you want to use an engine id other than
    the default which is now "qatengine" (previously it was "qat"). This option
    can be used to set engine id as "qat" for application that still uses older
-   engine id within the application(disabled by default).
+   engine id within the application. Additionally, qatengine library name in the
+   OpenSSL engine install dir has to be renamed with the engine_id provided here
+   (disabled by default).
 
 --disable-multi_thread/--enable-multi_thread
     Disable/Enable an alternative way of managing within userspace the pinned
