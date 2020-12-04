@@ -7,7 +7,10 @@ Name:           qatengine
 Version:        0.6.3
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
-# The QAT Engine license is BSD, some of the code is derived from OpenSSL
+# Most of the source code is BSD, with the following exceptions:
+#  - e_qat.txt, e_qat_err.c, and e_qat_err.h are OpenSSL
+#  - qat/config/* are (BSD or GPLv2), but are not used during compilation
+#  - qat_contig_mem/* are GPLv2, but are not used during compilation
 License:        BSD and OpenSSL
 URL:            https://github.com/intel/%{githubname}
 Source0:        https://github.com/intel/%{githubname}/archive/v%{version}/%{name}-%{version}.tar.gz
