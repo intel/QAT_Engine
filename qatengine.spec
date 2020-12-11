@@ -4,7 +4,7 @@
 %global enginesdir %(pkg-config --variable=enginesdir libcrypto)
 
 Name:           qatengine
-Version:        0.6.3
+Version:        0.6.4
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
 # Most of the source code is BSD, with the following exceptions:
@@ -19,8 +19,8 @@ BuildRequires:  gcc make pkg-config
 BuildRequires:  autoconf automake libtool
 BuildRequires:  openssl-devel >= 1.1.1
 BuildRequires:  qatlib-devel >= 20.10.0
-# Exclude arm, aarch64, power64 and s390x due to broken build
-ExcludeArch:    %{arm} aarch64 %{power64} s390x
+# https://bugzilla.redhat.com/show_bug.cgi?id=1909065
+ExcludeArch:    %{arm} aarch64 %{power64} s390x i686
 
 %description
 This package provides the Intel QuickAssist Technology OpenSSL Engine
@@ -46,11 +46,16 @@ autoreconf -ivf
 %exclude %{enginesdir}/qatengine.la
 
 %changelog
+* Fri Dec 11 2020 Yogaraj Alamenda <yogarajx.alamenda@intel.com> 0.6.4-1
+- Update to qatengine v0.6.4
+
 * Mon Nov 30 2020 Yogaraj Alamenda <yogarajx.alamenda@intel.com> 0.6.3-1
 - Update to qatengine v0.6.3
 - Update License and library installation
+
 * Wed Nov 18 2020 Dinesh Balakrishnan <dineshx.balakrishnan@intel.com> 0.6.2-1
 - Update to qatengine v0.6.2
 - Address review comments
+
 * Tue Sep 08 2020 Dinesh Balakrishnan <dineshx.balakrishnan@intel.com> 0.6.1-1
 - Initial version of rpm package
