@@ -98,7 +98,7 @@ int multibuff_init(ENGINE *e)
     if (NULL == e_check) {
         WARN("Failure to allocate e_check\n");
         QATerr(QAT_F_MULTIBUFF_INIT, QAT_R_ALLOC_E_CHECK_FAILURE);
-        pthread_mutex_unlock(&qat_engine_mutex);
+        qat_pthread_mutex_unlock();
         qat_engine_finish(e);
         return 0;
     }
@@ -119,7 +119,7 @@ int multibuff_init(ENGINE *e)
         WARN("Failure to allocate req arrays\n");
         QATerr(QAT_F_MULTIBUFF_INIT,
                      QAT_R_CREATE_FREELIST_QUEUE_FAILURE);
-        pthread_mutex_unlock(&qat_engine_mutex);
+        qat_pthread_mutex_unlock();
         qat_engine_finish(e);
         return 0;
     }
@@ -134,7 +134,7 @@ int multibuff_init(ENGINE *e)
             WARN("pthread_sigmask error\n");
             QATerr(QAT_F_MULTIBUFF_INIT,
                          QAT_R_POLLING_THREAD_SIGMASK_FAILURE);
-            pthread_mutex_unlock(&qat_engine_mutex);
+            qat_pthread_mutex_unlock();
             qat_engine_finish(e);
             return 0;
         }
@@ -145,7 +145,7 @@ int multibuff_init(ENGINE *e)
             QATerr(QAT_F_MULTIBUFF_INIT,
                          QAT_R_POLLING_THREAD_CREATE_FAILURE);
             multibuff_polling_thread = pthread_self();
-            pthread_mutex_unlock(&qat_engine_mutex);
+            qat_pthread_mutex_unlock();
             qat_engine_finish(e);
             return 0;
         }

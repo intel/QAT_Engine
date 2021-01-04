@@ -411,11 +411,31 @@ static int hw_support(void) {
 }
 #endif
 
+int qat_pthread_mutex_lock(void)
+{
+    int ret = 0;
+    ret = pthread_mutex_lock(&qat_engine_mutex);
+    if (ret != 0) {
+        WARN("pthread mutex lock failure\n");
+    }
+    return ret;
+}
+
+int qat_pthread_mutex_unlock(void)
+{
+    int ret = 0;
+    ret = pthread_mutex_unlock(&qat_engine_mutex);
+    if (ret != 0) {
+        WARN("pthread mutex unlock failure\n");
+    }
+    return ret;
+}
+
 int qat_engine_init(ENGINE *e)
 {
-    pthread_mutex_lock(&qat_engine_mutex);
+    qat_pthread_mutex_lock();
     if (engine_inited) {
-        pthread_mutex_unlock(&qat_engine_mutex);
+        qat_pthread_mutex_unlock();
         return 1;
     }
 
@@ -441,7 +461,7 @@ int qat_engine_init(ENGINE *e)
 #endif
 
     engine_inited = 1;
-    pthread_mutex_unlock(&qat_engine_mutex);
+    qat_pthread_mutex_unlock();
 
     return 1;
 }
@@ -451,7 +471,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     int ret = 1;
 
     DEBUG("---- QAT Engine Finishing...\n\n");
-    pthread_mutex_lock(&qat_engine_mutex);
+    qat_pthread_mutex_lock();
 
 #ifdef OPENSSL_QAT_OFFLOAD
     if (qat_offload) {
@@ -471,9 +491,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         enable_external_polling = 0;
         enable_heuristic_polling = 0;
     }
-
-    pthread_mutex_unlock(&qat_engine_mutex);
-
+    qat_pthread_mutex_unlock();
     CRYPTO_CLOSE_QAT_LOG();
     return ret;
 }
@@ -784,7 +802,6 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     }
     return retVal;
 }
-
 
 /******************************************************************************
  * function:

@@ -383,6 +383,7 @@ extern mb_req_rates mb_x25519_derive_req_rates;
 # define QAT_CMD_DISABLE_QAT_OFFLOAD (ENGINE_CMD_BASE + 19)
 
 # ifdef OPENSSL_QAT_OFFLOAD
+
 /******************************************************************************
  * function:
  *         qat_get_qat_offload_disabled(void)
@@ -563,6 +564,26 @@ int qat_engine_finish(ENGINE *e);
  *   QAT_RETAIN_GLOBALS
  ******************************************************************************/
 int qat_engine_finish_int(ENGINE *e, int reset_globals);
+
+/*****************************************************************************
+ * function:
+ *          int qat_pthread_mutex_lock(void)
+ *
+ *  description:
+ *  Wrapper function to pthread_mutex with return values checked.
+ *
+ ******************************************************************************/
+int qat_pthread_mutex_lock(void);
+
+/*****************************************************************************
+ * function:
+ *          int qat_pthread_mutex_unlock(void)
+ *
+ *  description:
+ *  Wrapper function to pthread_mutex with return values checked.
+ *
+ ******************************************************************************/
+int qat_pthread_mutex_unlock(void);
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
 /*****************************************************************************
