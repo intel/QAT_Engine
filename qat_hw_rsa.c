@@ -912,6 +912,7 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
+    int lenstra_ret = 0;
 #endif
 
     DEBUG("- Started.\n");
@@ -978,19 +979,27 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
     /* Note: not checking 'd' as it is not used */
     if (e != NULL) { /* then a public key exists and we can effect Lenstra attack protection*/
-        ver_msg = OPENSSL_zalloc(flen);
-        if (ver_msg == NULL) {
-            WARN("ver_msg zalloc failed.\n");
-            QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_MALLOC_FAILURE);
-            sts = 0;
-            goto exit_lenstra;
-        }
-        if ((RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
-             (rsa_len, (const unsigned char *)to, ver_msg, rsa, padding) <= 0)
-            || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
-            WARN("- Verify failed - redoing sign operation in s/w\n");
+            ver_msg = OPENSSL_zalloc(flen);
+            if (ver_msg == NULL) {
+                WARN("ver_msg zalloc failed.\n");
+                QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_MALLOC_FAILURE);
+                sts = 0;
+                goto exit_lenstra;
+            }
+# ifdef ENABLE_QAT_HW_LENSTRA_VERIFY_HW
+        lenstra_ret = qat_rsa_pub_dec(rsa_len, (const unsigned char *)to,
+                                      ver_msg, rsa, padding);
+# else
+        lenstra_ret = RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
+                                           (rsa_len,
+                                           (const unsigned char *)to,
+                                           ver_msg, rsa, padding);
+# endif
+        if ((lenstra_ret <= 0) || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
+            WARN("QAT RSA Verify failed - redoing sign operation in s/w\n");
             OPENSSL_free(ver_msg);
-            return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
+            return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
+                                         (flen, from, to, rsa, padding);
         }
         OPENSSL_free(ver_msg);
     }
@@ -1050,6 +1059,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
+    int lenstra_ret = 0;
 #endif
 
     DEBUG("- Started.\n");
@@ -1110,10 +1120,18 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
             sts = 0;
             goto exit;
         }
-        if ((RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
-             (rsa_len, (const unsigned char *)output_buffer->pData, ver_msg, rsa, RSA_NO_PADDING) <= 0)
-            || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
-            WARN("- Verify of offloaded decrypt operation failed - redoing decrypt operation in s/w\n");
+# ifdef ENABLE_QAT_HW_LENSTRA_VERIFY_HW
+        lenstra_ret = qat_rsa_pub_enc(rsa_len,
+                                      (const unsigned char *)output_buffer->pData,
+                                      ver_msg, rsa, RSA_NO_PADDING);
+# else
+        lenstra_ret = RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
+                                           (rsa_len,
+                                           (const unsigned char *)output_buffer->pData,
+                                           ver_msg, rsa, RSA_NO_PADDING);
+# endif
+        if ((lenstra_ret <= 0) || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
+            WARN("- QAT RSA sign failed - redoing decrypt operation in s/w\n");
             OPENSSL_free(ver_msg);
             rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
             return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);

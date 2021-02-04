@@ -81,6 +81,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(enable_qat_hw_hkdf) $(enable_qat_hw_ecx)               \
             $(enable_qat_hw_small_pkt_offload)                       \
             $(enable_qat_hw_lenstra_protection)                      \
+            $(enable_qat_hw_lenstra_verify_hw)                       \
             $(enable_qat_sw_gcm) $(enable_qat_sw_rsa)                \
             $(enable_qat_sw_ecx) $(enable_qat_sw_ecdsa)              \
             $(enable_qat_sw_ecdh) $(enable_qat_sw_heuristic_timeout) \

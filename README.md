@@ -1122,6 +1122,10 @@ Optional
     https://security-center.intel.com/advisory.aspx?intelid=INTEL-SA-00071&languageid=en-fr
     https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5681
 
+--enable-qat_hw_lenstra_verify_hw
+    Enable Lenstra Verify using QAT HW instead of OpenSSL Software method.
+    (disabled by default).
+
 --disable-qat_auto_engine_init_on_fork/--enable-qat_auto_engine_init_on_fork
     Disable/Enable the engine from being initialized automatically following a
     fork operation. This is useful in a situation where you want to tightly

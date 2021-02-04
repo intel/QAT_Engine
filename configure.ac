@@ -207,6 +207,11 @@ AC_ARG_ENABLE(qat_hw_lenstra_protection,
                              [Disable protection against Lenstra attack]))
 AC_SUBST(enable_qat_hw_lenstra_protection)
 
+AC_ARG_ENABLE(qat_hw_lenstra_verify_hw,
+              AS_HELP_STRING([--enable-qat_hw_lenstra_verify_hw],
+                             [Enable Lenstra Verify using QAT HW instead of OpenSSL SW]))
+AC_SUBST(enable_qat_hw_lenstra_verify_hw)
+
 AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
               AS_HELP_STRING([--disable-qat_auto_engine_init_on_fork],
                              [Disable auto initialization of the engine following a fork]))
@@ -525,6 +530,15 @@ then
 else
   enable_qat_hw_lenstra_protection=""
   AC_MSG_NOTICE([Lenstra attack protection enabled (default).])
+fi
+
+if test "x$enable_qat_hw_lenstra_verify_hw" = "xyes" -a "x$cflags_qat_hw" != "x"
+then
+    if test "x$enable_qat_hw_lenstra_protection" != "xno"
+    then
+      enable_qat_hw_lenstra_verify_hw="-DENABLE_QAT_HW_LENSTRA_VERIFY_HW"
+      AC_MSG_NOTICE([Lenstra check via QAT HW enabled.])
+    fi
 fi
 
 if test "x$enable_qat_debug" = "xyes"
