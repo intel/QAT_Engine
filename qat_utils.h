@@ -50,7 +50,7 @@
 # include <pthread.h>
 # include <unistd.h>
 # include <stdint.h>
-# ifdef OPENSSL_QAT_OFFLOAD
+# ifdef QAT_HW
 #  include "cpa.h"
 #  include "cpa_cy_sym.h"
 # endif

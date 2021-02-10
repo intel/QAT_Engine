@@ -48,7 +48,7 @@
 #include "qat_utils.h"
 #include "e_qat.h"
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 # include "cpa.h"
 #endif
 

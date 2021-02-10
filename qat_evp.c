@@ -57,13 +57,13 @@
 #include "qat_evp.h"
 #include "qat_utils.h"
 
-#ifdef OPENSSL_QAT_OFFLOAD
-# include "qat_ciphers.h"
-# include "qat_gcm.h"
+#ifdef QAT_HW
+# include "qat_hw_ciphers.h"
+# include "qat_hw_gcm.h"
 #endif
 
-#ifdef OPENSSL_IPSEC_OFFLOAD
-# include "vaes_gcm.h"
+#ifdef QAT_SW_IPSEC
+# include "qat_sw_gcm.h"
 #endif
 
 typedef struct _chained_info {
@@ -73,17 +73,17 @@ typedef struct _chained_info {
 } chained_info;
 
 static chained_info info[] = {
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     {NID_aes_128_cbc_hmac_sha1, NULL, AES_KEY_SIZE_128},
     {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
     {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
-# ifdef OPENSSL_ENABLE_QAT_GCM_CIPHERS
+# ifdef ENABLE_QAT_HW_GCM
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
 # endif
 #endif
-#ifdef OPENSSL_IPSEC_OFFLOAD
+#ifdef QAT_SW_IPSEC
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
     {NID_aes_192_gcm, NULL, AES_KEY_SIZE_192},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
@@ -94,24 +94,24 @@ static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
 
 /* Qat Symmetric cipher function register */
 int qat_cipher_nids[] = {
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     NID_aes_128_cbc_hmac_sha1,
     NID_aes_128_cbc_hmac_sha256,
     NID_aes_256_cbc_hmac_sha1,
     NID_aes_256_cbc_hmac_sha256,
-# ifdef OPENSSL_ENABLE_QAT_GCM_CIPHERS
+# ifdef ENABLE_QAT_HW_GCM
     NID_aes_128_gcm,
     NID_aes_256_gcm,
 # endif
 #endif
-#ifdef OPENSSL_IPSEC_OFFLOAD
+#ifdef QAT_SW_IPSEC
     NID_aes_128_gcm,
     NID_aes_192_gcm,
     NID_aes_256_gcm,
 #endif
 };
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 /* Supported EVP nids */
 int qat_evp_nids[] = {
     EVP_PKEY_TLS1_PRF,
@@ -198,7 +198,7 @@ void qat_create_ciphers(void)
 
     for (i = 0; i < num_cc; i++) {
         if (info[i].cipher == NULL) {
-#ifdef OPENSSL_IPSEC_OFFLOAD
+#ifdef QAT_SW_IPSEC
             if (info[i].nid == NID_aes_128_gcm ||
                 info[i].nid == NID_aes_192_gcm ||
                 info[i].nid == NID_aes_256_gcm) {
@@ -207,11 +207,11 @@ void qat_create_ciphers(void)
 	        }
 #endif
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
             if (qat_offload) {
                 if (info[i].nid == NID_aes_128_gcm ||
                     info[i].nid == NID_aes_256_gcm) {
-# ifdef OPENSSL_ENABLE_QAT_GCM_CIPHERS
+# ifdef ENABLE_QAT_HW_GCM
                     info[i].cipher = (EVP_CIPHER *)
                         qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
 # endif
@@ -234,11 +234,11 @@ void qat_free_ciphers(void)
             if (info[i].nid == NID_aes_128_gcm ||
                 info[i].nid == NID_aes_192_gcm ||
                 info[i].nid == NID_aes_256_gcm) {
-#ifndef OPENSSL_DISABLE_VAES_GCM
+#ifndef DISABLE_QAT_SW_GCM
                 EVP_CIPHER_meth_free(info[i].cipher);
 #endif
              } else {
-#if !defined(OPENSSL_DISABLE_QAT_CIPHERS) || !defined(OPENSSL_DISABLE_QAT_GCM_CIPHERS)
+#if !defined(DISABLE_QAT_HW_CIPHERS) || !defined(DISABLE_QAT_HW_GCM)
                 EVP_CIPHER_meth_free(info[i].cipher);
 #endif
             }

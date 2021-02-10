@@ -2,98 +2,98 @@ ACLOCAL_AMFLAGS = -I m4
 
 lib_LTLIBRARIES = qatengine.la
 
-if OPENSSL_QAT_OFFLOAD
-if QAT_CONTIG_MEM
- MEM_LIB_SRC = qae_mem_utils.c \
-               qat_sys_call.c
+if QAT_HW
+if QAT_HW_CONTIG_MEM
+ QAT_HW_MEM_SRC = qae_mem_utils.c \
+                  qat_sys_call.c
 endif
 
-if QAT_MULTI_THREAD
- MEM_LIB_SRC = multi_thread_qaememutils.c \
-               qat_sys_call.c
+if QAT_HW_MULTI_THREAD
+ QAT_HW_MEM_SRC = qat_hw_multi_thread_inf.c \
+                  qat_sys_call.c
 endif
 
-if QAE_MEM
- MEM_LIB_SRC = cmn_mem_drv_inf.c
+if QAT_HW_USDM
+ QAT_HW_MEM_SRC = qat_hw_usdm_inf.c
 endif
 endif
 
-OPENSSL_COMMON_SRC = e_qat.c        \
-                     e_qat_err.c    \
-                     qat_fork.c     \
-                     qat_events.c   \
-                     qat_utils.c    \
-                     qat_evp.c
+QAT_COMMON_SRC = e_qat.c      \
+                 e_qat_err.c  \
+                 qat_fork.c   \
+                 qat_events.c \
+                 qat_utils.c  \
+                 qat_evp.c
 
-if OPENSSL_MULTIBUFF_OFFLOAD
- OPENSSL_MULTIBUFF_SRC = multibuff_init.c     \
-                         multibuff_polling.c  \
-                         multibuff_freelist.c \
-                         multibuff_queue.c    \
-                         multibuff_rsa.c      \
-                         multibuff_ecx.c      \
-                         multibuff_ec.c
-endif
-
-if OPENSSL_QAT_OFFLOAD
- OPENSSL_QAT_SRC = qat_init.c        \
-                   qat_asym_common.c \
-                   qat_polling.c     \
-                   qat_callback.c    \
-                   qat_rsa.c         \
-                   qat_rsa_crt.c     \
-                   qat_ciphers.c     \
-                   qat_dh.c          \
-                   qat_dsa.c         \
-                   qat_ec.c          \
-                   qat_prf.c         \
-                   qat_gcm.c
+if QAT_HW
+ QAT_HW_SRC = qat_hw_init.c        \
+              qat_hw_asym_common.c \
+              qat_hw_polling.c     \
+              qat_hw_callback.c    \
+              qat_hw_rsa.c         \
+              qat_hw_rsa_crt.c     \
+              qat_hw_ciphers.c     \
+              qat_hw_dh.c          \
+              qat_hw_dsa.c         \
+              qat_hw_ec.c          \
+              qat_hw_prf.c         \
+              qat_hw_gcm.c
 
 if !QAT_OPENSSL_110
- OPENSSL_111_SRC = qat_hkdf.c        \
-                   qat_ecx.c
+ QAT_HW_111_SRC = qat_hw_hkdf.c    \
+                  qat_hw_ecx.c
 endif
 endif
 
-if OPENSSL_IPSEC_OFFLOAD
-  OPENSSL_VAES_SRC = vaes_gcm.c      \
-                     vaes_ipsec_inf.c
+if QAT_SW
+ QAT_SW_SRC = qat_sw_init.c     \
+              qat_sw_polling.c  \
+              qat_sw_freelist.c \
+              qat_sw_queue.c    \
+              qat_sw_rsa.c      \
+              qat_sw_ecx.c      \
+              qat_sw_ec.c
 endif
 
-qatengine_la_SOURCES = ${OPENSSL_COMMON_SRC}    \
-                       ${OPENSSL_QAT_SRC}       \
-                       ${OPENSSL_111_SRC}       \
-                       ${OPENSSL_MULTIBUFF_SRC} \
-                       ${MEM_LIB_SRC}           \
-                       ${OPENSSL_VAES_SRC}
+if QAT_SW_IPSEC
+  QAT_SW_IPSEC_SRC = qat_sw_gcm.c       \
+                     qat_sw_ipsec_inf.c
+endif
 
-AM_CPPFLAGS = $(includes_openssl) $(includes_usdm) $(includes_driver) \
-              $(includes_multibuff) $(includes_ipsec)
+qatengine_la_SOURCES = ${QAT_COMMON_SRC}   \
+                       ${QAT_HW_SRC}       \
+                       ${QAT_HW_111_SRC}   \
+                       ${QAT_HW_MEM_SRC}   \
+                       ${QAT_SW_SRC}       \
+                       ${QAT_SW_IPSEC_SRC}
 
-AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_intree)           \
-            $(cflags_mem_driver) $(cflags_openssl_300)                \
-            $(cflags_qat_offload) $(cflags_multibuff_offload)         \
-            $(cflags_ipsec_offload) $(enable_qat_rsa)                 \
-            $(enable_qat_ciphers) $(enable_qat_gcm) $(enable_qat_dh)  \
-            $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_ecdh)  \
-            $(enable_qat_prf) $(enable_qat_hkdf) $(enable_qat_ecx)    \
-            $(enable_vaes_gcm) $(enable_multibuff_rsa)                \
-            $(enable_multibuff_ecx) $(enable_multibuff_ecdsa)         \
-            $(enable_multibuff_ecdh) $(enable_qat_small_pkt_offload)  \
-            $(enable_qat_auto_engine_init_on_fork)                    \
-            $(enable_qat_lenstra_protection) $(cflags_qat_engine_id)  \
-            $(enable_qat_debug) $(enable_qat_warnings)                \
-            $(enable_qat_mem_debug) $(enable_qat_mem_warnings)        \
-            $(cflags_qat_debug_file) $(enable_qat_cycle_counts)       \
-            $(enable_multibuff_heuristic_timeout)
+AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)  \
+              $(includes_qat_hw) $(includes_qat_sw)
+
+AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
+            $(cflags_mem_driver) $(cflags_openssl_300)               \
+            $(cflags_qat_engine_id) $(cflags_qat_hw_intree)          \
+            $(cflags_qat_hw) $(cflags_qat_sw) $(cflags_qat_sw_ipsec) \
+            $(enable_qat_hw_rsa) $(enable_qat_hw_ciphers)            \
+            $(enable_qat_hw_gcm) $(enable_qat_hw_dh)                 \
+            $(enable_qat_hw_ecdsa) $(enable_qat_hw_dsa)              \
+            $(enable_qat_hw_ecdh) $(enable_qat_hw_prf)               \
+            $(enable_qat_hw_hkdf) $(enable_qat_hw_ecx)               \
+            $(enable_qat_hw_small_pkt_offload)                       \
+            $(enable_qat_hw_lenstra_protection)                      \
+            $(enable_qat_sw_gcm) $(enable_qat_sw_rsa)                \
+            $(enable_qat_sw_ecx) $(enable_qat_sw_ecdsa)              \
+            $(enable_qat_sw_ecdh) $(enable_qat_sw_heuristic_timeout) \
+            $(enable_qat_auto_engine_init_on_fork)                   \
+            $(enable_qat_debug) $(enable_qat_warnings)               \
+            $(enable_qat_mem_debug) $(enable_qat_mem_warnings)       \
+            $(enable_qat_cycle_counts)
 
 
-qatengine_la_LDFLAGS = -module -no-undefined -avoid-version \
-                       -shared $(QAT_SHARED_LIB_DEPS_LD)    \
-                       $(QAT_SHARED_LIB_DEPS_DRIVER)        \
-                       $(QAT_SHARED_LIB_DEPS_QAE_MEM)       \
-                       $(QAT_SHARED_LIB_DEPS_MULTIBUFF)     \
-                       $(QAT_SHARED_LIB_DEPS_IPSEC)
+qatengine_la_LDFLAGS = -module -no-undefined -avoid-version       \
+                       -shared $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB) \
+                       $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)  \
+                       $(QAT_SW_IPSEC_MB_LIB)
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \

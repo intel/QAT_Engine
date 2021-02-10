@@ -24,8 +24,7 @@
 - [Using the OpenSSL\* Pipelining Capability](#using-the-openssl-pipelining-capability)
 - [Using the OpenSSL* asynchronous mode 'ASYNC_JOB' infrastructure](#using-the-openssl-asynchronous-mode-async_job-infrastructure)
 - [Functionality of the Intel&reg; QAT OpenSSL\* Engine Software Fallback Feature](#functionality-of-the-intel-qat-openssl-engine-software-fallback-feature)
-- [Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support](#intel-qat-openssl-engine-multi-buffer-support)
-- [Intel&reg; QAT OpenSSL\* Engine IPsec Vectorized AES Support](#intel-qat-openssl-engine-ipsec-vectorized-aes-support)
+- [Intel&reg; QAT Software Support for Asymmetric PKE and AES-GCM](#intel-qat-software-support-for-asymmetric-pke-and-aes-gcm)
 - [Legal](#legal)
 
 ## Licensing
@@ -149,10 +148,8 @@ repository:
   driver supplied as part of the Intel&reg; QAT Driver.
 * Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
   in release OpenSSL\* 1.1.1d. This was later fixed in OpenSSL\* 1.1.1e release.
-* Support for Multi-buffer offload is extended to RSA 2k only. Other key sizes will
-  use the standard OpenSSL implementation when this feature is enabled.
 * X25519/X448 support is available only from version 4.9 of the Intel&reg; QAT
-  driver for Linux. Use `--disable-qat_ecx` in the Intel&reg; QAT OpenSSL\* Engine
+  driver for Linux. Use `--disable-qat_hw_ecx` in the Intel&reg; QAT OpenSSL\* Engine
   configure when building against earlier versions of the Linux driver.
 * Support for qaeMemFreeNonZeroNUMA() USDM API is available only from version 4.10
   of the Intel&reg; QAT driver for Linux. Use `--with-cc-opt="-DQAT_DISABLE_NONZERO_MEMFREE"`
@@ -323,7 +320,7 @@ QAT OpenSSL\* Engine comes with an example kernel space contiguous memory driver
 that can be used to try out operation of the engine. It is considered to be an
 example only and is not written to be a production quality driver.
 The use of the qat\_contig\_mem driver can be enabled using the configure
-option `--enable-qat_contig_mem` that tells the build that the Intel&reg;
+option `--enable-qat_hw_contig_mem` that tells the build that the Intel&reg;
 QAT OpenSSL\* Engine should be compiled to use the qat_contig_mem component
 instead of the USDM memory driver above.
 
@@ -365,7 +362,7 @@ To build and install the Intel&reg; QAT OpenSSL\* Engine:
 cd /QAT_Engine
 ./autogen.sh
 ./configure \
---with-qat_dir=/QAT \
+--with-qat_hw_dir=/QAT \
 --with-openssl_install_dir=/usr/local/ssl
 make
 make install
@@ -397,7 +394,7 @@ To build and install the Intel&reg; QAT OpenSSL\* Engine:
 ```bash
 cd /QAT_Engine
 ./autogen.sh
-./configure  --with-qat_dir=/QAT
+./configure  --with-qat_hw_dir=/QAT
 make
 make install
 ```
@@ -773,7 +770,7 @@ Description:
     The string should be NULL terminated and not more than 1024 bytes long
     including NULL terminator.
     This message is not supported when the engine is compiled with the flag
-    --enable-qat_small_pkt_offload.
+    --enable-qat_hw_small_pkt_offload.
 
 Message String: ENABLE_INLINE_POLLING
 Param 3:        0
@@ -886,16 +883,16 @@ The following is a list of the options that can be used with the
 ```
 Mandatory (when building against QAT Driver HW version 1.7 package)
 
---with-qat_dir=/path/to/qat_driver
+--with-qat_hw_dir=/path/to/qat_driver
     Specify the path to the source code of the Intel(R) QAT Driver. This path
     is needed for compilation in order to locate the Intel(R) QAT header files.
     For example if using Intel&reg; QAT Driver HW version 1.7 package that was
     unpacked to `/QAT`, and you are using an Intel(R) Communications Chipset
     C62X Series device then you would use the following setting:
-    --with-qat_dir=/QAT
+    --with-qat_hw_dir=/QAT
     This option is not needed if you are building against the in-tree driver
-    installed via qatlib RPM. Also, if use of Multi-buffer Software optimization
-    over QAT is preferred, then this option is not needed.
+    installed via qatlib RPM. Also, if use of QAT SW over QAT HW is preferred,
+    then this option is not needed.
 
 Mandatory (when building against OpenSSL from source)
 
@@ -929,132 +926,121 @@ Mandatory (when building against OpenSSL 1.1.0)
     then you would use the following setting:
     --with-openssl_dir=/openssl
 
-Mandatory (when using the Intel&reg; Crypto Multi-buffer Library)
+Mandatory (for QAT Software optimization using the Intel&reg; Crypto Multi-buffer
+and Multi-Buffer Crypto for IPsec Library)
 
---enable-multibuff_offload/--disable-multibuff_offload
-    Enable/Disable Intel(R) Multi-buffer offload feature. This flag needs to be
-    enabled if Multi-buffer based software optimizations need to be used. This
-    flag when enabled uses Intel&reg; Crypto Multi-buffer library and includes
-    from the default path (/usr/local). If the crypto_mb library is installed
-    in a path other than the default then --with-multibuff_install_dir needs
-    to be set to the path where it is installed (disabled by default).
+--enable-qat_sw/--disable-qat_sw
+    Enable/Disable Intel(R) QAT Software (Multi-buffer) optimization. This flag
+    needs to be enabled if Multi-buffer based QAT software optimization needs
+    to be used. This flag when enabled uses Intel&reg; Crypto Multi-buffer
+    and Intel&reg; Multi-buffer crypto for IPsec library and headers from the
+    default path (/usr/local and /usr/ respectively). If the crypto_mb and
+    IPSec_MB libraries are installed in the path other than default then use
+    --with-qat_sw_install_dir to set the install dir. --with-qat_sw_install_dir
+    path should contain both crypto_mb and IPSec_MB libraries.
+    (disabled by default).
 
-Mandatory (when using the Intel&reg; Multi-Buffer Crypto for IPsec Library)
+Mandatory (When both QAT HW and QAT SW capabilities are present in
+the system and use of QAT SW optimization over QAT HW is preferred)
 
---enable-ipsec_offload/--disable-ipsec_offload
-    Enable/Disable Intel(R) IPsec offload. This flag needs to be enabled if
-    IPsec based software optimizations needs to be used. This flag when enabled
-    uses Intel&reg; IPsec library and headers from the default path (/usr).
-    If the Intel&reg; IPsec library is installed in the path other than the
-    default then `--with-ipsec_install_dir` needs to be set with the path where
-    its installed (disabled by default).
-
-Mandatory (When both QAT and Multi-buffer capabilties are present in the system
-and use of Multi-buffer optimization over QAT is preferred)
-
---disable-qat_offload
+--disable-qat_hw
     Disable Intel(R) QAT Hardware offload. This flag needs to be enabled if
-    the system has both QAT Hardware and Multi-buffer Software optimization
-    capabilities and the in-tree driver is installed in the system via `qatlib`
-    RPM and use of Multi-buffer optimization over QAT is prefered. Incase of
-    the in-tree driver eventhough Multi-buffer optimization is enabled via
-    use of the `--enable-multibuff_offload` option, if both capabilities are
-    available (both QAT offload or Multi-buffer offload) then QAT offload will
-    be used by default. However, use of this --disable-qat_offload option will
-    force the use of Multi-buffer optimization.
+    the system has both QAT Hardware and QAT Software Multi-buffer capabilities
+    and the in-tree driver is installed in the system via `qatlib`
+    RPM where use of QAT SW optimization over QAT HW is prefered. Incase of
+    the in-tree driver eventhough QAT SW optimization is enabled via
+    use of the `--enable-qat_sw` option, if both capabilities are
+    available (both QAT HW or QAT SW) then QAT HW offload will
+    be used by default. However, use of this --disable-qat_hw option will
+    force the use of QAT SW optimization
 
 Optional
 
---with-qat_install_dir=/path/to/qat_driver/build
-    Specify the path to the location of the built Intel(R) QAT Driver library
-    files. This path is needed in order to link to the userspace libraries of
-    the Intel(R) QAT Driver.
-    The default if not specified is to use the path specified by --with-qat_dir
+--with-qat_hw_install_dir=/path/to/qat_driver/build
+    Specify the path to the location of the built Intel(R) QAT Hardware Driver
+    library  files. This path is needed in order to link to the userspace
+    libraries of the Intel(R) QAT Hardware Driver.
+    The default if not specified is to use the path specified by --with-qat_hw_dir
     with '/build' appended.  You only need to specify this parameter if the
     driver library files have been built somewhere other than the default.
 
---with-multibuff_install_dir=/path/to/ipp-crypto_Multi-buffer_build
-    Specify the path of the built Intel(R) Crypto Multi-buffer library.
-    This path is needed in order to link to the Crypto Multi-buffer library.
-    The default if not specified is to use the standard installation path which
-    is '/usr/local'. You only need to specify this parameter if the ipp-crypto
-    Multi-buffer library files have been built somewhere other than the default.
+--with-qat_sw_install_dir=/path/to/ipp-crypto_Multi-buffer_build
+    Specify the path of the built Intel&reg; Crypto Multi-buffer library
+    (crypto_mb) and Intel&reg; Multi-buffer crypto for IPsec library (IPSec_mb).
+    This path is needed in order to link to the crypto_mb library and the IPsec
+    library. The default if not specified is to use the standard installation
+    path which is '/usr/local' and '/usr' for crypto_mb and IPSec_MB
+    respectively. You only need to specify this parameter if the Intel&reg;
+    crypto_mb and IPSec_MB library files have been built somewhere other than
+    the default.
 
---with-ipsec_install_dir=/path/to/intel-ipsec_mb_build
-    Specify the path of the built Intel(R) IPsec library. This path
-    is needed in order to link to the Intel(R) IPsec library.
-    The default if not specified is to use the standard installation path
-    which is '/usr'. You only need to specify this parameter if the
-    Intel&reg; IPsec library files have been built somewhere other than the
-    default.
-
---enable-qat_contig_mem/--disable-qat_contig_mem
+--enable-qat_hw_contig_mem/--disable-qat_hw_contig_mem
     Enable/Disable compiling against the qat_contig_mem driver supplied within
     QAT Engine instead of the USDM component distributed with the Intel(R) QAT
     Driver HW Version 1.7 (disabled by default).
 
---with-usdm_dir=/path/to/usdm/directory
+--with-qat_hw_usdm_dir=/path/to/usdm/directory
     Specify the path to the location of the USDM component.
-    The default if not specified is to use the path specified by --with-qat_dir
+    The default if not specified is to use the path specified by --with-qat_hw_dir
     with '/quickassist/utilities/libusdm_drv' appended.  You only need to
     specify this parameter if using the USDM component, and if the path to it
     is different from the default.
 
---disable-qat_rsa/--enable-qat_rsa
-    Disable/Enable Intel(R) QAT RSA offload (enabled by default)
+--disable-qat_hw_rsa/--enable-qat_hw_rsa
+    Disable/Enable Intel(R) QAT Hardware RSA offload (enabled by default)
 
---disable-qat_dsa/--enable-qat_dsa
-    Disable/Enable Intel(R) QAT DSA offload (enabled by default)
+--disable-qat_hw_dsa/--enable-qat_hw_dsa
+    Disable/Enable Intel(R) QAT Hardware DSA offload (enabled by default)
 
---disable-qat_dh/--enable-qat_dh
-    Disable/Enable Intel(R) QAT DH offload (enabled by default)
+--disable-qat_hw_dh/--enable-qat_hw_dh
+    Disable/Enable Intel(R) QAT Hardware DH offload (enabled by default)
 
---disable-qat_ecdh/--enable-qat_ecdh
-    Disable/Enable Intel(R) QAT ECDH offload (enabled by default)
+--disable-qat_hw_ecdh/--enable-qat_hw_ecdh
+    Disable/Enable Intel(R) QAT Hardware ECDH offload (enabled by default)
 
---disable-qat_ecdsa/--enable-qat_ecdsa
-    Disable/Enable Intel(R) QAT ECDSA offload (enabled by default)
+--disable-qat_hw_ecdsa/--enable-qat_hw_ecdsa
+    Disable/Enable Intel(R) QAT Hardware ECDSA offload (enabled by default)
 
---disable-qat_ciphers/--enable-qat_ciphers
-    Disable/Enable Intel(R) QAT Chained Cipher offload (enabled by default)
+--disable-qat_hw_ciphers/--enable-qat_hw_ciphers
+    Disable/Enable Intel(R) QAT Hardware Chained Cipher offload (enabled by default)
 
---disable-qat_prf/--enable-qat_prf
-    Disable/Enable Intel(R) QAT PRF offload (enabled by default)
+--disable-qat_hw_prf/--enable-qat_hw_prf
+    Disable/Enable Intel(R) QAT Hardware PRF offload (enabled by default)
 
---disable-qat_hkdf/--enable-qat_hkdf
-    Disable/Enable Intel(R) QAT HKDF offload (disabled by default)
+--disable-qat_hw_hkdf/--enable-qat_hw_hkdf
+    Disable/Enable Intel(R) QAT Hardware HKDF offload (disabled by default)
 
---disable-qat_ecx/--enable-qat_ecx
-    Disable/Enable Intel(R) QAT X25519/X448 offload (enabled by default)
+--disable-qat_hw_ecx/--enable-qat_hw_ecx
+    Disable/Enable Intel(R) QAT Hardware X25519/X448 offload (enabled by default)
 
---disable-vaes_gcm/--enable-vaes_gcm
-    Disable/Enable Intel(R) IPsec Vectorized AES-GCM offload.
+--disable-qat_sw_gcm/--enable-qat_sw_gcm
+    Disable/Enable Intel(R) QAT Software vectorized AES-GCM offload.
     This flag is valid only when Intel(R) IPsec support is enabled using the
-    flag --enable-ipsec_offload (enabled by default if ipsec_offload is enabled).
+    flag --enable-qat_sw (enabled by default if qat_sw is enabled).
 
---disable-multibuff_rsa/--enable-multibuff_rsa
-    Disable/Enable Intel(R) Multibuff RSA offload. This flag is valid only
-    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
-    (enabled by default if multibuff_offload is enabled).
+--disable-qat_sw_rsa/--enable-qat_sw_rsa
+    Disable/Enable Intel(R) QAT Software RSA offload. This flag is valid only
+    when QAT SW support is enabled using the flag --enable-qat_sw
+    (enabled by default if qat_sw is enabled).
 
---disable-multibuff_ecx/--enable-multibuff_ecx
-    Disable/Enable Intel(R) Multibuff X25519 offload. This flag is valid only
-    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
-    (enabled by default if multibuff_offload is enabled).
+--disable-qat_sw_ecx/--enable-qat_sw_ecx
+    Disable/Enable Intel(R) QAT Software X25519 offload. This flag is valid only
+    when QAT SW support is enabled using the flag --enable-qat_sw
+    (enabled by default if qat_sw is enabled).
 
---disable-multibuff_ecdsa/--enable-multibuff_ecdsa
-    Disable/Enable Intel(R) Multibuff ECDSA P-256 offload. This flag is valid only
-    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
-    (enabled by default if multibuff_offload is enabled).
+--disable-qat_sw_ecdsa/--enable-qat_sw_ecdsa
+    Disable/Enable Intel(R) QAT Software ECDSA P-256 offload. This flag is
+    valid only when QAT SW support is enabled using the flag --enable-qat_sw
+    (enabled by default if qat_sw is enabled).
 
---disable-multibuff_ecdh/--enable-multibuff_ecdh
-    Disable/Enable Intel(R) Multibuff ECDH P-256 offload. This flag is valid only
-    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
-    (enabled by default if multibuff_offload is enabled).
+--disable-qat_sw_ecdh/--enable-qat_sw_ecdh
+    Disable/Enable Intel(R) QAT Software ECDH P-256 offload. This flag is valid
+    only when QAT SW support is enabled using the flag  --enable-qat_sw
+    (enabled by default if qat_sw is enabled).
 
---disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
-    Enable the offload of small packet cipher operations to Intel(R) QAT. When
-    disabled, these operations are performed using the CPU (disabled by
+--disable-qat_hw_small_pkt_offload/--enable-qat_hw_small_pkt_offload
+    Enable the offload of small packet cipher operations to Intel(R) QAT HW.
+    When disabled, these operations are performed using the CPU (disabled by
     default).
 
 --disable-qat_warnings/--enable-qat_warnings
@@ -1109,7 +1095,7 @@ Optional
    OpenSSL engine install dir has to be renamed with the engine_id provided here
    (disabled by default).
 
---disable-multi_thread/--enable-multi_thread
+--disable-qat_hw_multi_thread/--enable-qat_hw_multi_thread
     Disable/Enable an alternative way of managing within userspace the pinned
     contiguous memory allocated by the qat_contig_mem driver. This alternative
     method will give improved performance in a multi-threaded environment by
@@ -1119,7 +1105,7 @@ Optional
     allocate in one thread and free in another thread.  Running in this mode
     also does not support processes that fork (disabled by default).
 
---disable-qat_lenstra_protection/--enable-qat_lenstra_protection
+--disable-qat_hw_lenstra_protection/--enable-qat_hw_lenstra_protection
     Disable/Enable protection against Lenstra attack (CVE-2017-5681)
     (protection is enabled by default). The RSA-CRT implementation in the
     Intel(R) QAT OpenSSL* Engine, for OpenSSL* versions prior to v0.5.19,
@@ -1147,14 +1133,14 @@ Optional
     INIT_ENGINE or will automatically get initialized on the first QAT crypto
     operation. The initialization on fork is enabled by default.
 
---enable-multibuff_heuristic_timeout/--disable-multibuff_heuristic_timeout
+--enable-qat_sw_heuristic_timeout/--disable-qat_sw_heuristic_timeout
     Disable/Enable self tuning of the timeout in the polling thread in the
-    Intel(R) Multi-buffer offload. This flag is valid only
-    incase of Multi-buffer offload (disabled by default).
+    Intel(R) QAT SW. This flag is valid only incase of QAT SW
+    (disabled by default).
 
 --disable-qat_cycle_counts/--enable-qat_cycle_counts
-    Disable/Enable cycle count measurement in the Intel(R) Multi-buffer offload.
-    This support is only extended to Multi-buffer offload code path
+    Disable/Enable cycle count measurement in the Intel(R) QAT SW.
+    This support is only extended to QAT SW offload code path
     (disabled by default).
 
 --with-cc-opt="parameters"
@@ -1341,7 +1327,7 @@ Chained Cipher Offload, HKDF & X25519/X448 offload by adding the below
 four flags in the configure command of Intel&reg; QAT OpenSSL\* Engine build.
 
 ```bash
---disable-qat_ciphers --disable-qat_prf --disable-qat_hkdf --disable-qat_ecx
+--disable-qat_hw_ciphers --disable-qat_hw_prf --disable-qat_hw_hkdf --disable-qat_hw_ecx
 ```
 
 Information on this Heartbeat feature can be found in:
@@ -1388,56 +1374,72 @@ qatlib RPM.
 The HKDF support in the Intel&reg; QAT OpenSSL\* Engine is available only from
 Version 4.8 of Intel&reg; QuickAssist Technology Driver for Linux HW Version 1.7.
 By default this support is disabled as it is added as an experimental feature.
-It can be enabled using the flag `--enable-qat_hkdf` in the configure command
+It can be enabled using the flag `--enable-qat_hw_hkdf` in the configure command
 combined with modifying the Intel&reg; QuickAssist Technology Driver file's
 config variable 'ServicesProfile' from its default value of 'DEFAULT' to 'CRYPTO'.
 
-## Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support
+## Intel&reg; QAT Software support for Asymmetric PKE and AES-GCM
 
 This Intel&reg; QAT OpenSSL\* Engine supports Multi-buffer based software
-optimizations for RSA, ECDH X25519, ECDH P-256 and ECDSA P-256(sign) using the
-Intel&reg; Crypto Multi-buffer library based on Intel&reg; AVX-512 Integer Fused
-Multiply Add (IFMA) operations.
+optimizations for asymmetric PKE algorithms RSA, ECDH X25519, ECDH P-256 and
+ECDSA P-256(sign) using the Intel&reg; Crypto Multi-buffer library based on
+Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) operations.
 
-The Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support, when enabled by the
-user using the build instructions mentioned below performs operation by
-batching up multiple requests maintained in queues and uses the OpenSSL
-asynchronous infrastructure to submit the batched requests upto 8 to Crypto
-Multi-buffer API which processes them in parallel using AVX512 vector
-instructions. Multi-buffer optimizations will be beneficial to use in
-asynchronous operations where there are many parallel connections.
+This is done by batching up multiple requests maintained in queues and uses
+the OpenSSL asynchronous infrastructure to submit the batched requests upto 8
+to Crypto Multi-buffer API which processes them in parallel using AVX512
+vector instructions. QAT SW Multi-buffer optimizations will be beneficial to
+use in asynchronous operations where there are many parallel connections.
+
+Software based optimizations for AES-GCM is supported via the Intel&reg;
+Multi-Buffer Crypto for IPsec Library. The implementation at engine for AES-GCM
+follows synchronous mechanism to submit requests to the IPSec_MB library which
+processes reqeusts in multiple blocks using vectorized AES and AVX512
+instructions from the processor
 
 ### Requirements
 
-Successful operation of the Multi-buffer Software optmization requires a
+Successful operation of the Intel&reg; QAT Software support requires a
 software tool chain that supports OpenSSL\* 1.1.1 and Intel&reg; Crypto
 Multi-buffer library cloned from the [ipp-crypto][10] release version
 **IPP Crypto 2020 Update 3**. The crypto_mb library needs to be installed
 using the instructions in the Readme from [Crypto Multi-buffer Library][11].
-This support is not available in the FreeBSD operating system.
+In addition to support QAT SW AES-GCM, prequisite is to have Intel&reg;
+Multi-Buffer crypto for IPsec Library release version **v0.55** cloned from
+the [intel-ipsec-mb][12] repo and installed using the instructions from the
+intel-ipsec README.
 
 [10]:https://github.com/intel/ipp-crypto
 [11]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
+[12]:https://github.com/intel/intel-ipsec-mb
 
-### Build Instructions for Intel&reg; QAT OpenSSL\* Engine to enable Multi-buffer Support
+### Build Instructions to enable Intel&reg; QAT Software Support
 
 The following example is assuming:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
-* The Intel&reg; Crypto Multi-buffer library was installed to the default path
+* The Intel&reg; Crypto Multi-buffer library was installed to its default path
   (/usr/local).
+* The Intel&reg; Multi-Buffer crypto for IPsec Library was installed to its
+  default path (/usr/). (Optional if QAT SW AES-GCM support is not needed).
 * Prebuilt OpenSSL\* 1.1.1 from the system is used.
 
-To build and install the Intel&reg; QAT OpenSSL\* Engine with Multi-buffer offload:
+To build and install the Intel&reg; QAT OpenSSL\* Engine with QAT SW:
 
 ```bash
 cd /QAT_Engine
 ./autogen.sh
-./configure --enable-multibuff_offload
+./configure --enable-qat_sw
 make
 make install
 ```
+
+Note : --enable-qat_sw checks crypto_mb and IPSec_MB libraries in its
+respective default path or in the path provided in the config flag
+`--with-qat_sw_install_dir`. If any of the libraries is not installed then
+their corresponding algorithm support is disabled (PKE algorithms for crypto_mb
+and AES-GCM for Ipsec_mb).
 
 ### Testing with OpenSSL Speed
 ```text
@@ -1451,42 +1453,11 @@ cd /path/to/openssl_install/bin
     ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdhp256
 * ECDSA P-256
     ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdsap256
-```
-
-## Intel&reg; QAT OpenSSL\* Engine IPsec Vectorized AES Support
-
-This Intel&reg; QAT OpenSSL\* Engine supports software based optimizations
-for AES-GCM using the Intel&reg; Multi-Buffer Crypto for IPsec Library.
-
-The Intel&reg; QAT OpenSSL\* Engine IPsec VAES support, when enabled by the user
-using the build instructions mentioned below performs operation by submitting
-requests synchronously with IPsec API which accelarates using the vectorized AES
-and AVX512 instructions from the processor.
-
-### Requirements
-
-Successful operation of the IPsec offload requires a software tool chain that
-supports OpenSSL\* 1.1.1 and Intel&reg; Multi-Buffer crypto for IPsec Library
-release version **v0.55** cloned from the [intel-ipsec-mb][12] repo and
-installed using the instructions from the intel-ipsec README. This support is
-not tested in the FreeBSD operating system.
-
-[12]:https://github.com/intel/intel-ipsec-mb
-
-### Build flag to enable Intel&reg; IPsec Vectorized AES Support
-
-This support can be enabled using the flag `--enable-ipsec_offload` along
-with other flags for QAT and Multibuff offload in the configure command.
-
-### Testing with OpenSSL Speed
-```text
-cd /path/to/openssl_install/bin
-
-*AES-128-GCM
+* AES-128-GCM
     ./openssl speed -engine qatengine -elapsed -evp aes-128-gcm
-*AES-192-GCM
+* AES-192-GCM
     ./openssl speed -engine qatengine -elapsed -evp aes-192-gcm
-*AES-256-GCM
+* AES-256-GCM
     ./openssl speed -engine qatengine -elapsed -evp aes-256-gcm
 ```
 

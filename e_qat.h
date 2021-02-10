@@ -51,14 +51,14 @@
 # include <unistd.h>
 # include <string.h>
 
-# ifdef OPENSSL_QAT_OFFLOAD
+# ifdef QAT_HW
 #  include "cpa.h"
 #  include "cpa_types.h"
 # endif
 
-# ifdef OPENSSL_MULTIBUFF_OFFLOAD
-#  include "multibuff_queue.h"
-#  include "multibuff_freelist.h"
+# ifdef QAT_SW
+#  include "qat_sw_queue.h"
+#  include "qat_sw_freelist.h"
 # endif
 
 # ifndef ERR_R_RETRY
@@ -102,7 +102,7 @@
 # define QAT_ATOMIC_DEC(qat_int)              \
             (__sync_sub_and_fetch(&(qat_int), 1))
 
-# ifdef OPENSSL_QAT_OFFLOAD
+# ifdef QAT_HW
 typedef struct {
     int qatInstanceNumForThread;
     unsigned int localOpsInFlight;
@@ -249,7 +249,7 @@ typedef struct {
 # define QAT_EVENT_TIMEOUT_IN_SEC 1
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef QAT_SW
 /*
  * Used to size the freelist and queue as it represents how many
  * requests can be inflight at once.
@@ -314,7 +314,7 @@ extern pthread_t qat_timer_poll_func_thread;
 extern pthread_t multibuff_timer_poll_func_thread;
 extern int cleared_to_start;
 
-# ifdef OPENSSL_QAT_OFFLOAD
+# ifdef QAT_HW
 extern char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE];
 extern char *ICPConfigSectionName_libcrypto;
 extern int enable_inline_polling;
@@ -335,7 +335,7 @@ extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
 # endif
 
-# ifdef OPENSSL_MULTIBUFF_OFFLOAD
+# ifdef QAT_SW
 /* RSA */
 extern BIGNUM *e_check;
 extern mb_flist_rsa_priv rsa_priv_freelist;
@@ -409,8 +409,7 @@ extern mb_req_rates mb_ecdhp256_compute_req_rates;
 # define QAT_CMD_HEARTBEAT_POLL (ENGINE_CMD_BASE + 18)
 # define QAT_CMD_DISABLE_QAT_OFFLOAD (ENGINE_CMD_BASE + 19)
 
-# ifdef OPENSSL_QAT_OFFLOAD
-
+# ifdef QAT_HW
 /******************************************************************************
  * function:
  *         qat_get_qat_offload_disabled(void)
@@ -612,7 +611,7 @@ int qat_pthread_mutex_lock(void);
  ******************************************************************************/
 int qat_pthread_mutex_unlock(void);
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+# ifdef QAT_SW
 /*****************************************************************************
  *  * function:
  *         multibuff_init(ENGINE *e)
@@ -638,5 +637,5 @@ int multibuff_init(ENGINE *e);
  ******************************************************************************/
 int multibuff_finish_int(ENGINE *e, int reset_globals);
 
-#endif
+# endif
 #endif   /* E_QAT_H */

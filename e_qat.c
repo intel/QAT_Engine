@@ -53,13 +53,13 @@
 #endif
 
 /* Defines */
-#ifdef OPENSSL_QAT_OFFLOAD
-# if defined(USE_QAT_CONTIG_MEM) && !defined(USE_QAE_MEM)
+#ifdef QAT_HW
+# if defined(USE_QAT_CONTIG_MEM) && !defined(USE_USDM_MEM)
 #  define QAT_DEV "/dev/qat_contig_mem"
-# elif defined(USE_QAE_MEM) && !defined(USE_QAT_CONTIG_MEM)
+# elif defined(USE_USDM_MEM) && !defined(USE_QAT_CONTIG_MEM)
 #  define QAT_DEV "/dev/usdm_drv"
-# elif defined(USE_QAE_MEM) && defined(USE_QAT_CONFIG_MEM)
-#  error "USE_QAT_CONTIG_MEM and USE_QAE_MEM both defined"
+# elif defined(USE_USDM_MEM) && defined(USE_QAT_CONFIG_MEM)
+#  error "USE_QAT_CONTIG_MEM and USE_USDM_MEM both defined"
 # else
 #  error "No memory driver type defined"
 # endif
@@ -88,14 +88,14 @@
 #include "qat_evp.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
-#ifdef OPENSSL_QAT_OFFLOAD
-# include "qat_ciphers.h"
-# include "qat_polling.h"
-# include "qat_rsa.h"
-# include "qat_dsa.h"
-# include "qat_dh.h"
-# include "qat_ec.h"
-# include "qat_gcm.h"
+#ifdef QAT_HW
+# include "qat_hw_ciphers.h"
+# include "qat_hw_polling.h"
+# include "qat_hw_rsa.h"
+# include "qat_hw_dsa.h"
+# include "qat_hw_dh.h"
+# include "qat_hw_ec.h"
+# include "qat_hw_gcm.h"
 
 /* QAT includes */
 # include "cpa.h"
@@ -106,16 +106,16 @@
 # include "icp_sal_poll.h"
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
-# include "multibuff_rsa.h"
-# include "multibuff_ec.h"
-# include "multibuff_ecx.h"
-# include "multibuff_polling.h"
+#ifdef QAT_SW
+# include "qat_sw_rsa.h"
+# include "qat_sw_ecx.h"
+# include "qat_sw_ec.h"
+# include "qat_sw_polling.h"
 # include "crypto_mb/cpu_features.h"
 #endif
 
-#ifdef OPENSSL_IPSEC_OFFLOAD
-# include "vaes_gcm.h"
+#ifdef QAT_SW_IPSEC
+# include "qat_sw_gcm.h"
 #endif
 
 /* OpenSSL Includes */
@@ -126,7 +126,7 @@
 #include <openssl/objects.h>
 #include <openssl/crypto.h>
 
-#ifdef OPENSSL_IPSEC_OFFLOAD
+#ifdef QAT_SW_IPSEC
 /* __cpuid(unsinged int info[4], unsigned int leaf, unsigned int subleaf); */
 # define __cpuid(x, y, z) \
 	        asm volatile("cpuid" : "=a"(x[0]), "=b"(x[1]), "=c"(x[2]), "=d"(x[3]) : "a"(y), "c"(z))
@@ -176,7 +176,7 @@ pthread_t qat_timer_poll_func_thread = 0;
 pthread_t multibuff_timer_poll_func_thread = 0;
 int cleared_to_start = 0;
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
 char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE] = "SHIM";
 char *ICPConfigSectionName_libcrypto = qat_config_section_name;
@@ -198,7 +198,7 @@ int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef QAT_SW
 /* RSA */
 BIGNUM *e_check = NULL;
 mb_flist_rsa_priv rsa_priv_freelist;
@@ -242,7 +242,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "POLL",
         "Polls the engine for any completed requests",
         ENGINE_CMD_FLAG_NO_INPUT},
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     {
         QAT_CMD_SET_INSTANCE_FOR_THREAD,
         "SET_INSTANCE_FOR_THREAD",
@@ -318,7 +318,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "INIT_ENGINE",
         "Initializes the engine if not already initialized",
         ENGINE_CMD_FLAG_NO_INPUT},
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     {
         QAT_CMD_SET_CONFIGURATION_SECTION_NAME,
         "SET_CONFIGURATION_SECTION_NAME",
@@ -359,23 +359,23 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
 static int qat_engine_destroy(ENGINE *e)
 {
     DEBUG("---- Destroying Engine...\n\n");
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     qat_free_EC_methods();
     qat_free_DH_methods();
     qat_free_DSA_methods();
     qat_free_RSA_methods();
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef QAT_SW
     multibuff_free_RSA_methods();
 #endif
 
-#if defined(OPENSSL_IPSEC_OFFLOAD) || defined(OPENSSL_QAT_OFFLOAD)
+#if defined(QAT_SW_IPSEC) || defined(QAT_HW)
     qat_free_ciphers();
 #endif
 
-#ifdef OPENSSL_IPSEC_OFFLOAD
-# ifndef OPENSSL_DISABLE_VAES_GCM
+#ifdef QAT_SW_IPSEC
+# ifndef DISABLE_QAT_SW_GCM
     vaesgcm_free_ipsec_mb_mgr();
 # endif
 #endif
@@ -386,7 +386,7 @@ static int qat_engine_destroy(ENGINE *e)
     return 1;
 }
 
-#ifdef OPENSSL_IPSEC_OFFLOAD
+#ifdef QAT_SW_IPSEC
 static int hw_support(void) {
 
     unsigned int  info[4] = {0, 0, 0, 0};
@@ -460,7 +460,7 @@ int qat_engine_init(ENGINE *e)
     DEBUG("QAT Engine initialization:\n");
     CRYPTO_INIT_QAT_LOG();
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     if (qat_offload) {
         if (!qat_init(e)) {
             WARN("QAT initialization Failed\n");
@@ -469,7 +469,7 @@ int qat_engine_init(ENGINE *e)
     }
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef QAT_SW
     if (!qat_offload) {
         if (!multibuff_init(e)) {
             WARN("Multibuff initialization Failed\n");
@@ -491,13 +491,13 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     DEBUG("---- QAT Engine Finishing...\n\n");
     qat_pthread_mutex_lock();
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     if (qat_offload) {
         ret = qat_finish_int(e, reset_globals);
     }
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef QAT_SW
     if (!qat_offload) {
        ret = multibuff_finish_int(e, reset_globals);
     }
@@ -554,7 +554,7 @@ int qat_engine_finish(ENGINE *e)
 int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 {
     unsigned int retVal = 1;
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 # ifndef __FreeBSD__
     CpaStatus status = CPA_STATUS_SUCCESS;
     int flags = 0;
@@ -568,13 +568,13 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             BREAK_IF(!engine_inited, "POLL failed as engine is not initialized\n");
             BREAK_IF(!enable_external_polling, "POLL failed as external polling is not enabled\n");
             BREAK_IF(p == NULL, "POLL failed as the input parameter was NULL\n");
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
             BREAK_IF(qat_instance_handles == NULL, "POLL failed as no instances are available\n");
 
             *(int *)p = (int)poll_instances();
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef QAT_SW
             *(int *)p = multibuff_poll();
 #endif
         break;
@@ -584,12 +584,12 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
                 "ENABLE_EXTERNAL_POLLING failed as the engine is already initialized\n");
         DEBUG("Enabled external polling\n");
         enable_external_polling = 1;
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
         enable_inline_polling = 0;
 #endif
         break;
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
         case QAT_CMD_ENABLE_INLINE_POLLING:
         BREAK_IF(engine_inited, \
                 "ENABLE_INLINE_POLLING failed as the engine is already initialized\n");
@@ -686,7 +686,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         break;
 
         case QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD:
-# ifndef OPENSSL_ENABLE_QAT_SMALL_PACKET_CIPHER_OFFLOADS
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
         if (p != NULL) {
             char *token;
             char str_p[QAT_MAX_INPUT_STRING_LENGTH];
@@ -752,7 +752,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         break;
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
         case QAT_CMD_SET_CONFIGURATION_SECTION_NAME:
         BREAK_IF(engine_inited, \
                 "QAT_CMD_SET_CONFIGURATION_SECTION_NAME failed as the engine is already initialized\n");
@@ -771,7 +771,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         break;
         case QAT_CMD_ENABLE_SW_FALLBACK:
-# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
+# if !defined(__FreeBSD__) && !defined(QAT_HW_INTREE)
         DEBUG("Enabled SW Fallback\n");
         BREAK_IF(engine_inited, \
                 "ENABLE_SW_FALLBACK failed as the engine is already initialized\n");
@@ -784,7 +784,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         break;
 
         case QAT_CMD_HEARTBEAT_POLL:
-# if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
+# if !defined(__FreeBSD__) && !defined(QAT_HW_INTREE)
         BREAK_IF(!engine_inited, "HEARTBEAT_POLL failed as engine is not initialized\n");
         BREAK_IF(qat_instance_handles == NULL,
                 "HEARTBEAT_POLL failed as no instances are available\n");
@@ -836,7 +836,7 @@ static int bind_qat(ENGINE *e, const char *id)
 {
     int ret = 0;
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
     char *config_section = NULL;
 #endif
     QAT_DEBUG_LOG_INIT();
@@ -845,7 +845,7 @@ static int bind_qat(ENGINE *e, const char *id)
     DEBUG("QAT Debug enabled.\n");
     WARN("%s - %s \n", id, engine_qat_name);
 
-#if defined(OPENSSL_QAT_OFFLOAD) && !defined(QAT_DRIVER_INTREE)
+#if defined(QAT_HW) && !defined(QAT_HW_INTREE)
     if (access(QAT_DEV, F_OK) != 0) {
         WARN("Qat memory driver not present\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_MEM_DRV_NOT_PRESENT);
@@ -874,7 +874,7 @@ static int bind_qat(ENGINE *e, const char *id)
     /* Ensure the QAT error handling is set up */
     ERR_load_QAT_strings();
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 
 # ifdef QAT_INTREE
     if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
@@ -920,7 +920,7 @@ static int bind_qat(ENGINE *e, const char *id)
 # endif
 #endif
 
-#ifdef OPENSSL_MULTIBUFF_OFFLOAD
+#ifdef QAT_SW
     if (!qat_offload) {
         if (mbx_get_algo_info(MBX_ALGO_RSA_2K) ||
             mbx_get_algo_info(MBX_ALGO_RSA_3K) ||
@@ -953,13 +953,13 @@ static int bind_qat(ENGINE *e, const char *id)
     }
 #endif
 
-#ifdef OPENSSL_IPSEC_OFFLOAD
+#ifdef QAT_SW_IPSEC
     if (!hw_support()) {
         WARN("The Processor does not support the features needed for VAES.\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_HW_NOT_SUPPORTED);
         goto end;
     }
-# ifndef OPENSSL_DISABLE_VAES_GCM
+# ifndef DISABLE_QAT_SW_GCM
     if (!vaesgcm_init_ipsec_mb_mgr()) {
         WARN("IPSec Multi-Buffer Manager Initialization failed\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_GCM_CIPHERS_FAILURE);
@@ -968,7 +968,7 @@ static int bind_qat(ENGINE *e, const char *id)
 # endif
 #endif
 
-#if defined(OPENSSL_QAT_OFFLOAD) || defined(OPENSSL_IPSEC_OFFLOAD)
+#if defined(QAT_HW) || defined(QAT_SW_IPSEC)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
         QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_CIPHER_FAILURE);
@@ -998,7 +998,7 @@ static int bind_qat(ENGINE *e, const char *id)
      * configuration as environment variables.
      */
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 # ifdef __GLIBC_PREREQ
 #  if __GLIBC_PREREQ(2, 17)
     config_section = secure_getenv("QAT_SECTION_NAME");

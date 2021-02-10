@@ -68,12 +68,12 @@
 #include <openssl/err.h>
 
 /* QAT includes */
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 # ifdef USE_QAT_CONTIG_MEM
 #  include "qae_mem_utils.h"
 # endif
-# ifdef USE_QAE_MEM
-#  include "cmn_mem_drv_inf.h"
+# ifdef USE_USDM_MEM
+#  include "qat_hw_usdm_inf.h"
 # endif
 # include "cpa.h"
 # include "cpa_types.h"
@@ -81,7 +81,7 @@
 
 void engine_init_child_at_fork_handler(void)
 {
-#ifndef OPENSSL_DISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK
+#ifndef DISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK
     /* Reinitialise the engine */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (NULL == e) {
@@ -115,7 +115,7 @@ void engine_finish_before_fork_handler(void)
     multibuff_keep_polling = 1;
 }
 
-#ifdef OPENSSL_QAT_OFFLOAD
+#ifdef QAT_HW
 int qat_set_instance_for_thread(long instanceNum)
 {
     thread_local_variables_t *tlv = NULL;
