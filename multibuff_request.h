@@ -123,4 +123,62 @@ typedef struct _x25519_derive_op_data {
     int *sts;
 } x25519_derive_op_data;
 
+typedef struct _ecdsa_sign_op_data {
+    struct _ecdsa_sign_op_data *next;
+    struct _ecdsa_sign_op_data *prev;
+    unsigned char *sign_r;
+    unsigned char *sign_s;
+    const unsigned char *digest;
+    const BIGNUM *eph_key;
+    const BIGNUM *priv_key;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdsa_sign_op_data;
+
+typedef struct _ecdsa_sign_setup_op_data {
+    struct _ecdsa_sign_setup_op_data *next;
+    struct _ecdsa_sign_setup_op_data *prev;
+    BIGNUM *k_inv;
+    BIGNUM *sig_rp;
+    const BIGNUM *eph_key;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdsa_sign_setup_op_data;
+
+typedef struct _ecdsa_sign_sig_op_data {
+    struct _ecdsa_sign_sig_op_data *next;
+    struct _ecdsa_sign_sig_op_data *prev;
+    unsigned char *sign_r;
+    unsigned char *sign_s;
+    const unsigned char *digest;
+    const BIGNUM *sig_rp;
+    const BIGNUM *k_inv;
+    const BIGNUM *priv_key;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdsa_sign_sig_op_data;
+
+typedef struct _ecdh_keygen_op_data {
+    struct _ecdh_keygen_op_data *next;
+    struct _ecdh_keygen_op_data *prev;
+    BIGNUM *x;
+    BIGNUM *y;
+    BIGNUM *z;
+    const BIGNUM *priv_key;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdh_keygen_op_data;
+
+typedef struct _ecdh_compute_op_data {
+    struct _ecdh_compute_op_data *next;
+    struct _ecdh_compute_op_data *prev;
+    unsigned char *shared_key;
+    const BIGNUM *priv_key;
+    const BIGNUM *x;
+    const BIGNUM *y;
+    const BIGNUM *z;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdh_compute_op_data;
+
 #endif /* MULTIBUFF_REQUEST_H */

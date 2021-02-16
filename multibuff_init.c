@@ -72,6 +72,7 @@
 #include "multibuff_polling.h"
 #include "multibuff_rsa.h"
 #include "multibuff_ecx.h"
+#include "multibuff_ec.h"
 #include "multibuff_request.h"
 #include "multibuff_freelist.h"
 #include "multibuff_queue.h"
@@ -115,10 +116,24 @@ int multibuff_init(ENGINE *e)
         (mb_flist_x25519_derive_create(&x25519_derive_freelist,
                                        MULTIBUFF_MAX_INFLIGHTS) != 0) ||
         (mb_queue_x25519_keygen_create(&x25519_keygen_queue) != 0) ||
-        (mb_queue_x25519_derive_create(&x25519_derive_queue) != 0)) {
+        (mb_queue_x25519_derive_create(&x25519_derive_queue) != 0) ||
+        (mb_flist_ecdsa_sign_create(&ecdsa_sign_freelist,
+                                        MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_flist_ecdsa_sign_setup_create(&ecdsa_sign_setup_freelist,
+                                              MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_flist_ecdsa_sign_sig_create(&ecdsa_sign_sig_freelist,
+                                            MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_queue_ecdsap256_sign_create(&ecdsap256_sign_queue) != 0) ||
+        (mb_queue_ecdsap256_sign_setup_create(&ecdsap256_sign_setup_queue) != 0) ||
+        (mb_queue_ecdsap256_sign_sig_create(&ecdsap256_sign_sig_queue) != 0) ||
+        (mb_flist_ecdh_keygen_create(&ecdh_keygen_freelist,
+                                         MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_flist_ecdh_compute_create(&ecdh_compute_freelist,
+                                          MULTIBUFF_MAX_INFLIGHTS) != 0) ||
+        (mb_queue_ecdhp256_keygen_create(&ecdhp256_keygen_queue) != 0) ||
+        (mb_queue_ecdhp256_compute_create(&ecdhp256_compute_queue) != 0)) {
         WARN("Failure to allocate req arrays\n");
-        QATerr(QAT_F_MULTIBUFF_INIT,
-                     QAT_R_CREATE_FREELIST_QUEUE_FAILURE);
+        QATerr(QAT_F_MULTIBUFF_INIT, QAT_R_CREATE_FREELIST_QUEUE_FAILURE);
         qat_pthread_mutex_unlock();
         qat_engine_finish(e);
         return 0;
@@ -164,6 +179,11 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     rsa_pub_op_data *rsa_pub_req = NULL;
     x25519_keygen_op_data *x25519_keygen_req = NULL;
     x25519_derive_op_data *x25519_derive_req = NULL;
+    ecdsa_sign_op_data *ecdsap256_sign_req = NULL;
+    ecdsa_sign_setup_op_data *ecdsap256_sign_setup_req = NULL;
+    ecdsa_sign_sig_op_data *ecdsap256_sign_sig_req = NULL;
+    ecdh_keygen_op_data *ecdhp256_keygen_req = NULL;
+    ecdh_compute_op_data *ecdhp256_compute_req = NULL;
 
     DEBUG("---- Multibuff Finishing...\n\n");
 
@@ -185,6 +205,11 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     mb_queue_rsa_pub_disable(&rsa_pub_queue);
     mb_queue_x25519_keygen_disable(&x25519_keygen_queue);
     mb_queue_x25519_derive_disable(&x25519_derive_queue);
+    mb_queue_ecdsap256_sign_disable(&ecdsap256_sign_queue);
+    mb_queue_ecdsap256_sign_setup_disable(&ecdsap256_sign_setup_queue);
+    mb_queue_ecdsap256_sign_sig_disable(&ecdsap256_sign_sig_queue);
+    mb_queue_ecdhp256_keygen_disable(&ecdhp256_keygen_queue);
+    mb_queue_ecdhp256_compute_disable(&ecdhp256_compute_queue);
 
     while ((rsa_priv_req =
            mb_queue_rsa_priv_dequeue(&rsa_priv_queue)) != NULL) {
@@ -217,10 +242,55 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     }
     mb_queue_x25519_derive_cleanup(&x25519_derive_queue);
 
+    while ((ecdsap256_sign_req =
+           mb_queue_ecdsap256_sign_dequeue(&ecdsap256_sign_queue)) != NULL) {
+        *ecdsap256_sign_req->sts = -1;
+        qat_wake_job(ecdsap256_sign_req->job, 0);
+        OPENSSL_free(ecdsap256_sign_req);
+    }
+    mb_queue_ecdsap256_sign_cleanup(&ecdsap256_sign_queue);
+
+    while ((ecdsap256_sign_setup_req =
+           mb_queue_ecdsap256_sign_setup_dequeue(&ecdsap256_sign_setup_queue)) != NULL) {
+        *ecdsap256_sign_setup_req->sts = -1;
+        qat_wake_job(ecdsap256_sign_setup_req->job, 0);
+        OPENSSL_free(ecdsap256_sign_setup_req);
+    }
+    mb_queue_ecdsap256_sign_setup_cleanup(&ecdsap256_sign_setup_queue);
+
+    while ((ecdsap256_sign_sig_req =
+           mb_queue_ecdsap256_sign_sig_dequeue(&ecdsap256_sign_sig_queue)) != NULL) {
+        *ecdsap256_sign_sig_req->sts = -1;
+        qat_wake_job(ecdsap256_sign_sig_req->job, 0);
+        OPENSSL_free(ecdsap256_sign_sig_req);
+    }
+    mb_queue_ecdsap256_sign_sig_cleanup(&ecdsap256_sign_sig_queue);
+
+    while ((ecdhp256_keygen_req =
+           mb_queue_ecdhp256_keygen_dequeue(&ecdhp256_keygen_queue)) != NULL) {
+        *ecdhp256_keygen_req->sts = -1;
+        qat_wake_job(ecdhp256_keygen_req->job, 0);
+        OPENSSL_free(ecdhp256_keygen_req);
+    }
+    mb_queue_ecdhp256_keygen_cleanup(&ecdhp256_keygen_queue);
+
+    while ((ecdhp256_compute_req =
+           mb_queue_ecdhp256_compute_dequeue(&ecdhp256_compute_queue)) != NULL) {
+        *ecdhp256_compute_req->sts = -1;
+        qat_wake_job(ecdhp256_compute_req->job, 0);
+        OPENSSL_free(ecdhp256_compute_req);
+    }
+    mb_queue_ecdhp256_compute_cleanup(&ecdhp256_compute_queue);
+
     mb_flist_rsa_priv_cleanup(&rsa_priv_freelist);
     mb_flist_rsa_pub_cleanup(&rsa_pub_freelist);
     mb_flist_x25519_keygen_cleanup(&x25519_keygen_freelist);
     mb_flist_x25519_derive_cleanup(&x25519_derive_freelist);
+    mb_flist_ecdsa_sign_cleanup(&ecdsa_sign_freelist);
+    mb_flist_ecdsa_sign_setup_cleanup(&ecdsa_sign_setup_freelist);
+    mb_flist_ecdsa_sign_sig_cleanup(&ecdsa_sign_sig_freelist);
+    mb_flist_ecdh_keygen_cleanup(&ecdh_keygen_freelist);
+    mb_flist_ecdh_compute_cleanup(&ecdh_compute_freelist);
 
     if (e_check != NULL) {
         BN_free(e_check);

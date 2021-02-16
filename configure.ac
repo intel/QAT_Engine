@@ -83,6 +83,16 @@ AC_ARG_ENABLE(multibuff_ecx,
                              [Disable multibuff X25519 offload]))
 AC_SUBST(enable_multibuff_ecx)
 
+AC_ARG_ENABLE(multibuff_ecdsa,
+              AS_HELP_STRING([--disable-multibuff_ecdsa],
+                             [Disable multibuff ECDSA offload]))
+AC_SUBST(enable_multibuff_ecdsa)
+
+AC_ARG_ENABLE(multibuff_ecdh,
+              AS_HELP_STRING([--disable-multibuff_ecdh],
+                             [Disable multibuff ECDH offload]))
+AC_SUBST(enable_multibuff_ecdh)
+
 AC_ARG_ENABLE(qat_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_small_pkt_offload],
                              [Enable accelerated small packet CIPHER offload]))
@@ -466,6 +476,24 @@ then
 else
     enable_multibuff_ecx="-DOPENSSL_DISABLE_MULTIBUFF_ECX"
     AC_MSG_NOTICE([Not Offloading X25519 using Multi-buffer])
+fi
+
+if test "x$enable_multibuff_ecdsa" != "xno" -a "x$cflags_multibuff_offload" != "x"
+then
+    enable_multibuff_ecdsa="-DOPENSSL_ENABLE_MULTIBUFF_ECDSA"
+    AC_MSG_NOTICE([Offloading ECDSA P256 using Multi-buffer])
+else
+    enable_multibuff_ecdsa="-DOPENSSL_DISABLE_MULTIBUFF_ECDSA"
+    AC_MSG_NOTICE([Not Offloading ECDSA P256 using Multi-buffer])
+fi
+
+if test "x$enable_multibuff_ecdh" != "xno" -a "x$cflags_multibuff_offload" != "x"
+then
+    enable_multibuff_ecdh="-DOPENSSL_ENABLE_MULTIBUFF_ECDH"
+    AC_MSG_NOTICE([Offloading ECDH P256 using Multi-buffer])
+else
+    enable_multibuff_ecdh="-DOPENSSL_DISABLE_MULTIBUFF_ECDH"
+    AC_MSG_NOTICE([Not Offloading ECDH P256 using Multi-buffer])
 fi
 
 if test "x$enable_qat_small_pkt_offload" = "xyes" -a "x$cflags_qat_offload" != "x"

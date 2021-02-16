@@ -743,6 +743,16 @@ extern rdtsc_prof_t x25519_cycles_keygen_setup;
 extern rdtsc_prof_t x25519_cycles_keygen_execute;
 extern rdtsc_prof_t x25519_cycles_derive_setup;
 extern rdtsc_prof_t x25519_cycles_derive_execute;
+extern rdtsc_prof_t ecdsa_cycles_sign_setup;
+extern rdtsc_prof_t ecdsa_cycles_sign_execute;
+extern rdtsc_prof_t ecdsa_cycles_sign_setup_setup;
+extern rdtsc_prof_t ecdsa_cycles_sign_setup_execute;
+extern rdtsc_prof_t ecdsa_cycles_sign_sig_setup;
+extern rdtsc_prof_t ecdsa_cycles_sign_sig_execute;
+extern rdtsc_prof_t ecdh_cycles_keygen_setup;
+extern rdtsc_prof_t ecdh_cycles_keygen_execute;
+extern rdtsc_prof_t ecdh_cycles_compute_setup;
+extern rdtsc_prof_t ecdh_cycles_compute_execute;
 
 extern int print_cycle_count;
 
@@ -835,6 +845,16 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&x25519_cycles_keygen_execute, 0); \
         rdtsc_prof_init(&x25519_cycles_derive_setup, 0);   \
         rdtsc_prof_init(&x25519_cycles_derive_execute, 0); \
+        rdtsc_prof_init(&ecdsa_cycles_sign_setup, 0);         \
+        rdtsc_prof_init(&ecdsa_cycles_sign_execute, 0);       \
+        rdtsc_prof_init(&ecdsa_cycles_sign_setup_setup, 0);   \
+        rdtsc_prof_init(&ecdsa_cycles_sign_setup_execute, 0); \
+        rdtsc_prof_init(&ecdsa_cycles_sign_sig_setup, 0);     \
+        rdtsc_prof_init(&ecdsa_cycles_sign_sig_execute, 0);   \
+        rdtsc_prof_init(&ecdh_cycles_keygen_setup, 0);    \
+        rdtsc_prof_init(&ecdh_cycles_keygen_execute, 0);  \
+        rdtsc_prof_init(&ecdh_cycles_compute_setup, 0);   \
+        rdtsc_prof_init(&ecdh_cycles_compute_execute, 0); \
     } while (0)
 
 
@@ -849,10 +869,20 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_print(&rsa_cycles_pub_enc_setup, "[RSA:pub_enc_setup]");    \
         rdtsc_prof_print(&rsa_cycles_pub_dec_setup, "[RSA:pub_dec_setup]");    \
         rdtsc_prof_print(&rsa_cycles_pub_execute, "[RSA:pub_execute]");        \
-        rdtsc_prof_print(&x25519_cycles_keygen_setup, "[X22519:keygen_setup]");     \
-        rdtsc_prof_print(&x25519_cycles_keygen_execute, "[X22519:keygen_execute]"); \
-        rdtsc_prof_print(&x25519_cycles_derive_setup, "[X22519:derive_setup]");     \
-        rdtsc_prof_print(&x25519_cycles_derive_execute, "[X22519:derive_execute]"); \
+        rdtsc_prof_print(&x25519_cycles_keygen_setup, "[X22519:keygen_setup]");       \
+        rdtsc_prof_print(&x25519_cycles_keygen_execute, "[X22519:keygen_execute]");   \
+        rdtsc_prof_print(&x25519_cycles_derive_setup, "[X22519:derive_setup]");       \
+        rdtsc_prof_print(&x25519_cycles_derive_execute, "[X22519:derive_execute]");   \
+        rdtsc_prof_print(&ecdsa_cycles_sign_setup, "[ECDSA:sign_setup]");     \
+        rdtsc_prof_print(&ecdsa_cycles_sign_execute, "[ECDSA:sign_execute]"); \
+        rdtsc_prof_print(&ecdsa_cycles_sign_setup_setup, "[ECDSA:sign_setup_setup]");     \
+        rdtsc_prof_print(&ecdsa_cycles_sign_setup_execute, "[ECDSA:sign_setup_execute]"); \
+        rdtsc_prof_print(&ecdsa_cycles_sign_sig_setup, "[ECDSA:sign_sig_setup]");         \
+        rdtsc_prof_print(&ecdsa_cycles_sign_sig_execute, "[ECDSA:sign_sig_execute]");     \
+        rdtsc_prof_print(&ecdh_cycles_keygen_setup, "[ECDH:keygen_setup]");       \
+        rdtsc_prof_print(&ecdh_cycles_keygen_execute, "[ECDH:keygen_execute]");   \
+        rdtsc_prof_print(&ecdh_cycles_compute_setup, "[ECDH:compute_setup]");     \
+        rdtsc_prof_print(&ecdh_cycles_compute_execute, "[ECDH:compute_execute]"); \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \

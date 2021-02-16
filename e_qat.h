@@ -349,6 +349,20 @@ extern mb_flist_x25519_derive x25519_derive_freelist;
 extern mb_queue_x25519_keygen x25519_keygen_queue;
 extern mb_queue_x25519_derive x25519_derive_queue;
 
+/* ECDSA p256 */
+extern mb_flist_ecdsa_sign ecdsa_sign_freelist;
+extern mb_flist_ecdsa_sign_setup ecdsa_sign_setup_freelist;
+extern mb_flist_ecdsa_sign_sig ecdsa_sign_sig_freelist;
+extern mb_queue_ecdsap256_sign ecdsap256_sign_queue;
+extern mb_queue_ecdsap256_sign_setup ecdsap256_sign_setup_queue;
+extern mb_queue_ecdsap256_sign_sig ecdsap256_sign_sig_queue;
+
+/*ECDH p256*/
+extern mb_flist_ecdh_keygen ecdh_keygen_freelist;
+extern mb_flist_ecdh_compute ecdh_compute_freelist;
+extern mb_queue_ecdhp256_keygen ecdhp256_keygen_queue;
+extern mb_queue_ecdhp256_compute ecdhp256_compute_queue;
+
 typedef struct _mb_req_rates {
     int req_this_period;
     struct timespec previous_time;
@@ -359,6 +373,11 @@ extern mb_req_rates mb_rsa_priv_req_rates;
 extern mb_req_rates mb_rsa_pub_req_rates;
 extern mb_req_rates mb_x25519_keygen_req_rates;
 extern mb_req_rates mb_x25519_derive_req_rates;
+extern mb_req_rates mb_ecdsap256_sign_req_rates;
+extern mb_req_rates mb_ecdsap256_sign_setup_req_rates;
+extern mb_req_rates mb_ecdsap256_sign_sig_req_rates;
+extern mb_req_rates mb_ecdhp256_keygen_req_rates;
+extern mb_req_rates mb_ecdhp256_compute_req_rates;
 # endif
 
 # define QAT_CMD_ENABLE_EXTERNAL_POLLING ENGINE_CMD_BASE

@@ -75,6 +75,16 @@ rdtsc_prof_t x25519_cycles_keygen_setup;
 rdtsc_prof_t x25519_cycles_keygen_execute;
 rdtsc_prof_t x25519_cycles_derive_setup;
 rdtsc_prof_t x25519_cycles_derive_execute;
+rdtsc_prof_t ecdsa_cycles_sign_setup;
+rdtsc_prof_t ecdsa_cycles_sign_execute;
+rdtsc_prof_t ecdsa_cycles_sign_setup_setup;
+rdtsc_prof_t ecdsa_cycles_sign_setup_execute;
+rdtsc_prof_t ecdsa_cycles_sign_sig_setup;
+rdtsc_prof_t ecdsa_cycles_sign_sig_execute;
+rdtsc_prof_t ecdh_cycles_keygen_setup;
+rdtsc_prof_t ecdh_cycles_keygen_execute;
+rdtsc_prof_t ecdh_cycles_compute_setup;
+rdtsc_prof_t ecdh_cycles_compute_execute;
 
 volatile static double rdtsc_prof_cost = 0.0; /* cost of measurement */
 int print_cycle_count = 1;

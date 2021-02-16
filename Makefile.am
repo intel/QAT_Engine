@@ -31,7 +31,8 @@ if OPENSSL_MULTIBUFF_OFFLOAD
                          multibuff_freelist.c \
                          multibuff_queue.c    \
                          multibuff_rsa.c      \
-                         multibuff_ecx.c
+                         multibuff_ecx.c      \
+                         multibuff_ec.c
 endif
 
 if OPENSSL_QAT_OFFLOAD
@@ -77,7 +78,8 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_intree)           \
             $(enable_qat_ecdsa) $(enable_qat_dsa) $(enable_qat_ecdh)  \
             $(enable_qat_prf) $(enable_qat_hkdf) $(enable_qat_ecx)    \
             $(enable_vaes_gcm) $(enable_multibuff_rsa)                \
-            $(enable_multibuff_ecx) $(enable_qat_small_pkt_offload)   \
+            $(enable_multibuff_ecx) $(enable_multibuff_ecdsa)         \
+            $(enable_multibuff_ecdh) $(enable_qat_small_pkt_offload)  \
             $(enable_qat_auto_engine_init_on_fork)                    \
             $(enable_qat_lenstra_protection) $(cflags_qat_engine_id)  \
             $(enable_qat_debug) $(enable_qat_warnings)                \

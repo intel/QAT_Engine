@@ -73,7 +73,8 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
 * Support for the Intel&reg; QuickAssist Technology Driver Heartbeat feature.
 * Multi-buffer Software optimization. (Software Optimization using Intel&reg; Crypto Multi-buffer Library)
     * RSA Support for Key size 2048
-    * ECDH Support for Montgomery EC Curve: X25519
+    * ECDH Support for Montgomery EC Curve: X25519 and NIST Prime Curve: P-256
+    * ECDSA Support for NIST Prime Curve: P-256
 * AES128-GCM, AES192-GCM and AES256-GCM. (Software Optimization using Intel&reg; Multi-Buffer Crypto for IPsec Library)
 
 Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
@@ -1041,6 +1042,16 @@ Optional
     when Multi-buffer support is enabled using the flag --enable-multibuff_offload
     (enabled by default if multibuff_offload is enabled).
 
+--disable-multibuff_ecdsa/--enable-multibuff_ecdsa
+    Disable/Enable Intel(R) Multibuff ECDSA P-256 offload. This flag is valid only
+    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
+    (enabled by default if multibuff_offload is enabled).
+
+--disable-multibuff_ecdh/--enable-multibuff_ecdh
+    Disable/Enable Intel(R) Multibuff ECDH P-256 offload. This flag is valid only
+    when Multi-buffer support is enabled using the flag --enable-multibuff_offload
+    (enabled by default if multibuff_offload is enabled).
+
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
     Enable the offload of small packet cipher operations to Intel(R) QAT. When
     disabled, these operations are performed using the CPU (disabled by
@@ -1384,8 +1395,9 @@ config variable 'ServicesProfile' from its default value of 'DEFAULT' to 'CRYPTO
 ## Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support
 
 This Intel&reg; QAT OpenSSL\* Engine supports Multi-buffer based software
-optimizations for RSA and X25519 using the Intel&reg; Crypto Multi-buffer
-library based on Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) operations.
+optimizations for RSA, ECDH X25519, ECDH P-256 and ECDSA P-256(sign) using the
+Intel&reg; Crypto Multi-buffer library based on Intel&reg; AVX-512 Integer Fused
+Multiply Add (IFMA) operations.
 
 The Intel&reg; QAT OpenSSL\* Engine Multi-buffer Support, when enabled by the
 user using the build instructions mentioned below performs operation by
@@ -1435,6 +1447,10 @@ cd /path/to/openssl_install/bin
     ./openssl speed -engine qatengine -elapsed -async_jobs 8 rsa2048
 * ECDH X25519
     ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdhx25519
+* ECDH P-256
+    ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdhp256
+* ECDSA P-256
+    ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdsap256
 ```
 
 ## Intel&reg; QAT OpenSSL\* Engine IPsec Vectorized AES Support

@@ -108,6 +108,7 @@
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
 # include "multibuff_rsa.h"
+# include "multibuff_ec.h"
 # include "multibuff_ecx.h"
 # include "multibuff_polling.h"
 # include "crypto_mb/cpu_features.h"
@@ -211,6 +212,19 @@ mb_flist_x25519_derive x25519_derive_freelist;
 mb_queue_x25519_keygen x25519_keygen_queue;
 mb_queue_x25519_derive x25519_derive_queue;
 
+/* ECDSA p256 */
+mb_flist_ecdsa_sign ecdsa_sign_freelist;
+mb_flist_ecdsa_sign_setup ecdsa_sign_setup_freelist;
+mb_flist_ecdsa_sign_sig ecdsa_sign_sig_freelist;
+mb_queue_ecdsap256_sign ecdsap256_sign_queue;
+mb_queue_ecdsap256_sign_setup ecdsap256_sign_setup_queue;
+mb_queue_ecdsap256_sign_sig ecdsap256_sign_sig_queue;
+
+/* ECDH p256*/
+mb_flist_ecdh_keygen ecdh_keygen_freelist;
+mb_flist_ecdh_compute ecdh_compute_freelist;
+mb_queue_ecdhp256_keygen ecdhp256_keygen_queue;
+mb_queue_ecdhp256_compute ecdhp256_compute_queue;
 #endif
 
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
@@ -917,6 +931,16 @@ static int bind_qat(ENGINE *e, const char *id)
             if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
                 WARN("ENGINE_set_pkey_meths failed\n");
                 QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_X25519_FAILURE);
+                goto end;
+            }
+        }
+
+        if (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256)
+            && mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256)) {
+            DEBUG("Multibuffer ECDSA p256 & ECDH p256 Supported\n");
+            if (!ENGINE_set_EC(e, mb_get_EC_methods())) {
+                WARN("ENGINE_set_EC failed\n");
+                QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_EC_FAILURE);
                 goto end;
             }
         }
