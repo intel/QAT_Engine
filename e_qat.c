@@ -203,8 +203,12 @@ int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 BIGNUM *e_check = NULL;
 mb_flist_rsa_priv rsa_priv_freelist;
 mb_flist_rsa_pub rsa_pub_freelist;
-mb_queue_rsa_priv rsa_priv_queue;
-mb_queue_rsa_pub rsa_pub_queue;
+mb_queue_rsa2k_priv rsa2k_priv_queue;
+mb_queue_rsa2k_pub rsa2k_pub_queue;
+mb_queue_rsa3k_priv rsa3k_priv_queue;
+mb_queue_rsa3k_pub rsa3k_pub_queue;
+mb_queue_rsa4k_priv rsa4k_priv_queue;
+mb_queue_rsa4k_pub rsa4k_pub_queue;
 
 /* X25519 */
 mb_flist_x25519_keygen x25519_keygen_freelist;
@@ -918,7 +922,9 @@ static int bind_qat(ENGINE *e, const char *id)
 
 #ifdef OPENSSL_MULTIBUFF_OFFLOAD
     if (!qat_offload) {
-        if (mbx_get_algo_info(MBX_ALGO_RSA_2K)) {
+        if (mbx_get_algo_info(MBX_ALGO_RSA_2K) ||
+            mbx_get_algo_info(MBX_ALGO_RSA_3K) ||
+            mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
             DEBUG("Multibuffer RSA Supported\n");
             if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
                 WARN("ENGINE_set_RSA failed\n");

@@ -50,23 +50,59 @@
 # include <stdio.h>
 # include "multibuff_request.h"
 
-typedef struct _mb_queue_rsa_priv
+typedef struct _mb_queue_rsa2k_priv
 {
     pthread_mutex_t mb_queue_mutex;
     rsa_priv_op_data *head;
     rsa_priv_op_data *tail;
     int num_items;
     int disabled;
-} mb_queue_rsa_priv;
+} mb_queue_rsa2k_priv;
 
-typedef struct _mb_queue_rsa_pub
+typedef struct _mb_queue_rsa2k_pub
 {
     pthread_mutex_t mb_queue_mutex;
     rsa_pub_op_data *head;
     rsa_pub_op_data *tail;
     int num_items;
     int disabled;
-} mb_queue_rsa_pub;
+} mb_queue_rsa2k_pub;
+
+typedef struct _mb_queue_rsa3k_priv
+{
+    pthread_mutex_t mb_queue_mutex;
+    rsa_priv_op_data *head;
+    rsa_priv_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_rsa3k_priv;
+
+typedef struct _mb_queue_rsa3k_pub
+{
+    pthread_mutex_t mb_queue_mutex;
+    rsa_pub_op_data *head;
+    rsa_pub_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_rsa3k_pub;
+
+typedef struct _mb_queue_rsa4k_priv
+{
+    pthread_mutex_t mb_queue_mutex;
+    rsa_priv_op_data *head;
+    rsa_priv_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_rsa4k_priv;
+
+typedef struct _mb_queue_rsa4k_pub
+{
+    pthread_mutex_t mb_queue_mutex;
+    rsa_pub_op_data *head;
+    rsa_pub_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_rsa4k_pub;
 
 typedef struct _mb_queue_x25519_keygen
 {
@@ -131,20 +167,53 @@ typedef struct _mb_queue_ecdhp256_compute
     int disabled;
 } mb_queue_ecdhp256_compute;
 
-int mb_queue_rsa_priv_create(mb_queue_rsa_priv *queue);
-int mb_queue_rsa_priv_disable(mb_queue_rsa_priv * queue);
-int mb_queue_rsa_priv_cleanup(mb_queue_rsa_priv * queue);
-int mb_queue_rsa_priv_enqueue(mb_queue_rsa_priv *queue,
-                              rsa_priv_op_data *item);
-rsa_priv_op_data *mb_queue_rsa_priv_dequeue(mb_queue_rsa_priv *queue);
-int mb_queue_rsa_priv_get_size(mb_queue_rsa_priv *queue);
+int mb_queue_rsa2k_priv_create(mb_queue_rsa2k_priv *queue);
+int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv * queue);
+int mb_queue_rsa2k_priv_cleanup(mb_queue_rsa2k_priv * queue);
+int mb_queue_rsa2k_priv_enqueue(mb_queue_rsa2k_priv *queue,
+                                rsa_priv_op_data *item);
+rsa_priv_op_data *mb_queue_rsa2k_priv_dequeue(mb_queue_rsa2k_priv *queue);
+int mb_queue_rsa2k_priv_get_size(mb_queue_rsa2k_priv *queue);
 
-int mb_queue_rsa_pub_create(mb_queue_rsa_pub *queue);
-int mb_queue_rsa_pub_disable(mb_queue_rsa_pub * queue);
-int mb_queue_rsa_pub_cleanup(mb_queue_rsa_pub * queue);
-int mb_queue_rsa_pub_enqueue(mb_queue_rsa_pub *queue, rsa_pub_op_data *item);
-rsa_pub_op_data *mb_queue_rsa_pub_dequeue(mb_queue_rsa_pub *queue);
-int mb_queue_rsa_pub_get_size(mb_queue_rsa_pub *queue);
+int mb_queue_rsa2k_pub_create(mb_queue_rsa2k_pub *queue);
+int mb_queue_rsa2k_pub_disable(mb_queue_rsa2k_pub * queue);
+int mb_queue_rsa2k_pub_cleanup(mb_queue_rsa2k_pub * queue);
+int mb_queue_rsa2k_pub_enqueue(mb_queue_rsa2k_pub *queue,
+                               rsa_pub_op_data *item);
+rsa_pub_op_data *mb_queue_rsa2k_pub_dequeue(mb_queue_rsa2k_pub *queue);
+int mb_queue_rsa2k_pub_get_size(mb_queue_rsa2k_pub *queue);
+
+int mb_queue_rsa3k_priv_create(mb_queue_rsa3k_priv *queue);
+int mb_queue_rsa3k_priv_disable(mb_queue_rsa3k_priv * queue);
+int mb_queue_rsa3k_priv_cleanup(mb_queue_rsa3k_priv * queue);
+int mb_queue_rsa3k_priv_enqueue(mb_queue_rsa3k_priv *queue,
+                                rsa_priv_op_data *item);
+rsa_priv_op_data *mb_queue_rsa3k_priv_dequeue(mb_queue_rsa3k_priv *queue);
+int mb_queue_rsa3k_priv_get_size(mb_queue_rsa3k_priv *queue);
+
+int mb_queue_rsa3k_pub_create(mb_queue_rsa3k_pub *queue);
+int mb_queue_rsa3k_pub_disable(mb_queue_rsa3k_pub * queue);
+int mb_queue_rsa3k_pub_cleanup(mb_queue_rsa3k_pub * queue);
+int mb_queue_rsa3k_pub_enqueue(mb_queue_rsa3k_pub *queue,
+                               rsa_pub_op_data *item);
+rsa_pub_op_data *mb_queue_rsa3k_pub_dequeue(mb_queue_rsa3k_pub *queue);
+int mb_queue_rsa3k_pub_get_size(mb_queue_rsa3k_pub *queue);
+
+int mb_queue_rsa4k_priv_create(mb_queue_rsa4k_priv *queue);
+int mb_queue_rsa4k_priv_disable(mb_queue_rsa4k_priv * queue);
+int mb_queue_rsa4k_priv_cleanup(mb_queue_rsa4k_priv * queue);
+int mb_queue_rsa4k_priv_enqueue(mb_queue_rsa4k_priv *queue,
+                                rsa_priv_op_data *item);
+rsa_priv_op_data *mb_queue_rsa4k_priv_dequeue(mb_queue_rsa4k_priv *queue);
+int mb_queue_rsa4k_priv_get_size(mb_queue_rsa4k_priv *queue);
+
+int mb_queue_rsa4k_pub_create(mb_queue_rsa4k_pub *queue);
+int mb_queue_rsa4k_pub_disable(mb_queue_rsa4k_pub * queue);
+int mb_queue_rsa4k_pub_cleanup(mb_queue_rsa4k_pub * queue);
+int mb_queue_rsa4k_pub_enqueue(mb_queue_rsa4k_pub *queue,
+                               rsa_pub_op_data *item);
+rsa_pub_op_data *mb_queue_rsa4k_pub_dequeue(mb_queue_rsa4k_pub *queue);
+int mb_queue_rsa4k_pub_get_size(mb_queue_rsa4k_pub *queue);
 
 int mb_queue_x25519_keygen_create(mb_queue_x25519_keygen *queue);
 int mb_queue_x25519_keygen_disable(mb_queue_x25519_keygen * queue);

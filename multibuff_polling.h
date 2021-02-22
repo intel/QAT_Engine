@@ -43,7 +43,7 @@
  *
  *****************************************************************************/
 
-#ifndef MULIBUFF_POLLING_H
+#ifndef MULTIBUFF_POLLING_H
 # define MULTIBUFF_POLLING_H
 
 #include "e_qat.h"

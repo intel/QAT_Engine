@@ -95,10 +95,18 @@ struct timespec mb_poll_timeout_time = { 0, 10000000 }; /* default 100th sec */
 unsigned int mb_timeout_level = MULTIBUFF_TIMEOUT_LEVEL_MAX;
 
 /* RSA */
-struct timespec rsa_priv_previous_time = { 0 };
-struct timespec rsa_pub_previous_time = { 0 };
-mb_req_rates mb_rsa_priv_req_rates = { 0 };
-mb_req_rates mb_rsa_pub_req_rates = { 0 };
+struct timespec rsa2k_priv_previous_time = { 0 };
+struct timespec rsa2k_pub_previous_time = { 0 };
+struct timespec rsa3k_priv_previous_time = { 0 };
+struct timespec rsa3k_pub_previous_time = { 0 };
+struct timespec rsa4k_priv_previous_time = { 0 };
+struct timespec rsa4k_pub_previous_time = { 0 };
+mb_req_rates mb_rsa2k_priv_req_rates = { 0 };
+mb_req_rates mb_rsa2k_pub_req_rates = { 0 };
+mb_req_rates mb_rsa3k_priv_req_rates = { 0 };
+mb_req_rates mb_rsa3k_pub_req_rates = { 0 };
+mb_req_rates mb_rsa4k_priv_req_rates = { 0 };
+mb_req_rates mb_rsa4k_pub_req_rates = { 0 };
 
 /* X25519 */
 struct timespec x25519_keygen_previous_time = { 0 };
@@ -245,8 +253,12 @@ void multibuff_init_req_rates(mb_req_rates * req_rates)
 #ifdef MULTIBUFF_HEURISTIC_TIMEOUT
 unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
 {
-    if (((mb_rsa_priv_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
-        (mb_rsa_pub_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+    if (((mb_rsa2k_priv_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_rsa2k_pub_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_rsa3k_priv_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_rsa3k_pub_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_rsa4k_priv_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
+        (mb_rsa4k_pub_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
         (mb_x25519_keygen_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
         (mb_x25519_derive_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
         (mb_ecdsap256_sign_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
@@ -257,8 +269,12 @@ unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
         (timeout_level > MULTIBUFF_TIMEOUT_LEVEL_MIN))
         return timeout_level-1;
 
-    if (((mb_rsa_priv_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
-        (mb_rsa_pub_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+    if (((mb_rsa2k_priv_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_rsa2k_pub_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_rsa3k_priv_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_rsa3k_pub_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_rsa4k_priv_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_rsa4k_pub_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
         (mb_x25519_keygen_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
         (mb_x25519_derive_req_rates.req_this_period > MULTIBUFF_MAX_BATCH*2) ||
         (mb_ecdsap256_sign_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
@@ -304,8 +320,8 @@ void *multibuff_timer_poll_func(void *ih)
 
     multibuff_timer_poll_func_thread = pthread_self();
     cleared_to_start = 1;
-    multibuff_init_req_rates(&mb_rsa_priv_req_rates);
-    multibuff_init_req_rates(&mb_rsa_pub_req_rates);
+    multibuff_init_req_rates(&mb_rsa2k_priv_req_rates);
+    multibuff_init_req_rates(&mb_rsa2k_pub_req_rates);
     multibuff_init_req_rates(&mb_x25519_keygen_req_rates);
     multibuff_init_req_rates(&mb_x25519_derive_req_rates);
     multibuff_init_req_rates(&mb_ecdsap256_sign_req_rates);
@@ -313,6 +329,10 @@ void *multibuff_timer_poll_func(void *ih)
     multibuff_init_req_rates(&mb_ecdsap256_sign_sig_req_rates);
     multibuff_init_req_rates(&mb_ecdhp256_keygen_req_rates);
     multibuff_init_req_rates(&mb_ecdhp256_compute_req_rates);
+    multibuff_init_req_rates(&mb_rsa3k_priv_req_rates);
+    multibuff_init_req_rates(&mb_rsa3k_pub_req_rates);
+    multibuff_init_req_rates(&mb_rsa4k_priv_req_rates);
+    multibuff_init_req_rates(&mb_rsa4k_pub_req_rates);
 
     DEBUG("timer_poll_func_thread = 0x%lx\n", multibuff_timer_poll_func_thread);
 
@@ -328,31 +348,83 @@ void *multibuff_timer_poll_func(void *ih)
                 /* Deal with requests less than 8 */
 
 #ifndef OPENSSL_DISABLE_MULTIBUFF_RSA
-                if (mb_queue_rsa_priv_get_size(&rsa_priv_queue) > 0) {
+                if (mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_RSA_priv_reqs();
+                    process_RSA_priv_reqs(RSA_2K_LENGTH);
                     submission_count--;
-                    while ((mb_queue_rsa_priv_get_size(&rsa_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
+                    while ((mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_RSA_priv_reqs();
+                        process_RSA_priv_reqs(RSA_2K_LENGTH);
                         submission_count--;
                     }
                 }
 # ifdef MULTIBUFF_HEURISTIC_TIMEOUT
-                multibuff_update_req_timeout(&mb_rsa_priv_req_rates);
+                multibuff_update_req_timeout(&mb_rsa2k_priv_req_rates);
 # endif
-                if (mb_queue_rsa_pub_get_size(&rsa_pub_queue) > 0) {
+                if (mb_queue_rsa2k_pub_get_size(&rsa2k_pub_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_RSA_pub_reqs();
+                    process_RSA_pub_reqs(RSA_2K_LENGTH);
                     submission_count--;
-                    while ((mb_queue_rsa_pub_get_size(&rsa_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
+                    while ((mb_queue_rsa2k_pub_get_size(&rsa2k_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_RSA_pub_reqs();
+                        process_RSA_pub_reqs(RSA_2K_LENGTH);
                         submission_count--;
                     }
                 }
 # ifdef MULTIBUFF_HEURISTIC_TIMEOUT
-                multibuff_update_req_timeout(&mb_rsa_pub_req_rates);
+                multibuff_update_req_timeout(&mb_rsa2k_pub_req_rates);
+# endif
+                if (mb_queue_rsa3k_priv_get_size(&rsa3k_priv_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_RSA_priv_reqs(RSA_3K_LENGTH);
+                    submission_count--;
+                    while ((mb_queue_rsa3k_priv_get_size(&rsa3k_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_RSA_priv_reqs(RSA_3K_LENGTH);
+                        submission_count--;
+                    }
+                }
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_rsa3k_priv_req_rates);
+# endif
+                if (mb_queue_rsa3k_pub_get_size(&rsa3k_pub_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_RSA_pub_reqs(RSA_3K_LENGTH);
+                    submission_count--;
+                    while ((mb_queue_rsa3k_pub_get_size(&rsa3k_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_RSA_pub_reqs(RSA_3K_LENGTH);
+                        submission_count--;
+                    }
+                }
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_rsa3k_pub_req_rates);
+# endif
+                if (mb_queue_rsa4k_priv_get_size(&rsa4k_priv_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_RSA_priv_reqs(RSA_4K_LENGTH);
+                    submission_count--;
+                    while ((mb_queue_rsa4k_priv_get_size(&rsa4k_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_RSA_priv_reqs(RSA_4K_LENGTH);
+                        submission_count--;
+                    }
+                }
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_rsa4k_priv_req_rates);
+# endif
+                if (mb_queue_rsa4k_pub_get_size(&rsa4k_pub_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_RSA_pub_reqs(RSA_4K_LENGTH);
+                    submission_count--;
+                    while ((mb_queue_rsa4k_pub_get_size(&rsa4k_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_RSA_pub_reqs(RSA_4K_LENGTH);
+                        submission_count--;
+                    }
+                }
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_rsa4k_pub_req_rates);
 # endif
 #endif
 
@@ -563,30 +635,82 @@ void *multibuff_timer_poll_func(void *ih)
 #endif
 
 #ifndef OPENSSL_DISABLE_MULTIBUFF_RSA
-        if (mb_queue_rsa_priv_get_size(&rsa_priv_queue) >= MULTIBUFF_MAX_BATCH) {
+        if (mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue) >= MULTIBUFF_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
                 /* Deal with 8 private key requests */
                 DEBUG("8 RSA private key requests in flight, process them\n");
-                process_RSA_priv_reqs();
+                process_RSA_priv_reqs(RSA_2K_LENGTH);
                 submission_count--;
-            } while ((mb_queue_rsa_priv_get_size(&rsa_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
+            } while ((mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
                      (submission_count > 0));
 # ifdef MULTIBUFF_HEURISTIC_TIMEOUT
-            multibuff_update_req_timeout(&mb_rsa_priv_req_rates);
+            multibuff_update_req_timeout(&mb_rsa2k_priv_req_rates);
 # endif
         }
-        if (mb_queue_rsa_pub_get_size(&rsa_pub_queue) >= MULTIBUFF_MAX_BATCH) {
+        if (mb_queue_rsa2k_pub_get_size(&rsa2k_pub_queue) >= MULTIBUFF_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
                 /* Deal with 8 public key requests */
                 DEBUG("8 RSA public key requests in flight, process them\n");
-                process_RSA_pub_reqs();
+                process_RSA_pub_reqs(RSA_2K_LENGTH);
                 submission_count--;
-            } while ((mb_queue_rsa_pub_get_size(&rsa_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
+            } while ((mb_queue_rsa2k_pub_get_size(&rsa2k_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
                      (submission_count > 0));
 # ifdef MULTIBUFF_HEURISTIC_TIMEOUT
-            multibuff_update_req_timeout(&mb_rsa_pub_req_rates);
+            multibuff_update_req_timeout(&mb_rsa2k_pub_req_rates);
+# endif
+        }
+        if (mb_queue_rsa3k_priv_get_size(&rsa3k_priv_queue) >= MULTIBUFF_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 private key requests */
+                DEBUG("8 RSA3k private key requests in flight, process them\n");
+                process_RSA_priv_reqs(RSA_3K_LENGTH);
+                submission_count--;
+            } while ((mb_queue_rsa3k_priv_get_size(&rsa3k_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_rsa3k_priv_req_rates);
+# endif
+        }
+        if (mb_queue_rsa3k_pub_get_size(&rsa3k_pub_queue) >= MULTIBUFF_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 public key requests */
+                DEBUG("8 RSA3k public key requests in flight, process them\n");
+                process_RSA_pub_reqs(RSA_3K_LENGTH);
+                submission_count--;
+            } while ((mb_queue_rsa3k_pub_get_size(&rsa3k_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_rsa3k_pub_req_rates);
+# endif
+        }
+        if (mb_queue_rsa4k_priv_get_size(&rsa4k_priv_queue) >= MULTIBUFF_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 private key requests */
+                DEBUG("8 RSA4k private key requests in flight, process them\n");
+                process_RSA_priv_reqs(RSA_4K_LENGTH);
+                submission_count--;
+            } while ((mb_queue_rsa4k_priv_get_size(&rsa4k_priv_queue) >= MULTIBUFF_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_rsa4k_priv_req_rates);
+# endif
+        }
+        if (mb_queue_rsa4k_pub_get_size(&rsa4k_pub_queue) >= MULTIBUFF_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 public key requests */
+                DEBUG("8 RSA4k public key requests in flight, process them\n");
+                process_RSA_pub_reqs(RSA_4K_LENGTH);
+                submission_count--;
+            } while ((mb_queue_rsa4k_pub_get_size(&rsa4k_pub_queue) >= MULTIBUFF_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_rsa4k_pub_req_rates);
 # endif
         }
 #endif
@@ -755,39 +879,111 @@ int multibuff_poll()
 
 #ifndef OPENSSL_DISABLE_MULTIBUFF_RSA
     /* Deal with rsa private key requests */
-    snapshot_num_reqs = mb_queue_rsa_priv_get_size(&rsa_priv_queue);
+    snapshot_num_reqs = mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_RSA_priv_reqs();
+            process_RSA_priv_reqs(RSA_2K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa_priv_previous_time);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_priv_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
             multibuff_poll_check_for_timeout(mb_poll_timeout_time,
-                                             rsa_priv_previous_time,
+                                             rsa2k_priv_previous_time,
                                              current_time) == 1) {
-            process_RSA_priv_reqs();
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa_priv_previous_time);
+            process_RSA_priv_reqs(RSA_2K_LENGTH);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_priv_previous_time);
         }
     }
     /* Deal with rsa public key requests */
-    snapshot_num_reqs = mb_queue_rsa_pub_get_size(&rsa_pub_queue);
+    snapshot_num_reqs = mb_queue_rsa2k_pub_get_size(&rsa2k_pub_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_RSA_pub_reqs();
+            process_RSA_pub_reqs(RSA_2K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa_pub_previous_time);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_pub_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
             multibuff_poll_check_for_timeout(mb_poll_timeout_time,
-                                             rsa_pub_previous_time,
+                                             rsa2k_pub_previous_time,
                                              current_time) == 1) {
-            process_RSA_pub_reqs();
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa_pub_previous_time);
+            process_RSA_pub_reqs(RSA_2K_LENGTH);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_pub_previous_time);
+        }
+    }
+    /* Deal with rsa3k private key requests */
+    snapshot_num_reqs = mb_queue_rsa3k_priv_get_size(&rsa3k_priv_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
+            process_RSA_priv_reqs(RSA_3K_LENGTH);
+            snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_priv_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+            snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
+            multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                             rsa3k_priv_previous_time,
+                                             current_time) == 1) {
+            process_RSA_priv_reqs(RSA_3K_LENGTH);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_priv_previous_time);
+        }
+    }
+    /* Deal with rsa3k public key requests */
+    snapshot_num_reqs = mb_queue_rsa3k_pub_get_size(&rsa3k_pub_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
+            process_RSA_pub_reqs(RSA_3K_LENGTH);
+            snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_pub_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+            snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
+            multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                             rsa3k_pub_previous_time,
+                                             current_time) == 1) {
+            process_RSA_pub_reqs(RSA_3K_LENGTH);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_pub_previous_time);
+        }
+    }
+    /* Deal with rsa4k private key requests */
+    snapshot_num_reqs = mb_queue_rsa4k_priv_get_size(&rsa4k_priv_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
+            process_RSA_priv_reqs(RSA_4K_LENGTH);
+            snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_priv_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+            snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
+            multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                             rsa4k_priv_previous_time,
+                                             current_time) == 1) {
+            process_RSA_priv_reqs(RSA_4K_LENGTH);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_priv_previous_time);
+        }
+    }
+    /* Deal with rsa4k public key requests */
+    snapshot_num_reqs = mb_queue_rsa4k_pub_get_size(&rsa4k_pub_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
+            process_RSA_pub_reqs(RSA_4K_LENGTH);
+            snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_pub_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+            snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
+            multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                             rsa4k_pub_previous_time,
+                                             current_time) == 1) {
+            process_RSA_pub_reqs(RSA_4K_LENGTH);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_pub_previous_time);
         }
     }
 #endif

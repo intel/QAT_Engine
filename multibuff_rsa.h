@@ -49,13 +49,18 @@
 
 # include <openssl/rsa.h>
 
+/* RSA key sizes */
+# define RSA_2K_LENGTH 2048
+# define RSA_3K_LENGTH 3072
+# define RSA_4K_LENGTH 4096
+
 /* Multibuffer RSA methods declaration */
 
 RSA_METHOD *multibuff_get_RSA_methods(void);
 
 void multibuff_free_RSA_methods(void);
 
-void process_RSA_priv_reqs();
-void process_RSA_pub_reqs();
+void process_RSA_priv_reqs(int rsa_bits);
+void process_RSA_pub_reqs(int rsa_bits);
 
 #endif /* MULTIBUFF_RSA_H */

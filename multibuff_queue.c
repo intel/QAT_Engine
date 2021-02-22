@@ -55,7 +55,7 @@
 /* OpenSSL Includes */
 #include <openssl/err.h>
 
-int mb_queue_rsa_priv_create(mb_queue_rsa_priv *queue)
+int mb_queue_rsa2k_priv_create(mb_queue_rsa2k_priv *queue)
 {
     if (queue == NULL)
         return 1;
@@ -75,7 +75,7 @@ int mb_queue_rsa_priv_create(mb_queue_rsa_priv *queue)
     return 0;
 }
 
-int mb_queue_rsa_priv_disable(mb_queue_rsa_priv *queue)
+int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv *queue)
 {
     if (queue == NULL)
         return 1;
@@ -91,7 +91,7 @@ int mb_queue_rsa_priv_disable(mb_queue_rsa_priv *queue)
     return 0;
 }
 
-int mb_queue_rsa_priv_cleanup(mb_queue_rsa_priv *queue)
+int mb_queue_rsa2k_priv_cleanup(mb_queue_rsa2k_priv *queue)
 {
     if (queue == NULL)
         return 1;
@@ -102,8 +102,8 @@ int mb_queue_rsa_priv_cleanup(mb_queue_rsa_priv *queue)
     return 0;
 }
 
-int mb_queue_rsa_priv_enqueue(mb_queue_rsa_priv *queue,
-                              rsa_priv_op_data *item)
+int mb_queue_rsa2k_priv_enqueue(mb_queue_rsa2k_priv *queue,
+                                rsa_priv_op_data *item)
 {
     if (queue == NULL || item == NULL)
         return 1;
@@ -139,7 +139,7 @@ int mb_queue_rsa_priv_enqueue(mb_queue_rsa_priv *queue,
     return 0;
 }
 
-rsa_priv_op_data * mb_queue_rsa_priv_dequeue(mb_queue_rsa_priv *queue)
+rsa_priv_op_data * mb_queue_rsa2k_priv_dequeue(mb_queue_rsa2k_priv *queue)
 {
     rsa_priv_op_data *item = NULL;
 
@@ -175,7 +175,7 @@ rsa_priv_op_data * mb_queue_rsa_priv_dequeue(mb_queue_rsa_priv *queue)
     return item;
 }
 
-int mb_queue_rsa_priv_get_size(mb_queue_rsa_priv *queue)
+int mb_queue_rsa2k_priv_get_size(mb_queue_rsa2k_priv *queue)
 {
     if (queue == NULL)
         return 0;
@@ -183,7 +183,7 @@ int mb_queue_rsa_priv_get_size(mb_queue_rsa_priv *queue)
     return queue->num_items;
 }
 
-int mb_queue_rsa_pub_create(mb_queue_rsa_pub *queue)
+int mb_queue_rsa2k_pub_create(mb_queue_rsa2k_pub *queue)
 {
     if (queue == NULL)
         return 1;
@@ -203,7 +203,7 @@ int mb_queue_rsa_pub_create(mb_queue_rsa_pub *queue)
     return 0;
 }
 
-int mb_queue_rsa_pub_disable(mb_queue_rsa_pub *queue)
+int mb_queue_rsa2k_pub_disable(mb_queue_rsa2k_pub *queue)
 {
     if (queue == NULL)
         return 1;
@@ -219,7 +219,7 @@ int mb_queue_rsa_pub_disable(mb_queue_rsa_pub *queue)
     return 0;
 }
 
-int mb_queue_rsa_pub_cleanup(mb_queue_rsa_pub *queue)
+int mb_queue_rsa2k_pub_cleanup(mb_queue_rsa2k_pub *queue)
 {
     if (queue == NULL)
         return 1;
@@ -230,8 +230,8 @@ int mb_queue_rsa_pub_cleanup(mb_queue_rsa_pub *queue)
     return 0;
 }
 
-int mb_queue_rsa_pub_enqueue(mb_queue_rsa_pub *queue,
-                             rsa_pub_op_data *item)
+int mb_queue_rsa2k_pub_enqueue(mb_queue_rsa2k_pub *queue,
+                               rsa_pub_op_data *item)
 {
     if (queue == NULL || item == NULL)
         return 1;
@@ -267,7 +267,7 @@ int mb_queue_rsa_pub_enqueue(mb_queue_rsa_pub *queue,
     return 0;
 }
 
-rsa_pub_op_data * mb_queue_rsa_pub_dequeue(mb_queue_rsa_pub *queue)
+rsa_pub_op_data * mb_queue_rsa2k_pub_dequeue(mb_queue_rsa2k_pub *queue)
 {
     rsa_pub_op_data *item = NULL;
 
@@ -303,7 +303,519 @@ rsa_pub_op_data * mb_queue_rsa_pub_dequeue(mb_queue_rsa_pub *queue)
     return item;
 }
 
-int mb_queue_rsa_pub_get_size(mb_queue_rsa_pub *queue)
+int mb_queue_rsa2k_pub_get_size(mb_queue_rsa2k_pub *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_rsa3k_priv_create(mb_queue_rsa3k_priv *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa3k_priv_disable(mb_queue_rsa3k_priv *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa3k_priv_cleanup(mb_queue_rsa3k_priv *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_rsa3k_priv_enqueue(mb_queue_rsa3k_priv *queue,
+                                rsa_priv_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+rsa_priv_op_data * mb_queue_rsa3k_priv_dequeue(mb_queue_rsa3k_priv *queue)
+{
+    rsa_priv_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return item;
+}
+
+int mb_queue_rsa3k_priv_get_size(mb_queue_rsa3k_priv *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_rsa3k_pub_create(mb_queue_rsa3k_pub *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa3k_pub_disable(mb_queue_rsa3k_pub *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa3k_pub_cleanup(mb_queue_rsa3k_pub *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_rsa3k_pub_enqueue(mb_queue_rsa3k_pub *queue,
+                               rsa_pub_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+rsa_pub_op_data * mb_queue_rsa3k_pub_dequeue(mb_queue_rsa3k_pub *queue)
+{
+    rsa_pub_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return item;
+}
+
+int mb_queue_rsa3k_pub_get_size(mb_queue_rsa3k_pub *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_rsa4k_priv_create(mb_queue_rsa4k_priv *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa4k_priv_disable(mb_queue_rsa4k_priv *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa4k_priv_cleanup(mb_queue_rsa4k_priv *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_rsa4k_priv_enqueue(mb_queue_rsa4k_priv *queue,
+                                rsa_priv_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+rsa_priv_op_data * mb_queue_rsa4k_priv_dequeue(mb_queue_rsa4k_priv *queue)
+{
+    rsa_priv_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return item;
+}
+
+int mb_queue_rsa4k_priv_get_size(mb_queue_rsa4k_priv *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_rsa4k_pub_create(mb_queue_rsa4k_pub *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa4k_pub_disable(mb_queue_rsa4k_pub *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_rsa4k_pub_cleanup(mb_queue_rsa4k_pub *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_rsa4k_pub_enqueue(mb_queue_rsa4k_pub *queue,
+                               rsa_pub_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+rsa_pub_op_data * mb_queue_rsa4k_pub_dequeue(mb_queue_rsa4k_pub *queue)
+{
+    rsa_pub_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return item;
+}
+
+int mb_queue_rsa4k_pub_get_size(mb_queue_rsa4k_pub *queue)
 {
     if (queue == NULL)
         return 0;

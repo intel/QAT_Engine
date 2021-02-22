@@ -340,8 +340,12 @@ extern int qat_max_retry_count;
 extern BIGNUM *e_check;
 extern mb_flist_rsa_priv rsa_priv_freelist;
 extern mb_flist_rsa_pub rsa_pub_freelist;
-extern mb_queue_rsa_priv rsa_priv_queue;
-extern mb_queue_rsa_pub rsa_pub_queue;
+extern mb_queue_rsa2k_priv rsa2k_priv_queue;
+extern mb_queue_rsa2k_pub rsa2k_pub_queue;
+extern mb_queue_rsa3k_priv rsa3k_priv_queue;
+extern mb_queue_rsa3k_pub rsa3k_pub_queue;
+extern mb_queue_rsa4k_priv rsa4k_priv_queue;
+extern mb_queue_rsa4k_pub rsa4k_pub_queue;
 
 /* X25519 */
 extern mb_flist_x25519_keygen x25519_keygen_freelist;
@@ -369,8 +373,12 @@ typedef struct _mb_req_rates {
     struct timespec current_time;
 } mb_req_rates;
 
-extern mb_req_rates mb_rsa_priv_req_rates;
-extern mb_req_rates mb_rsa_pub_req_rates;
+extern mb_req_rates mb_rsa2k_priv_req_rates;
+extern mb_req_rates mb_rsa2k_pub_req_rates;
+extern mb_req_rates mb_rsa3k_priv_req_rates;
+extern mb_req_rates mb_rsa3k_pub_req_rates;
+extern mb_req_rates mb_rsa4k_priv_req_rates;
+extern mb_req_rates mb_rsa4k_pub_req_rates;
 extern mb_req_rates mb_x25519_keygen_req_rates;
 extern mb_req_rates mb_x25519_derive_req_rates;
 extern mb_req_rates mb_ecdsap256_sign_req_rates;

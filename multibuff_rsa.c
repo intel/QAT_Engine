@@ -72,7 +72,6 @@
 #endif
 
 #ifndef OPENSSL_DISABLE_MULTIBUFF_RSA
-# define RSA_MULTIBUFF_BIT_DEPTH 2048
 # define RSA_MULTIBUFF_PRIV_ENC 1
 # define RSA_MULTIBUFF_PRIV_DEC 2
 # define RSA_MULTIBUFF_PUB_ENC  3
@@ -147,6 +146,7 @@ void multibuff_free_RSA_methods(void)
 #endif
 }
 
+#ifndef OPENSSL_DISABLE_MULTIBUFF_RSA
 
 /*
  * The RSA range check is performed so that if the op sizes are not in the
@@ -154,10 +154,14 @@ void multibuff_free_RSA_methods(void)
  * software implementation.
  */
 
-#ifndef OPENSSL_DISABLE_MULTIBUFF_RSA
-static inline int multibuff_rsa_range_check(int plen)
+static inline int multibuff_rsa_range_check(int len)
 {
-    return (RSA_MULTIBUFF_BIT_DEPTH == plen);
+    if (len == RSA_2K_LENGTH || len == RSA_3K_LENGTH ||
+        len == RSA_4K_LENGTH) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 int multibuff_rsa_init(RSA *rsa)
@@ -349,7 +353,7 @@ static int multibuff_rsa_add_padding_pub_enc(const unsigned char *from,
     return padding_result;
 }
 
-void process_RSA_priv_reqs()
+void process_RSA_priv_reqs(int rsa_bits)
 {
     rsa_priv_op_data *rsa_priv_req_array[MULTIBUFF_BATCH] = {0};
     const unsigned char *rsa_priv_from[MULTIBUFF_BATCH] = {0};
@@ -367,23 +371,67 @@ void process_RSA_priv_reqs()
 
     START_RDTSC(&rsa_cycles_priv_execute);
 
-    /* Build Arrays of pointers for call */
-    while ((rsa_priv_req_array[req_num] = mb_queue_rsa_priv_dequeue(&rsa_priv_queue)) != NULL) {
-        rsa_priv_from[req_num] = rsa_priv_req_array[req_num]->from;
-        if (rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
-            rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->padded_buf;
-        } else {
-            rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->to;
+    switch(rsa_bits) {
+    case RSA_2K_LENGTH:
+        DEBUG("Dequeue RSA2K priv reqs.\n");
+        while ((rsa_priv_req_array[req_num] =
+                mb_queue_rsa2k_priv_dequeue(&rsa2k_priv_queue)) != NULL) {
+            rsa_priv_from[req_num] = rsa_priv_req_array[req_num]->from;
+            if (rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
+                rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->padded_buf;
+            } else {
+                rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->to;
+            }
+            rsa_priv_p[req_num] = rsa_priv_req_array[req_num]->p;
+            rsa_priv_q[req_num] = rsa_priv_req_array[req_num]->q;
+            rsa_priv_dmp1[req_num] = rsa_priv_req_array[req_num]->dmp1;
+            rsa_priv_dmq1[req_num] = rsa_priv_req_array[req_num]->dmq1;
+            rsa_priv_iqmp[req_num] = rsa_priv_req_array[req_num]->iqmp;
+            ++req_num;
+            if (req_num == MULTIBUFF_MIN_BATCH)
+                break;
         }
-        rsa_priv_p[req_num] = rsa_priv_req_array[req_num]->p;
-        rsa_priv_q[req_num] = rsa_priv_req_array[req_num]->q;
-        rsa_priv_dmp1[req_num] = rsa_priv_req_array[req_num]->dmp1;
-        rsa_priv_dmq1[req_num] = rsa_priv_req_array[req_num]->dmq1;
-        rsa_priv_iqmp[req_num] = rsa_priv_req_array[req_num]->iqmp;
-
-        req_num++;
-        if (req_num == MULTIBUFF_MIN_BATCH)
-            break;
+        break;
+    case RSA_3K_LENGTH:
+        DEBUG("Dequeue RSA3K priv reqs.\n");
+        while ((rsa_priv_req_array[req_num] =
+                mb_queue_rsa3k_priv_dequeue(&rsa3k_priv_queue)) != NULL) {
+            rsa_priv_from[req_num] = rsa_priv_req_array[req_num]->from;
+            if (rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
+                rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->padded_buf;
+            } else {
+                rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->to;
+            }
+            rsa_priv_p[req_num] = rsa_priv_req_array[req_num]->p;
+            rsa_priv_q[req_num] = rsa_priv_req_array[req_num]->q;
+            rsa_priv_dmp1[req_num] = rsa_priv_req_array[req_num]->dmp1;
+            rsa_priv_dmq1[req_num] = rsa_priv_req_array[req_num]->dmq1;
+            rsa_priv_iqmp[req_num] = rsa_priv_req_array[req_num]->iqmp;
+            ++req_num;
+            if (req_num == MULTIBUFF_MIN_BATCH)
+                break;
+         }
+         break;
+    case RSA_4K_LENGTH:
+         DEBUG("Dequeue RSA4K priv reqs.\n");
+         while ((rsa_priv_req_array[req_num] =
+                 mb_queue_rsa4k_priv_dequeue(&rsa4k_priv_queue)) != NULL) {
+             rsa_priv_from[req_num] = rsa_priv_req_array[req_num]->from;
+             if (rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
+                 rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->padded_buf;
+             } else {
+                 rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->to;
+             }
+             rsa_priv_p[req_num] = rsa_priv_req_array[req_num]->p;
+             rsa_priv_q[req_num] = rsa_priv_req_array[req_num]->q;
+             rsa_priv_dmp1[req_num] = rsa_priv_req_array[req_num]->dmp1;
+             rsa_priv_dmq1[req_num] = rsa_priv_req_array[req_num]->dmq1;
+             rsa_priv_iqmp[req_num] = rsa_priv_req_array[req_num]->iqmp;
+             ++req_num;
+             if (req_num == MULTIBUFF_MIN_BATCH)
+                 break;
+         }
+         break;
     }
     local_request_no = req_num;
     DEBUG("Submitting %d priv requests\n", local_request_no);
@@ -395,7 +443,7 @@ void process_RSA_priv_reqs()
                                           rsa_priv_dmp1,
                                           rsa_priv_dmq1,
                                           rsa_priv_iqmp,
-                                          RSA_MULTIBUFF_BIT_DEPTH);
+                                          rsa_bits);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_priv_req_array[req_num]->sts != NULL) {
@@ -424,7 +472,7 @@ void process_RSA_priv_reqs()
                                      rsa_priv_to,
                                      rsa_lenstra_e,
                                      rsa_lenstra_n,
-                                     RSA_MULTIBUFF_BIT_DEPTH);
+                                     rsa_bits);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_priv_req_array[req_num]->sts != NULL) {
@@ -473,14 +521,24 @@ void process_RSA_priv_reqs()
         }
     }
 # ifdef MULTIBUFF_HEURISTIC_TIMEOUT
-    mb_rsa_priv_req_rates.req_this_period += local_request_no;
+    switch (rsa_bits) {
+    case RSA_2K_LENGTH:
+        mb_rsa2k_priv_req_rates.req_this_period += local_request_no;
+        break;
+    case RSA_3K_LENGTH:
+        mb_rsa3k_priv_req_rates.req_this_period += local_request_no;
+        break;
+    case RSA_4K_LENGTH:
+        mb_rsa4k_priv_req_rates.req_this_period += local_request_no;
+        break;
+    }
 # endif
 
     STOP_RDTSC(&rsa_cycles_priv_execute, 1, "[RSA:priv_execute]");
     DEBUG("Processed Final Request\n");
 }
 
-void process_RSA_pub_reqs()
+void process_RSA_pub_reqs(int rsa_bits)
 {
     rsa_pub_op_data *rsa_pub_req_array[MULTIBUFF_BATCH] = {0};
     const unsigned char * rsa_pub_from[MULTIBUFF_BATCH] = {0};
@@ -493,20 +551,58 @@ void process_RSA_pub_reqs()
 
     START_RDTSC(&rsa_cycles_pub_execute);
 
-    /* Build Arrays of pointers for call */
-    while ((rsa_pub_req_array[req_num] = mb_queue_rsa_pub_dequeue(&rsa_pub_queue)) != NULL) {
-        rsa_pub_from[req_num] = rsa_pub_req_array[req_num]->from;
-        if (rsa_pub_req_array[req_num]->type == RSA_MULTIBUFF_PUB_DEC) {
-            rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->padded_buf;
-        } else {
-            rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->to;
+    switch(rsa_bits) {
+    case RSA_2K_LENGTH:
+        DEBUG("Dequeue RSA2K pub reqs.\n");
+        while ((rsa_pub_req_array[req_num] =
+                mb_queue_rsa2k_pub_dequeue(&rsa2k_pub_queue)) != NULL) {
+            rsa_pub_from[req_num] = rsa_pub_req_array[req_num]->from;
+            if (rsa_pub_req_array[req_num]->type == RSA_MULTIBUFF_PUB_DEC) {
+                rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->padded_buf;
+            } else {
+                rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->to;
+            }
+            rsa_pub_e[req_num] = rsa_pub_req_array[req_num]->e;
+            rsa_pub_n[req_num] = rsa_pub_req_array[req_num]->n;
+            req_num++;
+            if (req_num == MULTIBUFF_MIN_BATCH)
+                break;
         }
-        rsa_pub_e[req_num] = rsa_pub_req_array[req_num]->e;
-        rsa_pub_n[req_num] = rsa_pub_req_array[req_num]->n;
-
-        req_num++;
-        if (req_num == MULTIBUFF_MIN_BATCH)
-            break;
+        break;
+    case RSA_3K_LENGTH:
+        DEBUG("Dequeue RSA3K pub reqs.\n");
+        while ((rsa_pub_req_array[req_num] =
+                mb_queue_rsa3k_pub_dequeue(&rsa3k_pub_queue)) != NULL) {
+            rsa_pub_from[req_num] = rsa_pub_req_array[req_num]->from;
+            if (rsa_pub_req_array[req_num]->type == RSA_MULTIBUFF_PUB_DEC) {
+                rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->padded_buf;
+            } else {
+                rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->to;
+            }
+            rsa_pub_e[req_num] = rsa_pub_req_array[req_num]->e;
+            rsa_pub_n[req_num] = rsa_pub_req_array[req_num]->n;
+            req_num++;
+            if (req_num == MULTIBUFF_MIN_BATCH)
+                break;
+        }
+        break;
+    case RSA_4K_LENGTH:
+        DEBUG("Dequeue RSA4K pub reqs.\n");
+        while ((rsa_pub_req_array[req_num] =
+                mb_queue_rsa4k_pub_dequeue(&rsa4k_pub_queue)) != NULL) {
+            rsa_pub_from[req_num] = rsa_pub_req_array[req_num]->from;
+            if (rsa_pub_req_array[req_num]->type == RSA_MULTIBUFF_PUB_DEC) {
+                rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->padded_buf;
+            } else {
+                rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->to;
+            }
+            rsa_pub_e[req_num] = rsa_pub_req_array[req_num]->e;
+            rsa_pub_n[req_num] = rsa_pub_req_array[req_num]->n;
+            req_num++;
+            if (req_num == MULTIBUFF_MIN_BATCH)
+                break;
+            }
+        break;
     }
     local_request_no = req_num;
     DEBUG("Submitting %d pub requests\n", local_request_no);
@@ -515,7 +611,7 @@ void process_RSA_pub_reqs()
                                      rsa_pub_to,
                                      rsa_pub_e,
                                      rsa_pub_n,
-                                     RSA_MULTIBUFF_BIT_DEPTH);
+                                     rsa_bits);
 
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (rsa_pub_req_array[req_num]->sts != NULL) {
@@ -544,7 +640,17 @@ void process_RSA_pub_reqs()
         }
     }
 # ifdef MULTIBUFF_HEURISTIC_TIMEOUT
-    mb_rsa_pub_req_rates.req_this_period += local_request_no;
+    switch (rsa_bits) {
+    case RSA_2K_LENGTH:
+        mb_rsa2k_pub_req_rates.req_this_period += local_request_no;
+        break;
+    case RSA_3K_LENGTH:
+        mb_rsa3k_pub_req_rates.req_this_period += local_request_no;
+        break;
+    case RSA_4K_LENGTH:
+        mb_rsa4k_pub_req_rates.req_this_period += local_request_no;
+        break;
+    }
 # endif
 
     STOP_RDTSC(&rsa_cycles_pub_execute, 1, "[RSA:pub_execute]");
@@ -556,7 +662,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 {
     int sts = -1;
     ASYNC_JOB *job;
-    int rsa_len = 0;
+    int rsa_len = 0, rsa_bits = 0;
     rsa_priv_op_data *rsa_priv_req = NULL;
     int padding_result = 0;
     const BIGNUM *n = NULL;
@@ -602,6 +708,14 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
         goto use_sw_method;
     }
 
+    rsa_bits = RSA_bits((const RSA*)rsa);
+
+    /* Check if the request key size is supported */
+    if (!multibuff_rsa_range_check(rsa_bits)) {
+        DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+        goto use_sw_method;
+    }
+
     while ((rsa_priv_req = mb_flist_rsa_priv_pop(&rsa_priv_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
@@ -612,14 +726,6 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
     /* Buffer up the requests and call the new functions when we have enough
        requests buffered up */
-
-    /* Check if the request is RSA2048 */
-    if (!multibuff_rsa_range_check(RSA_bits((const RSA*)rsa))) {
-        mb_flist_rsa_priv_push(&rsa_priv_freelist, rsa_priv_req);
-        STOP_RDTSC(&rsa_cycles_priv_enc_setup, 1, "[RSA:priv_enc_setup]");
-        DEBUG("Request is not RSA2048, use sw method\n");
-        goto use_sw_method;
-    }
 
     RSA_get0_key((const RSA*)rsa, &n, &e, &d);
     RSA_get0_factors((const RSA*)rsa, &p, &q);
@@ -681,7 +787,18 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     rsa_priv_req->dmq1 = dmq1;
     rsa_priv_req->iqmp = iqmp;
     rsa_priv_req->sts = &sts;
-    mb_queue_rsa_priv_enqueue(&rsa_priv_queue, rsa_priv_req);
+
+    switch(rsa_bits) {
+    case RSA_2K_LENGTH:
+        mb_queue_rsa2k_priv_enqueue(&rsa2k_priv_queue, rsa_priv_req);
+        break;
+    case RSA_3K_LENGTH:
+        mb_queue_rsa3k_priv_enqueue(&rsa3k_priv_queue, rsa_priv_req);
+        break;
+    case RSA_4K_LENGTH:
+        mb_queue_rsa4k_priv_enqueue(&rsa4k_priv_queue, rsa_priv_req);
+        break;
+    }
     STOP_RDTSC(&rsa_cycles_priv_enc_setup, 1, "[RSA:priv_enc_setup]");
 
     if (0 == enable_external_polling) {
@@ -728,7 +845,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 {
     int sts = -1;
     ASYNC_JOB *job;
-    int rsa_len = 0;
+    int rsa_len = 0, rsa_bits = 0;
     rsa_priv_op_data *rsa_priv_req = NULL;
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
@@ -772,6 +889,14 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
         goto use_sw_method;
     }
 
+    rsa_bits = RSA_bits((const RSA*)rsa);
+
+    /* Check if the request key size is supported */
+    if (!multibuff_rsa_range_check(rsa_bits)) {
+        DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+        goto use_sw_method;
+    }
+
     while ((rsa_priv_req = mb_flist_rsa_priv_pop(&rsa_priv_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
@@ -782,14 +907,6 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 
     /* Buffer up the requests and call the new functions when we have enough
        requests buffered up */
-
-    /* Check if the request is RSA2048 */
-    if (!multibuff_rsa_range_check(RSA_bits((const RSA*)rsa))) {
-        mb_flist_rsa_priv_push(&rsa_priv_freelist, rsa_priv_req);
-        STOP_RDTSC(&rsa_cycles_priv_dec_setup, 1, "[RSA:priv_dec_setup]");
-        DEBUG("Request is not RSA2048, use sw method\n");
-        goto use_sw_method;
-    }
 
     RSA_get0_key((const RSA*)rsa, &n, &e, &d);
     RSA_get0_factors((const RSA*)rsa, &p, &q);
@@ -833,7 +950,18 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     rsa_priv_req->dmq1 = dmq1;
     rsa_priv_req->iqmp = iqmp;
     rsa_priv_req->sts = &sts;
-    mb_queue_rsa_priv_enqueue(&rsa_priv_queue, rsa_priv_req);
+
+    switch(rsa_bits) {
+    case RSA_2K_LENGTH:
+        mb_queue_rsa2k_priv_enqueue(&rsa2k_priv_queue, rsa_priv_req);
+        break;
+    case RSA_3K_LENGTH:
+        mb_queue_rsa3k_priv_enqueue(&rsa3k_priv_queue, rsa_priv_req);
+        break;
+    case RSA_4K_LENGTH:
+        mb_queue_rsa4k_priv_enqueue(&rsa4k_priv_queue, rsa_priv_req);
+        break;
+    }
     STOP_RDTSC(&rsa_cycles_priv_dec_setup, 1, "[RSA:priv_dec_setup]");
 
     if (0 == enable_external_polling) {
@@ -878,7 +1006,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
 {
     int sts = -1;
     ASYNC_JOB *job;
-    int rsa_len = 0;
+    int rsa_len = 0, rsa_bits = 0;
     rsa_pub_op_data *rsa_pub_req = NULL;
     int padding_result = 0;
     const BIGNUM *n = NULL;
@@ -912,6 +1040,14 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         goto use_sw_method;
     }
 
+    rsa_bits = RSA_bits((const RSA*)rsa);
+
+    /* Check if the request key size is supported */
+    if (!multibuff_rsa_range_check(rsa_bits)) {
+        DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+        goto use_sw_method;
+    }
+
     while ((rsa_pub_req = mb_flist_rsa_pub_pop(&rsa_pub_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
@@ -922,14 +1058,6 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
 
     /* Buffer up the requests and call the new functions when we have enough
        requests buffered up */
-
-    /* Check if the request is RSA2048 */
-    if (!multibuff_rsa_range_check(RSA_bits((const RSA*)rsa))) {
-        mb_flist_rsa_pub_push(&rsa_pub_freelist, rsa_pub_req);
-        STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
-        DEBUG("Request is not RSA2048, use sw method\n");
-        goto use_sw_method;
-    }
 
     RSA_get0_key((const RSA*)rsa, &n, &e, &d);
 
@@ -970,7 +1098,18 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     rsa_pub_req->e = e;
     rsa_pub_req->n = n;
     rsa_pub_req->sts = &sts;
-    mb_queue_rsa_pub_enqueue(&rsa_pub_queue, rsa_pub_req);
+
+    switch(rsa_bits) {
+    case RSA_2K_LENGTH:
+        mb_queue_rsa2k_pub_enqueue(&rsa2k_pub_queue, rsa_pub_req);
+        break;
+    case RSA_3K_LENGTH:
+        mb_queue_rsa3k_pub_enqueue(&rsa3k_pub_queue, rsa_pub_req);
+        break;
+    case RSA_4K_LENGTH:
+        mb_queue_rsa4k_pub_enqueue(&rsa4k_pub_queue, rsa_pub_req);
+            break;
+    }
     STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
 
     if (0 == enable_external_polling) {
@@ -1017,7 +1156,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
 {
     int sts = -1;
     ASYNC_JOB *job;
-    int rsa_len = 0;
+    int rsa_len = 0, rsa_bits = 0;
     rsa_pub_op_data *rsa_pub_req = NULL;
     const BIGNUM *n = NULL;
     const BIGNUM *e = NULL;
@@ -1049,6 +1188,14 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         goto use_sw_method;
     }
 
+    rsa_bits = RSA_bits((const RSA*)rsa);
+
+    /* Check if the request key size is supported */
+    if (!multibuff_rsa_range_check(rsa_bits)) {
+        DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+        goto use_sw_method;
+    }
+
     while ((rsa_pub_req = mb_flist_rsa_pub_pop(&rsa_pub_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
@@ -1059,14 +1206,6 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
 
     /* Buffer up the requests and call the new functions when we have enough
        requests buffered up */
-
-    /* Check if the request is RSA2048 */
-    if (!multibuff_rsa_range_check(RSA_bits((const RSA*)rsa))) {
-        mb_flist_rsa_pub_push(&rsa_pub_freelist, rsa_pub_req);
-        STOP_RDTSC(&rsa_cycles_pub_dec_setup, 1, "[RSA:pub_dec_setup]");
-        DEBUG("Request is not RSA2048, use sw method\n");
-        goto use_sw_method;
-    }
 
     RSA_get0_key((const RSA*)rsa, &n, &e, &d);
 
@@ -1089,7 +1228,18 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     rsa_pub_req->e = e;
     rsa_pub_req->n = n;
     rsa_pub_req->sts = &sts;
-    mb_queue_rsa_pub_enqueue(&rsa_pub_queue, rsa_pub_req);
+
+    switch(rsa_bits) {
+    case RSA_2K_LENGTH:
+        mb_queue_rsa2k_pub_enqueue(&rsa2k_pub_queue, rsa_pub_req);
+        break;
+    case RSA_3K_LENGTH:
+        mb_queue_rsa3k_pub_enqueue(&rsa3k_pub_queue, rsa_pub_req);
+        break;
+    case RSA_4K_LENGTH:
+        mb_queue_rsa4k_pub_enqueue(&rsa4k_pub_queue, rsa_pub_req);
+        break;
+    }
     STOP_RDTSC(&rsa_cycles_pub_dec_setup, 1, "[RSA:pub_dec_setup]");
 
     if (0 == enable_external_polling) {
