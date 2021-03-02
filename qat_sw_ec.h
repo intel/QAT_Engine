@@ -46,15 +46,18 @@
 #ifndef QAT_SW_EC_H
 # define QAT_SW_EC_H
 
+# define EC_P256_LENGTH 256
+# define EC_P384_LENGTH 384
+
 # include <openssl/ossl_typ.h>
 
 EC_KEY_METHOD *mb_get_EC_methods(void);
 
 void mb_free_EC_methods(void);
-void process_ecdsa_sign_reqs();
-void process_ecdsa_sign_setup_reqs();
-void process_ecdsa_sign_sig_reqs();
-void process_ecdh_keygen_reqs();
-void process_ecdh_compute_reqs();
+void process_ecdsa_sign_reqs(int bits);
+void process_ecdsa_sign_setup_reqs(int bits);
+void process_ecdsa_sign_sig_reqs(int bits);
+void process_ecdh_keygen_reqs(int bits);
+void process_ecdh_compute_reqs(int bits);
 
 #endif /* QAT_SW_EC_H */

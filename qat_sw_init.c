@@ -130,12 +130,17 @@ int multibuff_init(ENGINE *e)
         (mb_queue_ecdsap256_sign_create(&ecdsap256_sign_queue) != 0) ||
         (mb_queue_ecdsap256_sign_setup_create(&ecdsap256_sign_setup_queue) != 0) ||
         (mb_queue_ecdsap256_sign_sig_create(&ecdsap256_sign_sig_queue) != 0) ||
+        (mb_queue_ecdsap384_sign_create(&ecdsap384_sign_queue) != 0) ||
+        (mb_queue_ecdsap384_sign_setup_create(&ecdsap384_sign_setup_queue) != 0) ||
+        (mb_queue_ecdsap384_sign_sig_create(&ecdsap384_sign_sig_queue) != 0) ||
         (mb_flist_ecdh_keygen_create(&ecdh_keygen_freelist,
                                          MULTIBUFF_MAX_INFLIGHTS) != 0) ||
         (mb_flist_ecdh_compute_create(&ecdh_compute_freelist,
                                           MULTIBUFF_MAX_INFLIGHTS) != 0) ||
         (mb_queue_ecdhp256_keygen_create(&ecdhp256_keygen_queue) != 0) ||
-        (mb_queue_ecdhp256_compute_create(&ecdhp256_compute_queue) != 0)) {
+        (mb_queue_ecdhp256_compute_create(&ecdhp256_compute_queue) != 0) ||
+        (mb_queue_ecdhp384_keygen_create(&ecdhp384_keygen_queue) != 0) ||
+        (mb_queue_ecdhp384_compute_create(&ecdhp384_compute_queue) != 0)) {
         WARN("Failure to allocate req arrays\n");
         QATerr(QAT_F_MULTIBUFF_INIT, QAT_R_CREATE_FREELIST_QUEUE_FAILURE);
         qat_pthread_mutex_unlock();
@@ -190,8 +195,13 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     ecdsa_sign_op_data *ecdsap256_sign_req = NULL;
     ecdsa_sign_setup_op_data *ecdsap256_sign_setup_req = NULL;
     ecdsa_sign_sig_op_data *ecdsap256_sign_sig_req = NULL;
+    ecdsa_sign_op_data *ecdsap384_sign_req = NULL;
+    ecdsa_sign_setup_op_data *ecdsap384_sign_setup_req = NULL;
+    ecdsa_sign_sig_op_data *ecdsap384_sign_sig_req = NULL;
     ecdh_keygen_op_data *ecdhp256_keygen_req = NULL;
     ecdh_compute_op_data *ecdhp256_compute_req = NULL;
+    ecdh_keygen_op_data *ecdhp384_keygen_req = NULL;
+    ecdh_compute_op_data *ecdhp384_compute_req = NULL;
 
     DEBUG("---- Multibuff Finishing...\n\n");
 
@@ -278,6 +288,30 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     }
     mb_queue_ecdsap256_sign_sig_cleanup(&ecdsap256_sign_sig_queue);
 
+    while ((ecdsap384_sign_req =
+           mb_queue_ecdsap384_sign_dequeue(&ecdsap384_sign_queue)) != NULL) {
+        *ecdsap384_sign_req->sts = -1;
+        qat_wake_job(ecdsap384_sign_req->job, 0);
+        OPENSSL_free(ecdsap384_sign_req);
+    }
+    mb_queue_ecdsap384_sign_cleanup(&ecdsap384_sign_queue);
+
+    while ((ecdsap384_sign_setup_req =
+           mb_queue_ecdsap384_sign_setup_dequeue(&ecdsap384_sign_setup_queue)) != NULL) {
+        *ecdsap384_sign_setup_req->sts = -1;
+        qat_wake_job(ecdsap384_sign_setup_req->job, 0);
+        OPENSSL_free(ecdsap384_sign_setup_req);
+    }
+    mb_queue_ecdsap384_sign_setup_cleanup(&ecdsap384_sign_setup_queue);
+
+    while ((ecdsap384_sign_sig_req =
+           mb_queue_ecdsap384_sign_sig_dequeue(&ecdsap384_sign_sig_queue)) != NULL) {
+        *ecdsap384_sign_sig_req->sts = -1;
+        qat_wake_job(ecdsap384_sign_sig_req->job, 0);
+        OPENSSL_free(ecdsap384_sign_sig_req);
+    }
+    mb_queue_ecdsap384_sign_sig_cleanup(&ecdsap384_sign_sig_queue);
+
     while ((ecdhp256_keygen_req =
            mb_queue_ecdhp256_keygen_dequeue(&ecdhp256_keygen_queue)) != NULL) {
         *ecdhp256_keygen_req->sts = -1;
@@ -293,6 +327,22 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
         OPENSSL_free(ecdhp256_compute_req);
     }
     mb_queue_ecdhp256_compute_cleanup(&ecdhp256_compute_queue);
+
+    while ((ecdhp384_keygen_req =
+           mb_queue_ecdhp384_keygen_dequeue(&ecdhp384_keygen_queue)) != NULL) {
+        *ecdhp384_keygen_req->sts = -1;
+        qat_wake_job(ecdhp384_keygen_req->job, 0);
+        OPENSSL_free(ecdhp384_keygen_req);
+    }
+    mb_queue_ecdhp384_keygen_cleanup(&ecdhp384_keygen_queue);
+
+    while ((ecdhp384_compute_req =
+           mb_queue_ecdhp384_compute_dequeue(&ecdhp384_compute_queue)) != NULL) {
+        *ecdhp384_compute_req->sts = -1;
+        qat_wake_job(ecdhp384_compute_req->job, 0);
+        OPENSSL_free(ecdhp384_compute_req);
+    }
+    mb_queue_ecdhp384_compute_cleanup(&ecdhp384_compute_queue);
 
     while ((rsa3k_priv_req =
            mb_queue_rsa3k_priv_dequeue(&rsa3k_priv_queue)) != NULL) {

@@ -361,11 +361,20 @@ extern mb_queue_ecdsap256_sign ecdsap256_sign_queue;
 extern mb_queue_ecdsap256_sign_setup ecdsap256_sign_setup_queue;
 extern mb_queue_ecdsap256_sign_sig ecdsap256_sign_sig_queue;
 
+/* ECDSA p384 */
+extern mb_queue_ecdsap384_sign ecdsap384_sign_queue;
+extern mb_queue_ecdsap384_sign_setup ecdsap384_sign_setup_queue;
+extern mb_queue_ecdsap384_sign_sig ecdsap384_sign_sig_queue;
+
 /*ECDH p256*/
 extern mb_flist_ecdh_keygen ecdh_keygen_freelist;
 extern mb_flist_ecdh_compute ecdh_compute_freelist;
 extern mb_queue_ecdhp256_keygen ecdhp256_keygen_queue;
 extern mb_queue_ecdhp256_compute ecdhp256_compute_queue;
+
+/*ECDH p384*/
+extern mb_queue_ecdhp384_keygen ecdhp384_keygen_queue;
+extern mb_queue_ecdhp384_compute ecdhp384_compute_queue;
 
 typedef struct _mb_req_rates {
     int req_this_period;
@@ -384,8 +393,13 @@ extern mb_req_rates mb_x25519_derive_req_rates;
 extern mb_req_rates mb_ecdsap256_sign_req_rates;
 extern mb_req_rates mb_ecdsap256_sign_setup_req_rates;
 extern mb_req_rates mb_ecdsap256_sign_sig_req_rates;
+extern mb_req_rates mb_ecdsap384_sign_req_rates;
+extern mb_req_rates mb_ecdsap384_sign_setup_req_rates;
+extern mb_req_rates mb_ecdsap384_sign_sig_req_rates;
 extern mb_req_rates mb_ecdhp256_keygen_req_rates;
 extern mb_req_rates mb_ecdhp256_compute_req_rates;
+extern mb_req_rates mb_ecdhp384_keygen_req_rates;
+extern mb_req_rates mb_ecdhp384_compute_req_rates;
 # endif
 
 # define QAT_CMD_ENABLE_EXTERNAL_POLLING ENGINE_CMD_BASE

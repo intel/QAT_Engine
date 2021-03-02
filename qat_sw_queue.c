@@ -1725,3 +1725,631 @@ int mb_queue_ecdhp256_compute_get_size(mb_queue_ecdhp256_compute *queue)
 
     return queue->num_items;
 }
+
+int mb_queue_ecdhp384_keygen_create(mb_queue_ecdhp384_keygen *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdhp384_keygen_disable(mb_queue_ecdhp384_keygen *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdhp384_keygen_cleanup(mb_queue_ecdhp384_keygen *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdhp384_keygen_enqueue(mb_queue_ecdhp384_keygen *queue,
+        ecdh_keygen_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+ecdh_keygen_op_data
+    *mb_queue_ecdhp384_keygen_dequeue(mb_queue_ecdhp384_keygen *queue)
+{
+    ecdh_keygen_op_data *item = NULL;
+
+    if (queue == NULL) {
+        return NULL;
+    }
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return item;
+}
+
+int mb_queue_ecdhp384_keygen_get_size(mb_queue_ecdhp384_keygen *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_ecdhp384_compute_create(mb_queue_ecdhp384_compute *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdhp384_compute_disable(mb_queue_ecdhp384_compute *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdhp384_compute_cleanup(mb_queue_ecdhp384_compute *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdhp384_compute_enqueue(mb_queue_ecdhp384_compute *queue,
+        ecdh_compute_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+ecdh_compute_op_data * mb_queue_ecdhp384_compute_dequeue(mb_queue_ecdhp384_compute *queue)
+{
+    ecdh_compute_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return item;
+}
+
+int mb_queue_ecdhp384_compute_get_size(mb_queue_ecdhp384_compute *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_ecdsap384_sign_create(mb_queue_ecdsap384_sign *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_disable(mb_queue_ecdsap384_sign *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+   }
+
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_cleanup(mb_queue_ecdsap384_sign *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_enqueue(mb_queue_ecdsap384_sign *queue,
+                                    ecdsa_sign_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+ecdsa_sign_op_data * mb_queue_ecdsap384_sign_dequeue(mb_queue_ecdsap384_sign *queue)
+{
+    ecdsa_sign_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return item;
+}
+
+int mb_queue_ecdsap384_sign_get_size(mb_queue_ecdsap384_sign *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_ecdsap384_sign_setup_create(mb_queue_ecdsap384_sign_setup *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_setup_disable(mb_queue_ecdsap384_sign_setup *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_setup_cleanup(mb_queue_ecdsap384_sign_setup *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_setup_enqueue(mb_queue_ecdsap384_sign_setup *queue,
+                                          ecdsa_sign_setup_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+ecdsa_sign_setup_op_data
+    *mb_queue_ecdsap384_sign_setup_dequeue(mb_queue_ecdsap384_sign_setup *queue)
+{
+    ecdsa_sign_setup_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return item;
+}
+
+int mb_queue_ecdsap384_sign_setup_get_size(mb_queue_ecdsap384_sign_setup *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}
+
+int mb_queue_ecdsap384_sign_sig_create(mb_queue_ecdsap384_sign_sig *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_init(&queue->mb_queue_mutex, NULL);
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->head = NULL;
+    queue->tail = NULL;
+    queue->disabled = 0;
+    queue->num_items = 0;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_sig_disable(mb_queue_ecdsap384_sign_sig *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+    queue->disabled = 1;
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_sig_cleanup(mb_queue_ecdsap384_sign_sig *queue)
+{
+    if (queue == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+int mb_queue_ecdsap384_sign_sig_enqueue(mb_queue_ecdsap384_sign_sig *queue,
+                                        ecdsa_sign_sig_op_data *item)
+{
+    if (queue == NULL || item == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->disabled == 1) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return 1;
+    }
+
+    if (queue->num_items == 0) {
+        queue->tail = item;
+        queue->head = item;
+    } else {
+        queue->tail->next = item;
+        queue->tail = item;
+    }
+    queue->tail->next = NULL;
+    queue->num_items++;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_INC(num_asym_mb_items_in_queue);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+    return 0;
+}
+
+ecdsa_sign_sig_op_data
+    *mb_queue_ecdsap384_sign_sig_dequeue(mb_queue_ecdsap384_sign_sig *queue)
+{
+    ecdsa_sign_sig_op_data *item = NULL;
+
+    if (queue == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&queue->mb_queue_mutex);
+    }
+
+    if (queue->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&queue->mb_queue_mutex);
+        }
+        return NULL;
+    }
+
+    item = queue->head;
+    queue->head = item->next;
+    queue->num_items--;
+
+    if (enable_heuristic_polling) {
+        QAT_ATOMIC_DEC(num_asym_mb_items_in_queue);
+    }
+
+    if (queue->num_items == 0)
+        queue->tail = NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&queue->mb_queue_mutex);
+    }
+
+    return item;
+
+}
+
+int mb_queue_ecdsap384_sign_sig_get_size(mb_queue_ecdsap384_sign_sig *queue)
+{
+    if (queue == NULL)
+        return 0;
+
+    return queue->num_items;
+}

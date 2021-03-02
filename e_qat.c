@@ -148,8 +148,13 @@
 
 /* Qat engine id declaration */
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
+#ifdef QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine v0.6.4";
+    "Reference implementation of QAT crypto engine(qat_hw) v0.6.4";
+#else
+const char *engine_qat_name =
+    "Reference implementation of QAT crypto engine(qat_sw) v0.6.4";
+#endif
 unsigned int engine_inited = 0;
 
 int qat_offload = 0;
@@ -224,11 +229,20 @@ mb_queue_ecdsap256_sign ecdsap256_sign_queue;
 mb_queue_ecdsap256_sign_setup ecdsap256_sign_setup_queue;
 mb_queue_ecdsap256_sign_sig ecdsap256_sign_sig_queue;
 
+/* ECDSA p384 */
+mb_queue_ecdsap384_sign ecdsap384_sign_queue;
+mb_queue_ecdsap384_sign_setup ecdsap384_sign_setup_queue;
+mb_queue_ecdsap384_sign_sig ecdsap384_sign_sig_queue;
+
 /* ECDH p256*/
 mb_flist_ecdh_keygen ecdh_keygen_freelist;
 mb_flist_ecdh_compute ecdh_compute_freelist;
 mb_queue_ecdhp256_keygen ecdhp256_keygen_queue;
 mb_queue_ecdhp256_compute ecdhp256_compute_queue;
+
+/* ECDH p384*/
+mb_queue_ecdhp384_keygen ecdhp384_keygen_queue;
+mb_queue_ecdhp384_compute ecdhp384_compute_queue;
 #endif
 
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
@@ -368,6 +382,7 @@ static int qat_engine_destroy(ENGINE *e)
 
 #ifdef QAT_SW
     multibuff_free_RSA_methods();
+    mb_free_EC_methods();
 #endif
 
 #if defined(QAT_SW_IPSEC) || defined(QAT_HW)
@@ -922,8 +937,8 @@ static int bind_qat(ENGINE *e, const char *id)
 
 #ifdef QAT_SW
     if (!qat_offload) {
-        if (mbx_get_algo_info(MBX_ALGO_RSA_2K) ||
-            mbx_get_algo_info(MBX_ALGO_RSA_3K) ||
+        if (mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
+            mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
             mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
             DEBUG("Multibuffer RSA Supported\n");
             if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
@@ -933,7 +948,7 @@ static int bind_qat(ENGINE *e, const char *id)
             }
         }
         if (mbx_get_algo_info(MBX_ALGO_X25519)) {
-            DEBUG("Multibuffer X25519 Supported\n");
+            DEBUG("Multibuffer ECDH X25519 Supported\n");
             if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
                 WARN("ENGINE_set_pkey_meths failed\n");
                 QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_X25519_FAILURE);
@@ -941,9 +956,11 @@ static int bind_qat(ENGINE *e, const char *id)
             }
         }
 
-        if (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256)
-            && mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256)) {
-            DEBUG("Multibuffer ECDSA p256 & ECDH p256 Supported\n");
+        if (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
+            DEBUG("Multibuffer ECDSA p256/p384 & ECDH p256/p384 Supported\n");
             if (!ENGINE_set_EC(e, mb_get_EC_methods())) {
                 WARN("ENGINE_set_EC failed\n");
                 QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_EC_FAILURE);

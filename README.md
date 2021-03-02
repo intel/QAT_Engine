@@ -72,8 +72,8 @@ license contained in the file `LICENSE.GPL` within the `qat` folder.
 * Support for the Intel&reg; QuickAssist Technology Driver Heartbeat feature.
 * Multi-buffer Software optimization. (Software Optimization using Intel&reg; Crypto Multi-buffer Library)
     * RSA Support for Key size 2048
-    * ECDH Support for Montgomery EC Curve: X25519 and NIST Prime Curve: P-256
-    * ECDSA Support for NIST Prime Curve: P-256
+    * ECDH Support for Montgomery EC Curve: X25519 and NIST Prime Curve: P-256/P-384
+    * ECDSA Support for NIST Prime Curve: P-256/P-384
 * AES128-GCM, AES192-GCM and AES256-GCM. (Software Optimization using Intel&reg; Multi-Buffer Crypto for IPsec Library)
 
 Note: RSA Padding schemes are handled by OpenSSL rather than offloaded, so the
@@ -1385,9 +1385,9 @@ config variable 'ServicesProfile' from its default value of 'DEFAULT' to 'CRYPTO
 ## Intel&reg; QAT Software support for Asymmetric PKE and AES-GCM
 
 This Intel&reg; QAT OpenSSL\* Engine supports Multi-buffer based software
-optimizations for asymmetric PKE algorithms RSA, ECDH X25519, ECDH P-256 and
-ECDSA P-256(sign) using the Intel&reg; Crypto Multi-buffer library based on
-Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) operations.
+optimizations for asymmetric PKE algorithms RSA, ECDH X25519, ECDH P-256/P-384
+and ECDSA P-256/P-384(sign) using the Intel&reg; Crypto Multi-buffer library
+based on Intel&reg; AVX-512 Integer Fused Multiply Add (IFMA) operations.
 
 This is done by batching up multiple requests maintained in queues and uses
 the OpenSSL asynchronous infrastructure to submit the batched requests upto 8
@@ -1408,6 +1408,7 @@ software tool chain that supports OpenSSL\* 1.1.1 and Intel&reg; Crypto
 Multi-buffer library cloned from the [ipp-crypto][10] release version
 **IPP Crypto 2020 Update 3**. The crypto_mb library needs to be installed
 using the instructions in the Readme from [Crypto Multi-buffer Library][11].
+
 In addition to support QAT SW AES-GCM, prequisite is to have Intel&reg;
 Multi-Buffer crypto for IPsec Library release version **v0.55** cloned from
 the [intel-ipsec-mb][12] repo and installed using the instructions from the
@@ -1457,6 +1458,10 @@ cd /path/to/openssl_install/bin
     ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdhp256
 * ECDSA P-256
     ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdsap256
+* ECDH P-384
+    ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdhp384
+* ECDSA P-384
+    ./openssl speed -engine qatengine -elapsed -async_jobs 8 ecdsap384
 * AES-128-GCM
     ./openssl speed -engine qatengine -elapsed -evp aes-128-gcm
 * AES-192-GCM

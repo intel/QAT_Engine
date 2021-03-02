@@ -499,19 +499,19 @@ fi
 if test "x$enable_qat_sw_ecdsa" != "xno" -a "x$cflags_qat_sw" != "x"
 then
     enable_qat_sw_ecdsa="-DENABLE_QAT_SW_ECDSA"
-    AC_MSG_NOTICE([Offloading ECDSA P256 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Offloading ECDSA P256 & P384 to Software(Multi-buffer)])
 else
     enable_qat_sw_ecdsa="-DDISABLE_QAT_SW_ECDSA"
-    AC_MSG_NOTICE([Not Offloading ECDSA P256 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Not Offloading ECDSA P256 & P384 to Software(Multi-buffer)])
 fi
 
 if test "x$enable_qat_sw_ecdh" != "xno" -a "x$cflags_qat_sw" != "x"
 then
     enable_qat_sw_ecdh="-DENABLE_QAT_SW_ECDH"
-    AC_MSG_NOTICE([Offloading ECDH P256 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Offloading ECDH P256 & P384 to Software(Multi-buffer)])
 else
     enable_qat_sw_ecdh="-DDISABLE_QAT_SW_ECDH"
-    AC_MSG_NOTICE([Not Offloading ECDH P256 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Not Offloading ECDH P256 & P384 to Software(Multi-buffer)])
 fi
 
 if test "x$enable_qat_hw_small_pkt_offload" = "xyes" -a "x$cflags_qat_hw" != "x"
