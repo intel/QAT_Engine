@@ -540,7 +540,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                   unsigned char *sig, unsigned int *siglen,
                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
 {
-    int ret = 0, i = 0, job_ret = 0, sts = 0, alloc_buf = 0;
+    int ret = 0, len = 0, job_ret = 0, sts = 0, alloc_buf = 0;
     BN_CTX *ctx = NULL;
     ECDSA_SIG *s;
     ASYNC_JOB *job;
@@ -604,8 +604,6 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     /* Buffer up the requests and call the new functions when we have enough
      * requests buffered up */
 
-    buflen = BN_num_bytes(priv_key);
-
     if (!EC_KEY_can_sign(eckey)) {
         QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_CURVE_DOES_NOT_SUPPORT_SIGNING);
         return ret;
@@ -642,10 +640,12 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         goto err;
     }
 
+    len = BN_num_bits(order);
+    buflen = (len + 7) / 8;
+
     /* If digest size is less, expand length with zero as crypto_mb
      * expects digest being sign length */
-    i = BN_num_bits(order);
-    if (8 * dlen < i) {
+    if (8 * dlen < len) {
         dgst_buf = OPENSSL_zalloc(buflen);
         if (dgst_buf == NULL) {
             WARN("Failure to allocate dgst_buf\n");
@@ -710,7 +710,6 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         BN_bin2bn(sig, buflen, ecdsa_sig_r);
         BN_bin2bn(sig + buflen, buflen, ecdsa_sig_s);
 
-        memset(sig, 0, buflen + buflen);
         *siglen = i2d_ECDSA_SIG(s, &sig);
         DEBUG("siglen %d, dlen %d\n", *siglen, dlen);
         ECDSA_SIG_free(s);
@@ -882,7 +881,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
                              const BIGNUM *in_kinv, const BIGNUM *in_r,
                              EC_KEY *eckey)
 {
-    int ok = 0, i = 0, job_ret = 0, sts = 0, alloc_buf = 0;
+    int ok = 0, len = 0, job_ret = 0, sts = 0, alloc_buf = 0;
     BN_CTX *ctx = NULL;
     ECDSA_SIG *ret;
     ASYNC_JOB *job;
@@ -950,8 +949,6 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
     /* Buffer up the requests and call the new functions when we have enough
      * requests buffered up */
 
-    buflen = BN_num_bytes(priv_key);
-
     ret = ECDSA_SIG_new();
     if (ret == NULL) {
         QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_MALLOC_FAILURE);
@@ -981,10 +978,12 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
         goto err;
     }
 
+    len = BN_num_bits(order);
+    buflen = (len + 7) / 8;
+
     /* If digest size is less, expand length with zero as crypto_mb
      * expects digest being sign length */
-    i = BN_num_bits(order);
-    if (8 * dlen < i) {
+    if (8 * dlen < len) {
         dgst_buf = OPENSSL_zalloc(buflen);
         if (dgst_buf == NULL) {
             WARN("Failure to allocate dgst_buf\n");
