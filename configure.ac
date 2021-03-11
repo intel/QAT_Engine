@@ -335,7 +335,7 @@ then
       then
         with_qat_sw_install_dir="/usr/local"
         AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-        AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_install_dir)/lib -L\$(with_qat_sw_install_dir)/lib -lcrypto_mb -lIPSec_MB"])
+        AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_install_dir)/lib -L\$(with_qat_sw_install_dir)/lib -lcrypto_mb"])
       fi
       if test "x$ac_cv_lib_IPSec_MB_imb_get_version" = "xyes"
       then

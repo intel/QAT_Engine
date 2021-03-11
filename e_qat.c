@@ -863,26 +863,22 @@ static int bind_qat(ENGINE *e, const char *id)
 #if defined(QAT_HW) && !defined(QAT_HW_INTREE)
     if (access(QAT_DEV, F_OK) != 0) {
         WARN("Qat memory driver not present\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_MEM_DRV_NOT_PRESENT);
         goto end;
     }
 #endif
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already! %s - %s\n", id, engine_qat_id);
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_ID_ALREADY_DEFINED);
         goto end;
     }
 
     if (!ENGINE_set_id(e, engine_qat_id)) {
         WARN("ENGINE_set_id failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_ID_FAILURE);
         goto end;
     }
 
     if (!ENGINE_set_name(e, engine_qat_name)) {
         WARN("ENGINE_set_name failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_NAME_FAILURE);
         goto end;
     }
 
@@ -903,31 +899,26 @@ static int bind_qat(ENGINE *e, const char *id)
 
         if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
             WARN("ENGINE_set_RSA failed\n");
-            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
             goto end;
         }
 
         if (!ENGINE_set_DSA(e, qat_get_DSA_methods())) {
             WARN("ENGINE_set_DSA failed\n");
-            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DSA_FAILURE);
             goto end;
         }
 
         if (!ENGINE_set_DH(e, qat_get_DH_methods())) {
             WARN("ENGINE_set_DH failed\n");
-            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_DH_FAILURE);
             goto end;
         }
 
         if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
             WARN("ENGINE_set_EC failed\n");
-            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_EC_FAILURE);
             goto end;
         }
 
         if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
             WARN("ENGINE_set_pkey_meths failed\n");
-            QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_PKEY_FAILURE);
             goto end;
         }
 # ifdef QAT_INTREE
@@ -943,7 +934,6 @@ static int bind_qat(ENGINE *e, const char *id)
             DEBUG("Multibuffer RSA Supported\n");
             if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
                 WARN("ENGINE_set_RSA failed\n");
-                QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_RSA_FAILURE);
                 goto end;
             }
         }
@@ -951,7 +941,6 @@ static int bind_qat(ENGINE *e, const char *id)
             DEBUG("Multibuffer ECDH X25519 Supported\n");
             if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
                 WARN("ENGINE_set_pkey_meths failed\n");
-                QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_X25519_FAILURE);
                 goto end;
             }
         }
@@ -963,7 +952,6 @@ static int bind_qat(ENGINE *e, const char *id)
             DEBUG("Multibuffer ECDSA p256/p384 & ECDH p256/p384 Supported\n");
             if (!ENGINE_set_EC(e, mb_get_EC_methods())) {
                 WARN("ENGINE_set_EC failed\n");
-                QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_EC_FAILURE);
                 goto end;
             }
         }
@@ -973,13 +961,11 @@ static int bind_qat(ENGINE *e, const char *id)
 #ifdef QAT_SW_IPSEC
     if (!hw_support()) {
         WARN("The Processor does not support the features needed for VAES.\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_HW_NOT_SUPPORTED);
         goto end;
     }
 # ifndef DISABLE_QAT_SW_GCM
     if (!vaesgcm_init_ipsec_mb_mgr()) {
         WARN("IPSec Multi-Buffer Manager Initialization failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_GCM_CIPHERS_FAILURE);
         goto end;
     }
 # endif
@@ -988,7 +974,6 @@ static int bind_qat(ENGINE *e, const char *id)
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_SET_CIPHER_FAILURE);
         goto end;
     }
 #endif
@@ -1004,7 +989,6 @@ static int bind_qat(ENGINE *e, const char *id)
     ret &= ENGINE_set_cmd_defns(e, qat_cmd_defns);
     if (ret == 0) {
         WARN("Engine failed to register init, finish or destroy functions\n");
-        QATerr(QAT_F_BIND_QAT, QAT_R_ENGINE_REGISTER_FUNC_FAILURE);
     }
 
     /*

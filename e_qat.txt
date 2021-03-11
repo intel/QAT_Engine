@@ -7,102 +7,101 @@
 
 # Function codes
 QAT_F_AES_GCM_TLS_CIPHER:100:aes_gcm_tls_cipher
-QAT_F_BIND_QAT:101:bind_qat
-QAT_F_BUILD_DECRYPT_OP_BUF:102:build_decrypt_op_buf
-QAT_F_BUILD_ENCRYPT_OP_BUF:103:build_encrypt_op_buf
-QAT_F_CRT_COMBINE:104:CRT_combine
-QAT_F_CRT_PREPARE:105:CRT_prepare
-QAT_F_ENGINE_FINISH_BEFORE_FORK_HANDLER:106:engine_finish_before_fork_handler
-QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER:107:engine_init_child_at_fork_handler
-QAT_F_ENGINE_QAT:108:engine_qat
-QAT_F_EVENT_POLL_FUNC:109:event_poll_func
-QAT_F_MB_ECDH_COMPUTE_KEY:110:mb_ecdh_compute_key
-QAT_F_MB_ECDH_GENERATE_KEY:111:mb_ecdh_generate_key
-QAT_F_MB_ECDSA_SIGN:112:mb_ecdsa_sign
-QAT_F_MB_ECDSA_SIGN_SETUP:113:mb_ecdsa_sign_setup
-QAT_F_MB_ECDSA_SIGN_SIG:114:mb_ecdsa_sign_sig
-QAT_F_MB_FREE_EC_METHODS:115:mb_free_EC_methods
-QAT_F_MB_GET_EC_METHODS:116:mb_get_EC_methods
-QAT_F_MULTIBUFF_FINISH_INT:117:multibuff_finish_int
-QAT_F_MULTIBUFF_FREE_RSA_METHODS:118:multibuff_free_RSA_methods
-QAT_F_MULTIBUFF_GET_RSA_METHODS:119:multibuff_get_RSA_methods
-QAT_F_MULTIBUFF_INIT:120:multibuff_init
-QAT_F_MULTIBUFF_RSA_ADD_PADDING_PRIV_ENC:121:multibuff_rsa_add_padding_priv_enc
-QAT_F_MULTIBUFF_RSA_ADD_PADDING_PUB_ENC:122:multibuff_rsa_add_padding_pub_enc
-QAT_F_MULTIBUFF_RSA_PRIV_DEC:123:multibuff_rsa_priv_dec
-QAT_F_MULTIBUFF_RSA_PRIV_ENC:124:multibuff_rsa_priv_enc
-QAT_F_MULTIBUFF_RSA_PUB_DEC:125:multibuff_rsa_pub_dec
-QAT_F_MULTIBUFF_RSA_PUB_ENC:126:multibuff_rsa_pub_enc
-QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE:127:multibuff_validate_ecx_derive
-QAT_F_MULTIBUFF_X25519_DERIVE:128:multibuff_x25519_derive
-QAT_F_MULTIBUFF_X25519_KEYGEN:129:multibuff_x25519_keygen
-QAT_F_MULTIBUFF_X25519_PMETH:130:multibuff_x25519_pmeth
-QAT_F_POLL_INSTANCES:131:poll_instances
-QAT_F_QAT_ADJUST_THREAD_AFFINITY:132:qat_adjust_thread_affinity
-QAT_F_QAT_AES_GCM_CIPHER:133:qat_aes_gcm_cipher
-QAT_F_QAT_AES_GCM_CLEANUP:134:qat_aes_gcm_cleanup
-QAT_F_QAT_AES_GCM_CTRL:135:qat_aes_gcm_ctrl
-QAT_F_QAT_AES_GCM_INIT:136:qat_aes_gcm_init
-QAT_F_QAT_AES_GCM_SESSION_INIT:137:qat_aes_gcm_session_init
-QAT_F_QAT_AES_GCM_TLS_CIPHER:138:qat_aes_gcm_tls_cipher
-QAT_F_QAT_CRYPTO_CALLBACKFN:139:qat_crypto_callbackFn
-QAT_F_QAT_DH_COMPUTE_KEY:140:qat_dh_compute_key
-QAT_F_QAT_DH_GENERATE_KEY:141:qat_dh_generate_key
-QAT_F_QAT_DSA_DO_SIGN:142:qat_dsa_do_sign
-QAT_F_QAT_DSA_DO_VERIFY:143:qat_dsa_do_verify
-QAT_F_QAT_DSA_SIGN_SETUP:144:qat_dsa_sign_setup
-QAT_F_QAT_ECDH_COMPUTE_KEY:145:qat_ecdh_compute_key
-QAT_F_QAT_ECDH_GENERATE_KEY:146:qat_ecdh_generate_key
-QAT_F_QAT_ECDSA_DO_SIGN:147:qat_ecdsa_do_sign
-QAT_F_QAT_ECDSA_DO_VERIFY:148:qat_ecdsa_do_verify
-QAT_F_QAT_ECDSA_SIGN:149:qat_ecdsa_sign
-QAT_F_QAT_ECDSA_VERIFY:150:qat_ecdsa_verify
-QAT_F_QAT_ENGINE_CTRL:151:qat_engine_ctrl
-QAT_F_QAT_ENGINE_ECDH_COMPUTE_KEY:152:qat_engine_ecdh_compute_key
-QAT_F_QAT_FD_CLEANUP:153:qat_fd_cleanup
-QAT_F_QAT_FINISH_INT:154:qat_finish_int
-QAT_F_QAT_FREE_DH_METHODS:155:qat_free_DH_methods
-QAT_F_QAT_FREE_DSA_METHODS:156:qat_free_DSA_methods
-QAT_F_QAT_FREE_EC_METHODS:157:qat_free_EC_methods
-QAT_F_QAT_FREE_RSA_METHODS:158:qat_free_RSA_methods
-QAT_F_QAT_GET_DH_METHODS:159:qat_get_DH_methods
-QAT_F_QAT_GET_DSA_METHODS:160:qat_get_DSA_methods
-QAT_F_QAT_GET_EC_METHODS:161:qat_get_EC_methods
-QAT_F_QAT_GET_RSA_METHODS:162:qat_get_RSA_methods
-QAT_F_QAT_HKDF_DERIVE:163:qat_hkdf_derive
-QAT_F_QAT_HKDF_INIT:164:qat_hkdf_init
-QAT_F_QAT_HKDF_PMETH:165:qat_hkdf_pmeth
-QAT_F_QAT_INIT:166:qat_init
-QAT_F_QAT_INIT_OP_DONE:167:qat_init_op_done
-QAT_F_QAT_INIT_OP_DONE_PIPE:168:qat_init_op_done_pipe
-QAT_F_QAT_INIT_OP_DONE_RSA_CRT:169:qat_init_op_done_rsa_crt
-QAT_F_QAT_MOD_EXP:170:qat_mod_exp
-QAT_F_QAT_PKEY_ECX_DERIVE25519:171:qat_pkey_ecx_derive25519
-QAT_F_QAT_PKEY_ECX_DERIVE448:172:qat_pkey_ecx_derive448
-QAT_F_QAT_PKEY_ECX_KEYGEN:173:qat_pkey_ecx_keygen
-QAT_F_QAT_PRF_PMETH:174:qat_prf_pmeth
-QAT_F_QAT_PRF_TLS_DERIVE:175:qat_prf_tls_derive
-QAT_F_QAT_RSA_DECRYPT:176:qat_rsa_decrypt
-QAT_F_QAT_RSA_DECRYPT_CRT:177:qat_rsa_decrypt_CRT
-QAT_F_QAT_RSA_ENCRYPT:178:qat_rsa_encrypt
-QAT_F_QAT_RSA_PRIV_DEC:179:qat_rsa_priv_dec
-QAT_F_QAT_RSA_PRIV_ENC:180:qat_rsa_priv_enc
-QAT_F_QAT_RSA_PUB_DEC:181:qat_rsa_pub_dec
-QAT_F_QAT_RSA_PUB_ENC:182:qat_rsa_pub_enc
-QAT_F_QAT_SESSION_DATA_INIT:183:qat_session_data_init
-QAT_F_QAT_SET_AFFINE_COORDINATES:184:qat_set_affine_coordinates
-QAT_F_QAT_SET_INSTANCE_FOR_THREAD:185:qat_set_instance_for_thread
-QAT_F_QAT_SYM_PERFORM_OP:186:qat_sym_perform_op
-QAT_F_QAT_VALIDATE_ECX_DERIVE:187:qat_validate_ecx_derive
-QAT_F_QAT_X25519_PMETH:188:qat_x25519_pmeth
-QAT_F_QAT_X448_PMETH:189:qat_x448_pmeth
-QAT_F_VAESGCM_CIPHERS_CTRL:190:vaesgcm_ciphers_ctrl
-QAT_F_VAESGCM_CIPHERS_DO_CIPHER:191:vaesgcm_ciphers_do_cipher
-QAT_F_VAESGCM_CIPHERS_INIT:192:vaesgcm_ciphers_init
-QAT_F_VAESGCM_CREATE_CIPHER_METH:193:vaesgcm_create_cipher_meth
-QAT_F_VAESGCM_INIT_GCM:194:vaesgcm_init_gcm
-QAT_F_VAESGCM_INIT_IPSEC_MB_MGR:195:vaesgcm_init_ipsec_mb_mgr
-QAT_F_VAESGCM_INIT_KEY:196:vaesgcm_init_key
+QAT_F_BUILD_DECRYPT_OP_BUF:101:build_decrypt_op_buf
+QAT_F_BUILD_ENCRYPT_OP_BUF:102:build_encrypt_op_buf
+QAT_F_CRT_COMBINE:103:CRT_combine
+QAT_F_CRT_PREPARE:104:CRT_prepare
+QAT_F_ENGINE_FINISH_BEFORE_FORK_HANDLER:105:engine_finish_before_fork_handler
+QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER:106:engine_init_child_at_fork_handler
+QAT_F_ENGINE_QAT:107:engine_qat
+QAT_F_EVENT_POLL_FUNC:108:event_poll_func
+QAT_F_MB_ECDH_COMPUTE_KEY:109:mb_ecdh_compute_key
+QAT_F_MB_ECDH_GENERATE_KEY:110:mb_ecdh_generate_key
+QAT_F_MB_ECDSA_SIGN:111:mb_ecdsa_sign
+QAT_F_MB_ECDSA_SIGN_SETUP:112:mb_ecdsa_sign_setup
+QAT_F_MB_ECDSA_SIGN_SIG:113:mb_ecdsa_sign_sig
+QAT_F_MB_FREE_EC_METHODS:114:mb_free_EC_methods
+QAT_F_MB_GET_EC_METHODS:115:mb_get_EC_methods
+QAT_F_MULTIBUFF_FINISH_INT:116:multibuff_finish_int
+QAT_F_MULTIBUFF_FREE_RSA_METHODS:117:multibuff_free_RSA_methods
+QAT_F_MULTIBUFF_GET_RSA_METHODS:118:multibuff_get_RSA_methods
+QAT_F_MULTIBUFF_INIT:119:multibuff_init
+QAT_F_MULTIBUFF_RSA_ADD_PADDING_PRIV_ENC:120:multibuff_rsa_add_padding_priv_enc
+QAT_F_MULTIBUFF_RSA_ADD_PADDING_PUB_ENC:121:multibuff_rsa_add_padding_pub_enc
+QAT_F_MULTIBUFF_RSA_PRIV_DEC:122:multibuff_rsa_priv_dec
+QAT_F_MULTIBUFF_RSA_PRIV_ENC:123:multibuff_rsa_priv_enc
+QAT_F_MULTIBUFF_RSA_PUB_DEC:124:multibuff_rsa_pub_dec
+QAT_F_MULTIBUFF_RSA_PUB_ENC:125:multibuff_rsa_pub_enc
+QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE:126:multibuff_validate_ecx_derive
+QAT_F_MULTIBUFF_X25519_DERIVE:127:multibuff_x25519_derive
+QAT_F_MULTIBUFF_X25519_KEYGEN:128:multibuff_x25519_keygen
+QAT_F_MULTIBUFF_X25519_PMETH:129:multibuff_x25519_pmeth
+QAT_F_POLL_INSTANCES:130:poll_instances
+QAT_F_QAT_ADJUST_THREAD_AFFINITY:131:qat_adjust_thread_affinity
+QAT_F_QAT_AES_GCM_CIPHER:132:qat_aes_gcm_cipher
+QAT_F_QAT_AES_GCM_CLEANUP:133:qat_aes_gcm_cleanup
+QAT_F_QAT_AES_GCM_CTRL:134:qat_aes_gcm_ctrl
+QAT_F_QAT_AES_GCM_INIT:135:qat_aes_gcm_init
+QAT_F_QAT_AES_GCM_SESSION_INIT:136:qat_aes_gcm_session_init
+QAT_F_QAT_AES_GCM_TLS_CIPHER:137:qat_aes_gcm_tls_cipher
+QAT_F_QAT_CRYPTO_CALLBACKFN:138:qat_crypto_callbackFn
+QAT_F_QAT_DH_COMPUTE_KEY:139:qat_dh_compute_key
+QAT_F_QAT_DH_GENERATE_KEY:140:qat_dh_generate_key
+QAT_F_QAT_DSA_DO_SIGN:141:qat_dsa_do_sign
+QAT_F_QAT_DSA_DO_VERIFY:142:qat_dsa_do_verify
+QAT_F_QAT_DSA_SIGN_SETUP:143:qat_dsa_sign_setup
+QAT_F_QAT_ECDH_COMPUTE_KEY:144:qat_ecdh_compute_key
+QAT_F_QAT_ECDH_GENERATE_KEY:145:qat_ecdh_generate_key
+QAT_F_QAT_ECDSA_DO_SIGN:146:qat_ecdsa_do_sign
+QAT_F_QAT_ECDSA_DO_VERIFY:147:qat_ecdsa_do_verify
+QAT_F_QAT_ECDSA_SIGN:148:qat_ecdsa_sign
+QAT_F_QAT_ECDSA_VERIFY:149:qat_ecdsa_verify
+QAT_F_QAT_ENGINE_CTRL:150:qat_engine_ctrl
+QAT_F_QAT_ENGINE_ECDH_COMPUTE_KEY:151:qat_engine_ecdh_compute_key
+QAT_F_QAT_FD_CLEANUP:152:qat_fd_cleanup
+QAT_F_QAT_FINISH_INT:153:qat_finish_int
+QAT_F_QAT_FREE_DH_METHODS:154:qat_free_DH_methods
+QAT_F_QAT_FREE_DSA_METHODS:155:qat_free_DSA_methods
+QAT_F_QAT_FREE_EC_METHODS:156:qat_free_EC_methods
+QAT_F_QAT_FREE_RSA_METHODS:157:qat_free_RSA_methods
+QAT_F_QAT_GET_DH_METHODS:158:qat_get_DH_methods
+QAT_F_QAT_GET_DSA_METHODS:159:qat_get_DSA_methods
+QAT_F_QAT_GET_EC_METHODS:160:qat_get_EC_methods
+QAT_F_QAT_GET_RSA_METHODS:161:qat_get_RSA_methods
+QAT_F_QAT_HKDF_DERIVE:162:qat_hkdf_derive
+QAT_F_QAT_HKDF_INIT:163:qat_hkdf_init
+QAT_F_QAT_HKDF_PMETH:164:qat_hkdf_pmeth
+QAT_F_QAT_INIT:165:qat_init
+QAT_F_QAT_INIT_OP_DONE:166:qat_init_op_done
+QAT_F_QAT_INIT_OP_DONE_PIPE:167:qat_init_op_done_pipe
+QAT_F_QAT_INIT_OP_DONE_RSA_CRT:168:qat_init_op_done_rsa_crt
+QAT_F_QAT_MOD_EXP:169:qat_mod_exp
+QAT_F_QAT_PKEY_ECX_DERIVE25519:170:qat_pkey_ecx_derive25519
+QAT_F_QAT_PKEY_ECX_DERIVE448:171:qat_pkey_ecx_derive448
+QAT_F_QAT_PKEY_ECX_KEYGEN:172:qat_pkey_ecx_keygen
+QAT_F_QAT_PRF_PMETH:173:qat_prf_pmeth
+QAT_F_QAT_PRF_TLS_DERIVE:174:qat_prf_tls_derive
+QAT_F_QAT_RSA_DECRYPT:175:qat_rsa_decrypt
+QAT_F_QAT_RSA_DECRYPT_CRT:176:qat_rsa_decrypt_CRT
+QAT_F_QAT_RSA_ENCRYPT:177:qat_rsa_encrypt
+QAT_F_QAT_RSA_PRIV_DEC:178:qat_rsa_priv_dec
+QAT_F_QAT_RSA_PRIV_ENC:179:qat_rsa_priv_enc
+QAT_F_QAT_RSA_PUB_DEC:180:qat_rsa_pub_dec
+QAT_F_QAT_RSA_PUB_ENC:181:qat_rsa_pub_enc
+QAT_F_QAT_SESSION_DATA_INIT:182:qat_session_data_init
+QAT_F_QAT_SET_AFFINE_COORDINATES:183:qat_set_affine_coordinates
+QAT_F_QAT_SET_INSTANCE_FOR_THREAD:184:qat_set_instance_for_thread
+QAT_F_QAT_SYM_PERFORM_OP:185:qat_sym_perform_op
+QAT_F_QAT_VALIDATE_ECX_DERIVE:186:qat_validate_ecx_derive
+QAT_F_QAT_X25519_PMETH:187:qat_x25519_pmeth
+QAT_F_QAT_X448_PMETH:188:qat_x448_pmeth
+QAT_F_VAESGCM_CIPHERS_CTRL:189:vaesgcm_ciphers_ctrl
+QAT_F_VAESGCM_CIPHERS_DO_CIPHER:190:vaesgcm_ciphers_do_cipher
+QAT_F_VAESGCM_CIPHERS_INIT:191:vaesgcm_ciphers_init
+QAT_F_VAESGCM_CREATE_CIPHER_METH:192:vaesgcm_create_cipher_meth
+QAT_F_VAESGCM_INIT_GCM:193:vaesgcm_init_gcm
+QAT_F_VAESGCM_INIT_IPSEC_MB_MGR:194:vaesgcm_init_ipsec_mb_mgr
+QAT_F_VAESGCM_INIT_KEY:195:vaesgcm_init_key
 
 #Reason codes
 QAT_R_AAD_INVALID_PTR:100:aad invalid ptr
@@ -156,206 +155,192 @@ QAT_R_EC_KEY_GROUP_PRIV_KEY_NULL:146:ec key group priv key null
 QAT_R_EC_POINT_RETRIEVE_FAILURE:147:ec point retrieve failure
 QAT_R_ENC_OP_DATA_MALLOC_FAILURE:148:enc op data malloc failure
 QAT_R_ENGINE_CTRL_CMD_FAILURE:149:engine ctrl cmd failure
-QAT_R_ENGINE_HW_NOT_SUPPORTED:150:engine hw not supported
-QAT_R_ENGINE_ID_ALREADY_DEFINED:151:engine id already defined
-QAT_R_ENGINE_INIT_FAILURE:152:engine init failure
-QAT_R_ENGINE_NULL:153:engine null
-QAT_R_ENGINE_REGISTER_FUNC_FAILURE:154:engine register func failure
-QAT_R_ENGINE_SET_CIPHER_FAILURE:155:engine set cipher failure
-QAT_R_ENGINE_SET_DH_FAILURE:156:engine set dh failure
-QAT_R_ENGINE_SET_DSA_FAILURE:157:engine set dsa failure
-QAT_R_ENGINE_SET_EC_FAILURE:158:engine set ec failure
-QAT_R_ENGINE_SET_GCM_CIPHERS_FAILURE:159:engine set gcm ciphers failure
-QAT_R_ENGINE_SET_ID_FAILURE:160:engine set id failure
-QAT_R_ENGINE_SET_NAME_FAILURE:161:engine set name failure
-QAT_R_ENGINE_SET_PKEY_FAILURE:162:engine set pkey failure
-QAT_R_ENGINE_SET_RSA_FAILURE:163:engine set rsa failure
-QAT_R_ENGINE_SET_X25519_FAILURE:164:engine set x25519 failure
-QAT_R_EPOLL_CREATE_FAILURE:165:epoll create failure
-QAT_R_EPOLL_CTL_FAILURE:166:epoll ctl failure
-QAT_R_EVENTS_MALLOC_FAILURE:167:events malloc failure
-QAT_R_FALLBACK_POINTER_NULL:168:fallback pointer null
-QAT_R_FIELD_SIZE_INVALID:169:field size invalid
-QAT_R_FREE_DH_METH_FAILURE:170:free dh meth failure
-QAT_R_FREE_MULTIBUFF_RSA_METH_FAILURE:171:free multibuff rsa meth failure
-QAT_R_FREE_QAT_DSA_METH_FAILURE:172:free qat dsa meth failure
-QAT_R_FREE_QAT_RSA_METH_FAILURE:173:free qat rsa meth failure
-QAT_R_GCM_TAG_VERIFY_FAILURE:174:gcm tag verify failure
-QAT_R_GET_FILE_DESCRIPTOR_FAILURE:175:get file descriptor failure
-QAT_R_GET_GROUP_FAILURE:176:get group failure
-QAT_R_GET_INSTANCE_FAILURE:177:get instance failure
-QAT_R_GET_INSTANCE_INFO_FAILURE:178:get instance info failure
-QAT_R_GET_NUM_INSTANCE_FAILURE:179:get num instance failure
-QAT_R_GET_ORDER_FAILURE:180:get order failure
-QAT_R_GET_PQG_FAILURE:181:get pqg failure
-QAT_R_GET_PRIV_KEY_FAILURE:182:get priv key failure
-QAT_R_GROUP_PRIV_KEY_PUB_KEY_NULL:183:group priv key pub key null
-QAT_R_ICP_SAL_USERSTART_FAIL:184:icp sal userstart fail
-QAT_R_INITIALIZE_CTX_FAILURE:185:initialize ctx failure
-QAT_R_INIT_FAILURE:186:init failure
-QAT_R_INPUT_DATA_MALLOC_FAILURE:187:input data malloc failure
-QAT_R_INPUT_PARAM_INVALID:188:input param invalid
-QAT_R_INSTANCE_HANDLE_MALLOC_FAILURE:189:instance handle malloc failure
-QAT_R_INSTANCE_UNAVAILABLE:190:instance unavailable
-QAT_R_INVALID_CTRL_TYPE:191:invalid ctrl type
-QAT_R_INVALID_INPUT_PARAMETER:192:invalid input parameter
-QAT_R_INVALID_IVLEN:193:invalid ivlen
-QAT_R_INVALID_LEN:194:invalid len
-QAT_R_INVALID_PEER_KEY:195:invalid peer key
-QAT_R_INVALID_PRIVATE_KEY:196:invalid private key
-QAT_R_INVALID_PTR:197:invalid ptr
-QAT_R_INVALID_PTR_IV:198:invalid ptr iv
-QAT_R_INVALID_PUB_KEY:199:invalid pub key
-QAT_R_INVALID_QCTX_MEMORY:200:invalid qctx memory
-QAT_R_INVALID_TAG_LEN:201:invalid tag len
-QAT_R_INVALID_TYPE:202:invalid type
-QAT_R_IN_KINV_CONVERT_TO_FB_FAILURE:203:in kinv convert to fb failure
-QAT_R_IN_R_CONVERT_TO_FB_FAILURE:204:in r convert to fb failure
-QAT_R_IPSEC_MGR_NULL:205:ipsec mgr null
-QAT_R_IV_ALLOC_FAILURE:206:iv alloc failure
-QAT_R_IV_GEN_INVALID:207:iv gen invalid
-QAT_R_IV_INVALID:208:iv invalid
-QAT_R_IV_LEN_NOT_SUPPORTED:209:iv len not supported
-QAT_R_IV_MALLOC_FAILURE:210:iv malloc failure
-QAT_R_IV_NULL_PTR_INVALID:211:iv null ptr invalid
-QAT_R_IV_NVALID:212:iv nvalid
-QAT_R_KEYGEN_FAILURE:213:keygen failure
-QAT_R_KEYS_NOT_SET:214:keys not set
-QAT_R_KEY_IV_NOT_SET:215:key iv not set
-QAT_R_KEY_MALLOC_FAILURE:216:key malloc failure
-QAT_R_KEY_NULL:217:key null
-QAT_R_K_ALLOCATE_FAILURE:218:k allocate failure
-QAT_R_K_CONVERT_TO_FB_FAILURE:219:k convert to fb failure
-QAT_R_K_ORDER_CONVERT_TO_FB_FAILURE:220:k order convert to fb failure
-QAT_R_K_RAND_GENERATE_FAILURE:221:k rand generate failure
-QAT_R_M1_DEDUCT_M2_FAILURE:222:m1 deduct m2 failure
-QAT_R_M1_M2_P_Q_QINV_TMP_MALLOC_FAILURE:223:m1 m2 p q qinv tmp malloc failure
-QAT_R_MALLOC_FAILURE:224:malloc failure
-QAT_R_MAX_RETRIES_EXCEEDED:225:max retries exceeded
-QAT_R_MB_FREE_EC_METHOD_FAILURE:226:mb free ec method failure
-QAT_R_MB_GET_EC_METHOD_MALLOC_FAILURE:227:mb get ec method malloc failure
-QAT_R_MEM_DRV_NOT_PRESENT:228:mem drv not present
-QAT_R_MODULO_P_FAILURE:229:modulo p failure
-QAT_R_MOD_GET_NEXT_INST_FAIL:230:mod get next inst fail
-QAT_R_MOD_LN_MOD_EXP_FAIL:231:mod ln mod exp fail
-QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL:232:mod setup async event fail
-QAT_R_MULTIPLY_QINV_FAILURE:233:multiply qinv failure
-QAT_R_NID_NOT_SUPPORTED:234:nid not supported
-QAT_R_N_E_CONVERT_TO_FB_FAILURE:235:n e convert to fb failure
-QAT_R_N_E_NULL:236:n e null
-QAT_R_OP1_BASE_PDATA_MALLOC_FAILURE:237:op1 base pdata malloc failure
-QAT_R_OP2_BASE_PDATA_MALLOC_FAILURE:238:op2 base pdata malloc failure
-QAT_R_OPDATA_A_PDATA_MALLOC_FAILURE:239:opdata a pdata malloc failure
-QAT_R_OPDATA_DATA_MALLOC_FAILURE:240:opdata data malloc failure
-QAT_R_OPDATA_MALLOC_FAILURE:241:opdata malloc failure
-QAT_R_OPDATA_PDATA_MALLOC_FAILURE:242:opdata pdata malloc failure
-QAT_R_OPDATA_ZPDATA_MALLOC_FAILURE:243:opdata zpdata malloc failure
-QAT_R_OPDCRT_NULL:244:opdcrt null
-QAT_R_OPDONE_NULL:245:opdone null
-QAT_R_OPDPIPE_NULL:246:opdpipe null
-QAT_R_ORDER_MALLOC_FAILURE:247:order malloc failure
-QAT_R_OUT1_PDATA_MALLOC_FAILURE:248:out1 pdata malloc failure
-QAT_R_OUT2_PDATA_MALLOC_FAILURE:249:out2 pdata malloc failure
-QAT_R_OUTPUT_BUF_MALLOC_FAILURE:250:output buf malloc failure
-QAT_R_OUTPUT_BUF_PDATA_MALLOC_FAILURE:251:output buf pdata malloc failure
-QAT_R_OUTX_MALLOC_FAILURE:252:outx malloc failure
-QAT_R_OUTX_OUTY_LEN_NULL:253:outx outy len null
-QAT_R_OUTY_MALLOC_FAILURE:254:outy malloc failure
-QAT_R_PADDING_UNKNOWN:255:padding unknown
-QAT_R_POLLING_THREAD_CREATE_FAILURE:256:polling thread create failure
-QAT_R_POLLING_THREAD_SIGMASK_FAILURE:257:polling thread sigmask failure
-QAT_R_POLL_INSTANCE_FAILURE:258:poll instance failure
-QAT_R_PPV_MALLOC_FAILURE:259:ppv malloc failure
-QAT_R_PPV_PDATA_MALLOC_FAILURE:260:ppv pdata malloc failure
-QAT_R_PRESULTR_MALLOC_FAILURE:261:presultr malloc failure
-QAT_R_PRESULTR_PDATA_MALLOC_FAILURE:262:presultr pdata malloc failure
-QAT_R_PRESULTS_MALLOC_FAILURE:263:presults malloc failure
-QAT_R_PRESULTS_PDATA_MALLOC_FAILURE:264:presults pdata malloc failure
-QAT_R_PRESULTX_MALLOC_FAILURE:265:presultx malloc failure
-QAT_R_PRESULTX_PDATA_MALLOC_FAILURE:266:presultx pdata malloc failure
-QAT_R_PRESULTY_LENGTH_CHECK_FAILURE:267:presulty length check failure
-QAT_R_PRESULTY_MALLOC_FAILURE:268:presulty malloc failure
-QAT_R_PRESULTY_PDATA_MALLOC_FAILURE:269:presulty pdata malloc failure
-QAT_R_PRIV_KEY_DUPLICATE_FAILURE:270:priv key duplicate failure
-QAT_R_PRIV_KEY_MALLOC_FAILURE:271:priv key malloc failure
-QAT_R_PRIV_KEY_M_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:272:\
+QAT_R_ENGINE_INIT_FAILURE:150:engine init failure
+QAT_R_ENGINE_NULL:151:engine null
+QAT_R_EPOLL_CREATE_FAILURE:152:epoll create failure
+QAT_R_EPOLL_CTL_FAILURE:153:epoll ctl failure
+QAT_R_EVENTS_MALLOC_FAILURE:154:events malloc failure
+QAT_R_FALLBACK_POINTER_NULL:155:fallback pointer null
+QAT_R_FIELD_SIZE_INVALID:156:field size invalid
+QAT_R_FREE_DH_METH_FAILURE:157:free dh meth failure
+QAT_R_FREE_MULTIBUFF_RSA_METH_FAILURE:158:free multibuff rsa meth failure
+QAT_R_FREE_QAT_DSA_METH_FAILURE:159:free qat dsa meth failure
+QAT_R_FREE_QAT_RSA_METH_FAILURE:160:free qat rsa meth failure
+QAT_R_GCM_TAG_VERIFY_FAILURE:161:gcm tag verify failure
+QAT_R_GET_FILE_DESCRIPTOR_FAILURE:162:get file descriptor failure
+QAT_R_GET_GROUP_FAILURE:163:get group failure
+QAT_R_GET_INSTANCE_FAILURE:164:get instance failure
+QAT_R_GET_INSTANCE_INFO_FAILURE:165:get instance info failure
+QAT_R_GET_NUM_INSTANCE_FAILURE:166:get num instance failure
+QAT_R_GET_ORDER_FAILURE:167:get order failure
+QAT_R_GET_PQG_FAILURE:168:get pqg failure
+QAT_R_GET_PRIV_KEY_FAILURE:169:get priv key failure
+QAT_R_GROUP_PRIV_KEY_PUB_KEY_NULL:170:group priv key pub key null
+QAT_R_ICP_SAL_USERSTART_FAIL:171:icp sal userstart fail
+QAT_R_INITIALIZE_CTX_FAILURE:172:initialize ctx failure
+QAT_R_INIT_FAILURE:173:init failure
+QAT_R_INPUT_DATA_MALLOC_FAILURE:174:input data malloc failure
+QAT_R_INPUT_PARAM_INVALID:175:input param invalid
+QAT_R_INSTANCE_HANDLE_MALLOC_FAILURE:176:instance handle malloc failure
+QAT_R_INSTANCE_UNAVAILABLE:177:instance unavailable
+QAT_R_INVALID_CTRL_TYPE:178:invalid ctrl type
+QAT_R_INVALID_INPUT_PARAMETER:179:invalid input parameter
+QAT_R_INVALID_IVLEN:180:invalid ivlen
+QAT_R_INVALID_LEN:181:invalid len
+QAT_R_INVALID_PEER_KEY:182:invalid peer key
+QAT_R_INVALID_PRIVATE_KEY:183:invalid private key
+QAT_R_INVALID_PTR:184:invalid ptr
+QAT_R_INVALID_PTR_IV:185:invalid ptr iv
+QAT_R_INVALID_PUB_KEY:186:invalid pub key
+QAT_R_INVALID_QCTX_MEMORY:187:invalid qctx memory
+QAT_R_INVALID_TAG_LEN:188:invalid tag len
+QAT_R_INVALID_TYPE:189:invalid type
+QAT_R_IN_KINV_CONVERT_TO_FB_FAILURE:190:in kinv convert to fb failure
+QAT_R_IN_R_CONVERT_TO_FB_FAILURE:191:in r convert to fb failure
+QAT_R_IPSEC_MGR_NULL:192:ipsec mgr null
+QAT_R_IV_ALLOC_FAILURE:193:iv alloc failure
+QAT_R_IV_GEN_INVALID:194:iv gen invalid
+QAT_R_IV_INVALID:195:iv invalid
+QAT_R_IV_LEN_NOT_SUPPORTED:196:iv len not supported
+QAT_R_IV_MALLOC_FAILURE:197:iv malloc failure
+QAT_R_IV_NULL_PTR_INVALID:198:iv null ptr invalid
+QAT_R_IV_NVALID:199:iv nvalid
+QAT_R_KEYGEN_FAILURE:200:keygen failure
+QAT_R_KEYS_NOT_SET:201:keys not set
+QAT_R_KEY_IV_NOT_SET:202:key iv not set
+QAT_R_KEY_MALLOC_FAILURE:203:key malloc failure
+QAT_R_KEY_NULL:204:key null
+QAT_R_K_ALLOCATE_FAILURE:205:k allocate failure
+QAT_R_K_CONVERT_TO_FB_FAILURE:206:k convert to fb failure
+QAT_R_K_ORDER_CONVERT_TO_FB_FAILURE:207:k order convert to fb failure
+QAT_R_K_RAND_GENERATE_FAILURE:208:k rand generate failure
+QAT_R_M1_DEDUCT_M2_FAILURE:209:m1 deduct m2 failure
+QAT_R_M1_M2_P_Q_QINV_TMP_MALLOC_FAILURE:210:m1 m2 p q qinv tmp malloc failure
+QAT_R_MALLOC_FAILURE:211:malloc failure
+QAT_R_MAX_RETRIES_EXCEEDED:212:max retries exceeded
+QAT_R_MB_FREE_EC_METHOD_FAILURE:213:mb free ec method failure
+QAT_R_MB_GET_EC_METHOD_MALLOC_FAILURE:214:mb get ec method malloc failure
+QAT_R_MODULO_P_FAILURE:215:modulo p failure
+QAT_R_MOD_GET_NEXT_INST_FAIL:216:mod get next inst fail
+QAT_R_MOD_LN_MOD_EXP_FAIL:217:mod ln mod exp fail
+QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL:218:mod setup async event fail
+QAT_R_MULTIPLY_QINV_FAILURE:219:multiply qinv failure
+QAT_R_NID_NOT_SUPPORTED:220:nid not supported
+QAT_R_N_E_CONVERT_TO_FB_FAILURE:221:n e convert to fb failure
+QAT_R_N_E_NULL:222:n e null
+QAT_R_OP1_BASE_PDATA_MALLOC_FAILURE:223:op1 base pdata malloc failure
+QAT_R_OP2_BASE_PDATA_MALLOC_FAILURE:224:op2 base pdata malloc failure
+QAT_R_OPDATA_A_PDATA_MALLOC_FAILURE:225:opdata a pdata malloc failure
+QAT_R_OPDATA_DATA_MALLOC_FAILURE:226:opdata data malloc failure
+QAT_R_OPDATA_MALLOC_FAILURE:227:opdata malloc failure
+QAT_R_OPDATA_PDATA_MALLOC_FAILURE:228:opdata pdata malloc failure
+QAT_R_OPDATA_ZPDATA_MALLOC_FAILURE:229:opdata zpdata malloc failure
+QAT_R_OPDCRT_NULL:230:opdcrt null
+QAT_R_OPDONE_NULL:231:opdone null
+QAT_R_OPDPIPE_NULL:232:opdpipe null
+QAT_R_ORDER_MALLOC_FAILURE:233:order malloc failure
+QAT_R_OUT1_PDATA_MALLOC_FAILURE:234:out1 pdata malloc failure
+QAT_R_OUT2_PDATA_MALLOC_FAILURE:235:out2 pdata malloc failure
+QAT_R_OUTPUT_BUF_MALLOC_FAILURE:236:output buf malloc failure
+QAT_R_OUTPUT_BUF_PDATA_MALLOC_FAILURE:237:output buf pdata malloc failure
+QAT_R_OUTX_MALLOC_FAILURE:238:outx malloc failure
+QAT_R_OUTX_OUTY_LEN_NULL:239:outx outy len null
+QAT_R_OUTY_MALLOC_FAILURE:240:outy malloc failure
+QAT_R_PADDING_UNKNOWN:241:padding unknown
+QAT_R_POLLING_THREAD_CREATE_FAILURE:242:polling thread create failure
+QAT_R_POLLING_THREAD_SIGMASK_FAILURE:243:polling thread sigmask failure
+QAT_R_POLL_INSTANCE_FAILURE:244:poll instance failure
+QAT_R_PPV_MALLOC_FAILURE:245:ppv malloc failure
+QAT_R_PPV_PDATA_MALLOC_FAILURE:246:ppv pdata malloc failure
+QAT_R_PRESULTR_MALLOC_FAILURE:247:presultr malloc failure
+QAT_R_PRESULTR_PDATA_MALLOC_FAILURE:248:presultr pdata malloc failure
+QAT_R_PRESULTS_MALLOC_FAILURE:249:presults malloc failure
+QAT_R_PRESULTS_PDATA_MALLOC_FAILURE:250:presults pdata malloc failure
+QAT_R_PRESULTX_MALLOC_FAILURE:251:presultx malloc failure
+QAT_R_PRESULTX_PDATA_MALLOC_FAILURE:252:presultx pdata malloc failure
+QAT_R_PRESULTY_LENGTH_CHECK_FAILURE:253:presulty length check failure
+QAT_R_PRESULTY_MALLOC_FAILURE:254:presulty malloc failure
+QAT_R_PRESULTY_PDATA_MALLOC_FAILURE:255:presulty pdata malloc failure
+QAT_R_PRIV_KEY_DUPLICATE_FAILURE:256:priv key duplicate failure
+QAT_R_PRIV_KEY_MALLOC_FAILURE:257:priv key malloc failure
+QAT_R_PRIV_KEY_M_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:258:\
 	priv key m xg yg a b p convert to fb failure
-QAT_R_PRIV_KEY_NULL:273:priv key null
-QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE:274:priv key rand generate failure
-QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:275:\
+QAT_R_PRIV_KEY_NULL:259:priv key null
+QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE:260:priv key rand generate failure
+QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:261:\
 	priv key xg yg a b p convert to fb failure
-QAT_R_PTHREAD_CREATE_FAILURE:276:pthread create failure
-QAT_R_PTHREAD_GETAFFINITY_FAILURE:277:pthread getaffinity failure
-QAT_R_PTHREAD_JOIN_FAILURE:278:pthread join failure
-QAT_R_PTHREAD_KILL_FAILURE:279:pthread kill failure
-QAT_R_PTHREAD_SETAFFINITY_FAILURE:280:pthread setaffinity failure
-QAT_R_PUB_KEY_DUPLICATE_FAILURE:281:pub key duplicate failure
-QAT_R_PUB_KEY_MALLOC_FAILURE:282:pub key malloc failure
-QAT_R_PUB_KEY_NULL:283:pub key null
-QAT_R_P_A_B_XG_YG_MALLOC_FAILURE:284:p a b xg yg malloc failure
-QAT_R_P_A_B_XG_YG_M_K_R_ORDER_MALLOC_FAILURE:285:\
+QAT_R_PTHREAD_CREATE_FAILURE:262:pthread create failure
+QAT_R_PTHREAD_GETAFFINITY_FAILURE:263:pthread getaffinity failure
+QAT_R_PTHREAD_JOIN_FAILURE:264:pthread join failure
+QAT_R_PTHREAD_KILL_FAILURE:265:pthread kill failure
+QAT_R_PTHREAD_SETAFFINITY_FAILURE:266:pthread setaffinity failure
+QAT_R_PUB_KEY_DUPLICATE_FAILURE:267:pub key duplicate failure
+QAT_R_PUB_KEY_MALLOC_FAILURE:268:pub key malloc failure
+QAT_R_PUB_KEY_NULL:269:pub key null
+QAT_R_P_A_B_XG_YG_MALLOC_FAILURE:270:p a b xg yg malloc failure
+QAT_R_P_A_B_XG_YG_M_K_R_ORDER_MALLOC_FAILURE:271:\
 	p a b xg yg m k r order malloc failure
-QAT_R_P_A_B_XG_YG_XP_YP_M_ORDER_FAILURE:286:p a b xg yg xp yp m order failure
-QAT_R_P_G_PRIV_KEY_CONVERT_TO_FB_FAILURE:287:p g priv key convert to fb failure
-QAT_R_P_PUB_PRIV_KEY_CONVERT_TO_FB_FAILURE:288:\
+QAT_R_P_A_B_XG_YG_XP_YP_M_ORDER_FAILURE:272:p a b xg yg xp yp m order failure
+QAT_R_P_G_PRIV_KEY_CONVERT_TO_FB_FAILURE:273:p g priv key convert to fb failure
+QAT_R_P_PUB_PRIV_KEY_CONVERT_TO_FB_FAILURE:274:\
 	p pub priv key convert to fb failure
-QAT_R_P_Q_DMP_DMQ_CONVERT_TO_FB_FAILURE:289:p q dmp dmq convert to fb failure
-QAT_R_P_Q_DMP_DMQ_IQMP_NULL:290:p q dmp dmq iqmp null
-QAT_R_P_Q_G_NULL:291:p q g null
-QAT_R_P_Q_G_X_K_CONVERT_TO_FB_FAILURE:292:p q g x k convert to fb failure
-QAT_R_P_Q_G_Y_Z_R_S_CONVERT_TO_FB_FAILURE:293:\
+QAT_R_P_Q_DMP_DMQ_CONVERT_TO_FB_FAILURE:275:p q dmp dmq convert to fb failure
+QAT_R_P_Q_DMP_DMQ_IQMP_NULL:276:p q dmp dmq iqmp null
+QAT_R_P_Q_G_NULL:277:p q g null
+QAT_R_P_Q_G_X_K_CONVERT_TO_FB_FAILURE:278:p q g x k convert to fb failure
+QAT_R_P_Q_G_Y_Z_R_S_CONVERT_TO_FB_FAILURE:279:\
 	p q g y z r s convert to fb failure
-QAT_R_QAT_ALLOC_DH_METH_FAILURE:294:qat alloc dh meth failure
-QAT_R_QAT_CREATE_ENGINE_FAILURE:295:qat create engine failure
-QAT_R_QAT_ECDSA_DO_SIGN_FAIL:296:qat ecdsa do sign fail
-QAT_R_QAT_FREE_EC_METHOD_FAILURE:297:qat free ec method failure
-QAT_R_QAT_GET_EC_METHOD_MALLOC_FAILURE:298:qat get ec method malloc failure
-QAT_R_QAT_SET_DH_METH_FAILURE:299:qat set dh meth failure
-QAT_R_QCTX_CTX_NULL:300:qctx ctx null
-QAT_R_QCTX_NULL:301:qctx null
-QAT_R_RAND_BYTES_FAILURE:302:rand bytes failure
-QAT_R_RAND_FAILURE:303:rand failure
-QAT_R_RAND_GENERATE_FAILURE:304:rand generate failure
-QAT_R_RESULT_PDATA_ALLOC_FAIL:305:result pdata alloc fail
-QAT_R_RETRIEVE_EC_POINT_FAILURE:306:retrieve ec point failure
-QAT_R_RETRIEVE_ORDER_FAILURE:307:retrieve order failure
-QAT_R_RSA_FROM_TO_NULL:308:rsa from to null
-QAT_R_RSA_OUTPUT_BUF_PDATA_MALLOC_FAILURE:309:\
+QAT_R_QAT_ALLOC_DH_METH_FAILURE:280:qat alloc dh meth failure
+QAT_R_QAT_CREATE_ENGINE_FAILURE:281:qat create engine failure
+QAT_R_QAT_ECDSA_DO_SIGN_FAIL:282:qat ecdsa do sign fail
+QAT_R_QAT_FREE_EC_METHOD_FAILURE:283:qat free ec method failure
+QAT_R_QAT_GET_EC_METHOD_MALLOC_FAILURE:284:qat get ec method malloc failure
+QAT_R_QAT_SET_DH_METH_FAILURE:285:qat set dh meth failure
+QAT_R_QCTX_CTX_NULL:286:qctx ctx null
+QAT_R_QCTX_NULL:287:qctx null
+QAT_R_RAND_BYTES_FAILURE:288:rand bytes failure
+QAT_R_RAND_FAILURE:289:rand failure
+QAT_R_RAND_GENERATE_FAILURE:290:rand generate failure
+QAT_R_RESULT_PDATA_ALLOC_FAIL:291:result pdata alloc fail
+QAT_R_RETRIEVE_EC_POINT_FAILURE:292:retrieve ec point failure
+QAT_R_RETRIEVE_ORDER_FAILURE:293:retrieve order failure
+QAT_R_RSA_FROM_TO_NULL:294:rsa from to null
+QAT_R_RSA_OUTPUT_BUF_PDATA_MALLOC_FAILURE:295:\
 	rsa output buf pdata malloc failure
-QAT_R_R_Q_COMPARE_FAILURE:310:r q compare failure
-QAT_R_SECRET_KEY_MALLOC_FAILURE:311:secret key malloc failure
-QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE:312:secret key pdata malloc failure
-QAT_R_SETUP_ASYNC_EVENT_FAILURE:313:setup async event failure
-QAT_R_SET_ADDRESS_TRANSLATION_FAILURE:314:set address translation failure
-QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE:315:\
+QAT_R_R_Q_COMPARE_FAILURE:296:r q compare failure
+QAT_R_SECRET_KEY_MALLOC_FAILURE:297:secret key malloc failure
+QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE:298:secret key pdata malloc failure
+QAT_R_SETUP_ASYNC_EVENT_FAILURE:299:setup async event failure
+QAT_R_SET_ADDRESS_TRANSLATION_FAILURE:300:set address translation failure
+QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE:301:\
 	set file descriptor nonblocking failure
-QAT_R_SET_INSTANCE_FAILURE:316:set instance failure
-QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE:317:set multibuff rsa meth failure
-QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE:318:set notification callback failure
-QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE:319:\
+QAT_R_SET_INSTANCE_FAILURE:302:set instance failure
+QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE:303:set multibuff rsa meth failure
+QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE:304:set notification callback failure
+QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE:305:\
 	set polling thread affinity failure
-QAT_R_SET_PRIV_KEY_FAILURE:320:set priv key failure
-QAT_R_SET_QAT_DSA_METH_FAILURE:321:set qat dsa meth failure
-QAT_R_SET_QAT_RSA_METH_FAILURE:322:set qat rsa meth failure
-QAT_R_SET_TAG_INVALID_OP:323:set tag invalid op
-QAT_R_SIG_GET_R_S_FAILURE:324:sig get r s failure
-QAT_R_SIG_MALLOC_FAILURE:325:sig malloc failure
-QAT_R_SSD_MALLOC_FAILURE:326:ssd malloc failure
-QAT_R_SSD_NULL:327:ssd null
-QAT_R_START_INSTANCE_FAILURE:328:start instance failure
-QAT_R_STOP_INSTANCE_FAILURE:329:stop instance failure
-QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:330:sw get compute key pfunc null
-QAT_R_SW_GET_KEYGEN_PFUNC_NULL:331:sw get keygen pfunc null
-QAT_R_SW_GET_SIGN_PFUNC_NULL:332:sw get sign pfunc null
-QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:333:sw get sign setup pfunc null
-QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:334:sw get sign sig pfunc null
-QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:335:sw get verify sig pfunc null
-QAT_R_SW_METHOD_NULL:336:sw method null
-QAT_R_S_NULL:337:s null
-QAT_R_S_Q_COMPARE_FAILURE:338:s q compare failure
-QAT_R_UNKNOWN_PADDING:339:unknown padding
-QAT_R_UNKNOWN_PADDING_TYPE:340:unknown padding type
-QAT_R_WAKE_PAUSE_JOB_FAILURE:341:wake pause job failure
-QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:342:x y tx ty bn malloc failure
-QAT_R_X_Y_Z_MALLOC_FAILURE:343:x y z malloc failure
-QAT_R_Z_ALLOCATE_FAILURE:344:z allocate failure
+QAT_R_SET_PRIV_KEY_FAILURE:306:set priv key failure
+QAT_R_SET_QAT_DSA_METH_FAILURE:307:set qat dsa meth failure
+QAT_R_SET_QAT_RSA_METH_FAILURE:308:set qat rsa meth failure
+QAT_R_SET_TAG_INVALID_OP:309:set tag invalid op
+QAT_R_SIG_GET_R_S_FAILURE:310:sig get r s failure
+QAT_R_SIG_MALLOC_FAILURE:311:sig malloc failure
+QAT_R_SSD_MALLOC_FAILURE:312:ssd malloc failure
+QAT_R_SSD_NULL:313:ssd null
+QAT_R_START_INSTANCE_FAILURE:314:start instance failure
+QAT_R_STOP_INSTANCE_FAILURE:315:stop instance failure
+QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:316:sw get compute key pfunc null
+QAT_R_SW_GET_KEYGEN_PFUNC_NULL:317:sw get keygen pfunc null
+QAT_R_SW_GET_SIGN_PFUNC_NULL:318:sw get sign pfunc null
+QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:319:sw get sign setup pfunc null
+QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:320:sw get sign sig pfunc null
+QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:321:sw get verify sig pfunc null
+QAT_R_SW_METHOD_NULL:322:sw method null
+QAT_R_S_NULL:323:s null
+QAT_R_S_Q_COMPARE_FAILURE:324:s q compare failure
+QAT_R_UNKNOWN_PADDING:325:unknown padding
+QAT_R_UNKNOWN_PADDING_TYPE:326:unknown padding type
+QAT_R_WAKE_PAUSE_JOB_FAILURE:327:wake pause job failure
+QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:328:x y tx ty bn malloc failure
+QAT_R_X_Y_Z_MALLOC_FAILURE:329:x y z malloc failure
+QAT_R_Z_ALLOCATE_FAILURE:330:z allocate failure
