@@ -78,6 +78,7 @@
 #include "qat_sw_queue.h"
 #include "qat_utils.h"
 #include "qat_events.h"
+#include "qat_fork.h"
 #include "e_qat_err.h"
 
 /* OpenSSL Includes */
@@ -163,8 +164,8 @@ int multibuff_init(ENGINE *e)
             return 0;
         }
 
-        if (multibuff_create_thread(&multibuff_polling_thread,
-                                    NULL, multibuff_timer_poll_func, NULL)) {
+        if (qat_create_thread(&multibuff_polling_thread,
+                              NULL, multibuff_timer_poll_func, NULL)) {
             WARN("Creation of polling thread failed\n");
             QATerr(QAT_F_MULTIBUFF_INIT,
                          QAT_R_POLLING_THREAD_CREATE_FAILURE);
@@ -209,7 +210,7 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
 
     if (enable_external_polling == 0) {
         if (pthread_equal(multibuff_polling_thread, pthread_self()) == 0) {
-            if (multibuff_join_thread(multibuff_polling_thread, NULL) != 0) {
+            if (qat_join_thread(multibuff_polling_thread, NULL) != 0) {
                 WARN("Polling thread join failed with status: %d\n", ret);
                 QATerr(QAT_F_MULTIBUFF_FINISH_INT, QAT_R_PTHREAD_JOIN_FAILURE);
                 ret = 0;

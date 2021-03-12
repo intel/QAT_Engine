@@ -59,9 +59,9 @@
 
 #include "crypto_mb/rsa.h"
 #include "e_qat.h"
-#include "qat_sw_polling.h"
 #include "qat_sw_rsa.h"
 #include "qat_events.h"
+#include "qat_fork.h"
 #include "qat_utils.h"
 #include "e_qat_err.h"
 
@@ -673,6 +673,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     const BIGNUM *dmq1 = NULL;
     const BIGNUM *iqmp = NULL;
     int job_ret = 0;
+    static __thread int req_num = 0;
 
     /* Check input parameters */
     if (unlikely(NULL == rsa || NULL == from || NULL == to || flen <= 0)) {
@@ -800,13 +801,14 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     }
     STOP_RDTSC(&rsa_cycles_priv_enc_setup, 1, "[RSA:priv_enc_setup]");
 
-    if (0 == enable_external_polling) {
-        if (multibuff_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("multibuff_kill_thread error\n");
+    if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
+        DEBUG("Signal Polling thread, req_num %d\n", req_num);
+        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+            WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }
-     }
+    }
 
     DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
     do {
@@ -855,6 +857,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     const BIGNUM *dmq1 = NULL;
     const BIGNUM *iqmp = NULL;
     int job_ret = 0;
+    static __thread int req_num = 0;
 
     /* Check input parameters */
     if (unlikely(rsa == NULL || from == NULL || to == NULL ||
@@ -963,9 +966,10 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     }
     STOP_RDTSC(&rsa_cycles_priv_dec_setup, 1, "[RSA:priv_dec_setup]");
 
-    if (0 == enable_external_polling) {
-        if (multibuff_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("multibuff_kill_thread error\n");
+    if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
+        DEBUG("Signal Polling thread, req_num %d\n", req_num);
+        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+            WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }
@@ -1012,6 +1016,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
     int job_ret = 0;
+    static __thread int req_num = 0;
 
     /* Check Parameters */
     if (rsa == NULL || from == NULL || to == NULL || flen < 0) {
@@ -1107,13 +1112,14 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         break;
     case RSA_4K_LENGTH:
         mb_queue_rsa4k_pub_enqueue(&rsa4k_pub_queue, rsa_pub_req);
-            break;
+        break;
     }
     STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
 
-    if (0 == enable_external_polling) {
-        if (multibuff_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("multibuff_kill_thread error\n");
+    if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
+        DEBUG("Signal Polling thread, req_num %d\n", req_num);
+        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+            WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }
@@ -1161,6 +1167,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
     int job_ret = 0;
+    static __thread int req_num = 0;
 
     /* Check Parameters */
     if (rsa == NULL || from == NULL || to == NULL ||
@@ -1241,9 +1248,10 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     }
     STOP_RDTSC(&rsa_cycles_pub_dec_setup, 1, "[RSA:pub_dec_setup]");
 
-    if (0 == enable_external_polling) {
-        if (multibuff_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("multibuff_kill_thread error\n");
+    if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
+        DEBUG("Signal Polling thread, req_num %d\n", req_num);
+        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+            WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }

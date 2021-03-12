@@ -50,59 +50,6 @@
 
 /******************************************************************************
  * function:
- *         int multibuff_create_thread(pthread_t *pThreadId,
- *                                     const pthread_attr_t *attr,
- *                                     void *(*start_func) (void *), void *pArg)
- *
- * @param pThreadId  [OUT] - Pointer to Thread ID
- * @param start_func [IN]  - Pointer to Thread Start routine
- * @param attr       [IN]  - Pointer to Thread attributes
- * @param pArg       [IN]  - Arguments to start routine
- *
- * description:
- *   Wrapper function for pthread_create
- ******************************************************************************/
-int multibuff_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
-                            void *(*start_func) (void *), void *pArg);
-
-/******************************************************************************
- * function:
- *         int multibuff_join_thread(pthread_t threadId, void **retval)
- *
- * @param pThreadId  [IN ] - Thread ID of the created thread
- * @param retval     [OUT] - Pointer that contains thread's exit status
- *
- * description:
- *   Wrapper function for pthread_create
- ******************************************************************************/
-int multibuff_join_thread(pthread_t threadId, void **retval);
-
-/******************************************************************************
- * function:
- *         int multibuff_kill_thread(pthread_t threadId, int sig)
- *
- * @param pThreadId  [IN] - Thread ID of the created thread
- * @param sig        [IN] - Signal number
- *
- * description:
- *   Wrapper function for pthread_kill
- ******************************************************************************/
-int multibuff_kill_thread(pthread_t threadId, int sig);
-
-/******************************************************************************
- * function:
- *         int multibuff_adjust_thread_affinity(pthread_t threadptr);
- *
- * @param threadptr[IN ] - Thread ID
- *
- * description:
- *    Sets the CPU affinity mask using pthread_setaffinity_np
- *    and returns the CPU affinity mask using pthread_getaffinity_np
- ******************************************************************************/
-int multibuff_adjust_thread_affinity(pthread_t threadptr);
-
-/******************************************************************************
- * function:
  *         void *timer_poll_func(void *ih)
  *
  * @param ih [IN] - NULL

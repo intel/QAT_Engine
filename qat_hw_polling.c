@@ -91,11 +91,8 @@ ENGINE_EPOLL_ST eng_poll_st[QAT_MAX_CRYPTO_INSTANCES] = {{ -1 }};
 #endif
 int internal_efd = 0;
 #ifndef __FreeBSD__
-typedef  cpu_set_t qat_cpuset;
 clock_t clock_id = CLOCK_MONOTONIC_RAW;
 #else
-# include <pthread_np.h>
-typedef  cpuset_t  qat_cpuset;
 clock_t clock_id = CLOCK_MONOTONIC_PRECISE;
 #endif
 
@@ -113,66 +110,6 @@ useconds_t getQatPollInterval()
 int getEnableInlinePolling()
 {
     return enable_inline_polling;
-}
-
-int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
-                      void *(*start_func) (void *), void *pArg)
-{
-    return pthread_create(pThreadId, attr, start_func,(void *)pArg);
-}
-
-int qat_join_thread(pthread_t threadId, void **retval)
-{
-    return pthread_join(threadId, retval);
-}
-
-int qat_kill_thread(pthread_t threadId, int sig)
-{
-    return pthread_kill(threadId, sig);
-}
-
-int qat_setspecific_thread(pthread_key_t key, const void *value)
-{
-    return pthread_setspecific(key, value);
-}
-
-void *qat_getspecific_thread(pthread_key_t key)
-{
-    return pthread_getspecific(key);
-}
-
-int qat_adjust_thread_affinity(pthread_t threadptr)
-{
-#ifdef QAT_POLL_CORE_AFFINITY
-    int coreID = 0;
-    int sts = 1;
-    qat_cpuset cpuset;
-    CPU_ZERO(&cpuset);
-    CPU_SET(coreID, &cpuset);
-
-    sts = pthread_setaffinity_np(threadptr, sizeof(qat_cpuset), &cpuset);
-    if (sts != 0) {
-        WARN("pthread_setaffinity_np error, status = %d\n", sts);
-        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_SETAFFINITY_FAILURE);
-        return 0;
-    }
-    sts = pthread_getaffinity_np(threadptr, sizeof(qat_cpuset), &cpuset);
-    if (sts != 0) {
-        WARN("pthread_getaffinity_np error, status = %d\n", sts);
-        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_GETAFFINITY_FAILURE);
-        return 0;
-    }
-
-    if (CPU_ISSET(coreID, &cpuset)) {
-        DEBUG("Polling thread assigned on CPU core %d\n", coreID);
-    }
-#endif
-    return 1;
-}
-
-int qat_fcntl(int fd, int cmd, int arg)
-{
-   return fcntl(fd, cmd, arg);
 }
 
 static void qat_poll_heartbeat_timer_expiry(struct timespec *previous_time)

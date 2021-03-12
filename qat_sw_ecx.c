@@ -62,9 +62,9 @@
 #include "e_qat_err.h"
 #include "qat_utils.h"
 #include "qat_events.h"
+#include "qat_fork.h"
 #include "qat_sw_ecx.h"
 #include "qat_sw_request.h"
-#include "qat_sw_polling.h"
 
 /* Crypto_mb includes */
 #include "crypto_mb/x25519.h"
@@ -261,14 +261,13 @@ void process_x25519_derive_reqs()
 
 int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 {
-    int sts = 0;
     ASYNC_JOB *job;
+    int sts = 0, job_ret = 0;
     x25519_keygen_op_data *x25519_keygen_req = NULL;
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
     MB_ECX_KEY *key = NULL;
-    unsigned char *privkey = NULL;
-    unsigned char *pubkey = NULL;
-    int job_ret = 0;
+    unsigned char *privkey = NULL, *pubkey = NULL;
+    static __thread int req_num = 0;
 
     /* Check input parameters */
     if (unlikely(ctx == NULL)) {
@@ -330,10 +329,10 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     mb_queue_x25519_keygen_enqueue(&x25519_keygen_queue, x25519_keygen_req);
     STOP_RDTSC(&x25519_cycles_keygen_setup, 1, "[X25519:keygen_setup]");
 
-    if (0 == enable_external_polling) {
-        if (multibuff_kill_thread(multibuff_timer_poll_func_thread,
-                                  SIGUSR1) != 0) {
-            WARN("multibuff_kill_thread error\n");
+    if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
+        DEBUG("Signal Polling thread, req_num %d\n", req_num);
+        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+            WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }
@@ -424,12 +423,12 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
                             unsigned char *key,
                             size_t *keylen)
 {
-    int sts = 0;
     ASYNC_JOB *job;
+    int sts = 0, job_ret = 0;
     x25519_derive_op_data *x25519_derive_req = NULL;
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
     const unsigned char *privkey, *pubkey;
-    int job_ret = 0;
+    static __thread int req_num = 0;
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL.\n");
@@ -476,8 +475,9 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     mb_queue_x25519_derive_enqueue(&x25519_derive_queue, x25519_derive_req);
     STOP_RDTSC(&x25519_cycles_derive_setup, 1, "[X25519:derive_setup]");
 
-    if (0 == enable_external_polling) {
-        if (multibuff_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+    if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
+        DEBUG("Signal Polling thread, req_num %d\n", req_num);
+        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
             WARN("pthread_kill error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */

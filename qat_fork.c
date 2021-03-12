@@ -57,6 +57,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <signal.h>
 #include <fcntl.h>
 
 /* Local Includes */
@@ -77,6 +78,13 @@
 # endif
 # include "cpa.h"
 # include "cpa_types.h"
+
+# ifndef __FreeBSD__
+typedef  cpu_set_t qat_cpuset;
+# else
+#  include <pthread_np.h>
+typedef  cpuset_t  qat_cpuset;
+# endif
 #endif
 
 void engine_init_child_at_fork_handler(void)
@@ -115,13 +123,72 @@ void engine_finish_before_fork_handler(void)
     multibuff_keep_polling = 1;
 }
 
+int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
+                      void *(*start_func) (void *), void *pArg)
+{
+    return pthread_create(pThreadId, attr, start_func,(void *)pArg);
+}
+
+int qat_join_thread(pthread_t threadId, void **retval)
+{
+    return pthread_join(threadId, retval);
+}
+
+int qat_kill_thread(pthread_t threadId, int sig)
+{
+    return pthread_kill(threadId, sig);
+}
+
+int qat_setspecific_thread(pthread_key_t key, const void *value)
+{
+    return pthread_setspecific(key, value);
+}
+
+void *qat_getspecific_thread(pthread_key_t key)
+{
+    return pthread_getspecific(key);
+}
+
 #ifdef QAT_HW
+int qat_adjust_thread_affinity(pthread_t threadptr)
+{
+# ifdef QAT_POLL_CORE_AFFINITY
+    int coreID = 0;
+    int sts = 1;
+    qat_cpuset cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(coreID, &cpuset);
+
+    sts = pthread_setaffinity_np(threadptr, sizeof(qat_cpuset), &cpuset);
+    if (sts != 0) {
+        WARN("pthread_setaffinity_np error, status = %d\n", sts);
+        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_SETAFFINITY_FAILURE);
+        return 0;
+    }
+    sts = pthread_getaffinity_np(threadptr, sizeof(qat_cpuset), &cpuset);
+    if (sts != 0) {
+        WARN("pthread_getaffinity_np error, status = %d\n", sts);
+        QATerr(QAT_F_QAT_ADJUST_THREAD_AFFINITY, QAT_R_PTHREAD_GETAFFINITY_FAILURE);
+        return 0;
+    }
+
+    if (CPU_ISSET(coreID, &cpuset)) {
+        DEBUG("Polling thread assigned on CPU core %d\n", coreID);
+    }
+# endif
+    return 1;
+}
+
+int qat_fcntl(int fd, int cmd, int arg)
+{
+    return fcntl(fd, cmd, arg);
+}
+
 int qat_set_instance_for_thread(long instanceNum)
 {
     thread_local_variables_t *tlv = NULL;
     tlv = qat_check_create_local_variables();
-    if (NULL == tlv ||
-        0 == qat_num_instances ||
+    if (NULL == tlv || 0 == qat_num_instances ||
         instanceNum < 0) {
         WARN("could not create local variables or no instances available\n");
         QATerr(QAT_F_QAT_SET_INSTANCE_FOR_THREAD, QAT_R_SET_INSTANCE_FAILURE);

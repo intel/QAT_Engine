@@ -72,27 +72,32 @@
 /* OpenSSL Includes */
 #include <openssl/err.h>
 
-#define MULTIBUFF_NUM_EVENT_RETRIES 5
-#define MULTIBUFF_NSEC_PER_SEC  1000000000L
-#define MULTIBUFF_TIMEOUT_LEVEL_1 1
-#define MULTIBUFF_TIMEOUT_LEVEL_2 2
-#define MULTIBUFF_TIMEOUT_LEVEL_3 3
-#define MULTIBUFF_TIMEOUT_LEVEL_4 4
-#define MULTIBUFF_TIMEOUT_LEVEL_5 5
-#define MULTIBUFF_TIMEOUT_LEVEL_6 6
-#define MULTIBUFF_TIMEOUT_LEVEL_7 7
-#define MULTIBUFF_TIMEOUT_LEVEL_MIN MULTIBUFF_TIMEOUT_LEVEL_1
-#define MULTIBUFF_TIMEOUT_LEVEL_MAX MULTIBUFF_TIMEOUT_LEVEL_7
-#define MULTIBUFF_NSEC_TIMEOUT_TIME_L1 200000000
-#define MULTIBUFF_NSEC_TIMEOUT_TIME_L2 100000000
-#define MULTIBUFF_NSEC_TIMEOUT_TIME_L3 50000000
-#define MULTIBUFF_NSEC_TIMEOUT_TIME_L4 25000000
-#define MULTIBUFF_NSEC_TIMEOUT_TIME_L5 16666667
-#define MULTIBUFF_NSEC_TIMEOUT_TIME_L6 12500000
-#define MULTIBUFF_NSEC_TIMEOUT_TIME_L7 10000000
+#define QAT_SW_NUM_EVENT_RETRIES 5
+#define QAT_SW_NSEC_PER_SEC  1000000000L
+#define QAT_SW_TIMEOUT_LEVEL_1 1
+#define QAT_SW_TIMEOUT_LEVEL_2 2
+#define QAT_SW_TIMEOUT_LEVEL_3 3
+#define QAT_SW_TIMEOUT_LEVEL_4 4
+#define QAT_SW_TIMEOUT_LEVEL_5 5
+#define QAT_SW_TIMEOUT_LEVEL_6 6
+#define QAT_SW_TIMEOUT_LEVEL_7 7
+#define QAT_SW_TIMEOUT_LEVEL_MIN QAT_SW_TIMEOUT_LEVEL_1
+#define QAT_SW_TIMEOUT_LEVEL_MAX QAT_SW_TIMEOUT_LEVEL_7
+#define QAT_SW_POLL_TIMEOUT_NSEC_L1 200000000
+#define QAT_SW_POLL_TIMEOUT_NSEC_L2 100000000
+#define QAT_SW_POLL_TIMEOUT_NSEC_L3 50000000
+#define QAT_SW_POLL_TIMEOUT_NSEC_L4 25000000
+#define QAT_SW_POLL_TIMEOUT_NSEC_L5 16666667
+#define QAT_SW_POLL_TIMEOUT_NSEC_L6 12500000
+#define QAT_SW_POLL_TIMEOUT_NSEC_L7 10000000
 
-struct timespec mb_poll_timeout_time = { 0, 10000000 }; /* default 100th sec */
-unsigned int mb_timeout_level = MULTIBUFF_TIMEOUT_LEVEL_MAX;
+/* default 100th sec */
+#ifndef QAT_SW_POLL_TIMEOUT_NSEC
+# define QAT_SW_POLL_TIMEOUT_NSEC QAT_SW_POLL_TIMEOUT_NSEC_L7
+#endif
+
+struct timespec mb_poll_timeout_time = { 0, QAT_SW_POLL_TIMEOUT_NSEC };
+unsigned int mb_timeout_level = QAT_SW_TIMEOUT_LEVEL_MAX;
 
 /* RSA */
 struct timespec rsa2k_priv_previous_time = { 0 };
@@ -142,38 +147,22 @@ struct timespec ecdhp384_compute_previous_time = { 0 };
 mb_req_rates mb_ecdhp384_keygen_req_rates = { 0 };
 mb_req_rates mb_ecdhp384_compute_req_rates = { 0 };
 
-int multibuff_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
-                      void *(*start_func) (void *), void *pArg)
-{
-    return pthread_create(pThreadId, attr, start_func,(void *)pArg);
-}
-
-int multibuff_join_thread(pthread_t threadId, void **retval)
-{
-    return pthread_join(threadId, retval);
-}
-
-int multibuff_kill_thread(pthread_t threadId, int sig)
-{
-    return pthread_kill(threadId, sig);
-}
-
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
 void multibuff_set_normalized_timespec(struct timespec *ts, time_t sec, long long  nsec)
 {
-    while (nsec >= MULTIBUFF_NSEC_PER_SEC) {
+    while (nsec >= QAT_SW_NSEC_PER_SEC) {
     /*
      * The following asm() prevents the compiler from
      * optimising this loop into a modulo operation. See
      * also __iter_div_u64_rem() in include/linux/time.h
      */
         asm("" : "+rm"(nsec));
-        nsec -= MULTIBUFF_NSEC_PER_SEC;
+        nsec -= QAT_SW_NSEC_PER_SEC;
         ++sec;
      }
      while (nsec < 0) {
          asm("" : "+rm"(nsec));
-         nsec += MULTIBUFF_NSEC_PER_SEC;
+         nsec += QAT_SW_NSEC_PER_SEC;
          --sec;
      }
      ts->tv_sec = sec;
@@ -229,33 +218,34 @@ void multibuff_get_timeout_time(struct timespec *timeout_time,
 {
     timeout_time->tv_sec = 0;
     switch (timeout_level) {
-        case MULTIBUFF_TIMEOUT_LEVEL_1:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L1;
+        case QAT_SW_TIMEOUT_LEVEL_1:
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L1;
             break;
-        case MULTIBUFF_TIMEOUT_LEVEL_2:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L2;
+        case QAT_SW_TIMEOUT_LEVEL_2:
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L2;
             break;
-        case MULTIBUFF_TIMEOUT_LEVEL_3:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L3;
+        case QAT_SW_TIMEOUT_LEVEL_3:
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L3;
             break;
-        case MULTIBUFF_TIMEOUT_LEVEL_4:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L4;
+        case QAT_SW_TIMEOUT_LEVEL_4:
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L4;
             break;
-        case MULTIBUFF_TIMEOUT_LEVEL_5:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L5;
+        case QAT_SW_TIMEOUT_LEVEL_5:
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L5;
             break;
-        case MULTIBUFF_TIMEOUT_LEVEL_6:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L6;
+        case QAT_SW_TIMEOUT_LEVEL_6:
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L6;
             break;
-        case MULTIBUFF_TIMEOUT_LEVEL_7:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L7;
+        case QAT_SW_TIMEOUT_LEVEL_7:
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L7;
             break;
         default:
-            timeout_time->tv_nsec = MULTIBUFF_NSEC_TIMEOUT_TIME_L7;
+            timeout_time->tv_nsec = QAT_SW_POLL_TIMEOUT_NSEC_L7;
             break;
     }
 }
 
+#ifdef QAT_SW_HEURISTIC_TIMEOUT
 void multibuff_init_req_rates(mb_req_rates * req_rates)
 {
     req_rates->req_this_period = 0;
@@ -264,7 +254,6 @@ void multibuff_init_req_rates(mb_req_rates * req_rates)
     req_rates->current_time = req_rates->previous_time;
 }
 
-#ifdef QAT_SW_HEURISTIC_TIMEOUT
 unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
 {
     if (((mb_rsa2k_priv_req_rates.req_this_period < MULTIBUFF_MIN_BATCH) ||
@@ -346,6 +335,7 @@ void *multibuff_timer_poll_func(void *ih)
 
     multibuff_timer_poll_func_thread = pthread_self();
     cleared_to_start = 1;
+#ifdef QAT_SW_HEURISTIC_TIMEOUT
     multibuff_init_req_rates(&mb_rsa2k_priv_req_rates);
     multibuff_init_req_rates(&mb_rsa2k_pub_req_rates);
     multibuff_init_req_rates(&mb_x25519_keygen_req_rates);
@@ -353,6 +343,9 @@ void *multibuff_timer_poll_func(void *ih)
     multibuff_init_req_rates(&mb_ecdsap256_sign_req_rates);
     multibuff_init_req_rates(&mb_ecdsap256_sign_setup_req_rates);
     multibuff_init_req_rates(&mb_ecdsap256_sign_sig_req_rates);
+    multibuff_init_req_rates(&mb_ecdsap384_sign_req_rates);
+    multibuff_init_req_rates(&mb_ecdsap384_sign_setup_req_rates);
+    multibuff_init_req_rates(&mb_ecdsap384_sign_sig_req_rates);
     multibuff_init_req_rates(&mb_ecdhp256_keygen_req_rates);
     multibuff_init_req_rates(&mb_ecdhp256_compute_req_rates);
     multibuff_init_req_rates(&mb_ecdhp384_keygen_req_rates);
@@ -361,17 +354,14 @@ void *multibuff_timer_poll_func(void *ih)
     multibuff_init_req_rates(&mb_rsa3k_pub_req_rates);
     multibuff_init_req_rates(&mb_rsa4k_priv_req_rates);
     multibuff_init_req_rates(&mb_rsa4k_pub_req_rates);
-    multibuff_init_req_rates(&mb_ecdsap384_sign_req_rates);
-    multibuff_init_req_rates(&mb_ecdsap384_sign_setup_req_rates);
-    multibuff_init_req_rates(&mb_ecdsap384_sign_sig_req_rates);
+#endif
 
-
-    DEBUG("timer_poll_func_thread = 0x%lx\n", multibuff_timer_poll_func_thread);
+    DEBUG("Polling Timeout %ld\n", mb_poll_timeout_time.tv_nsec);
 
     while (multibuff_keep_polling) {
         while ((sig = sigtimedwait((const sigset_t *)&set, NULL, &mb_poll_timeout_time)) == -1 &&
                 errno == EINTR &&
-                eintr_count < MULTIBUFF_NUM_EVENT_RETRIES) {
+                eintr_count < QAT_SW_NUM_EVENT_RETRIES) {
             eintr_count++;
         }
         eintr_count = 0;

@@ -46,7 +46,9 @@
 #ifndef QAT_FORK_H
 # define QAT_FORK_H
 
-#  include "e_qat.h"
+# include "e_qat.h"
+
+int qat_fcntl(int fd, int cmd, int arg);
 
 /******************************************************************************
  * function:
@@ -67,6 +69,82 @@ void engine_init_child_at_fork_handler(void);
  *   a function to be run (by the parent process) before a fork() function.
  ******************************************************************************/
 void engine_finish_before_fork_handler(void);
+
+/******************************************************************************
+ * function:
+ *         int qat_create_thread(pthread_t *pThreadId,
+ *                               const pthread_attr_t *attr,
+ *                               void *(*start_func) (void *), void *pArg)
+ *
+ * @param pThreadId  [OUT] - Pointer to Thread ID
+ * @param start_func [IN]  - Pointer to Thread Start routine
+ * @param attr       [IN]  - Pointer to Thread attributes
+ * @param pArg       [IN]  - Arguments to start routine
+ *
+ * description:
+ *   Wrapper function for pthread_create
+ ******************************************************************************/
+int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,
+                      void *(*start_func) (void *), void *pArg);
+
+/******************************************************************************
+ * function:
+ *         int qat_join_thread(pthread_t threadId, void **retval)
+ *
+ * @param pThreadId  [IN]  - Thread ID of the created thread
+ * @param retval     [OUT] - Pointer that contains thread's exit status
+ *
+ * description:
+ *   Wrapper function for pthread_create
+ ******************************************************************************/
+int qat_join_thread(pthread_t threadId, void **retval);
+
+/******************************************************************************
+ * function:
+ *         int qat_kill_thread(pthread_t threadId, int sig)
+ *
+ * @param pThreadId  [IN] - Thread ID of the created thread
+ * @param sig        [IN] - Signal number
+ *
+ * description:
+ *   Wrapper function for pthread_kill
+ ******************************************************************************/
+int qat_kill_thread(pthread_t threadId, int sig);
+
+/******************************************************************************
+ * function:
+ *         int qat_setspecific_thread(pthread_key_t key, const void *value)
+ *
+ * @param key   [IN] - key obtained from pthread_key_create()
+ * @param value [IN] - Thread specific value
+ *
+ * description:
+ *   Wrapper function for pthread_setspecific
+ ******************************************************************************/
+int qat_setspecific_thread(pthread_key_t key, const void *value);
+
+/******************************************************************************
+ * function:
+ *         int qat_getspecific_thread(pthread_key_t key)
+ *
+ * @param key   [IN] - key obtained from pthread_key_create()
+ *
+ * description:
+ *   Wrapper function for pthread_getspecific
+ ******************************************************************************/
+void *qat_getspecific_thread(pthread_key_t key);
+
+/******************************************************************************
+ * function:
+ *         int qat_adjust_thread_affinity(pthread_t threadptr);
+ *
+ * @param threadptr[IN ] - Thread ID
+ *
+ * description:
+ *    Sets the CPU affinity mask using pthread_setaffinity_np
+ *    and returns the CPU affinity mask using pthread_getaffinity_np
+ ******************************************************************************/
+int qat_adjust_thread_affinity(pthread_t threadptr);
 
 /******************************************************************************
  * function:
