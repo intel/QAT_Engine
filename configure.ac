@@ -20,92 +20,92 @@ AC_PROG_CC
 # Parameter parsing for disabling the feature
 AC_ARG_ENABLE(qat_hw_rsa,
               AS_HELP_STRING([--disable-qat_hw_rsa],
-                             [Disable accelerated RSA offload]))
+                             [Disable qat_hw RSA acceleration]))
 AC_SUBST(enable_qat_hw_rsa)
 
 AC_ARG_ENABLE(qat_hw_ciphers,
               AS_HELP_STRING([--disable-qat_hw_ciphers],
-                             [Disable accelerated CIPHERS offload]))
+                             [Disable qat_hw CIPHERS acceleration]))
 AC_SUBST(enable_qat_hw_ciphers)
 
 AC_ARG_ENABLE(qat_hw_ecdh,
               AS_HELP_STRING([--disable-qat_hw_ecdh],
-                             [Disable accelerated ECDH offload]))
+                             [Disable qat_hw ECDH acceleration]))
 AC_SUBST(enable_qat_hw_ecdh)
 
 AC_ARG_ENABLE(qat_hw_ecdsa,
               AS_HELP_STRING([--disable-qat_hw_ecdsa],
-                             [Disable accelerated ECDSA offload]))
+                             [Disable qat_hw ECDSA acceleration]))
 AC_SUBST(enable_qat_hw_ecdsa)
 
 AC_ARG_ENABLE(qat_hw_dsa,
               AS_HELP_STRING([--disable-qat_hw_dsa],
-                             [Disable accelerated DSA offload]))
+                             [Disable qat_hw DSA acceleration]))
 AC_SUBST(enable_qat_hw_dsa)
 
 AC_ARG_ENABLE(qat_hw_dh,
               AS_HELP_STRING([--disable-qat_hw_dh],
-                             [Disable accelerated DH offload]))
+                             [Disable qat_hw DH acceleration]))
 AC_SUBST(enable_qat_hw_dh)
 
 AC_ARG_ENABLE(qat_hw_prf,
               AS_HELP_STRING([--disable-qat_hw_prf],
-                             [Disable accelerated PRF offload]))
+                             [Disable qat_hw PRF acceleration]))
 AC_SUBST(enable_qat_hw_prf)
 
 AC_ARG_ENABLE(qat_hw_hkdf,
               AS_HELP_STRING([--enable-qat_hw_hkdf],
-                             [Enable accelerated HKDF offload]))
+                             [Enable qat_hw HKDF acceleration]))
 AC_SUBST(enable_qat_hw_hkdf)
 
 AC_ARG_ENABLE(qat_hw_ecx,
               AS_HELP_STRING([--disable-qat_hw_ecx],
-                             [Disable accelerated X25519/X448 offload]))
+                             [Disable qat_hw X25519/X448 acceleration]))
 AC_SUBST(enable_qat_hw_ecx)
 
 AC_ARG_ENABLE(qat_hw_gcm,
               AS_HELP_STRING([--enable-qat_hw_gcm],
-                             [Enable accelerated AES-GCM offload (experimental)]))
+                             [Enable qat_hw AES-GCM acceleration (experimental)]))
 AC_SUBST(enable_qat_hw_gcm)
 
 AC_ARG_ENABLE(qat_sw_gcm,
               AS_HELP_STRING([--disable-qat_sw_gcm],
-                             [Disable qat_sw AES-GCM offload]))
+                             [Disable qat_sw AES-GCM acceleration]))
 AC_SUBST(enable_qat_sw_gcm)
 
 AC_ARG_ENABLE(qat_sw_rsa,
               AS_HELP_STRING([--disable-qat_sw_rsa],
-                             [Disable qat_sw RSA offload]))
+                             [Disable qat_sw RSA acceleration]))
 AC_SUBST(enable_qat_sw_rsa)
 
 AC_ARG_ENABLE(qat_sw_ecx,
               AS_HELP_STRING([--disable-qat_sw_ecx],
-                             [Disable qat_sw X25519 offload]))
+                             [Disable qat_sw X25519 acceleration]))
 AC_SUBST(enable_qat_sw_ecx)
 
 AC_ARG_ENABLE(qat_sw_ecdsa,
               AS_HELP_STRING([--disable-qat_sw_ecdsa],
-                             [Disable qat_sw ECDSA offload]))
+                             [Disable qat_sw ECDSA acceleration]))
 AC_SUBST(enable_qat_sw_ecdsa)
 
 AC_ARG_ENABLE(qat_sw_ecdh,
               AS_HELP_STRING([--disable-qat_sw_ecdh],
-                             [Disable qat_sw ECDH offload]))
+                             [Disable qat_sw ECDH acceleration]))
 AC_SUBST(enable_qat_sw_ecdh)
 
 AC_ARG_ENABLE(qat_hw_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_hw_small_pkt_offload],
-                             [Enable accelerated small packet CIPHER offload]))
+                             [Enable small packet CIPHER acceleration]))
 AC_SUBST(enable_qat_hw_small_pkt_offload)
 
 AC_ARG_ENABLE(qat_hw,
               AS_HELP_STRING([--disable-qat_hw],
-                             [Disable Intel(R) QAT Hardware offload]))
+                             [Disable Intel(R) QAT Hardware acceleration]))
 AC_SUBST(enable_qat_hw)
 
 AC_ARG_ENABLE(qat_sw,
               AS_HELP_STRING([--enable-qat_sw],
-                             [Enable qat_sw offload using Intel(R) Crypto Multi-buffer library]))
+                             [Enable qat_sw acceleration using Intel(R) Crypto Multi-buffer library]))
 AC_SUBST(enable_qat_sw)
 
 # Parameter parsing for self tuning of the timeout in the qat_sw polling thread
@@ -236,7 +236,7 @@ if test "x$cflags_qat_hw_intree" = "x"
 then
   if test "x$with_qat_hw_dir" = "x" -a "x$enable_qat_sw" = "x"
   then
-    AC_MSG_ERROR([--with-qat_hw_dir or --enable-qat_sw not set, If you like to use QAT Hardware offload, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_hw_dir=/path/to/qat_driver or If you like to use QAT Software offload using Intel crypto multibuffer library and Intel IPSec (VAES-GCM),  provide --enable-qat_sw after installing crypto_mb and ipsec_mb libraries as per README])
+    AC_MSG_ERROR([--with-qat_hw_dir or --enable-qat_sw not set, If you like to use QAT Hardware acceleration, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_hw_dir=/path/to/qat_driver or If you like to use QAT Software acceleration using Intel crypto multibuffer library and Intel IPSec (AES-GCM),  provide --enable-qat_sw after installing crypto_mb and IPSec_mb libraries as per README])
   fi
 fi
 
@@ -298,7 +298,7 @@ then
   fi
 fi
 
-# qat_hw_dir configured, enable qat offload
+# qat_hw_dir configured, enable qat_hw
 if test "x$with_qat_hw_dir" != "x"
 then
   if test "x$enable_qat_hw" != "xno"
@@ -308,14 +308,14 @@ then
       with_qat_hw_install_dir="\$(with_qat_hw_dir)/build"
     fi
     AC_SUBST([cflags_qat_hw], ["-DQAT_HW"])
-    AC_MSG_NOTICE([Enabling build for QAT HW Offload])
+    AC_MSG_NOTICE([Enabling build for QAT HW acceleration])
   else
-    AC_MSG_NOTICE([Disabling build for QAT HW Offload])
+    AC_MSG_NOTICE([Disabling build for QAT HW acceleration])
   fi
 fi
 AM_CONDITIONAL([QAT_HW], [test "x$cflags_qat_hw" != "x"])
 
-# QAT SW offload enabled
+# QAT SW acceleration enabled
 if test "x$enable_qat_sw" = "xyes"
 then
   if test "x$cflags_qat_hw" = "x"
@@ -361,7 +361,7 @@ then
 else
   if test "x$cflags_qat_hw" = "x" -a "x$cflags_qat_hw_intree" = "x"
   then
-    AC_MSG_ERROR([qatlib library not installed or --with-qat_hw_dir or --enable-qat_sw not set, If you like to use QAT Hardware offload, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_hw_dir=/path/to/qat_driver or If you like to use QAT Software offload using Intel crypto multibuffer library and Intel IPSec (VAES-GCM),  provide --enable-qat_sw after installing crypto_mb and ipsec_mb libraries as per README])
+    AC_MSG_ERROR([qatlib library not installed or --with-qat_hw_dir or --enable-qat_sw not set, If you like to use QAT Hardware acceleration, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_hw_dir=/path/to/qat_driver or If you like to use QAT Software acceleration using Intel crypto multibuffer library and Intel IPSec (VAES-GCM),  provide --enable-qat_sw after installing crypto_mb and IPSec_mb libraries as per README])
   fi
 fi
 AM_CONDITIONAL([QAT_SW], [test "x$cflags_qat_sw" != "x"])
@@ -382,145 +382,145 @@ AM_CONDITIONAL([QAT_ERR_FILES_BUILD], [test "x$with_openssl_dir" != "x"])
 if test "x$enable_qat_hw_rsa" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_rsa="-DENABLE_QAT_HW_RSA"
-  AC_MSG_NOTICE([Offloading RSA to Hardware])
+  AC_MSG_NOTICE([Accelerating RSA to Hardware])
 else
   enable_qat_hw_rsa="-DDISABLE_QAT_HW_RSA"
-  AC_MSG_NOTICE([Not Offloading RSA to Hardware])
+  AC_MSG_NOTICE([Not Accelerating RSA to Hardware])
 fi
 
 if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_ciphers="-DENABLE_QAT_HW_CIPHERS"
-  AC_MSG_NOTICE([Offloading CIPHERS to Hardware])
+  AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])
 else
   enable_qat_hw_ciphers="-DDISABLE_QAT_HW_CIPHERS"
-  AC_MSG_NOTICE([Not Offloading CIPHERS to Hardware])
+  AC_MSG_NOTICE([Not Accelerating CIPHERS to Hardware])
 fi
 
 if test "x$enable_qat_hw_ecdh" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_ecdh="-DENABLE_QAT_HW_ECDH"
-  AC_MSG_NOTICE([Offloading ECDH to Hardware])
+  AC_MSG_NOTICE([Accelerating ECDH to Hardware])
 else
   enable_qat_hw_ecdh="-DDISABLE_QAT_HW_ECDH"
-  AC_MSG_NOTICE([Not Offloading ECDH to Hardware])
+  AC_MSG_NOTICE([Not Accelerating ECDH to Hardware])
 fi
 
 if test "x$enable_qat_hw_ecdsa" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_ecdsa="-DENABLE_QAT_HW_ECDSA"
-  AC_MSG_NOTICE([Offloading ECDSA to Hardware])
+  AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
 else
   enable_qat_hw_ecdsa="-DDISABLE_QAT_HW_ECDSA"
-  AC_MSG_NOTICE([Not Offloading ECDSA to Hardware])
+  AC_MSG_NOTICE([Not Accelerating ECDSA to Hardware])
 fi
 
 if test "x$enable_qat_hw_dsa" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_dsa="-DENABLE_QAT_HW_DSA"
-  AC_MSG_NOTICE([Offloading DSA to Hardware])
+  AC_MSG_NOTICE([Accelerating DSA to Hardware])
 else
   enable_qat_hw_dsa="-DDISABLE_QAT_HW_DSA"
-  AC_MSG_NOTICE([Not Offloading DSA to Hardware])
+  AC_MSG_NOTICE([Not Accelerating DSA to Hardware])
 fi
 
 if test "x$enable_qat_hw_dh" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_dh="-DENABLE_QAT_HW_DH"
-  AC_MSG_NOTICE([Offloading DH to Hardware])
+  AC_MSG_NOTICE([Accelerating DH to Hardware])
 else
   enable_qat_hw_dh="-DDISABLE_QAT_HW_DH"
-  AC_MSG_NOTICE([Not Offloading DH to Hardware])
+  AC_MSG_NOTICE([Not Accelerating DH to Hardware])
 fi
 
 if test "x$enable_qat_hw_prf" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_prf="-DENABLE_QAT_HW_PRF"
-  AC_MSG_NOTICE([Offloading PRF to Hardware])
+  AC_MSG_NOTICE([Accelerating PRF to Hardware])
 else
   enable_qat_hw_prf="-DDISABLE_QAT_HW_PRF"
-  AC_MSG_NOTICE([Not Offloading PRF to Hardware])
+  AC_MSG_NOTICE([Not Accelerating PRF to Hardware])
 fi
 
 if test "x$enable_qat_hw_hkdf" = "xyes" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_hkdf="-DENABLE_QAT_HW_HKDF"
-  AC_MSG_NOTICE([Offloading HKDF to Hardware])
+  AC_MSG_NOTICE([Accelerating HKDF to Hardware])
 else
   enable_qat_hw_hkdf="-DDISABLE_QAT_HW_HKDF"
-  AC_MSG_NOTICE([Not Offloading HKDF to Hardware])
+  AC_MSG_NOTICE([Not Accelerating HKDF to Hardware])
 fi
 
 if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_ecx="-DENABLE_QAT_HW_ECX"
-  AC_MSG_NOTICE([Offloading X25519/X448 to Hardware])
+  AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
 else
   enable_qat_hw_ecx="-DDISABLE_QAT_HW_ECX"
-  AC_MSG_NOTICE([Not Offloading X25519/X448 to Hardware])
+  AC_MSG_NOTICE([Not Accelerating X25519/X448 to Hardware])
 fi
 
 if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_gcm="-DENABLE_QAT_HW_GCM"
-  AC_MSG_NOTICE([Offloading AES-GCM to Hardware (experimental)])
+  AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
 else
   enable_qat_hw_gcm="-DDISABLE_QAT_HW_GCM"
-  AC_MSG_NOTICE([Not Offloading AES-GCM to Hardware])
+  AC_MSG_NOTICE([Not Accelerating AES-GCM to Hardware])
 fi
 
 if test "x$enable_qat_sw_gcm" != "xno" -a "x$cflags_qat_sw_ipsec" != "x"
 then
   enable_qat_sw_gcm="-DENABLE_QAT_SW_GCM"
-  AC_MSG_NOTICE([Offloading AES-GCM to Software using Intel IPSec library])
+  AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
 else
   enable_qat_sw_gcm="-DDISABLE_QAT_SW_GCM"
-  AC_MSG_NOTICE([Not Offloading AES-GCM to Software using Intel IPSec libary])
+  AC_MSG_NOTICE([Not Accelerating AES-GCM to Software (IPSec_mb)])
 fi
 
 if test "x$enable_qat_sw_rsa" != "xno" -a "x$cflags_qat_sw" != "x"
 then
   enable_qat_sw_rsa="-DENABLE_QAT_SW_RSA"
-  AC_MSG_NOTICE([Offloading RSA to Software(Multi-buffer)])
+  AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
 else
   enable_qat_sw_rsa="-DDISABLE_QAT_SW_RSA"
-  AC_MSG_NOTICE([Not Offloading RSA to Software(Multi-buffer)])
+  AC_MSG_NOTICE([Not Accelerating RSA to Software (Multi-buffer)])
 fi
 
 if test "x$enable_qat_sw_ecx" != "xno" -a "x$cflags_qat_sw" != "x"
 then
     enable_qat_sw_ecx="-DENABLE_QAT_SW_ECX"
-    AC_MSG_NOTICE([Offloading X25519 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
 else
     enable_qat_sw_ecx="-DDISABLE_QAT_SW_ECX"
-    AC_MSG_NOTICE([Not Offloading X25519 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Not Accelerating X25519 to Software (Multi-buffer)])
 fi
 
 if test "x$enable_qat_sw_ecdsa" != "xno" -a "x$cflags_qat_sw" != "x"
 then
     enable_qat_sw_ecdsa="-DENABLE_QAT_SW_ECDSA"
-    AC_MSG_NOTICE([Offloading ECDSA P256 & P384 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Accelerating ECDSA P256 & P384 to Software (Multi-buffer)])
 else
     enable_qat_sw_ecdsa="-DDISABLE_QAT_SW_ECDSA"
-    AC_MSG_NOTICE([Not Offloading ECDSA P256 & P384 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Not Accelerating ECDSA P256 & P384 to Software (Multi-buffer)])
 fi
 
 if test "x$enable_qat_sw_ecdh" != "xno" -a "x$cflags_qat_sw" != "x"
 then
     enable_qat_sw_ecdh="-DENABLE_QAT_SW_ECDH"
-    AC_MSG_NOTICE([Offloading ECDH P256 & P384 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Accelerating ECDH P256 &P384 to Software (Multi-buffer)])
 else
     enable_qat_sw_ecdh="-DDISABLE_QAT_SW_ECDH"
-    AC_MSG_NOTICE([Not Offloading ECDH P256 & P384 to Software(Multi-buffer)])
+    AC_MSG_NOTICE([Not Accelerating ECDH P256 & P384 to Software (Multi-buffer)])
 fi
 
 if test "x$enable_qat_hw_small_pkt_offload" = "xyes" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_small_pkt_offload="-DENABLE_QAT_HW_SMALL_PKT_OFFLOAD"
-  AC_MSG_NOTICE([Offloading small packet CIPHERS to Hardware])
+  AC_MSG_NOTICE([Accelerating small packet CIPHERS to Hardware])
 else
   enable_qat_hw_small_pkt_offload=""
-  AC_MSG_NOTICE([Not Offloading small packet CIPHERS to Hardware])
+  AC_MSG_NOTICE([Not Accelerating small packet CIPHERS to Hardware])
 fi
 
 if test "x$enable_qat_hw_lenstra_protection" = "xno" -a "x$cflags_qat_hw" != "x"
