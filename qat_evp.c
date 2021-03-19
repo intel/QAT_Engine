@@ -198,31 +198,42 @@ void qat_create_ciphers(void)
 
     for (i = 0; i < num_cc; i++) {
         if (info[i].cipher == NULL) {
+            switch (info[i].nid) {
+            case NID_aes_128_gcm:
+            case NID_aes_192_gcm:
+            case NID_aes_256_gcm:
 #ifdef QAT_SW_IPSEC
-            if (info[i].nid == NID_aes_128_gcm ||
-                info[i].nid == NID_aes_192_gcm ||
-                info[i].nid == NID_aes_256_gcm) {
-                info[i].cipher = (EVP_CIPHER *)
-                    vaesgcm_create_cipher_meth(info[i].nid, info[i].keylen);
-	        }
+                if(qat_sw_ipsec)
+                   info[i].cipher = (EVP_CIPHER *)
+                       vaesgcm_create_cipher_meth(info[i].nid, info[i].keylen);
+#else
+# ifdef ENABLE_QAT_HW_GCM
+                if (qat_offload) {
+                    if (info[i].nid != NID_aes_192_gcm)
+                        info[i].cipher = (EVP_CIPHER *)
+                            qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
+                }
+# endif
 #endif
+                break;
 
 #ifdef QAT_HW
-            if (qat_offload) {
-                if (info[i].nid == NID_aes_128_gcm ||
-                    info[i].nid == NID_aes_256_gcm) {
-# ifdef ENABLE_QAT_HW_GCM
-                    info[i].cipher = (EVP_CIPHER *)
-                        qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
-# endif
-                } else {
+            case NID_aes_128_cbc_hmac_sha1:
+            case NID_aes_128_cbc_hmac_sha256:
+            case NID_aes_256_cbc_hmac_sha1:
+            case NID_aes_256_cbc_hmac_sha256:
+                if (qat_offload)
                     info[i].cipher = (EVP_CIPHER *)
                         qat_create_cipher_meth(info[i].nid, info[i].keylen);
-                }
-            }
+                break;
 #endif
+            default:
+                /* Do nothing */
+                break;
+            }
         }
     }
+
 }
 
 void qat_free_ciphers(void)
@@ -231,16 +242,26 @@ void qat_free_ciphers(void)
 
     for (i = 0; i < num_cc; i++) {
         if (info[i].cipher != NULL) {
-            if (info[i].nid == NID_aes_128_gcm ||
-                info[i].nid == NID_aes_192_gcm ||
-                info[i].nid == NID_aes_256_gcm) {
+            switch (info[i].nid) {
+            case NID_aes_128_gcm:
+            case NID_aes_192_gcm:
+            case NID_aes_256_gcm:
 #ifndef DISABLE_QAT_SW_GCM
                 EVP_CIPHER_meth_free(info[i].cipher);
 #endif
-             } else {
-#if !defined(DISABLE_QAT_HW_CIPHERS) || !defined(DISABLE_QAT_HW_GCM)
+#ifndef DISABLE_QAT_HW_GCM
+                if (info[i].nid != NID_aes_192_gcm)
+                    EVP_CIPHER_meth_free(info[i].cipher);
+#endif
+                break;
+            case NID_aes_128_cbc_hmac_sha1:
+            case NID_aes_128_cbc_hmac_sha256:
+            case NID_aes_256_cbc_hmac_sha1:
+            case NID_aes_256_cbc_hmac_sha256:
+#ifndef DISABLE_QAT_HW_CIPHERS
                 EVP_CIPHER_meth_free(info[i].cipher);
 #endif
+                break;
             }
             info[i].cipher = NULL;
         }

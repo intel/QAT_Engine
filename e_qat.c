@@ -180,6 +180,7 @@ sigset_t set = {{0}};
 pthread_t qat_timer_poll_func_thread = 0;
 pthread_t multibuff_timer_poll_func_thread = 0;
 int cleared_to_start = 0;
+int qat_sw_ipsec = 0;
 
 #ifdef QAT_HW
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
@@ -423,19 +424,20 @@ static int hw_support(void) {
     unsigned int vpclmulqdq = 0;
 
     if (*ebx & (0x1 << AVX512F_BIT))
-	    avx512f = 1;
+        avx512f = 1;
 
     if (*ecx & (0x1 << VAES_BIT))
-	    vaes = 1;
+        vaes = 1;
 
     if (*ecx & (0x1 << VPCLMULQDQ_BIT))
-	    vpclmulqdq = 1;
+        vpclmulqdq = 1;
 
     DEBUG("Processor Support - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
           avx512f, vaes, vpclmulqdq);
 
     if (avx512f && vaes && vpclmulqdq) {
-	return 1;
+        qat_sw_ipsec = 1;
+        return 1;
     } else {
         WARN("Processor unsupported - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
              avx512f, vaes, vpclmulqdq);
@@ -959,16 +961,14 @@ static int bind_qat(ENGINE *e, const char *id)
 #endif
 
 #ifdef QAT_SW_IPSEC
-    if (!hw_support()) {
-        WARN("The Processor does not support the features needed for VAES.\n");
-        goto end;
-    }
+    if (hw_support()) {
 # ifndef DISABLE_QAT_SW_GCM
-    if (!vaesgcm_init_ipsec_mb_mgr()) {
-        WARN("IPSec Multi-Buffer Manager Initialization failed\n");
-        goto end;
-    }
+        if (!vaesgcm_init_ipsec_mb_mgr()) {
+            WARN("IPSec Multi-Buffer Manager Initialization failed\n");
+            goto end;
+        }
 # endif
+    }
 #endif
 
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC)

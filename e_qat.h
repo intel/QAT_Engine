@@ -313,6 +313,7 @@ extern sigset_t set;
 extern pthread_t qat_timer_poll_func_thread;
 extern pthread_t multibuff_timer_poll_func_thread;
 extern int cleared_to_start;
+extern int qat_sw_ipsec;
 
 # ifdef QAT_HW
 extern char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE];
