@@ -106,10 +106,10 @@ endif
 
 err-files:
 if QAT_OPENSSL_110
-	rm -rf e_qat_err* && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+	rm -rf e_qat_err* && perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
        -rebuild -reindex -nostatic -write *.c
 
 else
-	rm -f e_qat_err.c e_qat.txt && perl $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+	rm -f e_qat_err.c e_qat.txt && perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
        -rebuild -reindex *.c
 endif
