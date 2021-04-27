@@ -303,10 +303,6 @@ if test "x$with_qat_hw_dir" != "x"
 then
   if test "x$enable_qat_hw" != "xno"
   then
-    if test "x$with_qat_hw_install_dir" = "x"
-    then
-      with_qat_hw_install_dir="\$(with_qat_hw_dir)/build"
-    fi
     AC_SUBST([cflags_qat_hw], ["-DQAT_HW"])
     AC_MSG_NOTICE([Enabling build for QAT HW acceleration])
   else
@@ -715,14 +711,17 @@ then
   AC_SUBST([QAT_LD_LIB], ["\$(with_ld_opt)"])
 fi
 
-# Setting QAT, crypto_mb and IPSec install dir for library and headers
 if test "x$cflags_qat_hw" != "x"
 then
-  if test "x$with_qat_hw_install_dir" != "x"
+  if test "x$cflags_qat_hw_intree" != "x"
   then
-    AC_SUBST([QAT_HW_DRIVER_LIB], ["-Wl,-rpath,\$(with_qat_hw_install_dir) -L\$(with_qat_hw_install_dir) -l\$(DRIVER)"])
-  else
     AC_SUBST([QAT_HW_DRIVER_LIB], ["-l\$(DRIVER)"])
+  else
+    if test "x$with_qat_hw_install_dir" = "x"
+    then
+      with_qat_hw_install_dir="\$(with_qat_hw_dir)/build"
+    fi
+    AC_SUBST([QAT_HW_DRIVER_LIB], ["-Wl,-rpath,\$(with_qat_hw_install_dir) -L\$(with_qat_hw_install_dir) -l\$(DRIVER)"])
   fi
 fi
 
