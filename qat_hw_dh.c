@@ -197,7 +197,10 @@ int qat_dh_generate_key(DH *dh)
     size_t buflen;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
     thread_local_variables_t *tlv = NULL;
-
+# ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
+    unsigned char *prime_buf = NULL;
+    int prime_bytes = 0;
+# endif
     DEBUG("- Started\n");
 
     if (qat_get_qat_offload_disabled()) {
@@ -232,6 +235,30 @@ int qat_dh_generate_key(DH *dh)
         return DH_meth_get_generate_key(sw_dh_method)(dh);
     }
 
+# ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
+    prime_bytes = BN_num_bytes(p);
+
+    prime_buf = OPENSSL_zalloc(prime_bytes);
+    if (prime_buf == NULL) {
+        WARN("OpenSSL zalloc failed for prime_buf\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_MALLOC_FAILURE);
+        return 0;
+    }
+    if (BN_bn2bin(p, prime_buf)) {
+        /* check MSB and LSB of generated prime. */
+        if (!(prime_buf[0] & 0x80) || !(prime_buf[prime_bytes - 1] & 0x01)) {
+            OPENSSL_free(prime_buf);
+            DEBUG("Generating key through Software - Param p doesn't have MSB or LSB set.\n");
+            return DH_meth_get_generate_key(sw_dh_method)(dh);
+        }
+        OPENSSL_free(prime_buf);
+    } else {
+        WARN("BN_bn2bin() returns failure for p.\n");
+        QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_INVALID_LEN);
+        OPENSSL_free(prime_buf);
+        return 0;
+    }
+# endif
     DH_get0_key(dh, &temp_pub_key, &temp_priv_key);
 
     opData = (CpaCyDhPhase1KeyGenOpData *)
@@ -535,7 +562,10 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
     thread_local_variables_t *tlv = NULL;
-
+# ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
+    unsigned char *prime_buf = NULL;
+    int prime_bytes = 0;
+# endif
     DEBUG("- Started\n");
 
     if (unlikely(key == NULL)) {
@@ -578,6 +608,29 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
     }
 
+# ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
+    prime_bytes = BN_num_bytes(p);
+    prime_buf = OPENSSL_zalloc(prime_bytes);
+    if (prime_buf == NULL) {
+        WARN("OpenSSL zalloc failed for prime_buf\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_MALLOC_FAILURE);
+        return ret;
+    }
+    if (BN_bn2bin(p, prime_buf)) {
+        /* check MSB and LSB of generated prime. */
+        if (!(prime_buf[0] & 0x80) || !(prime_buf[prime_bytes - 1] & 0x01)) {
+            OPENSSL_free(prime_buf);
+            DEBUG("Run compute_key in Software - Param p doesn't have MSB or LSB set.\n");
+            return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);;
+        }
+        OPENSSL_free(prime_buf);
+    } else {
+        WARN("BN_bn2bin() returns failure for p.\n");
+        QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_INVALID_LEN);
+        OPENSSL_free(prime_buf);
+        return ret;
+    }
+# endif
     if (!DH_check_pub_key(dh, in_pub_key, &check_result) || check_result) {
         WARN("Failure checking pub key\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_INVALID_PUB_KEY);
@@ -831,7 +884,10 @@ int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
 {
     int ret = 0, fallback = 0;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
-
+# ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
+    unsigned char *prime_buf = NULL;
+    int prime_bytes = 0;
+# endif
     DEBUG("- Started\n");
 
     if (qat_get_qat_offload_disabled()) {
@@ -839,6 +895,27 @@ int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
         return DH_meth_get_bn_mod_exp(sw_dh_method)(dh, r, a, p, m, ctx, m_ctx);
     }
 
+# ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
+    prime_bytes = BN_num_bytes(p);
+    prime_buf = OPENSSL_zalloc(prime_bytes);
+    if (prime_buf == NULL) {
+        WARN("OpenSSL zalloc failed for prime_buf\n");
+        return ret;
+    }
+    if (BN_bn2bin(p, prime_buf)) {
+        /* check MSB and LSB of generated prime. */
+        if (!(prime_buf[0] & 0x80) || !(prime_buf[prime_bytes - 1] & 0x01)) {
+            OPENSSL_free(prime_buf);
+            DEBUG("Run mod_exp operation in Software - Param p doesn't have MSB or LSB set.\n");
+            return DH_meth_get_bn_mod_exp(sw_dh_method)(dh, r, a, p, m, ctx, m_ctx);
+        }
+        OPENSSL_free(prime_buf);
+    } else {
+        WARN("BN_bn2bin() returns failure for p.\n");
+        OPENSSL_free(prime_buf);
+        return ret;
+    }
+# endif
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     ret = qat_mod_exp(r, a, p, m, &fallback);
 
