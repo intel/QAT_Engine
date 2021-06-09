@@ -334,7 +334,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         goto err;
     }
     pubkey = key->pubkey;
-    privkey = key->privkey = OPENSSL_secure_malloc(qat_keylen);
+    privkey = key->privkey = OPENSSL_secure_zalloc(qat_keylen);
     if (privkey == NULL) {
         WARN("Cannot allocate privkey.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);

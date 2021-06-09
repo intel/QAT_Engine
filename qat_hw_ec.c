@@ -355,17 +355,17 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     const BIGNUM *priv_key = NULL;
     const EC_GROUP *group = NULL;
     int ret = 0, job_ret = 0;
-    size_t buflen;
+    size_t buflen = 0;
 
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcPointMultiplyOpData *opData = NULL;
-    CpaBoolean bEcStatus;
+    CpaBoolean bEcStatus = 0;
     CpaFlatBuffer *pResultX = NULL;
     CpaFlatBuffer *pResultY = NULL;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
-    CpaStatus status;
+    CpaStatus status = CPA_STATUS_FAIL;
     op_done_t op_done;
     thread_local_variables_t *tlv = NULL;
 
@@ -1011,10 +1011,10 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     int ok = 0, i, job_ret = 0, fallback = 0;
     BIGNUM *m = NULL, *order = NULL;
     BN_CTX *ctx = NULL;
-    const EC_GROUP *group;
+    const EC_GROUP *group = NULL;
     ECDSA_SIG *ret = NULL;
     BIGNUM *ecdsa_sig_r = NULL, *ecdsa_sig_s = NULL;
-    const BIGNUM *priv_key;
+    const BIGNUM *priv_key = NULL;
     BIGNUM *p = NULL, *a = NULL, *b = NULL, *k = NULL;
     BIGNUM *xg = NULL, *yg = NULL;
     const EC_POINT *pub_key = NULL;
@@ -1024,9 +1024,9 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     CpaFlatBuffer *pResultS = NULL;
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcdsaSignRSOpData *opData = NULL;
-    CpaBoolean bEcdsaSignStatus;
-    CpaStatus status;
-    size_t buflen;
+    CpaBoolean bEcdsaSignStatus = 0;
+    CpaStatus status = CPA_STATUS_FAIL;
+    size_t buflen = 0;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
@@ -1494,18 +1494,18 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     int ret = -1, i, job_ret = 0, fallback = 0;
     BN_CTX *ctx = NULL;
     BIGNUM *order = NULL, *m = NULL;
-    const EC_GROUP *group;
-    const EC_POINT *pub_key;
+    const EC_GROUP *group = NULL;
+    const EC_POINT *pub_key = NULL;
     BIGNUM *p = NULL, *a = NULL, *b = NULL;
     BIGNUM *xg = NULL, *yg = NULL, *xp = NULL, *yp = NULL;
-    const EC_POINT *ec_point;
+    const EC_POINT *ec_point = NULL;
     const BIGNUM *sig_r = NULL, *sig_s = NULL;
     PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
 
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcdsaVerifyOpData *opData = NULL;
-    CpaBoolean bEcdsaVerifyStatus;
-    CpaStatus status;
+    CpaBoolean bEcdsaVerifyStatus = 0;
+    CpaStatus status = CPA_STATUS_FAIL;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();

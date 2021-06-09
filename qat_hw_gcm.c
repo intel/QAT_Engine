@@ -195,9 +195,9 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
         qctx->OpData.pIv = qctx->iv;
         qctx->OpData.ivLenInBytes = qctx->iv_len;
     }
-    qctx->session_data = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
+    qctx->session_data = OPENSSL_zalloc(sizeof(CpaCySymSessionSetupData));
     if (NULL == qctx->session_data) {
-        WARN("session setup data Malloc failure\n");
+        WARN("session setup data zalloc failure\n");
         QATerr(QAT_F_QAT_SESSION_DATA_INIT, QAT_R_SSD_MALLOC_FAILURE);
         return 0;
     }
