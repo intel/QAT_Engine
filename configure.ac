@@ -143,7 +143,9 @@ AC_SUBST(enable_qat_mem_warnings)
 # Mandatory QAT driver source path if building against QAT HW Version 1.7 driver source package
 AC_ARG_WITH(qat_hw_dir,
               AS_HELP_STRING([--with-qat_hw_dir],
-                             [Path to the Intel Quickassist Technology Driver source code]))
+                             [Path to the Intel Quickassist Technology Driver source code]),
+	     [qat_hw_dir_prefix="$withval"],
+	     [qat_hw_dir_prefix="/usr"])
 AC_SUBST(with_qat_hw_dir)
 
 # Other non mandatory parameters
@@ -217,17 +219,16 @@ AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
                              [Disable auto initialization of the engine following a fork]))
 AC_SUBST(enable_qat_auto_engine_init_on_fork)
 
-if test "x$with_qat_hw_dir" = "x"
+AC_CHECK_FILE(${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h,
+	      [with_icp_sal_versions_h=yes],
+	      [with_icp_sal_versions_h=no])
+if test "x$with_icp_sal_versions_h" = "xyes"
 then
-  AC_CHECK_FILE(/usr/include/qat/icp_sal_versions.h, , [])
-  if test "x$ac_cv_file__usr_include_qat_icp_sal_versions_h" = "xyes"
+  if test `grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h | wc -l` = "1"
   then
-    if test `grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" /usr/include/qat/icp_sal_versions.h | wc -l` = "1"
-    then
-      AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_INTREE -DQAT_HW_DISABLE_NONZERO_MEMFREE"])
-      AC_SUBST([with_qat_hw_dir], ["/usr/lib64"])
-      AC_MSG_NOTICE([QAT intree driver using QATlib RPM])
-    fi
+    AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_INTREE -DQAT_HW_DISABLE_NONZERO_MEMFREE"])
+    AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
+    AC_MSG_NOTICE([QAT intree driver using QATlib in ${with_qat_hw_dir}])
   fi
 fi
 
@@ -688,7 +689,7 @@ if test "x$cflags_qat_hw" != "x"
 then
   if test "x$cflags_qat_hw_intree" != "x"
   then
-    AC_SUBST([includes_qat_hw], ["-I/usr/include/qat"])
+    AC_SUBST([includes_qat_hw], ["-I\${with_qat_hw_dir}/include/qat"])
   else
     AC_SUBST([with_ICP_API_DIR], ["\$(with_qat_hw_dir)/quickassist/include"])
     AC_SUBST([with_ICP_SAL_API_DIR], ["\$(with_qat_hw_dir)/quickassist/lookaside/access_layer/include"])
@@ -715,7 +716,7 @@ if test "x$cflags_qat_hw" != "x"
 then
   if test "x$cflags_qat_hw_intree" != "x"
   then
-    AC_SUBST([QAT_HW_DRIVER_LIB], ["-l\$(DRIVER)"])
+    AC_SUBST([QAT_HW_DRIVER_LIB], ["-L\$(with_qat_hw_dir)/lib -l\$(DRIVER)"])
   else
     if test "x$with_qat_hw_install_dir" = "x"
     then
