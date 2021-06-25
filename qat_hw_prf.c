@@ -87,7 +87,11 @@
  * early on here if they are exceeded rather than later on
  * down in the driver.
  */
-#define QAT_TLS1_PRF_SECRET_MAXBUF 512
+#if CPA_CY_API_VERSION_NUM_MAJOR > 2
+# define QAT_TLS1_PRF_SECRET_MAXBUF 1024
+#else
+# define QAT_TLS1_PRF_SECRET_MAXBUF 512
+#endif
 #define QAT_TLS1_PRF_SEED_MAXBUF 64
 #define QAT_TLS1_PRF_LABEL_MAXBUF 136
 

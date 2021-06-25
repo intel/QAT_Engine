@@ -89,7 +89,11 @@
 
 /* To specify the RSA op sizes supported by QAT engine */
 #define RSA_QAT_RANGE_MIN 512
-#define RSA_QAT_RANGE_MAX 4096
+#if CPA_CY_API_VERSION_NUM_MAJOR > 2
+# define RSA_QAT_RANGE_MAX 8192
+#else
+# define RSA_QAT_RANGE_MAX 4096
+#endif
 
 #define NO_PADDING 0
 #define PADDING    1
