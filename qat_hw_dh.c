@@ -79,7 +79,11 @@
 
 /* To specify the DH op sizes supported by QAT engine */
 #define DH_QAT_RANGE_MIN 768
-#define DH_QAT_RANGE_MAX 4096
+#if CPA_CY_API_VERSION_NUM_MAJOR > 2
+# define DH_QAT_RANGE_MAX 8192
+#else
+# define DH_QAT_RANGE_MAX 4096
+#endif
 
 #ifndef DISABLE_QAT_HW_DH
 static int qat_dh_generate_key(DH *dh);
