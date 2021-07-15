@@ -68,7 +68,6 @@
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
-#include "e_qat_err.h"
 #include <unistd.h>
 #include <string.h>
 

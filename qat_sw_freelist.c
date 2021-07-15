@@ -51,7 +51,6 @@
 #include "e_qat.h"
 #include "qat_sw_freelist.h"
 #include "qat_sw_request.h"
-#include "e_qat_err.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>

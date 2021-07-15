@@ -69,7 +69,7 @@
  * These #defines ensure backward compatibility with OpenSSL versions 1.1.0
  * and 1.1.1 which do not have asynchronous callback mode.
  */
-#ifndef SSL_QAT_USE_ASYNC_CALLBACK
+#ifndef OPENSSL_3
 # define ASYNC_STATUS_UNSUPPORTED    0
 # define ASYNC_STATUS_ERR            1
 # define ASYNC_STATUS_OK             2

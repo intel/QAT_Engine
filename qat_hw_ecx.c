@@ -64,7 +64,6 @@
 #include "qat_hw_polling.h"
 #include "qat_events.h"
 
-#include "e_qat_err.h"
 
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"

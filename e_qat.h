@@ -51,6 +51,12 @@
 # include <unistd.h>
 # include <string.h>
 
+# ifdef QAT_OPENSSL_3
+#  include "qat_prov_err.h"
+# else
+#  include "e_qat_err.h"
+# endif
+
 # ifdef QAT_HW
 #  include "cpa.h"
 #  include "cpa_types.h"

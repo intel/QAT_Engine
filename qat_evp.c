@@ -74,10 +74,12 @@ typedef struct _chained_info {
 
 static chained_info info[] = {
 #ifdef QAT_HW
+# ifdef ENABLE_QAT_HW_CIPHERS
     {NID_aes_128_cbc_hmac_sha1, NULL, AES_KEY_SIZE_128},
     {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
     {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
+# endif
 # ifdef ENABLE_QAT_HW_GCM
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
@@ -95,10 +97,12 @@ static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
 /* Qat Symmetric cipher function register */
 int qat_cipher_nids[] = {
 #ifdef QAT_HW
+# ifdef ENABLE_QAT_HW_CIPHERS
     NID_aes_128_cbc_hmac_sha1,
     NID_aes_128_cbc_hmac_sha256,
     NID_aes_256_cbc_hmac_sha1,
     NID_aes_256_cbc_hmac_sha256,
+# endif
 # ifdef ENABLE_QAT_HW_GCM
     NID_aes_128_gcm,
     NID_aes_256_gcm,
@@ -218,6 +222,7 @@ void qat_create_ciphers(void)
                 break;
 
 #ifdef QAT_HW
+# ifdef ENABLE_QAT_HW_CIPHERS
             case NID_aes_128_cbc_hmac_sha1:
             case NID_aes_128_cbc_hmac_sha256:
             case NID_aes_256_cbc_hmac_sha1:
@@ -226,6 +231,7 @@ void qat_create_ciphers(void)
                     info[i].cipher = (EVP_CIPHER *)
                         qat_create_cipher_meth(info[i].nid, info[i].keylen);
                 break;
+# endif
 #endif
             default:
                 /* Do nothing */

@@ -63,7 +63,6 @@
 /* Local Includes */
 #include "qat_fork.h"
 #include "qat_utils.h"
-#include "e_qat_err.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>

@@ -8,8 +8,8 @@ Driver for FreeBSD. This release was validated on the following:
 
 * Operating system: CentOS\* 7.4 64-bit version & FreeBSD\* 11.3 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.13**
-* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.9**
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.14**
+* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.10**
 * OpenSSL\* 1.1.1k
 
 ## qat_sw Requirements

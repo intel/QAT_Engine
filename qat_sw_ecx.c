@@ -59,7 +59,6 @@
 
 /* Local includes */
 #include "e_qat.h"
-#include "e_qat_err.h"
 #include "qat_utils.h"
 #include "qat_events.h"
 #include "qat_fork.h"

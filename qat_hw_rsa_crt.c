@@ -74,7 +74,6 @@
 #include "qat_hw_rsa.h"
 #include "qat_hw_rsa_crt.h"
 #include "qat_hw_asym_common.h"
-#include "e_qat_err.h"
 #include "icp_sal_poll.h"
 
 #ifdef ENABLE_QAT_HW_RSA

@@ -86,7 +86,6 @@
 #include "e_qat.h"
 #include "qat_events.h"
 #include "qat_utils.h"
-#include "e_qat_err.h"
 
 #ifdef QAT_HW
 int qat_is_event_driven()
@@ -98,7 +97,7 @@ int qat_is_event_driven()
 static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
                            OSSL_ASYNC_FD readfd, void *custom)
 {
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     int (*callback)(void *arg);
     void *args;
 
@@ -117,7 +116,7 @@ int qat_setup_async_event_notification(int jobStatus)
     /* We will ignore jobStatus for the moment */
     ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     int (*callback)(void *arg);
     void *args;
 #endif
@@ -138,7 +137,7 @@ int qat_setup_async_event_notification(int jobStatus)
         return 0;
     }
 
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
         return 1;
     }
@@ -185,7 +184,7 @@ int qat_clear_async_event_notification()
     ASYNC_WAIT_CTX *waitctx;
     size_t num_add_fds = 0;
     size_t num_del_fds = 0;
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     int (*callback)(void *arg);
     void *args;
 #endif
@@ -202,7 +201,7 @@ int qat_clear_async_event_notification()
         return 0;
     }
 
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
         return 1;
     }
@@ -238,7 +237,7 @@ int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
 {
     ASYNC_WAIT_CTX *waitctx;
     int ret = 0;
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     int callback_set = 0;
     int (*callback)(void *arg);
     void *args;
@@ -256,7 +255,7 @@ int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
         return ret;
     }
 
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
         callback_set = 1;
         ASYNC_WAIT_CTX_set_status(waitctx, jobStatus);
@@ -268,7 +267,7 @@ int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
         return ret;
     }
 
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     if (callback_set) {
         return 1;
     }
@@ -298,7 +297,7 @@ int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
 {
     ASYNC_WAIT_CTX *waitctx;
     int ret = 0;
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     int (*callback)(void *arg);
     void *args;
 #endif
@@ -316,7 +315,7 @@ int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
         return ret;
     }
 
-#ifdef SSL_QAT_USE_ASYNC_CALLBACK
+#ifdef QAT_OPENSSL_3
     if (ASYNC_WAIT_CTX_get_callback(waitctx, &callback, &args)) {
         /* We will go through callback mechanism */
         if (ASYNC_STATUS_OK == jobStatus)

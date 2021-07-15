@@ -59,7 +59,6 @@
 
 /* Local Includes */
 #include "e_qat.h"
-#include "e_qat_err.h"
 #include "qat_evp.h"
 #include "qat_utils.h"
 #include "qat_sw_gcm.h"

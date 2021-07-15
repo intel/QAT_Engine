@@ -79,7 +79,6 @@
 #include "qat_utils.h"
 #include "qat_events.h"
 #include "qat_fork.h"
-#include "e_qat_err.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>

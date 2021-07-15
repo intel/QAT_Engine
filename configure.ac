@@ -247,8 +247,8 @@ then
   ac_default_prefix=$with_openssl_install_dir
   if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
   then
-    AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
-    AC_SUBST([cflags_openssl_300], ["-DSSL_QAT_USE_ASYNC_CALLBACK"])
+    AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0])
+    AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
     libdir="\$(with_openssl_install_dir)/lib/engines-3"
   else
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.x])
@@ -270,8 +270,8 @@ else
   includes_openssl="`pkg-config --variable=includedir libcrypto`"
   if test "`grep "define OPENSSL_VERSION_MAJOR" $includes_openssl/openssl/opensslv.h | awk '{print $4}'`" = "3"
   then
-    AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0.0])
-    AC_SUBST([cflags_openssl_300], ["-DSSL_QAT_USE_ASYNC_CALLBACK"])
+    AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0])
+    AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
   else
     if test "`grep "define OPENSSL_VERSION_NUMBER  0x10100" $includes_openssl/openssl/opensslv.h | wc -l`" = "1"
     then
@@ -283,6 +283,7 @@ else
   AC_SUBST([libdir])
 fi
 AM_CONDITIONAL([QAT_OPENSSL_110], [test "x$cflags_openssl_110" != "x"])
+AM_CONDITIONAL([QAT_OPENSSL_3], [test "x$cflags_openssl_3" != "x"])
 
 # If both QAT HW and QAT SW configured, then check the libraries from standard location and use accordingly.
 if test "x$cflags_qat_hw_intree" = "x"
@@ -385,7 +386,7 @@ else
   AC_MSG_NOTICE([Not Accelerating RSA to Hardware])
 fi
 
-if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x"
+if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
 then
   enable_qat_hw_ciphers="-DENABLE_QAT_HW_CIPHERS"
   AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])
@@ -430,7 +431,7 @@ else
   AC_MSG_NOTICE([Not Accelerating DH to Hardware])
 fi
 
-if test "x$enable_qat_hw_prf" != "xno" -a "x$cflags_qat_hw" != "x"
+if test "x$enable_qat_hw_prf" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
 then
   enable_qat_hw_prf="-DENABLE_QAT_HW_PRF"
   AC_MSG_NOTICE([Accelerating PRF to Hardware])
@@ -439,7 +440,7 @@ else
   AC_MSG_NOTICE([Not Accelerating PRF to Hardware])
 fi
 
-if test "x$enable_qat_hw_hkdf" = "xyes" -a "x$cflags_qat_hw" != "x"
+if test "x$enable_qat_hw_hkdf" = "xyes" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
 then
   enable_qat_hw_hkdf="-DENABLE_QAT_HW_HKDF"
   AC_MSG_NOTICE([Accelerating HKDF to Hardware])
@@ -448,7 +449,7 @@ else
   AC_MSG_NOTICE([Not Accelerating HKDF to Hardware])
 fi
 
-if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x"
+if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
 then
   enable_qat_hw_ecx="-DENABLE_QAT_HW_ECX"
   AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
@@ -484,7 +485,7 @@ else
   AC_MSG_NOTICE([Not Accelerating RSA to Software (Multi-buffer)])
 fi
 
-if test "x$enable_qat_sw_ecx" != "xno" -a "x$cflags_qat_sw" != "x"
+if test "x$enable_qat_sw_ecx" != "xno" -a "x$cflags_qat_sw" != "x" -a "x$cflags_openssl_3" = "x"
 then
     enable_qat_sw_ecx="-DENABLE_QAT_SW_ECX"
     AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])

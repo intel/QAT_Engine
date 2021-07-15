@@ -75,7 +75,6 @@
 #ifdef USE_USDM_MEM
 # include "qat_hw_usdm_inf.h"
 #endif
-#include "e_qat_err.h"
 #include "qat_utils.h"
 #include "qat_hw_ec.h"
 

@@ -27,5 +27,8 @@
   of the Intel&reg; QAT driver for Linux. Use `--with-cc-opt="-DQAT_HW_DISABLE_NONZERO_MEMFREE"`
   in the Intel&reg; QAT OpenSSL\* Engine configuration when building against earlier
   versions of the Linux driver.
+* Support for QAT HW ECX, QAT SW ECX, QAT HW PRF and QAT HW HKDF is disabled when built
+  against OpenSSL 3.0 due to known issues instead it uses non-accelerated implementation
+  from OpenSSL.
 
 [1]:https://github.com/openssl/openssl/pull/2581

@@ -87,7 +87,7 @@
 #include "qat_fork.h"
 #include "qat_evp.h"
 #include "qat_utils.h"
-#include "e_qat_err.h"
+
 #ifdef QAT_HW
 # include "qat_hw_ciphers.h"
 # include "qat_hw_polling.h"
@@ -150,10 +150,10 @@
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #ifdef QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v0.6.6";
+    "Reference implementation of QAT crypto engine(qat_hw) v0.6.7";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v0.6.6";
+    "Reference implementation of QAT crypto engine(qat_sw) v0.6.7";
 #endif
 unsigned int engine_inited = 0;
 
@@ -919,10 +919,12 @@ static int bind_qat(ENGINE *e, const char *id)
             goto end;
         }
 
+#ifndef QAT_OPENSSL_3
         if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
             WARN("ENGINE_set_pkey_meths failed\n");
             goto end;
         }
+#endif
 # ifdef QAT_INTREE
     }
 # endif
@@ -939,6 +941,7 @@ static int bind_qat(ENGINE *e, const char *id)
                 goto end;
             }
         }
+# ifndef QAT_OPENSSL_3
         if (mbx_get_algo_info(MBX_ALGO_X25519)) {
             DEBUG("Multibuffer ECDH X25519 Supported\n");
             if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
@@ -946,6 +949,7 @@ static int bind_qat(ENGINE *e, const char *id)
                 goto end;
             }
         }
+# endif
 
         if (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
             mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&

@@ -75,7 +75,6 @@
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
-#include "e_qat_err.h"
 
 #define QAT_PERFORMOP_RETRIES 3
 

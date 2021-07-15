@@ -19,11 +19,16 @@ endif
 endif
 
 QAT_COMMON_SRC = e_qat.c      \
-                 e_qat_err.c  \
                  qat_fork.c   \
                  qat_events.c \
                  qat_utils.c  \
                  qat_evp.c
+
+if QAT_OPENSSL_3
+QAT_ERR_SRC = qat_prov_err.c
+else
+QAT_ERR_SRC = e_qat_err.c
+endif
 
 if QAT_HW
  QAT_HW_SRC = qat_hw_init.c        \
@@ -61,6 +66,7 @@ if QAT_SW_IPSEC
 endif
 
 qatengine_la_SOURCES = ${QAT_COMMON_SRC}   \
+                       ${QAT_ERR_SRC}      \
                        ${QAT_HW_SRC}       \
                        ${QAT_HW_111_SRC}   \
                        ${QAT_HW_MEM_SRC}   \
@@ -71,7 +77,7 @@ AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)  \
               $(includes_qat_hw) $(includes_qat_sw)
 
 AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
-            $(cflags_mem_driver) $(cflags_openssl_300)               \
+            $(cflags_mem_driver) $(cflags_openssl_3)                 \
             $(cflags_qat_engine_id) $(cflags_qat_hw_intree)          \
             $(cflags_qat_hw) $(cflags_qat_sw) $(cflags_qat_sw_ipsec) \
             $(enable_qat_hw_rsa) $(enable_qat_hw_ciphers)            \
@@ -110,6 +116,12 @@ if QAT_OPENSSL_110
        -rebuild -reindex -nostatic -write *.c
 
 else
-	rm -f e_qat_err.c e_qat.txt && perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+if QAT_OPENSSL_3
+	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf qat_prov.ec \
        -rebuild -reindex *.c
+else
+	rm -f e_qat_err.c e_qat.txt && perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+	       -rebuild -reindex *.c
+
+endif
 endif

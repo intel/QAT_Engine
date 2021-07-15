@@ -78,7 +78,6 @@
 #include "cpa_cy_ln.h"
 #include "qat_hw_rsa.h"
 #include "qat_hw_asym_common.h"
-#include "e_qat_err.h"
 #include "icp_sal_poll.h"
 #include "qat_hw_rsa_crt.h"
 
@@ -419,7 +418,9 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
     if ((padding != RSA_NO_PADDING) &&
         (padding != RSA_PKCS1_PADDING) &&
         (padding != RSA_PKCS1_OAEP_PADDING) &&
+#ifndef QAT_OPENSSL_3
         (padding != RSA_SSLV23_PADDING) &&
+#endif
         (padding != RSA_X931_PADDING)) {
         WARN("Unknown Padding %d\n", padding);
         QATerr(QAT_F_BUILD_DECRYPT_OP_BUF, QAT_R_PADDING_UNKNOWN);
@@ -768,8 +769,10 @@ build_encrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
     if ((padding != RSA_NO_PADDING) &&
         (padding != RSA_PKCS1_PADDING) &&
         (padding != RSA_PKCS1_OAEP_PADDING) &&
-        (padding != RSA_X931_PADDING) &&
-        (padding != RSA_SSLV23_PADDING)) {
+#ifndef QAT_OPENSSL_3
+        (padding != RSA_SSLV23_PADDING) &&
+#endif
+        (padding != RSA_X931_PADDING)) {
         WARN("Unknown Padding %d\n", padding);
         QATerr(QAT_F_BUILD_ENCRYPT_OP_BUF, QAT_R_UNKNOWN_PADDING);
         return 0;
@@ -829,11 +832,13 @@ build_encrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
                 RSA_padding_add_PKCS1_OAEP((*enc_op_data)->inputData.pData,
                                            rsa_len, from, flen, NULL, 0);
             break;
+#ifndef QAT_OPENSSL_3
         case RSA_SSLV23_PADDING:
             padding_result =
                 RSA_padding_add_SSLv23((*enc_op_data)->inputData.pData,
                                        rsa_len, from, flen);
             break;
+#endif
         case RSA_NO_PADDING:
             padding_result =
                 RSA_padding_add_none((*enc_op_data)->inputData.pData,
@@ -1159,6 +1164,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
                                          NULL,
                                          0);
         break;
+#ifndef QAT_OPENSSL_3
     case RSA_SSLV23_PADDING:
         output_len =
             RSA_padding_check_SSLv23(to,
@@ -1167,6 +1173,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
                                      output_buffer->dataLenInBytes,
                                      rsa_len);
         break;
+#endif
     case RSA_NO_PADDING:
         output_len =
             RSA_padding_check_none(to,

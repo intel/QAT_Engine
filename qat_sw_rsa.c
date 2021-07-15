@@ -63,7 +63,6 @@
 #include "qat_events.h"
 #include "qat_fork.h"
 #include "qat_utils.h"
-#include "e_qat_err.h"
 
 #ifdef ENABLE_QAT_SW_RSA
 # ifdef DISABLE_QAT_SW_RSA
@@ -199,6 +198,7 @@ static int multibuff_rsa_check_padding_priv_dec(unsigned char *from,
                                          NULL,
                                          0);
         break;
+#ifndef QAT_OPENSSL_3
     case RSA_SSLV23_PADDING:
         output_len =
             RSA_padding_check_SSLv23(to,
@@ -207,6 +207,7 @@ static int multibuff_rsa_check_padding_priv_dec(unsigned char *from,
                                      from_len,
                                      from_len);
         break;
+#endif
     case RSA_NO_PADDING:
         output_len =
             RSA_padding_check_none(to,
@@ -328,6 +329,7 @@ static int multibuff_rsa_add_padding_pub_enc(const unsigned char *from,
                                        NULL,
                                        0);
         break;
+#ifndef QAT_OPENSSL_3
     case RSA_SSLV23_PADDING:
         padding_result =
             RSA_padding_add_SSLv23(to,
@@ -335,6 +337,7 @@ static int multibuff_rsa_add_padding_pub_enc(const unsigned char *from,
                                    from,
                                    from_len);
         break;
+#endif
     case RSA_NO_PADDING:
         padding_result =
             RSA_padding_add_none(to,

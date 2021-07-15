@@ -64,7 +64,6 @@
 /* Local Includes */
 #include "qat_hw_polling.h"
 #include "qat_utils.h"
-#include "e_qat_err.h"
 # include "e_qat.h"
 
 /* OpenSSL Includes */

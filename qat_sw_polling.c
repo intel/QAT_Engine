@@ -67,7 +67,6 @@
 #include "qat_sw_ecx.h"
 #include "qat_sw_ec.h"
 #include "qat_utils.h"
-#include "e_qat_err.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
