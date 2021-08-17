@@ -70,7 +70,6 @@
 # endif
 #endif
 
-#ifndef DISABLE_QAT_SW_RSA
 # define RSA_MULTIBUFF_PRIV_ENC 1
 # define RSA_MULTIBUFF_PRIV_DEC 2
 # define RSA_MULTIBUFF_PUB_ENC  3
@@ -92,19 +91,16 @@ static int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
 static int multibuff_rsa_init(RSA *rsa);
 
 static int multibuff_rsa_finish(RSA *rsa);
-#endif
 
 static RSA_METHOD *multibuff_rsa_method = NULL;
 
 RSA_METHOD *multibuff_get_RSA_methods(void)
 {
-#ifndef DISABLE_QAT_SW_RSA
     int res = 1;
-#endif
 
     if (multibuff_rsa_method != NULL)
         return multibuff_rsa_method;
-#ifndef DISABLE_QAT_SW_RSA
+
     if ((multibuff_rsa_method = RSA_meth_new("Multibuff RSA method", 0)) == NULL) {
         WARN("Failed to allocate Multibuff RSA methods\n");
         QATerr(QAT_F_MULTIBUFF_GET_RSA_METHODS, QAT_R_ALLOC_MULTIBUFF_RSA_METH_FAILURE);
@@ -125,22 +121,17 @@ RSA_METHOD *multibuff_get_RSA_methods(void)
         QATerr(QAT_F_MULTIBUFF_GET_RSA_METHODS, QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE);
         return NULL;
     }
-#else
-    multibuff_rsa_method = (RSA_METHOD *)RSA_get_default_method();
-#endif
 
+    DEBUG("QAT SW RSA registration succeeded\n");
     return multibuff_rsa_method;
 }
 
 void multibuff_free_RSA_methods(void)
 {
-#ifndef DISABLE_QAT_SW_RSA
+#ifdef ENABLE_QAT_SW_RSA
     if (multibuff_rsa_method != NULL) {
         RSA_meth_free(multibuff_rsa_method);
         multibuff_rsa_method = NULL;
-    } else {
-        WARN("multibuff_rsa_method is NULL\n");
-        QATerr(QAT_F_MULTIBUFF_FREE_RSA_METHODS, QAT_R_FREE_MULTIBUFF_RSA_METH_FAILURE);
     }
 #endif
 }
@@ -151,7 +142,6 @@ void multibuff_free_RSA_methods(void)
  * software implementation.
  */
 
-#ifndef DISABLE_QAT_SW_RSA
 static inline int multibuff_rsa_range_check(int len)
 {
     if (len == RSA_2K_LENGTH || len == RSA_3K_LENGTH ||
@@ -522,7 +512,7 @@ void process_RSA_priv_reqs(int rsa_bits)
             mb_flist_rsa_priv_push(&rsa_priv_freelist, rsa_priv_req_array[req_num]);
         }
     }
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
     switch (rsa_bits) {
     case RSA_2K_LENGTH:
         mb_rsa2k_priv_req_rates.req_this_period += local_request_no;
@@ -641,7 +631,7 @@ void process_RSA_pub_reqs(int rsa_bits)
             mb_flist_rsa_pub_push(&rsa_pub_freelist, rsa_pub_req_array[req_num]);
         }
     }
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
     switch (rsa_bits) {
     case RSA_2K_LENGTH:
         mb_rsa2k_pub_req_rates.req_this_period += local_request_no;
@@ -724,7 +714,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", rsa_priv_req);
+    DEBUG("QAT SW RSA Started %p\n", rsa_priv_req);
     START_RDTSC(&rsa_cycles_priv_enc_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -907,7 +897,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", rsa_priv_req);
+    DEBUG("QAT SW RSA Started %p\n", rsa_priv_req);
     START_RDTSC(&rsa_cycles_priv_dec_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -1060,7 +1050,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", rsa_pub_req);
+    DEBUG("QAT SW RSA Started %p\n", rsa_pub_req);
     START_RDTSC(&rsa_cycles_pub_enc_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -1210,7 +1200,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", rsa_pub_req);
+    DEBUG("QAT SW RSA Started %p\n", rsa_pub_req);
     START_RDTSC(&rsa_cycles_pub_dec_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -1288,5 +1278,3 @@ use_sw_method:
     DEBUG("SW Finished\n");
     return sts;
 }
-
-#endif /* #ifndef DISABLE_QAT_SW_RSA */

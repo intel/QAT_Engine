@@ -161,6 +161,8 @@ EC_KEY_METHOD *mb_get_EC_methods(void)
                            mb_ecdsa_sign,
                            mb_ecdsa_sign_setup,
                            mb_ecdsa_sign_sig);
+
+    DEBUG("QAT SW ECDSA registration succeeded\n");
 #else
     EC_KEY_METHOD_get_sign(def_ec_meth,
                            &sign_pfunc,
@@ -183,6 +185,8 @@ EC_KEY_METHOD *mb_get_EC_methods(void)
 #ifndef DISABLE_QAT_SW_ECDH
     EC_KEY_METHOD_set_keygen(mb_ec_method, mb_ecdh_generate_key);
     EC_KEY_METHOD_set_compute_key(mb_ec_method, mb_ecdh_compute_key);
+
+    DEBUG("QAT SW ECDH registration succeeded\n");
 #else
     EC_KEY_METHOD_get_keygen(def_ec_meth, &gen_key_pfunc);
     EC_KEY_METHOD_set_keygen(mb_ec_method, gen_key_pfunc);
@@ -198,9 +202,6 @@ void mb_free_EC_methods(void)
     if (NULL != mb_ec_method) {
         EC_KEY_METHOD_free(mb_ec_method);
         mb_ec_method = NULL;
-    } else {
-        WARN("Unable to free qat EC_KEY_METHOD\n");
-        QATerr(QAT_F_MB_FREE_EC_METHODS, QAT_R_MB_FREE_EC_METHOD_FAILURE);
     }
 }
 
@@ -814,7 +815,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", ecdsa_sign_req);
+    DEBUG("QAT SW ECDSA Started %p\n", ecdsa_sign_req);
     START_RDTSC(&ecdsa_cycles_sign_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -1026,7 +1027,7 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", ecdsa_sign_setup_req);
+    DEBUG("QAT SW ECDSA Started %p\n", ecdsa_sign_setup_req);
     START_RDTSC(&ecdsa_cycles_sign_setup_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -1185,7 +1186,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", ecdsa_sign_sig_req);
+    DEBUG("QAT SW ECDSA Started %p\n", ecdsa_sign_sig_req);
     START_RDTSC(&ecdsa_cycles_sign_sig_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -1391,7 +1392,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", ecdh_keygen_req);
+    DEBUG("QAT SW ECDH Started  %p\n", ecdh_keygen_req);
     START_RDTSC(&ecdh_cycles_keygen_setup);
 
     if ((ctx = BN_CTX_new()) == NULL) {
@@ -1593,7 +1594,7 @@ int mb_ecdh_compute_key(unsigned char **out,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", ecdh_compute_req);
+    DEBUG("QAT SW ECDH Started %p\n", ecdh_compute_req);
     START_RDTSC(&ecdh_cycles_compute_setup);
 
     if ((ctx = BN_CTX_new()) == NULL) {

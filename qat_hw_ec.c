@@ -196,6 +196,9 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     EC_KEY_METHOD_set_verify(qat_ec_method,
                              qat_ecdsa_verify,
                              qat_ecdsa_do_verify);
+
+    qat_hw_ec_offload = 1;
+    DEBUG("QAT HW ECDSA Registration succeeded\n");
 #else
     EC_KEY_METHOD_get_sign(def_ec_meth,
                            &sign_pfunc,
@@ -216,6 +219,9 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
 #ifndef DISABLE_QAT_HW_ECDH
     EC_KEY_METHOD_set_keygen(qat_ec_method, qat_ecdh_generate_key);
     EC_KEY_METHOD_set_compute_key(qat_ec_method, qat_engine_ecdh_compute_key);
+
+    qat_hw_ec_offload = 1;
+    DEBUG("QAT HW ECDH Registration succeeded\n");
 #else
     EC_KEY_METHOD_get_keygen(def_ec_meth, &gen_key_pfunc);
     EC_KEY_METHOD_set_keygen(qat_ec_method, gen_key_pfunc);
@@ -231,9 +237,6 @@ void qat_free_EC_methods(void)
     if (NULL != qat_ec_method) {
         EC_KEY_METHOD_free(qat_ec_method);
         qat_ec_method = NULL;
-    } else {
-        WARN("Unable to free qat EC_KEY_METHOD\n");
-        QATerr(QAT_F_QAT_FREE_EC_METHODS, QAT_R_QAT_FREE_EC_METHOD_FAILURE);
     }
 }
 
@@ -368,7 +371,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     op_done_t op_done;
     thread_local_variables_t *tlv = NULL;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW ECDH Started\n");
 
     if (unlikely(ecdh == NULL ||
                  ((priv_key = EC_KEY_get0_private_key(ecdh)) == NULL)
@@ -729,7 +732,7 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
     const EC_GROUP *group = NULL;
     const BIGNUM *priv_key = NULL;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW ECDH Started\n");
 
     EC_KEY_METHOD_get_compute_key((EC_KEY_METHOD *)EC_KEY_OpenSSL(), &comp_key_pfunc);
     if (comp_key_pfunc == NULL) {
@@ -784,7 +787,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
     int fallback = 0;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW ECDH Started\n");
 
     EC_KEY_METHOD_get_keygen((EC_KEY_METHOD *) EC_KEY_OpenSSL(), &gen_key_pfunc);
     if (gen_key_pfunc == NULL) {
@@ -1033,7 +1036,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     const EC_POINT *ec_point = NULL;
     thread_local_variables_t *tlv = NULL;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW ECDSA Started\n");
 
     if (unlikely(dgst == NULL ||
                  dgst_len <= 0 ||
@@ -1511,7 +1514,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     int iMsgRetry = getQatMsgRetryCount();
     thread_local_variables_t *tlv = NULL;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW ECDSA Started\n");
     if (unlikely(dgst == NULL || dgst_len <= 0)) {
         WARN("Invalid input param.\n");
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_INPUT_PARAM_INVALID);

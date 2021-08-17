@@ -124,6 +124,8 @@ DSA_METHOD *qat_get_DSA_methods(void)
         QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_SET_QAT_DSA_METH_FAILURE);
         return NULL;
     }
+
+    DEBUG("QAT HW DSA registration succeeded\n");
 #else
     qat_dsa_method = (DSA_METHOD *)DSA_get_default_method();
 #endif
@@ -273,7 +275,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     int i = 0, job_ret = 0, fallback = 0;
     thread_local_variables_t *tlv = NULL;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW DSA Started\n");
 
     if (unlikely(dlen <= 0)) {
         WARN("Invalid input param.\n");
@@ -680,7 +682,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     const DSA_METHOD *default_dsa_method = DSA_OpenSSL();
     thread_local_variables_t *tlv = NULL;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW DSA Started\n");
 
     if (unlikely(dgst_len <= 0)) {
         WARN("Invalid input param.\n");

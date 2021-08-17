@@ -148,6 +148,8 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
     EVP_PKEY_meth_set_derive(_hidden_hkdf_pmeth, NULL,
                              qat_hkdf_derive);
     EVP_PKEY_meth_set_ctrl(_hidden_hkdf_pmeth, qat_hkdf_ctrl, NULL);
+
+    DEBUG("QAT HW HKDF Registration succeeded\n");
 #endif
     return _hidden_hkdf_pmeth;
 }
@@ -537,6 +539,7 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         return ret;
     }
 
+    DEBUG("QAT HW HKDF Started\n");
     qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(ctx);
     if (qat_hkdf_ctx == NULL) {
         WARN("qat_hkdf_ctx is NULL\n");

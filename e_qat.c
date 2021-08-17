@@ -54,10 +54,11 @@
 
 /* Defines */
 #ifdef QAT_HW
+# define QAT_DEV "/dev/qat_dev_processes"
 # if defined(USE_QAT_CONTIG_MEM) && !defined(USE_USDM_MEM)
-#  define QAT_DEV "/dev/qat_contig_mem"
+#  define QAT_MEM_DEV "/dev/qat_contig_mem"
 # elif defined(USE_USDM_MEM) && !defined(USE_QAT_CONTIG_MEM)
-#  define QAT_DEV "/dev/usdm_drv"
+#  define QAT_MEM_DEV "/dev/usdm_drv"
 # elif defined(USE_USDM_MEM) && defined(USE_QAT_CONFIG_MEM)
 #  error "USE_QAT_CONTIG_MEM and USE_USDM_MEM both defined"
 # else
@@ -157,7 +158,11 @@ const char *engine_qat_name =
 #endif
 unsigned int engine_inited = 0;
 
-int qat_offload = 0;
+int qat_hw_offload = 0;
+int qat_sw_offload = 0;
+int qat_hw_rsa_offload = 0;
+int qat_hw_ecx_offload = 0;
+int qat_hw_ec_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -391,12 +396,13 @@ static int qat_engine_destroy(ENGINE *e)
 #endif
 
 #ifdef QAT_SW_IPSEC
-# ifndef DISABLE_QAT_SW_GCM
+# ifdef ENABLE_QAT_SW_GCM
     vaesgcm_free_ipsec_mb_mgr();
 # endif
 #endif
 
-    qat_offload = 0;
+    qat_hw_offload = 0;
+    qat_sw_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
@@ -474,11 +480,11 @@ int qat_engine_init(ENGINE *e)
         return 1;
     }
 
-    DEBUG("QAT Engine initialization:\n");
     CRYPTO_INIT_QAT_LOG();
+    DEBUG("QAT Engine initialization:\n");
 
 #ifdef QAT_HW
-    if (qat_offload) {
+    if (qat_hw_offload) {
         if (!qat_init(e)) {
             WARN("QAT initialization Failed\n");
             return 0;
@@ -487,7 +493,7 @@ int qat_engine_init(ENGINE *e)
 #endif
 
 #ifdef QAT_SW
-    if (!qat_offload) {
+    if (qat_sw_offload) {
         if (!multibuff_init(e)) {
             WARN("Multibuff initialization Failed\n");
             return 0;
@@ -509,13 +515,13 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     qat_pthread_mutex_lock();
 
 #ifdef QAT_HW
-    if (qat_offload) {
+    if (qat_hw_offload) {
         ret = qat_finish_int(e, reset_globals);
     }
 #endif
 
 #ifdef QAT_SW
-    if (!qat_offload) {
+    if (qat_sw_offload) {
        ret = multibuff_finish_int(e, reset_globals);
     }
 #endif
@@ -862,11 +868,23 @@ static int bind_qat(ENGINE *e, const char *id)
     DEBUG("QAT Debug enabled.\n");
     WARN("%s - %s \n", id, engine_qat_name);
 
-#if defined(QAT_HW) && !defined(QAT_HW_INTREE)
-    if (access(QAT_DEV, F_OK) != 0) {
-        WARN("Qat memory driver not present\n");
-        goto end;
+#ifdef QAT_HW
+#ifdef QAT_HW_INTREE
+    if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
+        qat_hw_offload = 1;
+    } else {
+        WARN("Qat Intree device not available\n");
+#else
+    if (access(QAT_DEV, F_OK) == 0) {
+        qat_hw_offload = 1;
+        if (access(QAT_MEM_DEV, F_OK) != 0) {
+            WARN("Qat memory driver not present\n");
+            goto end;
+        }
+    } else {
+        WARN("Qat device not available\n");
     }
+#endif
 #endif
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
@@ -887,92 +905,99 @@ static int bind_qat(ENGINE *e, const char *id)
     /* Ensure the QAT error handling is set up */
     ERR_load_QAT_strings();
 
+    if (qat_hw_offload) {
 #ifdef QAT_HW
-
-# ifdef QAT_INTREE
-    if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
-# endif
-        DEBUG("Registering QAT supported algorithms\n");
-        qat_offload = 1;
+        DEBUG("Registering QAT HW supported algorithms\n");
 
         /* Create static structures for ciphers now
          * as this function will be called by a single thread. */
         qat_create_ciphers();
 
+# ifdef ENABLE_QAT_HW_RSA
         if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
-            WARN("ENGINE_set_RSA failed\n");
+            WARN("ENGINE_set_RSA QAT HW failed\n");
             goto end;
         }
+# endif
 
+# ifdef ENABLE_QAT_HW_DSA
         if (!ENGINE_set_DSA(e, qat_get_DSA_methods())) {
-            WARN("ENGINE_set_DSA failed\n");
+            WARN("ENGINE_set_DSA QAT HW failed\n");
             goto end;
         }
+# endif
 
+# ifdef ENABLE_QAT_HW_DH
         if (!ENGINE_set_DH(e, qat_get_DH_methods())) {
-            WARN("ENGINE_set_DH failed\n");
+            WARN("ENGINE_set_DH QAT HW failed\n");
             goto end;
         }
+# endif
 
+# if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_HW_ECDSA)
         if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
-            WARN("ENGINE_set_EC failed\n");
+            WARN("ENGINE_set_EC QAT HW failed\n");
             goto end;
         }
-
-#ifndef QAT_OPENSSL_3
-        if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
-            WARN("ENGINE_set_pkey_meths failed\n");
-            goto end;
-        }
-#endif
-# ifdef QAT_INTREE
-    }
 # endif
 #endif
+    }
 
 #ifdef QAT_SW
-    if (!qat_offload) {
-        if (mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
+        DEBUG("Registering QAT SW supported algorithms\n");
+
+# ifdef ENABLE_QAT_SW_RSA
+        if (!qat_hw_rsa_offload &&
+            mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
             mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
             mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
-            DEBUG("Multibuffer RSA Supported\n");
+            DEBUG("QAT SW RSA Supported\n");
+            qat_sw_offload = 1;
             if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
-                WARN("ENGINE_set_RSA failed\n");
-                goto end;
-            }
-        }
-# ifndef QAT_OPENSSL_3
-        if (mbx_get_algo_info(MBX_ALGO_X25519)) {
-            DEBUG("Multibuffer ECDH X25519 Supported\n");
-            if (!ENGINE_set_pkey_meths(e, multibuff_x25519_pkey_methods)) {
-                WARN("ENGINE_set_pkey_meths failed\n");
+                WARN("ENGINE_set_RSA QAT SW failed\n");
                 goto end;
             }
         }
 # endif
 
-        if (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+# if defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
+        if (!qat_hw_ec_offload &&
+            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
             mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
             mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
             mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
-            DEBUG("Multibuffer ECDSA p256/p384 & ECDH p256/p384 Supported\n");
+            DEBUG("QAT SW ECDSA p256/p384 & ECDH p256/p384 Supported\n");
+            qat_sw_offload = 1;
             if (!ENGINE_set_EC(e, mb_get_EC_methods())) {
-                WARN("ENGINE_set_EC failed\n");
+                WARN("ENGINE_set_EC QAT SW failed\n");
                 goto end;
             }
         }
-    }
+# endif
 #endif
 
 #ifdef QAT_SW_IPSEC
     if (hw_support()) {
-# ifndef DISABLE_QAT_SW_GCM
+# ifdef ENABLE_QAT_SW_GCM
         if (!vaesgcm_init_ipsec_mb_mgr()) {
             WARN("IPSec Multi-Buffer Manager Initialization failed\n");
             goto end;
         }
 # endif
     }
+#endif
+
+#if defined(QAT_HW) || defined(QAT_SW)
+# ifndef QAT_OPENSSL_3
+     if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
+          WARN("ENGINE_set_pkey_meths failed\n");
+          goto end;
+     }
+#  if ENABLE_QAT_SW_ECX
+     if (mbx_get_algo_info(MBX_ALGO_X25519))
+         qat_sw_offload = 1;
+#  endif
+# endif
 #endif
 
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC)

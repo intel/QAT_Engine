@@ -159,6 +159,8 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
     EVP_PKEY_meth_set_derive(_hidden_prf_pmeth, NULL,
                              qat_prf_tls_derive);
     EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
+
+    DEBUG("QAT HW PRF Registration succeeded\n");
 #endif
     return _hidden_prf_pmeth;
 }
@@ -578,6 +580,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         return ret;
     }
 
+    DEBUG("QAT HW PRF Started\n");
     qat_prf_ctx = (QAT_TLS1_PRF_CTX *)EVP_PKEY_CTX_get_data(ctx);
     if (qat_prf_ctx == NULL) {
         WARN("qat_prf_ctx is NULL\n");

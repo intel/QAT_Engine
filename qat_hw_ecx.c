@@ -89,7 +89,6 @@
 #define X448_DATA_KEY_DIFF      8
 
 
-#ifndef DISABLE_QAT_HW_ECX
 typedef struct {
     unsigned char pubkey[QAT_X448_DATALEN];
     unsigned char *privkey;
@@ -100,39 +99,25 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
 static int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
 static int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
 static int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-#endif /* DISABLE_QAT_HW_ECX */
 
 static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
 static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
 
-#ifndef DISABLE_QAT_HW_ECX
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 static const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
 static const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
-#endif
 
 EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 {
-#ifdef DISABLE_QAT_HW_ECX
-    const EVP_PKEY_METHOD *current_x25519_pmeth = NULL;
-#endif
     if (_hidden_x25519_pmeth)
         return _hidden_x25519_pmeth;
-#ifdef DISABLE_QAT_HW_ECX
-    if ((current_x25519_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X25519)) == NULL) {
-        QATerr(QAT_F_QAT_X25519_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-#endif
+
     if ((_hidden_x25519_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_X25519, 0)) == NULL) {
         QATerr(QAT_F_QAT_X25519_PMETH, QAT_R_ALLOC_QAT_X25519_METH_FAILURE);
         return NULL;
     }
 
-#ifdef DISABLE_QAT_HW_ECX
-    EVP_PKEY_meth_copy(_hidden_x25519_pmeth, EVP_PKEY_meth_find(EVP_PKEY_X25519));
-#else
     /* Now save the current (non-offloaded) x25519 pmeth to sw_x25519_pmeth */
     /* for software fallback purposes */
     if ((sw_x25519_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X25519)) == NULL) {
@@ -142,32 +127,22 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
     EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_keygen);
     EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_derive25519);
     EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, qat_pkey_ecx_ctrl, NULL);
-#endif
+
+    DEBUG("QAT HW ECDH X25519 Registration succeeded\n");
     return _hidden_x25519_pmeth;
 }
 
 EVP_PKEY_METHOD *qat_x448_pmeth(void)
 {
-#ifdef DISABLE_QAT_HW_ECX
-    const EVP_PKEY_METHOD *current_x448_pmeth = NULL;
-#endif
     if (_hidden_x448_pmeth)
         return _hidden_x448_pmeth;
-#ifdef DISABLE_QAT_HW_ECX
-    if ((current_x448_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X448)) == NULL) {
-        QATerr(QAT_F_QAT_X448_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-#endif
+
     if ((_hidden_x448_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_X448, 0)) == NULL) {
         QATerr(QAT_F_QAT_X448_PMETH, QAT_R_ALLOC_QAT_X448_METH_FAILURE);
         return NULL;
     }
 
-#ifdef DISABLE_QAT_HW_ECX
-    EVP_PKEY_meth_copy(_hidden_x448_pmeth, current_x448_pmeth);
-#else
     /* Now save the current (non-offloaded) x448 pmeth to sw_x448_pmeth */
     /* for software fallback purposes */
     if ((sw_x448_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X448)) == NULL) {
@@ -177,12 +152,11 @@ EVP_PKEY_METHOD *qat_x448_pmeth(void)
     EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx_keygen);
     EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
     EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);
-#endif
+
+    DEBUG("QAT HW ECDH X448 Registration succeeded\n");
     return _hidden_x448_pmeth;
 }
 
-
-#ifndef DISABLE_QAT_HW_ECX
 
 static inline int reverse_bytes(unsigned char *tobuffer,
                                 unsigned char *frombuffer, unsigned int size)
@@ -267,7 +241,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     const EVP_PKEY_METHOD **pmeth_from_ctx;
     void *void_ptr_ctx = (void *)ctx;
 
-    DEBUG("Start\n");
+    DEBUG("QAT HW ECX Started\n");
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL.\n");
@@ -628,7 +602,7 @@ static int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_
     thread_local_variables_t *tlv = NULL;
     int fallback = 0;
 
-    DEBUG("Start\n");
+    DEBUG("QAT HW ECX Started\n");
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
@@ -920,7 +894,7 @@ static int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t 
     thread_local_variables_t *tlv = NULL;
     int fallback = 0;
 
-    DEBUG("Start\n");
+    DEBUG("QAT HW ECX Started\n");
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
@@ -1195,12 +1169,10 @@ err:
 
 static int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
-    DEBUG("Start\n");
+    DEBUG("Started\n");
 
     /* Only need to handle peer key for derivation */
     if (type == EVP_PKEY_CTRL_PEER_KEY)
         return 1;
     return -2;
 }
-
-#endif /* DISABLE_QAT_HW_ECX */

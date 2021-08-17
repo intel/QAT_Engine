@@ -98,7 +98,7 @@
 #define NO_PADDING 0
 #define PADDING    1
 
-#ifndef DISABLE_QAT_HW_RSA
+#ifdef ENABLE_QAT_HW_RSA
 /* Qat engine RSA methods declaration */
 static int qat_rsa_priv_enc(int flen, const unsigned char *from,
                             unsigned char *to, RSA *rsa, int padding);
@@ -117,14 +117,14 @@ static RSA_METHOD *qat_rsa_method = NULL;
 
 RSA_METHOD *qat_get_RSA_methods(void)
 {
-#ifndef DISABLE_QAT_HW_RSA
+#ifdef ENABLE_QAT_HW_RSA
     int res = 1;
 #endif
 
     if (qat_rsa_method != NULL)
         return qat_rsa_method;
 
-#ifndef DISABLE_QAT_HW_RSA
+#ifdef ENABLE_QAT_HW_RSA
     if ((qat_rsa_method = RSA_meth_new("QAT RSA method", 0)) == NULL) {
         WARN("Failed to allocate QAT RSA methods\n");
         QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_ALLOC_QAT_RSA_METH_FAILURE);
@@ -145,6 +145,10 @@ RSA_METHOD *qat_get_RSA_methods(void)
         QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_SET_QAT_RSA_METH_FAILURE);
         return NULL;
     }
+
+    qat_hw_rsa_offload = 1;
+    DEBUG("QAT HW RSA registration succeeded\n");
+
 #else
     qat_rsa_method = (RSA_METHOD *)RSA_get_default_method();
 #endif
@@ -154,18 +158,15 @@ RSA_METHOD *qat_get_RSA_methods(void)
 
 void qat_free_RSA_methods(void)
 {
-#ifndef DISABLE_QAT_HW_RSA
+#ifdef ENABLE_QAT_HW_RSA
     if (qat_rsa_method != NULL) {
         RSA_meth_free(qat_rsa_method);
         qat_rsa_method = NULL;
-    } else {
-        WARN("qat_rsa_method is NULL\n");
-        QATerr(QAT_F_QAT_FREE_RSA_METHODS, QAT_R_FREE_QAT_RSA_METH_FAILURE);
     }
 #endif
 }
 
-#ifndef DISABLE_QAT_HW_RSA
+#ifdef ENABLE_QAT_HW_RSA
 /*
  * The RSA range check is performed so that if the op sizes are not in the
  * range supported by QAT engine then fall back to software
@@ -924,7 +925,7 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     int lenstra_ret = 0;
 #endif
 
-    DEBUG("- Started.\n");
+    DEBUG("QAT HW RSA Started.\n");
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
@@ -1071,7 +1072,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     int lenstra_ret = 0;
 #endif
 
-    DEBUG("- Started.\n");
+    DEBUG("QAT HW RSA Started.\n");
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
@@ -1248,7 +1249,7 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1, fallback = 0;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW RSA Started.\n");
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
@@ -1348,7 +1349,7 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     CpaFlatBuffer *output_buffer = NULL;
     int sts = 1, fallback = 0;
 
-    DEBUG("- Started\n");
+    DEBUG("QAT HW RSA Started.\n");
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
@@ -1500,4 +1501,4 @@ qat_rsa_finish(RSA *rsa)
     return RSA_meth_get_finish(RSA_PKCS1_OpenSSL())(rsa);
 }
 
-#endif /* #ifndef DISABLE_QAT_HW_RSA */
+#endif /* #ifndef ENABLE_QAT_HW_RSA */

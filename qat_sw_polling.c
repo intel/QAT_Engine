@@ -368,7 +368,7 @@ void *multibuff_timer_poll_func(void *ih)
             if (errno == EAGAIN || errno == EINTR) {
                 /* Deal with requests less than 8 */
 
-#ifndef DISABLE_QAT_SW_RSA
+#ifdef ENABLE_QAT_SW_RSA
                 if (mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
                     process_RSA_priv_reqs(RSA_2K_LENGTH);
@@ -449,7 +449,7 @@ void *multibuff_timer_poll_func(void *ih)
 # endif
 #endif
 
-#ifndef DISABLE_QAT_SW_ECX
+#ifdef ENABLE_QAT_SW_ECX
                 if (mb_queue_x25519_keygen_get_size(&x25519_keygen_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
                     process_x25519_keygen_reqs();
@@ -478,7 +478,7 @@ void *multibuff_timer_poll_func(void *ih)
 # endif
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDSA
+#ifdef ENABLE_QAT_SW_ECDSA
                 if (mb_queue_ecdsap256_sign_get_size(&ecdsap256_sign_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
                     process_ecdsa_sign_reqs(EC_P256_LENGTH);
@@ -528,7 +528,7 @@ void *multibuff_timer_poll_func(void *ih)
                         submission_count--;
                     }
                 }
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdsap384_sign_req_rates);
 # endif
                 if (mb_queue_ecdsap384_sign_setup_get_size(&ecdsap384_sign_setup_queue) > 0) {
@@ -541,7 +541,7 @@ void *multibuff_timer_poll_func(void *ih)
                         submission_count--;
                     }
                 }
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdsap384_sign_setup_req_rates);
 # endif
                 if (mb_queue_ecdsap384_sign_sig_get_size(&ecdsap384_sign_sig_queue) > 0) {
@@ -554,12 +554,12 @@ void *multibuff_timer_poll_func(void *ih)
                         submission_count--;
                     }
                 }
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdsap384_sign_sig_req_rates);
 # endif
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDH
+#ifdef ENABLE_QAT_SW_ECDH
                 if (mb_queue_ecdhp256_keygen_get_size(&ecdhp256_keygen_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
                     process_ecdh_keygen_reqs(EC_P256_LENGTH);
@@ -596,7 +596,7 @@ void *multibuff_timer_poll_func(void *ih)
                         submission_count--;
                     }
                 }
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdhp384_keygen_req_rates);
 # endif
                 if (mb_queue_ecdhp384_compute_get_size(&ecdhp384_compute_queue) > 0) {
@@ -609,7 +609,7 @@ void *multibuff_timer_poll_func(void *ih)
                         submission_count--;
                     }
                 }
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdhp384_compute_req_rates);
 # endif
 #endif
@@ -618,7 +618,7 @@ void *multibuff_timer_poll_func(void *ih)
         }
 
         DEBUG("Checking whether we have enough requests to process\n");
-#ifndef DISABLE_QAT_SW_ECX
+#ifdef ENABLE_QAT_SW_ECX
         if (mb_queue_x25519_keygen_get_size(&x25519_keygen_queue) >= MULTIBUFF_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
@@ -648,7 +648,7 @@ void *multibuff_timer_poll_func(void *ih)
         }
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDSA
+#ifdef ENABLE_QAT_SW_ECDSA
         if (mb_queue_ecdsap256_sign_get_size(&ecdsap256_sign_queue) >= MULTIBUFF_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
@@ -697,7 +697,7 @@ void *multibuff_timer_poll_func(void *ih)
                 submission_count--;
                 } while ((mb_queue_ecdsap384_sign_get_size(&ecdsap384_sign_queue) >= MULTIBUFF_MIN_BATCH) &&
                         (submission_count > 0));
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdsap384_sign_req_rates);
 # endif
         }
@@ -710,7 +710,7 @@ void *multibuff_timer_poll_func(void *ih)
                 submission_count--;
                 } while ((mb_queue_ecdsap384_sign_setup_get_size(&ecdsap384_sign_setup_queue) >= MULTIBUFF_MIN_BATCH) &&
                         (submission_count > 0));
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdsap384_sign_setup_req_rates);
 # endif
         }
@@ -723,13 +723,13 @@ void *multibuff_timer_poll_func(void *ih)
                 submission_count--;
                 } while ((mb_queue_ecdsap384_sign_sig_get_size(&ecdsap384_sign_sig_queue) >= MULTIBUFF_MIN_BATCH) &&
                         (submission_count > 0));
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdsap384_sign_sig_req_rates);
 # endif
         }
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDH
+#ifdef ENABLE_QAT_SW_ECDH
         if (mb_queue_ecdhp256_keygen_get_size(&ecdhp256_keygen_queue) >= MULTIBUFF_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
@@ -765,7 +765,7 @@ void *multibuff_timer_poll_func(void *ih)
                 submission_count--;
             } while ((mb_queue_ecdhp384_keygen_get_size(&ecdhp384_keygen_queue) >= MULTIBUFF_MIN_BATCH) &&
                     (submission_count > 0));
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
             multibuff_update_req_timeout(&mb_ecdhp384_keygen_req_rates);
 # endif
         }
@@ -779,13 +779,13 @@ void *multibuff_timer_poll_func(void *ih)
             } while ((mb_queue_ecdhp384_compute_get_size(&ecdhp384_compute_queue) >= MULTIBUFF_MIN_BATCH) &&
                     (submission_count > 0));
 
-# ifdef MULTIBUFF_HEURISTIC_TIMEOUT
+# ifdef QAT_S_HEURISTIC_TIMEOUT
             multibuff_update_req_timeout(&mb_ecdhp384_compute_req_rates);
 #endif
         }
 #endif
 
-#ifndef DISABLE_QAT_SW_RSA
+#ifdef ENABLE_QAT_SW_RSA
         if (mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue) >= MULTIBUFF_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
@@ -889,7 +889,7 @@ int multibuff_poll()
 
     clock_gettime(CLOCK_MONOTONIC_RAW, &current_time);
 
-#ifndef DISABLE_QAT_SW_ECX
+#ifdef ENABLE_QAT_SW_ECX
     /* Deal with X25519 Keygen requests */
     snapshot_num_reqs = mb_queue_x25519_keygen_get_size(&x25519_keygen_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
@@ -929,7 +929,7 @@ int multibuff_poll()
     }
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDSA
+#ifdef ENABLE_QAT_SW_ECDSA
     /* Deal with ECDSA p256 sign requests */
     snapshot_num_reqs = mb_queue_ecdsap256_sign_get_size(&ecdsap256_sign_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
@@ -1045,7 +1045,7 @@ int multibuff_poll()
     }
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDH
+#ifdef ENABLE_QAT_SW_ECDH
     /* Deal with ECDH p256 Keygen requests */
     snapshot_num_reqs = mb_queue_ecdhp256_keygen_get_size(&ecdhp256_keygen_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
@@ -1123,7 +1123,7 @@ int multibuff_poll()
     }
 #endif
 
-#ifndef DISABLE_QAT_SW_RSA
+#ifdef ENABLE_QAT_SW_RSA
     /* Deal with rsa private key requests */
     snapshot_num_reqs = mb_queue_rsa2k_priv_get_size(&rsa2k_priv_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {

@@ -81,7 +81,7 @@
 # endif
 #endif
 
-#ifndef DISABLE_QAT_HW_GCM
+#ifdef ENABLE_QAT_HW_GCM
 static int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
                             const unsigned char *inkey,
                             const unsigned char *iv, int enc);
@@ -108,7 +108,7 @@ static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
 
 const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 {
-#ifndef DISABLE_QAT_HW_GCM
+#ifdef ENABLE_QAT_HW_GCM
     EVP_CIPHER *c = NULL;
     int res = 1;
 
@@ -135,13 +135,14 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
         c = NULL;
     }
 
+    DEBUG("QAT HW AES_GCM registration succeeded\n");
     return c;
 #else
     return qat_gcm_cipher_sw_impl(nid);
 #endif
 }
 
-#ifndef DISABLE_QAT_HW_GCM
+#ifdef ENABLE_QAT_HW_GCM
 /******************************************************************************
 * function:
 *         qat_session_data_init(EVP_CIPHER_CTX *ctx,
@@ -168,7 +169,7 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
                                  const unsigned char* iv,
                                  int enc)
 {
-    DEBUG("Entering\n");
+    DEBUG("QAT HW GCM Started\n");
     if (NULL == qctx || NULL == ctx) {
         WARN("qctx or ctx is NULL\n");
         QATerr(QAT_F_QAT_SESSION_DATA_INIT, QAT_R_QCTX_CTX_NULL);

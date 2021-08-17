@@ -93,7 +93,7 @@
     } while (0)
 
 
-#ifndef DISABLE_QAT_SW_GCM
+#ifdef ENABLE_QAT_SW_GCM
 IMB_MGR *ipsec_mgr = NULL;
 
 static int vaesgcm_ciphers_init(EVP_CIPHER_CTX*      ctx,
@@ -158,7 +158,7 @@ static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
  ******************************************************************************/
 const EVP_CIPHER *vaesgcm_create_cipher_meth(int nid, int keylen)
 {
-#ifndef DISABLE_QAT_SW_GCM
+#ifdef ENABLE_QAT_SW_GCM
     EVP_CIPHER* c   = NULL;
     int         res = 1;
 
@@ -184,13 +184,15 @@ const EVP_CIPHER *vaesgcm_create_cipher_meth(int nid, int keylen)
         EVP_CIPHER_meth_free(c);
         c = NULL;
     }
+
+    DEBUG("QAT SW AES_GCM registration succeeded\n");
     return c;
 #else
     return qat_gcm_cipher_sw_impl(nid);
 #endif
 }
 
-#ifndef DISABLE_QAT_SW_GCM
+#ifdef ENABLE_QAT_SW_GCM
 /******************************************************************************
  * function:
  *         vaesgcm_ciphers_init(EVP_CIPHER_CTX *ctx,
@@ -227,7 +229,7 @@ int vaesgcm_ciphers_init(EVP_CIPHER_CTX*      ctx,
         return 0;
     }
 
-    DEBUG("CTX = %p, key = %p, iv = %p, enc = %d\n",
+    DEBUG("QAT SW GCM Started CTX = %p, key = %p, iv = %p, enc = %d\n",
          (void*)ctx, (void*)inkey, (void*)iv, enc);
 
     if (ctx == NULL) {

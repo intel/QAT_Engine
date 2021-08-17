@@ -74,6 +74,10 @@
 # endif
 #endif
 
+#define X25519_MULTIBUFF_BIT_DEPTH 2048
+#define X25519_MULTIBUFF_KEYGEN 1
+#define X25519_MULTIBUFF_DERIVE 2
+
 /* X25519 nid */
 int x25519_nid[] = {
     EVP_PKEY_X25519
@@ -81,42 +85,24 @@ int x25519_nid[] = {
 
 static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
 
-#ifndef DISABLE_QAT_SW_ECX
-
-#define X25519_MULTIBUFF_BIT_DEPTH 2048
-#define X25519_MULTIBUFF_KEYGEN 1
-#define X25519_MULTIBUFF_DERIVE 2
-
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 static const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
 static int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
 static int multibuff_x25519_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
 static int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-#endif /* DISABLE_QAT_SW_ECX */
 
 /* Multibuff X25519 methods declaration */
-static EVP_PKEY_METHOD *multibuff_x25519_pmeth(void)
+EVP_PKEY_METHOD *multibuff_x25519_pmeth(void)
 {
-#ifdef DISABLE_QAT_SW_ECX
-    const EVP_PKEY_METHOD *current_x25519_pmeth = NULL;
-#endif
     if (_hidden_x25519_pmeth)
         return _hidden_x25519_pmeth;
-#ifdef DISABLE_QAT_SW_ECX
-    if ((current_x25519_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X25519)) == NULL) {
-        QATerr(QAT_F_MULTIBUFF_X25519_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-#endif
+
     if ((_hidden_x25519_pmeth =
                 EVP_PKEY_meth_new(EVP_PKEY_X25519, 0)) == NULL) {
         QATerr(QAT_F_MULTIBUFF_X25519_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
 
-#ifdef DISABLE_QAT_SW_ECX
-    EVP_PKEY_meth_copy(_hidden_x25519_pmeth, current_x25519_pmeth);
-#else
     /* Now save the current (non-offloaded) x25519 pmeth to sw_x25519_pmeth */
     /* for software fallback purposes */
     if ((sw_x25519_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X25519)) == NULL) {
@@ -127,27 +113,10 @@ static EVP_PKEY_METHOD *multibuff_x25519_pmeth(void)
     EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
     EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
     EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
-#endif
+
+    DEBUG("QAT SW X25519 registration succeeded\n");
     return _hidden_x25519_pmeth;
 }
-
-int multibuff_x25519_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
-                                  const int **nids, int nid)
-{
-    if (pmeth == NULL) {
-        if (unlikely(nids == NULL)) {
-            WARN("Invalid input params.\n");
-            return 0;
-        }
-        *nids = x25519_nid;
-        return 1;
-    }
-
-    *pmeth = multibuff_x25519_pmeth();
-    return 1;
-}
-
-#ifndef DISABLE_QAT_SW_ECX
 
 void process_x25519_keygen_reqs()
 {
@@ -293,7 +262,7 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", x25519_keygen_req);
+    DEBUG("QAT SW ECX Started %p\n", x25519_keygen_req);
     START_RDTSC(&x25519_cycles_keygen_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -458,7 +427,7 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("Started request: %p\n", x25519_derive_req);
+    DEBUG("QAT SW ECX Started %p\n", x25519_derive_req);
     START_RDTSC(&x25519_cycles_derive_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -522,5 +491,3 @@ static int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
     return -2;
 }
-
-#endif /* #ifndef DISABLE_QAT_SW_ECX */

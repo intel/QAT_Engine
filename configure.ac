@@ -237,7 +237,7 @@ if test "x$cflags_qat_hw_intree" = "x"
 then
   if test "x$with_qat_hw_dir" = "x" -a "x$enable_qat_sw" = "x"
   then
-    AC_MSG_ERROR([--with-qat_hw_dir or --enable-qat_sw not set, If you like to use QAT Hardware acceleration, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_hw_dir=/path/to/qat_driver or If you like to use QAT Software acceleration using Intel crypto multibuffer library and Intel IPSec (AES-GCM),  provide --enable-qat_sw after installing crypto_mb and IPSec_mb libraries as per README])
+    AC_MSG_ERROR([qatlib library not installed or --with-qat_hw_dir or --enable-qat_sw not set, If you like to use QAT Hardware acceleration, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_hw_dir=/path/to/qat_driver or If you like to use QAT Software acceleration using Intel crypto multibuffer library and Intel IPSec (AES-GCM),  provide --enable-qat_sw after installing crypto_mb and IPSec_mb libraries as per README])
   fi
 fi
 
@@ -297,8 +297,11 @@ then
     # Check if QAT HW is installed, otherwise use QAT SW
     if test "x$ac_cv_lib_qat_s_cpaCyRsaDecrypt" = "xno"
     then
-      AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])], [AC_MSG_ERROR([Both QAT HW and QAT SW Crypto Multi-buffer library not found in the standard path. Install either QAT or Crypto Multi-buffer library])], [])
-      AM_CONDITIONAL([QAT_SW], [test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"])
+      if test "x$with_qat_sw_install_dir" == "x"
+      then
+        AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])], [AC_MSG_ERROR([Both QAT HW and QAT SW Crypto Multi-buffer library not found in the standard path. Install either QAT or Crypto Multi-buffer library])], [])
+        AM_CONDITIONAL([QAT_SW], [test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"])
+      fi
     fi
   fi
 fi
@@ -319,51 +322,33 @@ AM_CONDITIONAL([QAT_HW], [test "x$cflags_qat_hw" != "x"])
 # QAT SW acceleration enabled
 if test "x$enable_qat_sw" = "xyes"
 then
-  if test "x$cflags_qat_hw" = "x"
+  if test "x$with_qat_sw_install_dir" != "x"
   then
-    if test "x$with_qat_sw_install_dir" != "x"
+    AC_MSG_NOTICE([Enabling build for QAT SW and QAT SW IPSEC, library from the path provided in qat_sw_install_dir])
+    AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
+    AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
+    AC_SUBST([includes_qat_sw], ["-I\$(with_qat_sw_install_dir)/include"])
+    AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_install_dir)/lib -L\$(with_qat_sw_install_dir)/lib -lcrypto_mb -lIPSec_MB"])
+  else
+    AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Enabling build for QAT SW])], [AC_MSG_NOTICE([crypto_mb Library not found, Disabling QAT SW])], [])
+    AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([Enabling build for QAT SW IPSEC])], [AC_MSG_NOTICE([IPSec_MB Library not found, Disabling QAT_SW GCM])], [])
+    AC_SUBST([includes_qat_sw], ["-I/usr/local/include -I/usr/include"])
+    if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
     then
-      AC_MSG_NOTICE([Enabling build for QAT SW and QAT SW IPSEC, library from the path provided in qat_sw_install_dir])
+      AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
+                   [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/loca/lib -lcrypto_mb"])],
+                   [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
       AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-      AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
-      AC_SUBST([includes_qat_sw], ["-I\$(with_qat_sw_install_dir)/include"])
-      AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_install_dir)/lib -L\$(with_qat_sw_install_dir)/lib -lcrypto_mb -lIPSec_MB"])
-    else
-      AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Enabling build for QAT SW])], [AC_MSG_NOTICE([crypto_mb Library not found, Disabling QAT SW])], [])
-      AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([Enabling build for QAT SW IPSEC])], [AC_MSG_NOTICE([IPSec_MB Library not found, Disabling QAT_SW GCM])], [])
-      AC_SUBST([includes_qat_sw], ["-I/usr/local/include -I/usr/include"])
-      if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
-      then
-        AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
-                     [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/loca/lib -lcrypto_mb"])],
-                     [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
-        AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-      fi
-      if test "x$ac_cv_lib_IPSec_MB_imb_get_version" = "xyes"
-      then
-        AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
-        AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-lIPSec_MB"])
-      fi
-      if test "x$ac_cv_lib_crypto_mb_mbx_getversion" != "xyes" -a "x$ac_cv_lib_IPSec_MB_imb_get_version" != "xyes"
-      then
-        AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependant libraries or provide path via --with-qat_sw_install_dir if installed other than the default location])
-      fi
     fi
-  # QAT SW GCM with QAT HW
-  else if test "x$cflags_qat_hw" != "x"
-  then
-    AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([Enabling build for QAT SW IPSEC with QAT HW])], [AC_MSG_NOTICE([IPSec_MB library not found, Disabling QAT_SW GCM])],[])
     if test "x$ac_cv_lib_IPSec_MB_imb_get_version" = "xyes"
     then
-        AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
-        AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-lIPSec_MB"])
+      AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
+      AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-lIPSec_MB"])
     fi
-  fi
-  fi
-else
-  if test "x$cflags_qat_hw" = "x" -a "x$cflags_qat_hw_intree" = "x"
-  then
-    AC_MSG_ERROR([qatlib library not installed or --with-qat_hw_dir or --enable-qat_sw not set, If you like to use QAT Hardware acceleration, set it to the path to the Intel Quickassist Technology Driver source code. e.g: --with-qat_hw_dir=/path/to/qat_driver or If you like to use QAT Software acceleration using Intel crypto multibuffer library and Intel IPSec (VAES-GCM),  provide --enable-qat_sw after installing crypto_mb and IPSec_mb libraries as per README])
+    if test "x$ac_cv_lib_crypto_mb_mbx_getversion" != "xyes" -a "x$ac_cv_lib_IPSec_MB_imb_get_version" != "xyes"
+    then
+      AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependant libraries or provide path via --with-qat_sw_install_dir if installed other than the default location])
+    fi
   fi
 fi
 AM_CONDITIONAL([QAT_SW], [test "x$cflags_qat_sw" != "x"])
@@ -381,40 +366,127 @@ fi
 AM_CONDITIONAL([QAT_ERR_FILES_BUILD], [test "x$with_openssl_dir" != "x"])
 
 # Checking the parameters given and parsing the relevant flags
-if test "x$enable_qat_hw_rsa" != "xno" -a "x$cflags_qat_hw" != "x"
+
+if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
 then
-  enable_qat_hw_rsa="-DENABLE_QAT_HW_RSA"
+  if test "x$enable_qat_hw_rsa" = "xyes"
+  then
+    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA"])
+    AC_MSG_NOTICE([Accelerating RSA to Hardware])
+  else if test "x$enable_qat_sw_rsa" = "xyes"
+  then
+    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_SW_RSA"])
+    AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
+  else if test "x$enable_qat_hw_rsa" != "xno"
+  then
+    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA -DENABLE_QAT_SW_RSA"])
+    AC_MSG_NOTICE([Co-existence RSA Acceleration])
+  fi
+  fi
+  fi
+else if test "x$enable_qat_sw_rsa" != "xno" -a "x$cflags_qat_sw" != "x"
+then
+  AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_SW_RSA"])
+  AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
+else if test "x$enable_qat_hw_rsa" != "xno" -a "x$cflags_qat_hw" != "x"
+then
+  AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA"])
   AC_MSG_NOTICE([Accelerating RSA to Hardware])
-else
-  enable_qat_hw_rsa="-DDISABLE_QAT_HW_RSA"
-  AC_MSG_NOTICE([Not Accelerating RSA to Hardware])
+fi
+fi
 fi
 
-if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
+if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x" -a "x$cflags_openssl_3" = "x"
 then
-  enable_qat_hw_ciphers="-DENABLE_QAT_HW_CIPHERS"
-  AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])
-else
-  enable_qat_hw_ciphers="-DDISABLE_QAT_HW_CIPHERS"
-  AC_MSG_NOTICE([Not Accelerating CIPHERS to Hardware])
+  if test "x$enable_qat_hw_ecx" = "xyes"
+  then
+    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
+    AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
+  else if test "x$enable_qat_sw_ecx" = "xyes"
+  then
+    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_SW_ECX"])
+    AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
+  else if test "x$enable_qat_hw_ecx" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX -DENABLE_QAT_SW_ECX"])
+    AC_MSG_NOTICE([Co-existence X25519/X448 Acceleration])
+  fi
+  fi
+  fi
+else if test "x$enable_qat_sw_ecx" != "xno" -a "x$cflags_qat_sw" != "x" -a "x$cflags_openssl_3" = "x"
+then
+  AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_SW_ECX"])
+  AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
+else if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
+then
+  AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
+  AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
+fi
+fi
 fi
 
-if test "x$enable_qat_hw_ecdh" != "xno" -a "x$cflags_qat_hw" != "x"
+if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
 then
-  enable_qat_hw_ecdh="-DENABLE_QAT_HW_ECDH"
+  if test "x$enable_qat_hw_ecdh" = "xyes"
+  then
+    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
+    AC_MSG_NOTICE([Accelerating ECDH to Hardware])
+  else if test "x$enable_qat_sw_ecdh" = "xyes"
+  then
+    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
+    AC_MSG_NOTICE([Accelerating ECDH P256 &P384 to Software (Multi-buffer)])
+  else if test "x$enable_qat_hw_ecdh" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH -DENABLE_QAT_SW_ECDH"])
+    AC_MSG_NOTICE([Co-existence ECDH Acceleration])
+  else
+    AC_SUBST([cflags_qat_ecdh], ["-DDISABLE_QAT_HW_ECDH"])
+    AC_MSG_NOTICE([Not Accelerating ECDH to QAT_HW])
+  fi
+  fi
+  fi
+else if test "x$enable_qat_sw_ecdh" != "xno" -a "x$cflags_qat_sw" != "x"
+then
+  AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
+  AC_MSG_NOTICE([Accelerating ECDH P256 &P384 to Software (Multi-buffer)])
+else if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x"
+then
+  AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
   AC_MSG_NOTICE([Accelerating ECDH to Hardware])
-else
-  enable_qat_hw_ecdh="-DDISABLE_QAT_HW_ECDH"
-  AC_MSG_NOTICE([Not Accelerating ECDH to Hardware])
+fi
+fi
 fi
 
-if test "x$enable_qat_hw_ecdsa" != "xno" -a "x$cflags_qat_hw" != "x"
+if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
 then
-  enable_qat_hw_ecdsa="-DENABLE_QAT_HW_ECDSA"
+  if test "x$enable_qat_hw_ecdsa" = "xyes"
+  then
+    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
+    AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
+  else if test "x$enable_qat_sw_ecdsa" = "xyes"
+  then
+    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_SW_ECDSA"])
+    AC_MSG_NOTICE([Accelerating ECDSA P256 &P384 to Software (Multi-buffer)])
+  else if test "x$enable_qat_hw_ecdsa" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA -DENABLE_QAT_SW_ECDSA"])
+    AC_MSG_NOTICE([Co-existence ECDSA Acceleration])
+  else
+    AC_SUBST([cflags_qat_ecdsa], ["-DDISABLE_QAT_HW_ECDSA"])
+    AC_MSG_NOTICE([Not Accelerating ECDSA to QAT_HW])
+  fi
+  fi
+  fi
+else if test "x$enable_qat_sw_ecdsa" != "xno" -a "x$cflags_qat_sw" != "x"
+then
+  AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_SW_ECDSA"])
+  AC_MSG_NOTICE([Accelerating ECDSA P256 &P384 to Software (Multi-buffer)])
+else if test "x$enable_qat_hw_ecdsa" != "xno" -a "x$cflags_qat_hw" != "x"
+then
+  AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
   AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
-else
-  enable_qat_hw_ecdsa="-DDISABLE_QAT_HW_ECDSA"
-  AC_MSG_NOTICE([Not Accelerating ECDSA to Hardware])
+fi
+fi
 fi
 
 if test "x$enable_qat_hw_dsa" != "xno" -a "x$cflags_qat_hw" != "x"
@@ -453,67 +525,44 @@ else
   AC_MSG_NOTICE([Not Accelerating HKDF to Hardware])
 fi
 
-if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
+if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
 then
-  enable_qat_hw_ecx="-DENABLE_QAT_HW_ECX"
-  AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
+  enable_qat_hw_ciphers="-DENABLE_QAT_HW_CIPHERS"
+  AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])
 else
-  enable_qat_hw_ecx="-DDISABLE_QAT_HW_ECX"
-  AC_MSG_NOTICE([Not Accelerating X25519/X448 to Hardware])
+  enable_qat_hw_ciphers="-DDISABLE_QAT_HW_CIPHERS"
+  AC_MSG_NOTICE([Not Accelerating CIPHERS to Hardware])
 fi
 
-if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
+if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw_ipsec" != "x"
 then
-  enable_qat_hw_gcm="-DENABLE_QAT_HW_GCM"
-  AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
-else
-  enable_qat_hw_gcm="-DDISABLE_QAT_HW_GCM"
-  AC_MSG_NOTICE([Not Accelerating AES-GCM to Hardware])
+  if test "x$enable_qat_hw_gcm" = "xyes"
+  then
+    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_HW_GCM"])
+    AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
+  else if test "x$enable_qat_sw_gcm" = "xyes"
+  then
+    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
+    AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
+  else if test "x$enable_qat_sw_gcm" != "xno"
+  then
+    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
+    AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
+  else
+    AC_MSG_NOTICE([Not Accelerating AES-GCM to Software (IPSec_mb)])
+  fi
+  fi
+  fi
+else if test "x$enable_qat_sw_gcm" != "xno" -a "x$cflags_qat_sw_ipsec" != "x"
+  then
+    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
+    AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
+else if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
+  then
+    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_HW_GCM"])
+    AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
 fi
-
-if test "x$enable_qat_sw_gcm" != "xno" -a "x$cflags_qat_sw_ipsec" != "x"
-then
-  enable_qat_sw_gcm="-DENABLE_QAT_SW_GCM"
-  AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
-else
-  enable_qat_sw_gcm="-DDISABLE_QAT_SW_GCM"
-  AC_MSG_NOTICE([Not Accelerating AES-GCM to Software (IPSec_mb)])
 fi
-
-if test "x$enable_qat_sw_rsa" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-  enable_qat_sw_rsa="-DENABLE_QAT_SW_RSA"
-  AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
-else
-  enable_qat_sw_rsa="-DDISABLE_QAT_SW_RSA"
-  AC_MSG_NOTICE([Not Accelerating RSA to Software (Multi-buffer)])
-fi
-
-if test "x$enable_qat_sw_ecx" != "xno" -a "x$cflags_qat_sw" != "x" -a "x$cflags_openssl_3" = "x"
-then
-    enable_qat_sw_ecx="-DENABLE_QAT_SW_ECX"
-    AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
-else
-    enable_qat_sw_ecx="-DDISABLE_QAT_SW_ECX"
-    AC_MSG_NOTICE([Not Accelerating X25519 to Software (Multi-buffer)])
-fi
-
-if test "x$enable_qat_sw_ecdsa" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-    enable_qat_sw_ecdsa="-DENABLE_QAT_SW_ECDSA"
-    AC_MSG_NOTICE([Accelerating ECDSA P256 & P384 to Software (Multi-buffer)])
-else
-    enable_qat_sw_ecdsa="-DDISABLE_QAT_SW_ECDSA"
-    AC_MSG_NOTICE([Not Accelerating ECDSA P256 & P384 to Software (Multi-buffer)])
-fi
-
-if test "x$enable_qat_sw_ecdh" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-    enable_qat_sw_ecdh="-DENABLE_QAT_SW_ECDH"
-    AC_MSG_NOTICE([Accelerating ECDH P256 &P384 to Software (Multi-buffer)])
-else
-    enable_qat_sw_ecdh="-DDISABLE_QAT_SW_ECDH"
-    AC_MSG_NOTICE([Not Accelerating ECDH P256 & P384 to Software (Multi-buffer)])
 fi
 
 if test "x$enable_qat_hw_small_pkt_offload" = "xyes" -a "x$cflags_qat_hw" != "x"

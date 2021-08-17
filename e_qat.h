@@ -298,7 +298,11 @@ extern const char *engine_qat_id;
 extern const char *engine_qat_name;
 extern unsigned int engine_inited;
 
-extern int qat_offload;
+extern int qat_hw_offload;
+extern int qat_sw_offload;
+extern int qat_hw_rsa_offload;
+extern int qat_hw_ecx_offload;
+extern int qat_hw_ec_offload;
 extern int qat_keep_polling;
 extern int multibuff_keep_polling;
 extern int enable_external_polling;

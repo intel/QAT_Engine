@@ -33,5 +33,7 @@
         * NIST Prime Curves: P-256/P-384
     * AES128-GCM, AES192-GCM and AES256-GCM
 
+[QAT_HW & QAT_SW Co-existence Feature](qat_hw.md#qat-hw-and-qat-sw-co-existence-feature)
+
 Note: RSA Padding schemes are handled by OpenSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL does natively.

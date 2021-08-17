@@ -125,6 +125,8 @@ DH_METHOD *qat_get_DH_methods(void)
         QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_SET_DH_METH_FAILURE);
         return NULL;
     }
+
+    DEBUG("QAT HW DH registration succeeded\n");
 #else
     qat_dh_method = (DH_METHOD *)DH_get_default_method();
 #endif
@@ -204,7 +206,7 @@ int qat_dh_generate_key(DH *dh)
     unsigned char *prime_buf = NULL;
     int prime_bytes = 0;
 # endif
-    DEBUG("- Started\n");
+    DEBUG("QAT HW DH Started\n");
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
@@ -569,7 +571,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     unsigned char *prime_buf = NULL;
     int prime_bytes = 0;
 # endif
-    DEBUG("- Started\n");
+    DEBUG("QAT HW DH Started\n");
 
     if (unlikely(key == NULL)) {
         WARN("Invalid variable key is NULL.\n");

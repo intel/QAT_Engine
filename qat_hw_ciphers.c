@@ -270,6 +270,7 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
         c = NULL;
     }
 
+    DEBUG("QAT HW ciphers registration succeeded\n");
     return c;
 #else
     return qat_chained_cipher_sw_impl(nid);
@@ -593,6 +594,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         return 0;
     }
 
+    DEBUG("QAT HW Ciphers Started\n");
     INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
 
     if (iv != NULL)

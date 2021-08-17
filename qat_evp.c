@@ -66,6 +66,11 @@
 # include "qat_sw_gcm.h"
 #endif
 
+#ifdef QAT_SW
+# include "qat_sw_ecx.h"
+# include "crypto_mb/cpu_features.h"
+#endif
+
 typedef struct _chained_info {
     const int nid;
     EVP_CIPHER *cipher;
@@ -85,7 +90,7 @@ static chained_info info[] = {
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
 # endif
 #endif
-#ifdef QAT_SW_IPSEC
+#ifdef ENABLE_QAT_SW_GCM
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
     {NID_aes_192_gcm, NULL, AES_KEY_SIZE_192},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
@@ -108,21 +113,28 @@ int qat_cipher_nids[] = {
     NID_aes_256_gcm,
 # endif
 #endif
-#ifdef QAT_SW_IPSEC
+#ifdef ENABLE_QAT_SW_GCM
     NID_aes_128_gcm,
     NID_aes_192_gcm,
     NID_aes_256_gcm,
 #endif
 };
 
-#ifdef QAT_HW
 /* Supported EVP nids */
 int qat_evp_nids[] = {
+# ifdef ENABLE_QAT_HW_PRF
     EVP_PKEY_TLS1_PRF,
+#endif
 # if OPENSSL_VERSION_NUMBER > 0x10101000L
+#  ifdef ENABLE_QAT_HW_HKDF
     EVP_PKEY_HKDF,
+#  endif
+#  if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     EVP_PKEY_X25519,
+#  endif
+# ifdef QAT_HW
     EVP_PKEY_X448
+#  endif
 # endif
 };
 const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
@@ -139,15 +151,28 @@ const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
 static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
 {
     switch (nid) {
+# ifdef ENABLE_QAT_HW_PRF
         case EVP_PKEY_TLS1_PRF:
             return qat_prf_pmeth();
+# endif
 # if OPENSSL_VERSION_NUMBER > 0x10101000L
+# ifdef ENABLE_QAT_HW_HKDF
         case EVP_PKEY_HKDF:
             return qat_hkdf_pmeth();
+# endif
         case EVP_PKEY_X25519:
-            return qat_x25519_pmeth();
+# ifdef ENABLE_QAT_HW_ECX
+            if(qat_hw_offload)
+                return qat_x25519_pmeth();
+# elif ENABLE_QAT_SW_ECX
+            if (mbx_get_algo_info(MBX_ALGO_X25519))
+                return multibuff_x25519_pmeth();
+# endif
+# ifdef QAT_HW
         case EVP_PKEY_X448:
-            return qat_x448_pmeth();
+            if (qat_hw_offload)
+                return qat_x448_pmeth();
+# endif
 # endif
         default:
             WARN("Invalid nid %d\n", nid);
@@ -194,7 +219,6 @@ int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
     *pmeth = NULL;
     return 0;
 }
-#endif
 
 void qat_create_ciphers(void)
 {
@@ -206,18 +230,17 @@ void qat_create_ciphers(void)
             case NID_aes_128_gcm:
             case NID_aes_192_gcm:
             case NID_aes_256_gcm:
-#ifdef QAT_SW_IPSEC
+#ifdef ENABLE_QAT_SW_GCM
                 if(qat_sw_ipsec)
                    info[i].cipher = (EVP_CIPHER *)
                        vaesgcm_create_cipher_meth(info[i].nid, info[i].keylen);
-#else
-# ifdef ENABLE_QAT_HW_GCM
-                if (qat_offload) {
+#endif
+#ifdef ENABLE_QAT_HW_GCM
+                if (qat_hw_offload) {
                     if (info[i].nid != NID_aes_192_gcm)
                         info[i].cipher = (EVP_CIPHER *)
                             qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
                 }
-# endif
 #endif
                 break;
 
@@ -227,7 +250,7 @@ void qat_create_ciphers(void)
             case NID_aes_128_cbc_hmac_sha256:
             case NID_aes_256_cbc_hmac_sha1:
             case NID_aes_256_cbc_hmac_sha256:
-                if (qat_offload)
+                if (qat_hw_offload)
                     info[i].cipher = (EVP_CIPHER *)
                         qat_create_cipher_meth(info[i].nid, info[i].keylen);
                 break;
@@ -252,10 +275,10 @@ void qat_free_ciphers(void)
             case NID_aes_128_gcm:
             case NID_aes_192_gcm:
             case NID_aes_256_gcm:
-#ifndef DISABLE_QAT_SW_GCM
+#ifdef ENABLE_QAT_SW_GCM
                 EVP_CIPHER_meth_free(info[i].cipher);
 #endif
-#ifndef DISABLE_QAT_HW_GCM
+#ifdef ENABLE_QAT_HW_GCM
                 if (info[i].nid != NID_aes_192_gcm)
                     EVP_CIPHER_meth_free(info[i].cipher);
 #endif
