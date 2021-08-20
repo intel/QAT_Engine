@@ -41,7 +41,9 @@ QAT_TEST_SRC = test/main.c             \
                test/tests_ecdsa.c      \
                test/tests_rsa.c        \
                test/tests_aes128_gcm.c \
-               test/tests_aes256_gcm.c
+               test/tests_aes256_gcm.c \
+               test/tests_sha3.c
+
 
 if QAT_HW
 QAT_HW_TEST_SRC = test/tests_aes_cbc_hmac_sha.c \
@@ -63,9 +65,9 @@ testapp_SOURCES = ${QAT_TEST_SRC}         \
                   ${QAT_HW_TEST_SRC}      \
                   ${OPENSSL_111_TEST_SRC}
 
-testapp_CFLAGS =  $(includes_qat_hw) $(includes_openssl)    \
-                  $(cflags_openssl_3) $(cflags_qat_hw)      \
-                  $(cflags_qat_sw) $(cflags_qat_sw_ipsec)   \
+testapp_CFLAGS =  $(includes_qat_hw) $(includes_openssl)         \
+                  $(cflags) $(cflags_openssl_3) $(cflags_qat_hw) \
+                  $(cflags_qat_sw) $(cflags_qat_sw_ipsec)        \
                   $(enable_qat_debug) $(enable_qat_warnings)
 
 testapp_LDADD = -ldl -lrt -lpthread $(OPENSSL_LIB)

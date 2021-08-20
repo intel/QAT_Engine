@@ -60,6 +60,7 @@
 #ifdef QAT_HW
 # include "qat_hw_ciphers.h"
 # include "qat_hw_gcm.h"
+# include "qat_hw_sha3.h"
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -138,6 +139,95 @@ int qat_evp_nids[] = {
 # endif
 };
 const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
+
+typedef struct _digest_data {
+    const int m_type;
+    const int pkey_type;
+} sha3_data;
+
+static sha3_data data[] = {
+#ifdef QAT_HW
+    { NID_sha3_224,  NID_RSA_SHA3_224},
+    { NID_sha3_256,  NID_RSA_SHA3_256},
+    { NID_sha3_384,  NID_RSA_SHA3_384},
+    { NID_sha3_512,  NID_RSA_SHA3_512},
+#endif
+};
+
+/* QAT SHA3 function register */
+int qat_sha3_nids[] = {
+#ifdef QAT_HW
+    NID_sha3_224,
+    NID_sha3_256,
+    NID_sha3_384,
+    NID_sha3_512,
+#endif
+};
+const int num_sha3_nids = sizeof(qat_sha3_nids) / sizeof(qat_sha3_nids[0]);
+
+
+/******************************************************************************
+ * function:
+ *         qat_create_digest_meth(int nid , int pkeytype)
+ *
+ * @param nid    [IN] - EVP operation id
+ *
+ * description:
+ *   Creates qat EVP MD methods for the nid
+******************************************************************************/
+static const EVP_MD *qat_create_digest_meth(int nid , int pkeytype)
+{
+    switch (nid) {
+        case NID_sha3_224:
+        case NID_sha3_256:
+        case NID_sha3_384:
+        case NID_sha3_512:
+            if (qat_hw_offload)
+                return qat_create_sha3_meth(nid , pkeytype);
+        default:
+            WARN("Invalid nid %d\n", nid);
+            return NULL;
+    }
+}
+/******************************************************************************
+ * function:
+ *         qat_digest_methods(ENGINE *e,
+ *                          const EVP_MD **md,
+ *                          const int **nids,
+ *                          int nid)
+ *
+ * @param e      [IN] - OpenSSL engine pointer
+ * @param pmeth  [IN] - EVP methods structure pointer
+ * @param nids   [IN] - EVP function nids
+ * @param nid    [IN] - EVP operation id
+ *
+ * description:
+ *   QAT engine digest operations register.
+******************************************************************************/
+int qat_digest_methods(ENGINE *e, const EVP_MD **md,
+                       const int **nids, int nid)
+{
+    int i;
+    if (md == NULL) {
+        if (unlikely(nids == NULL)) {
+            WARN("Invalid input params.\n");
+            return 0;
+        }
+        *nids = qat_sha3_nids;
+        return num_sha3_nids;
+    }
+
+    for (i = 0; i < num_sha3_nids; i++) {
+        if (nid == qat_sha3_nids[i]) {
+            *md = qat_create_digest_meth( data[i].m_type , data[i].pkey_type);
+            return 1;
+        }
+    }
+
+    WARN("NID %d not supported\n", nid);
+    *md = NULL;
+    return 0;
+}
 
 /******************************************************************************
  * function:

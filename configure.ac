@@ -68,6 +68,11 @@ AC_ARG_ENABLE(qat_hw_gcm,
                              [Enable qat_hw AES-GCM acceleration (experimental)]))
 AC_SUBST(enable_qat_hw_gcm)
 
+AC_ARG_ENABLE(qat_hw_sha3,
+              AS_HELP_STRING([--disable-qat_hw_sha3],
+                             [Disable qat_hw SHA3 offload]))
+AC_SUBST(enable_qat_hw_sha3)
+
 AC_ARG_ENABLE(qat_sw_gcm,
               AS_HELP_STRING([--disable-qat_sw_gcm],
                              [Disable qat_sw AES-GCM acceleration]))
@@ -563,6 +568,15 @@ else if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
     AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
 fi
 fi
+fi
+
+if test "x$enable_qat_hw_sha3" != "xno" -a "x$cflags_qat_hw" != "x"
+then
+  enable_qat_hw_sha3="-DENABLE_QAT_HW_SHA3"
+  AC_MSG_NOTICE([Accelerating SHA3 to Hardware])
+else
+  enable_qat_hw_sha3="-DDISABLE_QAT_HW_SHA3"
+  AC_MSG_NOTICE([Not Accelerating SHA3 to Hardware])
 fi
 
 if test "x$enable_qat_hw_small_pkt_offload" = "xyes" -a "x$cflags_qat_hw" != "x"

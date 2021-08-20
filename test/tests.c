@@ -696,11 +696,11 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_AES256_GCM:
         tests_run_aes256_gcm(args);
         break;
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
+# if OPENSSL_VERSION_NUMBER > 0x10101000L
     case TEST_ECX:              /* X25519 & X448 test application */
         tests_run_ecx(args);
         break;
-#endif
+# endif
 #endif
 
 #ifndef QAT_SW
@@ -735,14 +735,21 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_PRF:              /* PRF test application */
         tests_run_prf(args);
         break;
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
+# if OPENSSL_VERSION_NUMBER > 0x10101000L
     case TEST_HKDF:             /* HKDF test application */
         tests_run_hkdf(args);
         break;
     case TEST_ECX:              /* X25519 & X448 test application */
         tests_run_ecx(args);
         break;
-#endif
+    /* SHA3 tests */
+    case TEST_SHA3_224:
+    case TEST_SHA3_256:
+    case TEST_SHA3_384:
+    case TEST_SHA3_512:
+        tests_run_sha3(args);
+        break;
+# endif
     case TEST_AES128_GCM:
         tests_run_aes128_gcm(args);
         break;

@@ -696,6 +696,43 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         DUMPL("Info", hkdfOpData->info  , hkdfOpData->infoLen);                \
     } while (0)
 
+#  define DUMP_SYM_PERFORM_OP_SHA3(instance_handle, pOpData, pSrcBuffer,       \
+                                   pDstBuffer)                                  \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"Symmetric SHA3 hash perform op req: %p\n",    \
+                &pOpData);                                                     \
+        fprintf(qatDebugLogFile,"Instance Handle = %p\n", instance_handle);    \
+        fprintf(qatDebugLogFile,"pOpData.packetType = %d\n",                   \
+                pOpData->packetType);                                          \
+        fprintf(qatDebugLogFile,"pOpData.cryptoStartSrcOffsetInBytes = %u\n",  \
+                pOpData->cryptoStartSrcOffsetInBytes);                         \
+        fprintf(qatDebugLogFile,"pOpData.messageLenToCipherInBytes = %u\n",    \
+                pOpData->messageLenToCipherInBytes);                           \
+        fprintf(qatDebugLogFile,"pOpData.hashStartSrcOffsetInBytes = %u\n",    \
+                pOpData->hashStartSrcOffsetInBytes);                           \
+        fprintf(qatDebugLogFile,"pOpData.messageLenToHashInBytes = %u\n",      \
+                pOpData->messageLenToHashInBytes);                             \
+        fprintf(qatDebugLogFile,"pOpData.pDigestResult = %p\n",                \
+                pOpData->pDigestResult);                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
+#  define DUMP_SYM_PERFORM_OP_SHA3_OUTPUT(pOpData, pDstBuffer)                  \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"Symmetric SHA3 hash perform op Output: %p\n", \
+                &pDstBuffer);                                                  \
+        fprintf(qatDebugLogFile,"pOpData->pDigestResult = %p\n",               \
+                pOpData->pDigestResult);                                       \
+        DUMPL("pOpData->pDigestResult",                                        \
+               pOpData->pDigestResult,                                         \
+               pOpData->messageLenToHashInBytes);                              \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
 # else
 #  define DUMP_DH_GEN_PHASE1(...)
 #  define DUMP_DH_GEN_PHASE2(...)
@@ -723,6 +760,8 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_SYM_PERFORM_OP_GCM_OUTPUT(...)
 #  define DUMP_PRF_OP_DATA(...)
 #  define DUMP_HKDF_OP_DATA(...)
+#  define DUMP_SYM_PERFORM_OP_SHA3(...)
+#  define DUMP_SYM_PERFORM_OP_SHA3_OUTPUT(...)
 # endif                         /* QAT_DEBUG */
 
 

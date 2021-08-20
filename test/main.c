@@ -252,6 +252,13 @@ static const option_data aes_choices[] = {
     {"aes256gcm", 0, TEST_AES256_GCM, 0, 0},
 };
 
+static const option_data sha3_choices[] = {
+    {"sha3-224", 0, TEST_SHA3_224, 0, 0},
+    {"sha3-256", 0, TEST_SHA3_256, 0, 0},
+    {"sha3-384", 0, TEST_SHA3_384, 0, 0},
+    {"sha3-512", 0, TEST_SHA3_512, 0, 0},
+};
+
 /******************************************************************************
 * function:
 *    cpu_time_add (cpu_time_t *t1, cpu_time_t *t2, int subtract)
@@ -481,7 +488,7 @@ static __inline__ unsigned long long rdtsc(void)
 * description:
 *   test_name selection list
 ******************************************************************************/
-static char *test_name(int test)
+char *test_name(int test)
 {
     switch (test) {
     case TEST_RSA:
@@ -514,6 +521,14 @@ static char *test_name(int test)
         return "AES128 GCM";
     case TEST_AES256_GCM:
         return "AES256 GCM";
+    case TEST_SHA3_224:
+        return "SHA3-224";
+    case TEST_SHA3_256:
+        return "SHA3-256";
+    case TEST_SHA3_384:
+        return "SHA3-384";
+    case TEST_SHA3_512:
+        return "SHA3-512";
     case 0:
         return "all tests";
     default:
@@ -686,7 +701,13 @@ static void usage(char *program)
     printf("\thkdf    HKDF test\n");
 #endif
     printf("\taes128gcm AES128 GCM test\n");
-    printf("\taes256gcm AES256 GCM test\n\n");
+    printf("\taes256gcm AES256 GCM test\n");
+#if OPENSSL_VERSION_NUMBER > 0x10101000L
+    printf("\tsha3-224    SHA3 224 test\n");
+    printf("\tsha3-256    SHA3 256 test\n");
+    printf("\tsha3-384    SHA3 384 test\n");
+    printf("\tsha3-512    SHA3 512 test\n\n");
+#endif
 
     printf("\nIf test is not specified, one iteration "
            "of each test is executed and verified.\n");
@@ -836,27 +857,35 @@ static void handle_option(int argc, char *argv[], int *index)
                 break;
             }
     } else if (!strncmp(option, "ecdh", strlen("ecdh"))) {
-         size = sizeof(ecdh_choices) / sizeof(option_data);
-         for (i = 0; i < size; i++)
-             if (!strcmp(option, ecdh_choices[i].name)) {
-                 curve = ecdh_choices[i].curve_name;
-                 test_alg = ecdh_choices[i].test_alg;
-                 ecx_op = ecdh_choices[i].op;
-                 break;
-             }
+        size = sizeof(ecdh_choices) / sizeof(option_data);
+        for (i = 0; i < size; i++)
+            if (!strcmp(option, ecdh_choices[i].name)) {
+                curve = ecdh_choices[i].curve_name;
+                test_alg = ecdh_choices[i].test_alg;
+                ecx_op = ecdh_choices[i].op;
+                break;
+            }
     } else if (!strncmp(option, "ecdsa", strlen("ecdsa"))) {
-           size = sizeof(ecdh_choices) / sizeof(option_data);
-           for (i = 0; i < size; i++)
-                if (!strcmp(option, ecdsa_choices[i].name)) {
-                    curve = ecdsa_choices[i].curve_name;
-                    test_alg = ecdsa_choices[i].test_alg;
-                    break;
-                }
+        size = sizeof(ecdh_choices) / sizeof(option_data);
+        for (i = 0; i < size; i++)
+            if (!strcmp(option, ecdsa_choices[i].name)) {
+                curve = ecdsa_choices[i].curve_name;
+                test_alg = ecdsa_choices[i].test_alg;
+                break;
+            }
     } else if (!strncmp(option, "aes", strlen("aes"))) {
            size = sizeof(aes_choices) / sizeof(option_data);
            for (i = 0; i < size; i++)
                 if (!strcmp(option, aes_choices[i].name)) {
                     test_alg = aes_choices[i].test_alg;
+                    break;
+                }
+    } else if (!strncmp(option, "sha3", strlen("sha3"))) {
+           size = sizeof(sha3_choices) / sizeof(option_data);
+           for (i = 0; i < size; i++)
+                if (!strcmp(option, sha3_choices[i].name)) {
+                    test_alg = sha3_choices[i].test_alg;
+                    test_size = 4096;
                     break;
                 }
     } else if (!strcmp(option, "-f"))
@@ -1335,7 +1364,7 @@ int main(int argc, char *argv[])
 
     for (i = 1; i < argc; i++) {
         /*
-         *  allow rsa, dsa, dh, aes, prf, hkdf and ecx options
+         *  allow rsa, dsa, dh, aes, prf, hkdf, sha-3 & ecx options
          *  without '-' prefix
          */
         if ((argv[i][0] != '-') &&
@@ -1344,7 +1373,8 @@ int main(int argc, char *argv[])
             (argv[i][0] != 'a') &&
             (argv[i][0] != 'e') &&
             (argv[i][0] != 'p') &&
-            (argv[i][0] != 'h'))
+            (argv[i][0] != 'h') &&
+            (argv[i][0] != 's'))
             break;
 
         handle_option(argc, argv, &i);
@@ -1386,7 +1416,7 @@ int main(int argc, char *argv[])
     else
         printf("Engine disabled! using software implementation\n");
 
-    printf("\nOpenssl Engine Test Application\n");
+    printf("\nQAT Engine Test Application\n");
     printf("\n\tCopyright (C) 2021 Intel Corporation\n");
     printf("\nTest Parameters:\n\n");
     printf("\tTest Type:            %s\n",

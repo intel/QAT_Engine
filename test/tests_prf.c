@@ -585,7 +585,7 @@ static int runTlsPrfOps(void *args)
     int verify = temp_args->verify;
     char *tls_version = temp_args->tls_version;
     char *digest_kdf = temp_args->digest_kdf;
-    const EVP_MD *md[SSL_MAX_DIGEST];
+    const EVP_MD *md[SSL_MAX_DIGEST] = {0};
     int md_count = 0, version = 0;
     void *seed1 = NULL, *seed2 = NULL, *seed3 = NULL, *seed4 = NULL,
         *seed5 = NULL;

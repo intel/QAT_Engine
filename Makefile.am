@@ -42,7 +42,8 @@ if QAT_HW
               qat_hw_dsa.c         \
               qat_hw_ec.c          \
               qat_hw_prf.c         \
-              qat_hw_gcm.c
+              qat_hw_gcm.c         \
+              qat_hw_sha3.c
 
 if !QAT_OPENSSL_110
  QAT_HW_111_SRC = qat_hw_hkdf.c    \
@@ -91,7 +92,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(enable_qat_auto_engine_init_on_fork)                   \
             $(enable_qat_debug) $(enable_qat_warnings)               \
             $(enable_qat_mem_debug) $(enable_qat_mem_warnings)       \
-            $(enable_qat_cycle_counts)
+            $(enable_qat_cycle_counts) $(enable_qat_hw_sha3)
 
 
 qatengine_la_LDFLAGS = -module -no-undefined -avoid-version       \

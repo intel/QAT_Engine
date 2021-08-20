@@ -940,6 +940,13 @@ static int bind_qat(ENGINE *e, const char *id)
             goto end;
         }
 # endif
+
+# ifdef ENABLE_QAT_HW_SHA3
+        if (!ENGINE_set_digests(e, qat_digest_methods)) {
+            WARN("ENGINE_set_digests failed\n");
+            goto end;
+        }
+# endif
 #endif
     }
 
