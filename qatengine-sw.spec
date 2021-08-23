@@ -3,7 +3,7 @@
 %global githubname QAT_Engine
 %global enginesdir %(pkg-config --variable=enginesdir libcrypto)
 
-Name:           qatengine
+Name:           qatengine-sw
 Version:        0.6.8
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
@@ -18,14 +18,15 @@ Source0:        https://github.com/intel/%{githubname}/archive/v%{version}/%{nam
 BuildRequires:  gcc make pkg-config
 BuildRequires:  autoconf automake libtool
 BuildRequires:  openssl-devel >= 1.1.1
-BuildRequires:  qatlib-devel >= 20.10.0
+BuildRequires:  intel-ipsec-mb-devel >= 0.55.0
+BuildRequires:  intel-ipp-crypto-mb-devel >= 1.0.1
 # https://bugzilla.redhat.com/show_bug.cgi?id=1909065
 ExcludeArch:    %{arm} aarch64 %{power64} s390x i686
 
 %description
 This package provides the Intel QuickAssist Technology OpenSSL Engine
 (an OpenSSL Plug-In Engine) which provides cryptographic acceleration
-for both hardware and optimized software using Intel QuickAssist Technology
+for optimized software using Intel QuickAssist Technology
 enabled Intel platforms.
 
 %prep
@@ -33,7 +34,9 @@ enabled Intel platforms.
 
 %build
 autoreconf -ivf
-%configure
+
+%configure --enable-qat_sw
+
 %make_build
 
 %install
@@ -46,32 +49,5 @@ autoreconf -ivf
 %exclude %{enginesdir}/qatengine.la
 
 %changelog
-* Mon Aug 23 2021 Bernard Iremonger <bernard.iremonger@intel.com> - 0.6.8-1
-- Update to qatengine v0.6.8
-
-* Thu Jul 20 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.7-1
-- Update to qatengine v0.6.7
-
-* Thu May 20 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.6-1
-- Update to qatengine v0.6.6
-
-* Thu Mar 18 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.5-1
-- Update to qatengine v0.6.5
-- Update doc with additional docs
-
-* Wed Jan 27 2021 Fedora Release Engineering <releng@fedoraproject.org> - 0.6.4-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_34_Mass_Rebuild
-
-* Fri Dec 11 2020 Yogaraj Alamenda <yogarajx.alamenda@intel.com> 0.6.4-1
-- Update to qatengine v0.6.4
-
-* Mon Nov 30 2020 Yogaraj Alamenda <yogarajx.alamenda@intel.com> 0.6.3-1
-- Update to qatengine v0.6.3
-- Update License and library installation
-
-* Wed Nov 18 2020 Dinesh Balakrishnan <dineshx.balakrishnan@intel.com> 0.6.2-1
-- Update to qatengine v0.6.2
-- Address review comments
-
-* Tue Sep 08 2020 Dinesh Balakrishnan <dineshx.balakrishnan@intel.com> 0.6.1-1
+* Mon Aug 23 2021 Bernard Iremonger <bernard.iremonger@intel.com> 0.6.8-1
 - Initial version of rpm package

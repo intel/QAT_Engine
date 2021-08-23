@@ -104,7 +104,7 @@ qatengine_la_LDFLAGS = -module -no-undefined -avoid-version       \
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \
-	*.old *.bak fluff *.so *.sl *.dll
+	*.old *.bak fluff *.so *.sl *.dll test/*.obj testapp
 
 if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make
@@ -112,16 +112,18 @@ endif
 
 err-files:
 if QAT_OPENSSL_110
-	rm -rf e_qat_err* && perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+	rm -rf e_qat_err* && perl -I$(with_openssl_dir) \
+       $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
        -rebuild -reindex -nostatic -write *.c
-
 else
 if QAT_OPENSSL_3
 	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf qat_prov.ec \
        -rebuild -reindex *.c
 else
-	rm -f e_qat_err.c e_qat.txt && perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-	       -rebuild -reindex *.c
+	rm -f e_qat_err.c e_qat.txt && perl -I$(with_openssl_dir) \
+	   $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+	   -rebuild -reindex *.c
+endif
+endif
 
-endif
-endif
+include test.am

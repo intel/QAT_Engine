@@ -29,8 +29,8 @@ This release was validated on the following:
 * Operating system: Ubuntu 20.04.2 LTS
 * Kernel: 5.4.0-62-generic
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][1] release
-  version **IPP Crypto 2020 Update 3**
-* Intel&reg; Multi-Buffer crypto for IPsec Library release version **v0.55**
+  version **IPP Crypto 2021.3**
+* Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.0**
 * OpenSSL\* 1.1.1k
 
 [1]:https://github.com/intel/ipp-crypto

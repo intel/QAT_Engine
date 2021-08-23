@@ -528,6 +528,24 @@ qat_sw (Intel(R) Multi-Buffer Crypto for IPsec)
   ./openssl speed -engine qatengine -elapsed -evp aes-256-gcm
 ```
 </details>
+<details>
+<summary>Testing the Intel&reg; QuickAssist Technology OpenSSL* Engine using testapp utility</summary>
+
+## Testing the Intel&reg; QuickAssist Technology OpenSSL* Engine using testapp utility</summary>
+
+```text
+cd /path/to/qat_engine
+make test
+./testapp.sh QAT_HW (For testing algorithms supported by QAT_HW)
+./testapp.sh QAT_SW (For testing algorithms supported by QAT_SW)
+```
+The `testapp.sh` script will run the corresponding functional tests supported
+by QAT_HW and QAT_SW. Please note that the QAT Engine should be built with
+that support for the tests.
+
+Additional information for testapp tests available with the help option
+`./testapp -help`
+</details>
 
 ## Troubleshooting
 Troubleshooting information is available [here](docs/troubleshooting.md).

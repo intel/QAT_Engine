@@ -16,6 +16,7 @@ tags
 TAGS
 cscope.out
 /.dir-locals.el
+testapp.log
 
 # Top level and qat_contig_mem excludes
 *.mod*
@@ -34,8 +35,11 @@ qat_contig_mem_test
 *.exe
 *.lib
 *.la
+testapp
 
 # Autotools generated files
+test/.deps
+test/.dirstamp
 /.deps
 /.libs
 /m4

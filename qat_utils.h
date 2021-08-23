@@ -163,6 +163,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define WARN(...)
 # endif
 
+#  define INFO(fmt_str, ...)                                  \
+    do {                                                      \
+        fprintf(stderr,fmt_str, ##__VA_ARGS__);               \
+        fflush(stderr);                                       \
+    } while (0)
+
 # ifdef QAT_DEBUG
 #  define DUMP_DH_GEN_PHASE1(instance_handle, opData, pPV)                     \
     do {                                                                       \

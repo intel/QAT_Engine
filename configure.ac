@@ -2,11 +2,11 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [0.6.6], [])
+AC_INIT([qatengine], [0.6.8], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
-AM_INIT_AUTOMAKE([foreign])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 
 #Libtool for generating shared library
 LT_INIT
@@ -222,7 +222,7 @@ AC_SUBST(enable_qat_auto_engine_init_on_fork)
 AC_CHECK_FILE(${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h,
 	      [with_icp_sal_versions_h=yes],
 	      [with_icp_sal_versions_h=no])
-if test "x$with_icp_sal_versions_h" = "xyes"
+if test "x$with_icp_sal_versions_h" = "xyes" -a "x$enable_qat_sw" = "x"
 then
   if test `grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h | wc -l` = "1"
   then
@@ -250,10 +250,11 @@ then
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0])
     AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
     libdir="\$(with_openssl_install_dir)/lib/engines-3"
+    AC_SUBST([openssl_version], ["3"])
   else
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.x])
     libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
-    if test "`grep "define OPENSSL_VERSION_NUMBER  0x10100" $with_openssl_install_dir/include/openssl/opensslv.h | wc -l`" = "1"
+    if test "`grep "define OPENSSL_VERSION_NUMBER  0x101000" $with_openssl_install_dir/include/openssl/opensslv.h | wc -l`" = "1"
     then
       if test "x$with_openssl_dir" = "x"
       then
@@ -263,6 +264,7 @@ then
     fi
   fi
   AC_SUBST([includes_openssl], ["-I\$(with_openssl_install_dir)/include"])
+  AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
 else
   AC_PATH_TOOL(PKGCONFIG, pkg-config)
   AS_IF([test "x$PKGCONFIG" = "x"], [AC_MSG_ERROR(pkg-config not found.)], )
@@ -280,6 +282,7 @@ else
   fi
   AC_MSG_NOTICE([Install engine in the system OpenSSL enginesdir Path])
   AC_SUBST([includes_openssl], ["-I`pkg-config --variable=includedir libcrypto`"])
+  AC_SUBST([OPENSSL_LIB], ["-lcrypto"])
   AC_SUBST([libdir])
 fi
 AM_CONDITIONAL([QAT_OPENSSL_110], [test "x$cflags_openssl_110" != "x"])
@@ -331,9 +334,10 @@ then
       AC_SUBST([includes_qat_sw], ["-I/usr/local/include -I/usr/include"])
       if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
       then
-        with_qat_sw_install_dir="/usr/local"
+        AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
+                     [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/loca/lib -lcrypto_mb"])],
+                     [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
         AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-        AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_install_dir)/lib -L\$(with_qat_sw_install_dir)/lib -lcrypto_mb"])
       fi
       if test "x$ac_cv_lib_IPSec_MB_imb_get_version" = "xyes"
       then
