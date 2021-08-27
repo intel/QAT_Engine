@@ -49,16 +49,22 @@
 
 /* Local Includes */
 #include "e_qat.h"
+#include "qat_utils.h"
 #include "qat_sw_queue.h"
 #include "qat_sw_request.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
 
-int mb_queue_rsa2k_priv_create(mb_queue_rsa2k_priv *queue)
+mb_queue_rsa2k_priv * mb_queue_rsa2k_priv_create()
 {
+    mb_queue_rsa2k_priv *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_rsa2k_priv));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -72,7 +78,7 @@ int mb_queue_rsa2k_priv_create(mb_queue_rsa2k_priv *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv *queue)
@@ -96,17 +102,22 @@ int mb_queue_rsa2k_priv_cleanup(mb_queue_rsa2k_priv *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
 int mb_queue_rsa2k_priv_enqueue(mb_queue_rsa2k_priv *queue,
                                 rsa_priv_op_data *item)
 {
-    if (queue == NULL || item == NULL)
+    if (queue == NULL || item == NULL) {
+        DEBUG("Queue NULL\n");
         return 1;
+    }
 
     if (0 == enable_external_polling) {
         pthread_mutex_lock(&queue->mb_queue_mutex);
@@ -183,10 +194,15 @@ int mb_queue_rsa2k_priv_get_size(mb_queue_rsa2k_priv *queue)
     return queue->num_items;
 }
 
-int mb_queue_rsa2k_pub_create(mb_queue_rsa2k_pub *queue)
+mb_queue_rsa2k_pub * mb_queue_rsa2k_pub_create()
 {
+    mb_queue_rsa2k_pub *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_rsa2k_pub));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -200,7 +216,7 @@ int mb_queue_rsa2k_pub_create(mb_queue_rsa2k_pub *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_rsa2k_pub_disable(mb_queue_rsa2k_pub *queue)
@@ -224,17 +240,22 @@ int mb_queue_rsa2k_pub_cleanup(mb_queue_rsa2k_pub *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
 int mb_queue_rsa2k_pub_enqueue(mb_queue_rsa2k_pub *queue,
                                rsa_pub_op_data *item)
 {
-    if (queue == NULL || item == NULL)
+    if (queue == NULL || item == NULL) {
+        DEBUG("Queue NULL\n");
         return 1;
+    }
 
     if (0 == enable_external_polling) {
         pthread_mutex_lock(&queue->mb_queue_mutex);
@@ -311,10 +332,15 @@ int mb_queue_rsa2k_pub_get_size(mb_queue_rsa2k_pub *queue)
     return queue->num_items;
 }
 
-int mb_queue_rsa3k_priv_create(mb_queue_rsa3k_priv *queue)
+mb_queue_rsa3k_priv * mb_queue_rsa3k_priv_create()
 {
+    mb_queue_rsa3k_priv *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_rsa3k_priv));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -328,7 +354,7 @@ int mb_queue_rsa3k_priv_create(mb_queue_rsa3k_priv *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_rsa3k_priv_disable(mb_queue_rsa3k_priv *queue)
@@ -352,9 +378,12 @@ int mb_queue_rsa3k_priv_cleanup(mb_queue_rsa3k_priv *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -439,10 +468,15 @@ int mb_queue_rsa3k_priv_get_size(mb_queue_rsa3k_priv *queue)
     return queue->num_items;
 }
 
-int mb_queue_rsa3k_pub_create(mb_queue_rsa3k_pub *queue)
+mb_queue_rsa3k_pub * mb_queue_rsa3k_pub_create()
 {
+    mb_queue_rsa3k_pub *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_rsa3k_pub));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -456,7 +490,7 @@ int mb_queue_rsa3k_pub_create(mb_queue_rsa3k_pub *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_rsa3k_pub_disable(mb_queue_rsa3k_pub *queue)
@@ -480,9 +514,12 @@ int mb_queue_rsa3k_pub_cleanup(mb_queue_rsa3k_pub *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -567,10 +604,15 @@ int mb_queue_rsa3k_pub_get_size(mb_queue_rsa3k_pub *queue)
     return queue->num_items;
 }
 
-int mb_queue_rsa4k_priv_create(mb_queue_rsa4k_priv *queue)
+mb_queue_rsa4k_priv * mb_queue_rsa4k_priv_create()
 {
+    mb_queue_rsa4k_priv *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_rsa4k_priv));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -584,7 +626,7 @@ int mb_queue_rsa4k_priv_create(mb_queue_rsa4k_priv *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_rsa4k_priv_disable(mb_queue_rsa4k_priv *queue)
@@ -608,9 +650,12 @@ int mb_queue_rsa4k_priv_cleanup(mb_queue_rsa4k_priv *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -695,10 +740,15 @@ int mb_queue_rsa4k_priv_get_size(mb_queue_rsa4k_priv *queue)
     return queue->num_items;
 }
 
-int mb_queue_rsa4k_pub_create(mb_queue_rsa4k_pub *queue)
+mb_queue_rsa4k_pub * mb_queue_rsa4k_pub_create()
 {
+    mb_queue_rsa4k_pub *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_rsa4k_pub));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -712,7 +762,7 @@ int mb_queue_rsa4k_pub_create(mb_queue_rsa4k_pub *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_rsa4k_pub_disable(mb_queue_rsa4k_pub *queue)
@@ -736,9 +786,12 @@ int mb_queue_rsa4k_pub_cleanup(mb_queue_rsa4k_pub *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -823,10 +876,15 @@ int mb_queue_rsa4k_pub_get_size(mb_queue_rsa4k_pub *queue)
     return queue->num_items;
 }
 
-int mb_queue_x25519_keygen_create(mb_queue_x25519_keygen *queue)
+mb_queue_x25519_keygen * mb_queue_x25519_keygen_create()
 {
+    mb_queue_x25519_keygen *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_x25519_keygen));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -840,7 +898,7 @@ int mb_queue_x25519_keygen_create(mb_queue_x25519_keygen *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_x25519_keygen_disable(mb_queue_x25519_keygen *queue)
@@ -864,9 +922,12 @@ int mb_queue_x25519_keygen_cleanup(mb_queue_x25519_keygen *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -952,10 +1013,15 @@ int mb_queue_x25519_keygen_get_size(mb_queue_x25519_keygen *queue)
     return queue->num_items;
 }
 
-int mb_queue_x25519_derive_create(mb_queue_x25519_derive *queue)
+mb_queue_x25519_derive * mb_queue_x25519_derive_create()
 {
+    mb_queue_x25519_derive *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_x25519_derive));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -969,7 +1035,7 @@ int mb_queue_x25519_derive_create(mb_queue_x25519_derive *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_x25519_derive_disable(mb_queue_x25519_derive *queue)
@@ -993,9 +1059,12 @@ int mb_queue_x25519_derive_cleanup(mb_queue_x25519_derive *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -1080,10 +1149,15 @@ int mb_queue_x25519_derive_get_size(mb_queue_x25519_derive *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdsap256_sign_create(mb_queue_ecdsap256_sign *queue)
+mb_queue_ecdsap256_sign * mb_queue_ecdsap256_sign_create()
 {
+    mb_queue_ecdsap256_sign *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdsap256_sign));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1097,7 +1171,7 @@ int mb_queue_ecdsap256_sign_create(mb_queue_ecdsap256_sign *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdsap256_sign_disable(mb_queue_ecdsap256_sign *queue)
@@ -1121,9 +1195,12 @@ int mb_queue_ecdsap256_sign_cleanup(mb_queue_ecdsap256_sign *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -1209,10 +1286,15 @@ int mb_queue_ecdsap256_sign_get_size(mb_queue_ecdsap256_sign *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdsap256_sign_setup_create(mb_queue_ecdsap256_sign_setup *queue)
+mb_queue_ecdsap256_sign_setup * mb_queue_ecdsap256_sign_setup_create()
 {
+   mb_queue_ecdsap256_sign_setup *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdsap256_sign_setup));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1226,7 +1308,7 @@ int mb_queue_ecdsap256_sign_setup_create(mb_queue_ecdsap256_sign_setup *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdsap256_sign_setup_disable(mb_queue_ecdsap256_sign_setup *queue)
@@ -1250,9 +1332,12 @@ int mb_queue_ecdsap256_sign_setup_cleanup(mb_queue_ecdsap256_sign_setup *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -1338,10 +1423,15 @@ int mb_queue_ecdsap256_sign_setup_get_size(mb_queue_ecdsap256_sign_setup *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdsap256_sign_sig_create(mb_queue_ecdsap256_sign_sig *queue)
+mb_queue_ecdsap256_sign_sig * mb_queue_ecdsap256_sign_sig_create()
 {
+    mb_queue_ecdsap256_sign_sig *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdsap256_sign_sig));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1355,7 +1445,7 @@ int mb_queue_ecdsap256_sign_sig_create(mb_queue_ecdsap256_sign_sig *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdsap256_sign_sig_disable(mb_queue_ecdsap256_sign_sig *queue)
@@ -1379,9 +1469,12 @@ int mb_queue_ecdsap256_sign_sig_cleanup(mb_queue_ecdsap256_sign_sig *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -1467,10 +1560,15 @@ int mb_queue_ecdsap256_sign_sig_get_size(mb_queue_ecdsap256_sign_sig *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdhp256_keygen_create(mb_queue_ecdhp256_keygen *queue)
+mb_queue_ecdhp256_keygen * mb_queue_ecdhp256_keygen_create()
 {
+    mb_queue_ecdhp256_keygen *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdhp256_keygen));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1484,7 +1582,7 @@ int mb_queue_ecdhp256_keygen_create(mb_queue_ecdhp256_keygen *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdhp256_keygen_disable(mb_queue_ecdhp256_keygen *queue)
@@ -1508,9 +1606,12 @@ int mb_queue_ecdhp256_keygen_cleanup(mb_queue_ecdhp256_keygen *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -1597,10 +1698,15 @@ int mb_queue_ecdhp256_keygen_get_size(mb_queue_ecdhp256_keygen *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdhp256_compute_create(mb_queue_ecdhp256_compute *queue)
+mb_queue_ecdhp256_compute * mb_queue_ecdhp256_compute_create()
 {
+    mb_queue_ecdhp256_compute *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdhp256_compute));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1614,7 +1720,7 @@ int mb_queue_ecdhp256_compute_create(mb_queue_ecdhp256_compute *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdhp256_compute_disable(mb_queue_ecdhp256_compute *queue)
@@ -1638,9 +1744,12 @@ int mb_queue_ecdhp256_compute_cleanup(mb_queue_ecdhp256_compute *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -1726,10 +1835,15 @@ int mb_queue_ecdhp256_compute_get_size(mb_queue_ecdhp256_compute *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdhp384_keygen_create(mb_queue_ecdhp384_keygen *queue)
+mb_queue_ecdhp384_keygen * mb_queue_ecdhp384_keygen_create()
 {
+    mb_queue_ecdhp384_keygen *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdhp384_keygen));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1742,7 +1856,8 @@ int mb_queue_ecdhp384_keygen_create(mb_queue_ecdhp384_keygen *queue)
     if (0 == enable_external_polling) {
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
-    return 0;
+
+    return queue;
 }
 
 int mb_queue_ecdhp384_keygen_disable(mb_queue_ecdhp384_keygen *queue)
@@ -1765,9 +1880,12 @@ int mb_queue_ecdhp384_keygen_cleanup(mb_queue_ecdhp384_keygen *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -1849,10 +1967,15 @@ int mb_queue_ecdhp384_keygen_get_size(mb_queue_ecdhp384_keygen *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdhp384_compute_create(mb_queue_ecdhp384_compute *queue)
+mb_queue_ecdhp384_compute * mb_queue_ecdhp384_compute_create()
 {
+    mb_queue_ecdhp384_compute *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdhp384_compute));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1866,7 +1989,8 @@ int mb_queue_ecdhp384_compute_create(mb_queue_ecdhp384_compute *queue)
     if (0 == enable_external_polling) {
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
-    return 0;
+
+    return queue;
 }
 
 int mb_queue_ecdhp384_compute_disable(mb_queue_ecdhp384_compute *queue)
@@ -1889,14 +2013,17 @@ int mb_queue_ecdhp384_compute_cleanup(mb_queue_ecdhp384_compute *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
 int mb_queue_ecdhp384_compute_enqueue(mb_queue_ecdhp384_compute *queue,
-        ecdh_compute_op_data *item)
+                                      ecdh_compute_op_data *item)
 {
     if (queue == NULL || item == NULL)
         return 1;
@@ -1968,10 +2095,15 @@ int mb_queue_ecdhp384_compute_get_size(mb_queue_ecdhp384_compute *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdsap384_sign_create(mb_queue_ecdsap384_sign *queue)
+mb_queue_ecdsap384_sign * mb_queue_ecdsap384_sign_create()
 {
+    mb_queue_ecdsap384_sign *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdsap384_sign));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -1985,7 +2117,7 @@ int mb_queue_ecdsap384_sign_create(mb_queue_ecdsap384_sign *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdsap384_sign_disable(mb_queue_ecdsap384_sign *queue)
@@ -2009,9 +2141,12 @@ int mb_queue_ecdsap384_sign_cleanup(mb_queue_ecdsap384_sign *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -2096,10 +2231,15 @@ int mb_queue_ecdsap384_sign_get_size(mb_queue_ecdsap384_sign *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdsap384_sign_setup_create(mb_queue_ecdsap384_sign_setup *queue)
+mb_queue_ecdsap384_sign_setup * mb_queue_ecdsap384_sign_setup_create()
 {
+    mb_queue_ecdsap384_sign_setup *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdsap384_sign_setup));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -2113,7 +2253,7 @@ int mb_queue_ecdsap384_sign_setup_create(mb_queue_ecdsap384_sign_setup *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdsap384_sign_setup_disable(mb_queue_ecdsap384_sign_setup *queue)
@@ -2137,9 +2277,12 @@ int mb_queue_ecdsap384_sign_setup_cleanup(mb_queue_ecdsap384_sign_setup *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 
@@ -2224,10 +2367,15 @@ int mb_queue_ecdsap384_sign_setup_get_size(mb_queue_ecdsap384_sign_setup *queue)
     return queue->num_items;
 }
 
-int mb_queue_ecdsap384_sign_sig_create(mb_queue_ecdsap384_sign_sig *queue)
+mb_queue_ecdsap384_sign_sig * mb_queue_ecdsap384_sign_sig_create()
 {
+    mb_queue_ecdsap384_sign_sig *queue = NULL;
+
+    queue = OPENSSL_zalloc(sizeof(mb_queue_ecdsap384_sign_sig));
     if (queue == NULL)
-        return 1;
+        return NULL;
+
+    DEBUG("Queue Created %p\n", queue);
 
     if (0 == enable_external_polling) {
         pthread_mutex_init(&queue->mb_queue_mutex, NULL);
@@ -2241,7 +2389,7 @@ int mb_queue_ecdsap384_sign_sig_create(mb_queue_ecdsap384_sign_sig *queue)
         pthread_mutex_unlock(&queue->mb_queue_mutex);
     }
 
-    return 0;
+    return queue;
 }
 
 int mb_queue_ecdsap384_sign_sig_disable(mb_queue_ecdsap384_sign_sig *queue)
@@ -2265,9 +2413,12 @@ int mb_queue_ecdsap384_sign_sig_cleanup(mb_queue_ecdsap384_sign_sig *queue)
     if (queue == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&queue->mb_queue_mutex);
+        OPENSSL_free(queue);
     }
+
+    DEBUG("Queue Freed%p\n", queue);
     return 0;
 }
 

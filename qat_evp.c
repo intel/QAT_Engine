@@ -182,8 +182,12 @@ static const EVP_MD *qat_create_digest_meth(int nid , int pkeytype)
         case NID_sha3_256:
         case NID_sha3_384:
         case NID_sha3_512:
+#ifdef QAT_HW
+# ifdef ENABLE_QAT_HW_SHA3
             if (qat_hw_offload)
                 return qat_create_sha3_meth(nid , pkeytype);
+# endif
+#endif
         default:
             WARN("Invalid nid %d\n", nid);
             return NULL;

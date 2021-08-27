@@ -31,7 +31,6 @@ static ERR_STRING_DATA QAT_str_functs[] = {
     {ERR_PACK(0, QAT_F_MB_ECDSA_SIGN_SETUP, 0), "mb_ecdsa_sign_setup"},
     {ERR_PACK(0, QAT_F_MB_ECDSA_SIGN_SIG, 0), "mb_ecdsa_sign_sig"},
     {ERR_PACK(0, QAT_F_MB_GET_EC_METHODS, 0), "mb_get_EC_methods"},
-    {ERR_PACK(0, QAT_F_MULTIBUFF_FINISH_INT, 0), "multibuff_finish_int"},
     {ERR_PACK(0, QAT_F_MULTIBUFF_GET_RSA_METHODS, 0),
      "multibuff_get_RSA_methods"},
     {ERR_PACK(0, QAT_F_MULTIBUFF_INIT, 0), "multibuff_init"},

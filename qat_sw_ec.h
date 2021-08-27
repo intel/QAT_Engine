@@ -54,10 +54,10 @@
 EC_KEY_METHOD *mb_get_EC_methods(void);
 
 void mb_free_EC_methods(void);
-void process_ecdsa_sign_reqs(int bits);
-void process_ecdsa_sign_setup_reqs(int bits);
-void process_ecdsa_sign_sig_reqs(int bits);
-void process_ecdh_keygen_reqs(int bits);
-void process_ecdh_compute_reqs(int bits);
+void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bits);
+void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bits);
+void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bits);
+void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bits);
+void process_ecdh_compute_reqs(mb_thread_data *tlv, int bits);
 
 #endif /* QAT_SW_EC_H */

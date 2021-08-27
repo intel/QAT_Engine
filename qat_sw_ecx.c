@@ -118,7 +118,7 @@ EVP_PKEY_METHOD *multibuff_x25519_pmeth(void)
     return _hidden_x25519_pmeth;
 }
 
-void process_x25519_keygen_reqs()
+void process_x25519_keygen_reqs(mb_thread_data *tlv)
 {
     x25519_keygen_op_data *x25519_keygen_req_array[MULTIBUFF_BATCH] = {0};
     const unsigned char *x25519_keygen_privkey[MULTIBUFF_BATCH] = {0};
@@ -131,7 +131,7 @@ void process_x25519_keygen_reqs()
 
     /* Build Arrays of pointers for call */
     while ((x25519_keygen_req_array[req_num] =
-            mb_queue_x25519_keygen_dequeue(&x25519_keygen_queue)) != NULL) {
+            mb_queue_x25519_keygen_dequeue(tlv->x25519_keygen_queue)) != NULL) {
         x25519_keygen_privkey[req_num] = x25519_keygen_req_array[req_num]->privkey;
         x25519_keygen_pubkey[req_num] = x25519_keygen_req_array[req_num]->pubkey;
 
@@ -161,7 +161,7 @@ void process_x25519_keygen_reqs()
         }
         OPENSSL_cleanse(x25519_keygen_req_array[req_num],
                         sizeof(x25519_keygen_op_data));
-        mb_flist_x25519_keygen_push(&x25519_keygen_freelist,
+        mb_flist_x25519_keygen_push(tlv->x25519_keygen_freelist,
                                     x25519_keygen_req_array[req_num]);
     }
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
@@ -172,7 +172,7 @@ void process_x25519_keygen_reqs()
     DEBUG("Processed Final Request\n");
 }
 
-void process_x25519_derive_reqs()
+void process_x25519_derive_reqs(mb_thread_data *tlv)
 {
     x25519_derive_op_data *x25519_derive_req_array[MULTIBUFF_BATCH] = {0};
     const unsigned char *x25519_derive_privkey[MULTIBUFF_BATCH] = {0};
@@ -186,7 +186,7 @@ void process_x25519_derive_reqs()
 
     /* Build Arrays of pointers for call */
     while ((x25519_derive_req_array[req_num] =
-            mb_queue_x25519_derive_dequeue(&x25519_derive_queue)) != NULL) {
+            mb_queue_x25519_derive_dequeue(tlv->x25519_derive_queue)) != NULL) {
         x25519_derive_privkey[req_num] = x25519_derive_req_array[req_num]->privkey;
         x25519_derive_pubkey[req_num] = x25519_derive_req_array[req_num]->pubkey;
         x25519_derive_sharedkey[req_num] = x25519_derive_req_array[req_num]->key;
@@ -216,7 +216,7 @@ void process_x25519_derive_reqs()
         }
         OPENSSL_cleanse(x25519_derive_req_array[req_num],
                         sizeof(x25519_derive_op_data));
-        mb_flist_x25519_derive_push(&x25519_derive_freelist,
+        mb_flist_x25519_derive_push(tlv->x25519_derive_freelist,
                                     x25519_derive_req_array[req_num]);
     }
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
@@ -235,6 +235,7 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
     MB_ECX_KEY *key = NULL;
     unsigned char *privkey = NULL, *pubkey = NULL;
+    mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
     /* Check input parameters */
@@ -256,8 +257,14 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         goto use_sw_method;
     }
 
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
     while ((x25519_keygen_req =
-            mb_flist_x25519_keygen_pop(&x25519_keygen_freelist)) == NULL) {
+            mb_flist_x25519_keygen_pop(tlv->x25519_keygen_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -294,12 +301,13 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     x25519_keygen_req->pubkey =  pubkey;
     x25519_keygen_req->job = job;
     x25519_keygen_req->sts = &sts;
-    mb_queue_x25519_keygen_enqueue(&x25519_keygen_queue, x25519_keygen_req);
+
+    mb_queue_x25519_keygen_enqueue(tlv->x25519_keygen_queue, x25519_keygen_req);
     STOP_RDTSC(&x25519_cycles_keygen_setup, 1, "[X25519:keygen_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
@@ -396,6 +404,7 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     x25519_derive_op_data *x25519_derive_req = NULL;
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
     const unsigned char *privkey, *pubkey;
+    mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
     if (unlikely(ctx == NULL)) {
@@ -421,8 +430,14 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
         goto use_sw_method;
     }
 
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
     while ((x25519_derive_req =
-            mb_flist_x25519_derive_pop(&x25519_derive_freelist)) == NULL) {
+            mb_flist_x25519_derive_pop(tlv->x25519_derive_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -440,13 +455,14 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     x25519_derive_req->pubkey = pubkey;
     x25519_derive_req->job = job;
     x25519_derive_req->sts = &sts;
-    mb_queue_x25519_derive_enqueue(&x25519_derive_queue, x25519_derive_req);
+
+    mb_queue_x25519_derive_enqueue(tlv->x25519_derive_queue, x25519_derive_req);
     STOP_RDTSC(&x25519_cycles_derive_setup, 1, "[X25519:derive_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("pthread_kill error\n");
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
+            WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }

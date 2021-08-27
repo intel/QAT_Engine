@@ -223,7 +223,7 @@ static inline int mb_ec_check_curve(int curve_type)
 }
 
 #ifndef DISABLE_QAT_SW_ECDSA
-void process_ecdsa_sign_reqs(int bit_len)
+void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
 {
     ecdsa_sign_op_data *ecdsa_sign_req_array[MULTIBUFF_BATCH] = {0};
     unsigned char *sign_r[MULTIBUFF_BATCH] = {0};
@@ -242,7 +242,7 @@ void process_ecdsa_sign_reqs(int bit_len)
     case EC_P256_LENGTH:
         DEBUG("Dequeue ECDSA p256 sign reqs.\n");
         while ((ecdsa_sign_req_array[req_num] =
-                mb_queue_ecdsap256_sign_dequeue(&ecdsap256_sign_queue)) != NULL) {
+                mb_queue_ecdsap256_sign_dequeue(tlv->ecdsap256_sign_queue)) != NULL) {
             sign_r[req_num] = ecdsa_sign_req_array[req_num]->sign_r;
             sign_s[req_num] = ecdsa_sign_req_array[req_num]->sign_s;
             digest[req_num] = ecdsa_sign_req_array[req_num]->digest;
@@ -257,7 +257,7 @@ void process_ecdsa_sign_reqs(int bit_len)
     case EC_P384_LENGTH:
         DEBUG("Dequeue ECDSA p384 sign reqs.\n");
         while ((ecdsa_sign_req_array[req_num] =
-                mb_queue_ecdsap384_sign_dequeue(&ecdsap384_sign_queue)) != NULL) {
+                mb_queue_ecdsap384_sign_dequeue(tlv->ecdsap384_sign_queue)) != NULL) {
             sign_r[req_num] = ecdsa_sign_req_array[req_num]->sign_r;
             sign_s[req_num] = ecdsa_sign_req_array[req_num]->sign_s;
             digest[req_num] = ecdsa_sign_req_array[req_num]->digest;
@@ -310,7 +310,7 @@ void process_ecdsa_sign_reqs(int bit_len)
         }
         OPENSSL_cleanse(ecdsa_sign_req_array[req_num],
                         sizeof(ecdsa_sign_op_data));
-        mb_flist_ecdsa_sign_push(&ecdsa_sign_freelist,
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist,
                                  ecdsa_sign_req_array[req_num]);
     }
 
@@ -329,7 +329,7 @@ void process_ecdsa_sign_reqs(int bit_len)
     DEBUG("Processed Final Request\n");
 }
 
-void process_ecdsa_sign_setup_reqs(int bit_len)
+void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bit_len)
 {
     ecdsa_sign_setup_op_data *ecdsa_sign_setup_req_array[MULTIBUFF_BATCH] = {0};
     BIGNUM *k_inv[MULTIBUFF_BATCH] = {0};
@@ -346,7 +346,7 @@ void process_ecdsa_sign_setup_reqs(int bit_len)
     case EC_P256_LENGTH:
         DEBUG("Dequeue ECDSA p256 sign setup reqs.\n");
         while ((ecdsa_sign_setup_req_array[req_num] =
-                mb_queue_ecdsap256_sign_setup_dequeue(&ecdsap256_sign_setup_queue)) != NULL) {
+                mb_queue_ecdsap256_sign_setup_dequeue(tlv->ecdsap256_sign_setup_queue)) != NULL) {
             k_inv[req_num] = ecdsa_sign_setup_req_array[req_num]->k_inv;
             sig_rp[req_num] = ecdsa_sign_setup_req_array[req_num]->sig_rp;
             eph_key[req_num] = ecdsa_sign_setup_req_array[req_num]->eph_key;
@@ -359,7 +359,7 @@ void process_ecdsa_sign_setup_reqs(int bit_len)
     case EC_P384_LENGTH:
         DEBUG("Dequeue ECDSA p384 sign setup reqs.\n");
         while ((ecdsa_sign_setup_req_array[req_num] =
-                mb_queue_ecdsap384_sign_setup_dequeue(&ecdsap384_sign_setup_queue)) != NULL) {
+                mb_queue_ecdsap384_sign_setup_dequeue(tlv->ecdsap384_sign_setup_queue)) != NULL) {
             k_inv[req_num] = ecdsa_sign_setup_req_array[req_num]->k_inv;
             sig_rp[req_num] = ecdsa_sign_setup_req_array[req_num]->sig_rp;
             eph_key[req_num] = ecdsa_sign_setup_req_array[req_num]->eph_key;
@@ -406,7 +406,7 @@ void process_ecdsa_sign_setup_reqs(int bit_len)
         }
         OPENSSL_cleanse(ecdsa_sign_setup_req_array[req_num],
                         sizeof(ecdsa_sign_setup_op_data));
-        mb_flist_ecdsa_sign_setup_push(&ecdsa_sign_setup_freelist,
+        mb_flist_ecdsa_sign_setup_push(tlv->ecdsa_sign_setup_freelist,
                                        ecdsa_sign_setup_req_array[req_num]);
     }
 
@@ -425,7 +425,7 @@ void process_ecdsa_sign_setup_reqs(int bit_len)
     DEBUG("Processed Final Request\n");
 }
 
-void process_ecdsa_sign_sig_reqs(int bit_len)
+void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
 {
     ecdsa_sign_sig_op_data *ecdsa_sign_sig_req_array[MULTIBUFF_BATCH] = {0};
     unsigned char *sign_r[MULTIBUFF_BATCH] = {0};
@@ -445,7 +445,7 @@ void process_ecdsa_sign_sig_reqs(int bit_len)
     case EC_P256_LENGTH:
         DEBUG("Dequeue ECDSA p256 sign sig reqs.\n");
         while ((ecdsa_sign_sig_req_array[req_num] =
-                mb_queue_ecdsap256_sign_sig_dequeue(&ecdsap256_sign_sig_queue)) != NULL) {
+                mb_queue_ecdsap256_sign_sig_dequeue(tlv->ecdsap256_sign_sig_queue)) != NULL) {
             sign_r[req_num] = ecdsa_sign_sig_req_array[req_num]->sign_r;
             sign_s[req_num] = ecdsa_sign_sig_req_array[req_num]->sign_s;
             digest[req_num] = ecdsa_sign_sig_req_array[req_num]->digest;
@@ -461,7 +461,7 @@ void process_ecdsa_sign_sig_reqs(int bit_len)
     case EC_P384_LENGTH:
         DEBUG("Dequeue ECDSA p384 sign sig reqs.\n");
         while ((ecdsa_sign_sig_req_array[req_num] =
-                mb_queue_ecdsap384_sign_sig_dequeue(&ecdsap384_sign_sig_queue)) != NULL) {
+                mb_queue_ecdsap384_sign_sig_dequeue(tlv->ecdsap384_sign_sig_queue)) != NULL) {
             sign_r[req_num] = ecdsa_sign_sig_req_array[req_num]->sign_r;
             sign_s[req_num] = ecdsa_sign_sig_req_array[req_num]->sign_s;
             digest[req_num] = ecdsa_sign_sig_req_array[req_num]->digest;
@@ -517,7 +517,7 @@ void process_ecdsa_sign_sig_reqs(int bit_len)
         }
         OPENSSL_cleanse(ecdsa_sign_sig_req_array[req_num],
                         sizeof(ecdsa_sign_sig_op_data));
-        mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist,
+        mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist,
                                      ecdsa_sign_sig_req_array[req_num]);
     }
 
@@ -531,7 +531,7 @@ void process_ecdsa_sign_sig_reqs(int bit_len)
 #endif
 
 #ifndef DISABLE_QAT_SW_ECDH
-void process_ecdh_keygen_reqs(int bit_len)
+void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
 {
     ecdh_keygen_op_data *ecdh_keygen_req_array[MULTIBUFF_BATCH] = {0};
     BIGNUM *ecdh_keygen_x[MULTIBUFF_BATCH] = {0};
@@ -550,7 +550,7 @@ void process_ecdh_keygen_reqs(int bit_len)
     case EC_P256_LENGTH:
         DEBUG("Dequeue ECDHP256 keygen reqs.\n");
         while ((ecdh_keygen_req_array[req_num] =
-                mb_queue_ecdhp256_keygen_dequeue(&ecdhp256_keygen_queue)) != NULL) {
+                mb_queue_ecdhp256_keygen_dequeue(tlv->ecdhp256_keygen_queue)) != NULL) {
         ecdh_keygen_x[req_num] = ecdh_keygen_req_array[req_num]->x;
         ecdh_keygen_y[req_num] = ecdh_keygen_req_array[req_num]->y;
         ecdh_keygen_z[req_num] = ecdh_keygen_req_array[req_num]->z;
@@ -564,7 +564,7 @@ void process_ecdh_keygen_reqs(int bit_len)
     case EC_P384_LENGTH:
         DEBUG("Dequeue ECDHP384 keygen reqs.\n");
         while ((ecdh_keygen_req_array[req_num] =
-                mb_queue_ecdhp384_keygen_dequeue(&ecdhp384_keygen_queue)) != NULL) {
+                mb_queue_ecdhp384_keygen_dequeue(tlv->ecdhp384_keygen_queue)) != NULL) {
         ecdh_keygen_x[req_num] = ecdh_keygen_req_array[req_num]->x;
         ecdh_keygen_y[req_num] = ecdh_keygen_req_array[req_num]->y;
         ecdh_keygen_z[req_num] = ecdh_keygen_req_array[req_num]->z;
@@ -617,7 +617,7 @@ void process_ecdh_keygen_reqs(int bit_len)
         }
         OPENSSL_cleanse(ecdh_keygen_req_array[req_num],
                         sizeof(ecdh_keygen_op_data));
-        mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist,
+        mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist,
                                   ecdh_keygen_req_array[req_num]);
     }
 
@@ -636,7 +636,7 @@ void process_ecdh_keygen_reqs(int bit_len)
     DEBUG("Processed Final Request\n");
 }
 
-void process_ecdh_compute_reqs(int bit_len)
+void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
 {
     ecdh_compute_op_data *ecdh_compute_req_array[MULTIBUFF_BATCH] = {0};
     unsigned char *ecdh_compute_shared_key[MULTIBUFF_BATCH] = {0};
@@ -656,7 +656,7 @@ void process_ecdh_compute_reqs(int bit_len)
     case EC_P256_LENGTH:
 	    DEBUG("Dequeue ECDHP256 compute reqs.\n");
         while ((ecdh_compute_req_array[req_num] =
-                mb_queue_ecdhp256_compute_dequeue(&ecdhp256_compute_queue)) != NULL) {
+                mb_queue_ecdhp256_compute_dequeue(tlv->ecdhp256_compute_queue)) != NULL) {
         ecdh_compute_shared_key[req_num] = ecdh_compute_req_array[req_num]->shared_key;
         ecdh_compute_privkey[req_num] = ecdh_compute_req_array[req_num]->priv_key;
         ecdh_compute_x[req_num] = ecdh_compute_req_array[req_num]->x;
@@ -671,7 +671,7 @@ void process_ecdh_compute_reqs(int bit_len)
 	case EC_P384_LENGTH:
         DEBUG("Dequeue ECDHP384 compute reqs.\n");
         while ((ecdh_compute_req_array[req_num] =
-                mb_queue_ecdhp384_compute_dequeue(&ecdhp384_compute_queue)) != NULL) {
+                mb_queue_ecdhp384_compute_dequeue(tlv->ecdhp384_compute_queue)) != NULL) {
         ecdh_compute_shared_key[req_num] = ecdh_compute_req_array[req_num]->shared_key;
         ecdh_compute_privkey[req_num] = ecdh_compute_req_array[req_num]->priv_key;
         ecdh_compute_x[req_num] = ecdh_compute_req_array[req_num]->x;
@@ -724,7 +724,7 @@ void process_ecdh_compute_reqs(int bit_len)
         }
         OPENSSL_cleanse(ecdh_compute_req_array[req_num],
                         sizeof(ecdh_compute_op_data));
-        mb_flist_ecdh_compute_push(&ecdh_compute_freelist,
+        mb_flist_ecdh_compute_push(tlv->ecdh_compute_freelist,
                                    ecdh_compute_req_array[req_num]);
     }
 
@@ -764,6 +764,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     unsigned char *dgst_buf = NULL;
     PFUNC_SIGN sign_pfunc = NULL;
     ecdsa_sign_op_data *ecdsa_sign_req = NULL;
+    mb_thread_data *tlv = NULL;
 
     DEBUG("Entering \n");
     if (unlikely(dgst == NULL || dlen <= 0 ||
@@ -809,8 +810,14 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         return ret;
     }
 
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
     while ((ecdsa_sign_req =
-            mb_flist_ecdsa_sign_pop(&ecdsa_sign_freelist)) == NULL) {
+            mb_flist_ecdsa_sign_pop(tlv->ecdsa_sign_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -822,7 +829,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
      * requests buffered up */
 
     if ((s = ECDSA_SIG_new()) == NULL) {
-        mb_flist_ecdsa_sign_push(&ecdsa_sign_freelist, ecdsa_sign_req);
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
         WARN("Failure to allocate ECDSA_SIG\n");
         QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_ECDSA_SIG_MALLOC_FAILURE);
         return ret;
@@ -833,14 +840,14 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 
     /* NULL checking of ecdsa_sig_r & ecdsa_sig_s done in ECDSA_SIG_set0() */
     if (ECDSA_SIG_set0(s, ecdsa_sig_r, ecdsa_sig_s) == 0) {
-        mb_flist_ecdsa_sign_push(&ecdsa_sign_freelist, ecdsa_sign_req);
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
         WARN("Failure to allocate r and s values to assign to the ECDSA_SIG\n");
         QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_ECDSA_SIG_SET_R_S_FAILURE);
         goto err;
     }
 
     if ((ctx = BN_CTX_new()) == NULL) {
-        mb_flist_ecdsa_sign_push(&ecdsa_sign_freelist, ecdsa_sign_req);
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
         WARN("Failure to allocate ctx\n");
         QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_CTX_MALLOC_FAILURE);
         goto err;
@@ -850,7 +857,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     k = BN_CTX_get(ctx);
 
     if ((order = EC_GROUP_get0_order(group)) ==  NULL) {
-        mb_flist_ecdsa_sign_push(&ecdsa_sign_freelist, ecdsa_sign_req);
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
         WARN("Failure to get order from group\n");
         QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_GET_ORDER_FAILURE);
         goto err;
@@ -864,7 +871,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     if (8 * dlen < len) {
         dgst_buf = OPENSSL_zalloc(buflen);
         if (dgst_buf == NULL) {
-            mb_flist_ecdsa_sign_push(&ecdsa_sign_freelist, ecdsa_sign_req);
+            mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
             WARN("Failure to allocate dgst_buf\n");
             QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_ECDSA_MALLOC_FAILURE);
             goto err;
@@ -879,7 +886,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         /* Get random k */
         do {
             if (!BN_priv_rand_range(k, order)) {
-                mb_flist_ecdsa_sign_push(&ecdsa_sign_freelist, ecdsa_sign_req);
+                mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
                 WARN("Failure in BN_priv_rand_range\n");
                 QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_RAND_GENERATE_FAILURE);
                 goto err;
@@ -900,17 +907,17 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 
     switch (bit_len) {
     case EC_P256_LENGTH:
-        mb_queue_ecdsap256_sign_enqueue(&ecdsap256_sign_queue, ecdsa_sign_req);
+        mb_queue_ecdsap256_sign_enqueue(tlv->ecdsap256_sign_queue, ecdsa_sign_req);
         break;
     case EC_P384_LENGTH:
-        mb_queue_ecdsap384_sign_enqueue(&ecdsap384_sign_queue, ecdsa_sign_req);
+        mb_queue_ecdsap384_sign_enqueue(tlv->ecdsap384_sign_queue, ecdsa_sign_req);
         break;
     }
     STOP_RDTSC(&ecdsa_cycles_sign_setup, 1, "[ECDSA:sign_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
@@ -987,6 +994,7 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
     BIGNUM *k = NULL, *r = NULL;
     PFUNC_SIGN_SETUP sign_setup_pfunc = NULL;
     ecdsa_sign_setup_op_data *ecdsa_sign_setup_req = NULL;
+    mb_thread_data *tlv = NULL;
 
     DEBUG("Entering\n" );
     if (eckey == NULL || (group = EC_KEY_get0_group(eckey)) == NULL
@@ -1021,8 +1029,14 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
         return ret;
     }
 
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
     while ((ecdsa_sign_setup_req =
-            mb_flist_ecdsa_sign_setup_pop(&ecdsa_sign_setup_freelist)) == NULL) {
+            mb_flist_ecdsa_sign_setup_pop(tlv->ecdsa_sign_setup_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -1036,7 +1050,7 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
     k = BN_new();
     r = BN_new();
     if (k == NULL || r == NULL) {
-        mb_flist_ecdsa_sign_setup_push(&ecdsa_sign_setup_freelist, ecdsa_sign_setup_req);
+        mb_flist_ecdsa_sign_setup_push(tlv->ecdsa_sign_setup_freelist, ecdsa_sign_setup_req);
         WARN("Failure to allocate k or r\n");
         QATerr(QAT_F_MB_ECDSA_SIGN_SETUP, QAT_R_ECDSA_MALLOC_FAILURE);
         goto err;
@@ -1050,17 +1064,17 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
 
     switch (bit_len) {
     case EC_P256_LENGTH:
-        mb_queue_ecdsap256_sign_setup_enqueue(&ecdsap256_sign_setup_queue, ecdsa_sign_setup_req);
+        mb_queue_ecdsap256_sign_setup_enqueue(tlv->ecdsap256_sign_setup_queue, ecdsa_sign_setup_req);
         break;
     case EC_P384_LENGTH:
-        mb_queue_ecdsap384_sign_setup_enqueue(&ecdsap384_sign_setup_queue, ecdsa_sign_setup_req);
+        mb_queue_ecdsap384_sign_setup_enqueue(tlv->ecdsap384_sign_setup_queue, ecdsa_sign_setup_req);
         break;
     }
     STOP_RDTSC(&ecdsa_cycles_sign_setup_setup, 1, "[ECDSA:sign_setup_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
@@ -1136,6 +1150,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
     BIGNUM *kinv = NULL, *rp = NULL;
     PFUNC_SIGN_SIG sign_sig_pfunc = NULL;
     ecdsa_sign_sig_op_data *ecdsa_sign_sig_req = NULL;
+    mb_thread_data *tlv = NULL;
 
     DEBUG("Entering\n" );
     if (unlikely(dgst == NULL || dlen <= 0 ||
@@ -1180,8 +1195,14 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
         return NULL;
     }
 
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
     while ((ecdsa_sign_sig_req =
-            mb_flist_ecdsa_sign_sig_pop(&ecdsa_sign_sig_freelist)) == NULL) {
+            mb_flist_ecdsa_sign_sig_pop(tlv->ecdsa_sign_sig_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -1194,7 +1215,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 
     ret = ECDSA_SIG_new();
     if (ret == NULL) {
-        mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
+        mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
         WARN("Failure to allocate sig\n");
         QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_MALLOC_FAILURE);
         return NULL;
@@ -1205,14 +1226,14 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 
     /* NULL checking of ecdsa_sig_r & ecdsa_sig_s done in ECDSA_SIG_set0() */
     if (ECDSA_SIG_set0(ret, ecdsa_sig_r, ecdsa_sig_s) == 0) {
-        mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
+        mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
         WARN("Failure to allocate r and s values to assign to the ECDSA_SIG\n");
         QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_ECDSA_SIG_SET_R_S_FAILURE);
         goto err;
     }
 
     if ((ctx = BN_CTX_new()) == NULL) {
-        mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
+        mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
         WARN("Failure to allocate ctx\n");
         QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_CTX_MALLOC_FAILURE);
         goto err;
@@ -1220,7 +1241,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 
     BN_CTX_start(ctx);
     if ((order = EC_GROUP_get0_order(group)) ==  NULL) {
-        mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
+        mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
         WARN("Failure to get order from group\n");
         QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_GET_ORDER_FAILURE);
         goto err;
@@ -1234,7 +1255,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
     if (8 * dlen < len) {
         dgst_buf = OPENSSL_zalloc(buflen);
         if (dgst_buf == NULL) {
-            mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
+            mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
             WARN("Failure to allocate dgst_buf\n");
             QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_ECDSA_MALLOC_FAILURE);
             goto err;
@@ -1247,7 +1268,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 
     if (in_kinv == NULL || in_r == NULL) {
         if (!ECDSA_sign_setup(eckey, ctx, &kinv, &rp)) {
-            mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
+            mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
             WARN("Failure in sign setup\n");
             QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_ECDSA_SIGN_SETUP_FAILURE);
             goto err;
@@ -1258,7 +1279,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 
     sig_buf = OPENSSL_malloc(buflen + buflen);
     if (sig_buf == NULL) {
-        mb_flist_ecdsa_sign_sig_push(&ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
+        mb_flist_ecdsa_sign_sig_push(tlv->ecdsa_sign_sig_freelist, ecdsa_sign_sig_req);
         WARN("Failure to allocate sig_buf\n");
         QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_ECDSA_MALLOC_FAILURE);
         goto err;
@@ -1275,17 +1296,17 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 
     switch (bit_len) {
     case EC_P256_LENGTH:
-        mb_queue_ecdsap256_sign_sig_enqueue(&ecdsap256_sign_sig_queue, ecdsa_sign_sig_req);
+        mb_queue_ecdsap256_sign_sig_enqueue(tlv->ecdsap256_sign_sig_queue, ecdsa_sign_sig_req);
         break;
     case EC_P384_LENGTH:
-        mb_queue_ecdsap384_sign_sig_enqueue(&ecdsap384_sign_sig_queue, ecdsa_sign_sig_req);
+        mb_queue_ecdsap384_sign_sig_enqueue(tlv->ecdsap384_sign_sig_queue, ecdsa_sign_sig_req);
         break;
     }
     STOP_RDTSC(&ecdsa_cycles_sign_sig_setup, 1, "[ECDSA:sign_sig_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
@@ -1360,6 +1381,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     ecdh_keygen_op_data *ecdh_keygen_req = NULL;
     ASYNC_JOB *job;
     static __thread int req_num = 0;
+    mb_thread_data *tlv = NULL;
 
     if (unlikely(ecdh == NULL || ((group = EC_KEY_get0_group(ecdh)) == NULL))) {
         WARN("Either ecdh or group are NULL\n");
@@ -1386,8 +1408,14 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
         goto use_sw_method;
     }
 
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
     while ((ecdh_keygen_req =
-            mb_flist_ecdh_keygen_pop(&ecdh_keygen_freelist)) == NULL) {
+            mb_flist_ecdh_keygen_pop(tlv->ecdh_keygen_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -1396,7 +1424,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     START_RDTSC(&ecdh_cycles_keygen_setup);
 
     if ((ctx = BN_CTX_new()) == NULL) {
-        mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist, ecdh_keygen_req);
+        mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist, ecdh_keygen_req);
         WARN("Failure to allocate ctx\n");
         QATerr(QAT_F_MB_ECDH_GENERATE_KEY, QAT_R_CTX_MALLOC_FAILURE);
         goto err;
@@ -1404,7 +1432,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
 
     BN_CTX_start(ctx);
     if ((order = EC_GROUP_get0_order(group)) ==  NULL) {
-        mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist, ecdh_keygen_req);
+        mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist, ecdh_keygen_req);
         WARN("Failure to retrieve order\n");
         QATerr(QAT_F_MB_ECDH_GENERATE_KEY, QAT_R_GET_ORDER_FAILURE);
         goto err;
@@ -1413,7 +1441,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     if ((priv_key = (BIGNUM *)EC_KEY_get0_private_key(ecdh)) == NULL) {
         priv_key = BN_new();
         if (priv_key == NULL) {
-            mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist, ecdh_keygen_req);
+            mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist, ecdh_keygen_req);
             WARN("Failure to get priv_key\n");
             QATerr(QAT_F_MB_ECDH_GENERATE_KEY, QAT_R_GET_PRIV_KEY_FAILURE);
             goto err;
@@ -1423,7 +1451,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
 
     do {
         if (!BN_priv_rand_range(priv_key, order)) {
-            mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist, ecdh_keygen_req);
+            mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist, ecdh_keygen_req);
             WARN("Failure to generate random value\n");
             QATerr(QAT_F_MB_ECDH_GENERATE_KEY,
                    QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE);
@@ -1433,7 +1461,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
 
     if (alloc_priv) {
         if (!EC_KEY_set_private_key(ecdh, priv_key)) {
-            mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist, ecdh_keygen_req);
+            mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist, ecdh_keygen_req);
             WARN("Failure to set private key\n");
             QATerr(QAT_F_MB_ECDH_GENERATE_KEY, QAT_R_SET_PRIV_KEY_FAILURE);
             goto err;
@@ -1443,7 +1471,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     if ((pub_key = (EC_POINT *)EC_KEY_get0_public_key(ecdh)) == NULL) {
         pub_key = EC_POINT_new(group);
         if (pub_key == NULL) {
-            mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist, ecdh_keygen_req);
+            mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist, ecdh_keygen_req);
             WARN("Failure to allocate pub_key\n");
             QATerr(QAT_F_MB_ECDH_GENERATE_KEY, QAT_R_PUB_KEY_MALLOC_FAILURE);
             goto err;
@@ -1456,7 +1484,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     z = BN_CTX_get(ctx);
 
     if (x == NULL || y == NULL || z == NULL) {
-        mb_flist_ecdh_keygen_push(&ecdh_keygen_freelist, ecdh_keygen_req);
+        mb_flist_ecdh_keygen_push(tlv->ecdh_keygen_freelist, ecdh_keygen_req);
         WARN("Failed to allocate x or y or z\n");
         QATerr(QAT_F_MB_ECDH_GENERATE_KEY, QAT_R_X_Y_Z_MALLOC_FAILURE);
         goto err;
@@ -1471,17 +1499,17 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
 
     switch (bit_len) {
     case EC_P256_LENGTH:
-        mb_queue_ecdhp256_keygen_enqueue(&ecdhp256_keygen_queue, ecdh_keygen_req);
+        mb_queue_ecdhp256_keygen_enqueue(tlv->ecdhp256_keygen_queue, ecdh_keygen_req);
         break;
     case EC_P384_LENGTH:
-        mb_queue_ecdhp384_keygen_enqueue(&ecdhp384_keygen_queue, ecdh_keygen_req);
+        mb_queue_ecdhp384_keygen_enqueue(tlv->ecdhp384_keygen_queue, ecdh_keygen_req);
         break;
     }
     STOP_RDTSC(&ecdh_cycles_keygen_setup, 1, "[ECDH:keygen_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
@@ -1560,6 +1588,7 @@ int mb_ecdh_compute_key(unsigned char **out,
     ASYNC_JOB *job;
     size_t buflen;
     static __thread int req_num = 0;
+    mb_thread_data *tlv = NULL;
 
     if (unlikely(ecdh == NULL || pub_key == NULL ||
                 ((priv_key = EC_KEY_get0_private_key(ecdh)) == NULL) ||
@@ -1588,8 +1617,14 @@ int mb_ecdh_compute_key(unsigned char **out,
         goto use_sw_method;
     }
 
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
     while ((ecdh_compute_req =
-            mb_flist_ecdh_compute_pop(&ecdh_compute_freelist)) == NULL) {
+            mb_flist_ecdh_compute_pop(tlv->ecdh_compute_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -1598,7 +1633,7 @@ int mb_ecdh_compute_key(unsigned char **out,
     START_RDTSC(&ecdh_cycles_compute_setup);
 
     if ((ctx = BN_CTX_new()) == NULL) {
-        mb_flist_ecdh_compute_push(&ecdh_compute_freelist, ecdh_compute_req);
+        mb_flist_ecdh_compute_push(tlv->ecdh_compute_freelist, ecdh_compute_req);
         WARN("Failure to allocate ctx\n");
         QATerr(QAT_F_MB_ECDH_COMPUTE_KEY, QAT_R_CTX_MALLOC_FAILURE);
         goto err;
@@ -1610,7 +1645,7 @@ int mb_ecdh_compute_key(unsigned char **out,
     z = BN_CTX_get(ctx);
 
     if (x == NULL || y == NULL || z == NULL) {
-        mb_flist_ecdh_compute_push(&ecdh_compute_freelist, ecdh_compute_req);
+        mb_flist_ecdh_compute_push(tlv->ecdh_compute_freelist, ecdh_compute_req);
         WARN("Failed to allocate x or y or z\n");
         QATerr(QAT_F_MB_ECDH_COMPUTE_KEY, QAT_R_X_Y_Z_MALLOC_FAILURE);
         goto err;
@@ -1619,14 +1654,14 @@ int mb_ecdh_compute_key(unsigned char **out,
     buflen = (EC_GROUP_get_degree(group) + 7) / 8;
 
     if ((buf = OPENSSL_zalloc(buflen)) == NULL) {
-        mb_flist_ecdh_compute_push(&ecdh_compute_freelist, ecdh_compute_req);
+        mb_flist_ecdh_compute_push(tlv->ecdh_compute_freelist, ecdh_compute_req);
         WARN("Failed to allocate buf\n");
         QATerr(QAT_F_MB_ECDH_COMPUTE_KEY, ERR_R_MALLOC_FAILURE);
         goto err;
     }
 
     if (!EC_POINT_get_Jprojective_coordinates_GFp(group, pub_key, x, y, z,ctx)) {
-        mb_flist_ecdh_compute_push(&ecdh_compute_freelist, ecdh_compute_req);
+        mb_flist_ecdh_compute_push(tlv->ecdh_compute_freelist, ecdh_compute_req);
         WARN("Failure to get the Jacobian coordinates for public Key\n");
         QATerr(QAT_F_MB_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -1642,17 +1677,17 @@ int mb_ecdh_compute_key(unsigned char **out,
 
     switch (bit_len) {
     case EC_P256_LENGTH:
-        mb_queue_ecdhp256_compute_enqueue(&ecdhp256_compute_queue, ecdh_compute_req);
+        mb_queue_ecdhp256_compute_enqueue(tlv->ecdhp256_compute_queue, ecdh_compute_req);
         break;
     case EC_P384_LENGTH:
-        mb_queue_ecdhp384_compute_enqueue(&ecdhp384_compute_queue, ecdh_compute_req);
+        mb_queue_ecdhp384_compute_enqueue(tlv->ecdhp384_compute_queue, ecdh_compute_req);
         break;
     }
     STOP_RDTSC(&ecdh_cycles_compute_setup, 1, "[ECDH:compute_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */

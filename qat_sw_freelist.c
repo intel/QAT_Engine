@@ -51,31 +51,41 @@
 #include "e_qat.h"
 #include "qat_sw_freelist.h"
 #include "qat_sw_request.h"
+#include "e_qat_err.h"
+#include "qat_utils.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
 
-int mb_flist_rsa_priv_create(mb_flist_rsa_priv *freelist, int num_items)
+mb_flist_rsa_priv * mb_flist_rsa_priv_create()
 {
+    mb_flist_rsa_priv *freelist = NULL;
     rsa_priv_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_rsa_priv));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(rsa_priv_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_rsa_priv_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_rsa_priv_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_rsa_priv_push(freelist, item) != 0) {
+            mb_flist_rsa_priv_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_rsa_priv_cleanup(mb_flist_rsa_priv *freelist)
@@ -91,6 +101,7 @@ int mb_flist_rsa_priv_cleanup(mb_flist_rsa_priv *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -141,27 +152,35 @@ rsa_priv_op_data *mb_flist_rsa_priv_pop(mb_flist_rsa_priv *freelist)
     return item;
 }
 
-int mb_flist_rsa_pub_create(mb_flist_rsa_pub *freelist, int num_items)
+mb_flist_rsa_pub * mb_flist_rsa_pub_create()
 {
+    mb_flist_rsa_pub *freelist = NULL;
     rsa_pub_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_rsa_pub));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(rsa_pub_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_rsa_pub_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_rsa_pub_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_rsa_pub_push(freelist, item) != 0) {
+            mb_flist_rsa_pub_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_rsa_pub_cleanup(mb_flist_rsa_pub *freelist)
@@ -177,6 +196,7 @@ int mb_flist_rsa_pub_cleanup(mb_flist_rsa_pub *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -227,28 +247,35 @@ rsa_pub_op_data * mb_flist_rsa_pub_pop(mb_flist_rsa_pub *freelist)
     return item;
 }
 
-int mb_flist_x25519_keygen_create(mb_flist_x25519_keygen *freelist,
-                                  int num_items)
+mb_flist_x25519_keygen * mb_flist_x25519_keygen_create()
 {
+    mb_flist_x25519_keygen *freelist = NULL;
     x25519_keygen_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_x25519_keygen));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(x25519_keygen_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_x25519_keygen_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_x25519_keygen_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_x25519_keygen_push(freelist, item) != 0) {
+            mb_flist_x25519_keygen_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_x25519_keygen_cleanup(mb_flist_x25519_keygen *freelist)
@@ -264,6 +291,7 @@ int mb_flist_x25519_keygen_cleanup(mb_flist_x25519_keygen *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -315,28 +343,35 @@ x25519_keygen_op_data *mb_flist_x25519_keygen_pop(mb_flist_x25519_keygen *freeli
     return item;
 }
 
-int mb_flist_x25519_derive_create(mb_flist_x25519_derive *freelist,
-                                  int num_items)
+mb_flist_x25519_derive *mb_flist_x25519_derive_create()
 {
+    mb_flist_x25519_derive *freelist = NULL;
     x25519_derive_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_x25519_derive));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(x25519_derive_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_x25519_derive_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_x25519_derive_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_x25519_derive_push(freelist, item) != 0) {
+            mb_flist_x25519_derive_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_x25519_derive_cleanup(mb_flist_x25519_derive *freelist)
@@ -352,6 +387,7 @@ int mb_flist_x25519_derive_cleanup(mb_flist_x25519_derive *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -403,28 +439,35 @@ x25519_derive_op_data *mb_flist_x25519_derive_pop(mb_flist_x25519_derive *freeli
     return item;
 }
 
-int mb_flist_ecdsa_sign_create(mb_flist_ecdsa_sign *freelist,
-                               int num_items)
+mb_flist_ecdsa_sign * mb_flist_ecdsa_sign_create()
 {
+    mb_flist_ecdsa_sign *freelist = NULL;
     ecdsa_sign_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdsa_sign));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(ecdsa_sign_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_ecdsa_sign_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_ecdsa_sign_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdsa_sign_push(freelist, item) != 0) {
+            mb_flist_ecdsa_sign_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_ecdsa_sign_cleanup(mb_flist_ecdsa_sign *freelist)
@@ -440,6 +483,7 @@ int mb_flist_ecdsa_sign_cleanup(mb_flist_ecdsa_sign *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -492,28 +536,35 @@ ecdsa_sign_op_data
     return item;
 }
 
-int mb_flist_ecdsa_sign_setup_create(mb_flist_ecdsa_sign_setup *freelist,
-                                     int num_items)
+mb_flist_ecdsa_sign_setup * mb_flist_ecdsa_sign_setup_create()
 {
+    mb_flist_ecdsa_sign_setup *freelist = NULL;
     ecdsa_sign_setup_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdsa_sign_setup));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(ecdsa_sign_setup_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_ecdsa_sign_setup_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_ecdsa_sign_setup_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdsa_sign_setup_push(freelist, item) != 0) {
+            mb_flist_ecdsa_sign_setup_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_ecdsa_sign_setup_cleanup(mb_flist_ecdsa_sign_setup *freelist)
@@ -529,6 +580,7 @@ int mb_flist_ecdsa_sign_setup_cleanup(mb_flist_ecdsa_sign_setup *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -581,28 +633,35 @@ ecdsa_sign_setup_op_data
     return item;
 }
 
-int mb_flist_ecdsa_sign_sig_create(mb_flist_ecdsa_sign_sig *freelist,
-                                   int num_items)
+mb_flist_ecdsa_sign_sig * mb_flist_ecdsa_sign_sig_create()
 {
+    mb_flist_ecdsa_sign_sig *freelist = NULL;
     ecdsa_sign_sig_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdsa_sign_sig));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(ecdsa_sign_sig_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_ecdsa_sign_sig_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_ecdsa_sign_sig_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdsa_sign_sig_push(freelist, item) != 0) {
+            mb_flist_ecdsa_sign_sig_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_ecdsa_sign_sig_cleanup(mb_flist_ecdsa_sign_sig *freelist)
@@ -618,6 +677,7 @@ int mb_flist_ecdsa_sign_sig_cleanup(mb_flist_ecdsa_sign_sig *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -670,28 +730,35 @@ ecdsa_sign_sig_op_data
     return item;
 }
 
-int mb_flist_ecdh_keygen_create(mb_flist_ecdh_keygen *freelist,
-                                int num_items)
+mb_flist_ecdh_keygen * mb_flist_ecdh_keygen_create()
 {
+    mb_flist_ecdh_keygen *freelist = NULL;
     ecdh_keygen_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdh_keygen));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(ecdh_keygen_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_ecdh_keygen_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_ecdh_keygen_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdh_keygen_push(freelist, item) != 0) {
+            mb_flist_ecdh_keygen_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_ecdh_keygen_cleanup(mb_flist_ecdh_keygen *freelist)
@@ -707,6 +774,7 @@ int mb_flist_ecdh_keygen_cleanup(mb_flist_ecdh_keygen *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }
@@ -759,28 +827,35 @@ ecdh_keygen_op_data
     return item;
 }
 
-int mb_flist_ecdh_compute_create(mb_flist_ecdh_compute *freelist,
-                                 int num_items)
+mb_flist_ecdh_compute * mb_flist_ecdh_compute_create()
 {
+    mb_flist_ecdh_compute *freelist = NULL;
     ecdh_compute_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
 
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdh_compute));
     if (freelist == NULL)
-        return 1;
+        return NULL;
 
-    if (0 == enable_external_polling) {
+    if (0 == enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
-    }
+
+    DEBUG("Freelist Created %p\n", freelist);
     freelist->head = NULL;
 
     while (num_items > 0) {
         item = OPENSSL_zalloc(sizeof(ecdh_compute_op_data));
-        if (item == NULL)
-            return 1;
-        if (mb_flist_ecdh_compute_push(freelist, item) != 0)
-            return 1;
+        if (item == NULL) {
+            mb_flist_ecdh_compute_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdh_compute_push(freelist, item) != 0) {
+            mb_flist_ecdh_compute_cleanup(freelist);
+            return NULL;
+        }
         num_items--;
     }
-    return 0;
+    return freelist;
 }
 
 int mb_flist_ecdh_compute_cleanup(mb_flist_ecdh_compute *freelist)
@@ -796,6 +871,7 @@ int mb_flist_ecdh_compute_cleanup(mb_flist_ecdh_compute *freelist)
 
     if (0 == enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
     }
     return 0;
 }

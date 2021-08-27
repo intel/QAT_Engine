@@ -169,7 +169,6 @@ int enable_external_polling = 0;
 int enable_heuristic_polling = 0;
 pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t qat_polling_thread;
-pthread_t multibuff_polling_thread;
 
 /* QAT number of inflight requests */
 int num_requests_in_flight = 0;
@@ -183,7 +182,6 @@ int num_cipher_mb_items_in_queue = 0;
 
 sigset_t set = {{0}};
 pthread_t qat_timer_poll_func_thread = 0;
-pthread_t multibuff_timer_poll_func_thread = 0;
 int cleared_to_start = 0;
 int qat_sw_ipsec = 0;
 
@@ -212,43 +210,9 @@ int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 #ifdef QAT_SW
 /* RSA */
 BIGNUM *e_check = NULL;
-mb_flist_rsa_priv rsa_priv_freelist;
-mb_flist_rsa_pub rsa_pub_freelist;
-mb_queue_rsa2k_priv rsa2k_priv_queue;
-mb_queue_rsa2k_pub rsa2k_pub_queue;
-mb_queue_rsa3k_priv rsa3k_priv_queue;
-mb_queue_rsa3k_pub rsa3k_pub_queue;
-mb_queue_rsa4k_priv rsa4k_priv_queue;
-mb_queue_rsa4k_pub rsa4k_pub_queue;
 
-/* X25519 */
-mb_flist_x25519_keygen x25519_keygen_freelist;
-mb_flist_x25519_derive x25519_derive_freelist;
-mb_queue_x25519_keygen x25519_keygen_queue;
-mb_queue_x25519_derive x25519_derive_queue;
-
-/* ECDSA p256 */
-mb_flist_ecdsa_sign ecdsa_sign_freelist;
-mb_flist_ecdsa_sign_setup ecdsa_sign_setup_freelist;
-mb_flist_ecdsa_sign_sig ecdsa_sign_sig_freelist;
-mb_queue_ecdsap256_sign ecdsap256_sign_queue;
-mb_queue_ecdsap256_sign_setup ecdsap256_sign_setup_queue;
-mb_queue_ecdsap256_sign_sig ecdsap256_sign_sig_queue;
-
-/* ECDSA p384 */
-mb_queue_ecdsap384_sign ecdsap384_sign_queue;
-mb_queue_ecdsap384_sign_setup ecdsap384_sign_setup_queue;
-mb_queue_ecdsap384_sign_sig ecdsap384_sign_sig_queue;
-
-/* ECDH p256*/
-mb_flist_ecdh_keygen ecdh_keygen_freelist;
-mb_flist_ecdh_compute ecdh_compute_freelist;
-mb_queue_ecdhp256_keygen ecdhp256_keygen_queue;
-mb_queue_ecdhp256_compute ecdhp256_compute_queue;
-
-/* ECDH p384*/
-mb_queue_ecdhp384_keygen ecdhp384_keygen_queue;
-mb_queue_ecdhp384_compute ecdhp384_compute_queue;
+mb_thread_data *mb_tlv = NULL;
+pthread_key_t mb_thread_key;
 #endif
 
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {

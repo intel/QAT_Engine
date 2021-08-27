@@ -30,5 +30,9 @@
 * Support for QAT HW ECX, QAT SW ECX, QAT HW PRF and QAT HW HKDF is disabled when built
   against OpenSSL 3.0 due to known issues instead it uses non-accelerated implementation
   from OpenSSL.
+* There is known performance scaling issue (performance drop with threads >32)
+  with ECDSA Ciphers in the QAT Software acceleration using multithread mode
+  in the Haproxy application. This issue is not observed when using RSA ciphers
+  or in multi-process mode.
 
 [1]:https://github.com/openssl/openssl/pull/2581

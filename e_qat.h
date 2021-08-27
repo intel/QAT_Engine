@@ -291,6 +291,11 @@ typedef struct {
  * for processing in one go.
  */
 # define MULTIBUFF_BATCH 8
+
+/*
+ * Max number of multi-buffer Polling threads
+ */
+# define NUM_POLL_THREADS 128
 #endif
 
 /* Qat engine id declaration */
@@ -309,7 +314,6 @@ extern int enable_external_polling;
 extern int enable_heuristic_polling;
 extern pthread_mutex_t qat_engine_mutex;
 extern pthread_t qat_polling_thread;
-extern pthread_t multibuff_polling_thread;
 
 extern int num_requests_in_flight;
 extern int num_asym_requests_in_flight;
@@ -321,7 +325,6 @@ extern int num_cipher_mb_items_in_queue;
 
 extern sigset_t set;
 extern pthread_t qat_timer_poll_func_thread;
-extern pthread_t multibuff_timer_poll_func_thread;
 extern int cleared_to_start;
 extern int qat_sw_ipsec;
 
@@ -349,43 +352,8 @@ extern int qat_max_retry_count;
 # ifdef QAT_SW
 /* RSA */
 extern BIGNUM *e_check;
-extern mb_flist_rsa_priv rsa_priv_freelist;
-extern mb_flist_rsa_pub rsa_pub_freelist;
-extern mb_queue_rsa2k_priv rsa2k_priv_queue;
-extern mb_queue_rsa2k_pub rsa2k_pub_queue;
-extern mb_queue_rsa3k_priv rsa3k_priv_queue;
-extern mb_queue_rsa3k_pub rsa3k_pub_queue;
-extern mb_queue_rsa4k_priv rsa4k_priv_queue;
-extern mb_queue_rsa4k_pub rsa4k_pub_queue;
-
-/* X25519 */
-extern mb_flist_x25519_keygen x25519_keygen_freelist;
-extern mb_flist_x25519_derive x25519_derive_freelist;
-extern mb_queue_x25519_keygen x25519_keygen_queue;
-extern mb_queue_x25519_derive x25519_derive_queue;
-
-/* ECDSA p256 */
-extern mb_flist_ecdsa_sign ecdsa_sign_freelist;
-extern mb_flist_ecdsa_sign_setup ecdsa_sign_setup_freelist;
-extern mb_flist_ecdsa_sign_sig ecdsa_sign_sig_freelist;
-extern mb_queue_ecdsap256_sign ecdsap256_sign_queue;
-extern mb_queue_ecdsap256_sign_setup ecdsap256_sign_setup_queue;
-extern mb_queue_ecdsap256_sign_sig ecdsap256_sign_sig_queue;
-
-/* ECDSA p384 */
-extern mb_queue_ecdsap384_sign ecdsap384_sign_queue;
-extern mb_queue_ecdsap384_sign_setup ecdsap384_sign_setup_queue;
-extern mb_queue_ecdsap384_sign_sig ecdsap384_sign_sig_queue;
-
-/*ECDH p256*/
-extern mb_flist_ecdh_keygen ecdh_keygen_freelist;
-extern mb_flist_ecdh_compute ecdh_compute_freelist;
-extern mb_queue_ecdhp256_keygen ecdhp256_keygen_queue;
-extern mb_queue_ecdhp256_compute ecdhp256_compute_queue;
-
-/*ECDH p384*/
-extern mb_queue_ecdhp384_keygen ecdhp384_keygen_queue;
-extern mb_queue_ecdhp384_compute ecdhp384_compute_queue;
+extern mb_thread_data *mb_tlv;
+extern pthread_key_t mb_thread_key;
 
 typedef struct _mb_req_rates {
     int req_this_period;
@@ -661,6 +629,18 @@ int multibuff_init(ENGINE *e);
  *   QAT_RETAIN_GLOBALS
  ******************************************************************************/
 int multibuff_finish_int(ENGINE *e, int reset_globals);
+
+
+/******************************************************************************
+ * function:
+ *         mb_check_thread_local(ENGINE *e, int reset_globals)
+ *
+ * description:
+ *   Check if the thread has thread local pointer created using the key
+ *   if not thread local memory polling thread will be created and stored on the
+ *   Heap.
+ ******************************************************************************/
+mb_thread_data *mb_check_thread_local(void);
 
 # endif
 #endif   /* E_QAT_H */

@@ -60,7 +60,7 @@ RSA_METHOD *multibuff_get_RSA_methods(void);
 
 void multibuff_free_RSA_methods(void);
 
-void process_RSA_priv_reqs(int rsa_bits);
-void process_RSA_pub_reqs(int rsa_bits);
+void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits);
+void process_RSA_pub_reqs(mb_thread_data *tlv, int rsa_bits);
 
 #endif /* QAT_SW_RSA_H */

@@ -356,7 +356,7 @@ int qat_init(ENGINE *e)
     int ret_pthread_sigmask;
     Cpa32U package_id = 0;
 
-    DEBUG("QAT initialization:\n");
+    DEBUG("QAT_HW initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
     DEBUG("- Heuristic polling: %s\n", enable_heuristic_polling ? "ON": "OFF");
     DEBUG("- SW Fallback: %s\n", enable_sw_fallback ? "ON": "OFF");

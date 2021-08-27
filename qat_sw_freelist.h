@@ -49,6 +49,7 @@
 
 # include <stdio.h>
 # include "qat_sw_request.h"
+# include "qat_sw_queue.h"
 
 typedef struct _mb_flist_rsa_priv
 {
@@ -104,59 +105,101 @@ typedef struct _mb_flist_ecdh_compute
     ecdh_compute_op_data *head;
 } mb_flist_ecdh_compute;
 
-int mb_flist_rsa_priv_create(mb_flist_rsa_priv *freelist, int num_items);
+typedef struct _mb_thread_data{
+    pthread_t polling_thread;
+    int keep_polling;
+    sigset_t set;
+    /* RSA */
+    mb_flist_rsa_priv *rsa_priv_freelist;
+    mb_flist_rsa_pub *rsa_pub_freelist;
+    mb_queue_rsa2k_priv *rsa2k_priv_queue;
+    mb_queue_rsa2k_pub *rsa2k_pub_queue;
+    mb_queue_rsa3k_priv *rsa3k_priv_queue;
+    mb_queue_rsa3k_pub *rsa3k_pub_queue;
+    mb_queue_rsa4k_priv *rsa4k_priv_queue;
+    mb_queue_rsa4k_pub *rsa4k_pub_queue;
+
+    /* X25519 */
+    mb_flist_x25519_keygen *x25519_keygen_freelist;
+    mb_flist_x25519_derive *x25519_derive_freelist;
+    mb_queue_x25519_keygen *x25519_keygen_queue;
+    mb_queue_x25519_derive *x25519_derive_queue;
+
+    /* ECDSA p256 */
+    mb_flist_ecdsa_sign *ecdsa_sign_freelist;
+    mb_flist_ecdsa_sign_setup *ecdsa_sign_setup_freelist;
+    mb_flist_ecdsa_sign_sig *ecdsa_sign_sig_freelist;
+    mb_queue_ecdsap256_sign *ecdsap256_sign_queue;
+    mb_queue_ecdsap256_sign_setup *ecdsap256_sign_setup_queue;
+    mb_queue_ecdsap256_sign_sig *ecdsap256_sign_sig_queue;
+
+    /* ECDSA p384 */
+    mb_queue_ecdsap384_sign *ecdsap384_sign_queue;
+    mb_queue_ecdsap384_sign_setup *ecdsap384_sign_setup_queue;
+    mb_queue_ecdsap384_sign_sig *ecdsap384_sign_sig_queue;
+
+    /* ECDH p256*/
+    mb_flist_ecdh_keygen *ecdh_keygen_freelist;
+    mb_flist_ecdh_compute *ecdh_compute_freelist;
+    mb_queue_ecdhp256_keygen *ecdhp256_keygen_queue;
+    mb_queue_ecdhp256_compute *ecdhp256_compute_queue;
+
+    /* ECDH p384*/
+    mb_queue_ecdhp384_keygen *ecdhp384_keygen_queue;
+    mb_queue_ecdhp384_compute *ecdhp384_compute_queue;
+
+} mb_thread_data;
+
+mb_flist_rsa_priv * mb_flist_rsa_priv_create();
 int mb_flist_rsa_priv_cleanup(mb_flist_rsa_priv *freelist);
 int mb_flist_rsa_priv_push(mb_flist_rsa_priv *freelist, rsa_priv_op_data *item);
 rsa_priv_op_data * mb_flist_rsa_priv_pop(mb_flist_rsa_priv *flist);
 
-int mb_flist_rsa_pub_create(mb_flist_rsa_pub *freelist, int num_items);
+mb_flist_rsa_pub * mb_flist_rsa_pub_create();
 int mb_flist_rsa_pub_cleanup(mb_flist_rsa_pub *freelist);
 int mb_flist_rsa_pub_push(mb_flist_rsa_pub *freelist, rsa_pub_op_data *item);
 rsa_pub_op_data * mb_flist_rsa_pub_pop(mb_flist_rsa_pub *flist);
 
-int mb_flist_x25519_keygen_create(mb_flist_x25519_keygen *freelist, int num_items);
+mb_flist_x25519_keygen * mb_flist_x25519_keygen_create();
 int mb_flist_x25519_keygen_cleanup(mb_flist_x25519_keygen *freelist);
 int mb_flist_x25519_keygen_push(mb_flist_x25519_keygen *freelist,
                                 x25519_keygen_op_data *item);
 x25519_keygen_op_data * mb_flist_x25519_keygen_pop(mb_flist_x25519_keygen *flist);
 
-int mb_flist_x25519_derive_create(mb_flist_x25519_derive *freelist, int num_items);
+mb_flist_x25519_derive * mb_flist_x25519_derive_create();
 int mb_flist_x25519_derive_cleanup(mb_flist_x25519_derive *freelist);
 int mb_flist_x25519_derive_push(mb_flist_x25519_derive *freelist,
                                 x25519_derive_op_data *item);
 x25519_derive_op_data * mb_flist_x25519_derive_pop(mb_flist_x25519_derive *flist);
 
-int mb_flist_ecdsa_sign_create(mb_flist_ecdsa_sign *freelist, int num_items);
+mb_flist_ecdsa_sign * mb_flist_ecdsa_sign_create();
 int mb_flist_ecdsa_sign_cleanup(mb_flist_ecdsa_sign *freelist);
 int mb_flist_ecdsa_sign_push(mb_flist_ecdsa_sign *freelist,
                              ecdsa_sign_op_data *item);
 ecdsa_sign_op_data
     *mb_flist_ecdsa_sign_pop(mb_flist_ecdsa_sign *flist);
 
-int mb_flist_ecdsa_sign_setup_create(mb_flist_ecdsa_sign_setup *freelist,
-                                     int num_items);
+mb_flist_ecdsa_sign_setup * mb_flist_ecdsa_sign_setup_create();
 int mb_flist_ecdsa_sign_setup_cleanup(mb_flist_ecdsa_sign_setup *freelist);
 int mb_flist_ecdsa_sign_setup_push(mb_flist_ecdsa_sign_setup *freelist,
                                    ecdsa_sign_setup_op_data *item);
 ecdsa_sign_setup_op_data
     *mb_flist_ecdsa_sign_setup_pop(mb_flist_ecdsa_sign_setup *flist);
 
-int mb_flist_ecdsa_sign_sig_create(mb_flist_ecdsa_sign_sig *freelist,
-                                   int num_items);
+mb_flist_ecdsa_sign_sig * mb_flist_ecdsa_sign_sig_create();
 int mb_flist_ecdsa_sign_sig_cleanup(mb_flist_ecdsa_sign_sig *freelist);
 int mb_flist_ecdsa_sign_sig_push(mb_flist_ecdsa_sign_sig *freelist,
                                  ecdsa_sign_sig_op_data *item);
 ecdsa_sign_sig_op_data
     *mb_flist_ecdsa_sign_sig_pop(mb_flist_ecdsa_sign_sig *flist);
 
-int mb_flist_ecdh_keygen_create(mb_flist_ecdh_keygen *freelist, int num_items);
+mb_flist_ecdh_keygen * mb_flist_ecdh_keygen_create();
 int mb_flist_ecdh_keygen_cleanup(mb_flist_ecdh_keygen *freelist);
 int mb_flist_ecdh_keygen_push(mb_flist_ecdh_keygen *freelist,
                               ecdh_keygen_op_data *item);
 ecdh_keygen_op_data *mb_flist_ecdh_keygen_pop(mb_flist_ecdh_keygen *flist);
 
-int mb_flist_ecdh_compute_create(mb_flist_ecdh_compute *freelist,
-                                 int num_items);
+mb_flist_ecdh_compute * mb_flist_ecdh_compute_create();
 int mb_flist_ecdh_compute_cleanup(mb_flist_ecdh_compute *freelist);
 int mb_flist_ecdh_compute_push(mb_flist_ecdh_compute *freelist,
                                ecdh_compute_op_data *item);

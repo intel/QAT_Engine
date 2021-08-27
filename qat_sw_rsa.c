@@ -345,7 +345,7 @@ static int multibuff_rsa_add_padding_pub_enc(const unsigned char *from,
     return padding_result;
 }
 
-void process_RSA_priv_reqs(int rsa_bits)
+void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits)
 {
     rsa_priv_op_data *rsa_priv_req_array[MULTIBUFF_BATCH] = {0};
     const unsigned char *rsa_priv_from[MULTIBUFF_BATCH] = {0};
@@ -367,7 +367,7 @@ void process_RSA_priv_reqs(int rsa_bits)
     case RSA_2K_LENGTH:
         DEBUG("Dequeue RSA2K priv reqs.\n");
         while ((rsa_priv_req_array[req_num] =
-                mb_queue_rsa2k_priv_dequeue(&rsa2k_priv_queue)) != NULL) {
+                mb_queue_rsa2k_priv_dequeue(tlv->rsa2k_priv_queue)) != NULL) {
             rsa_priv_from[req_num] = rsa_priv_req_array[req_num]->from;
             if (rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
                 rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->padded_buf;
@@ -387,7 +387,7 @@ void process_RSA_priv_reqs(int rsa_bits)
     case RSA_3K_LENGTH:
         DEBUG("Dequeue RSA3K priv reqs.\n");
         while ((rsa_priv_req_array[req_num] =
-                mb_queue_rsa3k_priv_dequeue(&rsa3k_priv_queue)) != NULL) {
+                mb_queue_rsa3k_priv_dequeue(tlv->rsa3k_priv_queue)) != NULL) {
             rsa_priv_from[req_num] = rsa_priv_req_array[req_num]->from;
             if (rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
                 rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->padded_buf;
@@ -407,7 +407,7 @@ void process_RSA_priv_reqs(int rsa_bits)
     case RSA_4K_LENGTH:
          DEBUG("Dequeue RSA4K priv reqs.\n");
          while ((rsa_priv_req_array[req_num] =
-                 mb_queue_rsa4k_priv_dequeue(&rsa4k_priv_queue)) != NULL) {
+                 mb_queue_rsa4k_priv_dequeue(tlv->rsa4k_priv_queue)) != NULL) {
              rsa_priv_from[req_num] = rsa_priv_req_array[req_num]->from;
              if (rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
                  rsa_priv_to[req_num] = rsa_priv_req_array[req_num]->padded_buf;
@@ -509,10 +509,10 @@ void process_RSA_priv_reqs(int rsa_bits)
                 qat_wake_job(rsa_priv_req_array[req_num]->job, ASYNC_STATUS_OK);
             }
             OPENSSL_cleanse(rsa_priv_req_array[req_num], sizeof(rsa_priv_op_data));
-            mb_flist_rsa_priv_push(&rsa_priv_freelist, rsa_priv_req_array[req_num]);
+            mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req_array[req_num]);
         }
     }
-# ifdef QAT_S_HEURISTIC_TIMEOUT
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
     switch (rsa_bits) {
     case RSA_2K_LENGTH:
         mb_rsa2k_priv_req_rates.req_this_period += local_request_no;
@@ -530,7 +530,7 @@ void process_RSA_priv_reqs(int rsa_bits)
     DEBUG("Processed Final Request\n");
 }
 
-void process_RSA_pub_reqs(int rsa_bits)
+void process_RSA_pub_reqs(mb_thread_data *tlv, int rsa_bits)
 {
     rsa_pub_op_data *rsa_pub_req_array[MULTIBUFF_BATCH] = {0};
     const unsigned char * rsa_pub_from[MULTIBUFF_BATCH] = {0};
@@ -547,7 +547,7 @@ void process_RSA_pub_reqs(int rsa_bits)
     case RSA_2K_LENGTH:
         DEBUG("Dequeue RSA2K pub reqs.\n");
         while ((rsa_pub_req_array[req_num] =
-                mb_queue_rsa2k_pub_dequeue(&rsa2k_pub_queue)) != NULL) {
+                mb_queue_rsa2k_pub_dequeue(tlv->rsa2k_pub_queue)) != NULL) {
             rsa_pub_from[req_num] = rsa_pub_req_array[req_num]->from;
             if (rsa_pub_req_array[req_num]->type == RSA_MULTIBUFF_PUB_DEC) {
                 rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->padded_buf;
@@ -564,7 +564,7 @@ void process_RSA_pub_reqs(int rsa_bits)
     case RSA_3K_LENGTH:
         DEBUG("Dequeue RSA3K pub reqs.\n");
         while ((rsa_pub_req_array[req_num] =
-                mb_queue_rsa3k_pub_dequeue(&rsa3k_pub_queue)) != NULL) {
+                mb_queue_rsa3k_pub_dequeue(tlv->rsa3k_pub_queue)) != NULL) {
             rsa_pub_from[req_num] = rsa_pub_req_array[req_num]->from;
             if (rsa_pub_req_array[req_num]->type == RSA_MULTIBUFF_PUB_DEC) {
                 rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->padded_buf;
@@ -581,7 +581,7 @@ void process_RSA_pub_reqs(int rsa_bits)
     case RSA_4K_LENGTH:
         DEBUG("Dequeue RSA4K pub reqs.\n");
         while ((rsa_pub_req_array[req_num] =
-                mb_queue_rsa4k_pub_dequeue(&rsa4k_pub_queue)) != NULL) {
+                mb_queue_rsa4k_pub_dequeue(tlv->rsa4k_pub_queue)) != NULL) {
             rsa_pub_from[req_num] = rsa_pub_req_array[req_num]->from;
             if (rsa_pub_req_array[req_num]->type == RSA_MULTIBUFF_PUB_DEC) {
                 rsa_pub_to[req_num] = rsa_pub_req_array[req_num]->padded_buf;
@@ -628,10 +628,10 @@ void process_RSA_pub_reqs(int rsa_bits)
                 qat_wake_job(rsa_pub_req_array[req_num]->job, ASYNC_STATUS_OK);
             }
             OPENSSL_cleanse(rsa_pub_req_array[req_num], sizeof(rsa_pub_op_data));
-            mb_flist_rsa_pub_push(&rsa_pub_freelist, rsa_pub_req_array[req_num]);
+            mb_flist_rsa_pub_push(tlv->rsa_pub_freelist, rsa_pub_req_array[req_num]);
         }
     }
-# ifdef QAT_S_HEURISTIC_TIMEOUT
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
     switch (rsa_bits) {
     case RSA_2K_LENGTH:
         mb_rsa2k_pub_req_rates.req_this_period += local_request_no;
@@ -666,6 +666,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     const BIGNUM *dmq1 = NULL;
     const BIGNUM *iqmp = NULL;
     int job_ret = 0;
+    mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
     /* Check input parameters */
@@ -709,7 +710,13 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
         goto use_sw_method;
     }
 
-    while ((rsa_priv_req = mb_flist_rsa_priv_pop(&rsa_priv_freelist)) == NULL) {
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
+    while ((rsa_priv_req = mb_flist_rsa_priv_pop(tlv->rsa_priv_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -727,7 +734,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     /* Further checks on the inputs, these are fatal if failed */
     if (p == NULL || q == NULL ||
         dmp1 == NULL || dmq1 == NULL || iqmp == NULL) {
-        mb_flist_rsa_priv_push(&rsa_priv_freelist, rsa_priv_req);
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
         QATerr(QAT_F_MULTIBUFF_RSA_PRIV_ENC, QAT_R_P_Q_DMP_DMQ_IQMP_NULL);
         OPENSSL_cleanse(to, rsa_len);
         STOP_RDTSC(&rsa_cycles_priv_enc_setup, 1, "[RSA:priv_enc_setup]");
@@ -757,7 +764,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
     if (padding_result <= 0) {
         OPENSSL_cleanse(rsa_priv_req->padded_buf, rsa_len);
-        mb_flist_rsa_priv_push(&rsa_priv_freelist, rsa_priv_req);
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
         /* Error is raised within the padding function. */
         OPENSSL_cleanse(to, rsa_len);
         STOP_RDTSC(&rsa_cycles_priv_enc_setup, 1, "[RSA:priv_enc_setup]");
@@ -783,20 +790,20 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
     switch(rsa_bits) {
     case RSA_2K_LENGTH:
-        mb_queue_rsa2k_priv_enqueue(&rsa2k_priv_queue, rsa_priv_req);
+        mb_queue_rsa2k_priv_enqueue(tlv->rsa2k_priv_queue, rsa_priv_req);
         break;
     case RSA_3K_LENGTH:
-        mb_queue_rsa3k_priv_enqueue(&rsa3k_priv_queue, rsa_priv_req);
+        mb_queue_rsa3k_priv_enqueue(tlv->rsa3k_priv_queue, rsa_priv_req);
         break;
     case RSA_4K_LENGTH:
-        mb_queue_rsa4k_priv_enqueue(&rsa4k_priv_queue, rsa_priv_req);
+        mb_queue_rsa4k_priv_enqueue(tlv->rsa4k_priv_queue, rsa_priv_req);
         break;
     }
     STOP_RDTSC(&rsa_cycles_priv_enc_setup, 1, "[RSA:priv_enc_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
@@ -850,6 +857,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     const BIGNUM *dmq1 = NULL;
     const BIGNUM *iqmp = NULL;
     int job_ret = 0;
+    mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
     /* Check input parameters */
@@ -892,7 +900,13 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
         goto use_sw_method;
     }
 
-    while ((rsa_priv_req = mb_flist_rsa_priv_pop(&rsa_priv_freelist)) == NULL) {
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
+    while ((rsa_priv_req = mb_flist_rsa_priv_pop(tlv->rsa_priv_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -910,7 +924,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     /* Further checks on the inputs, these are fatal if failed */
     if (p == NULL || q == NULL ||
         dmp1 == NULL || dmq1 == NULL || iqmp == NULL) {
-        mb_flist_rsa_priv_push(&rsa_priv_freelist, rsa_priv_req);
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
         QATerr(QAT_F_MULTIBUFF_RSA_PRIV_DEC, QAT_R_P_Q_DMP_DMQ_IQMP_NULL);
         OPENSSL_cleanse(to, rsa_len);
         STOP_RDTSC(&rsa_cycles_priv_dec_setup, 1, "[RSA:priv_dec_setup]");
@@ -948,20 +962,20 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 
     switch(rsa_bits) {
     case RSA_2K_LENGTH:
-        mb_queue_rsa2k_priv_enqueue(&rsa2k_priv_queue, rsa_priv_req);
+        mb_queue_rsa2k_priv_enqueue(tlv->rsa2k_priv_queue, rsa_priv_req);
         break;
     case RSA_3K_LENGTH:
-        mb_queue_rsa3k_priv_enqueue(&rsa3k_priv_queue, rsa_priv_req);
+        mb_queue_rsa3k_priv_enqueue(tlv->rsa3k_priv_queue, rsa_priv_req);
         break;
     case RSA_4K_LENGTH:
-        mb_queue_rsa4k_priv_enqueue(&rsa4k_priv_queue, rsa_priv_req);
+        mb_queue_rsa4k_priv_enqueue(tlv->rsa4k_priv_queue, rsa_priv_req);
         break;
     }
     STOP_RDTSC(&rsa_cycles_priv_dec_setup, 1, "[RSA:priv_dec_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
@@ -1009,6 +1023,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
     int job_ret = 0;
+    mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
     /* Check Parameters */
@@ -1045,7 +1060,13 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         goto use_sw_method;
     }
 
-    while ((rsa_pub_req = mb_flist_rsa_pub_pop(&rsa_pub_freelist)) == NULL) {
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
+    while ((rsa_pub_req = mb_flist_rsa_pub_pop(tlv->rsa_pub_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -1061,7 +1082,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     if (e == NULL ||
         e_check == NULL ||
         BN_ucmp(e, e_check) != 0) {
-        mb_flist_rsa_pub_push(&rsa_pub_freelist, rsa_pub_req);
+        mb_flist_rsa_pub_push(tlv->rsa_pub_freelist, rsa_pub_req);
         STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
         DEBUG("Request is using a public exp not equal to 65537\n");
         goto use_sw_method;
@@ -1077,7 +1098,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
 
     if (padding_result <= 0) {
         OPENSSL_cleanse(rsa_pub_req->padded_buf, rsa_len);
-        mb_flist_rsa_pub_push(&rsa_pub_freelist, rsa_pub_req);
+        mb_flist_rsa_pub_push(tlv->rsa_pub_freelist, rsa_pub_req);
         /* Error is raised within the padding function. */
         OPENSSL_cleanse(to, rsa_len);
         STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
@@ -1098,20 +1119,20 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
 
     switch(rsa_bits) {
     case RSA_2K_LENGTH:
-        mb_queue_rsa2k_pub_enqueue(&rsa2k_pub_queue, rsa_pub_req);
+        mb_queue_rsa2k_pub_enqueue(tlv->rsa2k_pub_queue, rsa_pub_req);
         break;
     case RSA_3K_LENGTH:
-        mb_queue_rsa3k_pub_enqueue(&rsa3k_pub_queue, rsa_pub_req);
+        mb_queue_rsa3k_pub_enqueue(tlv->rsa3k_pub_queue, rsa_pub_req);
         break;
     case RSA_4K_LENGTH:
-        mb_queue_rsa4k_pub_enqueue(&rsa4k_pub_queue, rsa_pub_req);
+        mb_queue_rsa4k_pub_enqueue(tlv->rsa4k_pub_queue, rsa_pub_req);
         break;
     }
     STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
@@ -1160,6 +1181,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
     int job_ret = 0;
+    mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
     /* Check Parameters */
@@ -1195,7 +1217,13 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         goto use_sw_method;
     }
 
-    while ((rsa_pub_req = mb_flist_rsa_pub_pop(&rsa_pub_freelist)) == NULL) {
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
+    while ((rsa_pub_req = mb_flist_rsa_pub_pop(tlv->rsa_pub_freelist)) == NULL) {
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
@@ -1211,7 +1239,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     if (e == NULL ||
         e_check == NULL ||
         BN_ucmp(e, e_check) != 0) {
-        mb_flist_rsa_pub_push(&rsa_pub_freelist, rsa_pub_req);
+        mb_flist_rsa_pub_push(tlv->rsa_pub_freelist, rsa_pub_req);
         STOP_RDTSC(&rsa_cycles_pub_dec_setup, 1, "[RSA:pub_dec_setup]");
         DEBUG("Request is using a public exp not equal to 65537\n");
         goto use_sw_method;
@@ -1230,20 +1258,20 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
 
     switch(rsa_bits) {
     case RSA_2K_LENGTH:
-        mb_queue_rsa2k_pub_enqueue(&rsa2k_pub_queue, rsa_pub_req);
+        mb_queue_rsa2k_pub_enqueue(tlv->rsa2k_pub_queue, rsa_pub_req);
         break;
     case RSA_3K_LENGTH:
-        mb_queue_rsa3k_pub_enqueue(&rsa3k_pub_queue, rsa_pub_req);
+        mb_queue_rsa3k_pub_enqueue(tlv->rsa3k_pub_queue, rsa_pub_req);
         break;
     case RSA_4K_LENGTH:
-        mb_queue_rsa4k_pub_enqueue(&rsa4k_pub_queue, rsa_pub_req);
+        mb_queue_rsa4k_pub_enqueue(tlv->rsa4k_pub_queue, rsa_pub_req);
         break;
     }
     STOP_RDTSC(&rsa_cycles_pub_dec_setup, 1, "[RSA:pub_dec_setup]");
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(multibuff_timer_poll_func_thread, SIGUSR1) != 0) {
+        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
             WARN("qat_kill_thread error\n");
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */

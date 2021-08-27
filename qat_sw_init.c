@@ -85,105 +85,116 @@
 #include <openssl/objects.h>
 #include <openssl/crypto.h>
 
-int multibuff_init(ENGINE *e)
+mb_thread_data* mb_check_thread_local(void)
 {
-    int ret_pthread_sigmask;
+    mb_thread_data *tlv = (mb_thread_data *)pthread_getspecific(mb_thread_key);
 
-    DEBUG("Multibuff initialization\n");
-    DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
-    DEBUG("- Heuristic polling: %s\n", enable_heuristic_polling ? "ON": "OFF");
-
-    INITIALISE_RDTSC_CLOCKS();
-
-    e_check = BN_new();
-    if (NULL == e_check) {
-        WARN("Failure to allocate e_check\n");
-        QATerr(QAT_F_MULTIBUFF_INIT, QAT_R_ALLOC_E_CHECK_FAILURE);
-        qat_pthread_mutex_unlock();
-        qat_engine_finish(e);
-        return 0;
-    }
-    BN_add_word(e_check, 65537);
-
-    if ((mb_flist_rsa_priv_create(&rsa_priv_freelist,
-                                  MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_flist_rsa_pub_create(&rsa_pub_freelist,
-                                 MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_queue_rsa2k_priv_create(&rsa2k_priv_queue) != 0) ||
-        (mb_queue_rsa2k_pub_create(&rsa2k_pub_queue) != 0) ||
-        (mb_queue_rsa3k_priv_create(&rsa3k_priv_queue) != 0) ||
-        (mb_queue_rsa3k_pub_create(&rsa3k_pub_queue) != 0) ||
-        (mb_queue_rsa4k_priv_create(&rsa4k_priv_queue) != 0) ||
-        (mb_queue_rsa4k_pub_create(&rsa4k_pub_queue) != 0) ||
-        (mb_flist_x25519_keygen_create(&x25519_keygen_freelist,
-                                       MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_flist_x25519_derive_create(&x25519_derive_freelist,
-                                       MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_queue_x25519_keygen_create(&x25519_keygen_queue) != 0) ||
-        (mb_queue_x25519_derive_create(&x25519_derive_queue) != 0) ||
-        (mb_flist_ecdsa_sign_create(&ecdsa_sign_freelist,
-                                        MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_flist_ecdsa_sign_setup_create(&ecdsa_sign_setup_freelist,
-                                              MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_flist_ecdsa_sign_sig_create(&ecdsa_sign_sig_freelist,
-                                            MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_queue_ecdsap256_sign_create(&ecdsap256_sign_queue) != 0) ||
-        (mb_queue_ecdsap256_sign_setup_create(&ecdsap256_sign_setup_queue) != 0) ||
-        (mb_queue_ecdsap256_sign_sig_create(&ecdsap256_sign_sig_queue) != 0) ||
-        (mb_queue_ecdsap384_sign_create(&ecdsap384_sign_queue) != 0) ||
-        (mb_queue_ecdsap384_sign_setup_create(&ecdsap384_sign_setup_queue) != 0) ||
-        (mb_queue_ecdsap384_sign_sig_create(&ecdsap384_sign_sig_queue) != 0) ||
-        (mb_flist_ecdh_keygen_create(&ecdh_keygen_freelist,
-                                         MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_flist_ecdh_compute_create(&ecdh_compute_freelist,
-                                          MULTIBUFF_MAX_INFLIGHTS) != 0) ||
-        (mb_queue_ecdhp256_keygen_create(&ecdhp256_keygen_queue) != 0) ||
-        (mb_queue_ecdhp256_compute_create(&ecdhp256_compute_queue) != 0) ||
-        (mb_queue_ecdhp384_keygen_create(&ecdhp384_keygen_queue) != 0) ||
-        (mb_queue_ecdhp384_compute_create(&ecdhp384_compute_queue) != 0)) {
-        WARN("Failure to allocate req arrays\n");
-        QATerr(QAT_F_MULTIBUFF_INIT, QAT_R_CREATE_FREELIST_QUEUE_FAILURE);
-        qat_pthread_mutex_unlock();
-        qat_engine_finish(e);
-        return 0;
+    if (tlv != NULL) {
+        return tlv;
     }
 
-    multibuff_polling_thread = pthread_self();
+    tlv = OPENSSL_zalloc(sizeof(mb_thread_data));
+    if (tlv != NULL) {
+        DEBUG("TLV NULL allocate memory and create polling thread\n");
+        /* Create Multibuffer Freelists and Queues*/
 
-    if (enable_external_polling == 0) {
-        sigemptyset(&set);
-        sigaddset(&set, SIGUSR1);
-        ret_pthread_sigmask = pthread_sigmask(SIG_BLOCK, &set, NULL);
-        if (ret_pthread_sigmask != 0) {
-            WARN("pthread_sigmask error\n");
-            QATerr(QAT_F_MULTIBUFF_INIT,
-                         QAT_R_POLLING_THREAD_SIGMASK_FAILURE);
-            qat_pthread_mutex_unlock();
-            qat_engine_finish(e);
-            return 0;
+#ifdef ENABLE_QAT_SW_RSA
+        if (((tlv->rsa_priv_freelist = mb_flist_rsa_priv_create()) == NULL) ||
+           ((tlv->rsa_pub_freelist = mb_flist_rsa_pub_create()) == NULL) ||
+           ((tlv->rsa2k_priv_queue = mb_queue_rsa2k_priv_create()) == NULL) ||
+           ((tlv->rsa2k_pub_queue = mb_queue_rsa2k_pub_create()) == NULL) ||
+           ((tlv->rsa3k_priv_queue = mb_queue_rsa3k_priv_create()) == NULL) ||
+           ((tlv->rsa3k_pub_queue = mb_queue_rsa3k_pub_create()) == NULL) ||
+           ((tlv->rsa4k_priv_queue = mb_queue_rsa4k_priv_create()) == NULL) ||
+           ((tlv->rsa4k_pub_queue = mb_queue_rsa4k_pub_create()) == NULL)) {
+            WARN("Failure to allocate RSA Freelist and Queues\n");
+            return NULL;
         }
+#endif
 
-        if (qat_create_thread(&multibuff_polling_thread,
-                              NULL, multibuff_timer_poll_func, NULL)) {
-            WARN("Creation of polling thread failed\n");
-            QATerr(QAT_F_MULTIBUFF_INIT,
-                         QAT_R_POLLING_THREAD_CREATE_FAILURE);
-            multibuff_polling_thread = pthread_self();
-            qat_pthread_mutex_unlock();
-            qat_engine_finish(e);
-            return 0;
+#ifdef ENABLE_QAT_SW_ECX
+        if (((tlv->x25519_keygen_freelist = mb_flist_x25519_keygen_create())
+                 == NULL) ||
+           ((tlv->x25519_derive_freelist = mb_flist_x25519_derive_create())
+                 == NULL) ||
+           ((tlv->x25519_keygen_queue = mb_queue_x25519_keygen_create())
+                 == NULL) ||
+           ((tlv->x25519_derive_queue = mb_queue_x25519_derive_create())
+                 == NULL)) {
+            WARN("Failure to allocate X25519 Freelists and Queues\n");
+            return NULL;
         }
+#endif
 
-        while (!cleared_to_start)
-            sleep(1);
+#ifdef ENABLE_QAT_SW_ECDSA
+        if(((tlv->ecdsa_sign_freelist = mb_flist_ecdsa_sign_create())
+                 == NULL) ||
+           ((tlv->ecdsa_sign_setup_freelist = mb_flist_ecdsa_sign_setup_create())
+                 == NULL) ||
+           ((tlv->ecdsa_sign_sig_freelist = mb_flist_ecdsa_sign_sig_create())
+                 == NULL) ||
+           ((tlv->ecdsap256_sign_queue= mb_queue_ecdsap256_sign_create())
+                 == NULL) ||
+           ((tlv->ecdsap256_sign_setup_queue= mb_queue_ecdsap256_sign_setup_create())
+                 == NULL) ||
+           ((tlv->ecdsap256_sign_sig_queue= mb_queue_ecdsap256_sign_sig_create())
+                 == NULL) ||
+           ((tlv->ecdsap384_sign_queue= mb_queue_ecdsap384_sign_create())
+                 == NULL) ||
+           ((tlv->ecdsap384_sign_setup_queue= mb_queue_ecdsap384_sign_setup_create())
+                 == NULL) ||
+           ((tlv->ecdsap384_sign_sig_queue= mb_queue_ecdsap384_sign_sig_create())
+                 == NULL)) {
+            WARN("Failure to allocate ECDSA P256/P384 Freelists and Queues\n");
+            return NULL;
+        }
+#endif
+
+#ifdef ENABLE_QAT_SW_ECDH
+        if(((tlv->ecdh_keygen_freelist = mb_flist_ecdh_keygen_create())
+                 == NULL) ||
+           ((tlv->ecdh_compute_freelist = mb_flist_ecdh_compute_create())
+                 == NULL) ||
+           ((tlv->ecdhp256_keygen_queue= mb_queue_ecdhp256_keygen_create())
+                 == NULL) ||
+           ((tlv->ecdhp256_compute_queue= mb_queue_ecdhp256_compute_create())
+                 == NULL) ||
+           ((tlv->ecdhp384_keygen_queue= mb_queue_ecdhp384_keygen_create())
+                 == NULL) ||
+           ((tlv->ecdhp384_compute_queue= mb_queue_ecdhp384_compute_create())
+                 == NULL)) {
+            WARN("Failure to allocate ECDH P256/P384 Freelists and Queues\n");
+            return NULL;
+        }
+#endif
+
+        /* Sig set for Signalling via pthread_kill */
+        if (!enable_external_polling) {
+            tlv->keep_polling = 1;
+            sigemptyset(&tlv->set);
+            sigaddset(&tlv->set, SIGUSR1);
+            if (pthread_sigmask(SIG_BLOCK, &tlv->set, NULL) != 0)
+                WARN("pthread_sigmask error\n");
+            /* Create Polling thread */
+            if (qat_create_thread(&tlv->polling_thread,
+                        NULL, multibuff_timer_poll_func, tlv)) {
+                WARN("Creation of polling thread failed\n");
+                return NULL;
+            }
+            DEBUG("Polling thread created %lx, tlv %p\n",
+                  tlv->polling_thread, tlv);
+        } else {
+            /* External Polling assign it to the global pointer */
+            mb_tlv = tlv;
+        }
+        pthread_setspecific(mb_thread_key, (void *)tlv);
     }
 
-    return 1;
+    return tlv;
 }
 
-int multibuff_finish_int(ENGINE *e, int reset_globals)
+void mb_thread_local_destructor(void *tlv_ptr)
 {
-    int ret = 1;
     rsa_priv_op_data *rsa2k_priv_req = NULL;
     rsa_pub_op_data *rsa2k_pub_req = NULL;
     rsa_priv_op_data *rsa3k_priv_req = NULL;
@@ -203,188 +214,237 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     ecdh_keygen_op_data *ecdhp384_keygen_req = NULL;
     ecdh_compute_op_data *ecdhp384_compute_req = NULL;
 
-    DEBUG("---- Multibuff Finishing...\n\n");
+    mb_thread_data *tlv = (mb_thread_data *)tlv_ptr;
 
-    multibuff_keep_polling = 0;
+    DEBUG("Thread local Destructor\n");
+    if (tlv) {
+        tlv->keep_polling = 0;
 
-    if (enable_external_polling == 0) {
-        if (pthread_equal(multibuff_polling_thread, pthread_self()) == 0) {
-            if (qat_join_thread(multibuff_polling_thread, NULL) != 0) {
-                WARN("Polling thread join failed with status: %d\n", ret);
-                QATerr(QAT_F_MULTIBUFF_FINISH_INT, QAT_R_PTHREAD_JOIN_FAILURE);
-                ret = 0;
-            }
+        if (enable_external_polling == 0) {
+            if (qat_join_thread(tlv->polling_thread, NULL) != 0)
+                WARN("Polling thread join failed\n");
         }
+
+#ifdef ENABLE_QAT_SW_RSA
+        mb_queue_rsa2k_priv_disable(tlv->rsa2k_priv_queue);
+        mb_queue_rsa2k_pub_disable(tlv->rsa2k_pub_queue);
+        while ((rsa2k_priv_req =
+                mb_queue_rsa2k_priv_dequeue(tlv->rsa2k_priv_queue)) != NULL) {
+            *rsa2k_priv_req->sts = -1;
+            qat_wake_job(rsa2k_priv_req->job, 0);
+            OPENSSL_free(rsa2k_priv_req);
+        }
+        mb_queue_rsa2k_priv_cleanup(tlv->rsa2k_priv_queue);
+
+        while ((rsa2k_pub_req =
+                mb_queue_rsa2k_pub_dequeue(tlv->rsa2k_pub_queue)) != NULL) {
+            *rsa2k_pub_req->sts = -1;
+            qat_wake_job(rsa2k_pub_req->job, 0);
+            OPENSSL_free(rsa2k_pub_req);
+        }
+        mb_queue_rsa2k_pub_cleanup(tlv->rsa2k_pub_queue);
+
+        while ((rsa3k_priv_req =
+                mb_queue_rsa3k_priv_dequeue(tlv->rsa3k_priv_queue)) != NULL) {
+            *rsa3k_priv_req->sts = -1;
+            qat_wake_job(rsa3k_priv_req->job, 0);
+            OPENSSL_free(rsa3k_priv_req);
+        }
+        mb_queue_rsa3k_priv_cleanup(tlv->rsa3k_priv_queue);
+
+        while ((rsa3k_pub_req =
+                mb_queue_rsa3k_pub_dequeue(tlv->rsa3k_pub_queue)) != NULL) {
+            *rsa3k_pub_req->sts = -1;
+            qat_wake_job(rsa3k_pub_req->job, 0);
+            OPENSSL_free(rsa3k_pub_req);
+        }
+        mb_queue_rsa3k_pub_cleanup(tlv->rsa3k_pub_queue);
+
+        while ((rsa4k_priv_req =
+                mb_queue_rsa4k_priv_dequeue(tlv->rsa4k_priv_queue)) != NULL) {
+            *rsa4k_priv_req->sts = -1;
+            qat_wake_job(rsa4k_priv_req->job, 0);
+            OPENSSL_free(rsa4k_priv_req);
+        }
+        mb_queue_rsa4k_priv_cleanup(tlv->rsa4k_priv_queue);
+
+        while ((rsa4k_priv_req =
+                mb_queue_rsa4k_priv_dequeue(tlv->rsa4k_priv_queue)) != NULL) {
+            *rsa4k_priv_req->sts = -1;
+            qat_wake_job(rsa4k_priv_req->job, 0);
+            OPENSSL_free(rsa4k_priv_req);
+        }
+        mb_queue_rsa4k_priv_cleanup(tlv->rsa4k_priv_queue);
+
+        while ((rsa4k_pub_req =
+                mb_queue_rsa4k_pub_dequeue(tlv->rsa4k_pub_queue)) != NULL) {
+            *rsa4k_pub_req->sts = -1;
+            qat_wake_job(rsa4k_pub_req->job, 0);
+            OPENSSL_free(rsa4k_pub_req);
+        }
+        mb_queue_rsa4k_pub_cleanup(tlv->rsa4k_pub_queue);
+
+        mb_flist_rsa_priv_cleanup(tlv->rsa_priv_freelist);
+        mb_flist_rsa_pub_cleanup(tlv->rsa_pub_freelist);
+#endif
+
+#ifdef ENABLE_QAT_SW_ECX
+        mb_queue_x25519_keygen_disable(tlv->x25519_keygen_queue);
+        mb_queue_x25519_derive_disable(tlv->x25519_derive_queue);
+        while ((x25519_keygen_req =
+                mb_queue_x25519_keygen_dequeue(tlv->x25519_keygen_queue)) != NULL) {
+            *x25519_keygen_req->sts = -1;
+            qat_wake_job(x25519_keygen_req->job, 0);
+            OPENSSL_free(x25519_keygen_req);
+        }
+        mb_queue_x25519_keygen_cleanup(tlv->x25519_keygen_queue);
+
+        while ((x25519_derive_req =
+                mb_queue_x25519_derive_dequeue(tlv->x25519_derive_queue)) != NULL) {
+            *x25519_derive_req->sts = -1;
+            qat_wake_job(x25519_derive_req->job, 0);
+            OPENSSL_free(x25519_derive_req);
+        }
+        mb_queue_x25519_derive_cleanup(tlv->x25519_derive_queue);
+
+        mb_flist_x25519_keygen_cleanup(tlv->x25519_keygen_freelist);
+        mb_flist_x25519_derive_cleanup(tlv->x25519_derive_freelist);
+#endif
+
+#ifdef ENABLE_QAT_SW_ECDSA
+        while ((ecdsap256_sign_req =
+                    mb_queue_ecdsap256_sign_dequeue(tlv->ecdsap256_sign_queue)) != NULL) {
+            *ecdsap256_sign_req->sts = -1;
+            qat_wake_job(ecdsap256_sign_req->job, 0);
+            OPENSSL_free(ecdsap256_sign_req);
+        }
+        mb_queue_ecdsap256_sign_cleanup(tlv->ecdsap256_sign_queue);
+
+        while ((ecdsap256_sign_setup_req =
+                mb_queue_ecdsap256_sign_setup_dequeue(tlv->ecdsap256_sign_setup_queue)) != NULL) {
+            *ecdsap256_sign_setup_req->sts = -1;
+            qat_wake_job(ecdsap256_sign_setup_req->job, 0);
+            OPENSSL_free(ecdsap256_sign_setup_req);
+        }
+        mb_queue_ecdsap256_sign_setup_cleanup(tlv->ecdsap256_sign_setup_queue);
+
+        while ((ecdsap256_sign_sig_req =
+                mb_queue_ecdsap256_sign_sig_dequeue(tlv->ecdsap256_sign_sig_queue)) != NULL) {
+            *ecdsap256_sign_sig_req->sts = -1;
+            qat_wake_job(ecdsap256_sign_sig_req->job, 0);
+            OPENSSL_free(ecdsap256_sign_sig_req);
+        }
+        mb_queue_ecdsap256_sign_sig_cleanup(tlv->ecdsap256_sign_sig_queue);
+
+        while ((ecdsap384_sign_req =
+                mb_queue_ecdsap384_sign_dequeue(tlv->ecdsap384_sign_queue)) != NULL) {
+            *ecdsap384_sign_req->sts = -1;
+            qat_wake_job(ecdsap384_sign_req->job, 0);
+            OPENSSL_free(ecdsap384_sign_req);
+        }
+        mb_queue_ecdsap384_sign_cleanup(tlv->ecdsap384_sign_queue);
+
+        while ((ecdsap384_sign_setup_req =
+                mb_queue_ecdsap384_sign_setup_dequeue(tlv->ecdsap384_sign_setup_queue)) != NULL) {
+            *ecdsap384_sign_setup_req->sts = -1;
+            qat_wake_job(ecdsap384_sign_setup_req->job, 0);
+            OPENSSL_free(ecdsap384_sign_setup_req);
+        }
+        mb_queue_ecdsap384_sign_setup_cleanup(tlv->ecdsap384_sign_setup_queue);
+
+        while ((ecdsap384_sign_sig_req =
+                mb_queue_ecdsap384_sign_sig_dequeue(tlv->ecdsap384_sign_sig_queue)) != NULL) {
+            *ecdsap384_sign_sig_req->sts = -1;
+            qat_wake_job(ecdsap384_sign_sig_req->job, 0);
+            OPENSSL_free(ecdsap384_sign_sig_req);
+        }
+        mb_queue_ecdsap384_sign_sig_cleanup(tlv->ecdsap384_sign_sig_queue);
+
+        mb_flist_ecdsa_sign_cleanup(tlv->ecdsa_sign_freelist);
+        mb_flist_ecdsa_sign_setup_cleanup(tlv->ecdsa_sign_setup_freelist);
+        mb_flist_ecdsa_sign_sig_cleanup(tlv->ecdsa_sign_sig_freelist);
+#endif
+
+#ifdef ENABLE_QAT_SW_ECDH
+        while ((ecdhp256_keygen_req =
+                mb_queue_ecdhp256_keygen_dequeue(tlv->ecdhp256_keygen_queue)) != NULL) {
+            *ecdhp256_keygen_req->sts = -1;
+            qat_wake_job(ecdhp256_keygen_req->job, 0);
+            OPENSSL_free(ecdhp256_keygen_req);
+        }
+        mb_queue_ecdhp256_keygen_cleanup(tlv->ecdhp256_keygen_queue);
+
+        while ((ecdhp256_compute_req =
+                mb_queue_ecdhp256_compute_dequeue(tlv->ecdhp256_compute_queue)) != NULL) {
+            *ecdhp256_compute_req->sts = -1;
+            qat_wake_job(ecdhp256_compute_req->job, 0);
+            OPENSSL_free(ecdhp256_compute_req);
+        }
+        mb_queue_ecdhp256_compute_cleanup(tlv->ecdhp256_compute_queue);
+
+        while ((ecdhp384_keygen_req =
+                mb_queue_ecdhp384_keygen_dequeue(tlv->ecdhp384_keygen_queue)) != NULL) {
+            *ecdhp384_keygen_req->sts = -1;
+            qat_wake_job(ecdhp384_keygen_req->job, 0);
+            OPENSSL_free(ecdhp384_keygen_req);
+        }
+        mb_queue_ecdhp384_keygen_cleanup(tlv->ecdhp384_keygen_queue);
+
+        while ((ecdhp384_compute_req =
+                mb_queue_ecdhp384_compute_dequeue(tlv->ecdhp384_compute_queue)) != NULL) {
+            *ecdhp384_compute_req->sts = -1;
+            qat_wake_job(ecdhp384_compute_req->job, 0);
+            OPENSSL_free(ecdhp384_compute_req);
+        }
+        mb_queue_ecdhp384_compute_cleanup(tlv->ecdhp384_compute_queue);
+
+        mb_flist_ecdh_keygen_cleanup(tlv->ecdh_keygen_freelist);
+        mb_flist_ecdh_compute_cleanup(tlv->ecdh_compute_freelist);
+#endif
+
+        OPENSSL_free(tlv);
+    } else {
+        DEBUG("tlv NULL\n");
     }
 
-    multibuff_polling_thread = pthread_self();
+    pthread_setspecific(mb_thread_key, NULL);
+}
 
-    mb_queue_rsa2k_priv_disable(&rsa2k_priv_queue);
-    mb_queue_rsa2k_pub_disable(&rsa2k_pub_queue);
-    mb_queue_rsa3k_priv_disable(&rsa3k_priv_queue);
-    mb_queue_rsa3k_pub_disable(&rsa3k_pub_queue);
-    mb_queue_rsa4k_priv_disable(&rsa4k_priv_queue);
-    mb_queue_rsa4k_pub_disable(&rsa4k_pub_queue);
-    mb_queue_x25519_keygen_disable(&x25519_keygen_queue);
-    mb_queue_x25519_derive_disable(&x25519_derive_queue);
-    mb_queue_ecdsap256_sign_disable(&ecdsap256_sign_queue);
-    mb_queue_ecdsap256_sign_setup_disable(&ecdsap256_sign_setup_queue);
-    mb_queue_ecdsap256_sign_sig_disable(&ecdsap256_sign_sig_queue);
-    mb_queue_ecdhp256_keygen_disable(&ecdhp256_keygen_queue);
-    mb_queue_ecdhp256_compute_disable(&ecdhp256_compute_queue);
+int multibuff_init(ENGINE *e)
+{
+    int err = 0;
 
-    while ((rsa2k_priv_req =
-           mb_queue_rsa2k_priv_dequeue(&rsa2k_priv_queue)) != NULL) {
-        *rsa2k_priv_req->sts = -1;
-        qat_wake_job(rsa2k_priv_req->job, 0);
-        OPENSSL_free(rsa2k_priv_req);
+    DEBUG("QAT_SW initialization\n");
+    DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
+    DEBUG("- Heuristic polling: %s\n", enable_heuristic_polling ? "ON": "OFF");
+
+    INITIALISE_RDTSC_CLOCKS();
+
+    e_check = BN_new();
+    if (NULL == e_check) {
+        WARN("Failure to allocate e_check\n");
+        QATerr(QAT_F_MULTIBUFF_INIT, QAT_R_ALLOC_E_CHECK_FAILURE);
+        qat_pthread_mutex_unlock();
+        qat_engine_finish(e);
+        return 0;
     }
-    mb_queue_rsa2k_priv_cleanup(&rsa2k_priv_queue);
+    BN_add_word(e_check, 65537);
 
-    while ((rsa2k_pub_req = mb_queue_rsa2k_pub_dequeue(&rsa2k_pub_queue)) != NULL) {
-        *rsa2k_pub_req->sts = -1;
-        qat_wake_job(rsa2k_pub_req->job, 0);
-        OPENSSL_free(rsa2k_pub_req);
+    if ((err = pthread_key_create(&mb_thread_key, mb_thread_local_destructor)) != 0) {
+        WARN("pthread_key_create failed %s\n", strerror(err));
+        qat_pthread_mutex_unlock();
+        qat_engine_finish(e);
+        return 0;
     }
-    mb_queue_rsa2k_pub_cleanup(&rsa2k_pub_queue);
 
-    while ((x25519_keygen_req =
-           mb_queue_x25519_keygen_dequeue(&x25519_keygen_queue)) != NULL) {
-        *x25519_keygen_req->sts = -1;
-        qat_wake_job(x25519_keygen_req->job, 0);
-        OPENSSL_free(x25519_keygen_req);
-    }
-    mb_queue_x25519_keygen_cleanup(&x25519_keygen_queue);
+    return 1;
+}
 
-    while ((x25519_derive_req =
-           mb_queue_x25519_derive_dequeue(&x25519_derive_queue)) != NULL) {
-        *x25519_derive_req->sts = -1;
-        qat_wake_job(x25519_derive_req->job, 0);
-        OPENSSL_free(x25519_derive_req);
-    }
-    mb_queue_x25519_derive_cleanup(&x25519_derive_queue);
+int multibuff_finish_int(ENGINE *e, int reset_globals)
+{
+    int ret = 1;
 
-    while ((ecdsap256_sign_req =
-           mb_queue_ecdsap256_sign_dequeue(&ecdsap256_sign_queue)) != NULL) {
-        *ecdsap256_sign_req->sts = -1;
-        qat_wake_job(ecdsap256_sign_req->job, 0);
-        OPENSSL_free(ecdsap256_sign_req);
-    }
-    mb_queue_ecdsap256_sign_cleanup(&ecdsap256_sign_queue);
-
-    while ((ecdsap256_sign_setup_req =
-           mb_queue_ecdsap256_sign_setup_dequeue(&ecdsap256_sign_setup_queue)) != NULL) {
-        *ecdsap256_sign_setup_req->sts = -1;
-        qat_wake_job(ecdsap256_sign_setup_req->job, 0);
-        OPENSSL_free(ecdsap256_sign_setup_req);
-    }
-    mb_queue_ecdsap256_sign_setup_cleanup(&ecdsap256_sign_setup_queue);
-
-    while ((ecdsap256_sign_sig_req =
-           mb_queue_ecdsap256_sign_sig_dequeue(&ecdsap256_sign_sig_queue)) != NULL) {
-        *ecdsap256_sign_sig_req->sts = -1;
-        qat_wake_job(ecdsap256_sign_sig_req->job, 0);
-        OPENSSL_free(ecdsap256_sign_sig_req);
-    }
-    mb_queue_ecdsap256_sign_sig_cleanup(&ecdsap256_sign_sig_queue);
-
-    while ((ecdsap384_sign_req =
-           mb_queue_ecdsap384_sign_dequeue(&ecdsap384_sign_queue)) != NULL) {
-        *ecdsap384_sign_req->sts = -1;
-        qat_wake_job(ecdsap384_sign_req->job, 0);
-        OPENSSL_free(ecdsap384_sign_req);
-    }
-    mb_queue_ecdsap384_sign_cleanup(&ecdsap384_sign_queue);
-
-    while ((ecdsap384_sign_setup_req =
-           mb_queue_ecdsap384_sign_setup_dequeue(&ecdsap384_sign_setup_queue)) != NULL) {
-        *ecdsap384_sign_setup_req->sts = -1;
-        qat_wake_job(ecdsap384_sign_setup_req->job, 0);
-        OPENSSL_free(ecdsap384_sign_setup_req);
-    }
-    mb_queue_ecdsap384_sign_setup_cleanup(&ecdsap384_sign_setup_queue);
-
-    while ((ecdsap384_sign_sig_req =
-           mb_queue_ecdsap384_sign_sig_dequeue(&ecdsap384_sign_sig_queue)) != NULL) {
-        *ecdsap384_sign_sig_req->sts = -1;
-        qat_wake_job(ecdsap384_sign_sig_req->job, 0);
-        OPENSSL_free(ecdsap384_sign_sig_req);
-    }
-    mb_queue_ecdsap384_sign_sig_cleanup(&ecdsap384_sign_sig_queue);
-
-    while ((ecdhp256_keygen_req =
-           mb_queue_ecdhp256_keygen_dequeue(&ecdhp256_keygen_queue)) != NULL) {
-        *ecdhp256_keygen_req->sts = -1;
-        qat_wake_job(ecdhp256_keygen_req->job, 0);
-        OPENSSL_free(ecdhp256_keygen_req);
-    }
-    mb_queue_ecdhp256_keygen_cleanup(&ecdhp256_keygen_queue);
-
-    while ((ecdhp256_compute_req =
-           mb_queue_ecdhp256_compute_dequeue(&ecdhp256_compute_queue)) != NULL) {
-        *ecdhp256_compute_req->sts = -1;
-        qat_wake_job(ecdhp256_compute_req->job, 0);
-        OPENSSL_free(ecdhp256_compute_req);
-    }
-    mb_queue_ecdhp256_compute_cleanup(&ecdhp256_compute_queue);
-
-    while ((ecdhp384_keygen_req =
-           mb_queue_ecdhp384_keygen_dequeue(&ecdhp384_keygen_queue)) != NULL) {
-        *ecdhp384_keygen_req->sts = -1;
-        qat_wake_job(ecdhp384_keygen_req->job, 0);
-        OPENSSL_free(ecdhp384_keygen_req);
-    }
-    mb_queue_ecdhp384_keygen_cleanup(&ecdhp384_keygen_queue);
-
-    while ((ecdhp384_compute_req =
-           mb_queue_ecdhp384_compute_dequeue(&ecdhp384_compute_queue)) != NULL) {
-        *ecdhp384_compute_req->sts = -1;
-        qat_wake_job(ecdhp384_compute_req->job, 0);
-        OPENSSL_free(ecdhp384_compute_req);
-    }
-    mb_queue_ecdhp384_compute_cleanup(&ecdhp384_compute_queue);
-
-    while ((rsa3k_priv_req =
-           mb_queue_rsa3k_priv_dequeue(&rsa3k_priv_queue)) != NULL) {
-        *rsa3k_priv_req->sts = -1;
-        qat_wake_job(rsa3k_priv_req->job, 0);
-        OPENSSL_free(rsa3k_priv_req);
-    }
-    mb_queue_rsa3k_priv_cleanup(&rsa3k_priv_queue);
-
-    while ((rsa3k_pub_req =
-           mb_queue_rsa3k_pub_dequeue(&rsa3k_pub_queue)) != NULL) {
-        *rsa3k_pub_req->sts = -1;
-        qat_wake_job(rsa3k_pub_req->job, 0);
-        OPENSSL_free(rsa3k_pub_req);
-    }
-    mb_queue_rsa3k_pub_cleanup(&rsa3k_pub_queue);
-
-    while ((rsa4k_priv_req =
-           mb_queue_rsa4k_priv_dequeue(&rsa4k_priv_queue)) != NULL) {
-        *rsa4k_priv_req->sts = -1;
-        qat_wake_job(rsa4k_priv_req->job, 0);
-        OPENSSL_free(rsa4k_priv_req);
-    }
-    mb_queue_rsa4k_priv_cleanup(&rsa4k_priv_queue);
-
-    while ((rsa4k_pub_req =
-           mb_queue_rsa4k_pub_dequeue(&rsa4k_pub_queue)) != NULL) {
-        *rsa4k_pub_req->sts = -1;
-        qat_wake_job(rsa4k_pub_req->job, 0);
-        OPENSSL_free(rsa4k_pub_req);
-    }
-    mb_queue_rsa4k_pub_cleanup(&rsa4k_pub_queue);
-
-    mb_flist_rsa_priv_cleanup(&rsa_priv_freelist);
-    mb_flist_rsa_pub_cleanup(&rsa_pub_freelist);
-    mb_flist_x25519_keygen_cleanup(&x25519_keygen_freelist);
-    mb_flist_x25519_derive_cleanup(&x25519_derive_freelist);
-    mb_flist_ecdsa_sign_cleanup(&ecdsa_sign_freelist);
-    mb_flist_ecdsa_sign_setup_cleanup(&ecdsa_sign_setup_freelist);
-    mb_flist_ecdsa_sign_sig_cleanup(&ecdsa_sign_sig_freelist);
-    mb_flist_ecdh_keygen_cleanup(&ecdh_keygen_freelist);
-    mb_flist_ecdh_compute_cleanup(&ecdh_compute_freelist);
+    DEBUG("---- Multibuff Finishing...\n\n");
 
     if (e_check != NULL) {
         BN_free(e_check);
