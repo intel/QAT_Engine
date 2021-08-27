@@ -61,6 +61,7 @@
 # include "qat_hw_ciphers.h"
 # include "qat_hw_gcm.h"
 # include "qat_hw_sha3.h"
+# include "qat_hw_chachapoly.h"
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -90,6 +91,9 @@ static chained_info info[] = {
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
 # endif
+# ifdef ENABLE_QAT_HW_CHACHAPOLY
+    {NID_chacha20_poly1305, NULL, CHACHA_KEY_SIZE},
+# endif
 #endif
 #ifdef ENABLE_QAT_SW_GCM
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
@@ -112,6 +116,11 @@ int qat_cipher_nids[] = {
 # ifdef ENABLE_QAT_HW_GCM
     NID_aes_128_gcm,
     NID_aes_256_gcm,
+# endif
+# if OPENSSL_VERSION_NUMBER > 0x10101000L
+#  ifdef ENABLE_QAT_HW_CHACHAPOLY
+    NID_chacha20_poly1305,
+#  endif
 # endif
 #endif
 #ifdef ENABLE_QAT_SW_GCM
@@ -146,25 +155,60 @@ typedef struct _digest_data {
 } sha3_data;
 
 static sha3_data data[] = {
-#ifdef QAT_HW
+#if OPENSSL_VERSION_NUMBER > 0x10101000L
+# ifdef QAT_HW
     { NID_sha3_224,  NID_RSA_SHA3_224},
     { NID_sha3_256,  NID_RSA_SHA3_256},
     { NID_sha3_384,  NID_RSA_SHA3_384},
     { NID_sha3_512,  NID_RSA_SHA3_512},
+# endif
 #endif
 };
 
 /* QAT SHA3 function register */
 int qat_sha3_nids[] = {
-#ifdef QAT_HW
+#if OPENSSL_VERSION_NUMBER > 0x10101000L
+# ifdef QAT_HW
     NID_sha3_224,
     NID_sha3_256,
     NID_sha3_384,
     NID_sha3_512,
+# endif
 #endif
 };
 const int num_sha3_nids = sizeof(qat_sha3_nids) / sizeof(qat_sha3_nids[0]);
 
+#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+typedef struct cipher_threshold_table_s {
+    int nid;
+    int threshold;
+} PKT_THRESHOLD;
+
+static PKT_THRESHOLD qat_pkt_threshold_table[] = {
+# ifdef ENABLE_QAT_HW_CIPHERS
+    {NID_aes_128_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_256_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_128_cbc_hmac_sha256,
+     CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_256_cbc_hmac_sha256,
+     CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+# endif
+# if OPENSSL_VERSION_NUMBER > 0x10101000L
+#  ifdef ENABLE_QAT_HW_SHA3
+    {NID_sha3_224, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_sha3_256, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_sha3_384, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_sha3_512, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+#  endif
+# endif
+# ifdef ENABLE_QAT_HW_CHACHAPOLY
+    {NID_chacha20_poly1305, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+# endif
+};
+
+static int pkt_threshold_table_size =
+    (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
+#endif
 
 /******************************************************************************
  * function:
@@ -178,14 +222,16 @@ const int num_sha3_nids = sizeof(qat_sha3_nids) / sizeof(qat_sha3_nids[0]);
 static const EVP_MD *qat_create_digest_meth(int nid , int pkeytype)
 {
     switch (nid) {
+#if OPENSSL_VERSION_NUMBER > 0x10101000L
         case NID_sha3_224:
         case NID_sha3_256:
         case NID_sha3_384:
         case NID_sha3_512:
-#ifdef QAT_HW
-# ifdef ENABLE_QAT_HW_SHA3
+# ifdef QAT_HW
+#  ifdef ENABLE_QAT_HW_SHA3
             if (qat_hw_offload)
                 return qat_create_sha3_meth(nid , pkeytype);
+#  endif
 # endif
 #endif
         default:
@@ -339,6 +385,16 @@ void qat_create_ciphers(void)
                 break;
 
 #ifdef QAT_HW
+# if OPENSSL_VERSION_NUMBER > 0x10101000L
+#  ifdef ENABLE_QAT_HW_CHACHAPOLY
+            case NID_chacha20_poly1305:
+                if (qat_hw_offload)
+                    info[i].cipher = (EVP_CIPHER *)
+                        chachapoly_cipher_meth(info[i].nid, info[i].keylen);
+                break;
+#  endif
+# endif
+
 # ifdef ENABLE_QAT_HW_CIPHERS
             case NID_aes_128_cbc_hmac_sha1:
             case NID_aes_128_cbc_hmac_sha256:
@@ -375,6 +431,11 @@ void qat_free_ciphers(void)
 #ifdef ENABLE_QAT_HW_GCM
                 if (info[i].nid != NID_aes_192_gcm)
                     EVP_CIPHER_meth_free(info[i].cipher);
+#endif
+                break;
+            case NID_chacha20_poly1305:
+#ifndef DISABLE_QAT_HW_CHACHAPOLY
+                EVP_CIPHER_meth_free(info[i].cipher);
 #endif
                 break;
             case NID_aes_128_cbc_hmac_sha1:
@@ -437,3 +498,61 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
     *cipher = NULL;
     return 0;
 }
+
+#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+/******************************************************************************
+* function:
+*         qat_pkt_threshold_table_set_threshold(const char *cn, int threshold)
+*
+* @param cn        [IN] - Object contains EVP operation id
+* @param threshold [IN] - Threshold packet size
+*
+* description:
+*   Sets Threshold Packet Size for Small Packet Offload
+******************************************************************************/
+int qat_pkt_threshold_table_set_threshold(const char *cn , int threshold)
+{
+    int i = 0;
+    int nid;
+
+    if(threshold < 0)
+        threshold = 0;
+    else if (threshold > 16384)
+        threshold = 16384;
+
+    DEBUG("Set small packet threshold for %s: %d\n", cn, threshold);
+
+    nid = OBJ_sn2nid(cn);
+    do {
+        if (qat_pkt_threshold_table[i].nid == nid) {
+            qat_pkt_threshold_table[i].threshold = threshold;
+            return 1;
+        }
+    } while (++i < pkt_threshold_table_size);
+
+    WARN("nid %d not found in threshold table\n", nid);
+    return 0;
+}
+
+/******************************************************************************
+* function:
+*         qat_pkt_threshold_table_get_threshold(int nid)
+*
+* @param nid  [IN] - EVP operation id
+*
+* description:
+*   Gets Threshold Packet Size for Small Packet Offload
+******************************************************************************/
+int qat_pkt_threshold_table_get_threshold(int nid)
+{
+    int i = 0;
+    do {
+        if (qat_pkt_threshold_table[i].nid == nid) {
+            return qat_pkt_threshold_table[i].threshold;
+        }
+    } while (++i < pkt_threshold_table_size);
+
+    WARN("nid %d not found in threshold table", nid);
+    return 0;
+}
+#endif

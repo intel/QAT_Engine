@@ -75,6 +75,7 @@
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
+#include "qat_evp.h"
 
 #include "cpa.h"
 #include "cpa_types.h"
@@ -276,64 +277,6 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
     return qat_chained_cipher_sw_impl(nid);
 #endif
 }
-
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-# define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
-
-typedef struct cipher_threshold_table_s {
-    int nid;
-    int threshold;
-} PKT_THRESHOLD;
-
-static PKT_THRESHOLD qat_pkt_threshold_table[] = {
-    {NID_aes_128_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-    {NID_aes_256_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-    {NID_aes_128_cbc_hmac_sha256,
-     CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-    {NID_aes_256_cbc_hmac_sha256, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT}
-};
-
-static int pkt_threshold_table_size =
-    (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
-
-int qat_pkt_threshold_table_set_threshold(const char *cn,
-                                          int threshold)
-{
-    int i = 0;
-    int nid;
-
-    if(threshold < 0)
-        threshold = 0;
-    else if (threshold > 16384)
-        threshold = 16384;
-
-    DEBUG("Set small packet threshold for %s: %d\n", cn, threshold);
-
-    nid = OBJ_sn2nid(cn);
-    do {
-        if (qat_pkt_threshold_table[i].nid == nid) {
-            qat_pkt_threshold_table[i].threshold = threshold;
-            return 1;
-        }
-    } while (++i < pkt_threshold_table_size);
-
-    WARN("nid %d not found in threshold table\n", nid);
-    return 0;
-}
-
-static inline int qat_pkt_threshold_table_get_threshold(int nid)
-{
-    int i = 0;
-    do {
-        if (qat_pkt_threshold_table[i].nid == nid) {
-            return qat_pkt_threshold_table[i].threshold;
-        }
-    } while (++i < pkt_threshold_table_size);
-
-    WARN("nid %d not found in threshold table", nid);
-    return 0;
-}
-#endif
 
 /******************************************************************************
 * function:

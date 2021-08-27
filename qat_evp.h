@@ -53,6 +53,8 @@
 # define AES_KEY_SIZE_192           24
 # define AES_KEY_SIZE_256           32
 
+# define CHACHA_KEY_SIZE           32
+
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
 int qat_digest_methods(ENGINE *e, const EVP_MD **md,
@@ -66,5 +68,10 @@ void qat_create_ciphers(void);
 void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                 int nid);
+#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+# define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
+int qat_pkt_threshold_table_set_threshold(const char *cn , int threshold);
+int qat_pkt_threshold_table_get_threshold(int nid);
+#endif
 
 #endif

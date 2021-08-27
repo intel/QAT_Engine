@@ -73,6 +73,11 @@ AC_ARG_ENABLE(qat_hw_sha3,
                              [Disable qat_hw SHA3 offload]))
 AC_SUBST(enable_qat_hw_sha3)
 
+AC_ARG_ENABLE(qat_hw_chachapoly,
+              AS_HELP_STRING([--disable-qat_hw_chachapoly],
+                             [Disable qat_hw CHACHA-POLY acceleration]))
+AC_SUBST(enable_qat_hw_chachapoly)
+
 AC_ARG_ENABLE(qat_sw_gcm,
               AS_HELP_STRING([--disable-qat_sw_gcm],
                              [Disable qat_sw AES-GCM acceleration]))
@@ -454,7 +459,7 @@ else if test "x$enable_qat_sw_ecdh" != "xno" -a "x$cflags_qat_sw" != "x"
 then
   AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
   AC_MSG_NOTICE([Accelerating ECDH P256 &P384 to Software (Multi-buffer)])
-else if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x"
+else if test "x$enable_qat_hw_ecdh" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
   AC_MSG_NOTICE([Accelerating ECDH to Hardware])
@@ -577,6 +582,15 @@ then
 else
   enable_qat_hw_sha3="-DDISABLE_QAT_HW_SHA3"
   AC_MSG_NOTICE([Not Accelerating SHA3 to Hardware])
+fi
+
+if test "x$enable_qat_hw_chachapoly" != "xno" -a "x$cflags_qat_hw" != "x"
+then
+  enable_qat_hw_chachapoly="-DENABLE_QAT_HW_CHACHAPOLY"
+  AC_MSG_NOTICE([Accelerating CHACHA-POLY to Hardware])
+else
+  enable_qat_hw_chachapoly="-DDISABLE_QAT_HW_CHACHAPOLY"
+  AC_MSG_NOTICE([Not Accelerating CHACHA-POLY to Hardware])
 fi
 
 if test "x$enable_qat_hw_small_pkt_offload" = "xyes" -a "x$cflags_qat_hw" != "x"

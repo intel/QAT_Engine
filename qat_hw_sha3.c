@@ -60,7 +60,7 @@
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
-#include "e_qat_err.h"
+#include "qat_evp.h"
 
 #include "cpa.h"
 #include "cpa_types.h"
@@ -157,63 +157,6 @@ const EVP_MD *qat_create_sha3_meth(int nid , int key_type)
     return qat_sha3_sw_impl(nid);
 #endif
 }
-
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-# define CRYPTO_SMALL_PACKET_OFFLOAD_SHA3_THRESHOLD_DEFAULT 2048
-
-typedef struct sha3_threshold_table_s {
-    int nid;
-    int threshold;
-} SHA3_PKT_THRESHOLD;
-
-static SHA3_PKT_THRESHOLD qat_sha3_pkt_threshold_table[] = {
-    {NID_sha3_224, CRYPTO_SMALL_PACKET_OFFLOAD_SHA3_THRESHOLD_DEFAULT},
-    {NID_sha3_256, CRYPTO_SMALL_PACKET_OFFLOAD_SHA3_THRESHOLD_DEFAULT},
-    {NID_sha3_384, CRYPTO_SMALL_PACKET_OFFLOAD_SHA3_THRESHOLD_DEFAULT},
-    {NID_sha3_512, CRYPTO_SMALL_PACKET_OFFLOAD_SHA3_THRESHOLD_DEFAULT}
-};
-
-static int sha3_pkt_threshold_table_size =
-    (sizeof(qat_sha3_pkt_threshold_table) / sizeof(qat_sha3_pkt_threshold_table[0]));
-
-int qat_sha3_pkt_threshold_table_set_threshold(const char *cn,
-                                               int threshold)
-{
-    int i = 0;
-    int nid;
-
-    if(threshold < 0)
-        threshold = 0;
-    else if (threshold > 16384)
-        threshold = 16384;
-
-    DEBUG("Set small packet threshold for %s: %d\n", cn, threshold);
-
-    nid = OBJ_sn2nid(cn);
-    do {
-        if (qat_sha3_pkt_threshold_table[i].nid == nid) {
-            qat_sha3_pkt_threshold_table[i].threshold = threshold;
-            return 1;
-        }
-    } while (++i < sha3_pkt_threshold_table_size);
-
-    WARN("nid %d not found in threshold table\n", nid);
-    return 0;
-}
-
-static inline int qat_sha3_pkt_threshold_get_threshold(int nid)
-{
-    int i = 0;
-    do {
-        if (qat_sha3_pkt_threshold_table[i].nid == nid) {
-            return qat_sha3_pkt_threshold_table[i].threshold;
-        }
-    } while (++i < sha3_pkt_threshold_table_size);
-
-    WARN("nid %d not found in threshold table", nid);
-    return 0;
-}
-#endif
 
 #ifdef ENABLE_QAT_HW_SHA3
 static const CpaCySymOpData template_opData = {
@@ -729,7 +672,7 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
 
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-    if(sha3_ctx->packet_size <= CRYPTO_SMALL_PACKET_OFFLOAD_SHA3_THRESHOLD_DEFAULT ) {
+    if(sha3_ctx->packet_size <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT ) {
        ret = EVP_MD_meth_get_final(GET_SW_SHA3_DIGEST(ctx))
              (ctx, md);
        return ret;
@@ -791,7 +734,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         sha3_ctx->packet_size = len;
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
         if (len <=
-              qat_sha3_pkt_threshold_get_threshold(EVP_MD_CTX_type(ctx))) {
+              qat_pkt_threshold_table_get_threshold(EVP_MD_CTX_type(ctx))) {
             KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
             memset(k_ctx->A, 0, sizeof(k_ctx->A));
             retVal = EVP_MD_meth_get_update(GET_SW_SHA3_DIGEST(ctx))

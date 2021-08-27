@@ -42,12 +42,13 @@ if QAT_HW
               qat_hw_dsa.c         \
               qat_hw_ec.c          \
               qat_hw_prf.c         \
-              qat_hw_gcm.c         \
-              qat_hw_sha3.c
+              qat_hw_gcm.c
 
 if !QAT_OPENSSL_110
- QAT_HW_111_SRC = qat_hw_hkdf.c    \
-                  qat_hw_ecx.c
+ QAT_HW_111_SRC = qat_hw_hkdf.c       \
+                  qat_hw_ecx.c        \
+                  qat_hw_sha3.c       \
+                  qat_hw_chachapoly.c
 endif
 endif
 
@@ -85,6 +86,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(cflags_qat_ecdh) $(cflags_qat_gcm) $(enable_qat_hw_dh) \
             $(enable_qat_hw_dsa) $(enable_qat_hw_ciphers)            \
             $(enable_qat_hw_prf) $(enable_qat_hw_hkdf)               \
+            $(enable_qat_hw_sha3) $(enable_qat_hw_chachapoly)        \
             $(enable_qat_hw_small_pkt_offload)                       \
             $(enable_qat_hw_lenstra_protection)                      \
             $(enable_qat_hw_lenstra_verify_hw)                       \
@@ -92,7 +94,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(enable_qat_auto_engine_init_on_fork)                   \
             $(enable_qat_debug) $(enable_qat_warnings)               \
             $(enable_qat_mem_debug) $(enable_qat_mem_warnings)       \
-            $(enable_qat_cycle_counts) $(enable_qat_hw_sha3)
+            $(enable_qat_cycle_counts)
 
 
 qatengine_la_LDFLAGS = -module -no-undefined -avoid-version       \
