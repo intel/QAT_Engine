@@ -197,12 +197,21 @@ static const option_data rsa_choices[] = {
     {"rsa2048", 2048, TEST_RSA, 0, 0},
     {"rsa3072", 3072, TEST_RSA, 0, 0},
     {"rsa4096", 4096, TEST_RSA, 0, 0},
+    {"rsa8192", 8192, TEST_RSA, 0, 0},
 };
 
 static const option_data dsa_choices[] = {
     {"dsa1024", 1024, TEST_DSA, 0, 0},
     {"dsa2048", 2048, TEST_DSA, 0, 0},
     {"dsa4096", 4096, TEST_DSA, 0, 0},
+};
+
+static const option_data dh_choices[] = {
+    {"dh512", 512, TEST_DH, 0, 0},
+    {"dh1024", 1024, TEST_DH, 0, 0},
+    {"dh2048", 2048, TEST_DH, 0, 0},
+    {"dh4096", 4096, TEST_DH, 0, 0},
+    {"dh8192", 8192, TEST_DH, 0, 0},
 };
 
 static const option_data ecdh_choices[] = {
@@ -529,6 +538,8 @@ char *test_name(int test)
         return "SHA3-384";
     case TEST_SHA3_512:
         return "SHA3-512";
+    case TEST_CHACHA20_POLY1305:
+        return "CHACHA20-POLY1305";
     case 0:
         return "all tests";
     default:
@@ -651,10 +662,15 @@ static void usage(char *program)
     printf("\trsa2048 RSA 2048 test\n");
     printf("\trsa3072 RSA 3072 test\n");
     printf("\trsa4096 RSA 4096 test\n");
+    printf("\trsa8192 RSA 8192 test\n");
     printf("\tdsa1024 DSA 1024 test\n");
     printf("\tdsa2048 DSA 2048 test\n");
     printf("\tdsa4096 DSA 4096 test\n");
-    printf("\tdh      DH test\n");
+    printf("\tdh512 DH 1024 test\n");
+    printf("\tdh1024 DH 1024 test\n");
+    printf("\tdh2048 DH 2048 test\n");
+    printf("\tdh4096 DH 4096 test\n");
+    printf("\tdh8192 DH 8192 test\n");
     printf("\taes128_cbc_hmac_sha1 AES128 CBC HMAC SHA1 test\n");
     printf("\taes256_cbc_hmac_sha1 AES256 CBC HMAC SHA1 test\n");
     printf("\taes128_cbc_hmac_sha256 AES128 CBC HMAC SHA256 test\n");
@@ -706,7 +722,8 @@ static void usage(char *program)
     printf("\tsha3-224    SHA3 224 test\n");
     printf("\tsha3-256    SHA3 256 test\n");
     printf("\tsha3-384    SHA3 384 test\n");
-    printf("\tsha3-512    SHA3 512 test\n\n");
+    printf("\tsha3-512    SHA3 512 test\n");
+    printf("\tchachapoly  CHACHAPOLY test\n\n");
 #endif
 
     printf("\nIf test is not specified, one iteration "
@@ -840,7 +857,10 @@ static void handle_option(int argc, char *argv[], int *index)
         test_alg = TEST_PRF;
     else if (!strcmp(option, "hkdf"))
         test_alg = TEST_HKDF;
-    else if (!strncmp(option, "rsa", strlen("rsa"))) {
+    else if (!strcmp(option, "chachapoly")) {
+        test_alg = TEST_CHACHA20_POLY1305;
+        test_size = 4096;
+    } else if (!strncmp(option, "rsa", strlen("rsa"))) {
         size = sizeof(rsa_choices) / sizeof(option_data);
         for (i = 0; i < size; i++)
             if (!strcmp(option, rsa_choices[i].name)) {
@@ -854,6 +874,14 @@ static void handle_option(int argc, char *argv[], int *index)
             if (!strcmp(option, dsa_choices[i].name)) {
                 test_size = dsa_choices[i].test_size;
                 test_alg = dsa_choices[i].test_alg;
+                break;
+            }
+    } else if (!strncmp(option, "dh", strlen("dh"))) {
+        size = sizeof(dh_choices) / sizeof(option_data);
+        for (i = 0; i < size; i++)
+            if (!strcmp(option, dh_choices[i].name)) {
+                test_size = dh_choices[i].test_size;
+                test_alg = dh_choices[i].test_alg;
                 break;
             }
     } else if (!strncmp(option, "ecdh", strlen("ecdh"))) {
@@ -1364,7 +1392,7 @@ int main(int argc, char *argv[])
 
     for (i = 1; i < argc; i++) {
         /*
-         *  allow rsa, dsa, dh, aes, prf, hkdf, sha-3 & ecx options
+         *  allow rsa, dsa, dh, aes, prf, hkdf, sha-3 , chachapoly & ecx options
          *  without '-' prefix
          */
         if ((argv[i][0] != '-') &&
@@ -1374,7 +1402,8 @@ int main(int argc, char *argv[])
             (argv[i][0] != 'e') &&
             (argv[i][0] != 'p') &&
             (argv[i][0] != 'h') &&
-            (argv[i][0] != 's'))
+            (argv[i][0] != 's') &&
+            (argv[i][0] != 'c'))
             break;
 
         handle_option(argc, argv, &i);

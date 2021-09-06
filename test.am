@@ -35,14 +35,15 @@
 
 EXTRA_PROGRAMS = testapp
 
-QAT_TEST_SRC = test/main.c             \
-               test/tests.c            \
-               test/tests_ecdh.c       \
-               test/tests_ecdsa.c      \
-               test/tests_rsa.c        \
-               test/tests_aes128_gcm.c \
-               test/tests_aes256_gcm.c \
-               test/tests_sha3.c
+QAT_TEST_SRC = test/main.c                    \
+               test/tests.c                   \
+               test/tests_ecdh.c              \
+               test/tests_ecdsa.c             \
+               test/tests_rsa.c               \
+               test/tests_aes128_gcm.c        \
+               test/tests_aes256_gcm.c        \
+               test/tests_sha3.c              \
+               test/tests_chacha20_poly1305.c
 
 
 if QAT_HW
@@ -53,11 +54,11 @@ QAT_HW_TEST_SRC = test/tests_aes_cbc_hmac_sha.c \
 endif
 
 if !QAT_OPENSSL_110
-if QAT_SW
-OPENSSL_111_TEST_SRC = test/tests_ecx.c
-else
+if QAT_HW
 OPENSSL_111_TEST_SRC = test/tests_hkdf.c \
                        test/tests_ecx.c
+else
+OPENSSL_111_TEST_SRC = test/tests_ecx.c
 endif
 endif
 

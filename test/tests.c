@@ -676,7 +676,7 @@ void tests_run(TEST_PARAMS *args, int id)
     }
 
     switch (args->type) {
-#ifdef QAT_SW
+#if defined(QAT_SW) || defined(QAT_HW)
     /*
      * RSA sign, verify, encrypt and decrypt tests, input message length 124
      * bytes
@@ -703,21 +703,7 @@ void tests_run(TEST_PARAMS *args, int id)
 # endif
 #endif
 
-#ifndef QAT_SW
 #ifdef QAT_HW
-    /*
-     * RSA sign, verify, encrypt and decrypt tests, input message length 124
-     * bytes
-     */
-    case TEST_RSA:
-        tests_run_rsa(args);
-        break;
-    case TEST_ECDH:             /* ECDH test application */
-        tests_run_ecdh(args);
-        break;
-    case TEST_ECDSA:            /* ECDSA test application */
-        tests_run_ecdsa(args);
-        break;
     /* DSA sign & verify tests, input message length 124 bytes */
     case TEST_DSA:
         tests_run_dsa(args);
@@ -739,9 +725,6 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_HKDF:             /* HKDF test application */
         tests_run_hkdf(args);
         break;
-    case TEST_ECX:              /* X25519 & X448 test application */
-        tests_run_ecx(args);
-        break;
     /* SHA3 tests */
     case TEST_SHA3_224:
     case TEST_SHA3_256:
@@ -749,14 +732,10 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_SHA3_512:
         tests_run_sha3(args);
         break;
+    case TEST_CHACHA20_POLY1305:
+        tests_run_chacha20_poly1305(args);
+        break;
 # endif
-    case TEST_AES128_GCM:
-        tests_run_aes128_gcm(args);
-        break;
-    case TEST_AES256_GCM:
-        tests_run_aes256_gcm(args);
-        break;
-#endif
 #endif
     default:
         WARN("# FAIL: Unknown test type %d\n", args->type);

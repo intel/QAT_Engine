@@ -781,7 +781,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
 
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
     cp_ctx->packet_size = len;
-    if (len <=
+    if ( (len - QAT_POLY1305_BLOCK_SIZE) <=
          qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
         EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx->sw_ctx_cipher_data);
         retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CHACHA_CTX)
@@ -1061,25 +1061,17 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
         DEBUG("TLS case.");
         return qat_chacha20_poly1305_tls_cipher(ctx, out, in, len);
     }
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-    cp_ctx->packet_size = len;
-    if (len <=
-         qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
-        EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx->sw_ctx_cipher_data);
-        retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CHACHA_CTX)
-                 (ctx, out, in, len);
-        EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx);
-        if (retVal) {
-            outlen = len;
-        }
-        goto cleanup;
-    }
-# endif
 
     /* Partial requests are not supported in the QAT driver
      * for CHACHA-POLY. */
     if (out != NULL && in == NULL && enc) {
         WARN("QAT Engine does not support partial requests.\n");
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx->sw_ctx_cipher_data);
+        EVP_CIPHER_meth_get_do_cipher(GET_SW_CHACHA_CTX)
+                 (ctx, out, in, len);
+        EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx);
+# endif
         return 0;
     }
 
@@ -1106,10 +1098,32 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
             }
             memcpy(cp_ctx->tls_aad, in, len);
             DUMPL("AAD", cp_ctx->tls_aad, aad_buffer_len);
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx->sw_ctx_cipher_data);
+        EVP_CIPHER_meth_get_do_cipher(GET_SW_CHACHA_CTX)
+                 (ctx, out, in, len);
+        EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx);
+# endif
             return 1;
         }
         /* EncryptUpdate/DecryptUpdate case */
         else {
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+            cp_ctx->packet_size = len;
+            if (len <=
+                 qat_pkt_threshold_table_get_threshold(
+                 EVP_CIPHER_CTX_nid(ctx))) {
+                EVP_CIPHER_CTX_set_cipher_data(ctx,
+                        cp_ctx->sw_ctx_cipher_data);
+                retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CHACHA_CTX)
+                         (ctx, out, in, len);
+                EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx);
+                if (retVal) {
+                    outlen = len;
+                }
+            goto cleanup;
+    }
+# endif
             if (cp_ctx->context_params_set && !cp_ctx->session_init) {
                 /* Set chachapoly opdata params and initialise session. */
                 if (!qat_chachapoly_setup_op_params(cp_ctx)) {
@@ -1424,178 +1438,204 @@ static int qat_chacha20_poly1305_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
 
     enc = EVP_CIPHER_CTX_encrypting(ctx);
 
-    if(type == EVP_CTRL_INIT) {
-       if (cp_ctx == NULL) {
-           cp_ctx = OPENSSL_zalloc(sizeof(qat_chachapoly_ctx));
-           if (cp_ctx == NULL) {
-               WARN("unable to allocate memory for chachapoly context.\n");
-               QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                      ERR_R_MALLOC_FAILURE);
-               return -1;
-           }
-       }
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-        cp_ctx->sw_ctx_cipher_data = OPENSSL_zalloc(QAT_CP_SW_CTX_MEM_SIZE);
-        if (cp_ctx->sw_ctx_cipher_data == NULL) {
-            WARN("Unable to allocate memory for sw_ctx_cipher_data\n");
-            QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                   ERR_R_MALLOC_FAILURE);
-            return -1;
-        }
-# endif
-    }
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-    if (cp_ctx->packet_size <=
-        qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))
-        && (type!=EVP_CTRL_INIT) ){
-        goto sw_ctrl;
-    }
-# endif
     switch (type) {
-        case EVP_CTRL_INIT:
-            cp_ctx->tag_len = 0;
-            cp_ctx->nonce_len = QAT_CHACHA20_POLY1305_MAX_IVLEN;
-            cp_ctx->tls_payload_length = NO_TLS_PAYLOAD_LENGTH;
-            cp_ctx->tls_aad = NULL;
-            cp_ctx->tls_aad_len = 0;
-            cp_ctx->key_set = 0;
-            cp_ctx->iv_set = 0;
-            cp_ctx->mac_key_set = 0;
-            EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx);
-
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-            goto sw_ctrl;
-# endif
-            return 1;
-
-        case EVP_CTRL_COPY:
-            dst_ctx = (EVP_CIPHER_CTX *)ptr;
-            tmp_ctx = OPENSSL_memdup(cp_ctx, sizeof(qat_chachapoly_ctx));
-            if (tmp_ctx == NULL) {
-                WARN("unable to copy chachapoly cipher context data.\n");
+    case EVP_CTRL_INIT:
+        if (cp_ctx == NULL) {
+            cp_ctx = OPENSSL_zalloc(sizeof(qat_chachapoly_ctx));
+            if (cp_ctx == NULL) {
+                WARN("unable to allocate memory for chachapoly ctx.\n");
                 QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, ERR_R_MALLOC_FAILURE);
                 return -1;
             }
-            EVP_CIPHER_CTX_set_cipher_data(dst_ctx, tmp_ctx);
+        }
+        cp_ctx->tag_len = 0;
+        cp_ctx->nonce_len = QAT_CHACHA20_POLY1305_MAX_IVLEN;
+        cp_ctx->tls_payload_length = NO_TLS_PAYLOAD_LENGTH;
+        cp_ctx->tls_aad = NULL;
+        cp_ctx->tls_aad_len = 0;
+        cp_ctx->key_set = 0;
+        cp_ctx->iv_set = 0;
+        cp_ctx->mac_key_set = 0;
+        EVP_CIPHER_CTX_set_cipher_data(ctx, cp_ctx);
 
-            return 1;
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        if (cp_ctx->sw_ctx_cipher_data == NULL) {
+            cp_ctx->sw_ctx_cipher_data = OPENSSL_zalloc(QAT_CP_SW_CTX_MEM_SIZE);
+            if (cp_ctx->sw_ctx_cipher_data == NULL) {
+                WARN("Unable to allocate memory for sw_ctx_cipher_data\n");
+                QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, ERR_R_MALLOC_FAILURE);
+                return -1;
+            }
+        }
+	    goto sw_ctrl;
+# endif
+        return 1;
 
-        case EVP_CTRL_GET_IVLEN:
-            *(int *)ptr = cp_ctx->nonce_len;
+    case EVP_CTRL_COPY:
+        dst_ctx = (EVP_CIPHER_CTX *)ptr;
+        tmp_ctx = OPENSSL_memdup(cp_ctx, sizeof(qat_chachapoly_ctx));
+        if (tmp_ctx == NULL) {
+            WARN("unable to copy chachapoly cipher context data.\n");
+            QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, ERR_R_MALLOC_FAILURE);
+            return -1;
+        }
+        EVP_CIPHER_CTX_set_cipher_data(dst_ctx, tmp_ctx);
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        if (cp_ctx->packet_size <=
+            qat_pkt_threshold_table_get_threshold(
+            EVP_CIPHER_CTX_nid(ctx))) {
+            goto sw_ctrl;
+        }
+# endif
+        return 1;
 
-            return 1;
+    case EVP_CTRL_GET_IVLEN:
+        *(int *)ptr = cp_ctx->nonce_len;
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        if (cp_ctx->packet_size <=
+            qat_pkt_threshold_table_get_threshold(
+            EVP_CIPHER_CTX_nid(ctx))) {
+            goto sw_ctrl;
+        }
+# endif
+        return 1;
 
-        case EVP_CTRL_AEAD_SET_IVLEN:
-            if (arg <= 0 || arg > QAT_CHACHA20_POLY1305_MAX_IVLEN) {
-                WARN("Invalid IV length.\n");
+    case EVP_CTRL_AEAD_SET_IVLEN:
+         if (arg <= 0 || arg > QAT_CHACHA20_POLY1305_MAX_IVLEN) {
+             WARN("Invalid IV length.\n");
+             QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, QAT_R_INVALID_IVLEN);
+             return 0;
+         }
+         cp_ctx->nonce_len = arg;
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+         if (cp_ctx->packet_size <=
+             qat_pkt_threshold_table_get_threshold(
+             EVP_CIPHER_CTX_nid(ctx))) {
+             goto sw_ctrl;
+         }
+# endif
+         return 1;
+
+     case EVP_CTRL_AEAD_SET_IV_FIXED:
+         if (arg != QAT_CHACHA20_POLY1305_MAX_IVLEN) {
+             WARN("Invalid fixed IV length.\n");
+             QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, QAT_R_INVALID_IVLEN);
+             return 0;
+         }
+         cp_ctx->iv[0] = CHACHA_U8TOU32((unsigned char *)ptr);
+         cp_ctx->iv[1] = CHACHA_U8TOU32((unsigned char *)ptr+4);
+         cp_ctx->iv[2] = CHACHA_U8TOU32((unsigned char *)ptr+8);
+
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+         if (cp_ctx->packet_size <=
+             qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
+             goto sw_ctrl;
+         }
+# endif
+         return 1;
+
+    case EVP_CTRL_AEAD_SET_TAG:
+        if (arg <= 0 || arg > QAT_POLY1305_BLOCK_SIZE) {
+            WARN("Invalid TAG length.\n");
+            QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, QAT_R_INVALID_TAG_LEN);
+            return 0;
+        }
+        if (ptr != NULL) {
+            memcpy(cp_ctx->tag, ptr, arg);
+            cp_ctx->tag_len = arg;
+        }
+
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        if (cp_ctx->packet_size <=
+            qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
+            goto sw_ctrl;
+        }
+# endif
+        return 1;
+
+    case EVP_CTRL_AEAD_GET_TAG:
+        if (arg <= 0 || arg > QAT_POLY1305_BLOCK_SIZE || !enc) {
+            WARN("Invalid TAG operation.\n");
+            QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, QAT_R_INVALID_TAG_LEN);
+            return 0;
+        }
+        memcpy(ptr, cp_ctx->tag, arg);
+
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        if (cp_ctx->packet_size <=
+            qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
+            goto sw_ctrl;
+        }
+# endif
+        return 1;
+
+    case EVP_CTRL_AEAD_TLS1_AAD:
+        if (arg != EVP_AEAD_TLS1_AAD_LEN) {
+            WARN("Invalid AAD length.\n");
+            QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL, QAT_R_AAD_LEN_INVALID);
+            return 0;
+        }
+        unsigned int len;
+        unsigned char *aad = ptr;
+
+        if (cp_ctx->tls_aad_len <= 0) {
+            cp_ctx->tls_aad = qaeCryptoMemAlloc(arg, __FILE__, __LINE__);
+            if (cp_ctx->tls_aad == NULL) {
+                WARN("Unable to allocate memory for TLS header\n");
                 QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                        QAT_R_INVALID_IVLEN);
+                       ERR_R_MALLOC_FAILURE);
                 return 0;
             }
-            cp_ctx->nonce_len = arg;
+            cp_ctx->tls_aad_len = arg;
+        }
+        memcpy(cp_ctx->tls_aad, ptr, EVP_AEAD_TLS1_AAD_LEN);
 
-            return 1;
-
-        case EVP_CTRL_AEAD_SET_IV_FIXED:
-            if (arg != QAT_CHACHA20_POLY1305_MAX_IVLEN) {
-                WARN("Invalid fixed IV length.\n");
-                QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                       QAT_R_INVALID_IVLEN);
-                return 0;
-            }
-            cp_ctx->iv[0] = CHACHA_U8TOU32((unsigned char *)ptr);
-            cp_ctx->iv[1] = CHACHA_U8TOU32((unsigned char *)ptr+4);
-            cp_ctx->iv[2] = CHACHA_U8TOU32((unsigned char *)ptr+8);
-
-            return 1;
-
-        case EVP_CTRL_AEAD_SET_TAG:
-            if (arg <= 0 || arg > QAT_POLY1305_BLOCK_SIZE) {
-                WARN("Invalid TAG length.\n");
-                QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                        QAT_R_INVALID_TAG_LEN);
-                return 0;
-            }
-            if (ptr != NULL) {
-                memcpy(cp_ctx->tag, ptr, arg);
-                cp_ctx->tag_len = arg;
-            }
-
-            return 1;
-
-        case EVP_CTRL_AEAD_GET_TAG:
-            if (arg <= 0 || arg > QAT_POLY1305_BLOCK_SIZE || !enc) {
-                WARN("Invalid TAG operation.\n");
-                QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                        QAT_R_INVALID_TAG_LEN);
-                return 0;
-            }
-            memcpy(ptr, cp_ctx->tag, arg);
-
-            return 1;
-
-        case EVP_CTRL_AEAD_TLS1_AAD:
-            if (arg != EVP_AEAD_TLS1_AAD_LEN) {
-                WARN("Invalid AAD length.\n");
-                QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                        QAT_R_AAD_LEN_INVALID);
-                return 0;
-            }
-            unsigned int len;
-            unsigned char *aad = ptr;
-
-            if (cp_ctx->tls_aad_len <= 0) {
-                cp_ctx->tls_aad = qaeCryptoMemAlloc(arg, __FILE__, __LINE__);
-                if (cp_ctx->tls_aad == NULL) {
-                    WARN("Unable to allocate memory for TLS header\n");
-                    QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                           ERR_R_MALLOC_FAILURE);
-                    return 0;
-                }
-                cp_ctx->tls_aad_len = arg;
-            }
-            memcpy(cp_ctx->tls_aad, ptr, EVP_AEAD_TLS1_AAD_LEN);
-
-            /* Get the length of the TLS payload */
-            len = aad[EVP_AEAD_TLS1_AAD_LEN - 2] << 8 |
+        /* Get the length of the TLS payload */
+        len = aad[EVP_AEAD_TLS1_AAD_LEN - 2] << 8 |
                 aad[EVP_AEAD_TLS1_AAD_LEN - 1];
 
-            aad = cp_ctx->tls_aad;
+        aad = cp_ctx->tls_aad;
 
-            if (!enc) {
-                if (len < QAT_POLY1305_BLOCK_SIZE) {
-                    WARN("Invalid TAG length or no TAG.\n");
-                    QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
-                           QAT_R_INVALID_ATTACHED_TAG);
-                    return 0;
-                }
-                /* Discount attached tag */
-                len -= QAT_POLY1305_BLOCK_SIZE;
-                /* Adjust the length of the payload */
-                aad[EVP_AEAD_TLS1_AAD_LEN - 2] = (unsigned char)(len >> 8);
-                aad[EVP_AEAD_TLS1_AAD_LEN - 1] = (unsigned char)len;
+        if (!enc) {
+            if (len < QAT_POLY1305_BLOCK_SIZE) {
+                WARN("Invalid TAG length or no TAG.\n");
+                QATerr(QAT_F_QAT_CHACHA20_POLY1305_CTRL,
+                       QAT_R_INVALID_ATTACHED_TAG);
+                return 0;
             }
-            cp_ctx->session_data->hashSetupData.authModeSetupData.aadLenInBytes = EVP_AEAD_TLS1_AAD_LEN;
-            cp_ctx->tls_payload_length = len;
+            /* Discount attached tag */
+            len -= QAT_POLY1305_BLOCK_SIZE;
+            /* Adjust the length of the payload */
+            aad[EVP_AEAD_TLS1_AAD_LEN - 2] = (unsigned char)(len >> 8);
+            aad[EVP_AEAD_TLS1_AAD_LEN - 1] = (unsigned char)len;
+        }
+        cp_ctx->session_data->hashSetupData.authModeSetupData.aadLenInBytes = EVP_AEAD_TLS1_AAD_LEN;
+        cp_ctx->tls_payload_length = len;
 
-            /* merge record sequence number as per RFC7905 */
-            cp_ctx->counter[1] = cp_ctx->iv[0];
-            cp_ctx->counter[2] = cp_ctx->iv[1] ^ CHACHA_U8TOU32(aad);
-            cp_ctx->counter[3] = cp_ctx->iv[2] ^ CHACHA_U8TOU32(aad+4);
+        /* merge record sequence number as per RFC7905 */
+        cp_ctx->counter[1] = cp_ctx->iv[0];
+        cp_ctx->counter[2] = cp_ctx->iv[1] ^ CHACHA_U8TOU32(aad);
+        cp_ctx->counter[3] = cp_ctx->iv[2] ^ CHACHA_U8TOU32(aad+4);
 
-            memset(cp_ctx->derived_iv, 0, QAT_CHACHA20_POLY1305_MAX_IVLEN);
+        memset(cp_ctx->derived_iv, 0, QAT_CHACHA20_POLY1305_MAX_IVLEN);
 
-            memcpy(cp_ctx->derived_iv, cp_ctx->nonce, 4);
-            U32TOU8(cp_ctx->derived_iv + 4, cp_ctx->counter[2]);
-            U32TOU8(cp_ctx->derived_iv + 8, cp_ctx->counter[3]);
+        memcpy(cp_ctx->derived_iv, cp_ctx->nonce, 4);
+        U32TOU8(cp_ctx->derived_iv + 4, cp_ctx->counter[2]);
+        U32TOU8(cp_ctx->derived_iv + 8, cp_ctx->counter[3]);
 
-            cp_ctx->mac_key_set = 0;
+        cp_ctx->mac_key_set = 0;
 
-            return QAT_POLY1305_BLOCK_SIZE;
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+        if (cp_ctx->packet_size <=
+            qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
+            goto sw_ctrl;
+        }
+# endif
+        return QAT_POLY1305_BLOCK_SIZE;
 
-        default:
-            WARN("Unknown type parameter\n");
-            return -1;
+   default:
+        WARN("Unknown type parameter\n");
+        return -1;
     }
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
 sw_ctrl:
