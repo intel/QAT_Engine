@@ -55,6 +55,45 @@
 
 # define CHACHA_KEY_SIZE           32
 
+typedef int (*PFUNC_COMP_KEY)(unsigned char **,
+                              size_t *,
+                              const EC_POINT *,
+                              const EC_KEY *);
+
+typedef int (*PFUNC_GEN_KEY)(EC_KEY *);
+
+typedef int (*PFUNC_SIGN)(int,
+                          const unsigned char *,
+                          int,
+                          unsigned char *,
+                          unsigned int *,
+                          const BIGNUM *,
+                          const BIGNUM *,
+                          EC_KEY *);
+
+typedef int (*PFUNC_SIGN_SETUP)(EC_KEY *,
+                                BN_CTX *,
+                                BIGNUM **,
+                                BIGNUM **);
+
+typedef ECDSA_SIG *(*PFUNC_SIGN_SIG)(const unsigned char *,
+                                     int,
+                                     const BIGNUM *,
+                                     const BIGNUM *,
+                                     EC_KEY *);
+
+typedef int (*PFUNC_VERIFY)(int,
+                            const unsigned char *,
+                            int,
+                            const unsigned char *,
+                            int,
+                            EC_KEY *);
+
+typedef int (*PFUNC_VERIFY_SIG)(const unsigned char *,
+                                int,
+                                const ECDSA_SIG *,
+                                EC_KEY *eckey);
+
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
 int qat_digest_methods(ENGINE *e, const EVP_MD **md,
@@ -68,10 +107,14 @@ void qat_create_ciphers(void);
 void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                 int nid);
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-# define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
 int qat_pkt_threshold_table_set_threshold(const char *cn , int threshold);
 int qat_pkt_threshold_table_get_threshold(int nid);
-#endif
+# endif
 
-#endif
+EC_KEY_METHOD *qat_get_EC_methods(void);
+
+void qat_free_EC_methods(void);
+
+#endif /* QAT_EVP_H */

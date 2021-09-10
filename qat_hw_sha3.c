@@ -75,10 +75,8 @@
 #include <openssl/async.h>
 #include <openssl/ssl.h>
 
-#ifdef ENABLE_QAT_HW_SHA3
-# ifdef DISABLE_QAT_HW_SHA3
-#  undef DISABLE_QAT_HW_SHA3
-# endif
+#ifdef QAT_HW_INTREE
+# define ENABLE_QAT_HW_SHA3
 #endif
 
 # define GET_SW_SHA3_DIGEST(ctx) \

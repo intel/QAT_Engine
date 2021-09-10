@@ -886,6 +886,9 @@ int multibuff_poll()
         return 0;
     }
 
+    if (mb_tlv == NULL)
+        return 1; /* Do nothing as there are no QAT_SW Requests */
+
     clock_gettime(CLOCK_MONOTONIC_RAW, &current_time);
 
 #ifdef ENABLE_QAT_SW_ECX

@@ -93,12 +93,6 @@
 #include <openssl/ssl.h>
 #include <string.h>
 
-#ifdef ENABLE_QAT_HW_CIPHERS
-# ifdef DISABLE_QAT_HW_CIPHERS
-#  undef DISABLE_QAT_HW_CIPHERS
-# endif
-#endif
-
 #define GET_TLS_HDR(qctx, i)     ((qctx)->aad[(i)])
 #define GET_TLS_VERSION(hdr)     (((hdr)[9]) << QAT_BYTE_SHIFT | (hdr)[10])
 #define GET_TLS_PAYLOAD_LEN(hdr) (((((hdr)[11]) << QAT_BYTE_SHIFT) & 0xff00) | \
@@ -125,7 +119,6 @@
     get_cipher_from_nid(EVP_CIPHER_CTX_nid((ctx)))
 
 #define DEBUG_PPL DEBUG
-#ifndef DISABLE_QAT_HW_CIPHERS
 static int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
                                     const unsigned char *inkey,
                                     const unsigned char *iv, int enc);
@@ -135,8 +128,6 @@ static int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx,
                                          const unsigned char *in, size_t len);
 static int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                                     void *ptr);
-
-#endif
 
 int qatPerformOpRetries = 0;
 
@@ -244,7 +235,6 @@ static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
 
 const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
 {
-#ifndef DISABLE_QAT_HW_CIPHERS
     EVP_CIPHER *c = NULL;
     int res = 1;
 
@@ -272,10 +262,10 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
     }
 
     DEBUG("QAT HW ciphers registration succeeded\n");
-    return c;
-#else
-    return qat_chained_cipher_sw_impl(nid);
-#endif
+    if (qat_hw_offload)
+        return c;
+    else
+        return qat_chained_cipher_sw_impl(nid);
 }
 
 /******************************************************************************

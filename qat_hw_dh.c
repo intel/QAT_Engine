@@ -79,7 +79,8 @@
 
 /* To specify the DH op sizes supported by QAT engine */
 #define DH_QAT_RANGE_MIN 768
-#if CPA_CY_API_VERSION_NUM_MAJOR > 2
+
+#ifdef QAT_HW_DH8K
 # define DH_QAT_RANGE_MAX 8192
 #else
 # define DH_QAT_RANGE_MAX 4096

@@ -195,24 +195,32 @@ mb_thread_data* mb_check_thread_local(void)
 
 void mb_thread_local_destructor(void *tlv_ptr)
 {
+#ifdef ENABLE_QAT_SW_RSA
     rsa_priv_op_data *rsa2k_priv_req = NULL;
     rsa_pub_op_data *rsa2k_pub_req = NULL;
     rsa_priv_op_data *rsa3k_priv_req = NULL;
     rsa_pub_op_data *rsa3k_pub_req = NULL;
     rsa_priv_op_data *rsa4k_priv_req = NULL;
     rsa_pub_op_data *rsa4k_pub_req = NULL;
+#endif
+#ifdef ENABLE_QAT_SW_ECX
     x25519_keygen_op_data *x25519_keygen_req = NULL;
     x25519_derive_op_data *x25519_derive_req = NULL;
+#endif
+#ifdef ENABLE_QAT_SW_ECDSA
     ecdsa_sign_op_data *ecdsap256_sign_req = NULL;
     ecdsa_sign_setup_op_data *ecdsap256_sign_setup_req = NULL;
     ecdsa_sign_sig_op_data *ecdsap256_sign_sig_req = NULL;
     ecdsa_sign_op_data *ecdsap384_sign_req = NULL;
     ecdsa_sign_setup_op_data *ecdsap384_sign_setup_req = NULL;
     ecdsa_sign_sig_op_data *ecdsap384_sign_sig_req = NULL;
+#endif
+#ifdef ENABLE_QAT_SW_ECDH
     ecdh_keygen_op_data *ecdhp256_keygen_req = NULL;
     ecdh_compute_op_data *ecdhp256_compute_req = NULL;
     ecdh_keygen_op_data *ecdhp384_keygen_req = NULL;
     ecdh_compute_op_data *ecdhp384_compute_req = NULL;
+#endif
 
     mb_thread_data *tlv = (mb_thread_data *)tlv_ptr;
 

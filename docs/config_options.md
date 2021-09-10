@@ -139,6 +139,16 @@ The following is a list of the options that can be used with the
 --disable-qat_hw_ecx/--enable-qat_hw_ecx
     Disable/Enable Intel(R) QAT Hardware X25519/X448 acceleration (enabled by default).
 
+--disable-qat_hw_sha3/--enable-qat_hw_sha3
+    Disable/Enable Intel(R) QAT Hardware SHA-3 acceleration (disabled by default).
+    This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
+    for earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.)
+
+--disable-qat_hw_chachapoly/--enable-qat_hw_chachapoly
+    Disable/Enable Intel(R) QAT Hardware CHACHA20-POLY1305 acceleration (disabled by default).
+    This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
+    for earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.)
+
 --disable-qat_sw_gcm/--enable-qat_sw_gcm
     Disable/Enable Intel(R) QAT Software vectorized AES-GCM acceleration.
     This flag is valid only when QAT SW acceleration is enabled using the flag

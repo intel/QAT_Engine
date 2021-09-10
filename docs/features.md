@@ -22,6 +22,7 @@
 * [HMAC Key Derivation Function (HKDF) Acceleration.](qat_hw.md#intel-qat-openssl-engine-hkdf-support)
 * [Pipelined Operations](qat_hw.md#using-the-openssl-pipelining-capability)
 * [Intel&reg; QAT OpenSSL\* Engine Software Fallback](qat_hw.md#intel-qat-openssl-engine-software-fallback-feature)
+* RSA8K, SHA3-224/256/384/512 and ChaCha20-Poly1305 using 4xxx (QAT gen4 devices) only.
 
 ## qat_sw Features
 * [Intel&reg; QAT Software Acceleration for Asymmetric PKE and AES-GCM](qat_sw.md)

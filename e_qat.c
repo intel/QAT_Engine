@@ -64,6 +64,10 @@
 # else
 #  error "No memory driver type defined"
 # endif
+# ifdef QAT_HW_INTREE
+#  define ENABLE_QAT_HW_SHA3
+#  define ENABLE_QAT_HW_CHACHAPOLY
+# endif
 #endif
 
 /* Standard Includes */
@@ -95,7 +99,6 @@
 # include "qat_hw_rsa.h"
 # include "qat_hw_dsa.h"
 # include "qat_hw_dh.h"
-# include "qat_hw_ec.h"
 # include "qat_hw_gcm.h"
 
 /* QAT includes */
@@ -149,7 +152,10 @@
 
 /* Qat engine id declaration */
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
-#ifdef QAT_HW
+#if defined(QAT_HW) && defined(QAT_SW)
+const char *engine_qat_name =
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.8";
+#elif QAT_HW
 const char *engine_qat_name =
     "Reference implementation of QAT crypto engine(qat_hw) v0.6.8";
 #else
@@ -162,7 +168,8 @@ int qat_hw_offload = 0;
 int qat_sw_offload = 0;
 int qat_hw_rsa_offload = 0;
 int qat_hw_ecx_offload = 0;
-int qat_hw_ec_offload = 0;
+int qat_hw_ecdh_offload = 0;
+int qat_hw_ecdsa_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -344,7 +351,6 @@ static int qat_engine_destroy(ENGINE *e)
 {
     DEBUG("---- Destroying Engine...\n\n");
 #ifdef QAT_HW
-    qat_free_EC_methods();
     qat_free_DH_methods();
     qat_free_DSA_methods();
     qat_free_RSA_methods();
@@ -352,7 +358,10 @@ static int qat_engine_destroy(ENGINE *e)
 
 #ifdef QAT_SW
     multibuff_free_RSA_methods();
-    mb_free_EC_methods();
+#endif
+
+#if defined(QAT_SW) || defined(QAT_HW)
+    qat_free_EC_methods();
 #endif
 
 #if defined(QAT_SW_IPSEC) || defined(QAT_HW)
@@ -365,8 +374,6 @@ static int qat_engine_destroy(ENGINE *e)
 # endif
 #endif
 
-    qat_hw_offload = 0;
-    qat_sw_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
@@ -495,6 +502,12 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     if (reset_globals == QAT_RESET_GLOBALS) {
         enable_external_polling = 0;
         enable_heuristic_polling = 0;
+        qat_hw_offload = 0;
+        qat_sw_offload = 0;
+        qat_hw_rsa_offload = 0;
+        qat_hw_ecx_offload = 0;
+        qat_hw_ecdh_offload = 0;
+        qat_hw_ecdsa_offload = 0;
     }
     qat_pthread_mutex_unlock();
     CRYPTO_CLOSE_QAT_LOG();
@@ -556,9 +569,10 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             BREAK_IF(!enable_external_polling, "POLL failed as external polling is not enabled\n");
             BREAK_IF(p == NULL, "POLL failed as the input parameter was NULL\n");
 #ifdef QAT_HW
-            BREAK_IF(qat_instance_handles == NULL, "POLL failed as no instances are available\n");
-
-            *(int *)p = (int)poll_instances();
+            if (qat_hw_offload) {
+                BREAK_IF(qat_instance_handles == NULL, "POLL failed as no instances are available\n");
+                *(int *)p = (int)poll_instances();
+            }
 #endif
 
 #ifdef QAT_SW
@@ -833,12 +847,16 @@ static int bind_qat(ENGINE *e, const char *id)
     WARN("%s - %s \n", id, engine_qat_name);
 
 #ifdef QAT_HW
-#ifdef QAT_HW_INTREE
+# ifdef QAT_HW_INTREE
     if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
         qat_hw_offload = 1;
     } else {
         WARN("Qat Intree device not available\n");
-#else
+#  ifndef QAT_SW
+        goto end;
+#  endif
+    }
+# else
     if (access(QAT_DEV, F_OK) == 0) {
         qat_hw_offload = 1;
         if (access(QAT_MEM_DEV, F_OK) != 0) {
@@ -847,8 +865,11 @@ static int bind_qat(ENGINE *e, const char *id)
         }
     } else {
         WARN("Qat device not available\n");
+#  ifndef QAT_SW
+        goto end;
+#  endif
     }
-#endif
+# endif
 #endif
 
     if (id && (strcmp(id, engine_qat_id) != 0)) {
@@ -898,13 +919,6 @@ static int bind_qat(ENGINE *e, const char *id)
         }
 # endif
 
-# if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_HW_ECDSA)
-        if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
-            WARN("ENGINE_set_EC QAT HW failed\n");
-            goto end;
-        }
-# endif
-
 # ifdef ENABLE_QAT_HW_SHA3
         if (!ENGINE_set_digests(e, qat_digest_methods)) {
             WARN("ENGINE_set_digests failed\n");
@@ -931,20 +945,6 @@ static int bind_qat(ENGINE *e, const char *id)
         }
 # endif
 
-# if defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
-        if (!qat_hw_ec_offload &&
-            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
-            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
-            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
-            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
-            DEBUG("QAT SW ECDSA p256/p384 & ECDH p256/p384 Supported\n");
-            qat_sw_offload = 1;
-            if (!ENGINE_set_EC(e, mb_get_EC_methods())) {
-                WARN("ENGINE_set_EC QAT SW failed\n");
-                goto end;
-            }
-        }
-# endif
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -959,6 +959,20 @@ static int bind_qat(ENGINE *e, const char *id)
 #endif
 
 #if defined(QAT_HW) || defined(QAT_SW)
+     if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
+          WARN("ENGINE_set_EC failed\n");
+          goto end;
+     }
+# if defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
+     if (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+         mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
+         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
+         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
+         DEBUG("QAT SW ECDSA p256/p384 & ECDH p256/p384 Supported\n");
+         qat_sw_offload = 1;
+     }
+# endif
+
 # ifndef QAT_OPENSSL_3
      if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
           WARN("ENGINE_set_pkey_meths failed\n");

@@ -46,10 +46,13 @@ autoreconf -ivf
 %exclude %{enginesdir}/qatengine.la
 
 %changelog
-* Mon Aug 23 2021 Bernard Iremonger <bernard.iremonger@intel.com> - 0.6.8-1
+* Fri Sep 10 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.8-1
 - Update to qatengine v0.6.8
 
-* Thu Jul 20 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.7-1
+* Thu Sep 09 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.7-2
+- Rebuilt for qatlib v21.08
+
+* Fri Jul 30 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.7-1
 - Update to qatengine v0.6.7
 
 * Thu May 20 2021 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.6-1

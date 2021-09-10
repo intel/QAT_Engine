@@ -149,6 +149,7 @@ EVP_PKEY_METHOD *qat_x448_pmeth(void)
         QATerr(QAT_F_QAT_X448_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
+
     EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx_keygen);
     EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
     EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);

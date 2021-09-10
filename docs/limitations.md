@@ -34,5 +34,9 @@
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode
   in the Haproxy application. This issue is not observed when using RSA ciphers
   or in multi-process mode.
+* There is an issue in sshd daemon application when using the QAT for default openssl.
+  sshd looks to be closing the file descriptors associated with QAT engine and driver
+  after initialising openssl. Work around in sshd which comments out the closefrom()
+  calls is needed to unblock the issue.
 
 [1]:https://github.com/openssl/openssl/pull/2581

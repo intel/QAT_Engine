@@ -95,7 +95,7 @@
 #define QAT_TLS1_PRF_SEED_MAXBUF 64
 #define QAT_TLS1_PRF_LABEL_MAXBUF 136
 
-#ifndef DISABLE_QAT_HW_PRF
+#ifdef ENABLE_QAT_HW_PRF
 /* QAT TLS  pkey context structure */
 typedef struct {
     /* Buffer of concatenated seeds from seed2 to seed5 data */
@@ -121,51 +121,51 @@ static int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
 
 static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 
-#ifndef DISABLE_QAT_HW_PRF
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 static const EVP_PKEY_METHOD *sw_prf_pmeth = NULL;
-#endif
 
 EVP_PKEY_METHOD *qat_prf_pmeth(void)
 {
-#ifdef DISABLE_QAT_HW_PRF
     const EVP_PKEY_METHOD *current_prf_pmeth = NULL;
-#endif
+
     if (_hidden_prf_pmeth)
         return _hidden_prf_pmeth;
-#ifdef DISABLE_QAT_HW_PRF
-    if ((current_prf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_TLS1_PRF)) == NULL) {
-        QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-#endif
+
     if ((_hidden_prf_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_TLS1_PRF, 0)) == NULL) {
         QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
 
-#ifdef DISABLE_QAT_HW_PRF
-    EVP_PKEY_meth_copy(_hidden_prf_pmeth, current_prf_pmeth);
-#else
     /* Now save the current (non-offloaded) prf pmeth to sw_prf_pmeth */
     /* for software fallback purposes */
     if ((sw_prf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_TLS1_PRF)) == NULL) {
         QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
-    EVP_PKEY_meth_set_init(_hidden_prf_pmeth, qat_tls1_prf_init);
-    EVP_PKEY_meth_set_cleanup(_hidden_prf_pmeth, qat_prf_cleanup);
-    EVP_PKEY_meth_set_derive(_hidden_prf_pmeth, NULL,
-                             qat_prf_tls_derive);
-    EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
+
+    if (qat_hw_offload) {
+#ifdef ENABLE_QAT_HW_PRF
+        EVP_PKEY_meth_set_init(_hidden_prf_pmeth, qat_tls1_prf_init);
+        EVP_PKEY_meth_set_cleanup(_hidden_prf_pmeth, qat_prf_cleanup);
+        EVP_PKEY_meth_set_derive(_hidden_prf_pmeth, NULL,
+                                 qat_prf_tls_derive);
+        EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
+#endif
+    } else {
+        if ((current_prf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_TLS1_PRF)) == NULL) {
+            QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
+            return NULL;
+        }
+        EVP_PKEY_meth_copy(_hidden_prf_pmeth, current_prf_pmeth);
+    }
 
     DEBUG("QAT HW PRF Registration succeeded\n");
-#endif
+
     return _hidden_prf_pmeth;
 }
 
-#ifndef DISABLE_QAT_HW_PRF
+#ifdef ENABLE_QAT_HW_PRF
 /******************************************************************************
 * function:
 *        qat_tls1_prf_init(EVP_PKEY_CTX *ctx)

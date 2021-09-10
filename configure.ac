@@ -69,13 +69,13 @@ AC_ARG_ENABLE(qat_hw_gcm,
 AC_SUBST(enable_qat_hw_gcm)
 
 AC_ARG_ENABLE(qat_hw_sha3,
-              AS_HELP_STRING([--disable-qat_hw_sha3],
-                             [Disable qat_hw SHA3 offload]))
+              AS_HELP_STRING([--enable-qat_hw_sha3],
+                             [Enable qat_hw SHA3 offload]))
 AC_SUBST(enable_qat_hw_sha3)
 
 AC_ARG_ENABLE(qat_hw_chachapoly,
-              AS_HELP_STRING([--disable-qat_hw_chachapoly],
-                             [Disable qat_hw CHACHA-POLY acceleration]))
+              AS_HELP_STRING([--enable-qat_hw_chachapoly],
+                             [Enable qat_hw CHACHA-POLY acceleration]))
 AC_SUBST(enable_qat_hw_chachapoly)
 
 AC_ARG_ENABLE(qat_sw_gcm,
@@ -259,11 +259,18 @@ then
   then
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 3.0])
     AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
-    libdir="\$(with_openssl_install_dir)/lib/engines-3"
-    AC_SUBST([openssl_version], ["3"])
+    if test "$host_cpu" = "x86_64"
+    then
+      libdir="\$(with_openssl_install_dir)/lib64/engines-3"
+      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib64 -L\$(with_openssl_install_dir)/lib64 -lcrypto"])
+    else
+      libdir="\$(with_openssl_install_dir)/lib/engines-3"
+      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
+    fi
   else
     AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.x])
     libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
+    AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
     if test "`grep "define OPENSSL_VERSION_NUMBER  0x101000" $with_openssl_install_dir/include/openssl/opensslv.h | wc -l`" = "1"
     then
       if test "x$with_openssl_dir" = "x"
@@ -274,7 +281,6 @@ then
     fi
   fi
   AC_SUBST([includes_openssl], ["-I\$(with_openssl_install_dir)/include"])
-  AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
 else
   AC_PATH_TOOL(PKGCONFIG, pkg-config)
   AS_IF([test "x$PKGCONFIG" = "x"], [AC_MSG_ERROR(pkg-config not found.)], )
@@ -575,7 +581,7 @@ fi
 fi
 fi
 
-if test "x$enable_qat_hw_sha3" != "xno" -a "x$cflags_qat_hw" != "x"
+if test "x$enable_qat_hw_sha3" = "xyes" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_sha3="-DENABLE_QAT_HW_SHA3"
   AC_MSG_NOTICE([Accelerating SHA3 to Hardware])
@@ -584,7 +590,7 @@ else
   AC_MSG_NOTICE([Not Accelerating SHA3 to Hardware])
 fi
 
-if test "x$enable_qat_hw_chachapoly" != "xno" -a "x$cflags_qat_hw" != "x"
+if test "x$enable_qat_hw_chachapoly" = "xyes" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_chachapoly="-DENABLE_QAT_HW_CHACHAPOLY"
   AC_MSG_NOTICE([Accelerating CHACHA-POLY to Hardware])

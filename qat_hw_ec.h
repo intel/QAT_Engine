@@ -48,8 +48,27 @@
 
 # include <openssl/ossl_typ.h>
 
-EC_KEY_METHOD *qat_get_EC_methods(void);
+# ifdef ENABLE_QAT_HW_ECDSA
+int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
+                   unsigned char *sig, unsigned int *siglen,
+                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
+ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dlen,
+                             const BIGNUM *in_kinv, const BIGNUM *in_r,
+                             EC_KEY *eckey);
+int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
+                     const unsigned char *sigbuf, int sig_len, EC_KEY *eckey);
+int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
+                        const ECDSA_SIG *sig, EC_KEY *eckey);
+# endif
 
-void qat_free_EC_methods(void);
-
+# ifdef ENABLE_QAT_HW_ECDH
+/* Qat engine ECDH methods declaration */
+int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
+                         unsigned char **outY, size_t *outlenY,
+                         const EC_POINT *pub_key, const EC_KEY *ecdh,
+                         int *fallback);
+int qat_engine_ecdh_compute_key(unsigned char **out, size_t *outlen,
+                                const EC_POINT *pub_key, const EC_KEY *ecdh);
+int qat_ecdh_generate_key(EC_KEY *ecdh);
+# endif
 #endif /* QAT_HW_EC_H */

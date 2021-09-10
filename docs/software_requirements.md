@@ -10,7 +10,7 @@ Driver for FreeBSD. This release was validated on the following:
 * Kernel: GNU\*/Linux\* 3.10.0-693
 * Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.14**
 * Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.10**
-* OpenSSL\* 1.1.1k
+* OpenSSL\* 1.1.1l
 
 ## qat_sw Requirements
 Successful operation of the Intel&reg; QAT Software acceleration requires a
@@ -31,7 +31,7 @@ This release was validated on the following:
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][1] release
   version **IPP Crypto 2021.3**
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.0**
-* OpenSSL\* 1.1.1k
+* OpenSSL\* 1.1.1l
 
 [1]:https://github.com/intel/ipp-crypto
 [2]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb

@@ -60,150 +60,13 @@
 #include "qat_utils.h"
 #include "qat_events.h"
 #include "qat_fork.h"
+#include "qat_evp.h"
 #include "qat_sw_ec.h"
 #include "qat_sw_request.h"
 
 /* Crypto_mb includes */
 #include "crypto_mb/ec_nistp256.h"
 #include "crypto_mb/ec_nistp384.h"
-
-#ifdef ENABLE_QAT_SW_ECDSA
-# ifdef DISABLE_QAT_SW_ECDSA
-#  undef DISABLE_QAT_SW_ECDSA
-# endif
-#endif
-
-#ifndef DISABLE_QAT_SW_ECDSA
-static int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
-                         unsigned char *sig, unsigned int *siglen,
-                         const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
-static int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
-                               BIGNUM **kinvp, BIGNUM **rp);
-static ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
-                                    const BIGNUM *in_kinv, const BIGNUM *in_r,
-                                    EC_KEY *eckey);
-
-#endif
-
-#ifndef DISABLE_QAT_SW_ECDH
-static int mb_ecdh_compute_key(unsigned char **out, size_t *outlen,
-                               const EC_POINT *pub_key, const EC_KEY *ecdh);
-static int mb_ecdh_generate_key(EC_KEY *ecdh);
-#endif
-
-typedef int (*PFUNC_COMP_KEY)(unsigned char **,
-                              size_t *,
-                              const EC_POINT *,
-                              const EC_KEY *);
-
-typedef int (*PFUNC_GEN_KEY)(EC_KEY *);
-
-typedef int (*PFUNC_SIGN)(int,
-                          const unsigned char *,
-                          int,
-                          unsigned char *,
-                          unsigned int *,
-                          const BIGNUM *,
-                          const BIGNUM *,
-                          EC_KEY *);
-
-typedef int (*PFUNC_SIGN_SETUP)(EC_KEY *,
-                                BN_CTX *,
-                                BIGNUM **,
-                                BIGNUM **);
-
-typedef ECDSA_SIG *(*PFUNC_SIGN_SIG)(const unsigned char *,
-                                     int,
-                                     const BIGNUM *,
-                                     const BIGNUM *,
-                                     EC_KEY *);
-
-typedef int (*PFUNC_VERIFY)(int,
-                            const unsigned char *,
-                            int,
-                            const unsigned char *,
-                            int,
-                            EC_KEY *);
-
-typedef int (*PFUNC_VERIFY_SIG)(const unsigned char *,
-                                int,
-                                const ECDSA_SIG *,
-                                EC_KEY *eckey);
-
-static EC_KEY_METHOD *mb_ec_method = NULL;
-
-EC_KEY_METHOD *mb_get_EC_methods(void)
-{
-    if (mb_ec_method != NULL)
-        return mb_ec_method;
-
-    EC_KEY_METHOD *def_ec_meth = (EC_KEY_METHOD *)EC_KEY_get_default_method();
-#ifdef DISABLE_QAT_SW_ECDSA
-    PFUNC_SIGN sign_pfunc = NULL;
-    PFUNC_SIGN_SETUP sign_setup_pfunc = NULL;
-    PFUNC_SIGN_SIG sign_sig_pfunc = NULL;
-#endif
-    PFUNC_VERIFY verify_pfunc = NULL;
-    PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
-#ifdef DISABLE_QAT_SW_ECDH
-    PFUNC_GEN_KEY gen_key_pfunc = NULL;
-    PFUNC_COMP_KEY comp_key_pfunc = NULL;
-#endif
-
-    if ((mb_ec_method = EC_KEY_METHOD_new(mb_ec_method)) == NULL) {
-        WARN("Unable to allocate qat EC_KEY_METHOD\n");
-        QATerr(QAT_F_MB_GET_EC_METHODS, QAT_R_MB_GET_EC_METHOD_MALLOC_FAILURE);
-        return NULL;
-    }
-
-#ifndef DISABLE_QAT_SW_ECDSA
-    EC_KEY_METHOD_set_sign(mb_ec_method,
-                           mb_ecdsa_sign,
-                           mb_ecdsa_sign_setup,
-                           mb_ecdsa_sign_sig);
-
-    DEBUG("QAT SW ECDSA registration succeeded\n");
-#else
-    EC_KEY_METHOD_get_sign(def_ec_meth,
-                           &sign_pfunc,
-                           &sign_setup_pfunc,
-                           &sign_sig_pfunc);
-    EC_KEY_METHOD_set_sign(mb_ec_method,
-                           sign_pfunc,
-                           sign_setup_pfunc,
-                           sign_sig_pfunc);
-#endif
-
-    /* Verify not supported in crypto_mb, Use SW implemenation */
-    EC_KEY_METHOD_get_verify(def_ec_meth,
-                             &verify_pfunc,
-                             &verify_sig_pfunc);
-    EC_KEY_METHOD_set_verify(mb_ec_method,
-                             verify_pfunc,
-                             verify_sig_pfunc);
-
-#ifndef DISABLE_QAT_SW_ECDH
-    EC_KEY_METHOD_set_keygen(mb_ec_method, mb_ecdh_generate_key);
-    EC_KEY_METHOD_set_compute_key(mb_ec_method, mb_ecdh_compute_key);
-
-    DEBUG("QAT SW ECDH registration succeeded\n");
-#else
-    EC_KEY_METHOD_get_keygen(def_ec_meth, &gen_key_pfunc);
-    EC_KEY_METHOD_set_keygen(mb_ec_method, gen_key_pfunc);
-    EC_KEY_METHOD_get_compute_key(def_ec_meth, &comp_key_pfunc);
-    EC_KEY_METHOD_set_compute_key(mb_ec_method, comp_key_pfunc);
-#endif
-
-    return mb_ec_method;
-}
-
-void mb_free_EC_methods(void)
-{
-    if (NULL != mb_ec_method) {
-        EC_KEY_METHOD_free(mb_ec_method);
-        mb_ec_method = NULL;
-    }
-}
 
 static inline int mb_ec_check_curve(int curve_type)
 {
@@ -222,7 +85,7 @@ static inline int mb_ec_check_curve(int curve_type)
     return ret;
 }
 
-#ifndef DISABLE_QAT_SW_ECDSA
+#ifdef ENABLE_QAT_SW_ECDSA
 void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
 {
     ecdsa_sign_op_data *ecdsa_sign_req_array[MULTIBUFF_BATCH] = {0};
@@ -530,7 +393,7 @@ void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
 }
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDH
+#ifdef ENABLE_QAT_SW_ECDH
 void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
 {
     ecdh_keygen_op_data *ecdh_keygen_req_array[MULTIBUFF_BATCH] = {0};
@@ -745,7 +608,7 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
 }
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDSA
+#ifdef ENABLE_QAT_SW_ECDSA
 int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                   unsigned char *sig, unsigned int *siglen,
                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
@@ -1366,7 +1229,7 @@ use_sw_method:
 }
 #endif
 
-#ifndef DISABLE_QAT_SW_ECDH
+#ifdef ENABLE_QAT_SW_ECDH
 int mb_ecdh_generate_key(EC_KEY *ecdh)
 {
     BN_CTX *ctx = NULL;

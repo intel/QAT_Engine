@@ -75,10 +75,8 @@
 # include "qat_hw_usdm_inf.h"
 #endif
 
-#ifdef ENABLE_QAT_HW_CHACHAPOLY
-# ifdef DISABLE_QAT_HW_CHACHAPOLY
-#  undef DISABLE_QAT_HW_CHACHAPOLY
-# endif
+#ifdef QAT_HW_INTREE
+# define ENABLE_QAT_HW_CHACHAPOLY
 #endif
 
 # define GET_SW_CHACHA_CTX EVP_chacha20_poly1305()

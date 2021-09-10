@@ -94,8 +94,4 @@ QAT_SW asymmetric algorithms that are supported in the qatengine.
 
 The default behaviour can be changed using corresponding algorithm's enable
 flags (eg:--enable-qat_sw_rsa) in which case the individual algorithms enabled
-(eiher qat_hw or qat_sw) in the build configure will get accelerated.
-
-Note: ECDH & ECDSA can be accelerated together via QAT_HW or QAT_SW and
-cannot be seperated to use different acceleration due to limitation in
-the qatengine registration.
+(either qat_hw or qat_sw) in the build configure will get accelerated.

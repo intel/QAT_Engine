@@ -77,169 +77,7 @@
 #endif
 #include "qat_utils.h"
 #include "qat_hw_ec.h"
-
-#ifdef ENABLE_QAT_HW_ECDSA
-# ifdef DISABLE_QAT_HW_ECDSA
-#  undef DISABLE_QAT_HW_ECDSA
-# endif
-#endif
-
-#ifdef ENABLE_QAT_HW_ECDH
-# ifdef DISABLE_QAT_HW_ECDH
-#  undef DISABLE_QAT_HW_ECDH
-# endif
-#endif
-
-
-#ifndef DISABLE_QAT_HW_ECDSA
-static int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
-                          unsigned char *sig, unsigned int *siglen,
-                          const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
-
-static ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dlen,
-                                    const BIGNUM *in_kinv, const BIGNUM *in_r,
-                                    EC_KEY *eckey);
-
-static int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
-                            const unsigned char *sigbuf, int sig_len, EC_KEY *eckey);
-
-static int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
-                               const ECDSA_SIG *sig, EC_KEY *eckey);
-#endif
-
-
-#ifndef DISABLE_QAT_HW_ECDH
-/* Qat engine ECDH methods declaration */
-static int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
-                                unsigned char **outY, size_t *outlenY,
-                                const EC_POINT *pub_key, const EC_KEY *ecdh,
-                                int *fallback);
-
-static int qat_engine_ecdh_compute_key(unsigned char **out, size_t *outlen,
-                                       const EC_POINT *pub_key, const EC_KEY *ecdh);
-
-static int qat_ecdh_generate_key(EC_KEY *ecdh);
-#endif
-
-typedef int (*PFUNC_COMP_KEY)(unsigned char **,
-                              size_t *,
-                              const EC_POINT *,
-                              const EC_KEY *);
-
-typedef int (*PFUNC_GEN_KEY)(EC_KEY *);
-
-typedef int (*PFUNC_SIGN)(int,
-                          const unsigned char *,
-                          int,
-                          unsigned char *,
-                          unsigned int *,
-                          const BIGNUM *,
-                          const BIGNUM *,
-                          EC_KEY *);
-
-typedef int (*PFUNC_SIGN_SETUP)(EC_KEY *,
-                                BN_CTX *,
-                                BIGNUM **,
-                                BIGNUM **);
-
-typedef ECDSA_SIG *(*PFUNC_SIGN_SIG)(const unsigned char *,
-                                     int,
-                                     const BIGNUM *,
-                                     const BIGNUM *,
-                                     EC_KEY *);
-
-typedef int (*PFUNC_VERIFY)(int,
-                            const unsigned char *,
-                            int,
-                            const unsigned char *,
-                            int,
-                            EC_KEY *);
-
-typedef int (*PFUNC_VERIFY_SIG)(const unsigned char *,
-                                int,
-                                const ECDSA_SIG *,
-                                EC_KEY *eckey);
-
-static EC_KEY_METHOD *qat_ec_method = NULL;
-
-EC_KEY_METHOD *qat_get_EC_methods(void)
-{
-    if (qat_ec_method != NULL)
-        return qat_ec_method;
-
-#if defined (DISABLE_QAT_HW_ECDSA) || defined (DISABLE_QAT_HW_ECDH)
-    EC_KEY_METHOD *def_ec_meth = (EC_KEY_METHOD *)EC_KEY_get_default_method();
-#endif
-#ifdef DISABLE_QAT_HW_ECDSA
-    PFUNC_SIGN sign_pfunc = NULL;
-    PFUNC_SIGN_SETUP sign_setup_pfunc = NULL;
-    PFUNC_SIGN_SIG sign_sig_pfunc = NULL;
-    PFUNC_VERIFY verify_pfunc = NULL;
-    PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
-#endif
-#ifdef DISABLE_QAT_HW_ECDH
-    PFUNC_COMP_KEY comp_key_pfunc = NULL;
-    PFUNC_GEN_KEY gen_key_pfunc = NULL;
-#endif
-
-    if ((qat_ec_method = EC_KEY_METHOD_new(qat_ec_method)) == NULL) {
-        WARN("Unable to allocate qat EC_KEY_METHOD\n");
-        QATerr(QAT_F_QAT_GET_EC_METHODS, QAT_R_QAT_GET_EC_METHOD_MALLOC_FAILURE);
-        return NULL;
-    }
-
-#ifndef DISABLE_QAT_HW_ECDSA
-    EC_KEY_METHOD_set_sign(qat_ec_method,
-                           qat_ecdsa_sign,
-                           NULL,
-                           qat_ecdsa_do_sign);
-    EC_KEY_METHOD_set_verify(qat_ec_method,
-                             qat_ecdsa_verify,
-                             qat_ecdsa_do_verify);
-
-    qat_hw_ec_offload = 1;
-    DEBUG("QAT HW ECDSA Registration succeeded\n");
-#else
-    EC_KEY_METHOD_get_sign(def_ec_meth,
-                           &sign_pfunc,
-                           &sign_setup_pfunc,
-                           &sign_sig_pfunc);
-    EC_KEY_METHOD_set_sign(qat_ec_method,
-                           sign_pfunc,
-                           sign_setup_pfunc,
-                           sign_sig_pfunc);
-    EC_KEY_METHOD_get_verify(def_ec_meth,
-                             &verify_pfunc,
-                             &verify_sig_pfunc);
-    EC_KEY_METHOD_set_verify(qat_ec_method,
-                             verify_pfunc,
-                             verify_sig_pfunc);
-#endif
-
-#ifndef DISABLE_QAT_HW_ECDH
-    EC_KEY_METHOD_set_keygen(qat_ec_method, qat_ecdh_generate_key);
-    EC_KEY_METHOD_set_compute_key(qat_ec_method, qat_engine_ecdh_compute_key);
-
-    qat_hw_ec_offload = 1;
-    DEBUG("QAT HW ECDH Registration succeeded\n");
-#else
-    EC_KEY_METHOD_get_keygen(def_ec_meth, &gen_key_pfunc);
-    EC_KEY_METHOD_set_keygen(qat_ec_method, gen_key_pfunc);
-    EC_KEY_METHOD_get_compute_key(def_ec_meth, &comp_key_pfunc);
-    EC_KEY_METHOD_set_compute_key(qat_ec_method, comp_key_pfunc);
-#endif
-
-    return qat_ec_method;
-}
-
-void qat_free_EC_methods(void)
-{
-    if (NULL != qat_ec_method) {
-        EC_KEY_METHOD_free(qat_ec_method);
-        qat_ec_method = NULL;
-    }
-}
-
+#include "qat_evp.h"
 
 #if !defined (DISABLE_QAT_HW_ECDSA) || !defined (DISABLE_QAT_HW_ECDH)
 CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
@@ -333,7 +171,7 @@ int qat_set_affine_coordinates(const EC_GROUP *group, EC_POINT *p,
 }
 #endif
 
-#ifndef DISABLE_QAT_HW_ECDH
+#ifdef ENABLE_QAT_HW_ECDH
 /* Callback to indicate QAT completion of EC point multiply */
 static void qat_ecCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                              CpaBoolean multiplyStatus, CpaFlatBuffer * pXk,
@@ -947,9 +785,9 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     }
     return ok;
 }
-#endif /* #ifndef DISABLE_QAT_HW_ECDH */
+#endif /* #ifdef ENABLE_QAT_HW_ECDH */
 
-#ifndef DISABLE_QAT_HW_ECDSA
+#ifdef ENABLE_QAT_HW_ECDSA
 /* Callback to indicate QAT completion of ECDSA Sign */
 static void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
                                     void *pOpData, CpaBoolean bEcdsaSignStatus,
@@ -1842,4 +1680,4 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     DEBUG("- Finished\n");
     return ret;
 }
-#endif /* #ifndef DISABLE_QAT_HW_ECDSA */
+#endif /* #ifdef ENABLE_QAT_HW_ECDSA */
