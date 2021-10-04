@@ -414,8 +414,6 @@ void mb_thread_local_destructor(void *tlv_ptr)
     } else {
         DEBUG("tlv NULL\n");
     }
-
-    pthread_setspecific(mb_thread_key, NULL);
 }
 
 int multibuff_init(ENGINE *e)
@@ -460,6 +458,8 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     }
 
     PRINT_RDTSC_AVERAGES();
+
+    ret = pthread_key_delete(mb_thread_key) == 0;
 
     return ret;
 }
