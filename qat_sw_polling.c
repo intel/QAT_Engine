@@ -357,7 +357,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 
     DEBUG("Polling Timeout %ld tlv %p\n", mb_poll_timeout_time.tv_nsec, tlv);
 
-    while (multibuff_keep_polling) {
+    while (tlv->keep_polling && multibuff_keep_polling) {
         while ((sig = sigtimedwait((const sigset_t *)&tlv->set, NULL, &mb_poll_timeout_time)) == -1 &&
                 errno == EINTR &&
                 eintr_count < QAT_SW_NUM_EVENT_RETRIES) {
