@@ -94,71 +94,6 @@ typedef struct {
     unsigned char *privkey;
 } ECX_KEY;
 
-/* Function Declarations */
-static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
-static int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
-static int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
-static int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-
-static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
-static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
-
-/* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
-static const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
-static const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
-
-EVP_PKEY_METHOD *qat_x25519_pmeth(void)
-{
-    if (_hidden_x25519_pmeth)
-        return _hidden_x25519_pmeth;
-
-    if ((_hidden_x25519_pmeth =
-         EVP_PKEY_meth_new(EVP_PKEY_X25519, 0)) == NULL) {
-        QATerr(QAT_F_QAT_X25519_PMETH, QAT_R_ALLOC_QAT_X25519_METH_FAILURE);
-        return NULL;
-    }
-
-    /* Now save the current (non-offloaded) x25519 pmeth to sw_x25519_pmeth */
-    /* for software fallback purposes */
-    if ((sw_x25519_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X25519)) == NULL) {
-        QATerr(QAT_F_QAT_X25519_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-    EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_keygen);
-    EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_derive25519);
-    EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, qat_pkey_ecx_ctrl, NULL);
-
-    DEBUG("QAT HW ECDH X25519 Registration succeeded\n");
-    return _hidden_x25519_pmeth;
-}
-
-EVP_PKEY_METHOD *qat_x448_pmeth(void)
-{
-    if (_hidden_x448_pmeth)
-        return _hidden_x448_pmeth;
-
-    if ((_hidden_x448_pmeth =
-         EVP_PKEY_meth_new(EVP_PKEY_X448, 0)) == NULL) {
-        QATerr(QAT_F_QAT_X448_PMETH, QAT_R_ALLOC_QAT_X448_METH_FAILURE);
-        return NULL;
-    }
-
-    /* Now save the current (non-offloaded) x448 pmeth to sw_x448_pmeth */
-    /* for software fallback purposes */
-    if ((sw_x448_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X448)) == NULL) {
-        QATerr(QAT_F_QAT_X448_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-
-    EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx_keygen);
-    EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
-    EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);
-
-    DEBUG("QAT HW ECDH X448 Registration succeeded\n");
-    return _hidden_x448_pmeth;
-}
-
-
 static inline int reverse_bytes(unsigned char *tobuffer,
                                 unsigned char *frombuffer, unsigned int size)
 {
@@ -214,7 +149,7 @@ static void qat_ecx_cb(void *pCallbackTag, CpaStatus status,
                           NULL, multiplyStatus);
 }
 
-static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
+int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 {
     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data = NULL;
 
@@ -583,7 +518,7 @@ static int qat_validate_ecx_derive(EVP_PKEY_CTX *ctx,
     return 1;
 }
 
-static int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen)
+int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen)
 {
     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data = NULL;
 
@@ -876,7 +811,7 @@ err:
     return ret;
 }
 
-static int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen)
+int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen)
 {
     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data = NULL;
 
@@ -1168,7 +1103,7 @@ err:
     return ret;
 }
 
-static int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
+int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     DEBUG("Started\n");
 

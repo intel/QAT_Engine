@@ -93,6 +93,22 @@ typedef int (*PFUNC_VERIFY_SIG)(const unsigned char *,
                                 int,
                                 const ECDSA_SIG *,
                                 EC_KEY *eckey);
+extern const EVP_PKEY_METHOD *sw_x25519_pmeth;
+extern const EVP_PKEY_METHOD *sw_x448_pmeth;
+
+# ifdef ENABLE_QAT_HW_ECX
+int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
+int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
+int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
+int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
+# endif
+
+# ifdef ENABLE_QAT_SW_ECX
+int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
+int multibuff_x25519_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
+int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
+# endif
+
 
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);

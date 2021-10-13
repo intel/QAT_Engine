@@ -154,13 +154,13 @@
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.8";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.9";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v0.6.8";
+    "Reference implementation of QAT crypto engine(qat_hw) v0.6.9";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v0.6.8";
+    "Reference implementation of QAT crypto engine(qat_sw) v0.6.9";
 #endif
 unsigned int engine_inited = 0;
 
@@ -170,6 +170,12 @@ int qat_hw_rsa_offload = 0;
 int qat_hw_ecx_offload = 0;
 int qat_hw_ecdh_offload = 0;
 int qat_hw_ecdsa_offload = 0;
+int qat_hw_prf_offload = 0;
+int qat_hw_hkdf_offload = 0;
+int qat_sw_rsa_offload = 0;
+int qat_sw_ecx_offload = 0;
+int qat_sw_ecdh_offload = 0;
+int qat_sw_ecdsa_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -508,6 +514,13 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         qat_hw_ecx_offload = 0;
         qat_hw_ecdh_offload = 0;
         qat_hw_ecdsa_offload = 0;
+        qat_hw_prf_offload = 0;
+        qat_hw_hkdf_offload = 0;
+        qat_sw_rsa_offload = 0;
+        qat_sw_ecx_offload = 0;
+        qat_sw_ecdh_offload = 0;
+        qat_sw_ecdsa_offload = 0;
+
     }
     qat_pthread_mutex_unlock();
     CRYPTO_CLOSE_QAT_LOG();
@@ -929,7 +942,11 @@ static int bind_qat(ENGINE *e, const char *id)
     }
 
 #ifdef QAT_SW
+# if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
+  || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
         DEBUG("Registering QAT SW supported algorithms\n");
+        qat_sw_offload = 1;
+# endif
 
 # ifdef ENABLE_QAT_SW_RSA
         if (!qat_hw_rsa_offload &&
@@ -937,7 +954,6 @@ static int bind_qat(ENGINE *e, const char *id)
             mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
             mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
             DEBUG("QAT SW RSA Supported\n");
-            qat_sw_offload = 1;
             if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
                 WARN("ENGINE_set_RSA QAT SW failed\n");
                 goto end;
@@ -963,25 +979,12 @@ static int bind_qat(ENGINE *e, const char *id)
           WARN("ENGINE_set_EC failed\n");
           goto end;
      }
-# if defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
-     if (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
-         mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
-         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
-         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
-         DEBUG("QAT SW ECDSA p256/p384 & ECDH p256/p384 Supported\n");
-         qat_sw_offload = 1;
-     }
-# endif
 
 # ifndef QAT_OPENSSL_3
      if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
           WARN("ENGINE_set_pkey_meths failed\n");
           goto end;
      }
-#  if ENABLE_QAT_SW_ECX
-     if (mbx_get_algo_info(MBX_ALGO_X25519))
-         qat_sw_offload = 1;
-#  endif
 # endif
 #endif
 

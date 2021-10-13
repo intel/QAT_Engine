@@ -51,9 +51,6 @@
 
 
 /* Multibuff X25519 methods declaration */
-int multibuff_x25519_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
-                     const int **nids, int nid);
-EVP_PKEY_METHOD *multibuff_x25519_pmeth(void);
 void process_x25519_keygen_reqs(mb_thread_data *tlv);
 void process_x25519_derive_reqs(mb_thread_data *tlv);
 

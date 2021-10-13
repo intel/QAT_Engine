@@ -45,7 +45,6 @@ static ERR_STRING_DATA QAT_str_functs[] = {
      "multibuff_validate_ecx_derive"},
     {ERR_PACK(0, QAT_F_MULTIBUFF_X25519_DERIVE, 0), "multibuff_x25519_derive"},
     {ERR_PACK(0, QAT_F_MULTIBUFF_X25519_KEYGEN, 0), "multibuff_x25519_keygen"},
-    {ERR_PACK(0, QAT_F_MULTIBUFF_X25519_PMETH, 0), "multibuff_x25519_pmeth"},
     {ERR_PACK(0, QAT_F_POLL_INSTANCES, 0), "poll_instances"},
     {ERR_PACK(0, QAT_F_QAT_ADJUST_THREAD_AFFINITY, 0),
      "qat_adjust_thread_affinity"},

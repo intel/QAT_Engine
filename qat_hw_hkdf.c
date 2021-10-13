@@ -88,7 +88,7 @@
  */
 #define QAT_HKDF_INFO_MAXBUF 1024
 
-#ifndef DISABLE_QAT_HW_HKDF
+#ifdef ENABLE_QAT_HW_HKDF
 /* QAT TLS  pkey context structure */
 typedef struct {
     /* Mode: Extract, Expand or both */
@@ -106,55 +106,48 @@ static void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx);
 static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                                 size_t *olen);
 static int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-#endif /* DISABLE_QAT_HW_HKDF */
+#endif /* ENABLE_QAT_HW_HKDF */
 
-static EVP_PKEY_METHOD *_hidden_hkdf_pmeth = NULL;
-
-#ifndef DISABLE_QAT_HW_HKDF
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 static const EVP_PKEY_METHOD *sw_hkdf_pmeth = NULL;
-#endif
+static EVP_PKEY_METHOD *_hidden_hkdf_pmeth = NULL;
 
 EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
 {
-#ifdef DISABLE_QAT_HW_HKDF
-    const EVP_PKEY_METHOD *current_hkdf_pmeth = NULL;
-#endif
     if (_hidden_hkdf_pmeth)
         return _hidden_hkdf_pmeth;
-#ifdef DISABLE_QAT_HW_HKDF
-    if ((current_hkdf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_HKDF)) == NULL) {
-        QATerr(QAT_F_QAT_HKDF_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-#endif
+
     if ((_hidden_hkdf_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_HKDF, 0)) == NULL) {
         QATerr(QAT_F_QAT_HKDF_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
 
-#ifdef DISABLE_QAT_HW_HKDF
-    EVP_PKEY_meth_copy(_hidden_hkdf_pmeth, current_hkdf_pmeth);
-#else
     /* Now save the current (non-offloaded) hkdf pmeth to sw_hkdf_pmeth */
     /* for software fallback purposes */
     if ((sw_hkdf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_HKDF)) == NULL) {
         QATerr(QAT_F_QAT_HKDF_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
-    EVP_PKEY_meth_set_init(_hidden_hkdf_pmeth, qat_hkdf_init);
-    EVP_PKEY_meth_set_cleanup(_hidden_hkdf_pmeth, qat_hkdf_cleanup);
-    EVP_PKEY_meth_set_derive(_hidden_hkdf_pmeth, NULL,
-                             qat_hkdf_derive);
-    EVP_PKEY_meth_set_ctrl(_hidden_hkdf_pmeth, qat_hkdf_ctrl, NULL);
-
-    DEBUG("QAT HW HKDF Registration succeeded\n");
+#ifdef ENABLE_QAT_HW_HKDF
+    if (qat_hw_offload) {
+        EVP_PKEY_meth_set_init(_hidden_hkdf_pmeth, qat_hkdf_init);
+        EVP_PKEY_meth_set_cleanup(_hidden_hkdf_pmeth, qat_hkdf_cleanup);
+        EVP_PKEY_meth_set_derive(_hidden_hkdf_pmeth, NULL,
+                qat_hkdf_derive);
+        EVP_PKEY_meth_set_ctrl(_hidden_hkdf_pmeth, qat_hkdf_ctrl, NULL);
+        qat_hw_hkdf_offload = 1;
+        DEBUG("QAT HW HKDF Registration succeeded\n");
+    }
 #endif
+    if (!qat_hw_hkdf_offload) {
+        EVP_PKEY_meth_copy(_hidden_hkdf_pmeth, sw_hkdf_pmeth);
+        DEBUG("OpenSSL SW HKDF\n");
+    }
     return _hidden_hkdf_pmeth;
 }
 
-#ifndef DISABLE_QAT_HW_HKDF
+#ifdef ENABLE_QAT_HW_HKDF
 /******************************************************************************
 * function:
 *        qat_hkdf_init(EVP_PKEY_CTX *ctx)
@@ -780,4 +773,4 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
     return ret;
 }
-#endif /* DISABLE_QAT_HW_HKDF */
+#endif /* ENABLE_QAT_HW_HKDF */

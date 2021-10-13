@@ -213,11 +213,17 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 # endif
 };
 
-static EC_KEY_METHOD *qat_ec_method = NULL;
-
 static int pkt_threshold_table_size =
     (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
 #endif
+
+static EC_KEY_METHOD *qat_ec_method = NULL;
+static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
+static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
+
+/* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
+const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
+const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
 
 /******************************************************************************
  * function:
@@ -288,6 +294,84 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
     return 0;
 }
 
+EVP_PKEY_METHOD *qat_x25519_pmeth(void)
+{
+    if (_hidden_x25519_pmeth)
+        return _hidden_x25519_pmeth;
+
+    if ((_hidden_x25519_pmeth =
+         EVP_PKEY_meth_new(EVP_PKEY_X25519, 0)) == NULL) {
+        QATerr(QAT_F_QAT_X25519_PMETH, QAT_R_ALLOC_QAT_X25519_METH_FAILURE);
+        return NULL;
+    }
+
+    /* Now save the current (non-offloaded) x25519 pmeth to sw_x25519_pmeth */
+    /* for software fallback purposes */
+    if ((sw_x25519_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X25519)) == NULL) {
+        QATerr(QAT_F_QAT_X25519_PMETH, ERR_R_INTERNAL_ERROR);
+        return NULL;
+    }
+
+#ifdef ENABLE_QAT_HW_ECX
+    if (qat_hw_offload) {
+        EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_keygen);
+        EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_derive25519);
+        EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, qat_pkey_ecx_ctrl, NULL);
+        qat_hw_ecx_offload = 1;
+        DEBUG("QAT HW X25519 registration succeeded\n");
+    }
+#endif
+
+#ifdef ENABLE_QAT_SW_ECX
+    if (!qat_hw_ecx_offload && mbx_get_algo_info(MBX_ALGO_X25519)) {
+        EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
+        EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
+        EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
+        qat_sw_ecx_offload = 1;
+        DEBUG("QAT SW X25519 registration succeeded\n");
+    }
+#endif
+
+    if (qat_hw_ecx_offload == 0 && qat_sw_ecx_offload == 0)
+        EVP_PKEY_meth_copy(_hidden_x25519_pmeth, sw_x25519_pmeth);
+
+    return _hidden_x25519_pmeth;
+}
+
+EVP_PKEY_METHOD *qat_x448_pmeth(void)
+{
+    if (_hidden_x448_pmeth)
+        return _hidden_x448_pmeth;
+
+    if ((_hidden_x448_pmeth =
+         EVP_PKEY_meth_new(EVP_PKEY_X448, 0)) == NULL) {
+        QATerr(QAT_F_QAT_X448_PMETH, QAT_R_ALLOC_QAT_X448_METH_FAILURE);
+        return NULL;
+    }
+
+    /* Now save the current (non-offloaded) x448 pmeth to sw_x448_pmeth */
+    /* for software fallback purposes */
+    if ((sw_x448_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X448)) == NULL) {
+        QATerr(QAT_F_QAT_X448_PMETH, ERR_R_INTERNAL_ERROR);
+        return NULL;
+    }
+
+#ifdef ENABLE_QAT_HW_ECX
+    if (qat_hw_offload) {
+        EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx_keygen);
+        EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
+        EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);
+        qat_hw_ecx_offload = 1;
+        DEBUG("QAT HW ECDH X448 Registration succeeded\n");
+    }
+#endif
+
+    if (!qat_hw_ecx_offload)
+        EVP_PKEY_meth_copy(_hidden_x448_pmeth, sw_x448_pmeth);
+
+    return _hidden_x448_pmeth;
+}
+
 /******************************************************************************
  * function:
  *         qat_create_pkey_meth(int nid)
@@ -301,32 +385,29 @@ static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
 {
     switch (nid) {
 # ifdef ENABLE_QAT_HW_PRF
-        case EVP_PKEY_TLS1_PRF:
-            return qat_prf_pmeth();
+    case EVP_PKEY_TLS1_PRF:
+        return qat_prf_pmeth();
 # endif
+
 # if OPENSSL_VERSION_NUMBER > 0x10101000L
-# ifdef ENABLE_QAT_HW_HKDF
-        case EVP_PKEY_HKDF:
-            return qat_hkdf_pmeth();
+#  ifdef ENABLE_QAT_HW_HKDF
+    case EVP_PKEY_HKDF:
+        return qat_hkdf_pmeth();
+#  endif
+
+#  if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
+    case EVP_PKEY_X25519:
+        return qat_x25519_pmeth();
 # endif
-        case EVP_PKEY_X25519:
-# ifdef ENABLE_QAT_HW_ECX
-            if(qat_hw_offload)
-                return qat_x25519_pmeth();
+
+#  ifdef ENABLE_QAT_HW_ECX
+    case EVP_PKEY_X448:
+        return qat_x448_pmeth();
+#  endif
 # endif
-# ifdef ENABLE_QAT_SW_ECX
-            if (mbx_get_algo_info(MBX_ALGO_X25519))
-                return multibuff_x25519_pmeth();
-# endif
-# ifdef ENABLE_QAT_HW_ECX
-        case EVP_PKEY_X448:
-           if (qat_hw_offload)
-                return qat_x448_pmeth();
-# endif
-# endif
-        default:
-            WARN("Invalid nid %d\n", nid);
-            return NULL;
+    default:
+        WARN("Invalid nid %d\n", nid);
+        return NULL;
     }
 }
 
@@ -512,27 +593,16 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     if (qat_ec_method != NULL)
         return qat_ec_method;
 
-#if (!defined(ENABLE_QAT_HW_ECDSA) && !defined(ENABLE_QAT_SW_ECDSA)) \
-    || (!defined(ENABLE_QAT_HW_ECDH) && !defined(ENABLE_QAT_SW_ECDH)) \
-    || defined(ENABLE_QAT_SW_ECDSA)
     EC_KEY_METHOD *def_ec_meth = (EC_KEY_METHOD *)EC_KEY_get_default_method();
-#endif
 
-#if !defined(ENABLE_QAT_HW_ECDSA) && !defined(ENABLE_QAT_SW_ECDSA)
     PFUNC_SIGN sign_pfunc = NULL;
     PFUNC_SIGN_SETUP sign_setup_pfunc = NULL;
     PFUNC_SIGN_SIG sign_sig_pfunc = NULL;
-#endif
-
-#if defined(ENABLE_QAT_SW_ECDSA) || !defined(ENABLE_QAT_HW_ECDSA)
     PFUNC_VERIFY verify_pfunc = NULL;
     PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
-#endif
-
-#if !defined(ENABLE_QAT_HW_ECDH) && !defined(ENABLE_QAT_SW_ECDH)
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
-#endif
+
     if ((qat_ec_method = EC_KEY_METHOD_new(qat_ec_method)) == NULL) {
         WARN("Unable to allocate qat EC_KEY_METHOD\n");
         QATerr(QAT_F_QAT_GET_EC_METHODS, QAT_R_QAT_GET_EC_METHOD_MALLOC_FAILURE);
@@ -554,7 +624,11 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDSA
-    if (!qat_hw_ecdsa_offload) {
+    if (!qat_hw_ecdsa_offload &&
+       (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+        mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
+        mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
+        mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
         EC_KEY_METHOD_set_sign(qat_ec_method,
                                mb_ecdsa_sign,
                                mb_ecdsa_sign_setup,
@@ -566,26 +640,28 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         EC_KEY_METHOD_set_verify(qat_ec_method,
                                  verify_pfunc,
                                  verify_sig_pfunc);
+        qat_sw_ecdsa_offload = 1;
         DEBUG("QAT SW ECDSA registration succeeded\n");
     }
 #endif
 
-#if !defined(ENABLE_QAT_HW_ECDSA) && !defined(ENABLE_QAT_SW_ECDSA)
-    EC_KEY_METHOD_get_sign(def_ec_meth,
-                           &sign_pfunc,
-                           &sign_setup_pfunc,
-                           &sign_sig_pfunc);
-    EC_KEY_METHOD_set_sign(qat_ec_method,
-                           sign_pfunc,
-                           sign_setup_pfunc,
-                           sign_sig_pfunc);
-    EC_KEY_METHOD_get_verify(def_ec_meth,
-                             &verify_pfunc,
-                             &verify_sig_pfunc);
-    EC_KEY_METHOD_set_verify(qat_ec_method,
-                             verify_pfunc,
-                             verify_sig_pfunc);
-#endif
+    if ((qat_hw_ecdsa_offload == 0) && (qat_sw_ecdsa_offload == 0)) {
+        EC_KEY_METHOD_get_sign(def_ec_meth,
+                               &sign_pfunc,
+                               &sign_setup_pfunc,
+                               &sign_sig_pfunc);
+        EC_KEY_METHOD_set_sign(qat_ec_method,
+                               sign_pfunc,
+                               sign_setup_pfunc,
+                               sign_sig_pfunc);
+        EC_KEY_METHOD_get_verify(def_ec_meth,
+                                 &verify_pfunc,
+                                 &verify_sig_pfunc);
+        EC_KEY_METHOD_set_verify(qat_ec_method,
+                                 verify_pfunc,
+                                 verify_sig_pfunc);
+        DEBUG("QAT_HW and QAT_SW ECDSA not supported! Using OpenSSL SW method\n");
+    }
 
 #ifdef ENABLE_QAT_HW_ECDH
     if (qat_hw_offload) {
@@ -597,19 +673,25 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDH
-    if (!qat_hw_ecdh_offload) {
+    if (!qat_hw_ecdh_offload &&
+       (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+        mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
+        mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
+        mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
         EC_KEY_METHOD_set_keygen(qat_ec_method, mb_ecdh_generate_key);
         EC_KEY_METHOD_set_compute_key(qat_ec_method, mb_ecdh_compute_key);
+        qat_sw_ecdh_offload = 1;
         DEBUG("QAT SW ECDH registration succeeded\n");
     }
 #endif
 
-#if !defined(ENABLE_QAT_HW_ECDH) && !defined(ENABLE_QAT_SW_ECDH)
-    EC_KEY_METHOD_get_keygen(def_ec_meth, &gen_key_pfunc);
-    EC_KEY_METHOD_set_keygen(qat_ec_method, gen_key_pfunc);
-    EC_KEY_METHOD_get_compute_key(def_ec_meth, &comp_key_pfunc);
-    EC_KEY_METHOD_set_compute_key(qat_ec_method, comp_key_pfunc);
-#endif
+    if ((qat_hw_ecdh_offload == 0) && (qat_sw_ecdh_offload == 0)) {
+         EC_KEY_METHOD_get_keygen(def_ec_meth, &gen_key_pfunc);
+         EC_KEY_METHOD_set_keygen(qat_ec_method, gen_key_pfunc);
+         EC_KEY_METHOD_get_compute_key(def_ec_meth, &comp_key_pfunc);
+         EC_KEY_METHOD_set_compute_key(qat_ec_method, comp_key_pfunc);
+         DEBUG("QAT_HW and QAT_SW ECDH not supported! Using OpenSSL SW method\n");
+    }
 
     return qat_ec_method;
 }

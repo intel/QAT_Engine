@@ -126,8 +126,6 @@ static const EVP_PKEY_METHOD *sw_prf_pmeth = NULL;
 
 EVP_PKEY_METHOD *qat_prf_pmeth(void)
 {
-    const EVP_PKEY_METHOD *current_prf_pmeth = NULL;
-
     if (_hidden_prf_pmeth)
         return _hidden_prf_pmeth;
 
@@ -144,23 +142,19 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
         return NULL;
     }
 
-    if (qat_hw_offload) {
 #ifdef ENABLE_QAT_HW_PRF
+    if (qat_hw_offload) {
         EVP_PKEY_meth_set_init(_hidden_prf_pmeth, qat_tls1_prf_init);
         EVP_PKEY_meth_set_cleanup(_hidden_prf_pmeth, qat_prf_cleanup);
         EVP_PKEY_meth_set_derive(_hidden_prf_pmeth, NULL,
                                  qat_prf_tls_derive);
         EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
-#endif
-    } else {
-        if ((current_prf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_TLS1_PRF)) == NULL) {
-            QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
-            return NULL;
-        }
-        EVP_PKEY_meth_copy(_hidden_prf_pmeth, current_prf_pmeth);
+        qat_hw_prf_offload = 1;
+        DEBUG("QAT HW PRF Registration succeeded\n");
     }
-
-    DEBUG("QAT HW PRF Registration succeeded\n");
+#endif
+    if (!qat_hw_prf_offload)
+        EVP_PKEY_meth_copy(_hidden_prf_pmeth, sw_prf_pmeth);
 
     return _hidden_prf_pmeth;
 }

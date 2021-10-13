@@ -62,6 +62,7 @@
 #include "qat_utils.h"
 #include "qat_events.h"
 #include "qat_fork.h"
+#include "qat_evp.h"
 #include "qat_sw_ecx.h"
 #include "qat_sw_request.h"
 
@@ -83,40 +84,6 @@ int x25519_nid[] = {
     EVP_PKEY_X25519
 };
 
-static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
-
-/* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
-static const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
-static int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
-static int multibuff_x25519_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
-static int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-
-/* Multibuff X25519 methods declaration */
-EVP_PKEY_METHOD *multibuff_x25519_pmeth(void)
-{
-    if (_hidden_x25519_pmeth)
-        return _hidden_x25519_pmeth;
-
-    if ((_hidden_x25519_pmeth =
-                EVP_PKEY_meth_new(EVP_PKEY_X25519, 0)) == NULL) {
-        QATerr(QAT_F_MULTIBUFF_X25519_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-
-    /* Now save the current (non-offloaded) x25519 pmeth to sw_x25519_pmeth */
-    /* for software fallback purposes */
-    if ((sw_x25519_pmeth = EVP_PKEY_meth_find(EVP_PKEY_X25519)) == NULL) {
-        QATerr(QAT_F_MULTIBUFF_X25519_PMETH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-
-    EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
-    EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
-    EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
-
-    DEBUG("QAT SW X25519 registration succeeded\n");
-    return _hidden_x25519_pmeth;
-}
 
 void process_x25519_keygen_reqs(mb_thread_data *tlv)
 {
@@ -500,7 +467,7 @@ use_sw_method:
     return sts;
 }
 
-static int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
+int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     /* Only need to handle peer key for derivation */
     if (type == EVP_PKEY_CTRL_PEER_KEY)
