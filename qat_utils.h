@@ -249,6 +249,33 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
+#  define DUMP_EC_GENERIC_POINT_MULTIPLY(instance_handle, pOpData, pResultX, pResultY) \
+    do {                                                                      \
+        fprintf(qatDebugLogFile,"=========================\n");               \
+        fprintf(qatDebugLogFile,"EC Point Multiply Request: %p\n", pOpData);  \
+        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);   \
+        DUMPL("k.pData",  pOpData->k.pData, pOpData->k.dataLenInBytes);       \
+        DUMPL("xP.pData", pOpData->xP.pData, pOpData->xP.dataLenInBytes);     \
+        DUMPL("yP.pData", pOpData->yP.pData, pOpData->yP.dataLenInBytes);     \
+        DUMPL("a.pData", pOpData->pCurve->parameters.weierstrassParameters.a.pData, \
+               pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes); \
+        DUMPL("b.pData", pOpData->pCurve->parameters.weierstrassParameters.b.pData, \
+               pOpData->pCurve->parameters.weierstrassParameters.b.dataLenInBytes); \
+        DUMPL("q.pData", pOpData->pCurve->parameters.weierstrassParameters.p.pData, \
+               pOpData->pCurve->parameters.weierstrassParameters.p.dataLenInBytes); \
+        DUMPL("h.pData", pOpData->pCurve->parameters.weierstrassParameters.h.pData, \
+               pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes); \
+        fprintf(qatDebugLogFile,"pOpData: generator = %d\n", pOpData->generator);   \
+        fprintf(qatDebugLogFile,"pResultX->dataLenInBytes = %u "                    \
+               "pResultX->pData = %p\n",                                            \
+                pResultX->dataLenInBytes, pResultX->pData);                         \
+        fprintf(qatDebugLogFile,"pResultY->dataLenInBytes = %u "                    \
+                "pResultY->pData = %p\n",                                           \
+                pResultY->dataLenInBytes, pResultY->pData);                         \
+        fprintf(qatDebugLogFile,"=========================\n");                     \
+        fflush(qatDebugLogFile);                                                    \
+    } while (0)
+
 
 #  define DUMP_EC_MONTEDWDS_POINT_MULTIPLY(instance_handle, opData, pXk, pYk)  \
     do {                                                                       \
@@ -266,6 +293,17 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
     } while (0)
 
 #  define DUMP_EC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY)         \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"EC Point Multiply Output: pResultX %p \n",    \
+                pResultX);                          \
+        fprintf(qatDebugLogFile,"bEcStatus = %u\n", bEcStatus);                \
+        DUMPL("pResultX->pData", pResultX->pData, pResultX->dataLenInBytes);   \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
+#  define DUMP_EC_GENERIC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY) \
     do {                                                                       \
         fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"EC Point Multiply Output: pResultX %p \n",    \
@@ -334,6 +372,27 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
+
+
+#  define DUMP_ECDSA_GENERIC_POINT_VERIFY(instance_handle, pOpData)                 \
+    do {                                                                            \
+        fprintf(qatDebugLogFile,"=========================\n");                     \
+        fprintf(qatDebugLogFile,"ECDSA Verify Request: %p\n", pOpData);             \
+        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);         \
+        DUMPL("a.pData", pOpData->pCurve->parameters.weierstrassParameters.a.pData, \
+               pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes); \
+        DUMPL("b.pData", pOpData->pCurve->parameters.weierstrassParameters.b.pData, \
+               pOpData->pCurve->parameters.weierstrassParameters.b.dataLenInBytes); \
+        DUMPL("p.pData", pOpData->pCurve->parameters.weierstrassParameters.p.pData, \
+               pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes); \
+        DUMPL("xP.pData", pOpData->xP.pData, pOpData->xP.dataLenInBytes);           \
+        DUMPL("yP.pData", pOpData->yP.pData, pOpData->yP.dataLenInBytes);           \
+        fprintf(qatDebugLogFile,"pOpData: fieldType = %d\n",                        \
+                pOpData->pCurve->parameters.weierstrassParameters.fieldType);       \
+        fprintf(qatDebugLogFile,"=========================\n");                     \
+        fflush(qatDebugLogFile);                                                    \
+    } while (0)
+
 
 #  define DUMP_DSA_SIGN(instance_handle, op_done, opData, bDsaSignStatus,      \
                         pResultR, pResultS)                                    \
@@ -785,11 +844,14 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_DH_GEN_PHASE1_OUTPUT(...)
 #  define DUMP_DH_GEN_PHASE2_OUTPUT(...)
 #  define DUMP_EC_POINT_MULTIPLY(...)
+#  define DUMP_EC_GENERIC_POINT_MULTIPLY(...)
 #  define DUMP_EC_MONTEDWDS_POINT_MULTIPLY(...)
 #  define DUMP_EC_POINT_MULTIPLY_OUTPUT(...)
+#  define DUMP_EC_GENERIC_POINT_MULTIPLY_OUTPUT(...)
 #  define DUMP_ECDSA_SIGN(...)
 #  define DUMP_ECDSA_SIGN_OUTPUT(...)
 #  define DUMP_ECDSA_VERIFY(...)
+#  define DUMP_ECDSA_GENERIC_POINT_VERIFY(...)
 #  define DUMP_DSA_SIGN(...)
 #  define DUMP_DSA_SIGN_OUTPUT(...)
 #  define DUMP_DSA_VERIFY(...)
