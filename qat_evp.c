@@ -94,18 +94,16 @@ static chained_info info[] = {
     {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
     {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
 # endif
-# ifdef ENABLE_QAT_HW_GCM
-    {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
-    {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
-# endif
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     {NID_chacha20_poly1305, NULL, CHACHA_KEY_SIZE},
 # endif
 #endif
-#ifdef ENABLE_QAT_SW_GCM
+#if defined(QAT_HW) || defined(QAT_SW_IPSEC)
+# if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
     {NID_aes_192_gcm, NULL, AES_KEY_SIZE_192},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
+# endif
 #endif
 };
 
@@ -120,20 +118,18 @@ int qat_cipher_nids[] = {
     NID_aes_256_cbc_hmac_sha1,
     NID_aes_256_cbc_hmac_sha256,
 # endif
-# ifdef ENABLE_QAT_HW_GCM
-    NID_aes_128_gcm,
-    NID_aes_256_gcm,
-# endif
 # if OPENSSL_VERSION_NUMBER > 0x10101000L
 #  ifdef ENABLE_QAT_HW_CHACHAPOLY
     NID_chacha20_poly1305,
 #  endif
 # endif
 #endif
-#ifdef ENABLE_QAT_SW_GCM
+#if defined(QAT_HW) || defined(QAT_SW_IPSEC)
+# if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     NID_aes_128_gcm,
     NID_aes_192_gcm,
     NID_aes_256_gcm,
+# endif
 #endif
 };
 
@@ -451,6 +447,99 @@ int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
     return 0;
 }
 
+static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
+{
+    switch (nid) {
+        case NID_aes_128_gcm:
+            return EVP_aes_128_gcm();
+        case NID_aes_192_gcm:
+            return EVP_aes_192_gcm();
+        case NID_aes_256_gcm:
+            return EVP_aes_256_gcm();
+        default:
+            WARN("Invalid nid %d\n", nid);
+            return NULL;
+    }
+}
+
+/******************************************************************************
+ * function:
+ *         qat_create_gcm_cipher_meth(int nid, int keylen)
+ *
+ * @param nid    [IN] - Cipher NID to be created
+ * @param keylen [IN] - Key length of cipher [128|192|256]
+ * @retval            - EVP_CIPHER * to created cipher
+ * @retval            - NULL if failure
+ *
+ * description:
+ *   Create a new EVP_CIPHER based on requested nid for qat_hw or qat_sw
+ ******************************************************************************/
+const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
+{
+    EVP_CIPHER *c = NULL;
+    int res = 1;
+
+#ifdef ENABLE_QAT_SW_GCM
+    if (qat_sw_ipsec) {
+        if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
+            WARN("Failed to allocate cipher methods for nid %d\n", nid);
+            return NULL;
+        }
+
+        res &= EVP_CIPHER_meth_set_iv_length(c, GCM_IV_DATA_LEN);
+        res &= EVP_CIPHER_meth_set_flags(c, VAESGCM_FLAG);
+        res &= EVP_CIPHER_meth_set_init(c, vaesgcm_ciphers_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, vaesgcm_ciphers_do_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, vaesgcm_ciphers_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(vaesgcm_ctx));
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_ctrl(c, vaesgcm_ciphers_ctrl);
+        qat_sw_gcm_offload = 1;
+        DEBUG("QAT SW AES_GCM registration\n");
+    }
+#endif
+
+#ifdef ENABLE_QAT_HW_GCM
+    if (!qat_sw_gcm_offload && qat_hw_offload) {
+        if (nid == NID_aes_192_gcm)
+            return qat_gcm_cipher_sw_impl(nid);
+
+	if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
+            WARN("Failed to allocate cipher methods for nid %d\n", nid);
+            return NULL;
+        }
+
+        res &= EVP_CIPHER_meth_set_iv_length(c, AES_GCM_IV_LEN);
+        res &= EVP_CIPHER_meth_set_flags(c, QAT_GCM_FLAGS);
+        res &= EVP_CIPHER_meth_set_init(c, qat_aes_gcm_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_aes_gcm_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, qat_aes_gcm_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_gcm_ctx));
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                   NULL : EVP_CIPHER_set_asn1_iv);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                   NULL : EVP_CIPHER_get_asn1_iv);
+        res &= EVP_CIPHER_meth_set_ctrl(c, qat_aes_gcm_ctrl);
+        qat_hw_gcm_offload = 1;
+        DEBUG("QAT HW AES_GCM registration\n");
+     }
+#endif
+
+    if (0 == res) {
+        WARN("Failed to set cipher methods for nid %d\n", nid);
+        EVP_CIPHER_meth_free(c);
+        c = NULL;
+    }
+
+    if (!qat_sw_gcm_offload && !qat_hw_gcm_offload) {
+        DEBUG("OpenSSL SW AES_GCM registration\n");
+        return qat_gcm_cipher_sw_impl(nid);
+    }
+
+    return c;
+}
+
 void qat_create_ciphers(void)
 {
     int i;
@@ -458,22 +547,14 @@ void qat_create_ciphers(void)
     for (i = 0; i < num_cc; i++) {
         if (info[i].cipher == NULL) {
             switch (info[i].nid) {
+# if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
             case NID_aes_128_gcm:
             case NID_aes_192_gcm:
             case NID_aes_256_gcm:
-#ifdef ENABLE_QAT_SW_GCM
-                if(qat_sw_ipsec)
-                   info[i].cipher = (EVP_CIPHER *)
-                       vaesgcm_create_cipher_meth(info[i].nid, info[i].keylen);
-#endif
-#ifdef ENABLE_QAT_HW_GCM
-                if (qat_hw_offload) {
-                    if (info[i].nid != NID_aes_192_gcm)
-                        info[i].cipher = (EVP_CIPHER *)
-                            qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
-                }
-#endif
+                info[i].cipher = (EVP_CIPHER *)
+                    qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
                 break;
+#endif
 
 #ifdef QAT_HW
 # if OPENSSL_VERSION_NUMBER > 0x10101000L
@@ -515,10 +596,11 @@ void qat_free_ciphers(void)
             case NID_aes_192_gcm:
             case NID_aes_256_gcm:
 #ifdef ENABLE_QAT_SW_GCM
-                EVP_CIPHER_meth_free(info[i].cipher);
+                if (qat_sw_gcm_offload)
+                    EVP_CIPHER_meth_free(info[i].cipher);
 #endif
 #ifdef ENABLE_QAT_HW_GCM
-                if (info[i].nid != NID_aes_192_gcm)
+                if (qat_hw_gcm_offload && info[i].nid != NID_aes_192_gcm)
                     EVP_CIPHER_meth_free(info[i].cipher);
 #endif
                 break;
@@ -539,6 +621,8 @@ void qat_free_ciphers(void)
             info[i].cipher = NULL;
         }
     }
+    qat_hw_gcm_offload = 0;
+    qat_sw_gcm_offload = 0;
 }
 
 /******************************************************************************
@@ -702,6 +786,10 @@ void qat_free_EC_methods(void)
     if (NULL != qat_ec_method) {
         EC_KEY_METHOD_free(qat_ec_method);
         qat_ec_method = NULL;
+        qat_hw_ecdh_offload = 0;
+        qat_hw_ecdsa_offload = 0;
+        qat_sw_ecdh_offload = 0;
+        qat_sw_ecdsa_offload = 0;
     }
 }
 

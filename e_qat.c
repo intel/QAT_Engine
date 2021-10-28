@@ -154,13 +154,13 @@
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.9";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.10";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v0.6.9";
+    "Reference implementation of QAT crypto engine(qat_hw) v0.6.10";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v0.6.9";
+    "Reference implementation of QAT crypto engine(qat_sw) v0.6.10";
 #endif
 unsigned int engine_inited = 0;
 
@@ -172,10 +172,12 @@ int qat_hw_ecdh_offload = 0;
 int qat_hw_ecdsa_offload = 0;
 int qat_hw_prf_offload = 0;
 int qat_hw_hkdf_offload = 0;
+int qat_hw_gcm_offload = 0;
 int qat_sw_rsa_offload = 0;
 int qat_sw_ecx_offload = 0;
 int qat_sw_ecdh_offload = 0;
 int qat_sw_ecdsa_offload = 0;
+int qat_sw_gcm_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -380,6 +382,10 @@ static int qat_engine_destroy(ENGINE *e)
 # endif
 #endif
 
+    qat_hw_ecx_offload = 0;
+    qat_hw_prf_offload = 0;
+    qat_hw_hkdf_offload = 0;
+    qat_sw_ecx_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
@@ -510,17 +516,6 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         enable_heuristic_polling = 0;
         qat_hw_offload = 0;
         qat_sw_offload = 0;
-        qat_hw_rsa_offload = 0;
-        qat_hw_ecx_offload = 0;
-        qat_hw_ecdh_offload = 0;
-        qat_hw_ecdsa_offload = 0;
-        qat_hw_prf_offload = 0;
-        qat_hw_hkdf_offload = 0;
-        qat_sw_rsa_offload = 0;
-        qat_sw_ecx_offload = 0;
-        qat_sw_ecdh_offload = 0;
-        qat_sw_ecdsa_offload = 0;
-
     }
     qat_pthread_mutex_unlock();
     CRYPTO_CLOSE_QAT_LOG();
@@ -907,10 +902,6 @@ static int bind_qat(ENGINE *e, const char *id)
 #ifdef QAT_HW
         DEBUG("Registering QAT HW supported algorithms\n");
 
-        /* Create static structures for ciphers now
-         * as this function will be called by a single thread. */
-        qat_create_ciphers();
-
 # ifdef ENABLE_QAT_HW_RSA
         if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
             WARN("ENGINE_set_RSA QAT HW failed\n");
@@ -960,18 +951,6 @@ static int bind_qat(ENGINE *e, const char *id)
             }
         }
 # endif
-
-#endif
-
-#ifdef QAT_SW_IPSEC
-    if (hw_support()) {
-# ifdef ENABLE_QAT_SW_GCM
-        if (!vaesgcm_init_ipsec_mb_mgr()) {
-            WARN("IPSec Multi-Buffer Manager Initialization failed\n");
-            goto end;
-        }
-# endif
-    }
 #endif
 
 #if defined(QAT_HW) || defined(QAT_SW)
@@ -987,6 +966,21 @@ static int bind_qat(ENGINE *e, const char *id)
      }
 # endif
 #endif
+
+#ifdef QAT_SW_IPSEC
+    if (hw_support()) {
+# ifdef ENABLE_QAT_SW_GCM
+        if (!vaesgcm_init_ipsec_mb_mgr()) {
+            WARN("IPSec Multi-Buffer Manager Initialization failed\n");
+            goto end;
+        }
+# endif
+    }
+#endif
+
+     /* Create static structures for ciphers now
+      * as this function will be called by a single thread. */
+     qat_create_ciphers();
 
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {

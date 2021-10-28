@@ -129,10 +129,9 @@ void ERR_QAT_error(int function, int reason, char *file, int line);
 # define QAT_F_VAESGCM_CIPHERS_CTRL                       197
 # define QAT_F_VAESGCM_CIPHERS_DO_CIPHER                  198
 # define QAT_F_VAESGCM_CIPHERS_INIT                       199
-# define QAT_F_VAESGCM_CREATE_CIPHER_METH                 200
-# define QAT_F_VAESGCM_INIT_GCM                           201
-# define QAT_F_VAESGCM_INIT_IPSEC_MB_MGR                  202
-# define QAT_F_VAESGCM_INIT_KEY                           203
+# define QAT_F_VAESGCM_INIT_GCM                           200
+# define QAT_F_VAESGCM_INIT_IPSEC_MB_MGR                  201
+# define QAT_F_VAESGCM_INIT_KEY                           202
 
 /*
  * QAT reason codes.
@@ -316,10 +315,10 @@ void ERR_QAT_error(int function, int reason, char *file, int line);
 # define QAT_R_PUB_KEY_MALLOC_FAILURE                     276
 # define QAT_R_PUB_KEY_NULL                               277
 # define QAT_R_P_A_B_XG_YG_MALLOC_FAILURE                 278
-# define QAT_R_P_A_B_XP_YP_MALLOC_FAILURE                 279
-# define QAT_R_P_A_B_XG_YG_M_K_R_ORDER_MALLOC_FAILURE     280
-# define QAT_R_P_A_B_XG_YG_XP_YP_M_ORDER_FAILURE          281
-# define QAT_R_P_A_B_XP_YP_FAILURE                        282
+# define QAT_R_P_A_B_XG_YG_M_K_R_ORDER_MALLOC_FAILURE     279
+# define QAT_R_P_A_B_XG_YG_XP_YP_M_ORDER_FAILURE          280
+# define QAT_R_P_A_B_XP_YP_FAILURE                        281
+# define QAT_R_P_A_B_XP_YP_MALLOC_FAILURE                 282
 # define QAT_R_P_G_PRIV_KEY_CONVERT_TO_FB_FAILURE         283
 # define QAT_R_P_PUB_PRIV_KEY_CONVERT_TO_FB_FAILURE       284
 # define QAT_R_P_Q_DMP_DMQ_CONVERT_TO_FB_FAILURE          285

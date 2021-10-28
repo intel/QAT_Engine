@@ -162,6 +162,7 @@ void qat_free_RSA_methods(void)
     if (qat_rsa_method != NULL) {
         RSA_meth_free(qat_rsa_method);
         qat_rsa_method = NULL;
+	qat_hw_rsa_offload = 0;
     }
 #endif
 }

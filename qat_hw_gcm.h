@@ -53,7 +53,6 @@
 # include "cpa_cy_sym.h"
 # include "cpa_cy_drbg.h"
 
-# define AES_GCM_BLOCK_SIZE  1
 # define AES_GCM_IV_LEN      12
 
 # define QAT_GCM_GET_CTX(ctx) (EVP_CIPHER_CTX_get_cipher_data(ctx))
@@ -152,6 +151,14 @@ typedef struct qat_aes_gcm_ctx_t
     int key_set;
 } qat_gcm_ctx;
 
-const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen);
+int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
+                     const unsigned char *inkey,
+                     const unsigned char *iv, int enc);
+int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx);
+int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx,
+                       unsigned char *out,
+                       const unsigned char *in, size_t len);
+int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
+                     void *ptr);
 
 #endif /* QAT_HW_GCM_H */

@@ -6,11 +6,11 @@ that supports OpenSSL\* 1.1.1 or OpenSSL\* 1.1.0 and Intel&reg; QuickAssist
 Technology Driver for Linux or Intel&reg;  QuickAssist Technology
 Driver for FreeBSD. This release was validated on the following:
 
-* Operating system: CentOS\* 7.4 64-bit version & FreeBSD\* 11.3 64-bit version
+* Operating system: CentOS\* 7.4 64-bit version & FreeBSD\* 11.4 64-bit version
 * Kernel: GNU\*/Linux\* 3.10.0-693
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.14**
-* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.10**
-* OpenSSL\* 1.1.1l
+* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.15**
+* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.11**
+* OpenSSL\* 1.1.1l & 3.0
 
 ## qat_sw Requirements
 Successful operation of the Intel&reg; QAT Software acceleration requires a
@@ -29,9 +29,9 @@ This release was validated on the following:
 * Operating system: Ubuntu 20.04.2 LTS
 * Kernel: 5.4.0-62-generic
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][1] release
-  version **IPP Crypto 2021.3**
+  version **IPP Crypto 2021.4**
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.0**
-* OpenSSL\* 1.1.1l
+* OpenSSL\* 1.1.1l & 3.0
 
 [1]:https://github.com/intel/ipp-crypto
 [2]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb

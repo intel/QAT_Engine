@@ -132,6 +132,7 @@ void multibuff_free_RSA_methods(void)
     if (multibuff_rsa_method != NULL) {
         RSA_meth_free(multibuff_rsa_method);
         multibuff_rsa_method = NULL;
+        qat_sw_rsa_offload = 0;
     }
 #endif
 }

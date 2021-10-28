@@ -49,11 +49,12 @@
 # include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
 
-# define AES_KEY_SIZE_128           16
-# define AES_KEY_SIZE_192           24
-# define AES_KEY_SIZE_256           32
+# define AES_KEY_SIZE_128    16
+# define AES_KEY_SIZE_192    24
+# define AES_KEY_SIZE_256    32
+# define AES_GCM_BLOCK_SIZE  1
 
-# define CHACHA_KEY_SIZE           32
+# define CHACHA_KEY_SIZE     32
 
 typedef int (*PFUNC_COMP_KEY)(unsigned char **,
                               size_t *,
@@ -119,10 +120,12 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void);
 EVP_PKEY_METHOD *qat_x25519_pmeth(void);
 EVP_PKEY_METHOD *qat_x448_pmeth(void);
 
+
 void qat_create_ciphers(void);
 void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                 int nid);
+const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen);
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
 int qat_pkt_threshold_table_set_threshold(const char *cn , int threshold);

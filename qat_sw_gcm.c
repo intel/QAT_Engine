@@ -96,24 +96,6 @@
 #ifdef ENABLE_QAT_SW_GCM
 IMB_MGR *ipsec_mgr = NULL;
 
-static int vaesgcm_ciphers_init(EVP_CIPHER_CTX*      ctx,
-                                const unsigned char* inkey,
-                                const unsigned char* iv,
-                                int                  enc);
-static int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx);
-static int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
-                                     unsigned char*       out,
-                                     const unsigned char* in,
-                                     size_t               len);
-static int vaesgcm_ciphers_ctrl(EVP_CIPHER_CTX* ctx, int type, int arg, void* ptr);
-
-int aes_gcm_tls_cipher(EVP_CIPHER_CTX*      evp_ctx,
-                       unsigned char*       out,
-                       const unsigned char* in,
-                       size_t               len,
-                       vaesgcm_ctx*         qctx,
-                       int                  enc);
-
 int vaesgcm_init_key(EVP_CIPHER_CTX* ctx, const unsigned char* inkey);
 int vaesgcm_init_gcm(EVP_CIPHER_CTX* ctx);
 
@@ -128,69 +110,6 @@ static int qat_check_gcm_nid(int nid)
 }
 
 #endif
-
-static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
-{
-    switch (nid) {
-        case NID_aes_128_gcm:
-            return EVP_aes_128_gcm();
-        case NID_aes_192_gcm:
-            return EVP_aes_192_gcm();
-        case NID_aes_256_gcm:
-            return EVP_aes_256_gcm();
-        default:
-            WARN("Invalid nid %d\n", nid);
-            return NULL;
-    }
-}
-
-/******************************************************************************
- * function:
- *         vaesgcm_create_cipher_meth(int nid, int keylen)
- *
- * @param nid    [IN] - Cipher NID to be created
- * @param keylen [IN] - Key length of cipher [128|192|256]
- * @retval            - EVP_CIPHER * to created cipher
- * @retval            - NULL if failure
- *
- * description:
- *   create a new EVP_CIPHER based on requested nid
- ******************************************************************************/
-const EVP_CIPHER *vaesgcm_create_cipher_meth(int nid, int keylen)
-{
-#ifdef ENABLE_QAT_SW_GCM
-    EVP_CIPHER* c   = NULL;
-    int         res = 1;
-
-    if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
-        WARN("Failed to allocate cipher methods for specified nid %d\n", nid);
-        QATerr(QAT_F_VAESGCM_CREATE_CIPHER_METH, ERR_R_INTERNAL_ERROR);
-        return NULL;
-    }
-
-    res &= EVP_CIPHER_meth_set_iv_length(c, GCM_IV_DATA_LEN);
-    res &= EVP_CIPHER_meth_set_flags(c, VAESGCM_FLAG);
-    res &= EVP_CIPHER_meth_set_init(c, vaesgcm_ciphers_init);
-    res &= EVP_CIPHER_meth_set_do_cipher(c, vaesgcm_ciphers_do_cipher);
-    res &= EVP_CIPHER_meth_set_cleanup(c, vaesgcm_ciphers_cleanup);
-    res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(vaesgcm_ctx));
-    res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
-    res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
-    res &= EVP_CIPHER_meth_set_ctrl(c, vaesgcm_ciphers_ctrl);
-
-    if (res == 0) {
-        WARN("Failed to set cipher methods for nid %d\n", nid);
-        QATerr(QAT_F_VAESGCM_CREATE_CIPHER_METH, ERR_R_INTERNAL_ERROR);
-        EVP_CIPHER_meth_free(c);
-        c = NULL;
-    }
-
-    DEBUG("QAT SW AES_GCM registration succeeded\n");
-    return c;
-#else
-    return qat_gcm_cipher_sw_impl(nid);
-#endif
-}
 
 #ifdef ENABLE_QAT_SW_GCM
 /******************************************************************************

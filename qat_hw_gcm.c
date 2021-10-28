@@ -64,6 +64,7 @@
 #include "cpa.h"
 #include "cpa_types.h"
 #include "cpa_cy_sym.h"
+#include "qat_evp.h"
 #include "qat_hw_gcm.h"
 #include "qat_hw_ciphers.h"
 
@@ -80,67 +81,6 @@
 #  undef DISABLE_QAT_HW_GCM
 # endif
 #endif
-
-#ifdef ENABLE_QAT_HW_GCM
-static int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
-                            const unsigned char *inkey,
-                            const unsigned char *iv, int enc);
-static int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx);
-static int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx,
-                              unsigned char *out,
-                              const unsigned char *in, size_t len);
-static int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
-                            void *ptr);
-#endif
-
-static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
-{
-    switch (nid) {
-        case NID_aes_128_gcm:
-            return EVP_aes_128_gcm();
-        case NID_aes_256_gcm:
-            return EVP_aes_256_gcm();
-        default:
-            WARN("Invalid nid %d\n", nid);
-            return NULL;
-    }
-}
-
-const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
-{
-#ifdef ENABLE_QAT_HW_GCM
-    EVP_CIPHER *c = NULL;
-    int res = 1;
-
-    if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
-        WARN("Failed to allocate cipher methods for nid %d\n", nid);
-        return NULL;
-    }
-
-    res &= EVP_CIPHER_meth_set_iv_length(c, AES_GCM_IV_LEN);
-    res &= EVP_CIPHER_meth_set_flags(c, QAT_GCM_FLAGS);
-    res &= EVP_CIPHER_meth_set_init(c, qat_aes_gcm_init);
-    res &= EVP_CIPHER_meth_set_do_cipher(c, qat_aes_gcm_cipher);
-    res &= EVP_CIPHER_meth_set_cleanup(c, qat_aes_gcm_cleanup);
-    res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_gcm_ctx));
-    res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                               NULL : EVP_CIPHER_set_asn1_iv);
-    res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                               NULL : EVP_CIPHER_get_asn1_iv);
-    res &= EVP_CIPHER_meth_set_ctrl(c, qat_aes_gcm_ctrl);
-
-    if (0 == res) {
-        WARN("Failed to set cipher methods for nid %d\n", nid);
-        EVP_CIPHER_meth_free(c);
-        c = NULL;
-    }
-
-    DEBUG("QAT HW AES_GCM registration succeeded\n");
-    return c;
-#else
-    return qat_gcm_cipher_sw_impl(nid);
-#endif
-}
 
 #ifdef ENABLE_QAT_HW_GCM
 /******************************************************************************
@@ -278,10 +218,10 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
 *  EVP context.
 *
 ******************************************************************************/
-static int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
-                            const unsigned char *inkey,
-                            const unsigned char *iv,
-                            int enc)
+int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
+                     const unsigned char *inkey,
+                     const unsigned char *iv,
+                     int enc)
 {
     qat_gcm_ctx* qctx = NULL;
 
@@ -426,7 +366,7 @@ static inline void qat_aes_gcm_inc_ctr(unsigned char* ifc)
 *  in the authentication calculation and to identify record payload size.
 *
 ******************************************************************************/
-static int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
+int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 {
     qat_gcm_ctx *qctx = NULL;
     unsigned int plen = 0;
@@ -718,7 +658,7 @@ static int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 *  cryptographic transform.
 *
 ******************************************************************************/
-static int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
+int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
 {
     qat_gcm_ctx* qctx = NULL;
     CpaStatus sts = 0;
