@@ -439,26 +439,12 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
             goto err;
     }
 
-    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-    if (qat_use_signals()) {
-        if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("qat_kill_thread error\n");
-                QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                DSA_SIG_free(sig);
-                sig = NULL;
-                goto err;
-            }
-        }
-    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             DSA_SIG_free(sig);
             sig = NULL;
             goto err;
@@ -479,7 +465,6 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             DSA_SIG_free(sig);
             sig = NULL;
             goto err;
@@ -534,11 +519,25 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         DSA_SIG_free(sig);
         sig = NULL;
         goto err;
     }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
+                QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                DSA_SIG_free(sig);
+                sig = NULL;
+                goto err;
+            }
+        }
+    }
+
     if (qat_get_sw_fallback_enabled()) {
         CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
                        inst_num,
@@ -810,24 +809,12 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
             goto err;
     }
 
-    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-    if (qat_use_signals()) {
-        if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("qat_kill_thread error\n");
-                QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                goto err;
-            }
-        }
-    }
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
     }
@@ -846,7 +833,6 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
 
@@ -895,9 +881,21 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto err;
     }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
+                QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto err;
+            }
+        }
+    }
+
     if (qat_get_sw_fallback_enabled()) {
         CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
                        inst_num,

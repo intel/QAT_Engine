@@ -193,19 +193,6 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             goto exit;
     }
 
-    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-    if (qat_use_signals()) {
-        if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("qat_kill_thread error\n");
-                QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
-                retval = 0;
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                goto exit;
-            }
-        }
-    }
-
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
@@ -213,7 +200,6 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL);
             retval = 0;
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto exit;
         }
     }
@@ -232,7 +218,6 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             }
             retval = 0;
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto exit;
         }
 
@@ -277,9 +262,22 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
         }
         retval = 0;
         qat_cleanup_op_done(&op_done);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         goto exit;
     }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
+                QATerr(QAT_F_QAT_MOD_EXP, ERR_R_INTERNAL_ERROR);
+                retval = 0;
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto exit;
+            }
+        }
+    }
+
     if (qat_get_sw_fallback_enabled()) {
         CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
                        inst_num,

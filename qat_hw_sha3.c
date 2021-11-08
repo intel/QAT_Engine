@@ -775,24 +775,13 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
             QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
             goto err;
         }
-        QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-        if (qat_use_signals()) {
-            if (tlv->localOpsInFlight == 1) {
-                if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                     WARN("qat_kill_thread error\n");
-                     QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
-                     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                     goto err;
-                }
-            }
-        }
+
         qat_init_op_done(&op_done);
         if (op_done.job != NULL) {
             if (qat_setup_async_event_notification(0) == 0) {
                 WARN("Failed to setup async event notification\n");
                 QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
                 qat_cleanup_op_done(&op_done);
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 goto err;
             }
         }
@@ -818,7 +807,6 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
                 qat_clear_async_event_notification();
             }
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
 
@@ -831,7 +819,6 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
                                     &(sha3_ctx->session_data->verifyDigest));
         if (status != CPA_STATUS_SUCCESS) {
             if (((status == CPA_STATUS_RESTARTING) || (status == CPA_STATUS_FAIL))) {
-                  QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                   CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                                  sha3_ctx->inst_num,
                                  qat_instance_details[sha3_ctx->inst_num].qat_instance_info.physInstId.packageId);
@@ -842,6 +829,18 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
             }
             qat_cleanup_op_done(&op_done);
             goto err;
+        }
+
+        QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+        if (qat_use_signals()) {
+            if (tlv->localOpsInFlight == 1) {
+                if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                     WARN("qat_kill_thread error\n");
+                     QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
+                     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                     goto err;
+                }
+            }
         }
 
         if (enable_heuristic_polling) {

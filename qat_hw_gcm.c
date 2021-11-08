@@ -1058,25 +1058,12 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             goto err;
     }
 
-    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-    if (qat_use_signals()) {
-        if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("qat_kill_thread error\n");
-                QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                goto err;
-            }
-        }
-    }
-
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failure to setup async event notifications\n");
             QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             goto err;
         }
     }
@@ -1096,11 +1083,22 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qaeCryptoMemFreeNonZero(qctx->srcFlatBuffer[0].pData);
         qctx->srcFlatBuffer[0].pData = NULL;
         qctx->dstFlatBuffer[0].pData = NULL;
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         qat_cleanup_op_done(&op_done);
         WARN("cpaCySymPerformOp failed sts=%d.\n",sts);
         QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
         goto err;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
+                QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto err;
+            }
+        }
     }
 
     if (enable_heuristic_polling) {
@@ -1344,24 +1342,11 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 return RET_FAIL;
             }
 
-            QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-            if (qat_use_signals()) {
-                if (tlv->localOpsInFlight == 1) {
-                    if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                        WARN("qat_kill_thread error\n");
-                        QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
-                        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                        return RET_FAIL;
-                    }
-                }
-            }
-
             qat_init_op_done(&op_done);
             if (op_done.job != NULL) {
                 if (qat_setup_async_event_notification(0) == 0) {
                     WARN("Failure to setup async event notifications\n");
                     QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
-                    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                     qat_cleanup_op_done(&op_done);
                     return RET_FAIL;
                 }
@@ -1381,11 +1366,22 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 qaeCryptoMemFreeNonZero(qctx->srcFlatBuffer[0].pData);
                 qctx->srcFlatBuffer[0].pData = NULL;
                 qctx->dstFlatBuffer[0].pData = NULL;
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 qat_cleanup_op_done(&op_done);
                 WARN("cpaCySymPerformOp failed sts=%d.\n",sts);
                 QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
                 return RET_FAIL;
+            }
+
+            QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+            if (qat_use_signals()) {
+                if (tlv->localOpsInFlight == 1) {
+                    if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                        WARN("qat_kill_thread error\n");
+                        QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
+                        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                        return RET_FAIL;
+                    }
+                }
             }
 
             if (enable_heuristic_polling) {

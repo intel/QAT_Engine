@@ -847,26 +847,12 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
         goto tls_cipher_err;
     }
 
-    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-    if (qat_use_signals()) {
-        if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("qat_kill_thread error\n");
-                QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER,
-                       ERR_R_INTERNAL_ERROR);
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                goto tls_cipher_err;
-            }
-        }
-    }
-
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(0) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER,
                    ERR_R_INTERNAL_ERROR);
-            QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             qat_cleanup_op_done(&op_done);
             goto tls_cipher_err;
         }
@@ -908,7 +894,6 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
     if (!is_instance_available(cp_ctx->inst_num)) {
         WARN("QAT instance %d not available.\n", cp_ctx->inst_num);
         QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
@@ -930,12 +915,24 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
                     qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId);
         }
         QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         if (op_done.job != NULL) {
             qat_clear_async_event_notification();
         }
         qat_cleanup_op_done(&op_done);
         goto tls_cipher_err;
+    }
+
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
+                QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER,
+                       ERR_R_INTERNAL_ERROR);
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                goto tls_cipher_err;
+            }
+        }
     }
 
     if (enable_heuristic_polling) {
@@ -1168,19 +1165,6 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                 goto do_cipher_err;
             }
 
-            QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-            if (qat_use_signals()) {
-                if (tlv->localOpsInFlight == 1) {
-                    if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                        WARN("qat_kill_thread error\n");
-                        QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
-                               ERR_R_INTERNAL_ERROR);
-                        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                        goto do_cipher_err;
-                    }
-                }
-            }
-
             qat_init_op_done(&op_done);
             if (op_done.job != NULL) {
                 if (qat_setup_async_event_notification(0) == 0) {
@@ -1188,7 +1172,6 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                     QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
                            ERR_R_INTERNAL_ERROR);
                     qat_cleanup_op_done(&op_done);
-                    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                     goto do_cipher_err;
                 }
             }
@@ -1219,7 +1202,6 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                     qat_clear_async_event_notification();
                 }
                 qat_cleanup_op_done(&op_done);
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 goto do_cipher_err;
             }
 
@@ -1233,7 +1215,6 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
 
             if (status != CPA_STATUS_SUCCESS) {
                 if (((status == CPA_STATUS_RESTARTING) || (status == CPA_STATUS_FAIL))) {
-                    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                     CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                                     cp_ctx->inst_num,
                                     qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId);
@@ -1245,6 +1226,19 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                 }
                 qat_cleanup_op_done(&op_done);
                 goto do_cipher_err;
+            }
+
+            QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+            if (qat_use_signals()) {
+                if (tlv->localOpsInFlight == 1) {
+                    if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                        WARN("qat_kill_thread error\n");
+                        QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
+                               ERR_R_INTERNAL_ERROR);
+                        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                        goto do_cipher_err;
+                    }
+                }
             }
 
             if (enable_heuristic_polling) {

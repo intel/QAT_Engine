@@ -1237,21 +1237,9 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             return -1;
     }
 
-    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-    if (qat_use_signals()) {
-        if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("qat_kill_thread error\n");
-                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                return -1;
-            }
-        }
-    }
-
     if ((qat_setup_op_params(ctx) != 1) ||
         (qat_init_op_done_pipe(&done, qctx->numpipes) != 1)) {
         WARN("Failure in qat_setup_op_params or qat_init_op_done_pipe\n");
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return -1;
     }
 
@@ -1466,6 +1454,17 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         goto end;
     }
 
+    QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+    if (qat_use_signals()) {
+        if (tlv->localOpsInFlight == 1) {
+            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                WARN("qat_kill_thread error\n");
+                QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                return -1;
+            }
+        }
+    }
+
     if (enable_heuristic_polling) {
         QAT_ATOMIC_INC(num_cipher_pipeline_requests_in_flight);
     }
@@ -1488,10 +1487,11 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     } while (!done.opDone.flag ||
              QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+
  end:
     qctx->total_op += done.num_processed;
     DUMP_SYM_PERFORM_OP_OUTPUT(&(qctx->session_data->verifyDigest), d_sgl);
-    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     if (error == 0 && (done.opDone.verifyResult == CPA_TRUE)) {
         retVal = 1 & pad_check;
