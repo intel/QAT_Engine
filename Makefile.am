@@ -42,14 +42,11 @@ if QAT_HW
               qat_hw_dsa.c         \
               qat_hw_ec.c          \
               qat_hw_prf.c         \
-              qat_hw_gcm.c
-
-if !QAT_OPENSSL_110
- QAT_HW_111_SRC = qat_hw_hkdf.c       \
-                  qat_hw_ecx.c        \
-                  qat_hw_sha3.c       \
-                  qat_hw_chachapoly.c
-endif
+              qat_hw_gcm.c         \
+              qat_hw_hkdf.c        \
+              qat_hw_ecx.c         \
+              qat_hw_sha3.c        \
+              qat_hw_chachapoly.c
 endif
 
 if QAT_SW
@@ -70,7 +67,6 @@ endif
 qatengine_la_SOURCES = ${QAT_COMMON_SRC}   \
                        ${QAT_ERR_SRC}      \
                        ${QAT_HW_SRC}       \
-                       ${QAT_HW_111_SRC}   \
                        ${QAT_HW_MEM_SRC}   \
                        ${QAT_SW_SRC}       \
                        ${QAT_SW_IPSEC_SRC}
@@ -111,19 +107,12 @@ MAKE = make err-files && make
 endif
 
 err-files:
-if QAT_OPENSSL_110
-	rm -rf e_qat_err* && perl -I$(with_openssl_dir) \
-       $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-       -rebuild -reindex -nostatic -write *.c
-else
 if QAT_OPENSSL_3
 	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf qat_prov.ec \
        -rebuild -reindex *.c
 else
-	rm -f e_qat_err.c e_qat.txt && perl -I$(with_openssl_dir) \
-	   $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
+	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
 	   -rebuild -reindex *.c
-endif
 endif
 
 include test.am

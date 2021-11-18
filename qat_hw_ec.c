@@ -79,7 +79,6 @@
 #include "qat_hw_ec.h"
 #include "qat_evp.h"
 
-#if !defined (DISABLE_QAT_HW_ECDSA) || !defined (DISABLE_QAT_HW_ECDH)
 CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
 {
     if (EC_METHOD_get_field_type(EC_GROUP_method_of(group))
@@ -89,85 +88,15 @@ CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
         return CPA_CY_EC_FIELD_TYPE_BINARY;
 }
 
-int qat_get_curve(const EC_GROUP *group, BIGNUM *p, BIGNUM *a,
-                  BIGNUM *b, BN_CTX *ctx, CpaCyEcFieldType fieldType)
+#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+int qat_get_curve(CpaCyEcFieldType fieldType)
 {
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
-        WARN("Failure to get the curve\n");
-        return 0;
-    }
-# else
-    if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME) {
-        if (!EC_GROUP_get_curve_GFp(group, p, a, b, ctx)) {
-            WARN("Failure to get the curve for a prime field\n");
-            return 0;
-        }
-    } else {
-        if (!EC_GROUP_get_curve_GF2m(group, p, a, b, ctx)) {
-            WARN("Failure to get the curve for a binary field\n");
-            return 0;
-        }
-    }
-# endif
-    return 1;
-}
-
-int qat_get_affine_coordinates(const EC_GROUP *group, const EC_POINT *p,
-                               BIGNUM *x, BIGNUM *y, BN_CTX *ctx,
-                               CpaCyEcFieldType fieldType)
-{
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-    if (!EC_POINT_get_affine_coordinates(group, p, x, y, ctx)) {
-        WARN("Failure to get the affine coordinates for fieldType %d\n", fieldType);
-        return 0;
-    }
-# else
-    if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME) {
-        if (!EC_POINT_get_affine_coordinates_GFp(group, p, x, y, ctx)) {
-            WARN("Failure to get the curve for a prime field\n");
-            return 0;
-        }
-    } else {
-        if (!EC_POINT_get_affine_coordinates_GF2m(group, p, x, y, ctx)) {
-            WARN("Failure to get the curve for a binary field\n");
-            return 0;
-        }
-    }
-# endif
-    return 1;
-}
-
-int qat_set_affine_coordinates(const EC_GROUP *group, EC_POINT *p,
-                               BIGNUM *x, BIGNUM *y, BN_CTX *ctx,
-                               CpaCyEcFieldType fieldType)
-{
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-    if (!EC_POINT_set_affine_coordinates(group, p, x, y, ctx)) {
-        WARN("Failure to set the affine coordinates for fieldType %d\n", fieldType);
-        return 0;
-    }
-# else
-    if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME) {
-        if (!EC_POINT_set_affine_coordinates_GFp(group, p, x, y, ctx)) {
-            WARN("Failure to set the affine coordinates for prime field\n");
-            return 0;
-        }
-    } else {
-        if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) ==
-            NID_X9_62_characteristic_two_field) {
-            if (!EC_POINT_set_affine_coordinates_GF2m(group, p, x, y, ctx)) {
-                WARN("Failure to set the affine coordinates for binary field\n");
-                return 0;
-            }
-        } else {
-            WARN("Error unknown field type for curve\n");
-            QATerr(QAT_F_QAT_SET_AFFINE_COORDINATES, QAT_R_ECDH_UNKNOWN_FIELD_TYPE);
-            return 0;
-        }
-    }
-# endif
-    return 1;
+    if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME)
+        return CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_PRIME;
+    else if (fieldType == CPA_CY_EC_FIELD_TYPE_BINARY)
+        return CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_PRIME;
+    else
+        return CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_KOBLITZ_BINARY;
 }
 #endif
 
@@ -197,13 +126,13 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     size_t buflen = 0;
 
     int inst_num = QAT_INVALID_INSTANCE;
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     BIGNUM *xP = NULL, *yP = NULL;
     CpaCyEcGenericPointMultiplyOpData *pOpData = NULL;
-#else
+# else
     BIGNUM *xg = NULL, *yg = NULL;
     CpaCyEcPointMultiplyOpData *opData = NULL;
-#endif
+# endif
     CpaBoolean bEcStatus = 0;
     CpaFlatBuffer *pResultX = NULL;
     CpaFlatBuffer *pResultY = NULL;
@@ -242,7 +171,8 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_GET_GROUP_FAILURE);
         return ret;
     }
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     pOpData = (CpaCyEcGenericPointMultiplyOpData *)
         OPENSSL_zalloc(sizeof(CpaCyEcGenericPointMultiplyOpData));
     if (pOpData == NULL) {
@@ -269,7 +199,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     /* To instruct the Quickassist API not to use co-factor */
     pOpData->pCurve->parameters.weierstrassParameters.h.pData = NULL;
     pOpData->pCurve->parameters.weierstrassParameters.h.dataLenInBytes = 0;
-#else
+# else
     opData = (CpaCyEcPointMultiplyOpData *)
         OPENSSL_zalloc(sizeof(CpaCyEcPointMultiplyOpData));
     if (opData == NULL) {
@@ -288,7 +218,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     /* To instruct the Quickassist API not to use co-factor */
     opData->h.pData = NULL;
     opData->h.dataLenInBytes = 0;
-#endif
+# endif
 
     /* Populate the parameters required for EC point multiply */
     if ((ctx = BN_CTX_new()) == NULL) {
@@ -301,7 +231,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     p = BN_CTX_get(ctx);
     a = BN_CTX_get(ctx);
     b = BN_CTX_get(ctx);
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     xP = BN_CTX_get(ctx);
     yP = BN_CTX_get(ctx);
 
@@ -310,7 +240,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_P_A_B_XP_YP_MALLOC_FAILURE);
         goto err;
     }
-#else
+# else
     xg = BN_CTX_get(ctx);
     yg = BN_CTX_get(ctx);
 
@@ -319,7 +249,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_P_A_B_XG_YG_MALLOC_FAILURE);
         goto err;
     }
-#endif
+# endif
 
     buflen = (EC_GROUP_get_degree(group) + 7) / 8;
     pResultX = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
@@ -349,18 +279,18 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
     pResultY->dataLenInBytes = (Cpa32U) buflen;
 
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
-    pOpData->pCurve->curveType = EC_GROUP_get_curve(group, p, a, b, ctx);
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     pOpData->pCurve->parameters.weierstrassParameters.fieldType = qat_get_field_type(group);
+    pOpData->pCurve->curveType = qat_get_curve(pOpData->pCurve->parameters.weierstrassParameters.fieldType);
 
-    if (!qat_get_curve(group, p, a, b, ctx,
-	      pOpData->pCurve->parameters.weierstrassParameters.fieldType)) {
+    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+        WARN("Failure to get the curve\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
 
-    if (!qat_get_affine_coordinates(group, pub_key, xP, yP, ctx,
-              pOpData->pCurve->parameters.weierstrassParameters.fieldType)) {
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, xP, yP, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -394,16 +324,17 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes = 1;
         pOpData->pCurve->parameters.weierstrassParameters.a.pData[0] = 0;
     }
-#else
+# else
     opData->fieldType = qat_get_field_type(group);
 
-    if (!qat_get_curve(group, p, a, b, ctx, opData->fieldType)) {
+    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+        WARN("Failure to get the curve\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
 
-    if (!qat_get_affine_coordinates(group, pub_key, xg, yg, ctx,
-                                    opData->fieldType)) {
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, xg, yg, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
@@ -435,7 +366,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         opData->a.dataLenInBytes = 1;
         opData->a.pData[0] = 0;
     }
-#endif
+# endif
 
     tlv = qat_check_create_local_variables();
     if (NULL == tlv) {
@@ -473,21 +404,21 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
         DUMP_EC_GENERIC_POINT_MULTIPLY(qat_instance_handles[inst_num], pOpData, pResultX, pResultY);
         status = cpaCyEcGenericPointMultiply(qat_instance_handles[inst_num],
                                              qat_ecCallbackFn,
                                              &op_done,
                                              pOpData,
                                              &bEcStatus, pResultX, pResultY);
-#else
+# else
         DUMP_EC_POINT_MULTIPLY(qat_instance_handles[inst_num], opData, pResultX, pResultY);
         status = cpaCyEcPointMultiply(qat_instance_handles[inst_num],
                                       qat_ecCallbackFn,
                                       &op_done,
                                       opData,
                                       &bEcStatus, pResultX, pResultY);
-#endif
+# endif
 
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
@@ -641,7 +572,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         OPENSSL_free(pResultY);
     }
 
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(pOpData->k);
     QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);
     QAT_CHK_QMFREE_FLATBUFF(pOpData->yP);
@@ -649,7 +580,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     if (pOpData) {
         OPENSSL_free(pOpData);
     }
-#else
+# else
     QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->k);
     QAT_CHK_QMFREE_FLATBUFF(opData->xg);
     QAT_CHK_QMFREE_FLATBUFF(opData->yg);
@@ -658,7 +589,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     QAT_CHK_QMFREE_FLATBUFF(opData->q);
     if (opData)
         OPENSSL_free(opData);
-#endif
+# endif
     if (ctx) {
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
@@ -721,7 +652,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
 {
     int ok = 0;
     int alloc_priv = 0, alloc_pub = 0;
-    int field_size = 0, field_type = 0;
+    int field_size = 0;
     BN_CTX *ctx = NULL;
     BIGNUM *priv_key = NULL, *order = NULL, *x_bn = NULL,
            *y_bn = NULL, *tx_bn = NULL, *ty_bn = NULL;
@@ -846,13 +777,14 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     x_bn = BN_bin2bn(temp_xbuf, temp_xfield_size, x_bn);
     y_bn = BN_bin2bn(temp_ybuf, temp_yfield_size, y_bn);
 
-    field_type = qat_get_field_type(group);
-
-    if (!qat_set_affine_coordinates(group, pub_key, x_bn, y_bn, ctx, field_type)) {
+    if (!EC_POINT_set_affine_coordinates(group, pub_key, x_bn, y_bn, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_SET_AFFINE_COORD_FAILED);
         goto err;
     }
-    if (!qat_get_affine_coordinates(group, pub_key, tx_bn, ty_bn, ctx, field_type)) {
+
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, tx_bn, ty_bn, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_GET_AFFINE_COORD_FAILED);
         goto err;
     }
@@ -1096,15 +1028,16 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     opData->fieldType = qat_get_field_type(group);
 
-    if (!qat_get_curve(group, p, a, b, ctx, opData->fieldType)) {
-       QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-       goto err;
+    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+        WARN("Failure to get the curve\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
-    if (!qat_get_affine_coordinates(group, ec_point, xg, yg, ctx,
-                                    opData->fieldType)) {
-       QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-       goto err;
+    if (!EC_POINT_get_affine_coordinates(group, ec_point, xg, yg, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
     if (qat_BN_to_FB(&(opData->d), (BIGNUM *)priv_key) != 1 ||
@@ -1449,16 +1382,16 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
 
     int inst_num = QAT_INVALID_INSTANCE;
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     BIGNUM *xP = NULL, *yP = NULL;
     CpaCyEcGenericPointVerifyOpData *pOpData = NULL;
-#else
+# else
     BIGNUM *xg = NULL, *yg = NULL, *xp = NULL, *yp = NULL;
     BIGNUM *order = NULL, *m = NULL;
     const BIGNUM *sig_r = NULL, *sig_s = NULL;
     int i;
     CpaCyEcdsaVerifyOpData *opData = NULL;
-#endif
+# endif
     CpaBoolean bEcdsaVerifyStatus = 0;
     CpaStatus status = CPA_STATUS_FAIL;
     op_done_t op_done;
@@ -1501,7 +1434,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         return ret;
     }
 
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     pOpData = (CpaCyEcGenericPointVerifyOpData *)
         OPENSSL_zalloc(sizeof(CpaCyEcGenericPointVerifyOpData));
     if (pOpData == NULL) {
@@ -1517,7 +1450,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         return ret;
     }
 
-#else
+# else
     opData = (CpaCyEcdsaVerifyOpData *)
         OPENSSL_zalloc(sizeof(CpaCyEcdsaVerifyOpData));
     if (opData == NULL) {
@@ -1526,7 +1459,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         return ret;
     }
 
-#endif
+# endif
 
     if ((ctx = BN_CTX_new()) == NULL) {
         WARN("Failure to allocate ctx\n");
@@ -1538,7 +1471,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     p = BN_CTX_get(ctx);
     a = BN_CTX_get(ctx);
     b = BN_CTX_get(ctx);
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     xP = BN_CTX_get(ctx);
     yP = BN_CTX_get(ctx);
 
@@ -1547,7 +1480,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_P_A_B_XP_YP_FAILURE);
         goto err;
     }
-#else
+# else
     xg = BN_CTX_get(ctx);
     yg = BN_CTX_get(ctx);
     xp = BN_CTX_get(ctx);
@@ -1599,22 +1532,22 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_BN_LIB);
         goto err;
     }
-#endif
+# endif
 
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
-    pOpData->pCurve->curveType = EC_GROUP_get_curve(group, p, a, b, ctx);
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     pOpData->pCurve->parameters.weierstrassParameters.fieldType = qat_get_field_type(group);
+    pOpData->pCurve->curveType = qat_get_curve(pOpData->pCurve->parameters.weierstrassParameters.fieldType);
 
-    if (!qat_get_curve(group, p, a, b, ctx,
-               pOpData->pCurve->parameters.weierstrassParameters.fieldType)) {
-       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-       goto err;
+    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+        WARN("Failure to get the curve\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
-    if (!qat_get_affine_coordinates(group, pub_key, xP, yP, ctx,
-               pOpData->pCurve->parameters.weierstrassParameters.fieldType)) {
-       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-       goto err;
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, xP, yP, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
     if ((qat_BN_to_FB(&(pOpData->xP), xP) != 1) ||
@@ -1648,24 +1581,25 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         pOpData->pCurve->parameters.weierstrassParameters.a.pData[0] = 0;
     }
 
-#else
+# else
     opData->fieldType = qat_get_field_type(group);
 
-    if (!qat_get_curve(group, p, a, b, ctx, opData->fieldType)) {
-       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-       goto err;
+    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+        WARN("Failure to get the curve\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
-    if (!qat_get_affine_coordinates(group, ec_point, xg, yg, ctx,
-                                    opData->fieldType)) {
-       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-       goto err;
+    if (!EC_POINT_get_affine_coordinates(group, ec_point, xg, yg, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
-    if (!qat_get_affine_coordinates(group, pub_key, xp, yp, ctx,
-                                    opData->fieldType)) {
-       QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
-       goto err;
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, xp, yp, ctx)) {
+        WARN("Failure to get the affine coordinates\n");
+        QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
     if ((qat_BN_to_FB(&(opData->m), m) != 1) ||
@@ -1702,8 +1636,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         opData->a.dataLenInBytes = 1;
         opData->a.pData[0] = 0;
     }
-
-#endif
+# endif
 
     /* perform ECDSA verify */
 
@@ -1742,18 +1675,18 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         }
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
         DUMP_ECDSA_GENERIC_POINT_VERIFY(qat_instance_handles[inst_num], pOpData);
         status = cpaCyEcGenericPointVerify(qat_instance_handles[inst_num],
                                            qat_ecdsaVerifyCallbackFn,
                                            &op_done, pOpData, &bEcdsaVerifyStatus);
-#else
+# else
         DUMP_ECDSA_VERIFY(qat_instance_handles[inst_num], opData);
         status = cpaCyEcdsaVerify(qat_instance_handles[inst_num],
                                   qat_ecdsaVerifyCallbackFn,
                                   &op_done, opData, &bEcdsaVerifyStatus);
 
-#endif
+# endif
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
                 usleep(ulPollInterval +
@@ -1855,14 +1788,14 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 
  err:
 
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     if (pOpData) {
         QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);
         QAT_CHK_QMFREE_FLATBUFF(pOpData->yP);
         QAT_QMEMFREE_BUFF(pOpData->pCurve);
         OPENSSL_free(pOpData);
     }
-#else
+# else
     if (opData) {
         QAT_CHK_QMFREE_FLATBUFF(opData->r);
         QAT_CHK_QMFREE_FLATBUFF(opData->s);
@@ -1877,7 +1810,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         QAT_CHK_QMFREE_FLATBUFF(opData->yp);
         OPENSSL_free(opData);
     }
-#endif
+# endif
 
     if (ctx) {
         BN_CTX_end(ctx);

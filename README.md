@@ -143,9 +143,9 @@ Clone OpenSSL\* from Github\* at the following location:
 
     git clone https://github.com/openssl/openssl.git
 
-It is recommended to checkout and build against the OpenSSL\* 1.1.1 git tag
-specified in the release notes.
-Versions of OpenSSL\* before OpenSSL\* 1.1.0 are not supported.
+It is recommended to checkout and build against the OpenSSL\* git tag
+specified in the Software Requirements section. OpenSSL\* Version 1.1.1
+and 3.0 are only supported.
 
 Due to the nature of the Intel&reg; QAT OpenSSL\* Engine being a dynamic engine
 it can only be used with shared library builds of OpenSSL\*.
@@ -305,8 +305,8 @@ the engines dir of the system which can be checked using
 If OpenSSL\* version in the system can not be updated to 1.1.1 series, then
 the engine needs to be built from source using the option
 `--with-openssl_install_dir`. An additional option `--with-openssl_dir` pointing
-to the top directory of the OpenSSL\* source needs to be provided for building
-against OpenSSL\* 1.1.0 as the engine err files need to be regenerated for 1.1.0.
+to the top directory of the OpenSSL\* source needs to be provided for regenerating
+err files if there are any new error messages added/deleted in the source code.
 
 <br>
 </details>

@@ -114,10 +114,8 @@ static char *default_digest_string = "SHA256";
 static char *tls_version = NULL;
 static char *digest_kdf = NULL;
 static int prf_op = -1;
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
 static int hkdf_op = -1;
 static int ecx_op = -1;
-#endif
 static int explicit_engine = 0;
 static int async_jobs = 1;
 static int sw_fallback = 0;
@@ -520,12 +518,10 @@ char *test_name(int test)
         return "ECDSA";
     case TEST_PRF:
         return "PRF";
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     case TEST_HKDF:
         return "HKDF";
     case TEST_ECX:
         return "ECX";
-#endif
     case TEST_AES128_GCM:
         return "AES128 GCM";
     case TEST_AES256_GCM:
@@ -617,9 +613,7 @@ static void usage(char *program)
     printf("[-u] [-perf] [-x] [-z] [-epoll] [-poll] [-f] [-engine <string>] ");
     printf("[-ne] [-tls_version <tls>] [-di <digest>] ");
     printf("[-async_jobs <count>] [-prf_op <op>] ");
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     printf("[-hkdf_op <op>]");
-#endif
     printf("[-sw_fallback] ");
     printf("[-sign] [-verify] [-encrypt] [-decrypt] [-h] [<test>] \n");
     printf("Where:\n");
@@ -648,9 +642,7 @@ static void usage(char *program)
     printf("\t-di     specifies digest for prf and hkdf (OpenSSL_1.1.1 & higher), MD5, SHA256, SHA384, SHA512 \n");
     printf("\t-async_jobs   specifies the number of asynchronous jobs per thread\n");
     printf("\t-prf_op specifies the PRF operation required (default is to run them all)\n");
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     printf("\t-hkdf_op specifies the HKDF operation (0-Extract&Expand 1-Extract 2-Expand (default is to run them all))\n");
-#endif
     printf("\t-sw_fallback  enables the sw fallback feature (qat engine only)\n");
     printf("\t-sign   sign only\n");
     printf("\t-verify verify only\n");
@@ -691,11 +683,9 @@ static void usage(char *program)
     printf("\tecdhb283 ECDH B283 test\n");
     printf("\tecdhb409 ECDH B409 test\n");
     printf("\tecdhb571 ECDH B571 test\n");
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     /* ECX options */
     printf("\tecdhx25519 ECX25519 test\n");
     printf("\tecdhx448 ECX448 test\n");
-#endif
     /* ECDSA options */
     printf("\tecdsap192 ECDSA P192 test\n");
     printf("\tecdsap224 ECDSA P224 test\n");
@@ -713,18 +703,14 @@ static void usage(char *program)
     printf("\tecdsab409 ECDSA B409 test\n");
     printf("\tecdsab571 ECDSA B571 test\n");
     printf("\tprf     PRF test\n");
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     printf("\thkdf    HKDF test\n");
-#endif
     printf("\taes128gcm AES128 GCM test\n");
     printf("\taes256gcm AES256 GCM test\n");
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     printf("\tsha3-224    SHA3 224 test\n");
     printf("\tsha3-256    SHA3 256 test\n");
     printf("\tsha3-384    SHA3 384 test\n");
     printf("\tsha3-512    SHA3 512 test\n");
     printf("\tchachapoly  CHACHAPOLY test\n\n");
-#endif
 
     printf("\nIf test is not specified, one iteration "
            "of each test is executed and verified.\n");
@@ -946,7 +932,6 @@ static void handle_option(int argc, char *argv[], int *index)
             exit(EXIT_FAILURE);
         }
     }
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     else if (!strcmp(option, "-hkdf_op")) {
         parse_option(index, argc, argv, &hkdf_op);
         if (hkdf_op < 0 || hkdf_op > 2) {
@@ -955,7 +940,6 @@ static void handle_option(int argc, char *argv[], int *index)
             exit(EXIT_FAILURE);
         }
     }
-#endif
     else if (!strcmp(option, "-sw_fallback"))
         sw_fallback = 1;
     else if (!strcmp(option, "-h"))
@@ -1083,10 +1067,8 @@ static void performance_test(void)
         info->test_params->decrypt_only = decrypt_only;
         info->test_params->async_jobs = async_jobs;
         info->test_params->prf_op = prf_op;
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
         info->test_params->hkdf_op = hkdf_op;
         info->test_params->ecx_op = ecx_op;
-#endif
         info->test_params->jobs = OPENSSL_malloc(sizeof(ASYNC_JOB*)*async_jobs);
         if (info->test_params->jobs == NULL) {
             WARN("# FAIL: Unable to allocate info->test_params->jobs\n");
@@ -1308,10 +1290,8 @@ static void functional_test(void)
     args.decrypt_only = decrypt_only;
     args.async_jobs = async_jobs;
     args.prf_op = prf_op;
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     args.hkdf_op = hkdf_op;
     args.ecx_op = ecx_op;
-#endif
     args.jobs = OPENSSL_malloc(sizeof(ASYNC_JOB*)*async_jobs);
     if (args.jobs == NULL) {
         WARN("# FAIL: Unable to allocate args.jobs\n");
@@ -1344,11 +1324,9 @@ static void functional_test(void)
                  i == TEST_DH ||
                  i == TEST_ECDH ||
                  i == TEST_ECDSA ||
-                 i == TEST_PRF
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
-                 || i == TEST_HKDF
-                 || i == TEST_ECX
-#endif
+                 i == TEST_PRF ||
+                 i == TEST_HKDF ||
+                 i == TEST_ECX
                 )) {
                 printf ("skipping %s in zero copy mode\n",
                         test_name(i));
@@ -1478,12 +1456,10 @@ int main(int argc, char *argv[])
         printf("\tKDF Digest:           %s\n", digest_kdf);
     if (prf_op != -1)
         printf("\tPRF Operation:        %d\n", prf_op);
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     if (hkdf_op != -1)
         printf("\tHKDF Operation:       %d\n", hkdf_op);
     if (ecx_op != -1)
         printf("\tECX Operation:        %s\n", ecx_op ? "X448" : "X25519");
-#endif
     printf("\tSW Fallback:          %s\n", sw_fallback ? "Yes" : "No");
     printf("\n");
 

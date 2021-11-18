@@ -2,7 +2,7 @@
 
 ## qat_hw Requirements
 Successful operation of QAT Hardware acceleration requires a software tool chain
-that supports OpenSSL\* 1.1.1 or OpenSSL\* 1.1.0 and Intel&reg; QuickAssist
+that supports OpenSSL\* 1.1.1 or OpenSSL\* 3.0 and Intel&reg; QuickAssist
 Technology Driver for Linux or Intel&reg;  QuickAssist Technology
 Driver for FreeBSD. This release was validated on the following:
 
@@ -14,8 +14,8 @@ Driver for FreeBSD. This release was validated on the following:
 
 ## qat_sw Requirements
 Successful operation of the Intel&reg; QAT Software acceleration requires a
-software tool chain that supports OpenSSL\* 1.1.1 and Intel&reg; Crypto
-Multi-buffer library(for Asymmetric PKE) cloned from the [ipp-crypto][1] repo.
+software tool chain that supports OpenSSL\* 1.1.1 or OpenSSL\* 3.0 and Intel&reg;
+Crypto Multi-buffer library(for Asymmetric PKE) cloned from the [ipp-crypto][1] repo.
 The crypto_mb library needs to be installed using the instructions from the
 [Crypto Multi-buffer Library][2] Readme.
 

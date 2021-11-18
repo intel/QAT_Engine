@@ -206,7 +206,6 @@ static int test_ecdh_curve(ENGINE * e,
         goto err;
     }
 
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     if (!EC_POINT_get_affine_coordinates(
         group, EC_KEY_get0_public_key(a), x_a, y_a, ctx)) {
         WARN("# FAIL ECDH - EC_POINT_get_affine_coordinates failed\n");
@@ -214,57 +213,18 @@ static int test_ecdh_curve(ENGINE * e,
         goto err;
     }
 
-#else
-    if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) ==
-        NID_X9_62_prime_field) {
-        if (!EC_POINT_get_affine_coordinates_GFp(
-            group, EC_KEY_get0_public_key(a), x_a, y_a, ctx)) {
-            WARN("# FAIL ECDH - EC_POINT_get_affine_coordinates_GFp failed\n");
-            ret = -1;
-            goto err;
-        }
-    }
-    else {
-        if (!EC_POINT_get_affine_coordinates_GF2m(
-            group, EC_KEY_get0_public_key(a), x_a, y_a, ctx)) {
-            WARN("# FAIL ECDH - EC_POINT_get_affine_coordinates_GF2m failed\n");
-            ret = -1;
-            goto err;
-        }
-    }
-#endif
-
     if (EC_KEY_generate_key(b) <= 0) {
         WARN("# FAIL ECDH - EC_KEY_generate_key failed\n");
         ret = -1;
         goto err;
     }
 
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
     if (!EC_POINT_get_affine_coordinates(
         group, EC_KEY_get0_public_key(b), x_b, y_b, ctx)) {
         WARN("# FAIL ECDH - EC_POINT_get_affine_coordinates failed\n");
         ret = -1;
         goto err;
     }
-
-#else
-    if (EC_METHOD_get_field_type(EC_GROUP_method_of(group)) ==
-        NID_X9_62_prime_field) {
-        if (!EC_POINT_get_affine_coordinates_GFp(
-            group, EC_KEY_get0_public_key(b), x_b, y_b, ctx)) {
-            WARN("# FAIL ECDH - EC_POINT_get_affine_coordinates_GFp failed\n");
-            ret = -1;
-            goto err;
-        }
-    }
-    else if (!EC_POINT_get_affine_coordinates_GF2m(
-             group, EC_KEY_get0_public_key(b), x_b, y_b, ctx)) {
-            WARN("# FAIL ECDH - EC_POINT_get_affine_coordinates_GF2m failed\n");
-            ret = -1;
-            goto err;
-     }
-#endif
 
     alen = KDF1_SHA1_len;
     abuf = (unsigned char *)OPENSSL_malloc(alen);

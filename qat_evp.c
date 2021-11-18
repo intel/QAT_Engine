@@ -118,10 +118,8 @@ int qat_cipher_nids[] = {
     NID_aes_256_cbc_hmac_sha1,
     NID_aes_256_cbc_hmac_sha256,
 # endif
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-#  ifdef ENABLE_QAT_HW_CHACHAPOLY
+# ifdef ENABLE_QAT_HW_CHACHAPOLY
     NID_chacha20_poly1305,
-#  endif
 # endif
 #endif
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC)
@@ -135,20 +133,18 @@ int qat_cipher_nids[] = {
 
 /* Supported EVP nids */
 int qat_evp_nids[] = {
-# ifdef ENABLE_QAT_HW_PRF
+#ifdef ENABLE_QAT_HW_PRF
     EVP_PKEY_TLS1_PRF,
 #endif
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-#  ifdef ENABLE_QAT_HW_HKDF
+#ifdef ENABLE_QAT_HW_HKDF
     EVP_PKEY_HKDF,
-#  endif
-#  if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
+#endif
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     EVP_PKEY_X25519,
-#  endif
-# ifdef ENABLE_QAT_HW_ECX
+#endif
+#ifdef ENABLE_QAT_HW_ECX
     EVP_PKEY_X448
-#  endif
-# endif
+#endif
 };
 const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
 
@@ -158,25 +154,21 @@ typedef struct _digest_data {
 } sha3_data;
 
 static sha3_data data[] = {
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
-# ifdef QAT_HW
+#ifdef QAT_HW
     { NID_sha3_224,  NID_RSA_SHA3_224},
     { NID_sha3_256,  NID_RSA_SHA3_256},
     { NID_sha3_384,  NID_RSA_SHA3_384},
     { NID_sha3_512,  NID_RSA_SHA3_512},
-# endif
 #endif
 };
 
 /* QAT SHA3 function register */
 int qat_sha3_nids[] = {
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
-# ifdef QAT_HW
+#ifdef QAT_HW
     NID_sha3_224,
     NID_sha3_256,
     NID_sha3_384,
     NID_sha3_512,
-# endif
 #endif
 };
 const int num_sha3_nids = sizeof(qat_sha3_nids) / sizeof(qat_sha3_nids[0]);
@@ -196,13 +188,11 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
     {NID_aes_256_cbc_hmac_sha256,
      CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-#  ifdef ENABLE_QAT_HW_SHA3
+# ifdef ENABLE_QAT_HW_SHA3
     {NID_sha3_224, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_sha3_256, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_sha3_384, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_sha3_512, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-#  endif
 # endif
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     {NID_chacha20_poly1305, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
@@ -233,16 +223,14 @@ const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
 static const EVP_MD *qat_create_digest_meth(int nid , int pkeytype)
 {
     switch (nid) {
-#if OPENSSL_VERSION_NUMBER > 0x10101000L
         case NID_sha3_224:
         case NID_sha3_256:
         case NID_sha3_384:
         case NID_sha3_512:
-# ifdef QAT_HW
-#  ifdef ENABLE_QAT_HW_SHA3
+#ifdef QAT_HW
+# ifdef ENABLE_QAT_HW_SHA3
             if (qat_hw_offload)
                 return qat_create_sha3_meth(nid , pkeytype);
-#  endif
 # endif
 #endif
         default:
@@ -380,27 +368,25 @@ EVP_PKEY_METHOD *qat_x448_pmeth(void)
 static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
 {
     switch (nid) {
-# ifdef ENABLE_QAT_HW_PRF
+#ifdef ENABLE_QAT_HW_PRF
     case EVP_PKEY_TLS1_PRF:
         return qat_prf_pmeth();
-# endif
+#endif
 
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-#  ifdef ENABLE_QAT_HW_HKDF
+#ifdef ENABLE_QAT_HW_HKDF
     case EVP_PKEY_HKDF:
         return qat_hkdf_pmeth();
-#  endif
+#endif
 
-#  if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     case EVP_PKEY_X25519:
         return qat_x25519_pmeth();
-# endif
+#endif
 
-#  ifdef ENABLE_QAT_HW_ECX
+#ifdef ENABLE_QAT_HW_ECX
     case EVP_PKEY_X448:
         return qat_x448_pmeth();
-#  endif
-# endif
+#endif
     default:
         WARN("Invalid nid %d\n", nid);
         return NULL;
@@ -557,13 +543,11 @@ void qat_create_ciphers(void)
 #endif
 
 #ifdef QAT_HW
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
-#  ifdef ENABLE_QAT_HW_CHACHAPOLY
+# ifdef ENABLE_QAT_HW_CHACHAPOLY
             case NID_chacha20_poly1305:
                 info[i].cipher = (EVP_CIPHER *)
                     chachapoly_cipher_meth(info[i].nid, info[i].keylen);
                 break;
-#  endif
 # endif
 
 # ifdef ENABLE_QAT_HW_CIPHERS

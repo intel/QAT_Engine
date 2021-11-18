@@ -696,11 +696,9 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_AES256_GCM:
         tests_run_aes256_gcm(args);
         break;
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
     case TEST_ECX:              /* X25519 & X448 test application */
         tests_run_ecx(args);
         break;
-# endif
 #endif
 
 #ifdef QAT_HW
@@ -721,7 +719,6 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_PRF:              /* PRF test application */
         tests_run_prf(args);
         break;
-# if OPENSSL_VERSION_NUMBER > 0x10101000L
     case TEST_HKDF:             /* HKDF test application */
         tests_run_hkdf(args);
         break;
@@ -735,7 +732,6 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_CHACHA20_POLY1305:
         tests_run_chacha20_poly1305(args);
         break;
-# endif
 #endif
     default:
         WARN("# FAIL: Unknown test type %d\n", args->type);

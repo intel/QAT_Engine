@@ -35,24 +35,6 @@ The following is a list of the options that can be used with the
     (eg: /usr/lib64/engine-1.1).
 
 ```
-### OpenSSL 1.1.0 option
-```
---with-openssl_dir=/path/to/openssl
-    Specify the path to the top level of the OpenSSL* source code.  This path
-    is only needed to regenerate engine specific error source files using the
-    mkerr.pl script from the OpenSSL source files. This option needs to be used
-    if there is any new error message added in the QAT Engine source files
-    and the error files will get updated using the mkerr.pl script. The default
-    if not provided will build QAT Engine from the existing error files
-    e_qat_err.c, e_qat_err.h & e_qat.txt in the QAT Engine dir which is
-    generated from OpenSSL release mentioned in the github release page.
-    This option is mandatory when building against OpenSSL* 1.1.0 as existing
-    err files is generated for 1.1.1 which is not compatible for 1.1.0 and
-    `--with-openssl_install_dir` needs to be provided to regenerate it.
-    For example if you cloned the OpenSSL* Github* repository from within `/`
-    then you would use the following setting:
-    --with-openssl_dir=/openssl
-```
 ### qat_sw options
 ```
 --enable-qat_sw/--disable-qat_sw
@@ -79,6 +61,19 @@ The following is a list of the options that can be used with the
 
 ### Optional
 ```
+--with-openssl_dir=/path/to/openssl
+    Specify the path to the top level of the OpenSSL* source code.  This path
+    is only needed to regenerate engine specific error source files using the
+    mkerr.pl script from the OpenSSL source. This option needs to be used
+    if there is any new error message added in the QAT Engine source files
+    and the error files will get updated using the mkerr.pl script. The default
+    if not provided will build QAT Engine from the existing error files
+    e_qat_err.c, e_qat_err.h & e_qat.txt in the QAT Engine dir which is
+    generated from OpenSSL release mentioned in the github release page.
+    For example if you cloned the OpenSSL* Github* repository from within `/`
+    then you would use the following setting:
+    --with-openssl_dir=/openssl
+
 --with-qat_hw_install_dir=/path/to/qat_driver/build
     Specify the path to the location of the built Intel(R) QAT Hardware Driver
     library  files. This path is needed in order to link to the userspace
