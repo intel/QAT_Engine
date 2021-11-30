@@ -438,7 +438,7 @@ Run this command to verify the Intel&reg; QAT OpenSSL\* Engine is loaded
 correctly:
 
 ```text
-cd /path/to/openssl_install/bin
+cd /path/to/openssl_install/apps
 ./openssl engine -t -c -v qatengine
 ```
 
