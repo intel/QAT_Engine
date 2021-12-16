@@ -212,6 +212,51 @@ typedef struct _mb_queue_ecdhp384_compute
     int disabled;
 } mb_queue_ecdhp384_compute;
 
+typedef struct _mb_queue_sm2ecdh_keygen
+{
+    pthread_mutex_t mb_queue_mutex;
+    ecdh_keygen_op_data *head;
+    ecdh_keygen_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm2ecdh_keygen;
+
+typedef struct _mb_queue_sm2ecdh_compute
+{
+    pthread_mutex_t mb_queue_mutex;
+    ecdh_compute_op_data *head;
+    ecdh_compute_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm2ecdh_compute;
+
+typedef struct _mb_queue_sm3_init
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm3_init_op_data *head;
+    sm3_init_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm3_init;
+
+typedef struct _mb_queue_sm3_update
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm3_update_op_data *head;
+    sm3_update_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm3_update;
+
+typedef struct _mb_queue_sm3_final
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm3_final_op_data *head;
+    sm3_final_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm3_final;
+
 mb_queue_rsa2k_priv * mb_queue_rsa2k_priv_create();
 int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv * queue);
 int mb_queue_rsa2k_priv_cleanup(mb_queue_rsa2k_priv * queue);
@@ -367,5 +412,52 @@ int mb_queue_ecdhp384_compute_enqueue(mb_queue_ecdhp384_compute *queue,
 ecdh_compute_op_data
     *mb_queue_ecdhp384_compute_dequeue(mb_queue_ecdhp384_compute *queue);
 int mb_queue_ecdhp384_compute_get_size(mb_queue_ecdhp384_compute *queue);
+//SM3 Init
+mb_queue_sm3_init * mb_queue_sm3_init_create();
+int mb_queue_sm3_init_disable(mb_queue_sm3_init * queue);
+int mb_queue_sm3_init_cleanup(mb_queue_sm3_init * queue);
+int mb_queue_sm3_init_enqueue(mb_queue_sm3_init *queue,
+                                        sm3_init_op_data *item);
+sm3_init_op_data
+    *mb_queue_sm3_init_dequeue(mb_queue_sm3_init *queue);
+int mb_queue_sm3_init_get_size(mb_queue_sm3_init *queue);
+
+//SM3 update
+mb_queue_sm3_update * mb_queue_sm3_update_create();
+int mb_queue_sm3_update_disable(mb_queue_sm3_update * queue);
+int mb_queue_sm3_update_cleanup(mb_queue_sm3_update * queue);
+int mb_queue_sm3_update_enqueue(mb_queue_sm3_update *queue,
+                                        sm3_update_op_data *item);
+sm3_update_op_data
+    *mb_queue_sm3_update_dequeue(mb_queue_sm3_update *queue);
+int mb_queue_sm3_update_get_size(mb_queue_sm3_update *queue);
+
+//SM3 Final
+mb_queue_sm3_final * mb_queue_sm3_final_create();
+int mb_queue_sm3_final_disable(mb_queue_sm3_final * queue);
+int mb_queue_sm3_final_cleanup(mb_queue_sm3_final * queue);
+int mb_queue_sm3_final_enqueue(mb_queue_sm3_final *queue,
+                                        sm3_final_op_data *item);
+sm3_final_op_data
+    *mb_queue_sm3_final_dequeue(mb_queue_sm3_final *queue);
+int mb_queue_sm3_final_get_size(mb_queue_sm3_final *queue);
+
+mb_queue_sm2ecdh_keygen * mb_queue_sm2ecdh_keygen_create();
+int mb_queue_sm2ecdh_keygen_disable(mb_queue_sm2ecdh_keygen * queue);
+int mb_queue_sm2ecdh_keygen_cleanup(mb_queue_sm2ecdh_keygen * queue);
+int mb_queue_sm2ecdh_keygen_enqueue(mb_queue_sm2ecdh_keygen *queue,
+                                    ecdh_keygen_op_data *item);
+ecdh_keygen_op_data
+    *mb_queue_sm2ecdh_keygen_dequeue(mb_queue_sm2ecdh_keygen *queue);
+int mb_queue_sm2ecdh_keygen_get_size(mb_queue_sm2ecdh_keygen *queue);
+
+mb_queue_sm2ecdh_compute * mb_queue_sm2ecdh_compute_create();
+int mb_queue_sm2ecdh_compute_disable(mb_queue_sm2ecdh_compute * queue);
+int mb_queue_sm2ecdh_compute_cleanup(mb_queue_sm2ecdh_compute * queue);
+int mb_queue_sm2ecdh_compute_enqueue(mb_queue_sm2ecdh_compute *queue,
+                                     ecdh_compute_op_data *item);
+ecdh_compute_op_data
+    *mb_queue_sm2ecdh_compute_dequeue(mb_queue_sm2ecdh_compute *queue);
+int mb_queue_sm2ecdh_compute_get_size(mb_queue_sm2ecdh_compute *queue);
 
 #endif /* QAT_SW_QUEUE_H */

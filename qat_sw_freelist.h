@@ -105,6 +105,24 @@ typedef struct _mb_flist_ecdh_compute
     ecdh_compute_op_data *head;
 } mb_flist_ecdh_compute;
 
+typedef struct _mb_flist_sm3_init
+{
+    pthread_mutex_t mb_flist_mutex;
+    sm3_init_op_data *head;
+} mb_flist_sm3_init;
+
+typedef struct _mb_flist_sm3_update
+{
+    pthread_mutex_t mb_flist_mutex;
+    sm3_update_op_data *head;
+} mb_flist_sm3_update;
+
+typedef struct _mb_flist_sm3_final
+{
+    pthread_mutex_t mb_flist_mutex;
+    sm3_final_op_data *head;
+} mb_flist_sm3_final;
+
 typedef struct _mb_thread_data{
     pthread_t polling_thread;
     int keep_polling;
@@ -147,6 +165,18 @@ typedef struct _mb_thread_data{
     /* ECDH p384*/
     mb_queue_ecdhp384_keygen *ecdhp384_keygen_queue;
     mb_queue_ecdhp384_compute *ecdhp384_compute_queue;
+
+    /* ECDH sm2*/
+    mb_queue_sm2ecdh_keygen *sm2ecdh_keygen_queue;
+    mb_queue_sm2ecdh_compute *sm2ecdh_compute_queue;
+
+    /* SM3 */
+    mb_flist_sm3_init *sm3_init_freelist;
+    mb_flist_sm3_update *sm3_update_freelist;
+    mb_flist_sm3_final  *sm3_final_freelist;
+    mb_queue_sm3_init *sm3_init_queue;
+    mb_queue_sm3_update *sm3_update_queue;
+    mb_queue_sm3_final *sm3_final_queue;
 
 } mb_thread_data;
 
@@ -204,5 +234,23 @@ int mb_flist_ecdh_compute_cleanup(mb_flist_ecdh_compute *freelist);
 int mb_flist_ecdh_compute_push(mb_flist_ecdh_compute *freelist,
                                ecdh_compute_op_data *item);
 ecdh_compute_op_data *mb_flist_ecdh_compute_pop(mb_flist_ecdh_compute *flist);
+
+mb_flist_sm3_init * mb_flist_sm3_init_create();
+int mb_flist_sm3_init_cleanup(mb_flist_sm3_init *freelist);
+int mb_flist_sm3_init_push(mb_flist_sm3_init *freelist,
+                               sm3_init_op_data *item);
+sm3_init_op_data *mb_flist_sm3_init_pop(mb_flist_sm3_init *flist);
+
+mb_flist_sm3_update * mb_flist_sm3_update_create();
+int mb_flist_sm3_update_cleanup(mb_flist_sm3_update *freelist);
+int mb_flist_sm3_update_push(mb_flist_sm3_update *freelist,
+                               sm3_update_op_data *item);
+sm3_update_op_data *mb_flist_sm3_update_pop(mb_flist_sm3_update *flist);
+
+mb_flist_sm3_final * mb_flist_sm3_final_create();
+int mb_flist_sm3_final_cleanup(mb_flist_sm3_final *freelist);
+int mb_flist_sm3_final_push(mb_flist_sm3_final *freelist,
+                               sm3_final_op_data *item);
+sm3_final_op_data *mb_flist_sm3_final_pop(mb_flist_sm3_final *flist);
 
 #endif /* QAT_SW_FREELIST_H */

@@ -103,6 +103,11 @@ AC_ARG_ENABLE(qat_sw_ecdh,
                              [Disable qat_sw ECDH acceleration]))
 AC_SUBST(enable_qat_sw_ecdh)
 
+AC_ARG_ENABLE(qat_sw_sm3,
+              AS_HELP_STRING([--disable-qat_sw_sm3],
+                             [Disable qat_sw SM3 acceleration]))
+AC_SUBST(enable_qat_sw_sm3)
+
 AC_ARG_ENABLE(qat_hw_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_hw_small_pkt_offload],
                              [Enable small packet CIPHER acceleration]))
@@ -432,11 +437,11 @@ then
   else if test "x$enable_qat_sw_ecdh" = "xyes"
   then
     AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
-    AC_MSG_NOTICE([Accelerating ECDH P256 &P384 to Software (Multi-buffer)])
+    AC_MSG_NOTICE([Accelerating ECDH P256, P384 & SM2 to Software (Multi-buffer)])
   else if test "x$enable_qat_hw_ecdh" != "xno"
   then
     AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH -DENABLE_QAT_SW_ECDH"])
-    AC_MSG_NOTICE([Co-existence ECDH Acceleration])
+    AC_MSG_NOTICE([Co-existence ECDH P256, P384 & SM2 Acceleration])
   else
     AC_SUBST([cflags_qat_ecdh], ["-DDISABLE_QAT_HW_ECDH"])
     AC_MSG_NOTICE([Not Accelerating ECDH to QAT_HW])
@@ -446,7 +451,7 @@ then
 else if test "x$enable_qat_sw_ecdh" != "xno" -a "x$cflags_qat_sw" != "x"
 then
   AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
-  AC_MSG_NOTICE([Accelerating ECDH P256 &P384 to Software (Multi-buffer)])
+  AC_MSG_NOTICE([Accelerating ECDH P256, P384 & SM2 to Software (Multi-buffer)])
 else if test "x$enable_qat_hw_ecdh" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
@@ -561,6 +566,15 @@ else if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
     AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
 fi
 fi
+fi
+
+if test "x$enable_qat_sw_sm3" != "xno" -a "x$cflags_qat_sw" != "x"
+then
+  enable_qat_sw_sm3="-DENABLE_QAT_SW_SM3"
+  AC_MSG_NOTICE([Accelerating SM3 to Software])
+else
+  enable_qat_sw_sm3="-DDISABLE_QAT_SW_SM3"
+  AC_MSG_NOTICE([Not Accelerating SM3 to Software])
 fi
 
 if test "x$enable_qat_hw_sha3" = "xyes" -a "x$cflags_qat_hw" != "x"

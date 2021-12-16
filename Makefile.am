@@ -56,7 +56,8 @@ if QAT_SW
               qat_sw_queue.c    \
               qat_sw_rsa.c      \
               qat_sw_ecx.c      \
-              qat_sw_ec.c
+              qat_sw_ec.c       \
+              qat_sw_sm3.c
 endif
 
 if QAT_SW_IPSEC
@@ -83,6 +84,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(enable_qat_hw_dsa) $(enable_qat_hw_ciphers)            \
             $(enable_qat_hw_prf) $(enable_qat_hw_hkdf)               \
             $(enable_qat_hw_sha3) $(enable_qat_hw_chachapoly)        \
+            $(enable_qat_sw_sm3)                                     \
             $(enable_qat_hw_small_pkt_offload)                       \
             $(enable_qat_hw_lenstra_protection)                      \
             $(enable_qat_hw_lenstra_verify_hw)                       \

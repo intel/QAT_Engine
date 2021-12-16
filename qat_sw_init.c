@@ -73,6 +73,7 @@
 #include "qat_sw_rsa.h"
 #include "qat_sw_ecx.h"
 #include "qat_sw_ec.h"
+#include "qat_sw_sm3.h"
 #include "qat_sw_request.h"
 #include "qat_sw_freelist.h"
 #include "qat_sw_queue.h"
@@ -162,8 +163,30 @@ mb_thread_data* mb_check_thread_local(void)
            ((tlv->ecdhp384_keygen_queue= mb_queue_ecdhp384_keygen_create())
                  == NULL) ||
            ((tlv->ecdhp384_compute_queue= mb_queue_ecdhp384_compute_create())
+                 == NULL) ||
+           ((tlv->sm2ecdh_keygen_queue= mb_queue_sm2ecdh_keygen_create())
+                 == NULL) ||
+           ((tlv->sm2ecdh_compute_queue= mb_queue_sm2ecdh_compute_create())
                  == NULL)) {
-            WARN("Failure to allocate ECDH P256/P384 Freelists and Queues\n");
+            WARN("Failure to allocate ECDH P256/P384/SM2 Freelists and Queues\n");
+            return NULL;
+        }
+#endif
+
+#ifdef ENABLE_QAT_SW_SM3
+        if(((tlv->sm3_init_freelist = mb_flist_sm3_init_create())
+                 == NULL) ||
+           ((tlv->sm3_update_freelist = mb_flist_sm3_update_create())
+                 == NULL) ||
+           ((tlv->sm3_final_freelist = mb_flist_sm3_final_create())
+                 == NULL) ||
+           ((tlv->sm3_init_queue= mb_queue_sm3_init_create())
+                 == NULL) ||
+           ((tlv->sm3_update_queue= mb_queue_sm3_update_create())
+                 == NULL) ||
+           ((tlv->sm3_final_queue= mb_queue_sm3_final_create())
+                 == NULL) ) {
+            WARN("Failure to allocate SM3 Freelists and Queues\n");
             return NULL;
         }
 #endif
@@ -220,6 +243,13 @@ void mb_thread_local_destructor(void *tlv_ptr)
     ecdh_compute_op_data *ecdhp256_compute_req = NULL;
     ecdh_keygen_op_data *ecdhp384_keygen_req = NULL;
     ecdh_compute_op_data *ecdhp384_compute_req = NULL;
+    ecdh_keygen_op_data *sm2ecdh_keygen_req= NULL;
+    ecdh_compute_op_data *sm2ecdh_compute_req= NULL;
+#endif
+#ifdef ENABLE_QAT_SW_SM3
+    sm3_init_op_data *sm3_init_req = NULL;
+    sm3_update_op_data *sm3_update_req = NULL;
+    sm3_final_op_data *sm3_final_req = NULL;
 #endif
 
     mb_thread_data *tlv = (mb_thread_data *)tlv_ptr;
@@ -406,8 +436,56 @@ void mb_thread_local_destructor(void *tlv_ptr)
         }
         mb_queue_ecdhp384_compute_cleanup(tlv->ecdhp384_compute_queue);
 
+        while ((sm2ecdh_keygen_req =
+                mb_queue_sm2ecdh_keygen_dequeue(tlv->sm2ecdh_keygen_queue)) != NULL) {
+            *sm2ecdh_keygen_req->sts = -1;
+            qat_wake_job(sm2ecdh_keygen_req->job, 0);
+            OPENSSL_free(sm2ecdh_keygen_req);
+        }
+        mb_queue_sm2ecdh_keygen_cleanup(tlv->sm2ecdh_keygen_queue);
+
+        while ((sm2ecdh_compute_req =
+                mb_queue_sm2ecdh_compute_dequeue(tlv->sm2ecdh_compute_queue)) != NULL) {
+            *sm2ecdh_compute_req->sts = -1;
+            qat_wake_job(sm2ecdh_compute_req->job, 0);
+            OPENSSL_free(sm2ecdh_compute_req);
+        }
+        mb_queue_sm2ecdh_compute_cleanup(tlv->sm2ecdh_compute_queue);
+
         mb_flist_ecdh_keygen_cleanup(tlv->ecdh_keygen_freelist);
         mb_flist_ecdh_compute_cleanup(tlv->ecdh_compute_freelist);
+#endif
+#ifdef ENABLE_QAT_SW_SM3
+        mb_queue_sm3_init_disable(tlv->sm3_init_queue);
+        mb_queue_sm3_update_disable(tlv->sm3_update_queue);
+        mb_queue_sm3_final_disable(tlv->sm3_final_queue);
+        while ((sm3_init_req =
+                mb_queue_sm3_init_dequeue(tlv->sm3_init_queue)) != NULL) {
+            *sm3_init_req->sts = -1;
+            qat_wake_job(sm3_init_req->job, 0);
+            OPENSSL_free(sm3_init_req);
+        }
+        mb_queue_sm3_init_cleanup(tlv->sm3_init_queue);
+
+        while ((sm3_update_req =
+                mb_queue_sm3_update_dequeue(tlv->sm3_update_queue)) != NULL) {
+            *sm3_update_req->sts = -1;
+            qat_wake_job(sm3_update_req->job, 0);
+            OPENSSL_free(sm3_update_req);
+        }
+        mb_queue_sm3_update_cleanup(tlv->sm3_update_queue);
+
+        while ((sm3_final_req =
+                mb_queue_sm3_final_dequeue(tlv->sm3_final_queue)) != NULL) {
+            *sm3_final_req->sts = -1;
+            qat_wake_job(sm3_final_req->job, 0);
+            OPENSSL_free(sm3_final_req);
+        }
+        mb_queue_sm3_final_cleanup(tlv->sm3_final_queue);
+
+	mb_flist_sm3_init_cleanup(tlv->sm3_init_freelist);
+        mb_flist_sm3_update_cleanup(tlv->sm3_update_freelist);
+        mb_flist_sm3_final_cleanup(tlv->sm3_final_freelist);
 #endif
 
         OPENSSL_free(tlv);

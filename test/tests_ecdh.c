@@ -98,6 +98,8 @@ int get_nid(int type)
         return NID_sect409r1;
     case B_CURVE_571:
         return NID_sect571r1;
+    case P_CURVE_SM2:
+        return NID_sm2;
     case 0:
         return 0;
     }

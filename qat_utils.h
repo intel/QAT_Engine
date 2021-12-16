@@ -908,6 +908,16 @@ extern rdtsc_prof_t ecdh_cycles_keygen_setup;
 extern rdtsc_prof_t ecdh_cycles_keygen_execute;
 extern rdtsc_prof_t ecdh_cycles_compute_setup;
 extern rdtsc_prof_t ecdh_cycles_compute_execute;
+extern rdtsc_prof_t sm2ecdh_cycles_keygen_setup;
+extern rdtsc_prof_t sm2ecdh_cycles_keygen_execute;
+extern rdtsc_prof_t sm2ecdh_cycles_compute_setup;
+extern rdtsc_prof_t sm2ecdh_cycles_compute_execute;
+extern rdtsc_prof_t sm3_cycles_init_setup;
+extern rdtsc_prof_t sm3_cycles_init_execute;
+extern rdtsc_prof_t sm3_cycles_update_setup;
+extern rdtsc_prof_t sm3_cycles_update_execute;
+extern rdtsc_prof_t sm3_cycles_final_setup;
+extern rdtsc_prof_t sm3_cycles_final_execute;
 
 extern int print_cycle_count;
 
@@ -1010,6 +1020,16 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&ecdh_cycles_keygen_execute, 0);  \
         rdtsc_prof_init(&ecdh_cycles_compute_setup, 0);   \
         rdtsc_prof_init(&ecdh_cycles_compute_execute, 0); \
+        rdtsc_prof_init(&sm2ecdh_cycles_keygen_setup, 0);    \
+        rdtsc_prof_init(&sm2ecdh_cycles_keygen_execute, 0);  \
+        rdtsc_prof_init(&sm2ecdh_cycles_compute_setup, 0);   \
+        rdtsc_prof_init(&sm2ecdh_cycles_compute_execute, 0); \
+        rdtsc_prof_init(&sm3_cycles_init_setup, 0);     \
+        rdtsc_prof_init(&sm3_cycles_init_execute, 0);   \
+        rdtsc_prof_init(&sm3_cycles_update_setup, 0);   \
+        rdtsc_prof_init(&sm3_cycles_update_execute, 0); \
+        rdtsc_prof_init(&sm3_cycles_final_setup, 0);    \
+        rdtsc_prof_init(&sm3_cycles_final_execute, 0);  \
     } while (0)
 
 
@@ -1038,6 +1058,16 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_print(&ecdh_cycles_keygen_execute, "[ECDH:keygen_execute]");   \
         rdtsc_prof_print(&ecdh_cycles_compute_setup, "[ECDH:compute_setup]");     \
         rdtsc_prof_print(&ecdh_cycles_compute_execute, "[ECDH:compute_execute]"); \
+        rdtsc_prof_print(&sm2ecdh_cycles_keygen_setup, "[ECDH:keygen_setup]");       \
+        rdtsc_prof_print(&sm2ecdh_cycles_keygen_execute, "[ECDH:keygen_execute]");   \
+        rdtsc_prof_print(&sm2ecdh_cycles_compute_setup, "[ECDH:compute_setup]");     \
+        rdtsc_prof_print(&sm2ecdh_cycles_compute_execute, "[ECDH:compute_execute]"); \
+        rdtsc_prof_print(&sm3_cycles_init_setup, "[SM3:init_setup]");         \
+        rdtsc_prof_print(&sm3_cycles_init_execute, "[SM3:init_execute]");     \
+        rdtsc_prof_print(&sm3_cycles_update_setup, "[SM3:update_setup]");     \
+        rdtsc_prof_print(&sm3_cycles_update_execute, "[SM3:update_execute]"); \
+        rdtsc_prof_print(&sm3_cycles_final_setup, "[SM3:final_setup]");       \
+        rdtsc_prof_print(&sm3_cycles_final_execute, "[SM3:final_execute]");   \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \

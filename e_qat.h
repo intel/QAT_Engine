@@ -293,6 +293,21 @@ typedef struct {
 # define MULTIBUFF_BATCH 8
 
 /*
+ * SM3 can handle processing upto 16 requests while others can handle
+ * upto 8 requests only */
+# ifndef MULTIBUFF_SM3_BATCH
+#  define MULTIBUFF_SM3_BATCH 16
+# endif
+
+# ifndef MULTIBUFF_SM3_MIN_BATCH
+#  define MULTIBUFF_SM3_MIN_BATCH 16
+# endif
+
+# ifndef MULTIBUFF_SM3_MAX_BATCH
+#  define MULTIBUFF_SM3_MAX_BATCH 16
+# endif
+
+/*
  * Max number of multi-buffer Polling threads
  */
 # define NUM_POLL_THREADS 128
@@ -317,6 +332,7 @@ extern int qat_sw_ecx_offload;
 extern int qat_sw_ecdh_offload;
 extern int qat_sw_ecdsa_offload;
 extern int qat_sw_gcm_offload;
+extern int qat_sw_sm3_offload;
 extern int qat_keep_polling;
 extern int multibuff_keep_polling;
 extern int enable_external_polling;
@@ -388,6 +404,11 @@ extern mb_req_rates mb_ecdhp256_keygen_req_rates;
 extern mb_req_rates mb_ecdhp256_compute_req_rates;
 extern mb_req_rates mb_ecdhp384_keygen_req_rates;
 extern mb_req_rates mb_ecdhp384_compute_req_rates;
+extern mb_req_rates mb_sm2ecdh_keygen_req_rates;
+extern mb_req_rates mb_sm2ecdh_compute_req_rates;
+extern mb_req_rates mb_sm3_init_req_rates;
+extern mb_req_rates mb_sm3_update_req_rates;
+extern mb_req_rates mb_sm3_final_req_rates;
 # endif
 
 # define QAT_CMD_ENABLE_EXTERNAL_POLLING ENGINE_CMD_BASE

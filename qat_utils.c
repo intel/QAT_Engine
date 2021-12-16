@@ -85,6 +85,16 @@ rdtsc_prof_t ecdh_cycles_keygen_setup;
 rdtsc_prof_t ecdh_cycles_keygen_execute;
 rdtsc_prof_t ecdh_cycles_compute_setup;
 rdtsc_prof_t ecdh_cycles_compute_execute;
+rdtsc_prof_t sm2ecdh_cycles_keygen_setup;
+rdtsc_prof_t sm2ecdh_cycles_keygen_execute;
+rdtsc_prof_t sm2ecdh_cycles_compute_setup;
+rdtsc_prof_t sm2ecdh_cycles_compute_execute;
+rdtsc_prof_t sm3_cycles_init_setup;
+rdtsc_prof_t sm3_cycles_init_execute;
+rdtsc_prof_t sm3_cycles_update_setup;
+rdtsc_prof_t sm3_cycles_update_execute;
+rdtsc_prof_t sm3_cycles_final_setup;
+rdtsc_prof_t sm3_cycles_final_execute;
 
 volatile static double rdtsc_prof_cost = 0.0; /* cost of measurement */
 int print_cycle_count = 1;

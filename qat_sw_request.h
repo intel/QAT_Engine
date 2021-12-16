@@ -53,6 +53,8 @@
 # include <openssl/rsa.h>
 # include <openssl/kdf.h>
 # include <openssl/evp.h>
+/* Crypto_mb includes */
+#include "crypto_mb/sm3.h"
 
 #define X25519_KEYLEN 32
 #define MAX_KEYLEN  57
@@ -180,5 +182,32 @@ typedef struct _ecdh_compute_op_data {
     ASYNC_JOB *job;
     int *sts;
 } ecdh_compute_op_data;
+
+typedef struct _sm3_init_op_data {
+    struct _sm3_init_op_data *next;
+    struct _sm3_init_op_data *prev;
+    SM3_CTX_mb16  *state;
+    ASYNC_JOB *job;
+    int *sts;
+} sm3_init_op_data;
+
+typedef struct _sm3_update_op_data {
+    struct _sm3_update_op_data *next;
+    struct _sm3_update_op_data *prev;
+    SM3_CTX_mb16  *state;
+    int8u **sm3_data;
+    int sm3_len;
+    ASYNC_JOB *job;
+    int *sts;
+} sm3_update_op_data;
+
+typedef struct _sm3_final_op_data {
+    struct _sm3_final_op_data *next;
+    struct _sm3_final_op_data *prev;
+    SM3_CTX_mb16  *state;
+    int8u  **sm3_hash;
+    ASYNC_JOB *job;
+    int *sts;
+} sm3_final_op_data;
 
 #endif /* QAT_SW_REQUEST_H */

@@ -121,16 +121,19 @@ void ERR_QAT_error(int function, int reason, char *file, int line);
 # define QAT_F_QAT_SHA3_SESSION_DATA_INIT                 189
 # define QAT_F_QAT_SHA3_SETUP_PARAM                       190
 # define QAT_F_QAT_SHA3_UPDATE                            191
-# define QAT_F_QAT_SYM_PERFORM_OP                         192
-# define QAT_F_QAT_VALIDATE_ECX_DERIVE                    193
-# define QAT_F_QAT_X25519_PMETH                           194
-# define QAT_F_QAT_X448_PMETH                             195
-# define QAT_F_VAESGCM_CIPHERS_CTRL                       196
-# define QAT_F_VAESGCM_CIPHERS_DO_CIPHER                  197
-# define QAT_F_VAESGCM_CIPHERS_INIT                       198
-# define QAT_F_VAESGCM_INIT_GCM                           199
-# define QAT_F_VAESGCM_INIT_IPSEC_MB_MGR                  200
-# define QAT_F_VAESGCM_INIT_KEY                           201
+# define QAT_F_QAT_SW_SM3_FINAL                           192
+# define QAT_F_QAT_SW_SM3_INIT                            193
+# define QAT_F_QAT_SW_SM3_UPDATE                          194
+# define QAT_F_QAT_SYM_PERFORM_OP                         195
+# define QAT_F_QAT_VALIDATE_ECX_DERIVE                    196
+# define QAT_F_QAT_X25519_PMETH                           197
+# define QAT_F_QAT_X448_PMETH                             198
+# define QAT_F_VAESGCM_CIPHERS_CTRL                       199
+# define QAT_F_VAESGCM_CIPHERS_DO_CIPHER                  200
+# define QAT_F_VAESGCM_CIPHERS_INIT                       201
+# define QAT_F_VAESGCM_INIT_GCM                           202
+# define QAT_F_VAESGCM_INIT_IPSEC_MB_MGR                  203
+# define QAT_F_VAESGCM_INIT_KEY                           204
 
 /*
  * QAT reason codes.

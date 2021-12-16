@@ -110,6 +110,11 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyle
 int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
 # endif
 
+# ifdef ENABLE_QAT_SW_SM3
+int qat_sw_sm3_init(EVP_MD_CTX *ctx);
+int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len);
+int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md);
+# endif
 
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);

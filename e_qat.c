@@ -178,6 +178,7 @@ int qat_sw_ecx_offload = 0;
 int qat_sw_ecdh_offload = 0;
 int qat_sw_ecdsa_offload = 0;
 int qat_sw_gcm_offload = 0;
+int qat_sw_sm3_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -923,17 +924,11 @@ static int bind_qat(ENGINE *e, const char *id)
         }
 # endif
 
-# ifdef ENABLE_QAT_HW_SHA3
-        if (!ENGINE_set_digests(e, qat_digest_methods)) {
-            WARN("ENGINE_set_digests failed\n");
-            goto end;
-        }
-# endif
 #endif
     }
 
 #ifdef QAT_SW
-# if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
+# if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)   \
   || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
         DEBUG("Registering QAT SW supported algorithms\n");
         qat_sw_offload = 1;
@@ -985,6 +980,13 @@ static int bind_qat(ENGINE *e, const char *id)
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
+        goto end;
+    }
+#endif
+
+#if defined(QAT_HW) || defined(QAT_SW)
+    if (!ENGINE_set_digests(e, qat_digest_methods)) {
+        WARN("ENGINE_set_digests failed\n");
         goto end;
     }
 #endif

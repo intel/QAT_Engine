@@ -230,6 +230,7 @@ static const option_data ecdh_choices[] = {
     {"ecdhb571", 0, TEST_ECDH, B_CURVE_571, 0},
     {"ecdhx25519", 0, TEST_ECX, 0, 0},
     {"ecdhx448", 0, TEST_ECX, 0, 1},
+    {"ecdhsm2", 0, TEST_ECDH, P_CURVE_SM2, 0},
 };
 
 static const option_data ecdsa_choices[] = {
@@ -518,6 +519,8 @@ char *test_name(int test)
         return "ECDSA";
     case TEST_PRF:
         return "PRF";
+    case TEST_SM3:
+	    return "SM3";
     case TEST_HKDF:
         return "HKDF";
     case TEST_ECX:
@@ -585,6 +588,8 @@ char *ecdh_curve_name(int type)
         return "NIST Binary-Curve B-409";
     case B_CURVE_571:
         return "NIST Binary-Curve B-571";
+    case P_CURVE_SM2:
+        return "SM2 Curve";
     case 0:
         return "all curves";
     default:
@@ -683,6 +688,7 @@ static void usage(char *program)
     printf("\tecdhb283 ECDH B283 test\n");
     printf("\tecdhb409 ECDH B409 test\n");
     printf("\tecdhb571 ECDH B571 test\n");
+    printf("\tecdhsm2 ECDH SM2 test\n");
     /* ECX options */
     printf("\tecdhx25519 ECX25519 test\n");
     printf("\tecdhx448 ECX448 test\n");
@@ -710,6 +716,7 @@ static void usage(char *program)
     printf("\tsha3-256    SHA3 256 test\n");
     printf("\tsha3-384    SHA3 384 test\n");
     printf("\tsha3-512    SHA3 512 test\n");
+    printf("\tsm3         SM3 test\n");
     printf("\tchachapoly  CHACHAPOLY test\n\n");
 
     printf("\nIf test is not specified, one iteration "
@@ -841,6 +848,8 @@ static void handle_option(int argc, char *argv[], int *index)
         test_alg = TEST_DH;
     else if (!strcmp(option, "prf"))
         test_alg = TEST_PRF;
+    else if (!strcmp(option, "sm3"))
+	test_alg = TEST_SM3;
     else if (!strcmp(option, "hkdf"))
         test_alg = TEST_HKDF;
     else if (!strcmp(option, "chachapoly")) {

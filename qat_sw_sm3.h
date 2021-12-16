@@ -37,42 +37,27 @@
  */
 
 /*****************************************************************************
- * @file qat_sw_ec.h
+ * @file qat_sw_sm3.h
  *
- * This file provides an interface to ECDH & ECDSA Multi-buffer operations
+ * This file provides an SM3 interface for an OpenSSL engine
  *
  *****************************************************************************/
 
-#ifndef QAT_SW_EC_H
-# define QAT_SW_EC_H
+#ifndef QAT_SW_SM3_H
+# define QAT_SW_SM3_H
 
-# define EC_P256 1
-# define EC_P384 2
-# define EC_SM2  3
-
+# include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
 
-# ifdef ENABLE_QAT_SW_ECDSA
-int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
-                  unsigned char *sig, unsigned int *siglen,
-                  const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
-int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
-                        BIGNUM **kinvp, BIGNUM **rp);
-ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
-                             const BIGNUM *in_kinv, const BIGNUM *in_r,
-                             EC_KEY *eckey);
-void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bits);
-void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bits);
-void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bits);
-# endif
+typedef struct _qat_sw_sm3_state{
+    SM3_CTX_mb16  *sm3_state;
+}qat_sw_sm3_ctx;
 
-# ifdef ENABLE_QAT_SW_ECDH
-int mb_ecdh_compute_key(unsigned char **out, size_t *outlen,
-                        const EC_POINT *pub_key, const EC_KEY *ecdh);
-int mb_ecdh_generate_key(EC_KEY *ecdh);
-void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bits);
-void process_ecdh_compute_reqs(mb_thread_data *tlv, int bits);
-# endif
+/* QAT_SW SM3 methods declaration */
+const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type);
 
+void process_sm3_init_reqs(mb_thread_data *tlv);
+void process_sm3_update_reqs(mb_thread_data *tlv);
+void process_sm3_final_reqs(mb_thread_data *tlv);
 
-#endif /* QAT_SW_EC_H */
+#endif /* QAT_SW_SM3_H */

@@ -67,6 +67,7 @@
 #include "qat_sw_ecx.h"
 #include "qat_sw_ec.h"
 #include "qat_utils.h"
+#include "qat_sw_sm3.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
@@ -146,7 +147,21 @@ struct timespec ecdhp384_compute_previous_time = { 0 };
 mb_req_rates mb_ecdhp384_keygen_req_rates = { 0 };
 mb_req_rates mb_ecdhp384_compute_req_rates = { 0 };
 
-#if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
+/* ECDH sm2 */
+struct timespec sm2ecdh_keygen_previous_time = { 0 };
+struct timespec sm2ecdh_compute_previous_time = { 0 };
+mb_req_rates mb_sm2ecdh_keygen_req_rates = { 0 };
+mb_req_rates mb_sm2ecdh_compute_req_rates = { 0 };
+
+/* SM3 */
+struct timespec sm3_init_previous_time = { 0 };
+struct timespec sm3_update_previous_time = { 0 };
+struct timespec sm3_final_previous_time = { 0 };
+mb_req_rates mb_sm3_init_req_rates = { 0 };
+mb_req_rates mb_sm3_update_req_rates = { 0 };
+mb_req_rates mb_sm3_final_req_rates = { 0 };
+
+#if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_SM3)
 void multibuff_set_normalized_timespec(struct timespec *ts, time_t sec, long long  nsec)
 {
     while (nsec >= QAT_SW_NSEC_PER_SEC) {
@@ -272,8 +287,13 @@ unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
         (mb_ecdhp256_keygen_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
         (mb_ecdhp256_compute_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH)||
         (mb_ecdhp384_keygen_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
-        (mb_ecdhp384_compute_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH)) &&
-        (timeout_level > MULTIBUFF_TIMEOUT_LEVEL_MIN))
+        (mb_ecdhp384_compute_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
+        (mb_sm2ecdh_keygen_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
+        (mb_sm2ecdh_compute_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
+        (mb_sm3_init_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
+        (mb_sm3_update_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH)||
+        (mb_sm3_final_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH)) &&
+        (timeout_level > QAT_SW_TIMEOUT_LEVEL_MIN))
         return timeout_level-1;
 
     if (((mb_rsa2k_priv_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
@@ -295,8 +315,13 @@ unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
         (mb_ecdhp256_keygen_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
         (mb_ecdhp256_compute_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2)||
         (mb_ecdhp384_keygen_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
-        (mb_ecdhp384_compute_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2)) &&
-        (timeout_level < MULTIBUFF_TIMEOUT_LEVEL_MAX))
+        (mb_ecdhp384_compute_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_sm2ecdh_keygen_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_sm2ecdh_compute_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_sm3_init_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2)||
+        (mb_sm3_update_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_sm3_final_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2)) &&
+        (timeout_level < QAT_SW_TIMEOUT_LEVEL_MAX))
         return timeout_level+1;
 
     return timeout_level;
@@ -329,7 +354,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
     int sig = 0;
     unsigned int eintr_count = 0;
     mb_thread_data *tlv = (mb_thread_data *)thread_ptr;
-#if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_SM3)
     unsigned int submission_count = 0;
 #endif
 
@@ -349,10 +374,15 @@ void *multibuff_timer_poll_func(void *thread_ptr)
     multibuff_init_req_rates(&mb_ecdhp256_compute_req_rates);
     multibuff_init_req_rates(&mb_ecdhp384_keygen_req_rates);
     multibuff_init_req_rates(&mb_ecdhp384_compute_req_rates);
+    multibuff_init_req_rates(&mb_sm2ecdh_keygen_req_rates);
+    multibuff_init_req_rates(&mb_sm2ecdh_compute_req_rates);
     multibuff_init_req_rates(&mb_rsa3k_priv_req_rates);
     multibuff_init_req_rates(&mb_rsa3k_pub_req_rates);
     multibuff_init_req_rates(&mb_rsa4k_priv_req_rates);
     multibuff_init_req_rates(&mb_rsa4k_pub_req_rates);
+    multibuff_init_req_rates(&mb_sm3_init_req_rates);
+    multibuff_init_req_rates(&mb_sm3_update_req_rates);
+    multibuff_init_req_rates(&mb_sm3_final_req_rates);
 #endif
 
     DEBUG("Polling Timeout %ld tlv %p\n", mb_poll_timeout_time.tv_nsec, tlv);
@@ -481,11 +511,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 #ifdef ENABLE_QAT_SW_ECDSA
                 if (mb_queue_ecdsap256_sign_get_size(tlv->ecdsap256_sign_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdsa_sign_reqs(tlv, EC_P256_LENGTH);
+                    process_ecdsa_sign_reqs(tlv, EC_P256);
                     submission_count--;
                     while ((mb_queue_ecdsap256_sign_get_size(tlv->ecdsap256_sign_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_ecdsa_sign_reqs(tlv, EC_P256_LENGTH);
+                        process_ecdsa_sign_reqs(tlv, EC_P256);
                         submission_count--;
                     }
                 }
@@ -494,11 +524,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdsap256_sign_setup_get_size(tlv->ecdsap256_sign_setup_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdsa_sign_setup_reqs(tlv, EC_P256_LENGTH);
+                    process_ecdsa_sign_setup_reqs(tlv, EC_P256);
                     submission_count--;
                     while ((mb_queue_ecdsap256_sign_setup_get_size(tlv->ecdsap256_sign_setup_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_ecdsa_sign_setup_reqs(tlv, EC_P256_LENGTH);
+                        process_ecdsa_sign_setup_reqs(tlv, EC_P256);
                         submission_count--;
                     }
                 }
@@ -507,11 +537,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdsap256_sign_sig_get_size(tlv->ecdsap256_sign_sig_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdsa_sign_sig_reqs(tlv, EC_P256_LENGTH);
+                    process_ecdsa_sign_sig_reqs(tlv, EC_P256);
                     submission_count--;
                     while ((mb_queue_ecdsap256_sign_sig_get_size(tlv->ecdsap256_sign_sig_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_ecdsa_sign_sig_reqs(tlv, EC_P256_LENGTH);
+                        process_ecdsa_sign_sig_reqs(tlv, EC_P256);
                         submission_count--;
                     }
                 }
@@ -520,11 +550,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdsap384_sign_get_size(tlv->ecdsap384_sign_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdsa_sign_reqs(tlv, EC_P384_LENGTH);
+                    process_ecdsa_sign_reqs(tlv, EC_P384);
                     submission_count--;
                     while ((mb_queue_ecdsap384_sign_get_size(tlv->ecdsap384_sign_queue) >= MULTIBUFF_MIN_BATCH) &&
                             (submission_count > 0)) {
-                        process_ecdsa_sign_reqs(tlv, EC_P384_LENGTH);
+                        process_ecdsa_sign_reqs(tlv, EC_P384);
                         submission_count--;
                     }
                 }
@@ -533,11 +563,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdsap384_sign_setup_get_size(tlv->ecdsap384_sign_setup_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdsa_sign_setup_reqs(tlv, EC_P384_LENGTH);
+                    process_ecdsa_sign_setup_reqs(tlv, EC_P384);
                     submission_count--;
                     while ((mb_queue_ecdsap384_sign_setup_get_size(tlv->ecdsap384_sign_setup_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_ecdsa_sign_setup_reqs(tlv, EC_P384_LENGTH);
+                        process_ecdsa_sign_setup_reqs(tlv, EC_P384);
                         submission_count--;
                     }
                 }
@@ -546,11 +576,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdsap384_sign_sig_get_size(tlv->ecdsap384_sign_sig_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdsa_sign_sig_reqs(tlv, EC_P384_LENGTH);
+                    process_ecdsa_sign_sig_reqs(tlv, EC_P384);
                     submission_count--;
                     while ((mb_queue_ecdsap384_sign_sig_get_size(tlv->ecdsap384_sign_sig_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_ecdsa_sign_sig_reqs(tlv, EC_P384_LENGTH);
+                        process_ecdsa_sign_sig_reqs(tlv, EC_P384);
                         submission_count--;
                     }
                 }
@@ -562,11 +592,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 #ifdef ENABLE_QAT_SW_ECDH
                 if (mb_queue_ecdhp256_keygen_get_size(tlv->ecdhp256_keygen_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdh_keygen_reqs(tlv, EC_P256_LENGTH);
+                    process_ecdh_keygen_reqs(tlv, EC_P256);
                     submission_count--;
                     while ((mb_queue_ecdhp256_keygen_get_size(tlv->ecdhp256_keygen_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_ecdh_keygen_reqs(tlv, EC_P256_LENGTH);
+                        process_ecdh_keygen_reqs(tlv, EC_P256);
                         submission_count--;
                     }
                 }
@@ -575,11 +605,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdhp256_compute_get_size(tlv->ecdhp256_compute_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdh_compute_reqs(tlv, EC_P256_LENGTH);
+                    process_ecdh_compute_reqs(tlv, EC_P256);
                     submission_count--;
                     while ((mb_queue_ecdhp256_compute_get_size(tlv->ecdhp256_compute_queue) >= MULTIBUFF_MIN_BATCH) &&
                            (submission_count > 0)) {
-                        process_ecdh_compute_reqs(tlv, EC_P256_LENGTH);
+                        process_ecdh_compute_reqs(tlv, EC_P256);
                         submission_count--;
                     }
                 }
@@ -588,11 +618,11 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdhp384_keygen_get_size(tlv->ecdhp384_keygen_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdh_keygen_reqs(tlv, EC_P384_LENGTH);
+                    process_ecdh_keygen_reqs(tlv, EC_P384);
                     submission_count--;
                     while ((mb_queue_ecdhp384_keygen_get_size(tlv->ecdhp384_keygen_queue) >= MULTIBUFF_MIN_BATCH) &&
                             (submission_count > 0)) {
-                        process_ecdh_keygen_reqs(tlv, EC_P384_LENGTH);
+                        process_ecdh_keygen_reqs(tlv, EC_P384);
                         submission_count--;
                     }
                 }
@@ -601,16 +631,83 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
                 if (mb_queue_ecdhp384_compute_get_size(tlv->ecdhp384_compute_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
-                    process_ecdh_compute_reqs(tlv, EC_P384_LENGTH);
+                    process_ecdh_compute_reqs(tlv, EC_P384);
                     submission_count--;
                     while ((mb_queue_ecdhp384_compute_get_size(tlv->ecdhp384_compute_queue) >= MULTIBUFF_MIN_BATCH) &&
                             (submission_count > 0)) {
-                        process_ecdh_compute_reqs(tlv, EC_P384_LENGTH);
+                        process_ecdh_compute_reqs(tlv, EC_P384);
                         submission_count--;
                     }
                 }
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
                 multibuff_update_req_timeout(&mb_ecdhp384_compute_req_rates);
+# endif
+                if (mb_queue_sm2ecdh_keygen_get_size(tlv->sm2ecdh_keygen_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_ecdh_keygen_reqs(tlv, EC_SM2);
+                    submission_count--;
+                    while ((mb_queue_sm2ecdh_keygen_get_size(tlv->sm2ecdh_keygen_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_ecdh_keygen_reqs(tlv, EC_SM2);
+                        submission_count--;
+                    }
+                }
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_sm2ecdh_keygen_req_rates);
+# endif
+                if (mb_queue_sm2ecdh_compute_get_size(tlv->sm2ecdh_compute_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_ecdh_compute_reqs(tlv, EC_SM2);
+                    submission_count--;
+                    while ((mb_queue_sm2ecdh_compute_get_size(tlv->sm2ecdh_compute_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_ecdh_compute_reqs(tlv, EC_SM2);
+                        submission_count--;
+                    }
+                }
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_sm2ecdh_compute_req_rates);
+# endif
+#endif
+#ifdef ENABLE_QAT_SW_SM3
+                if (mb_queue_sm3_init_get_size(tlv->sm3_init_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_sm3_init_reqs(tlv);
+                    submission_count--;
+                    while ((mb_queue_sm3_init_get_size(tlv->sm3_init_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_sm3_init_reqs(tlv);
+                        submission_count--;
+                    }
+                }
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_sm3_init_req_rates);
+# endif
+                if (mb_queue_sm3_update_get_size(tlv->sm3_update_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_sm3_update_reqs(tlv);
+                    submission_count--;
+                    while ((mb_queue_sm3_update_get_size(tlv->sm3_update_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_sm3_update_reqs(tlv);
+                        submission_count--;
+                    }
+                }
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_sm3_update_req_rates);
+# endif
+                if (mb_queue_sm3_final_get_size(tlv->sm3_final_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_sm3_final_reqs(tlv);
+                    submission_count--;
+                    while ((mb_queue_sm3_final_get_size(tlv->sm3_final_queue) >= MULTIBUFF_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_sm3_final_reqs(tlv);
+                        submission_count--;
+                    }
+                }
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+                multibuff_update_req_timeout(&mb_sm3_final_req_rates);
 # endif
 #endif
                 continue;
@@ -654,7 +751,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDSA p256 Sign requests */
                 DEBUG("8 ECDSA p256 Sign requests in flight, process them\n");
-                process_ecdsa_sign_reqs(tlv, EC_P256_LENGTH);
+                process_ecdsa_sign_reqs(tlv, EC_P256);
                 submission_count--;
             } while ((mb_queue_ecdsap256_sign_get_size(tlv->ecdsap256_sign_queue) >= MULTIBUFF_MIN_BATCH) &&
                      (submission_count > 0));
@@ -667,7 +764,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDSA p256 sign setup requests */
                 DEBUG("8 ECDSA p256 sign setup requests in flight, process them\n");
-                process_ecdsa_sign_setup_reqs(tlv, EC_P256_LENGTH);
+                process_ecdsa_sign_setup_reqs(tlv, EC_P256);
                 submission_count--;
             } while ((mb_queue_ecdsap256_sign_setup_get_size(tlv->ecdsap256_sign_setup_queue) >= MULTIBUFF_MIN_BATCH) &&
                      (submission_count > 0));
@@ -680,7 +777,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDSA p256 sign sig requests */
                 DEBUG("8 ECDSA p256 sign sig requests in flight, process them\n");
-                process_ecdsa_sign_sig_reqs(tlv, EC_P256_LENGTH);
+                process_ecdsa_sign_sig_reqs(tlv, EC_P256);
                 submission_count--;
             } while ((mb_queue_ecdsap256_sign_sig_get_size(tlv->ecdsap256_sign_sig_queue) >= MULTIBUFF_MIN_BATCH) &&
                      (submission_count > 0));
@@ -693,7 +790,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDSA p384 Sign requests */
                 DEBUG("8 ECDSA p384 Sign requests in flight, process them\n");
-                process_ecdsa_sign_reqs(tlv, EC_P384_LENGTH);
+                process_ecdsa_sign_reqs(tlv, EC_P384);
                 submission_count--;
                 } while ((mb_queue_ecdsap384_sign_get_size(tlv->ecdsap384_sign_queue) >= MULTIBUFF_MIN_BATCH) &&
                         (submission_count > 0));
@@ -706,7 +803,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDSA p384 sign setup requests */
                 DEBUG("8 ECDSA p384 sign setup requests in flight, process them\n");
-                process_ecdsa_sign_setup_reqs(tlv, EC_P384_LENGTH);
+                process_ecdsa_sign_setup_reqs(tlv, EC_P384);
                 submission_count--;
                 } while ((mb_queue_ecdsap384_sign_setup_get_size(tlv->ecdsap384_sign_setup_queue) >= MULTIBUFF_MIN_BATCH) &&
                         (submission_count > 0));
@@ -719,7 +816,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDSA p384 sign sig requests */
                 DEBUG("8 ECDSA p384 sign sig requests in flight, process them\n");
-                process_ecdsa_sign_sig_reqs(tlv, EC_P384_LENGTH);
+                process_ecdsa_sign_sig_reqs(tlv, EC_P384);
                 submission_count--;
                 } while ((mb_queue_ecdsap384_sign_sig_get_size(tlv->ecdsap384_sign_sig_queue) >= MULTIBUFF_MIN_BATCH) &&
                         (submission_count > 0));
@@ -735,7 +832,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDH p256 keygen requests */
                 DEBUG("8 ECDH p256 keygen requests in flight, process them\n");
-                process_ecdh_keygen_reqs(tlv, EC_P256_LENGTH);
+                process_ecdh_keygen_reqs(tlv, EC_P256);
                 submission_count--;
             } while ((mb_queue_ecdhp256_keygen_get_size(tlv->ecdhp256_keygen_queue) >= MULTIBUFF_MIN_BATCH) &&
                      (submission_count > 0));
@@ -748,7 +845,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDH p256 compute requests */
                 DEBUG("8 ECDH p256 compute requests in flight, process them\n");
-                process_ecdh_compute_reqs(tlv, EC_P256_LENGTH);
+                process_ecdh_compute_reqs(tlv, EC_P256);
                 submission_count--;
             } while ((mb_queue_ecdhp256_compute_get_size(tlv->ecdhp256_compute_queue) >= MULTIBUFF_MIN_BATCH) &&
                      (submission_count > 0));
@@ -761,7 +858,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDH p384 keygen requests */
                 DEBUG("8 ECDH p384 keygen requests in flight, process them\n");
-                process_ecdh_keygen_reqs(tlv, EC_P384_LENGTH);
+                process_ecdh_keygen_reqs(tlv, EC_P384);
                 submission_count--;
             } while ((mb_queue_ecdhp384_keygen_get_size(tlv->ecdhp384_keygen_queue) >= MULTIBUFF_MIN_BATCH) &&
                     (submission_count > 0));
@@ -774,7 +871,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
             do {
                 /* Deal with 8 ECDH p384 compute requests */
                 DEBUG("8 ECDH p384 compute requests in flight, process them\n");
-                process_ecdh_compute_reqs(tlv, EC_P384_LENGTH);
+                process_ecdh_compute_reqs(tlv, EC_P384);
                 submission_count--;
             } while ((mb_queue_ecdhp384_compute_get_size(tlv->ecdhp384_compute_queue) >= MULTIBUFF_MIN_BATCH) &&
                     (submission_count > 0));
@@ -782,6 +879,33 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
             multibuff_update_req_timeout(&mb_ecdhp384_compute_req_rates);
 #endif
+        }
+
+        if (mb_queue_sm2ecdh_keygen_get_size(tlv->sm2ecdh_keygen_queue) >= MULTIBUFF_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 ECDH sm2 keygen requests */
+                DEBUG("8 ECDH sm2 keygen requests in flight, process them\n");
+                process_ecdh_keygen_reqs(tlv, EC_SM2);
+                submission_count--;
+            } while ((mb_queue_sm2ecdh_keygen_get_size(tlv->sm2ecdh_keygen_queue) >= MULTIBUFF_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_sm2ecdh_keygen_req_rates);
+# endif
+        }
+        if (mb_queue_sm2ecdh_compute_get_size(tlv->sm2ecdh_compute_queue) >= MULTIBUFF_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 ECDH sm2 compute requests */
+                DEBUG("8 ECDH sm2 compute requests in flight, process them\n");
+                process_ecdh_compute_reqs(tlv, EC_SM2);
+                submission_count--;
+            } while ((mb_queue_sm2ecdh_compute_get_size(tlv->sm2ecdh_compute_queue) >= MULTIBUFF_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_sm2ecdh_compute_req_rates);
+# endif
         }
 #endif
 
@@ -865,7 +989,48 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
         }
 #endif
+#ifdef ENABLE_QAT_SW_SM3
+        if (mb_queue_sm3_init_get_size(tlv->sm3_init_queue) >= MULTIBUFF_SM3_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 SM3 Init requests */
+                DEBUG("8 SM3 Init requests in flight, process them\n");
+                process_sm3_init_reqs(tlv);
+                submission_count--;
+            } while ((mb_queue_sm3_init_get_size(tlv->sm3_init_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_sm3_init_req_rates);
+# endif
+        }
 
+        if (mb_queue_sm3_update_get_size(tlv->sm3_update_queue) >= MULTIBUFF_SM3_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 SM3 Update requests */
+                DEBUG("8 SM3 Update requests in flight, process them\n");
+                process_sm3_update_reqs(tlv);
+                submission_count--;
+            } while ((mb_queue_sm3_update_get_size(tlv->sm3_update_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_sm3_update_req_rates);
+# endif
+        }
+        if (mb_queue_sm3_final_get_size(tlv->sm3_final_queue) >= MULTIBUFF_SM3_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                /* Deal with 8 SM3 Final keygen requests */
+                DEBUG("8 SM3 Final requests in flight, process them\n");
+                process_sm3_final_reqs(tlv);
+                submission_count--;
+            } while ((mb_queue_sm3_final_get_size(tlv->sm3_final_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_sm3_final_req_rates);
+# endif
+        }
+#endif
         DEBUG("Finished loop in the Polling Thread\n");
     }
 
@@ -877,7 +1042,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 int multibuff_poll()
 {
     struct timespec current_time = { 0 };
-#if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_SM3)
     int snapshot_num_reqs = 0;
 #endif
 
@@ -936,7 +1101,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdsap256_sign_get_size(mb_tlv->ecdsap256_sign_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdsa_sign_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdsa_sign_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_previous_time);
@@ -946,7 +1111,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdsap256_sign_previous_time,
                                                  current_time) == 1) {
-            process_ecdsa_sign_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdsa_sign_reqs(mb_tlv, EC_P256);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_previous_time);
         }
     }
@@ -955,7 +1120,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdsap256_sign_setup_get_size(mb_tlv->ecdsap256_sign_setup_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_setup_previous_time);
@@ -965,7 +1130,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdsap256_sign_setup_previous_time,
                                                  current_time) == 1) {
-            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P256);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_setup_previous_time);
         }
     }
@@ -974,7 +1139,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdsap256_sign_sig_get_size(mb_tlv->ecdsap256_sign_sig_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdsa_sign_sig_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdsa_sign_sig_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_sig_previous_time);
@@ -984,7 +1149,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdsap256_sign_sig_previous_time,
                                                  current_time) == 1) {
-            process_ecdsa_sign_sig_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdsa_sign_sig_reqs(mb_tlv, EC_P256);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_sig_previous_time);
         }
     }
@@ -993,7 +1158,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdsap384_sign_get_size(mb_tlv->ecdsap384_sign_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdsa_sign_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdsa_sign_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_previous_time);
@@ -1003,7 +1168,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdsap384_sign_previous_time,
                                                  current_time) == 1) {
-            process_ecdsa_sign_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdsa_sign_reqs(mb_tlv, EC_P384);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_previous_time);
         }
     }
@@ -1012,7 +1177,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdsap384_sign_setup_get_size(mb_tlv->ecdsap384_sign_setup_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
          }
          clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_setup_previous_time);
@@ -1022,7 +1187,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdsap384_sign_setup_previous_time,
                                                  current_time) == 1) {
-            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_setup_previous_time);
         }
     }
@@ -1031,7 +1196,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdsap384_sign_sig_get_size(mb_tlv->ecdsap384_sign_sig_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
          while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-             process_ecdsa_sign_sig_reqs(mb_tlv, EC_P384_LENGTH);
+             process_ecdsa_sign_sig_reqs(mb_tlv, EC_P384);
              snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_sig_previous_time);
@@ -1041,7 +1206,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdsap384_sign_sig_previous_time,
                                                  current_time) == 1) {
-            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_sig_previous_time);
         }
     }
@@ -1052,7 +1217,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdhp256_keygen_get_size(mb_tlv->ecdhp256_keygen_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdh_keygen_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdh_keygen_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_keygen_previous_time);
@@ -1062,7 +1227,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdhp256_keygen_previous_time,
                                                  current_time) == 1) {
-            process_ecdh_keygen_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdh_keygen_reqs(mb_tlv, EC_P256);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_keygen_previous_time);
         }
     }
@@ -1071,7 +1236,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdhp256_compute_get_size(mb_tlv->ecdhp256_compute_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdh_compute_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdh_compute_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_compute_previous_time);
@@ -1081,7 +1246,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdhp256_compute_previous_time,
                                                  current_time) == 1) {
-            process_ecdh_compute_reqs(mb_tlv, EC_P256_LENGTH);
+            process_ecdh_compute_reqs(mb_tlv, EC_P256);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_compute_previous_time);
         }
     }
@@ -1090,7 +1255,7 @@ int multibuff_poll()
    snapshot_num_reqs = mb_queue_ecdhp384_keygen_get_size(mb_tlv->ecdhp384_keygen_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdh_keygen_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdh_keygen_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_keygen_previous_time);
@@ -1100,7 +1265,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdhp384_keygen_previous_time,
                                                  current_time) == 1) {
-            process_ecdh_keygen_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdh_keygen_reqs(mb_tlv, EC_P384);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_keygen_previous_time);
         }
     }
@@ -1109,7 +1274,7 @@ int multibuff_poll()
     snapshot_num_reqs = mb_queue_ecdhp384_compute_get_size(mb_tlv->ecdhp384_compute_queue);
     if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
         while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
-            process_ecdh_compute_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdh_compute_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_compute_previous_time);
@@ -1119,8 +1284,46 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdhp384_compute_previous_time,
                                                  current_time) == 1) {
-            process_ecdh_compute_reqs(mb_tlv, EC_P384_LENGTH);
+            process_ecdh_compute_reqs(mb_tlv, EC_P384);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_compute_previous_time);
+        }
+    }
+
+    /* Deal with ECDH sm2 Keygen requests */
+    snapshot_num_reqs = mb_queue_sm2ecdh_keygen_get_size(mb_tlv->sm2ecdh_keygen_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
+            process_ecdh_keygen_reqs(mb_tlv, EC_SM2);
+            snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_keygen_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+                snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                                 sm2ecdh_keygen_previous_time,
+                                                 current_time) == 1) {
+            process_ecdh_keygen_reqs(mb_tlv, EC_SM2);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_keygen_previous_time);
+        }
+    }
+
+    /* Deal with ECDH sm2 compute requests */
+    snapshot_num_reqs = mb_queue_sm2ecdh_compute_get_size(mb_tlv->sm2ecdh_compute_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_MIN_BATCH) {
+            process_ecdh_compute_reqs(mb_tlv, EC_SM2);
+            snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_compute_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+                snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                                 sm2ecdh_compute_previous_time,
+                                                 current_time) == 1) {
+            process_ecdh_compute_reqs(mb_tlv, EC_SM2);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_compute_previous_time);
         }
     }
 #endif
@@ -1235,6 +1438,62 @@ int multibuff_poll()
         }
     }
 #endif
+#ifdef ENABLE_QAT_SW_SM3
+    /* Deal with SM3 Init requests */
+    snapshot_num_reqs = mb_queue_sm3_init_get_size(mb_tlv->sm3_init_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_SM3_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_SM3_MIN_BATCH) {
+            process_sm3_init_reqs(mb_tlv);
+            snapshot_num_reqs -= MULTIBUFF_SM3_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_init_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+                snapshot_num_reqs < MULTIBUFF_SM3_MAX_BATCH &&
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                                 sm3_init_previous_time,
+                                                 current_time) == 1) {
+            process_sm3_init_reqs(mb_tlv);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_init_previous_time);
+        }
+    }
 
+    /* Deal with SM3 Update requests */
+    snapshot_num_reqs = mb_queue_sm3_update_get_size(mb_tlv->sm3_update_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_SM3_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_SM3_MIN_BATCH) {
+            process_sm3_update_reqs(mb_tlv);
+            snapshot_num_reqs -= MULTIBUFF_SM3_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_update_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+                snapshot_num_reqs < MULTIBUFF_SM3_MAX_BATCH &&
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                                 sm3_update_previous_time,
+                                                 current_time) == 1) {
+            process_sm3_update_reqs(mb_tlv);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_update_previous_time);
+        }
+    }
+    /* Deal with SM3 Final requests */
+    snapshot_num_reqs = mb_queue_sm3_final_get_size(mb_tlv->sm3_final_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_SM3_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_SM3_MIN_BATCH) {
+            process_sm3_final_reqs(mb_tlv);
+            snapshot_num_reqs -= MULTIBUFF_SM3_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_final_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+                snapshot_num_reqs < MULTIBUFF_SM3_MAX_BATCH &&
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                                 sm3_final_previous_time,
+                                                 current_time) == 1) {
+            process_sm3_final_reqs(mb_tlv);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_final_previous_time);
+        }
+    }
+#endif
     return 1;
 }

@@ -72,6 +72,7 @@
 #ifdef QAT_SW
 # include "qat_sw_ecx.h"
 # include "qat_sw_ec.h"
+# include "qat_sw_sm3.h"
 # include "crypto_mb/cpu_features.h"
 #endif
 
@@ -87,23 +88,19 @@ typedef struct _chained_info {
 } chained_info;
 
 static chained_info info[] = {
-#ifdef QAT_HW
-# ifdef ENABLE_QAT_HW_CIPHERS
+#ifdef ENABLE_QAT_HW_CIPHERS
     {NID_aes_128_cbc_hmac_sha1, NULL, AES_KEY_SIZE_128},
     {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
     {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
-# endif
-# ifdef ENABLE_QAT_HW_CHACHAPOLY
-    {NID_chacha20_poly1305, NULL, CHACHA_KEY_SIZE},
-# endif
 #endif
-#if defined(QAT_HW) || defined(QAT_SW_IPSEC)
-# if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
+#ifdef ENABLE_QAT_HW_CHACHAPOLY
+    {NID_chacha20_poly1305, NULL, CHACHA_KEY_SIZE},
+#endif
+#if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     {NID_aes_128_gcm, NULL, AES_KEY_SIZE_128},
     {NID_aes_192_gcm, NULL, AES_KEY_SIZE_192},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
-# endif
 #endif
 };
 
@@ -111,23 +108,19 @@ static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
 
 /* Qat Symmetric cipher function register */
 int qat_cipher_nids[] = {
-#ifdef QAT_HW
-# ifdef ENABLE_QAT_HW_CIPHERS
+#ifdef ENABLE_QAT_HW_CIPHERS
     NID_aes_128_cbc_hmac_sha1,
     NID_aes_128_cbc_hmac_sha256,
     NID_aes_256_cbc_hmac_sha1,
     NID_aes_256_cbc_hmac_sha256,
-# endif
-# ifdef ENABLE_QAT_HW_CHACHAPOLY
-    NID_chacha20_poly1305,
-# endif
 #endif
-#if defined(QAT_HW) || defined(QAT_SW_IPSEC)
-# if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
+#ifdef ENABLE_QAT_HW_CHACHAPOLY
+    NID_chacha20_poly1305,
+#endif
+#if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     NID_aes_128_gcm,
     NID_aes_192_gcm,
     NID_aes_256_gcm,
-# endif
 #endif
 };
 
@@ -151,27 +144,33 @@ const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
 typedef struct _digest_data {
     const int m_type;
     const int pkey_type;
-} sha3_data;
+} digest_data;
 
-static sha3_data data[] = {
-#ifdef QAT_HW
+static digest_data digest_info[] = {
+#ifdef ENABLE_QAT_HW_SHA3
     { NID_sha3_224,  NID_RSA_SHA3_224},
     { NID_sha3_256,  NID_RSA_SHA3_256},
     { NID_sha3_384,  NID_RSA_SHA3_384},
     { NID_sha3_512,  NID_RSA_SHA3_512},
 #endif
+#ifdef ENABLE_QAT_SW_SM3
+    { NID_sm3,  NID_sm3WithRSAEncryption},
+#endif
 };
 
-/* QAT SHA3 function register */
-int qat_sha3_nids[] = {
-#ifdef QAT_HW
+/* QAT Hash Algorithm register */
+int qat_digest_nids[] = {
+#ifdef ENABLE_QAT_HW_SHA3
     NID_sha3_224,
     NID_sha3_256,
     NID_sha3_384,
     NID_sha3_512,
 #endif
+#ifdef ENABLE_QAT_SW_SM3
+    NID_sm3,
+#endif
 };
-const int num_sha3_nids = sizeof(qat_sha3_nids) / sizeof(qat_sha3_nids[0]);
+const int num_digest_nids = sizeof(qat_digest_nids) / sizeof(qat_digest_nids[0]);
 
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
 typedef struct cipher_threshold_table_s {
@@ -210,6 +209,44 @@ static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
 const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
+EVP_MD *qat_sw_sm3_meth = NULL;
+
+const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
+{
+#ifdef ENABLE_QAT_SW_SM3
+    int res = 1;
+
+    if ((qat_sw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
+        WARN("Failed to allocate digest methods for nid %d\n", nid);
+        return NULL;
+    }
+
+    /* For now check using MBX_ALGO_X25519 as algo info for sm3 is not implemented */
+    if (mbx_get_algo_info(MBX_ALGO_X25519)) {
+        res &= EVP_MD_meth_set_result_size(qat_sw_sm3_meth, 32);
+        res &= EVP_MD_meth_set_input_blocksize(qat_sw_sm3_meth, 64);
+        res &= EVP_MD_meth_set_app_datasize(qat_sw_sm3_meth, sizeof(EVP_MD*) + 580);
+        res &= EVP_MD_meth_set_flags(qat_sw_sm3_meth, (EVP_MD_CTX_FLAG_ONESHOT|EVP_MD_CTX_FLAG_NO_INIT));
+        res &= EVP_MD_meth_set_init(qat_sw_sm3_meth, qat_sw_sm3_init);
+        res &= EVP_MD_meth_set_update(qat_sw_sm3_meth, qat_sw_sm3_update);
+        res &= EVP_MD_meth_set_final(qat_sw_sm3_meth, qat_sw_sm3_final);
+        qat_sw_sm3_offload = 1;
+    }
+
+    if (0 == res) {
+        WARN("Failed to set MD methods for nid %d\n", nid);
+        EVP_MD_meth_free(qat_sw_sm3_meth);
+        qat_sw_sm3_meth = NULL;
+    }
+
+    DEBUG("QAT SW SM3 Registration succeeded\n");
+#endif
+
+    if (!qat_sw_sm3_offload)
+        return EVP_sm3();
+
+    return qat_sw_sm3_meth;
+}
 
 /******************************************************************************
  * function:
@@ -223,15 +260,17 @@ const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
 static const EVP_MD *qat_create_digest_meth(int nid , int pkeytype)
 {
     switch (nid) {
+#ifdef ENABLE_QAT_HW_SHA3
         case NID_sha3_224:
         case NID_sha3_256:
         case NID_sha3_384:
         case NID_sha3_512:
-#ifdef QAT_HW
-# ifdef ENABLE_QAT_HW_SHA3
             if (qat_hw_offload)
                 return qat_create_sha3_meth(nid , pkeytype);
-# endif
+#endif
+#ifdef ENABLE_QAT_SW_SM3
+        case NID_sm3:
+            return qat_sw_create_sm3_meth(nid , pkeytype);
 #endif
         default:
             WARN("Invalid nid %d\n", nid);
@@ -262,13 +301,14 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
             WARN("Invalid input params.\n");
             return 0;
         }
-        *nids = qat_sha3_nids;
-        return num_sha3_nids;
+        *nids = qat_digest_nids;
+        return num_digest_nids;
     }
 
-    for (i = 0; i < num_sha3_nids; i++) {
-        if (nid == qat_sha3_nids[i]) {
-            *md = qat_create_digest_meth( data[i].m_type , data[i].pkey_type);
+    for (i = 0; i < num_digest_nids; i++) {
+        if (nid == qat_digest_nids[i]) {
+            *md = qat_create_digest_meth(digest_info[i].m_type,
+                                         digest_info[i].pkey_type);
             return 1;
         }
     }

@@ -67,6 +67,7 @@
 /* Crypto_mb includes */
 #include "crypto_mb/ec_nistp256.h"
 #include "crypto_mb/ec_nistp384.h"
+#include "crypto_mb/ec_sm2.h"
 
 static inline int mb_ec_check_curve(int curve_type)
 {
@@ -74,10 +75,13 @@ static inline int mb_ec_check_curve(int curve_type)
 
     switch (curve_type) {
     case NID_X9_62_prime256v1:
-        ret = EC_P256_LENGTH;
+        ret = EC_P256;
         break;
     case NID_secp384r1:
-        ret = EC_P384_LENGTH;
+        ret = EC_P384;
+        break;
+    case NID_sm2:
+        ret = EC_SM2;
         break;
     default:
         break;
@@ -102,7 +106,7 @@ void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
 
     /* Build Arrays of pointers for call */
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         DEBUG("Dequeue ECDSA p256 sign reqs.\n");
         while ((ecdsa_sign_req_array[req_num] =
                 mb_queue_ecdsap256_sign_dequeue(tlv->ecdsap256_sign_queue)) != NULL) {
@@ -117,7 +121,7 @@ void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
                 break;
         }
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Dequeue ECDSA p384 sign reqs.\n");
         while ((ecdsa_sign_req_array[req_num] =
                 mb_queue_ecdsap384_sign_dequeue(tlv->ecdsap384_sign_queue)) != NULL) {
@@ -136,7 +140,7 @@ void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
     local_request_no = req_num;
 
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         DEBUG("Submitting %d ECDSA p256 sign requests\n", local_request_no);
         sts = mbx_nistp256_ecdsa_sign_ssl_mb8(sign_r,
                                               sign_s,
@@ -145,7 +149,7 @@ void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
                                               priv_key,
                                               NULL);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Submitting %d ECDSA p384 sign requests\n", local_request_no);
         sts = mbx_nistp384_ecdsa_sign_ssl_mb8(sign_r,
                                               sign_s,
@@ -179,10 +183,10 @@ void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
 
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         mb_ecdsap256_sign_req_rates.req_this_period += local_request_no;
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_ecdsap384_sign_req_rates.req_this_period += local_request_no;
         break;
     }
@@ -206,7 +210,7 @@ void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bit_len)
 
     /* Build Arrays of pointers for call */
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         DEBUG("Dequeue ECDSA p256 sign setup reqs.\n");
         while ((ecdsa_sign_setup_req_array[req_num] =
                 mb_queue_ecdsap256_sign_setup_dequeue(tlv->ecdsap256_sign_setup_queue)) != NULL) {
@@ -219,7 +223,7 @@ void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bit_len)
                 break;
         }
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Dequeue ECDSA p384 sign setup reqs.\n");
         while ((ecdsa_sign_setup_req_array[req_num] =
                 mb_queue_ecdsap384_sign_setup_dequeue(tlv->ecdsap384_sign_setup_queue)) != NULL) {
@@ -236,14 +240,14 @@ void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bit_len)
     local_request_no = req_num;
 
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         DEBUG("Submitting %d ECDSA p256 sign setup requests\n", local_request_no);
         sts = mbx_nistp256_ecdsa_sign_setup_ssl_mb8(k_inv,
                                                     sig_rp,
                                                     eph_key,
                                                     NULL);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Submitting %d ECDSA p384 sign setup requests\n", local_request_no);
         sts = mbx_nistp384_ecdsa_sign_setup_ssl_mb8(k_inv,
                                                     sig_rp,
@@ -275,10 +279,10 @@ void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bit_len)
 
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         mb_ecdsap256_sign_setup_req_rates.req_this_period += local_request_no;
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_ecdsap384_sign_setup_req_rates.req_this_period += local_request_no;
         break;
     }
@@ -305,7 +309,7 @@ void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
 
     /* Build Arrays of pointers for call */
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         DEBUG("Dequeue ECDSA p256 sign sig reqs.\n");
         while ((ecdsa_sign_sig_req_array[req_num] =
                 mb_queue_ecdsap256_sign_sig_dequeue(tlv->ecdsap256_sign_sig_queue)) != NULL) {
@@ -321,7 +325,7 @@ void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
                 break;
         }
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Dequeue ECDSA p384 sign sig reqs.\n");
         while ((ecdsa_sign_sig_req_array[req_num] =
                 mb_queue_ecdsap384_sign_sig_dequeue(tlv->ecdsap384_sign_sig_queue)) != NULL) {
@@ -341,7 +345,7 @@ void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
     local_request_no = req_num;
 
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         DEBUG("Submitting %d ECDSA p256 sign sig requests\n", local_request_no);
         sts = mbx_nistp256_ecdsa_sign_complete_ssl_mb8(sign_r,
                                                        sign_s,
@@ -351,7 +355,7 @@ void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
                                                        priv_key,
                                                        NULL);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Submitting %d ECDSA p384 sign sig requests\n", local_request_no);
         sts = mbx_nistp384_ecdsa_sign_complete_ssl_mb8(sign_r,
                                                        sign_s,
@@ -394,7 +398,7 @@ void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDH
-void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
+void process_ecdh_keygen_reqs(mb_thread_data *tlv, int curve)
 {
     ecdh_keygen_op_data *ecdh_keygen_req_array[MULTIBUFF_BATCH] = {0};
     BIGNUM *ecdh_keygen_x[MULTIBUFF_BATCH] = {0};
@@ -409,8 +413,8 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
 
     /* Build Arrays of pointers for call */
 
-    switch (bit_len) {
-    case EC_P256_LENGTH:
+    switch (curve) {
+    case EC_P256:
         DEBUG("Dequeue ECDHP256 keygen reqs.\n");
         while ((ecdh_keygen_req_array[req_num] =
                 mb_queue_ecdhp256_keygen_dequeue(tlv->ecdhp256_keygen_queue)) != NULL) {
@@ -424,10 +428,24 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
             break;
         }
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Dequeue ECDHP384 keygen reqs.\n");
         while ((ecdh_keygen_req_array[req_num] =
                 mb_queue_ecdhp384_keygen_dequeue(tlv->ecdhp384_keygen_queue)) != NULL) {
+        ecdh_keygen_x[req_num] = ecdh_keygen_req_array[req_num]->x;
+        ecdh_keygen_y[req_num] = ecdh_keygen_req_array[req_num]->y;
+        ecdh_keygen_z[req_num] = ecdh_keygen_req_array[req_num]->z;
+        ecdh_keygen_privkey[req_num] = ecdh_keygen_req_array[req_num]->priv_key;
+
+	    req_num++;
+        if (req_num == MULTIBUFF_MIN_BATCH)
+            break;
+        }
+        break;
+    case EC_SM2:
+        DEBUG("Dequeue SM2ECDH keygen reqs.\n");
+        while ((ecdh_keygen_req_array[req_num] =
+                mb_queue_sm2ecdh_keygen_dequeue(tlv->sm2ecdh_keygen_queue)) != NULL) {
         ecdh_keygen_x[req_num] = ecdh_keygen_req_array[req_num]->x;
         ecdh_keygen_y[req_num] = ecdh_keygen_req_array[req_num]->y;
         ecdh_keygen_z[req_num] = ecdh_keygen_req_array[req_num]->z;
@@ -443,8 +461,8 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
     local_request_no = req_num;
 
 
-    switch (bit_len) {
-    case EC_P256_LENGTH:
+    switch (curve) {
+    case EC_P256:
        DEBUG("Submitting %d ECDH p256 Keygen requests\n", local_request_no);
         ecdh_sts = mbx_nistp256_ecpublic_key_ssl_mb8(ecdh_keygen_x,
                                                      ecdh_keygen_y,
@@ -452,13 +470,21 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
                                                      ecdh_keygen_privkey,
                                                      NULL);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         DEBUG("Submitting %d ECDH p384 Keygen requests\n", local_request_no);
         ecdh_sts = mbx_nistp384_ecpublic_key_ssl_mb8(ecdh_keygen_x,
                                                      ecdh_keygen_y,
                                                      ecdh_keygen_z,
                                                      ecdh_keygen_privkey,
                                                      NULL);
+         break;
+    case EC_SM2:
+        DEBUG("Submitting %d ECDH sm2 Keygen requests\n", local_request_no);
+        ecdh_sts = mbx_sm2_ecpublic_key_ssl_mb8(ecdh_keygen_x,
+                                                ecdh_keygen_y,
+                                                ecdh_keygen_z,
+                                                ecdh_keygen_privkey,
+                                                NULL);
          break;
     }
 
@@ -485,12 +511,15 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
     }
 
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
-    switch (bit_len) {
-    case EC_P256_LENGTH:
+    switch (curve) {
+    case EC_P256:
         mb_ecdhp256_keygen_req_rates.req_this_period += local_request_no;
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_ecdhp384_keygen_req_rates.req_this_period += local_request_no;
+        break;
+    case EC_SM2:
+        mb_sm2ecdh_keygen_req_rates.req_this_period += local_request_no;
         break;
     }
 # endif
@@ -499,7 +528,7 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bit_len)
     DEBUG("Processed Final Request\n");
 }
 
-void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
+void process_ecdh_compute_reqs(mb_thread_data *tlv, int curve)
 {
     ecdh_compute_op_data *ecdh_compute_req_array[MULTIBUFF_BATCH] = {0};
     unsigned char *ecdh_compute_shared_key[MULTIBUFF_BATCH] = {0};
@@ -515,8 +544,8 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
 
     /* Build Arrays of pointers for call */
 
-    switch (bit_len) {
-    case EC_P256_LENGTH:
+    switch (curve) {
+    case EC_P256:
 	    DEBUG("Dequeue ECDHP256 compute reqs.\n");
         while ((ecdh_compute_req_array[req_num] =
                 mb_queue_ecdhp256_compute_dequeue(tlv->ecdhp256_compute_queue)) != NULL) {
@@ -531,10 +560,26 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
             break;
         }
         break;
-	case EC_P384_LENGTH:
+	case EC_P384:
         DEBUG("Dequeue ECDHP384 compute reqs.\n");
         while ((ecdh_compute_req_array[req_num] =
                 mb_queue_ecdhp384_compute_dequeue(tlv->ecdhp384_compute_queue)) != NULL) {
+        ecdh_compute_shared_key[req_num] = ecdh_compute_req_array[req_num]->shared_key;
+        ecdh_compute_privkey[req_num] = ecdh_compute_req_array[req_num]->priv_key;
+        ecdh_compute_x[req_num] = ecdh_compute_req_array[req_num]->x;
+        ecdh_compute_y[req_num] = ecdh_compute_req_array[req_num]->y;
+        ecdh_compute_z[req_num] = ecdh_compute_req_array[req_num]->z;
+
+        req_num++;
+        if (req_num == MULTIBUFF_MIN_BATCH)
+            break;
+        }
+        break;
+
+    case EC_SM2:
+        DEBUG("Dequeue SM2ECDH compute reqs.\n");
+        while ((ecdh_compute_req_array[req_num] =
+                mb_queue_sm2ecdh_compute_dequeue(tlv->sm2ecdh_compute_queue)) != NULL) {
         ecdh_compute_shared_key[req_num] = ecdh_compute_req_array[req_num]->shared_key;
         ecdh_compute_privkey[req_num] = ecdh_compute_req_array[req_num]->priv_key;
         ecdh_compute_x[req_num] = ecdh_compute_req_array[req_num]->x;
@@ -550,8 +595,8 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
 
     local_request_no = req_num;
 
-    switch (bit_len) {
-	case EC_P256_LENGTH:
+    switch (curve) {
+	case EC_P256:
         DEBUG("Submitting %d ECDH p256 Compute requests\n", local_request_no);
         ecdh_sts = mbx_nistp256_ecdh_ssl_mb8(ecdh_compute_shared_key,
                                              ecdh_compute_privkey,
@@ -560,7 +605,7 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
                                              ecdh_compute_z, /* Use Jacobian coordinates */
                                              NULL);
         break;
-	case EC_P384_LENGTH:
+	case EC_P384:
         DEBUG("Submitting %d ECDH p384 Compute requests\n", local_request_no);
         ecdh_sts = mbx_nistp384_ecdh_ssl_mb8(ecdh_compute_shared_key,
                                              ecdh_compute_privkey,
@@ -569,7 +614,17 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
                                              ecdh_compute_z, /* Use Jacobian coordinates */
                                              NULL);
 	    break;
+	case EC_SM2:
+        DEBUG("Submitting %d SM2 ECDH Compute requests\n", local_request_no);
+        ecdh_sts = mbx_sm2_ecdh_ssl_mb8(ecdh_compute_shared_key,
+                                        ecdh_compute_privkey,
+                                        ecdh_compute_x,
+                                        ecdh_compute_y,
+                                        ecdh_compute_z, /* Use Jacobian coordinates */
+                                        NULL);
+	    break;
     }
+
     for (req_num = 0; req_num < local_request_no; req_num++) {
         if (ecdh_compute_req_array[req_num]->sts != NULL) {
             if (MBX_GET_STS(ecdh_sts, req_num) == MBX_STATUS_OK) {
@@ -592,12 +647,15 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int bit_len)
     }
 
 # ifdef QAT_SW_HEURISTIC_TIMEOUT
-    switch (bit_len) {
-    case EC_P256_LENGTH:
+    switch (curve) {
+    case EC_P256:
         mb_ecdhp256_compute_req_rates.req_this_period += local_request_no;
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_ecdhp384_compute_req_rates.req_this_period += local_request_no;
+        break;
+    case EC_SM2:
+        mb_sm2ecdh_compute_req_rates.req_this_period += local_request_no;
         break;
     }
 
@@ -769,10 +827,10 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     ecdsa_sign_req->sts = &sts;
 
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         mb_queue_ecdsap256_sign_enqueue(tlv->ecdsap256_sign_queue, ecdsa_sign_req);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_queue_ecdsap384_sign_enqueue(tlv->ecdsap384_sign_queue, ecdsa_sign_req);
         break;
     }
@@ -926,10 +984,10 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
     ecdsa_sign_setup_req->sts = &sts;
 
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         mb_queue_ecdsap256_sign_setup_enqueue(tlv->ecdsap256_sign_setup_queue, ecdsa_sign_setup_req);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_queue_ecdsap384_sign_setup_enqueue(tlv->ecdsap384_sign_setup_queue, ecdsa_sign_setup_req);
         break;
     }
@@ -1158,10 +1216,10 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
     ecdsa_sign_sig_req->sts = &sts;
 
     switch (bit_len) {
-    case EC_P256_LENGTH:
+    case EC_P256:
         mb_queue_ecdsap256_sign_sig_enqueue(tlv->ecdsap256_sign_sig_queue, ecdsa_sign_sig_req);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_queue_ecdsap384_sign_sig_enqueue(tlv->ecdsap384_sign_sig_queue, ecdsa_sign_sig_req);
         break;
     }
@@ -1238,7 +1296,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     BIGNUM *priv_key = NULL;
     const BIGNUM *order;
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
-    int ret = 0, job_ret = 0, sts = 0, bit_len = 0;
+    int ret = 0, job_ret = 0, sts = 0, curve = 0;
     int alloc_priv = 0, alloc_pub = 0;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
     ecdh_keygen_op_data *ecdh_keygen_req = NULL;
@@ -1252,8 +1310,8 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
         return ret;
     }
 
-    /* Check if curve is p256 or p384 */
-    if ((bit_len = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
+    /* Check if curve is p256 or p384 or sm2*/
+    if ((curve = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
         goto use_sw_method;
@@ -1360,12 +1418,15 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     ecdh_keygen_req->job = job;
     ecdh_keygen_req->sts = &sts;
 
-    switch (bit_len) {
-    case EC_P256_LENGTH:
+    switch (curve) {
+    case EC_P256:
         mb_queue_ecdhp256_keygen_enqueue(tlv->ecdhp256_keygen_queue, ecdh_keygen_req);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_queue_ecdhp384_keygen_enqueue(tlv->ecdhp384_keygen_queue, ecdh_keygen_req);
+        break;
+    case EC_SM2:
+        mb_queue_sm2ecdh_keygen_enqueue(tlv->sm2ecdh_keygen_queue, ecdh_keygen_req);
         break;
     }
     STOP_RDTSC(&ecdh_cycles_keygen_setup, 1, "[ECDH:keygen_setup]");
@@ -1444,7 +1505,7 @@ int mb_ecdh_compute_key(unsigned char **out,
     const BIGNUM *priv_key;
     const EC_GROUP *group;
     unsigned char *buf = NULL;
-    int ret = 0,job_ret = 0, sts = 0, bit_len = 0;
+    int ret = 0,job_ret = 0, sts = 0, curve = 0;
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
     ecdh_compute_op_data *ecdh_compute_req = NULL;
@@ -1461,8 +1522,8 @@ int mb_ecdh_compute_key(unsigned char **out,
         return ret;
     }
 
-    /* Check if curve is p256 or p384 */
-    if ((bit_len = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
+    /* Check if curve is p256 or p384 or sm2 */
+    if ((curve = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
         goto use_sw_method;
@@ -1538,12 +1599,15 @@ int mb_ecdh_compute_key(unsigned char **out,
     ecdh_compute_req->job = job;
     ecdh_compute_req->sts = &sts;
 
-    switch (bit_len) {
-    case EC_P256_LENGTH:
+    switch (curve) {
+    case EC_P256:
         mb_queue_ecdhp256_compute_enqueue(tlv->ecdhp256_compute_queue, ecdh_compute_req);
         break;
-    case EC_P384_LENGTH:
+    case EC_P384:
         mb_queue_ecdhp384_compute_enqueue(tlv->ecdhp384_compute_queue, ecdh_compute_req);
+        break;
+    case EC_SM2:
+        mb_queue_sm2ecdh_compute_enqueue(tlv->sm2ecdh_compute_queue, ecdh_compute_req);
         break;
     }
     STOP_RDTSC(&ecdh_cycles_compute_setup, 1, "[ECDH:compute_setup]");
