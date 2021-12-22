@@ -729,6 +729,201 @@ ecdsa_sign_sig_op_data
     return item;
 }
 
+mb_flist_ecdsa_sm2_sign * mb_flist_ecdsa_sm2_sign_create()
+{
+    mb_flist_ecdsa_sm2_sign *freelist = NULL;
+    ecdsa_sm2_sign_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
+
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdsa_sm2_sign));
+    if (freelist == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling)
+        pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
+
+    DEBUG("Freelist Created %p\n", freelist);
+    freelist->head = NULL;
+
+    while (num_items > 0) {
+        item = OPENSSL_zalloc(sizeof(ecdsa_sm2_sign_op_data));
+        if (item == NULL) {
+            mb_flist_ecdsa_sm2_sign_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdsa_sm2_sign_push(freelist, item) != 0) {
+            mb_flist_ecdsa_sm2_sign_cleanup(freelist);
+            return NULL;
+        }
+        num_items--;
+    }
+    return freelist;
+}
+
+int mb_flist_ecdsa_sm2_sign_cleanup(mb_flist_ecdsa_sm2_sign *freelist)
+{
+    ecdsa_sm2_sign_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return 1;
+
+    while ((item = mb_flist_ecdsa_sm2_sign_pop(freelist)) != NULL) {
+       OPENSSL_free(item);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
+    }
+    return 0;
+}
+
+int mb_flist_ecdsa_sm2_sign_push(mb_flist_ecdsa_sm2_sign *freelist,
+                             ecdsa_sm2_sign_op_data *item)
+{
+    if (freelist == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    item->next = freelist->head;
+    freelist->head = item;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+    return 0;
+}
+
+ecdsa_sm2_sign_op_data
+    *mb_flist_ecdsa_sm2_sign_pop(mb_flist_ecdsa_sm2_sign *freelist)
+{
+    ecdsa_sm2_sign_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    if (freelist->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&freelist->mb_flist_mutex);
+        }
+        return NULL;
+    }
+
+    item = freelist->head;
+    freelist->head = item->next;
+
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+
+    return item;
+}
+
+mb_flist_ecdsa_sm2_verify * mb_flist_ecdsa_sm2_verify_create()
+{
+    mb_flist_ecdsa_sm2_verify *freelist = NULL;
+    ecdsa_sm2_verify_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
+
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdsa_sm2_verify));
+    if (freelist == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling)
+        pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
+
+    DEBUG("Freelist Created %p\n", freelist);
+    freelist->head = NULL;
+
+    while (num_items > 0) {
+        item = OPENSSL_zalloc(sizeof(ecdsa_sm2_verify_op_data));
+        if (item == NULL) {
+            mb_flist_ecdsa_sm2_verify_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdsa_sm2_verify_push(freelist, item) != 0) {
+            mb_flist_ecdsa_sm2_verify_cleanup(freelist);
+            return NULL;
+        }
+        num_items--;
+    }
+    return freelist;
+}
+
+int mb_flist_ecdsa_sm2_verify_cleanup(mb_flist_ecdsa_sm2_verify *freelist)
+{
+    ecdsa_sm2_verify_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return 1;
+
+    while ((item = mb_flist_ecdsa_sm2_verify_pop(freelist)) != NULL) {
+       OPENSSL_free(item);
+    }
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
+    }
+    return 0;
+}
+
+int mb_flist_ecdsa_sm2_verify_push(mb_flist_ecdsa_sm2_verify *freelist,
+                             ecdsa_sm2_verify_op_data *item)
+{
+    if (freelist == NULL)
+        return 1;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    item->next = freelist->head;
+    freelist->head = item;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+    return 0;
+}
+
+ecdsa_sm2_verify_op_data
+    *mb_flist_ecdsa_sm2_verify_pop(mb_flist_ecdsa_sm2_verify *freelist)
+{
+    ecdsa_sm2_verify_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return NULL;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+    }
+
+    if (freelist->head == NULL) {
+        if (0 == enable_external_polling) {
+            pthread_mutex_unlock(&freelist->mb_flist_mutex);
+        }
+        return NULL;
+    }
+
+    item = freelist->head;
+    freelist->head = item->next;
+
+    if (0 == enable_external_polling) {
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+    }
+
+    return item;
+}
+
 mb_flist_ecdh_keygen * mb_flist_ecdh_keygen_create()
 {
     mb_flist_ecdh_keygen *freelist = NULL;

@@ -230,6 +230,24 @@ typedef struct _mb_queue_sm2ecdh_compute
     int disabled;
 } mb_queue_sm2ecdh_compute;
 
+typedef struct _mb_queue_ecdsa_sm2_sign
+{
+    pthread_mutex_t mb_queue_mutex;
+    ecdsa_sm2_sign_op_data *head;
+    ecdsa_sm2_sign_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_ecdsa_sm2_sign;
+
+typedef struct _mb_queue_ecdsa_sm2_verify
+{
+    pthread_mutex_t mb_queue_mutex;
+    ecdsa_sm2_verify_op_data *head;
+    ecdsa_sm2_verify_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_ecdsa_sm2_verify;
+
 typedef struct _mb_queue_sm3_init
 {
     pthread_mutex_t mb_queue_mutex;
@@ -460,4 +478,21 @@ ecdh_compute_op_data
     *mb_queue_sm2ecdh_compute_dequeue(mb_queue_sm2ecdh_compute *queue);
 int mb_queue_sm2ecdh_compute_get_size(mb_queue_sm2ecdh_compute *queue);
 
+mb_queue_ecdsa_sm2_sign * mb_queue_ecdsa_sm2_sign_create();
+int mb_queue_ecdsa_sm2_sign_disable(mb_queue_ecdsa_sm2_sign * queue);
+int mb_queue_ecdsa_sm2_sign_cleanup(mb_queue_ecdsa_sm2_sign * queue);
+int mb_queue_ecdsa_sm2_sign_enqueue(mb_queue_ecdsa_sm2_sign *queue,
+                                    ecdsa_sm2_sign_op_data *item);
+ecdsa_sm2_sign_op_data
+    *mb_queue_ecdsa_sm2_sign_dequeue(mb_queue_ecdsa_sm2_sign *queue);
+int mb_queue_ecdsa_sm2_sign_get_size(mb_queue_ecdsa_sm2_sign *queue);
+
+mb_queue_ecdsa_sm2_verify * mb_queue_ecdsa_sm2_verify_create();
+int mb_queue_ecdsa_sm2_verify_disable(mb_queue_ecdsa_sm2_verify * queue);
+int mb_queue_ecdsa_sm2_verify_cleanup(mb_queue_ecdsa_sm2_verify * queue);
+int mb_queue_ecdsa_sm2_verify_enqueue(mb_queue_ecdsa_sm2_verify *queue,
+                                      ecdsa_sm2_verify_op_data *item);
+ecdsa_sm2_verify_op_data
+    *mb_queue_ecdsa_sm2_verify_dequeue(mb_queue_ecdsa_sm2_verify *queue);
+int mb_queue_ecdsa_sm2_verify_get_size(mb_queue_ecdsa_sm2_verify *queue);
 #endif /* QAT_SW_QUEUE_H */

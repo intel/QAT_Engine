@@ -136,7 +136,10 @@ int qat_evp_nids[] = {
     EVP_PKEY_X25519,
 #endif
 #ifdef ENABLE_QAT_HW_ECX
-    EVP_PKEY_X448
+    EVP_PKEY_X448,
+#endif
+#ifdef ENABLE_QAT_SW_SM2
+    EVP_PKEY_SM2
 #endif
 };
 const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
@@ -165,7 +168,7 @@ int qat_digest_nids[] = {
     NID_sha3_256,
     NID_sha3_384,
     NID_sha3_512,
-#endif
+# endif
 #ifdef ENABLE_QAT_SW_SM3
     NID_sm3,
 #endif
@@ -427,6 +430,12 @@ static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
     case EVP_PKEY_X448:
         return qat_x448_pmeth();
 #endif
+
+#ifdef ENABLE_QAT_SW_SM2
+    case EVP_PKEY_SM2:
+      return mb_sm2_pmeth();
+#endif
+
     default:
         WARN("Invalid nid %d\n", nid);
         return NULL;

@@ -125,6 +125,45 @@ typedef struct _x25519_derive_op_data {
     int *sts;
 } x25519_derive_op_data;
 
+typedef struct _ecdsa_sm2_sign_op_data {
+    struct _ecdsa_sm2_sign_op_data *next;
+    struct _ecdsa_sm2_sign_op_data *prev;
+    unsigned char *sign_r;
+    unsigned char *sign_s;
+    const unsigned char *digest;
+    const BIGNUM *eph_key;
+    const BIGNUM *priv_key;
+    const BIGNUM *x;
+    const BIGNUM *y;
+    const BIGNUM *z;
+    unsigned char *id;
+    int id_len;
+    int dig_len;
+    int id_set;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdsa_sm2_sign_op_data;
+
+typedef struct _ecdsa_sm2_verify_op_data {
+    struct _ecdsa_sm2_verify_op_data *next;
+    struct _ecdsa_sm2_verify_op_data *prev;
+    unsigned char *sign_r;
+    unsigned char *sign_s;
+    const unsigned char *digest;
+    int dig_len;
+    BIGNUM *x;
+    BIGNUM *y;
+    BIGNUM *z;
+    const BIGNUM *priv_key;
+    EC_GROUP *gen_group;
+    unsigned char *id;
+    int id_len;
+    int id_set;
+    ECDSA_SIG *s;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdsa_sm2_verify_op_data;
+
 typedef struct _ecdsa_sign_op_data {
     struct _ecdsa_sign_op_data *next;
     struct _ecdsa_sign_op_data *prev;

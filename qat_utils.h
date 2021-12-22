@@ -918,6 +918,8 @@ extern rdtsc_prof_t sm3_cycles_update_setup;
 extern rdtsc_prof_t sm3_cycles_update_execute;
 extern rdtsc_prof_t sm3_cycles_final_setup;
 extern rdtsc_prof_t sm3_cycles_final_execute;
+extern rdtsc_prof_t ecdsa_cycles_verify_setup;
+extern rdtsc_prof_t ecdsa_cycles_verify_execute;
 
 extern int print_cycle_count;
 
@@ -1030,6 +1032,8 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&sm3_cycles_update_execute, 0); \
         rdtsc_prof_init(&sm3_cycles_final_setup, 0);    \
         rdtsc_prof_init(&sm3_cycles_final_execute, 0);  \
+	rdtsc_prof_init(&ecdsa_cycles_verify_execute, 0);  \
+	rdtsc_prof_init(&ecdsa_cycles_verify_setup, 0);   \
     } while (0)
 
 
@@ -1068,6 +1072,8 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_print(&sm3_cycles_update_execute, "[SM3:update_execute]"); \
         rdtsc_prof_print(&sm3_cycles_final_setup, "[SM3:final_setup]");       \
         rdtsc_prof_print(&sm3_cycles_final_execute, "[SM3:final_execute]");   \
+	rdtsc_prof_print(&ecdsa_cycles_verify_setup, "[ECDSA:verify_setup]");       \
+	rdtsc_prof_print(&ecdsa_cycles_verify_execute, "[ECDSA:verify_execute]");   \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \

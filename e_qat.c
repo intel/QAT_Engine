@@ -178,6 +178,7 @@ int qat_sw_ecx_offload = 0;
 int qat_sw_ecdh_offload = 0;
 int qat_sw_ecdsa_offload = 0;
 int qat_sw_gcm_offload = 0;
+int qat_sw_sm2_offload = 0;
 int qat_sw_sm3_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
@@ -928,8 +929,9 @@ static int bind_qat(ENGINE *e, const char *id)
     }
 
 #ifdef QAT_SW
-# if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)   \
-  || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
+# if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)    \
+  || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA) \
+  || defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_SW_SM3)
         DEBUG("Registering QAT SW supported algorithms\n");
         qat_sw_offload = 1;
 # endif

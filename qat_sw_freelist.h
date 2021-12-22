@@ -93,6 +93,18 @@ typedef struct _mb_flist_ecdsa_sign_sig
     ecdsa_sign_sig_op_data *head;
 } mb_flist_ecdsa_sign_sig;
 
+typedef struct _mb_flist_ecdsa_sm2_sign
+{
+    pthread_mutex_t mb_flist_mutex;
+    ecdsa_sm2_sign_op_data *head;
+} mb_flist_ecdsa_sm2_sign;
+
+typedef struct _mb_flist_ecdsa_sm2_verify
+{
+    pthread_mutex_t mb_flist_mutex;
+    ecdsa_sm2_verify_op_data *head;
+} mb_flist_ecdsa_sm2_verify;
+
 typedef struct _mb_flist_ecdh_keygen
 {
     pthread_mutex_t mb_flist_mutex;
@@ -156,6 +168,12 @@ typedef struct _mb_thread_data{
     mb_queue_ecdsap384_sign_setup *ecdsap384_sign_setup_queue;
     mb_queue_ecdsap384_sign_sig *ecdsap384_sign_sig_queue;
 
+    /* ECDSA sm2 */
+    mb_flist_ecdsa_sm2_sign *ecdsa_sm2_sign_freelist;
+    mb_flist_ecdsa_sm2_verify *ecdsa_sm2_verify_freelist;
+    mb_queue_ecdsa_sm2_sign *ecdsa_sm2_sign_queue;
+    mb_queue_ecdsa_sm2_verify *ecdsa_sm2_verify_queue;
+
     /* ECDH p256*/
     mb_flist_ecdh_keygen *ecdh_keygen_freelist;
     mb_flist_ecdh_compute *ecdh_compute_freelist;
@@ -201,6 +219,20 @@ int mb_flist_x25519_derive_cleanup(mb_flist_x25519_derive *freelist);
 int mb_flist_x25519_derive_push(mb_flist_x25519_derive *freelist,
                                 x25519_derive_op_data *item);
 x25519_derive_op_data * mb_flist_x25519_derive_pop(mb_flist_x25519_derive *flist);
+
+mb_flist_ecdsa_sm2_sign * mb_flist_ecdsa_sm2_sign_create();
+int mb_flist_ecdsa_sm2_sign_cleanup(mb_flist_ecdsa_sm2_sign *freelist);
+int mb_flist_ecdsa_sm2_sign_push(mb_flist_ecdsa_sm2_sign *freelist,
+                             ecdsa_sm2_sign_op_data *item);
+ecdsa_sm2_sign_op_data
+    *mb_flist_ecdsa_sm2_sign_pop(mb_flist_ecdsa_sm2_sign *flist);
+
+mb_flist_ecdsa_sm2_verify * mb_flist_ecdsa_sm2_verify_create();
+int mb_flist_ecdsa_sm2_verify_cleanup(mb_flist_ecdsa_sm2_verify *freelist);
+int mb_flist_ecdsa_sm2_verify_push(mb_flist_ecdsa_sm2_verify *freelist,
+                             ecdsa_sm2_verify_op_data *item);
+ecdsa_sm2_verify_op_data
+    *mb_flist_ecdsa_sm2_verify_pop(mb_flist_ecdsa_sm2_verify *flist);
 
 mb_flist_ecdsa_sign * mb_flist_ecdsa_sign_create();
 int mb_flist_ecdsa_sign_cleanup(mb_flist_ecdsa_sign *freelist);

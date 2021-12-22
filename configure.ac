@@ -103,6 +103,11 @@ AC_ARG_ENABLE(qat_sw_ecdh,
                              [Disable qat_sw ECDH acceleration]))
 AC_SUBST(enable_qat_sw_ecdh)
 
+AC_ARG_ENABLE(qat_sw_sm2,
+              AS_HELP_STRING([--disable-qat_sw_sm2],
+                             [Disable qat_sw SM2 acceleration]))
+AC_SUBST(enable_qat_sw_sm2)
+
 AC_ARG_ENABLE(qat_sw_sm3,
               AS_HELP_STRING([--disable-qat_sw_sm3],
                              [Disable qat_sw SM3 acceleration]))
@@ -566,6 +571,12 @@ else if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
     AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
 fi
 fi
+fi
+
+if test "x$enable_qat_sw_sm2" != "xno" -a "x$cflags_qat_sw" != "x"
+then
+  enable_qat_sw_sm2="-DENABLE_QAT_SW_SM2"
+  AC_MSG_NOTICE([Accelerating SM3 to Software (Multi-buffer)])
 fi
 
 if test "x$enable_qat_sw_sm3" != "xno" -a "x$cflags_qat_sw" != "x"

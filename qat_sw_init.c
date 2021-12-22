@@ -173,6 +173,20 @@ mb_thread_data* mb_check_thread_local(void)
         }
 #endif
 
+#ifdef ENABLE_QAT_SW_SM2
+        if(((tlv->ecdsa_sm2_sign_freelist = mb_flist_ecdsa_sm2_sign_create())
+                 == NULL) ||
+           ((tlv->ecdsa_sm2_verify_freelist = mb_flist_ecdsa_sm2_verify_create())
+                 == NULL) ||
+           ((tlv->ecdsa_sm2_sign_queue= mb_queue_ecdsa_sm2_sign_create())
+                 == NULL) ||
+           ((tlv->ecdsa_sm2_verify_queue= mb_queue_ecdsa_sm2_verify_create())
+                 == NULL)) {
+            WARN("Failure to allocate ECDSA SM2 Freelists and Queues\n");
+            return NULL;
+        }
+#endif
+
 #ifdef ENABLE_QAT_SW_SM3
         if(((tlv->sm3_init_freelist = mb_flist_sm3_init_create())
                  == NULL) ||
@@ -245,6 +259,10 @@ void mb_thread_local_destructor(void *tlv_ptr)
     ecdh_compute_op_data *ecdhp384_compute_req = NULL;
     ecdh_keygen_op_data *sm2ecdh_keygen_req= NULL;
     ecdh_compute_op_data *sm2ecdh_compute_req= NULL;
+#endif
+#ifdef ENABLE_QAT_SW_SM2
+    ecdsa_sm2_sign_op_data *ecdsa_sm2_sign_req = NULL;
+    ecdsa_sm2_verify_op_data *ecdsa_sm2_verify_req = NULL;
 #endif
 #ifdef ENABLE_QAT_SW_SM3
     sm3_init_op_data *sm3_init_req = NULL;
@@ -403,6 +421,27 @@ void mb_thread_local_destructor(void *tlv_ptr)
         mb_flist_ecdsa_sign_sig_cleanup(tlv->ecdsa_sign_sig_freelist);
 #endif
 
+#ifdef ENABLE_QAT_SW_SM2
+        while ((ecdsa_sm2_sign_req =
+                mb_queue_ecdsa_sm2_sign_dequeue(tlv->ecdsa_sm2_sign_queue)) != NULL) {
+            *ecdsa_sm2_sign_req->sts = -1;
+            qat_wake_job(ecdsa_sm2_sign_req->job, 0);
+            OPENSSL_free(ecdsa_sm2_sign_req);
+        }
+        mb_queue_ecdsa_sm2_sign_cleanup(tlv->ecdsa_sm2_sign_queue);
+
+        while ((ecdsa_sm2_verify_req =
+                mb_queue_ecdsa_sm2_verify_dequeue(tlv->ecdsa_sm2_verify_queue)) != NULL) {
+            *ecdsa_sm2_verify_req->sts = -1;
+            qat_wake_job(ecdsa_sm2_verify_req->job, 0);
+            OPENSSL_free(ecdsa_sm2_verify_req);
+        }
+        mb_queue_ecdsa_sm2_verify_cleanup(tlv->ecdsa_sm2_verify_queue);
+
+        mb_flist_ecdsa_sm2_sign_cleanup(tlv->ecdsa_sm2_sign_freelist);
+        mb_flist_ecdsa_sm2_verify_cleanup(tlv->ecdsa_sm2_verify_freelist);
+#endif
+
 #ifdef ENABLE_QAT_SW_ECDH
         while ((ecdhp256_keygen_req =
                 mb_queue_ecdhp256_keygen_dequeue(tlv->ecdhp256_keygen_queue)) != NULL) {
@@ -483,7 +522,7 @@ void mb_thread_local_destructor(void *tlv_ptr)
         }
         mb_queue_sm3_final_cleanup(tlv->sm3_final_queue);
 
-	mb_flist_sm3_init_cleanup(tlv->sm3_init_freelist);
+        mb_flist_sm3_init_cleanup(tlv->sm3_init_freelist);
         mb_flist_sm3_update_cleanup(tlv->sm3_update_freelist);
         mb_flist_sm3_final_cleanup(tlv->sm3_final_freelist);
 #endif

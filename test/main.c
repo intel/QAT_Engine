@@ -249,6 +249,7 @@ static const option_data ecdsa_choices[] = {
     {"ecdsab283", 0, TEST_ECDSA, B_CURVE_283, 0},
     {"ecdsab409", 0, TEST_ECDSA, B_CURVE_409, 0},
     {"ecdsab571", 0, TEST_ECDSA, B_CURVE_571, 0},
+    {"ecdsasm2", 0, TEST_ECDSA, P_CURVE_SM2, 0},
 };
 
 static const option_data aes_choices[] = {

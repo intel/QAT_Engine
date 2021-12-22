@@ -332,6 +332,7 @@ extern int qat_sw_ecx_offload;
 extern int qat_sw_ecdh_offload;
 extern int qat_sw_ecdsa_offload;
 extern int qat_sw_gcm_offload;
+extern int qat_sw_sm2_offload;
 extern int qat_sw_sm3_offload;
 extern int qat_keep_polling;
 extern int multibuff_keep_polling;

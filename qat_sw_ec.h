@@ -52,6 +52,14 @@
 
 # include <openssl/ossl_typ.h>
 
+# ifdef ENABLE_QAT_SW_SM2
+int multibuff_sm2_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
+                               const int **nids, int nid);
+EVP_PKEY_METHOD *mb_sm2_pmeth(void);
+void process_ecdsa_sm2_sign_reqs(mb_thread_data *tlv);
+void process_ecdsa_sm2_verify_reqs(mb_thread_data *tlv);
+# endif
+
 # ifdef ENABLE_QAT_SW_ECDSA
 int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                   unsigned char *sig, unsigned int *siglen,
@@ -73,6 +81,5 @@ int mb_ecdh_generate_key(EC_KEY *ecdh);
 void process_ecdh_keygen_reqs(mb_thread_data *tlv, int bits);
 void process_ecdh_compute_reqs(mb_thread_data *tlv, int bits);
 # endif
-
 
 #endif /* QAT_SW_EC_H */
