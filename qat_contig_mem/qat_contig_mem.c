@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only
- * Copyright (C) 2007-2021 Intel Corporation */
+ * Copyright (C) 2007-2022 Intel Corporation */
 
 /* This example contiguous memory allocator is written as a slab allocator.
    The expectation is that allocations passed to it are for
