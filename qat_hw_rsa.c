@@ -274,6 +274,16 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
          * will begin to poll the instance.
          */
         QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+        if (qat_use_signals()) {
+            if (tlv->localOpsInFlight == 1) {
+                if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
+                    WARN("qat_kill_thread error\n");
+                    QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
+                    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+                    return 0;
+                }
+            }
+        }
         qat_cleanup_op_done(&op_done);
         sync_mode_ret = qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf, fallback);
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);

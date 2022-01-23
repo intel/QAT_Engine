@@ -65,6 +65,7 @@
 
 /* Crypto_mb includes */
 #include "crypto_mb/ec_sm2.h"
+#include "crypto_mb/cpu_features.h"
 
 /* The default user id as specified in GM/T 0009-2012 */
 # define SM2_DEFAULT_USERID "1234567812345678"
@@ -103,8 +104,13 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *ctx,
 
 EVP_PKEY_METHOD *mb_sm2_pmeth(void)
 {
-    if (_hidden_sm2_pmeth)
+    if (_hidden_sm2_pmeth && qat_sw_sm2_offload)
         return _hidden_sm2_pmeth;
+
+    /* EVP_PKEY_meth_copy doesnt copy digest_custom from SW method
+     * so directly returning sw method sperately here */
+    if (sw_sm2_pmeth && !qat_sw_sm2_offload)
+       return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
 
     if ((_hidden_sm2_pmeth =
                 EVP_PKEY_meth_new(EVP_PKEY_SM2, 0)) == NULL) {
@@ -117,19 +123,22 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
     }
 
 #ifdef ENABLE_QAT_SW_SM2
-    EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
-    EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
-    EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
-    EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth, mb_digest_custom);
-    EVP_PKEY_meth_set_digestsign(_hidden_sm2_pmeth, mb_ecdsa_sm2_sign);
-    EVP_PKEY_meth_set_digestverify(_hidden_sm2_pmeth, mb_ecdsa_sm2_verify);
-
-    qat_sw_sm2_offload = 1;
-    DEBUG("QAT SW SM2 registration succeeded\n");
+    if (mbx_get_algo_info(MBX_ALGO_X25519)) {
+        EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
+        EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
+        EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
+        EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth, mb_digest_custom);
+        EVP_PKEY_meth_set_digestsign(_hidden_sm2_pmeth, mb_ecdsa_sm2_sign);
+        EVP_PKEY_meth_set_digestverify(_hidden_sm2_pmeth, mb_ecdsa_sm2_verify);
+        qat_sw_sm2_offload = 1;
+        DEBUG("QAT SW SM2 registration succeeded\n");
+    }
 #endif
 
-    if (!qat_sw_sm2_offload)
-        EVP_PKEY_meth_copy(_hidden_sm2_pmeth, sw_sm2_pmeth);
+    if (!qat_sw_sm2_offload) {
+        DEBUG("OpenSSL SW ECDSA SM2\n");
+        return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
+    }
 
     return _hidden_sm2_pmeth;
 }
@@ -693,7 +702,7 @@ static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
-    DEBUG("QAT SW ECDSA Started %p\n", ecdsa_sm2_sign_req);
+    DEBUG("QAT SW ECDSA SM2 Sign Started %p\n", ecdsa_sm2_sign_req);
     START_RDTSC(&ecdsa_cycles_sign_setup);
 
     /* Buffer up the requests and call the new functions when we have enough
@@ -903,8 +912,6 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     }
 
     /* Check if we are running asynchronously */
-
-    /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
@@ -928,6 +935,7 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
     }
 
+    DEBUG("QAT SW ECDSA SM2 Verify Started %p\n", ecdsa_sm2_verify_req);
     START_RDTSC(&ecdsa_cycles_verify_setup);
 
     /* Buffer up the requests and call the new functions when we have enough

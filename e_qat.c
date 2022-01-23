@@ -154,13 +154,13 @@
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.10";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.11";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v0.6.10";
+    "Reference implementation of QAT crypto engine(qat_hw) v0.6.11";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v0.6.10";
+    "Reference implementation of QAT crypto engine(qat_sw) v0.6.11";
 #endif
 unsigned int engine_inited = 0;
 
@@ -388,6 +388,8 @@ static int qat_engine_destroy(ENGINE *e)
     qat_hw_prf_offload = 0;
     qat_hw_hkdf_offload = 0;
     qat_sw_ecx_offload = 0;
+    qat_sw_sm2_offload = 0;
+    qat_sw_sm3_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;

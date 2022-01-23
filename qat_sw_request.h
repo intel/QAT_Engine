@@ -59,6 +59,15 @@
 #define X25519_KEYLEN 32
 #define MAX_KEYLEN  57
 
+# pragma pack(push, 1)
+typedef struct _sm3_context{
+    int     msg_buff_idx;
+    unsigned long long msg_len;
+    unsigned char msg_buffer[SM3_MSG_BLOCK_SIZE];
+    unsigned int msg_hash[SM3_SIZE_IN_WORDS];
+} SM3_CTX_mb;
+# pragma pack(pop)
+
 typedef struct {
     unsigned char pubkey[MAX_KEYLEN];
     unsigned char *privkey;
@@ -225,7 +234,7 @@ typedef struct _ecdh_compute_op_data {
 typedef struct _sm3_init_op_data {
     struct _sm3_init_op_data *next;
     struct _sm3_init_op_data *prev;
-    SM3_CTX_mb16  *state;
+    SM3_CTX_mb *state;
     ASYNC_JOB *job;
     int *sts;
 } sm3_init_op_data;
@@ -233,8 +242,8 @@ typedef struct _sm3_init_op_data {
 typedef struct _sm3_update_op_data {
     struct _sm3_update_op_data *next;
     struct _sm3_update_op_data *prev;
-    SM3_CTX_mb16  *state;
-    int8u **sm3_data;
+    SM3_CTX_mb *state;
+    const unsigned char *sm3_data;
     int sm3_len;
     ASYNC_JOB *job;
     int *sts;
@@ -243,8 +252,8 @@ typedef struct _sm3_update_op_data {
 typedef struct _sm3_final_op_data {
     struct _sm3_final_op_data *next;
     struct _sm3_final_op_data *prev;
-    SM3_CTX_mb16  *state;
-    int8u  **sm3_hash;
+    SM3_CTX_mb *state;
+    unsigned char *sm3_hash;
     ASYNC_JOB *job;
     int *sts;
 } sm3_final_op_data;

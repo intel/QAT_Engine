@@ -208,16 +208,19 @@ static int pkt_threshold_table_size =
 static EC_KEY_METHOD *qat_ec_method = NULL;
 static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
 static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
+static EVP_MD *qat_sw_sm3_meth = NULL;
 
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
 const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
-EVP_MD *qat_sw_sm3_meth = NULL;
 
 const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 {
 #ifdef ENABLE_QAT_SW_SM3
     int res = 1;
+
+    if (qat_sw_sm3_meth)
+        return qat_sw_sm3_meth;
 
     if ((qat_sw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
         WARN("Failed to allocate digest methods for nid %d\n", nid);
@@ -227,13 +230,14 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
     /* For now check using MBX_ALGO_X25519 as algo info for sm3 is not implemented */
     if (mbx_get_algo_info(MBX_ALGO_X25519)) {
         res &= EVP_MD_meth_set_result_size(qat_sw_sm3_meth, 32);
-        res &= EVP_MD_meth_set_input_blocksize(qat_sw_sm3_meth, 64);
-        res &= EVP_MD_meth_set_app_datasize(qat_sw_sm3_meth, sizeof(EVP_MD*) + 580);
-        res &= EVP_MD_meth_set_flags(qat_sw_sm3_meth, (EVP_MD_CTX_FLAG_ONESHOT|EVP_MD_CTX_FLAG_NO_INIT));
+        res &= EVP_MD_meth_set_input_blocksize(qat_sw_sm3_meth, SM3_MSG_BLOCK_SIZE);
+        res &= EVP_MD_meth_set_app_datasize(qat_sw_sm3_meth, sizeof(EVP_MD *) + sizeof(SM3_CTX_mb));
+        res &= EVP_MD_meth_set_flags(qat_sw_sm3_meth, EVP_MD_CTX_FLAG_REUSE);
         res &= EVP_MD_meth_set_init(qat_sw_sm3_meth, qat_sw_sm3_init);
         res &= EVP_MD_meth_set_update(qat_sw_sm3_meth, qat_sw_sm3_update);
         res &= EVP_MD_meth_set_final(qat_sw_sm3_meth, qat_sw_sm3_final);
         qat_sw_sm3_offload = 1;
+        DEBUG("QAT SW SM3 Registration succeeded\n");
     }
 
     if (0 == res) {
@@ -242,11 +246,12 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
         qat_sw_sm3_meth = NULL;
     }
 
-    DEBUG("QAT SW SM3 Registration succeeded\n");
 #endif
 
-    if (!qat_sw_sm3_offload)
-        return EVP_sm3();
+    if (!qat_sw_sm3_offload) {
+        qat_sw_sm3_meth = (EVP_MD *)EVP_sm3();
+        DEBUG("OpenSSL SW SM3\n");
+    }
 
     return qat_sw_sm3_meth;
 }
@@ -264,22 +269,23 @@ static const EVP_MD *qat_create_digest_meth(int nid , int pkeytype)
 {
     switch (nid) {
 #ifdef ENABLE_QAT_HW_SHA3
-        case NID_sha3_224:
-        case NID_sha3_256:
-        case NID_sha3_384:
-        case NID_sha3_512:
-            if (qat_hw_offload)
-                return qat_create_sha3_meth(nid , pkeytype);
+    case NID_sha3_224:
+    case NID_sha3_256:
+    case NID_sha3_384:
+    case NID_sha3_512:
+        if (qat_hw_offload)
+            return qat_create_sha3_meth(nid , pkeytype);
 #endif
 #ifdef ENABLE_QAT_SW_SM3
-        case NID_sm3:
-            return qat_sw_create_sm3_meth(nid , pkeytype);
+    case NID_sm3:
+        return qat_sw_create_sm3_meth(nid , pkeytype);
 #endif
-        default:
-            WARN("Invalid nid %d\n", nid);
-            return NULL;
+    default:
+        WARN("Invalid nid %d\n", nid);
+        return NULL;
     }
 }
+
 /******************************************************************************
  * function:
  *         qat_digest_methods(ENGINE *e,

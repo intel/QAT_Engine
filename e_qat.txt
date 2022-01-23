@@ -358,22 +358,25 @@ QAT_R_SET_TAG_INVALID_OP:326:set tag invalid op
 QAT_R_SHA3_CTX_NULL:327:sha3 ctx null
 QAT_R_SIG_GET_R_S_FAILURE:328:sig get r s failure
 QAT_R_SIG_MALLOC_FAILURE:329:sig malloc failure
-QAT_R_SSD_MALLOC_FAILURE:330:ssd malloc failure
-QAT_R_SSD_NULL:331:ssd null
-QAT_R_START_INSTANCE_FAILURE:332:start instance failure
-QAT_R_STOP_INSTANCE_FAILURE:333:stop instance failure
-QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:334:sw get compute key pfunc null
-QAT_R_SW_GET_KEYGEN_PFUNC_NULL:335:sw get keygen pfunc null
-QAT_R_SW_GET_SIGN_PFUNC_NULL:336:sw get sign pfunc null
-QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:337:sw get sign setup pfunc null
-QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:338:sw get sign sig pfunc null
-QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:339:sw get verify sig pfunc null
-QAT_R_SW_METHOD_NULL:340:sw method null
-QAT_R_S_NULL:341:s null
-QAT_R_S_Q_COMPARE_FAILURE:342:s q compare failure
-QAT_R_UNKNOWN_PADDING:343:unknown padding
-QAT_R_UNKNOWN_PADDING_TYPE:344:unknown padding type
-QAT_R_WAKE_PAUSE_JOB_FAILURE:345:wake pause job failure
-QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:346:x y tx ty bn malloc failure
-QAT_R_X_Y_Z_MALLOC_FAILURE:347:x y z malloc failure
-QAT_R_Z_ALLOCATE_FAILURE:348:z allocate failure
+QAT_R_SM3_FINAL_FAILURE:330:sm3 final failure
+QAT_R_SM3_INIT_FAILURE:331:sm3 init failure
+QAT_R_SM3_UPDATE_FAILURE:332:sm3 update failure
+QAT_R_SSD_MALLOC_FAILURE:333:ssd malloc failure
+QAT_R_SSD_NULL:334:ssd null
+QAT_R_START_INSTANCE_FAILURE:335:start instance failure
+QAT_R_STOP_INSTANCE_FAILURE:336:stop instance failure
+QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:337:sw get compute key pfunc null
+QAT_R_SW_GET_KEYGEN_PFUNC_NULL:338:sw get keygen pfunc null
+QAT_R_SW_GET_SIGN_PFUNC_NULL:339:sw get sign pfunc null
+QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:340:sw get sign setup pfunc null
+QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:341:sw get sign sig pfunc null
+QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:342:sw get verify sig pfunc null
+QAT_R_SW_METHOD_NULL:343:sw method null
+QAT_R_S_NULL:344:s null
+QAT_R_S_Q_COMPARE_FAILURE:345:s q compare failure
+QAT_R_UNKNOWN_PADDING:346:unknown padding
+QAT_R_UNKNOWN_PADDING_TYPE:347:unknown padding type
+QAT_R_WAKE_PAUSE_JOB_FAILURE:348:wake pause job failure
+QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:349:x y tx ty bn malloc failure
+QAT_R_X_Y_Z_MALLOC_FAILURE:350:x y z malloc failure
+QAT_R_Z_ALLOCATE_FAILURE:351:z allocate failure

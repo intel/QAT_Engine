@@ -53,8 +53,6 @@
 # include <openssl/ossl_typ.h>
 
 # ifdef ENABLE_QAT_SW_SM2
-int multibuff_sm2_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
-                               const int **nids, int nid);
 EVP_PKEY_METHOD *mb_sm2_pmeth(void);
 void process_ecdsa_sm2_sign_reqs(mb_thread_data *tlv);
 void process_ecdsa_sm2_verify_reqs(mb_thread_data *tlv);

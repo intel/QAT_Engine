@@ -31,3 +31,8 @@
   sshd looks to be closing the file descriptors associated with QAT engine and driver
   after initialising openssl. Work around in sshd which comments out the closefrom()
   calls is needed to unblock the issue.
+* SM2 ECDH and ECDSA application testing is done using BabaSSL only since OpenSSL
+  doesn't support SMx cipher suites.
+* SM3 is disabled by default due to known issue from cryto_mb. When SM3 enabled,
+  Performance drop observed in mulithread scenario for all ciphers suites
+  due to the locks at engine_table_select in OpenSSL.

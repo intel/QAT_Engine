@@ -30,8 +30,11 @@
     * ECDH Support for the following curves:
         * Montgomery EC Curve: X25519
         * NIST Prime Curves: P-256/P-384
+        * SM2
     * ECDSA Support for the following curves:
         * NIST Prime Curves: P-256/P-384
+        * SM2
+    * SM3 Hash Support using 16 Multibuffer requests (Experimental).
     * AES128-GCM, AES192-GCM and AES256-GCM
 
 [QAT_HW & QAT_SW Co-existence Feature](qat_hw.md#qat-hw-and-qat-sw-co-existence-feature)

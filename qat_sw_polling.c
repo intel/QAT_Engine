@@ -710,12 +710,13 @@ void *multibuff_timer_poll_func(void *thread_ptr)
                 multibuff_update_req_timeout(&mb_sm2ecdh_compute_req_rates);
 # endif
 #endif
+
 #ifdef ENABLE_QAT_SW_SM3
                 if (mb_queue_sm3_init_get_size(tlv->sm3_init_queue) > 0) {
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
                     process_sm3_init_reqs(tlv);
                     submission_count--;
-                    while ((mb_queue_sm3_init_get_size(tlv->sm3_init_queue) >= MULTIBUFF_MIN_BATCH) &&
+                    while ((mb_queue_sm3_init_get_size(tlv->sm3_init_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
                            (submission_count > 0)) {
                         process_sm3_init_reqs(tlv);
                         submission_count--;
@@ -728,7 +729,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
                     process_sm3_update_reqs(tlv);
                     submission_count--;
-                    while ((mb_queue_sm3_update_get_size(tlv->sm3_update_queue) >= MULTIBUFF_MIN_BATCH) &&
+                    while ((mb_queue_sm3_update_get_size(tlv->sm3_update_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
                            (submission_count > 0)) {
                         process_sm3_update_reqs(tlv);
                         submission_count--;
@@ -741,7 +742,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
                     submission_count = MULTIBUFF_MAX_SUBMISSIONS;
                     process_sm3_final_reqs(tlv);
                     submission_count--;
-                    while ((mb_queue_sm3_final_get_size(tlv->sm3_final_queue) >= MULTIBUFF_MIN_BATCH) &&
+                    while ((mb_queue_sm3_final_get_size(tlv->sm3_final_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
                            (submission_count > 0)) {
                         process_sm3_final_reqs(tlv);
                         submission_count--;
@@ -1063,8 +1064,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
         if (mb_queue_sm3_init_get_size(tlv->sm3_init_queue) >= MULTIBUFF_SM3_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
-                /* Deal with 8 SM3 Init requests */
-                DEBUG("8 SM3 Init requests in flight, process them\n");
+                DEBUG("16 SM3 Init requests in flight, process them\n");
                 process_sm3_init_reqs(tlv);
                 submission_count--;
             } while ((mb_queue_sm3_init_get_size(tlv->sm3_init_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
@@ -1077,8 +1077,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
         if (mb_queue_sm3_update_get_size(tlv->sm3_update_queue) >= MULTIBUFF_SM3_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
-                /* Deal with 8 SM3 Update requests */
-                DEBUG("8 SM3 Update requests in flight, process them\n");
+                DEBUG("16 SM3 Update requests in flight, process them\n");
                 process_sm3_update_reqs(tlv);
                 submission_count--;
             } while ((mb_queue_sm3_update_get_size(tlv->sm3_update_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&
@@ -1090,8 +1089,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
         if (mb_queue_sm3_final_get_size(tlv->sm3_final_queue) >= MULTIBUFF_SM3_MAX_BATCH) {
             submission_count = MULTIBUFF_MAX_SUBMISSIONS;
             do {
-                /* Deal with 8 SM3 Final keygen requests */
-                DEBUG("8 SM3 Final requests in flight, process them\n");
+                DEBUG("16 SM3 Final requests in flight, process them\n");
                 process_sm3_final_reqs(tlv);
                 submission_count--;
             } while ((mb_queue_sm3_final_get_size(tlv->sm3_final_queue) >= MULTIBUFF_SM3_MIN_BATCH) &&

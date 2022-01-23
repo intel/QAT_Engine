@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [0.6.10], [])
+AC_INIT([qatengine], [0.6.11], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -576,15 +576,18 @@ fi
 if test "x$enable_qat_sw_sm2" != "xno" -a "x$cflags_qat_sw" != "x"
 then
   enable_qat_sw_sm2="-DENABLE_QAT_SW_SM2"
-  AC_MSG_NOTICE([Accelerating SM3 to Software (Multi-buffer)])
+  AC_MSG_NOTICE([Accelerating SM2 to Software (Multi-buffer)])
+else
+  enable_qat_sw_sm2=""
+  AC_MSG_NOTICE([Not Accelerating SM2 to Software])
 fi
 
-if test "x$enable_qat_sw_sm3" != "xno" -a "x$cflags_qat_sw" != "x"
+if test "x$enable_qat_sw_sm3" = "xyes" -a "x$cflags_qat_sw" != "x"
 then
   enable_qat_sw_sm3="-DENABLE_QAT_SW_SM3"
-  AC_MSG_NOTICE([Accelerating SM3 to Software])
+  AC_MSG_NOTICE([Accelerating SM3 to Software (experimental)])
 else
-  enable_qat_sw_sm3="-DDISABLE_QAT_SW_SM3"
+  enable_qat_sw_sm3=""
   AC_MSG_NOTICE([Not Accelerating SM3 to Software])
 fi
 

@@ -52,6 +52,9 @@
 #include "tests.h"
 #include "../qat_utils.h"
 
+#  define SM2_ID        "TLSv1.3+GM+Cipher+Suite"
+#  define SM2_ID_LEN    sizeof("TLSv1.3+GM+Cipher+Suite") - 1
+
 static const char rnd_seed[] =
     "string to make the random number generator think it has entropy";
 
@@ -89,14 +92,17 @@ static int get_nid(int type)
         return NID_sect409r1;
     case B_CURVE_571:
         return NID_sect571r1;
+#ifndef QAT_OPENSSL_3
     case P_CURVE_SM2:
         return NID_sm2;
+#endif
     case 0:
         return 0;
     }
     return -1;
 }
 
+#ifndef QAT_OPENSSL_3
 static int test_sm2_ecdsa(int count, int size, ENGINE * e, int print_output,
                           int verify, int nid, const char *curveName)
 {
@@ -157,6 +163,16 @@ static int test_sm2_ecdsa(int count, int size, ENGINE * e, int print_output,
     if (sm2_vfy_pctx == NULL) {
         ret = -1;
         WARN("# FAIL: EVP_PKEY_CTX Alloc Failure\n");
+        goto builtin_err;
+    }
+    if (EVP_PKEY_CTX_set1_id(sm2_pctx, SM2_ID, SM2_ID_LEN) != 1) {
+        ret = -1;
+        WARN("# FAIL: EVP_PKEY_CTX_set1_id Failure\n");
+        goto builtin_err;
+    }
+    if (EVP_PKEY_CTX_set1_id(sm2_vfy_pctx, SM2_ID, SM2_ID_LEN) != 1) {
+        ret = -1;
+        WARN("# FAIL: EVP_PKEY_CTX_set1_id Failure\n");
         goto builtin_err;
     }
 
@@ -237,6 +253,7 @@ builtin_err:
         INFO("# FAIL SM2_ECDSA Sign/Verify for nid %s\n",curveName);
     return ret;
 }
+#endif
 
 /******************************************************************************
  * function:
@@ -274,9 +291,11 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
     int ret = 0, i;
     char buf[256];
 
+#ifndef QAT_OPENSSL_3
     if (nid == NID_sm2)
         return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
                               curveName);
+#endif
 
     out = BIO_new(BIO_s_file());
     if (out == NULL) {
@@ -407,11 +426,13 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
     }
 
     /* Verify Signature with a wrong digest*/
+#if CPA_CY_API_VERSION_NUM_MAJOR < 3
     if (ECDSA_verify(0, wrong_digest, size, signature, sig_len, eckey) == 1) {
         WARN("# FAIL: Verified with wrong digest\n");
         ret = -1;
         goto builtin_err;
     }
+#endif
 
 builtin_err:
     if (eckey)

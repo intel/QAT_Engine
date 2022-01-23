@@ -166,9 +166,19 @@ The following is a list of the options that can be used with the
     '--enable-qat_sw' (enabled by default if qat_sw is enabled).
 
 --disable-qat_sw_ecdh/--enable-qat_sw_ecdh
-    Disable/Enable Intel(R) QAT Software ECDH P-256/P-384 acceleration.
+    Disable/Enable Intel(R) QAT Software ECDH P-256/P-384/SM2 acceleration.
     This flag is valid only when QAT SW acceleration is enabled using the flag
     '--enable-qat_sw' (enabled by default if qat_sw is enabled).
+
+--disable-qat_sw_sm2/--enable-qat_sw_sm2
+    Disable/Enable Intel(R) QAT Software ECDSA SM2 acceleration.
+    This flag is valid only when QAT SW acceleration is enabled using the flag
+    '--enable-qat_sw' (enabled by default if qat_sw is enabled).
+
+--disable-qat_sw_sm3/--enable-qat_sw_sm3
+    Disable/Enable Intel(R) QAT Software SM3 acceleration.
+    This flag is valid only when QAT SW acceleration is enabled using the flag
+    '--enable-qat_sw' (disabled by default).
 
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
     Enable the acceleration of small packet cipher operations to Intel(R) QAT

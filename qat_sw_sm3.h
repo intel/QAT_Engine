@@ -49,10 +49,6 @@
 # include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
 
-typedef struct _qat_sw_sm3_state{
-    SM3_CTX_mb16  *sm3_state;
-}qat_sw_sm3_ctx;
-
 /* QAT_SW SM3 methods declaration */
 const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type);
 
