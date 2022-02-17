@@ -64,6 +64,7 @@
 #include "tests.h"
 #include "../qat_utils.h"
 
+#define DEFAULT_KEY_SIZE 2048
 #ifndef __FreeBSD__
 typedef  cpu_set_t qat_cpuset;
 #else
@@ -89,7 +90,7 @@ static int enable_engine = 0;
 
 /* test_count - specify the number of operations that each thread does */
 static int test_count = 1;
-static int test_size = 2048;  /* default key size is 2048 */
+static int test_size = DEFAULT_KEY_SIZE;
 static int cpu_affinity = 0;
 static int test_alg = 0;
 static int enable_perf = 0;
@@ -502,10 +503,26 @@ char *test_name(int test)
     switch (test) {
     case TEST_RSA:
         return "RSA";
+    case TEST_ECDH:
+        return "ECDH";
+    case TEST_ECDSA:
+        return "ECDSA";
+    case TEST_ECX:
+        return "ECX";
+    case TEST_AES128_GCM:
+        return "AES128 GCM";
+    case TEST_AES256_GCM:
+        return "AES256 GCM";
+    case TEST_SM3:
+        return "SM3";
     case TEST_DSA:
         return "DSA";
     case TEST_DH:
         return "DH";
+    case TEST_PRF:
+        return "PRF";
+    case TEST_HKDF:
+        return "HKDF";
     case TEST_AES128_CBC_HMAC_SHA1:
         return "AES128 CBC HMAC SHA1";
     case TEST_AES256_CBC_HMAC_SHA1:
@@ -514,22 +531,6 @@ char *test_name(int test)
         return "AES128 CBC HMAC SHA256";
     case TEST_AES256_CBC_HMAC_SHA256:
         return "AES256 CBC HMAC SHA256";
-    case TEST_ECDH:
-        return "ECDH";
-    case TEST_ECDSA:
-        return "ECDSA";
-    case TEST_PRF:
-        return "PRF";
-    case TEST_SM3:
-	    return "SM3";
-    case TEST_HKDF:
-        return "HKDF";
-    case TEST_ECX:
-        return "ECX";
-    case TEST_AES128_GCM:
-        return "AES128 GCM";
-    case TEST_AES256_GCM:
-        return "AES256 GCM";
     case TEST_SHA3_224:
         return "SHA3-224";
     case TEST_SHA3_256:
@@ -612,7 +613,7 @@ static void usage(char *program)
 {
     printf("\nUsage:\n");
     printf("\t%s [-c <count>] ", program);
-    printf("[-n <count>] [-nc <count>] [-af] [-p] [-v] [-async] ");
+    printf("[-n <count>] [-nc <count>] [-af] [-p] [-v] ");
 #ifdef QAT_OPENSSL_3
     printf("[-callback] ");
 #endif
@@ -629,7 +630,6 @@ static void usage(char *program)
     printf("\t-af     enables core affinity\n");
     printf("\t-p      print the test output\n");
     printf("\t-v      verify the output\n");
-    printf("\t-async  enable asynchronous processing\n");
 #ifdef QAT_OPENSSL_3
     printf("\t-callback enable callback mode in asynchronous processing\n");
 #endif
@@ -646,7 +646,7 @@ static void usage(char *program)
     printf("\t-ne     enables negative scenario test cases \n");
     printf("\t-tls_version  specifies tls_version TLSv1,TLSv1_1, TLSv1_2 \n");
     printf("\t-di     specifies digest for prf and hkdf (OpenSSL_1.1.1 & higher), MD5, SHA256, SHA384, SHA512 \n");
-    printf("\t-async_jobs   specifies the number of asynchronous jobs per thread\n");
+    printf("\t-async_jobs enable asynchronous processing and specifies the number of asynchronous jobs per thread\n");
     printf("\t-prf_op specifies the PRF operation required (default is to run them all)\n");
     printf("\t-hkdf_op specifies the HKDF operation (0-Extract&Expand 1-Extract 2-Expand (default is to run them all))\n");
     printf("\t-sw_fallback  enables the sw fallback feature (qat engine only)\n");
@@ -709,6 +709,7 @@ static void usage(char *program)
     printf("\tecdsab283 ECDSA B283 test\n");
     printf("\tecdsab409 ECDSA B409 test\n");
     printf("\tecdsab571 ECDSA B571 test\n");
+    printf("\tecdsasm2 ECDSA SM2 test\n");
     printf("\tprf     PRF test\n");
     printf("\thkdf    HKDF test\n");
     printf("\taes128gcm AES128 GCM test\n");
@@ -720,8 +721,8 @@ static void usage(char *program)
     printf("\tsm3         SM3 test\n");
     printf("\tchachapoly  CHACHAPOLY test\n\n");
 
-    printf("\nIf test is not specified, one iteration "
-           "of each test is executed and verified.\n");
+    printf("\nIf test algo is not specified, default tests"
+           "(RSA, ECDH, ECDSA) will be executed.\n");
 
     /* In order to measure the maximum throughput from QAT, the iteration
      * test will repeat actual operation to keep QAT busy without reset
@@ -751,7 +752,7 @@ static void usage(char *program)
 static void parse_option(int *index, int argc, char *argv[], int *value)
 {
     if (*index + 1 >= argc) {
-        WARN("\n# FAIL: Parameter expected\n");
+        printf("\n# FAIL: Parameter expected\n");
         usage(argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -780,7 +781,7 @@ static void parse_option(int *index, int argc, char *argv[], int *value)
 static void parse_option_string(int *index, int argc, char *argv[], char **str)
 {
     if (*index + 1 >= argc) {
-        WARN("\n# FAIL: Parameter expected\n");
+        printf("\n# FAIL: Parameter expected\n");
         usage(argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -813,8 +814,6 @@ static void handle_option(int argc, char *argv[], int *index)
         parse_option(index, argc, argv, &thread_count);
     else if (!strcmp(option, "-perf"))
         enable_perf = 1;
-    else if (!strcmp(option, "-async"))
-        enable_async = 1;
 #ifdef QAT_OPENSSL_3
     else if (!strcmp(option, "-callback"))
         use_callback_mode = 1;
@@ -850,7 +849,7 @@ static void handle_option(int argc, char *argv[], int *index)
     else if (!strcmp(option, "prf"))
         test_alg = TEST_PRF;
     else if (!strcmp(option, "sm3"))
-	test_alg = TEST_SM3;
+        test_alg = TEST_SM3;
     else if (!strcmp(option, "hkdf"))
         test_alg = TEST_HKDF;
     else if (!strcmp(option, "chachapoly")) {
@@ -884,13 +883,14 @@ static void handle_option(int argc, char *argv[], int *index)
         size = sizeof(ecdh_choices) / sizeof(option_data);
         for (i = 0; i < size; i++)
             if (!strcmp(option, ecdh_choices[i].name)) {
+                printf ("name %s\n", ecdh_choices[i].name);
                 curve = ecdh_choices[i].curve_name;
                 test_alg = ecdh_choices[i].test_alg;
                 ecx_op = ecdh_choices[i].op;
                 break;
             }
     } else if (!strncmp(option, "ecdsa", strlen("ecdsa"))) {
-        size = sizeof(ecdh_choices) / sizeof(option_data);
+        size = sizeof(ecdsa_choices) / sizeof(option_data);
         for (i = 0; i < size; i++)
             if (!strcmp(option, ecdsa_choices[i].name)) {
                 curve = ecdsa_choices[i].curve_name;
@@ -929,15 +929,16 @@ static void handle_option(int argc, char *argv[], int *index)
     else if (!strcmp(option, "-async_jobs")) {
         parse_option(index, argc, argv, &async_jobs);
         if (async_jobs <= 0) {
-            WARN("\n# FAIL: Invalid number of async_jobs.\n");
+            printf("\n# FAIL: Invalid number of async_jobs.\n");
             usage(argv[0]);
             exit(EXIT_FAILURE);
         }
+        enable_async = 1;
     }
     else if (!strcmp(option, "-prf_op")) {
         parse_option(index, argc, argv, &prf_op);
         if (prf_op < 0 || prf_op > 4) {
-            WARN("\n# FAIL: Invalid prf_op number.\n");
+            printf("\n# FAIL: Invalid prf_op number.\n");
             usage(argv[0]);
             exit(EXIT_FAILURE);
         }
@@ -945,7 +946,7 @@ static void handle_option(int argc, char *argv[], int *index)
     else if (!strcmp(option, "-hkdf_op")) {
         parse_option(index, argc, argv, &hkdf_op);
         if (hkdf_op < 0 || hkdf_op > 2) {
-            WARN("\n# FAIL: Invalid hkdf_op number.\n");
+            printf("\n# FAIL: Invalid hkdf_op number.\n");
             usage(argv[0]);
             exit(EXIT_FAILURE);
         }
@@ -955,7 +956,7 @@ static void handle_option(int argc, char *argv[], int *index)
     else if (!strcmp(option, "-h"))
         usage(argv[0]);
     else {
-        WARN("\n# FAIL: Invalid option '%s'\n", option);
+        printf("\n# FAIL: Invalid option '%s'\n", option);
         usage(argv[0]);
         exit(EXIT_FAILURE);
     }
@@ -1323,25 +1324,18 @@ static void functional_test(void)
     }
 
     if (test_alg == 0) {
-        args.size   = 1024;
+        args.size   = DEFAULT_KEY_SIZE;
         args.verify = 1;
         args.count  = &count;
+        args.enable_negative = enable_negative;
+        args.curve = P_CURVE_256;
+        args.kdf = kdf;
+        args.explicit_engine = explicit_engine;
+        args.sign_only = 1;
         printf("\nResults for functional test cases: force variables:- \nverify = %d, count = %d, size = %d\n",
                args.verify, *(args.count), args.size);
-        for (i = 1; i < TEST_TYPE_MAX; i++) {
-            if (zero_copy &&
-                (i == TEST_DSA||
-                 i == TEST_DH ||
-                 i == TEST_ECDH ||
-                 i == TEST_ECDSA ||
-                 i == TEST_PRF ||
-                 i == TEST_HKDF ||
-                 i == TEST_ECX
-                )) {
-                printf ("skipping %s in zero copy mode\n",
-                        test_name(i));
-                continue;
-            }
+        /* Default case, only run tests supported by both QAT_HW and QAT_SW */
+        for (i = 1; i <= TEST_ECX; i++) {
             args.type = i;
             tests_run(&args, 0);
         }
@@ -1405,7 +1399,7 @@ int main(int argc, char *argv[])
     }
 
     if (i < argc) {
-        WARN("# FAIL: This program does not take arguments, please use -h for usage.\n");
+        printf("# FAIL: This program does not take arguments, please use -h for usage.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -1426,7 +1420,7 @@ int main(int argc, char *argv[])
                                          enable_async, zero_copy, sw_fallback);
 
         if (!engine) {
-            WARN("# FAIL: ENGINE load error, exit! \n");
+            printf("# FAIL: ENGINE load error, exit! \n");
             exit(EXIT_FAILURE);
         }
     }

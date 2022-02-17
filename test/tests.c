@@ -691,8 +691,8 @@ void tests_run(TEST_PARAMS *args, int id)
         tests_run_ecdsa(args);
         break;
     case TEST_SM3:            /* SM3 test application */
-	tests_run_sm3(args);
-	break;
+        tests_run_sm3(args);
+        break;
     case TEST_AES128_GCM:
         tests_run_aes128_gcm(args);
         break;
