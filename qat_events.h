@@ -81,8 +81,8 @@
 #endif
 
 int qat_is_event_driven();
-int qat_setup_async_event_notification(int jobStatus);
-int qat_clear_async_event_notification();
+int qat_setup_async_event_notification(volatile ASYNC_JOB *job);
+int qat_clear_async_event_notification(volatile ASYNC_JOB *job);
 int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus);
 int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus);
 

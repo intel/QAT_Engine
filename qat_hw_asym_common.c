@@ -195,7 +195,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
-        if (qat_setup_async_event_notification(0) == 0) {
+        if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notifications\n");
             QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL);
             retval = 0;
@@ -214,7 +214,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
                 QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_GET_NEXT_INST_FAIL);
             }
             if (op_done.job != NULL) {
-                qat_clear_async_event_notification();
+                qat_clear_async_event_notification(op_done.job);
             }
             retval = 0;
             qat_cleanup_op_done(&op_done);
@@ -258,7 +258,7 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             QATerr(QAT_F_QAT_MOD_EXP, QAT_R_MOD_LN_MOD_EXP_FAIL);
         }
         if (op_done.job != NULL) {
-            qat_clear_async_event_notification();
+            qat_clear_async_event_notification(op_done.job);
         }
         retval = 0;
         qat_cleanup_op_done(&op_done);

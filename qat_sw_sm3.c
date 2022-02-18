@@ -290,7 +290,7 @@ int qat_sw_sm3_init(EVP_MD_CTX *ctx)
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -387,7 +387,7 @@ int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -487,7 +487,7 @@ int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }

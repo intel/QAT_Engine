@@ -111,10 +111,8 @@ static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
     }
 }
 
-int qat_setup_async_event_notification(int jobStatus)
+int qat_setup_async_event_notification(volatile ASYNC_JOB *job)
 {
-    /* We will ignore jobStatus for the moment */
-    ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
 #ifdef QAT_OPENSSL_3
     int (*callback)(void *arg);
@@ -127,12 +125,7 @@ int qat_setup_async_event_notification(int jobStatus)
     struct kevent event;
 #endif
 
-    if ((job = ASYNC_get_current_job()) == NULL) {
-        WARN("Could not obtain current job\n");
-        return 0;
-    }
-
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+    if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
         WARN("Could not obtain wait context for job\n");
         return 0;
     }
@@ -178,9 +171,8 @@ int qat_setup_async_event_notification(int jobStatus)
     return 1;
 }
 
-int qat_clear_async_event_notification()
+int qat_clear_async_event_notification(volatile ASYNC_JOB *job)
 {
-    ASYNC_JOB *job;
     ASYNC_WAIT_CTX *waitctx;
     size_t num_add_fds = 0;
     size_t num_del_fds = 0;
@@ -191,12 +183,7 @@ int qat_clear_async_event_notification()
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
 
-    if ((job = ASYNC_get_current_job()) == NULL) {
-        WARN("Could not obtain current job\n");
-        return 0;
-    }
-
-    if ((waitctx = ASYNC_get_wait_ctx(job)) == NULL) {
+    if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
         WARN("Could not obtain wait context for job\n");
         return 0;
     }

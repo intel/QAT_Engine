@@ -778,7 +778,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 
         qat_init_op_done(&op_done);
         if (op_done.job != NULL) {
-            if (qat_setup_async_event_notification(0) == 0) {
+            if (qat_setup_async_event_notification(op_done.job) == 0) {
                 WARN("Failed to setup async event notification\n");
                 QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
                 qat_cleanup_op_done(&op_done);
@@ -804,7 +804,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
             WARN("QAT instance %d not available.\n", sha3_ctx->inst_num);
             QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
-                qat_clear_async_event_notification();
+                qat_clear_async_event_notification(op_done.job);
             }
             qat_cleanup_op_done(&op_done);
             goto err;
@@ -825,7 +825,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
             }
             QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
             if (op_done.job != NULL) {
-                qat_clear_async_event_notification();
+                qat_clear_async_event_notification(op_done.job);
             }
             qat_cleanup_op_done(&op_done);
             goto err;

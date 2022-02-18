@@ -219,7 +219,7 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -392,7 +392,7 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }

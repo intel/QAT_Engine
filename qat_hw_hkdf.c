@@ -603,7 +603,7 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
-        if (qat_setup_async_event_notification(0) == 0) {
+        if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
@@ -621,7 +621,7 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
                 QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
             }
             if (op_done.job != NULL) {
-                qat_clear_async_event_notification();
+                qat_clear_async_event_notification(op_done.job);
             }
             qat_cleanup_op_done(&op_done);
             goto err;
@@ -671,7 +671,7 @@ static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
             QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
         }
         if (op_done.job != NULL) {
-            qat_clear_async_event_notification();
+            qat_clear_async_event_notification(op_done.job);
         }
         qat_cleanup_op_done(&op_done);
         goto err;

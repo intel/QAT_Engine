@@ -260,7 +260,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
-        if (qat_setup_async_event_notification(0) == 0) {
+        if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notifications\n");
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
@@ -307,7 +307,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             } else {
                 QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             }
-            qat_clear_async_event_notification();
+            qat_clear_async_event_notification(op_done.job);
             qat_cleanup_op_done(&op_done);
             return 0;
         }
@@ -335,7 +335,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         } else {
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
         }
-        qat_clear_async_event_notification();
+        qat_clear_async_event_notification(op_done.job);
         qat_cleanup_op_done(&op_done);
         return 0;
     }
@@ -614,7 +614,7 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
-        if (qat_setup_async_event_notification(0) == 0) {
+        if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
@@ -640,7 +640,7 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                 QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
             }
             if (op_done.job != NULL) {
-                qat_clear_async_event_notification();
+                qat_clear_async_event_notification(op_done.job);
             }
             qat_cleanup_op_done(&op_done);
             return 0;
@@ -683,7 +683,7 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             QATerr(QAT_F_QAT_RSA_ENCRYPT, ERR_R_INTERNAL_ERROR);
         }
         if (op_done.job != NULL) {
-            qat_clear_async_event_notification();
+            qat_clear_async_event_notification(op_done.job);
         }
         qat_cleanup_op_done(&op_done);
         return 0;

@@ -849,7 +849,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
-        if (qat_setup_async_event_notification(0) == 0) {
+        if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notification\n");
             QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER,
                    ERR_R_INTERNAL_ERROR);
@@ -895,7 +895,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
         WARN("QAT instance %d not available.\n", cp_ctx->inst_num);
         QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL) {
-            qat_clear_async_event_notification();
+            qat_clear_async_event_notification(op_done.job);
         }
         qat_cleanup_op_done(&op_done);
         goto tls_cipher_err;
@@ -916,7 +916,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
         }
         QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL) {
-            qat_clear_async_event_notification();
+            qat_clear_async_event_notification(op_done.job);
         }
         qat_cleanup_op_done(&op_done);
         goto tls_cipher_err;
@@ -1167,7 +1167,7 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
 
             qat_init_op_done(&op_done);
             if (op_done.job != NULL) {
-                if (qat_setup_async_event_notification(0) == 0) {
+                if (qat_setup_async_event_notification(op_done.job) == 0) {
                     WARN("Failed to setup async event notification\n");
                     QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
                            ERR_R_INTERNAL_ERROR);
@@ -1199,7 +1199,7 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                 QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
                        ERR_R_INTERNAL_ERROR);
                 if (op_done.job != NULL) {
-                    qat_clear_async_event_notification();
+                    qat_clear_async_event_notification(op_done.job);
                 }
                 qat_cleanup_op_done(&op_done);
                 goto do_cipher_err;
@@ -1222,7 +1222,7 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                 QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
                        ERR_R_INTERNAL_ERROR);
                 if (op_done.job != NULL) {
-                    qat_clear_async_event_notification();
+                    qat_clear_async_event_notification(op_done.job);
                 }
                 qat_cleanup_op_done(&op_done);
                 goto do_cipher_err;

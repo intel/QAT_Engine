@@ -685,7 +685,7 @@ static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -918,7 +918,7 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }

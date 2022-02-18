@@ -698,7 +698,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -888,7 +888,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -1048,7 +1048,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -1205,7 +1205,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }

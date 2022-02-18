@@ -112,7 +112,7 @@ int qat_init_op_done_pipe(op_done_pipe_t *opdpipe, unsigned int npipes)
 
     /* Setup async notification if using async jobs. */
     if (opdpipe->opDone.job != NULL &&
-        (qat_setup_async_event_notification(0) == 0)) {
+        (qat_setup_async_event_notification(opdpipe->opDone.job) == 0)) {
         WARN("Failure to setup async event notifications\n");
         QATerr(QAT_F_QAT_INIT_OP_DONE_PIPE, QAT_R_SETUP_ASYNC_EVENT_FAILURE);
         qat_cleanup_op_done_pipe(opdpipe);

@@ -720,7 +720,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -939,7 +939,7 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -1105,7 +1105,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -1324,7 +1324,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
@@ -1536,7 +1536,7 @@ int mb_ecdh_compute_key(unsigned char **out,
     }
 
     /* Setup asynchronous notifications */
-    if (!qat_setup_async_event_notification(0)) {
+    if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }

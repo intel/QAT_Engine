@@ -1060,7 +1060,7 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     qat_init_op_done(&op_done);
     if (op_done.job != NULL) {
-        if (qat_setup_async_event_notification(0) == 0) {
+        if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failure to setup async event notifications\n");
             QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
             qat_cleanup_op_done(&op_done);
@@ -1344,7 +1344,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
             qat_init_op_done(&op_done);
             if (op_done.job != NULL) {
-                if (qat_setup_async_event_notification(0) == 0) {
+                if (qat_setup_async_event_notification(op_done.job) == 0) {
                     WARN("Failure to setup async event notifications\n");
                     QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
                     qat_cleanup_op_done(&op_done);

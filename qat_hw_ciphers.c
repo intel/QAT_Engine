@@ -1449,7 +1449,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     /* If there is nothing to wait for, do not pause or yield */
     if (done.num_submitted == 0 || (done.num_submitted == done.num_processed)) {
         if (done.opDone.job != NULL) {
-            qat_clear_async_event_notification();
+            qat_clear_async_event_notification(done.opDone.job);
         }
         goto end;
     }
