@@ -89,7 +89,6 @@
 mb_thread_data* mb_check_thread_local(void)
 {
     mb_thread_data *tlv = (mb_thread_data *)pthread_getspecific(mb_thread_key);
-
     if (tlv != NULL) {
         return tlv;
     }
@@ -531,6 +530,10 @@ void mb_thread_local_destructor(void *tlv_ptr)
     } else {
         DEBUG("tlv NULL\n");
     }
+
+    if (pthread_key_delete(mb_thread_key) != 0) {
+        WARN("Failed to delete pthread key.\n");
+    }
 }
 
 int multibuff_init(ENGINE *e)
@@ -566,6 +569,7 @@ int multibuff_init(ENGINE *e)
 int multibuff_finish_int(ENGINE *e, int reset_globals)
 {
     int ret = 1;
+    mb_thread_data *tlv;
 
     DEBUG("---- Multibuff Finishing...\n\n");
 
@@ -575,8 +579,8 @@ int multibuff_finish_int(ENGINE *e, int reset_globals)
     }
 
     PRINT_RDTSC_AVERAGES();
-
-    ret = pthread_key_delete(mb_thread_key) == 0;
+    tlv = (mb_thread_data *)pthread_getspecific(mb_thread_key);
+    mb_thread_local_destructor(tlv);
 
     return ret;
 }
