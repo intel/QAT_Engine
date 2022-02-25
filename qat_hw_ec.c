@@ -94,7 +94,7 @@ int qat_get_curve(CpaCyEcFieldType fieldType)
     if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME)
         return CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_PRIME;
     else if (fieldType == CPA_CY_EC_FIELD_TYPE_BINARY)
-        return CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_PRIME;
+        return CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_BINARY;
     else
         return CPA_CY_EC_CURVE_TYPE_WEIERSTRASS_KOBLITZ_BINARY;
 }
@@ -119,18 +119,17 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                          int *fallback)
 {
     BN_CTX *ctx = NULL;
-    BIGNUM *p = NULL, *a = NULL, *b = NULL;
+    BIGNUM *p = NULL, *a = NULL, *b = NULL, *h = NULL;
     const BIGNUM *priv_key = NULL;
     const EC_GROUP *group = NULL;
     int ret = 0, job_ret = 0;
     size_t buflen = 0;
 
     int inst_num = QAT_INVALID_INSTANCE;
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
     BIGNUM *xP = NULL, *yP = NULL;
+# ifdef QAT_GENERIC_POINT_MULTIPLY
     CpaCyEcGenericPointMultiplyOpData *pOpData = NULL;
 # else
-    BIGNUM *xg = NULL, *yg = NULL;
     CpaCyEcPointMultiplyOpData *opData = NULL;
 # endif
     CpaBoolean bEcStatus = 0;
@@ -172,9 +171,9 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         return ret;
     }
 
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# ifdef QAT_GENERIC_POINT_MULTIPLY
     pOpData = (CpaCyEcGenericPointMultiplyOpData *)
-        OPENSSL_zalloc(sizeof(CpaCyEcGenericPointMultiplyOpData));
+               OPENSSL_zalloc(sizeof(CpaCyEcGenericPointMultiplyOpData));
     if (pOpData == NULL) {
         WARN("Failure to allocate pOpData\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_MALLOC_FAILURE);
@@ -195,13 +194,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     pOpData->pCurve->parameters.weierstrassParameters.a.pData = NULL;
     pOpData->pCurve->parameters.weierstrassParameters.b.pData = NULL;
     pOpData->pCurve->parameters.weierstrassParameters.p.pData = NULL;
-
-    /* To instruct the Quickassist API not to use co-factor */
     pOpData->pCurve->parameters.weierstrassParameters.h.pData = NULL;
     pOpData->pCurve->parameters.weierstrassParameters.h.dataLenInBytes = 0;
 # else
     opData = (CpaCyEcPointMultiplyOpData *)
-        OPENSSL_zalloc(sizeof(CpaCyEcPointMultiplyOpData));
+              OPENSSL_zalloc(sizeof(CpaCyEcPointMultiplyOpData));
     if (opData == NULL) {
         WARN("Failure to allocate opData\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_OPDATA_MALLOC_FAILURE);
@@ -214,8 +211,6 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     opData->a.pData = NULL;
     opData->b.pData = NULL;
     opData->q.pData = NULL;
-
-    /* To instruct the Quickassist API not to use co-factor */
     opData->h.pData = NULL;
     opData->h.dataLenInBytes = 0;
 # endif
@@ -231,7 +226,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     p = BN_CTX_get(ctx);
     a = BN_CTX_get(ctx);
     b = BN_CTX_get(ctx);
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+    h = BN_CTX_get(ctx);
     xP = BN_CTX_get(ctx);
     yP = BN_CTX_get(ctx);
 
@@ -240,16 +235,6 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_P_A_B_XP_YP_MALLOC_FAILURE);
         goto err;
     }
-# else
-    xg = BN_CTX_get(ctx);
-    yg = BN_CTX_get(ctx);
-
-    if (yg == NULL) {
-        WARN("Failed to allocate p, a, b, xg or yg\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_P_A_B_XG_YG_MALLOC_FAILURE);
-        goto err;
-    }
-# endif
 
     buflen = (EC_GROUP_get_degree(group) + 7) / 8;
     pResultX = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
@@ -279,9 +264,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
     pResultY->dataLenInBytes = (Cpa32U) buflen;
 
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
-    pOpData->pCurve->parameters.weierstrassParameters.fieldType = qat_get_field_type(group);
-    pOpData->pCurve->curveType = qat_get_curve(pOpData->pCurve->parameters.weierstrassParameters.fieldType);
+    if (!EC_GROUP_get_cofactor(group, h, ctx)) {
+        WARN("Failure in get cofactor\n");
+        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_GET_COFACTOR_FAILURE);
+        goto err;
+    }
 
     if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
         WARN("Failure to get the curve\n");
@@ -295,16 +282,31 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         goto err;
     }
 
+# ifdef QAT_GENERIC_POINT_MULTIPLY
+    pOpData->pCurve->parameters.weierstrassParameters.fieldType = qat_get_field_type(group);
+    pOpData->pCurve->curveType = qat_get_curve(pOpData->pCurve->parameters.weierstrassParameters.fieldType);
+
     if ((qat_BN_to_FB(&(pOpData->k), (BIGNUM *)priv_key) != 1) ||
         (qat_BN_to_FB(&(pOpData->xP), xP) != 1) ||
         (qat_BN_to_FB(&(pOpData->yP), yP) != 1) ||
         (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.a), a) != 1) ||
         (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.b), b) != 1) ||
         (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.p), p) != 1)) {
-        WARN("Failure to convert priv_key, xP, yP, a, b or p to a flatbuffer\n");
+        WARN("Failure to convert priv_key, xP, yP, a, b or p to flatbuffer\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_PRIV_KEY_XP_YP_A_B_P_CONVERT_TO_FB_FAILURE);
         goto err;
      }
+
+     /* Pass Co-factor to Opdata */
+     if (pOpData->pCurve->parameters.weierstrassParameters.fieldType
+         == CPA_CY_EC_FIELD_TYPE_PRIME) {
+         if (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.h), h) != 1) {
+             WARN("Failure to convert h to flatbuffer\n");
+             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
+             goto err;
+         }
+     }
+
     /*
      * This is a special handling required for curves with 'a' co-efficient
      * of 0. The translation to a flatbuffer results in a zero sized field
@@ -327,28 +329,26 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 # else
     opData->fieldType = qat_get_field_type(group);
 
-    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
-        WARN("Failure to get the curve\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-        goto err;
-    }
-
-    if (!EC_POINT_get_affine_coordinates(group, pub_key, xg, yg, ctx)) {
-        WARN("Failure to get the affine coordinates\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
-        goto err;
-    }
-
     if ((qat_BN_to_FB(&(opData->k), (BIGNUM *)priv_key) != 1) ||
-        (qat_BN_to_FB(&(opData->xg), xg) != 1) ||
-        (qat_BN_to_FB(&(opData->yg), yg) != 1) ||
+        (qat_BN_to_FB(&(opData->xg), xP) != 1) ||
+        (qat_BN_to_FB(&(opData->yg), yP) != 1) ||
         (qat_BN_to_FB(&(opData->a), a) != 1) ||
         (qat_BN_to_FB(&(opData->b), b) != 1) ||
         (qat_BN_to_FB(&(opData->q), p) != 1)) {
-        WARN("Failure to convert priv_key, xg, yg, a, b or p to a flatbuffer\n");
+        WARN("Failure to convert priv_key, xg, yg, a, b or p to flatbuffer\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE);
         goto err;
     }
+
+    /* Pass Co-factor to Opdata */
+    if (opData->fieldType == CPA_CY_EC_FIELD_TYPE_PRIME) {
+        if (qat_BN_to_FB(&(opData->h), h) != 1) {
+            WARN("Failure to convert h to flatbuffer\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
+            goto err;
+        }
+    }
+
     /*
      * This is a special handling required for curves with 'a' co-efficient
      * of 0. The translation to a flatbuffer results in a zero sized field
@@ -404,7 +404,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# ifdef QAT_GENERIC_POINT_MULTIPLY
         DUMP_EC_GENERIC_POINT_MULTIPLY(qat_instance_handles[inst_num], pOpData, pResultX, pResultY);
         status = cpaCyEcGenericPointMultiply(qat_instance_handles[inst_num],
                                              qat_ecCallbackFn,
@@ -572,23 +572,29 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         OPENSSL_free(pResultY);
     }
 
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
-    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(pOpData->k);
-    QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);
-    QAT_CHK_QMFREE_FLATBUFF(pOpData->yP);
-    QAT_QMEMFREE_BUFF(pOpData->pCurve);
+# ifdef QAT_GENERIC_POINT_MULTIPLY
     if (pOpData) {
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(pOpData->k);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->yP);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.a);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.b);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.p);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.h);
+        QAT_QMEMFREE_BUFF(pOpData->pCurve);
         OPENSSL_free(pOpData);
     }
 # else
-    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->k);
-    QAT_CHK_QMFREE_FLATBUFF(opData->xg);
-    QAT_CHK_QMFREE_FLATBUFF(opData->yg);
-    QAT_CHK_QMFREE_FLATBUFF(opData->a);
-    QAT_CHK_QMFREE_FLATBUFF(opData->b);
-    QAT_CHK_QMFREE_FLATBUFF(opData->q);
-    if (opData)
+    if (opData) {
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->k);
+        QAT_CHK_QMFREE_FLATBUFF(opData->xg);
+        QAT_CHK_QMFREE_FLATBUFF(opData->yg);
+        QAT_CHK_QMFREE_FLATBUFF(opData->a);
+        QAT_CHK_QMFREE_FLATBUFF(opData->b);
+        QAT_CHK_QMFREE_FLATBUFF(opData->q);
+        QAT_CHK_QMFREE_FLATBUFF(opData->h);
         OPENSSL_free(opData);
+    }
 # endif
     if (ctx) {
         BN_CTX_end(ctx);
@@ -1450,6 +1456,12 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         return ret;
     }
 
+    pOpData->xP.pData = NULL;
+    pOpData->yP.pData = NULL;
+    pOpData->pCurve->parameters.weierstrassParameters.a.pData = NULL;
+    pOpData->pCurve->parameters.weierstrassParameters.b.pData = NULL;
+    pOpData->pCurve->parameters.weierstrassParameters.p.pData = NULL;
+
 # else
     opData = (CpaCyEcdsaVerifyOpData *)
         OPENSSL_zalloc(sizeof(CpaCyEcdsaVerifyOpData));
@@ -1792,6 +1804,9 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     if (pOpData) {
         QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);
         QAT_CHK_QMFREE_FLATBUFF(pOpData->yP);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.a);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.b);
+        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.p);
         QAT_QMEMFREE_BUFF(pOpData->pCurve);
         OPENSSL_free(pOpData);
     }
