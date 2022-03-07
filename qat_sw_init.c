@@ -323,14 +323,6 @@ void mb_thread_local_destructor(void *tlv_ptr)
         }
         mb_queue_rsa4k_priv_cleanup(tlv->rsa4k_priv_queue);
 
-        while ((rsa4k_priv_req =
-                mb_queue_rsa4k_priv_dequeue(tlv->rsa4k_priv_queue)) != NULL) {
-            *rsa4k_priv_req->sts = -1;
-            qat_wake_job(rsa4k_priv_req->job, 0);
-            OPENSSL_free(rsa4k_priv_req);
-        }
-        mb_queue_rsa4k_priv_cleanup(tlv->rsa4k_priv_queue);
-
         while ((rsa4k_pub_req =
                 mb_queue_rsa4k_pub_dequeue(tlv->rsa4k_pub_queue)) != NULL) {
             *rsa4k_pub_req->sts = -1;
