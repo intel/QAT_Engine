@@ -222,6 +222,11 @@ qat_accel_details_t qat_accel_details[QAT_MAX_CRYPTO_ACCELERATORS] = {{0}};
 useconds_t qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
 int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
+# ifdef QAT_HW_SET_INSTANCE_THREAD
+unsigned int qat_map_inst[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
+long int threadId[QAT_MAX_CRYPTO_THREADS] = {'\0'};
+int threadCount = 0;
+# endif
 #endif
 
 #ifdef QAT_SW

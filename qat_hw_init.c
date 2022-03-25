@@ -196,9 +196,33 @@ int is_any_device_available(void)
     return 0;
 }
 
+#ifdef QAT_HW_SET_INSTANCE_THREAD
+int get_greatest_devInst_num(void)
+{
+    int device_num = 0;
+    int inst_count = 0;
+
+    if (qat_num_devices == 0)
+        return 0;
+
+    inst_count = qat_instance_details[0].instCount;
+    for (device_num = 1; device_num < qat_num_devices; device_num++) {
+        if (inst_count < qat_instance_details[device_num].instCount) {
+            inst_count = qat_instance_details[device_num].instCount;
+	}
+    }
+
+    return inst_count;
+}
+#endif
+
 int get_next_inst_num(void)
 {
     int inst_num = QAT_INVALID_INSTANCE;
+#ifdef QAT_HW_SET_INSTANCE_THREAD
+    int i = 0;
+    int match = 0;
+#endif
     unsigned int inst_count = 0;
     thread_local_variables_t * tlv = NULL;
 
@@ -228,17 +252,47 @@ int get_next_inst_num(void)
     }
 
     if (0 == enable_instance_for_thread) {
-        if (likely(qat_instance_handles && qat_num_instances)) {
-            do {
-                inst_count++;
-                tlv->qatInstanceNumForThread = (tlv->qatInstanceNumForThread + 1) %
-                    qat_num_instances;
-            } while (!is_instance_available(tlv->qatInstanceNumForThread) &&
-                    inst_count <= qat_num_instances);
-            if (likely(inst_count <= qat_num_instances)) {
-                inst_num = tlv->qatInstanceNumForThread;
+#ifdef QAT_HW_SET_INSTANCE_THREAD
+        if (qat_num_instances > (threadCount - 1)) {
+            qat_pthread_mutex_lock();
+            if (likely(qat_instance_handles && qat_num_instances)) {
+                if (threadCount == 0) {
+                    threadId[0] = tlv->threadId;
+                    inst_num = 0;
+                    threadCount++;
+                } else {
+                    for (i = 0; i < threadCount; i++) {
+                        if (threadId[i] == tlv->threadId) {
+                            match = 1;
+                            break;
+                        }
+                    }
+                    if (match == 0) {
+                        threadId[threadCount] = tlv->threadId;
+                        inst_num = qat_map_inst[i];
+                        threadCount++;
+                    } else if(match == 1) {
+                        inst_num = qat_map_inst[i];
+                    }
+                }
             }
-        }
+            qat_pthread_mutex_unlock();
+        } else {
+#endif
+            if (likely(qat_instance_handles && qat_num_instances)) {
+                do {
+                    inst_count++;
+                    tlv->qatInstanceNumForThread = (tlv->qatInstanceNumForThread + 1) %
+                        qat_num_instances;
+                } while (!is_instance_available(tlv->qatInstanceNumForThread) &&
+                        inst_count <= qat_num_instances);
+                if (likely(inst_count <= qat_num_instances)) {
+                    inst_num = tlv->qatInstanceNumForThread;
+                }
+            }
+#ifdef QAT_HW_SET_INSTANCE_THREAD
+       }
+#endif
     } else {
         if (tlv->qatInstanceNumForThread != QAT_INVALID_INSTANCE) {
             if (is_instance_available(tlv->qatInstanceNumForThread)) {
@@ -251,6 +305,7 @@ int get_next_inst_num(void)
         WARN("No working instance is available\n");
     }
 
+    DEBUG("inst_num = %d\n",inst_num);
     return inst_num;
 }
 
@@ -283,6 +338,9 @@ thread_local_variables_t * qat_check_create_local_variables(void)
         return tlv;
     tlv = OPENSSL_zalloc(sizeof(thread_local_variables_t));
     if (tlv != NULL) {
+#ifdef QAT_HW_SET_INSTANCE_THREAD
+	tlv->threadId = pthread_self();
+#endif
         tlv->qatInstanceNumForThread = QAT_INVALID_INSTANCE;
         qat_setspecific_thread(thread_local_variables, (void *)tlv);
     }
@@ -355,7 +413,12 @@ int qat_init(ENGINE *e)
     CpaStatus status = CPA_STATUS_SUCCESS;
     int ret_pthread_sigmask;
     Cpa32U package_id = 0;
-
+#ifdef QAT_HW_SET_INSTANCE_THREAD
+    int device_num = 0, i, inst_set = 0;
+    unsigned int count = 0;
+    int dev_instCount = 0;
+    unsigned int instance_count[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
+#endif
     DEBUG("QAT_HW initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
     DEBUG("- Heuristic polling: %s\n", enable_heuristic_polling ? "ON": "OFF");
@@ -545,7 +608,41 @@ int qat_init(ENGINE *e)
         }
 #endif
     }
+#ifdef QAT_HW_SET_INSTANCE_THREAD
+    for (device_num = 0; device_num < qat_num_devices; device_num++) {
+        for (instNum = 0; instNum < qat_num_instances; instNum++) {
+            package_id = qat_instance_details[instNum].qat_instance_info.physInstId.packageId;
+	    if (device_num == package_id) {
+                count++;
+            }
+        }
+        qat_instance_details[device_num].instCount = count;
+        instance_count[device_num] = count;
+        count = 0;
+    }
+    dev_instCount = get_greatest_devInst_num();
 
+    for (i = 0; i < dev_instCount; i++) {
+        inst_set = i;
+        device_num = 0;
+        while(device_num < (qat_num_devices)) {
+            if (instance_count[device_num] != 0) {
+                qat_map_inst[count] = inst_set;
+		DEBUG("qat_map_inst[%d] = %d\n",count,qat_map_inst[count]);
+		count++;
+            }
+            if (device_num != (qat_num_devices-1)) {
+                inst_set = inst_set + qat_instance_details[device_num].instCount;
+            }
+            if (instance_count[device_num] != 0)
+                instance_count[device_num] = instance_count[device_num] - 1;
+
+            device_num++;
+            if (count > (qat_num_instances - 1))
+                break;
+        }
+    }
+#endif
     if (!enable_external_polling && !enable_inline_polling) {
         if (!qat_is_event_driven()) {
             sigemptyset(&set);

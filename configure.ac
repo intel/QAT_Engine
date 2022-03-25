@@ -224,6 +224,11 @@ AC_ARG_ENABLE(qat_hw_multi_thread,
                            [Enable using a multi threaded version of the user space part of the supplied memory driver. Please see the documentation on limitations of using this option]))
 AC_SUBST(enable_qat_hw_multi_thread)
 
+AC_ARG_ENABLE(qat_hw_set_inst_thread,
+              AS_HELP_STRING([--enable-qat_hw_set_inst_thread],
+                             [Enables mapping the thread to a specific instance]))
+AC_SUBST(enable_qat_hw_set_inst_thread)
+
 AC_ARG_ENABLE(qat_hw_lenstra_protection,
               AS_HELP_STRING([--disable-qat_hw_lenstra_protection],
                              [Disable protection against Lenstra attack]))
@@ -697,6 +702,15 @@ then
 else
   enable_qat_cycle_counts=""
   AC_MSG_NOTICE([Disabling CPU Cycle Counts])
+fi
+
+if test "x$enable_qat_hw_set_inst_thread" = "xyes" -a "x$cflags_qat_hw" != "x"
+then
+  enable_qat_hw_set_inst_thread="-DQAT_HW_SET_INSTANCE_THREAD"
+  AC_MSG_NOTICE([Enabling QAT hardware set instance for thread])
+else
+  enable_qat_hw_set_inst_thread=""
+  AC_MSG_NOTICE([Disabling QAT hardware set instance for thread])
 fi
 
 # Compiler security flags

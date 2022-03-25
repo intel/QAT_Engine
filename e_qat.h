@@ -112,11 +112,17 @@
 typedef struct {
     int qatInstanceNumForThread;
     unsigned int localOpsInFlight;
+# ifdef QAT_HW_SET_INSTANCE_THREAD
+    long int threadId;
+# endif
 } thread_local_variables_t;
 
 typedef struct {
     CpaInstanceInfo2  qat_instance_info;
     unsigned int qat_instance_started;
+# ifdef QAT_HW_SET_INSTANCE_THREAD
+    unsigned int instCount;
+# endif
 } qat_instance_details_t;
 
 typedef struct {
@@ -219,6 +225,9 @@ typedef struct {
 # define QAT_MAX_CRYPTO_INSTANCES 256
 # define QAT_MAX_CRYPTO_ACCELERATORS 512
 
+# ifdef QAT_HW_SET_INSTANCE_THREAD
+# define QAT_MAX_CRYPTO_THREADS 256
+# endif
 /*
  * The default interval in nanoseconds used for the internal polling thread
  */
@@ -373,6 +382,11 @@ extern qat_accel_details_t qat_accel_details[QAT_MAX_CRYPTO_ACCELERATORS];
 extern useconds_t qat_poll_interval;
 extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
+# ifdef QAT_HW_SET_INSTANCE_THREAD
+extern unsigned int qat_map_inst[QAT_MAX_CRYPTO_INSTANCES];
+extern long int threadId[QAT_MAX_CRYPTO_THREADS];
+extern int threadCount;
+# endif
 # endif
 
 # ifdef QAT_SW

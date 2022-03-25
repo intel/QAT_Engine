@@ -93,7 +93,7 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(enable_qat_auto_engine_init_on_fork)                   \
             $(enable_qat_debug) $(enable_qat_warnings)               \
             $(enable_qat_mem_debug) $(enable_qat_mem_warnings)       \
-            $(enable_qat_cycle_counts)
+            $(enable_qat_cycle_counts) $(enable_qat_hw_set_inst_thread)
 
 
 qatengine_la_LDFLAGS = -module -no-undefined -avoid-version       \
