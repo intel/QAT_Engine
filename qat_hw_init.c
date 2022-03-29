@@ -686,7 +686,6 @@ int qat_init(ENGINE *e)
 
 int qat_finish_int(ENGINE *e, int reset_globals)
 {
-
     int i;
     int ret = 1;
     CpaStatus status = CPA_STATUS_SUCCESS;

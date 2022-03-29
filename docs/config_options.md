@@ -106,6 +106,12 @@ The following is a list of the options that can be used with the
     specify this parameter if using the USDM component, and if the path to it
     is different from the default.
 
+--enable-qat_provider
+    Enables Provider support instead of engine for OpenSSL. Valid only
+    when built against OpenSSL 3.0, default if not specified will use engine
+    interface. Currently RSA, ECDSA, ECDH, ECX and AES-GCM algorithms are
+    only supported (disabled by default).
+
 --disable-qat_hw_rsa/--enable-qat_hw_rsa
     Disable/Enable Intel(R) QAT Hardware RSA acceleration (enabled by default).
 
@@ -229,7 +235,7 @@ The following is a list of the options that can be used with the
     production environment as private key information and plaintext data will
     be logged to the file (logging to file is disabled by default).
 
---with-engine_id="<engine_id>"
+--with-qat_engine_id="<engine_id>"
    This option needs to be specified if you want to use an engine id other than
    the default which is now "qatengine" (previously it was "qat"). This option
    can be used to set engine id as "qat" for application that still uses older

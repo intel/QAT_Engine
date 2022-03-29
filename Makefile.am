@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-lib_LTLIBRARIES = qatengine.la
+lib_LTLIBRARIES = @LIBQATNAME@.la
 
 if QAT_HW
 if QAT_HW_CONTIG_MEM
@@ -23,6 +23,22 @@ QAT_COMMON_SRC = e_qat.c      \
                  qat_events.c \
                  qat_utils.c  \
                  qat_evp.c
+
+if QAT_PROVIDER
+ QAT_PROV_SRC = qat_prov_init.c      \
+                qat_prov_kmgmt_rsa.c \
+                qat_prov_sign_rsa.c  \
+                qat_prov_rsa.c       \
+                qat_prov_kmgmt_ecx.c \
+                qat_prov_exch_ecx.c  \
+                qat_prov_hw_ecx.c    \
+                qat_prov_sw_ecx.c    \
+                qat_prov_ciphers.c   \
+                qat_prov_kmgmt_ec.c  \
+                qat_prov_ecdsa.c     \
+                qat_prov_ecdh.c
+
+endif
 
 if QAT_OPENSSL_3
 QAT_ERR_SRC = qat_prov_err.c
@@ -66,12 +82,13 @@ if QAT_SW_IPSEC
                      qat_sw_ipsec_inf.c
 endif
 
-qatengine_la_SOURCES = ${QAT_COMMON_SRC}   \
-                       ${QAT_ERR_SRC}      \
-                       ${QAT_HW_SRC}       \
-                       ${QAT_HW_MEM_SRC}   \
-                       ${QAT_SW_SRC}       \
-                       ${QAT_SW_IPSEC_SRC}
+@LIBQATNAME@_la_SOURCES = ${QAT_COMMON_SRC}   \
+                          ${QAT_PROV_SRC}     \
+                          ${QAT_ERR_SRC}      \
+                          ${QAT_HW_SRC}       \
+                          ${QAT_HW_MEM_SRC}   \
+                          ${QAT_SW_SRC}       \
+                          ${QAT_SW_IPSEC_SRC}
 
 AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)  \
               $(includes_qat_hw) $(includes_qat_sw)
@@ -96,10 +113,10 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(enable_qat_cycle_counts) $(enable_qat_hw_set_inst_thread)
 
 
-qatengine_la_LDFLAGS = -module -no-undefined -avoid-version       \
-                       -shared $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB) \
-                       $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)  \
-                       $(QAT_SW_IPSEC_MB_LIB)
+@LIBQATNAME@_la_LDFLAGS = -module -no-undefined -avoid-version       \
+                          -shared $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB) \
+                          $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)  \
+                          $(QAT_SW_IPSEC_MB_LIB)
 
 mostlyclean-generic:
 	-rm -f *.obj lib tags core .pure .nfs* \

@@ -40,6 +40,14 @@
 #define __TESTS_H
 
 #include <openssl/async.h>
+#ifdef QAT_OPENSSL_PROVIDER
+#include <openssl/provider.h>
+#endif
+
+enum {
+    R_RSA_512, R_RSA_1024, R_RSA_2048, R_RSA_3072, R_RSA_4096, R_RSA_7680,
+    R_RSA_15360, RSA_NUM
+};
 
 struct test_params_t {
     char *engine_id;
@@ -53,6 +61,14 @@ struct test_params_t {
     int enable_external_polling;
     int enable_event_driven_polling;
     int enable_async;
+    const char *prov_id;
+#ifdef QAT_OPENSSL_PROVIDER
+    OSSL_PROVIDER *prov;
+#endif
+    EVP_PKEY_CTX *rsa_sign_ctx[RSA_NUM];
+    EVP_PKEY_CTX *rsa_verify_ctx[RSA_NUM];
+    EVP_PKEY_CTX *enc_ctx[RSA_NUM];
+    EVP_PKEY_CTX *dec_ctx[RSA_NUM];
 #ifdef QAT_OPENSSL_3
     int use_callback_mode;
 #endif
@@ -103,15 +119,18 @@ ENGINE * tests_initialise_engine(char *engine_id, int enable_external_polling,
                                  int enable_event_driven_polling,
                                  int enable_async, int zero_copy,
                                  int sw_fallback);
-
 void tests_cleanup_engine(ENGINE *e, char *engine_id, int enable_async,
                           int enable_external_polling,
                           int enable_event_driven_polling,
                           int sw_fallback);
+
+#ifdef QAT_OPENSSL_PROVIDER
+OSSL_PROVIDER *tests_initialise_provider(const char *prov_id);
+void tests_cleanup_provider(OSSL_PROVIDER *prov);
+#endif
+
 void tests_hexdump(const char *title, const unsigned char *s,int l);
-
 void tests_run(TEST_PARAMS *args, int id);
-
 void tests_run_rsa(TEST_PARAMS *args);
 void tests_run_dsa(TEST_PARAMS *args);
 void tests_run_dh(TEST_PARAMS *args);

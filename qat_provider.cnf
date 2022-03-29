@@ -1,0 +1,11 @@
+[qatengine_sect]
+activate = 1
+enable_external_polling = 0
+enable_heuristic_polling = 0
+enable_sw_fallback = 0
+enable_inline_polling = 0
+qat_poll_interval = 10000
+qat_epoll_timeout = 1000
+enable_event_driven_polling = 0
+enable_instance_for_thread = 0
+qat_max_retry_count = 5

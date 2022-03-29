@@ -91,12 +91,9 @@ static int test_ecx_curve(int nid,
     size_t comparison_outlen = 0;
     unsigned char *outbuf = NULL, *comparison_outbuf = NULL;
     char buf[12];
-    int i = 0;
-
-    int ret = 0;
+    int i = 0, ret = 0;
 
     kctx = EVP_PKEY_CTX_new_id(nid, NULL); /* keygen ctx from NID */
-
     if (kctx == NULL) {
         WARN("# FAIL ECX - Initial mallocs failed\n");
         ret = -1;
@@ -108,6 +105,15 @@ static int test_ecx_curve(int nid,
         BIO_puts(out, text);
         BIO_puts(out, "\n");
     }
+
+#ifdef QAT_OPENSSL_PROVIDER
+    if ((key_A = EVP_PKEY_new()) <= 0 ||
+        (key_B = EVP_PKEY_new()) <= 0) {
+        fprintf(stderr, "EVP_PKEY_new failed. \n");
+        ret = -1;
+        goto err;
+    }
+#endif
 
     if (EVP_PKEY_keygen_init(kctx) <= 0) {
         WARN("# FAIL ECX - keygen_init failed\n");

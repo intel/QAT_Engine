@@ -58,7 +58,6 @@
 static const char rnd_seed[] =
     "string to make the random number generator think it has entropy";
 
-
 static int get_nid(int type)
 {
     switch (type) {
@@ -100,6 +99,49 @@ static int get_nid(int type)
         return 0;
     }
     return -1;
+}
+
+EVP_PKEY *get_ecdsa_key(const int nid)
+{
+    EVP_PKEY *ec_key = NULL;
+    EVP_PKEY_CTX *kctx = NULL;
+
+    kctx = EVP_PKEY_CTX_new_id(nid, NULL);
+
+    if(kctx == NULL) {
+        EVP_PKEY_CTX *pctx = NULL;
+        EVP_PKEY *params = NULL;
+
+        /* Create the context for parameter generation */
+#ifdef QAT_OPENSSL_3
+        pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
+#else
+        pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, NULL);
+#endif
+        if ((pctx == NULL)
+             || EVP_PKEY_paramgen_init(pctx) <= 0
+             || EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx,
+                nid) <= 0
+             || EVP_PKEY_paramgen(pctx, &params) <= 0) {
+            fprintf(stderr, "EC params init failure.\n");
+            EVP_PKEY_CTX_free(pctx);
+            return NULL;
+        }
+        EVP_PKEY_CTX_free(pctx);
+
+        /* Create the context for the key generation */
+        kctx = EVP_PKEY_CTX_new(params, NULL);
+        EVP_PKEY_free(params);
+    }
+
+    if (kctx == NULL
+        || EVP_PKEY_keygen_init(kctx) <= 0
+        || EVP_PKEY_keygen(kctx, &ec_key) <= 0) {
+        fprintf(stderr, "# FAIL ECDH - EC keygen init failed\n");
+        ec_key = NULL;
+    }
+    EVP_PKEY_CTX_free(kctx);
+    return ec_key;
 }
 
 #ifndef QAT_OPENSSL_3
@@ -274,28 +316,20 @@ builtin_err:
  * @param curveName [IN] - curve name to be used
  *
  * description:
- *       specify a test case
+ *       ECDSA Sign and Verify Test
  *
 ******************************************************************************/
 static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
                       int verify, int nid, const char *curveName)
 {
-    EC_KEY *eckey = NULL, *wrong_eckey = NULL;
-    EC_GROUP *group;
+    BIO *out = NULL;
+    int ret = 0, status = 0;
     unsigned char digest[size], wrong_digest[size];
     unsigned char *signature = NULL;
-    unsigned int sig_len = 0, degree = 0;
-    BIGNUM *kinv = NULL, *rp = NULL;
-    ECDSA_SIG *sig = NULL;
-    BIO *out = NULL;
-    int ret = 0, i;
-    char buf[256];
-
-#ifndef QAT_OPENSSL_3
-    if (nid == NID_sm2)
-        return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
-                              curveName);
-#endif
+    size_t sig_len = size;
+    EVP_PKEY *ecdsa_key = NULL;
+    EVP_PKEY_CTX *ecdsa_sign_ctx = NULL;
+    EVP_PKEY_CTX *ecdsa_verify_ctx = NULL;
 
     out = BIO_new(BIO_s_file());
     if (out == NULL) {
@@ -304,143 +338,82 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
     }
     BIO_set_fp(out, stdout, BIO_NOCLOSE);
 
+#ifndef QAT_OPENSSL_3
+    if (nid == NID_sm2)
+        return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
+                              curveName);
+#endif
+
+    ecdsa_key = get_ecdsa_key(nid);
+    if (ecdsa_key == NULL) {
+        WARN("# FAIL: ECDSA Key NULL\n");
+        ret = -1;
+        goto builtin_err;
+    }
+
     /* fill digest values with some random data */
-    if ((RAND_bytes(digest, size) <= 0) ||
-        (RAND_bytes(wrong_digest, size) <= 0)) {
-        WARN("# FAIL: unable to get random data\n");
+    if ((RAND_bytes(digest, size) <= 0)
+        || (RAND_bytes(wrong_digest, size) <= 0)) {
+        fprintf(stderr,"# FAIL: unable to get random data\n");
         ret = -1;
         goto builtin_err;
     }
 
-    /* create new ecdsa key (== EC_KEY) */
-    if ((eckey = EC_KEY_new()) == NULL) {
-        WARN("# FAIL: Failed to new up key\n");
-        ret = -1;
-        goto builtin_err;
-    }
-
-    group = EC_GROUP_new_by_curve_name(nid);
-    if (group == NULL) {
-        WARN("# FAIL: Failed to new up group\n");
-        ret = -1;
-        goto builtin_err;
-    }
-    if (EC_KEY_set_group(eckey, group) == 0) {
-        WARN("# FAIL: Failed to set group\n");
-        ret = -1;
-        goto builtin_err;
-    }
-    EC_GROUP_free(group);
-    degree = EC_GROUP_get_degree(EC_KEY_get0_group(eckey));
-    if (degree < 160) {
-        /* drop the curve */
-        EC_KEY_free(eckey);
-        eckey = NULL;
-        WARN("# FAIL: As the degree is less than 160, Drop the curve from processing\n");
-        ret = -1;
-        goto builtin_err;
-    }
-    if(print_output)
-        printf("%s\n", OBJ_nid2sn(nid));
-
-    if (!EC_KEY_generate_key(eckey)) {
-        WARN("# FAIL: Failed to generate key\n");
-        ret = -1;
-        goto builtin_err;
-    }
-
-    /* create second key */
-    if ((wrong_eckey = EC_KEY_new()) == NULL) {
-        WARN("# FAIL: Failed to new up key\n");
-        ret = -1;
-        goto builtin_err;
-    }
-    group = EC_GROUP_new_by_curve_name(nid);
-    if (group == NULL) {
-        WARN("# FAIL: Failed to new up group\n");
-        ret = -1;
-        goto builtin_err;
-    }
-    if (EC_KEY_set_group(wrong_eckey, group) == 0) {
-        WARN("# FAIL: Failed to set group\n");
-        ret = -1;
-        goto builtin_err;
-    }
-    EC_GROUP_free(group);
-    if (!EC_KEY_generate_key(wrong_eckey)) {
-        WARN("# FAIL: Failed to create wrong_eckey\n");
-        ret = -1;
-        goto builtin_err;
-    }
-
-    /* check key */
-    if (!EC_KEY_check_key(eckey)) {
-        WARN("# FAIL: EC_KEY_check_key failed\n");
-        ret = -1;
-        goto builtin_err;
-    }
-
-    /* create signature */
-    sig_len = ECDSA_size(eckey);
     if ((signature = OPENSSL_malloc(sig_len)) == NULL) {
-        WARN("# FAIL: failed to malloc signature\n");
+        fprintf(stderr,"# FAIL: failed to malloc signature\n");
         ret = -1;
         goto builtin_err;
     }
 
-    for (i = 0; i < count; ++i) {
-        if (!ECDSA_sign(0, digest, size, signature, &sig_len, eckey)) {
-            WARN("# FAIL: Failed to Sign\n");
-            ret = -1;
-            goto builtin_err;
-        }
-        if (print_output) {
-            BIO_puts(out,"ECDSA_sign signature: ");
-            for (i = 0; i < sig_len; i++) {
-                sprintf(buf, "%02X ", signature[i]);
-                BIO_puts(out, buf);
-            }
-            BIO_puts(out, "\n");
-        }
-
-        /* Verify Signature */
-        if (ECDSA_verify(0, digest, size, signature, sig_len, eckey) != 1) {
-            WARN("# FAIL: Failed to verify\n");
-            ret = -1;
-            goto builtin_err;
-        }
-
-        /* Sign setup - sign_sig and Verify */
-        sig = ECDSA_do_sign_ex(digest, size, kinv, rp, eckey);
-        if (sig == NULL) {
-            WARN("# FAIL: Failed to Sign\n");
-            ret = -1;
-            goto builtin_err;
-        }
-
-        if (ECDSA_do_verify(digest, size, sig, eckey) != 1) {
-            WARN("# FAIL: Failed to verify\n");
-            ret = -1;
-            goto builtin_err;
-        }
+    ecdsa_sign_ctx = EVP_PKEY_CTX_new(ecdsa_key, NULL);
+    if (ecdsa_sign_ctx == NULL
+        || EVP_PKEY_sign_init(ecdsa_sign_ctx) <= 0) {
+           fprintf(stderr, "ECDSA sign init Failed\n");
+           ret = -1;
+           goto builtin_err;
     }
 
-    /* Verify Signature with a wrong digest*/
+    status = EVP_PKEY_sign(ecdsa_sign_ctx, signature, &sig_len, digest, size);
+    if (status <= 0) {
+        fprintf(stderr, "ECDSA sign failed\n");
+        ret = -1;
+        goto builtin_err;
+    }
+
+    ecdsa_verify_ctx = EVP_PKEY_CTX_new(ecdsa_key, NULL);
+    if (ecdsa_verify_ctx == NULL
+        || EVP_PKEY_verify_init(ecdsa_verify_ctx) <= 0) {
+           fprintf(stderr, "ECDSA verify init failed\n");
+           ret = -1;
+           goto builtin_err;
+    }
+
+    status = EVP_PKEY_verify(ecdsa_verify_ctx, signature, sig_len, digest, size);
+    if (status <= 0) {
+        fprintf(stderr, "ECDSA_verify Failed\n");
+        ret = -1;
+        goto builtin_err;
+    }
+
+    /*  Verify Signature with a wrong digest */
 #if CPA_CY_API_VERSION_NUM_MAJOR < 3
-    if (ECDSA_verify(0, wrong_digest, size, signature, sig_len, eckey) == 1) {
-        WARN("# FAIL: Verified with wrong digest\n");
+    if (EVP_PKEY_verify(ecdsa_verify_ctx, signature, sig_len, wrong_digest, size) == 1) {
+        fprintf(stderr, "FAIL: Negative test got passed\n");
         ret = -1;
         goto builtin_err;
     }
 #endif
 
 builtin_err:
-    if (eckey)
-        EC_KEY_free(eckey);
-    if (wrong_eckey)
-        EC_KEY_free(wrong_eckey);
     if (signature)
         OPENSSL_free(signature);
+    if (ecdsa_sign_ctx)
+        EVP_PKEY_CTX_free(ecdsa_sign_ctx);
+    if (ecdsa_verify_ctx)
+        EVP_PKEY_CTX_free(ecdsa_verify_ctx);
+    if (ecdsa_key)
+        EVP_PKEY_free(ecdsa_key);
+
     BIO_free(out);
 
     if (0 == ret)
@@ -490,10 +463,11 @@ static int run_ecdsa(void *args)
         }
     } else if (test_ecdsa(count, size, e, print_output, verify, get_nid(curve),
                           ecdh_curve_name(curve)) < 0) {
-        ret = 0;
+            ret = 0;
     }
     return ret;
 }
+
 
 /******************************************************************************
 * function:

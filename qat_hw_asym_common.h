@@ -54,4 +54,11 @@ int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn);
 int qat_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, const BIGNUM *m,
                 int *fallback);
 
+# ifdef ENABLE_QAT_HW_ECX
+void qat_ecx_cb(void *pCallbackTag, CpaStatus status,
+                void *pOpData, CpaBoolean multiplyStatus,
+                CpaFlatBuffer *pXk, CpaFlatBuffer *pYk);
+int reverse_bytes(unsigned char *tobuffer,
+                  unsigned char *frombuffer, unsigned int size);
+# endif
 #endif /* QAT_HW_ASYM_COMMON_H */

@@ -94,7 +94,9 @@ static const unsigned char iv[] = {
 static int run_aesgcm256_update(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
+#ifndef QAT_OPENSSL_PROVIDER
     ENGINE *e = temp_args->e;
+#endif
     int size = temp_args->size;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
@@ -149,7 +151,11 @@ static int run_aesgcm256_update(void *args)
     }
 
     /* Initialize encryption context for aes-gcm-256 */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit(ctx, EVP_aes_256_gcm(), NULL, NULL);
+#else
     ret = EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -172,7 +178,11 @@ static int run_aesgcm256_update(void *args)
      * Initialise the aes-gcm-256 encryption context with 16-byte key and
      * 12-byte IV.
      */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit(ctx, NULL, key, iv);
+#else
     ret = EVP_EncryptInit_ex(ctx, NULL, e, key, iv);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -241,7 +251,11 @@ static int run_aesgcm256_update(void *args)
     }
 
     /* Initialize decryption context for aes-gcm-256 */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit(dec_ctx, EVP_aes_256_gcm(), NULL, NULL);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, EVP_aes_256_gcm(), e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -265,7 +279,11 @@ static int run_aesgcm256_update(void *args)
      * Initialise the aes-gcm-256 decryption context with 32-byte key and
      * 12-byte IV.
      */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit(dec_ctx, NULL, key, iv);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, NULL, e, key, iv);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -370,6 +388,7 @@ err:
 *       +-------------+-----------------------------+-------+
 *             8                     size                 16
 *******************************************************************************/
+#ifndef QAT_OPENSSL_PROVIDER
 static int run_aesgcm256_tls(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
@@ -607,16 +626,21 @@ err:
 
     return ret;
 }
+#endif
 
 void tests_run_aes256_gcm(TEST_PARAMS *args)
 {
     args->additional_args = NULL;
     if (args->enable_async) {
         start_async_job(args, run_aesgcm256_update);
+#ifndef QAT_OPENSSL_PROVIDER
         start_async_job(args, run_aesgcm256_tls);
+#endif
     }
     else {
         run_aesgcm256_update(args);
+#ifndef QAT_OPENSSL_PROVIDER
         run_aesgcm256_tls(args);
+#endif
     }
 }

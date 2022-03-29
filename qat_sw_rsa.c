@@ -76,7 +76,7 @@
 # define RSA_MULTIBUFF_PUB_DEC  4
 
 /* Multibuff RSA methods declaration */
-static int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
+int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
                                   unsigned char *to, RSA *rsa, int padding);
 
 static int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
@@ -85,7 +85,7 @@ static int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 static int multibuff_rsa_pub_enc(int flen, const unsigned char *from,
                                  unsigned char *to, RSA *rsa, int padding);
 
-static int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
+int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
                                  unsigned char *to, RSA *rsa, int padding);
 
 static int multibuff_rsa_init(RSA *rsa);

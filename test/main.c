@@ -87,6 +87,11 @@ static int thread_count = 1;
 /* define the initial test values */
 static int core_count = 1;
 static int enable_engine = 0;
+static int enable_provider = 0;
+char *prov_id;
+#ifdef QAT_OPENSSL_PROVIDER
+static OSSL_PROVIDER *provider = NULL;
+#endif
 
 /* test_count - specify the number of operations that each thread does */
 static int test_count = 1;
@@ -643,6 +648,7 @@ static void usage(char *program)
     printf("\t-poll   enable external polling of the engine (qat engine only)\n");
     printf("\t-f      specifies whether to enable(1) or disable(0) KDF for ECDH \n");
     printf("\t-engine specify the engine to use, eg -engine qatengine (default is software)\n");
+    printf("\t-provider specify the provider to use, eg -provider qat (default is software)\n");
     printf("\t-ne     enables negative scenario test cases \n");
     printf("\t-tls_version  specifies tls_version TLSv1,TLSv1_1, TLSv1_2 \n");
     printf("\t-di     specifies digest for prf and hkdf (OpenSSL_1.1.1 & higher), MD5, SHA256, SHA384, SHA512 \n");
@@ -832,6 +838,10 @@ static void handle_option(int argc, char *argv[], int *index)
         parse_option_string(index, argc, argv, &engine_id);
         enable_engine = 1;
         printf("[%s] engine enabled ! \n", engine_id);
+    } else if (!strcmp(option, "-provider")) {
+        parse_option_string(index, argc, argv, &prov_id);
+        enable_provider = 1;
+        printf("[%s] provider enabled ! \n", prov_id);
     } else if (!strcmp(option, "-p"))
         print_output = 1;
     else if (!strcmp(option, "-v"))
@@ -1424,6 +1434,16 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
     }
+#ifdef QAT_OPENSSL_PROVIDER
+    else if(enable_provider) {
+        provider = tests_initialise_provider(prov_id);
+
+        if (!provider) {
+            fprintf(stderr, "# FAIL: Provider load error, exit! \n");
+            exit(EXIT_FAILURE);
+        }
+    }
+#endif
     else
         printf("Engine disabled! using software implementation\n");
 
@@ -1453,6 +1473,7 @@ int main(int argc, char *argv[])
     printf("\tEvent Driven Polling: %s\n",
            enable_event_driven_polling ? "Yes" : "No");
     printf("\tEngine Enabled:       %s\n", enable_engine ? "Yes" : "No");
+    printf("\tProvider Enabled:     %s\n", enable_provider ? "Yes" : "No");
     printf("\tForce Explicit Engine:%s\n", explicit_engine ? "Yes" : "No");
     printf("\tNegative Scenario:    %s\n", enable_negative ? "Yes" : "No");
     printf("\tPRF TLS Version:      %s\n", tls_version);
@@ -1476,6 +1497,10 @@ int main(int argc, char *argv[])
         tests_cleanup_engine(engine, engine_id, enable_async,
                              enable_external_polling,
                              enable_event_driven_polling, sw_fallback);
+#ifdef QAT_OPENSSL_PROVIDER
+    else if (provider)
+        tests_cleanup_provider(provider);
+#endif
 
     return 0;
 }

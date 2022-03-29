@@ -134,6 +134,17 @@ typedef struct {
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
 # define QAT_INVALID_INSTANCE -1
 
+# define QAT_DEV "/dev/qat_dev_processes"
+# if defined(USE_QAT_CONTIG_MEM) && !defined(USE_USDM_MEM)
+#  define QAT_MEM_DEV "/dev/qat_contig_mem"
+# elif defined(USE_USDM_MEM) && !defined(USE_QAT_CONTIG_MEM)
+#  define QAT_MEM_DEV "/dev/usdm_drv"
+# elif defined(USE_USDM_MEM) && defined(USE_QAT_CONFIG_MEM)
+#  error "USE_QAT_CONTIG_MEM and USE_USDM_MEM both defined"
+# else
+#  error "No memory driver type defined"
+# endif
+
 # define QAT_INC_IN_FLIGHT_REQS(qat_int, tlv) \
             do {                              \
                 if (qat_use_signals()) {      \
@@ -269,7 +280,9 @@ typedef struct {
  * Used to size the freelist and queue as it represents how many
  * requests can be inflight at once.
  */
-# define MULTIBUFF_MAX_INFLIGHTS 128
+# ifndef MULTIBUFF_MAX_INFLIGHTS
+#  define MULTIBUFF_MAX_INFLIGHTS 128
+# endif
 
 /*
  * The maximum amount of iterations we will continue to submit
@@ -675,7 +688,6 @@ int multibuff_init(ENGINE *e);
  ******************************************************************************/
 int multibuff_finish_int(ENGINE *e, int reset_globals);
 
-
 /******************************************************************************
  * function:
  *         mb_check_thread_local(ENGINE *e, int reset_globals)
@@ -688,4 +700,9 @@ int multibuff_finish_int(ENGINE *e, int reset_globals);
 mb_thread_data *mb_check_thread_local(void);
 
 # endif
+
+# ifdef QAT_SW_IPSEC
+int hw_support(void);
+# endif
+
 #endif   /* E_QAT_H */

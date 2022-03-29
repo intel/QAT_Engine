@@ -66,6 +66,9 @@
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
+#ifdef QAT_OPENSSL_PROVIDER
+# include <openssl/provider.h>
+#endif
 
 /* QAT includes */
 #ifdef QAT_HW
@@ -85,10 +88,14 @@ typedef  cpu_set_t qat_cpuset;
 typedef  cpuset_t  qat_cpuset;
 # endif
 #endif
+#ifdef QAT_OPENSSL_PROVIDER
+# include "qat_provider.h"
+#endif
 
 void engine_init_child_at_fork_handler(void)
 {
 #ifndef DISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK
+# ifndef QAT_OPENSSL_PROVIDER
     /* Reinitialise the engine */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (NULL == e) {
@@ -102,11 +109,30 @@ void engine_init_child_at_fork_handler(void)
         QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
     }
     ENGINE_free(e);
+# else
+    QAT_PROV_CTX *ctx;
+    OSSL_PROVIDER *prov;
+    const char *prov_name = "qatprovider";
+    ctx = OPENSSL_zalloc(sizeof(*ctx));
+    prov = OSSL_PROVIDER_load(prov_libctx_of(ctx),prov_name);
+    if (NULL == prov) {
+        WARN("Provider pointer is NULL\n");
+        QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_NULL);
+        return;
+    }
+    if (qat_engine_init(NULL) != 1) {
+        WARN("Failure in qat_engine_init function\n");
+        QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
+    }
+    OPENSSL_free(ctx);
+    OSSL_PROVIDER_unload(prov);
+# endif
 #endif
 }
 
 void engine_finish_before_fork_handler(void)
 {
+#ifndef QAT_OPENSSL_PROVIDER
     /* Reset the engine preserving the value of global variables */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (NULL == e) {
@@ -118,6 +144,21 @@ void engine_finish_before_fork_handler(void)
     qat_engine_finish_int(e, QAT_RETAIN_GLOBALS);
     ENGINE_free(e);
 
+#else
+    QAT_PROV_CTX *ctx;
+    OSSL_PROVIDER *prov;
+    const char *prov_name = "qatprovider";
+    ctx = OPENSSL_zalloc(sizeof(*ctx));
+    prov = OSSL_PROVIDER_load(prov_libctx_of(ctx),prov_name);
+    if (NULL == prov) {
+        WARN("Provider pointer is NULL\n");
+        QATerr(QAT_F_ENGINE_FINISH_BEFORE_FORK_HANDLER, QAT_R_ENGINE_NULL);
+        return;
+    }
+    qat_engine_finish_int(NULL, QAT_RETAIN_GLOBALS);
+    OPENSSL_free(ctx);
+    OSSL_PROVIDER_unload(prov);
+#endif
     qat_keep_polling = 1;
     multibuff_keep_polling = 1;
 }

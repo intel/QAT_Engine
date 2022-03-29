@@ -77,21 +77,3 @@ This document can be found on the 01.org website at the following hyperlink:
 
 [2]:https://01.org/sites/default/files/downloads/336210qatswpg-013.pdf
 
-### QAT_HW and QAT_SW Co-existence Feature
-
-Intel&reg; QAT OpenSSL\* Engine supports QAT_HW and QAT_SW Co-existence build
-with both QAT_HW and QAT_SW dependant libraries(QAT Driver, cryptom_mb and
-ipsec_mb) linked in the qatengine.so library. This support can be enabled at
-build time when both QAT_HW flag `--with-qat_hw_dir=/path/to/QAT_Driver`
-and QAT_SW flag `--enable-qat_sw` configured together in the build configure
-option.
-
-If the platform has support for both QAT_HW and QAT_SW, the default
-behaviour is to accelerate asymmetric algorithms and Symmetric chained ciphers
-using QAT Hardware and Symmetric GCM Ciphers using QAT Software. If the platform
-doesn't have QAT Hardware support then it will use QAT_SW Acceleration for
-QAT_SW asymmetric algorithms that are supported in the qatengine.
-
-The default behaviour can be changed using corresponding algorithm's enable
-flags (eg:--enable-qat_sw_rsa) in which case the individual algorithms enabled
-(either qat_hw or qat_sw) in the build configure will get accelerated.

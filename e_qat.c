@@ -54,16 +54,6 @@
 
 /* Defines */
 #ifdef QAT_HW
-# define QAT_DEV "/dev/qat_dev_processes"
-# if defined(USE_QAT_CONTIG_MEM) && !defined(USE_USDM_MEM)
-#  define QAT_MEM_DEV "/dev/qat_contig_mem"
-# elif defined(USE_USDM_MEM) && !defined(USE_QAT_CONTIG_MEM)
-#  define QAT_MEM_DEV "/dev/usdm_drv"
-# elif defined(USE_USDM_MEM) && defined(USE_QAT_CONFIG_MEM)
-#  error "USE_QAT_CONTIG_MEM and USE_USDM_MEM both defined"
-# else
-#  error "No memory driver type defined"
-# endif
 # ifdef QAT_HW_INTREE
 #  define ENABLE_QAT_HW_SHA3
 #  define ENABLE_QAT_HW_CHACHAPOLY
@@ -401,7 +391,7 @@ static int qat_engine_destroy(ENGINE *e)
 }
 
 #ifdef QAT_SW_IPSEC
-static int hw_support(void) {
+int hw_support(void) {
 
     unsigned int  info[4] = {0, 0, 0, 0};
     unsigned int *ebx, *ecx, *edx;

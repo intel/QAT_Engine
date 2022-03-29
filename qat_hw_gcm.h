@@ -151,13 +151,22 @@ typedef struct qat_aes_gcm_ctx_t
     int key_set;
 } qat_gcm_ctx;
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_aes_gcm_init(void *ctx, const unsigned char *inkey,
+                     int keylen, const unsigned char *iv, int ivlen,
+                     int enc);
+int qat_aes_gcm_cipher(void *ctx, unsigned char *out,
+                       size_t *padlen,const unsigned char *in,
+                       size_t len);
+#else
 int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
                      const unsigned char *inkey,
                      const unsigned char *iv, int enc);
-int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx);
 int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx,
                        unsigned char *out,
                        const unsigned char *in, size_t len);
+#endif
+int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx);
 int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                      void *ptr);
 

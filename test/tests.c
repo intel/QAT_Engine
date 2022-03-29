@@ -47,6 +47,10 @@
 #include <openssl/engine.h>
 #include <openssl/des.h>
 #include <openssl/rand.h>
+#ifdef QAT_OPENSSL_PROVIDER
+#include <openssl/provider.h>
+#endif
+#include <openssl/safestack.h>
 
 #define _GNU_SOURCE
 #define __USE_GNU
@@ -427,6 +431,45 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
     return ret;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+void tests_cleanup_provider(OSSL_PROVIDER *prov)
+{
+    OSSL_PROVIDER_unload(prov);
+    OPENSSL_cleanup();
+    DEBUG("QAT Provider Freed ! \n");
+}
+
+OSSL_PROVIDER *tests_initialise_provider(const char *prov_id)
+{
+    /* loading qatprovider */
+    OSSL_LIB_CTX *libctx = NULL;
+    OSSL_PROVIDER *prov;
+    OSSL_PROVIDER *deflt;
+
+    DEBUG("Loading Provider ! \n");
+    prov = OSSL_PROVIDER_load(libctx, prov_id);
+    OSSL_PROVIDER_set_default_search_path(libctx, prov_id);
+
+    if (!prov) {
+        fprintf(stderr,"# FAIL: Provider load failed, using default Provider!\n");
+        goto err;
+    }
+
+    deflt = OSSL_PROVIDER_load(NULL, "default");
+
+    if (!deflt) {
+         fprintf(stderr,"# FAIL: default provider load failed\n");
+         goto err;
+    }
+
+    return prov;
+
+err:
+    OSSL_LIB_CTX_free(libctx);
+    OSSL_PROVIDER_unload(prov);
+    return NULL;
+}
+#endif
 
 /******************************************************************************
 * function:

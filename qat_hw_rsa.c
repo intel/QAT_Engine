@@ -100,13 +100,13 @@
 
 #ifdef ENABLE_QAT_HW_RSA
 /* Qat engine RSA methods declaration */
-static int qat_rsa_priv_enc(int flen, const unsigned char *from,
+int qat_rsa_priv_enc(int flen, const unsigned char *from,
                             unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_priv_dec(int flen, const unsigned char *from,
                             unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_pub_enc(int flen, const unsigned char *from,
                            unsigned char *to, RSA *rsa, int padding);
-static int qat_rsa_pub_dec(int flen, const unsigned char *from,
+int qat_rsa_pub_dec(int flen, const unsigned char *from,
                            unsigned char *to, RSA *rsa, int padding);
 static int qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
 static int qat_rsa_init(RSA *rsa);

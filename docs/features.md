@@ -37,7 +37,8 @@
     * SM3 Hash Support using 16 Multibuffer requests (Experimental).
     * AES128-GCM, AES192-GCM and AES256-GCM
 
-[QAT_HW & QAT_SW Co-existence Feature](qat_hw.md#qat-hw-and-qat-sw-co-existence-feature)
+##### [QAT_HW & QAT_SW Co-existence Feature](qat_common.md#qat-hw-and-qat-sw-co-existence-feature)
+##### [OpenSSL 3.0 Provider Support](qat_common.md#openssl-3.0-provider-support)
 
 Note: RSA Padding schemes are handled by OpenSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL does natively.

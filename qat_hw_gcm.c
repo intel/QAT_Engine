@@ -75,6 +75,9 @@
 #include <openssl/tls1.h>
 #include <openssl/async.h>
 #include <openssl/ssl.h>
+#ifdef QAT_OPENSSL_PROVIDER
+#include "qat_prov_ciphers.h"
+#endif
 
 #ifdef ENABLE_QAT_HW_GCM
 # ifdef DISABLE_QAT_HW_GCM
@@ -88,7 +91,9 @@
 *         qat_session_data_init(EVP_CIPHER_CTX *ctx,
 *                               qat_aes_gcm_ctx *qctx,
 *                               const unsigned char* key,
+*                               int keylen,
 *                               const unsigned char* iv,
+*                               int ivlen,
 *                               int enc)
 *
 * @param ctx     [IN] - pointer to the evp context
@@ -103,12 +108,25 @@
 *
 *    It will return 1 if successful and 0 on failure.
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
+                                 void *vctx,
+                                 const unsigned char* key,
+                                 int keylen,
+                                 const unsigned char* iv,
+                                 int ivlen,
+                                 int enc)
+#else
 static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
                                  qat_gcm_ctx *qctx,
                                  const unsigned char* key,
                                  const unsigned char* iv,
                                  int enc)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+   QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)vctx;
+#endif
     DEBUG("QAT HW GCM Started\n");
     if (NULL == qctx || NULL == ctx) {
         WARN("qctx or ctx is NULL\n");
@@ -121,13 +139,21 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
             qaeCryptoMemFreeNonZero(qctx->cipher_key);
             qctx->cipher_key = NULL;
         }
+#ifdef QAT_OPENSSL_PROVIDER
+        qctx->cipher_key = qaeCryptoMemAlloc(keylen, __FILE__, __LINE__);
+#else
         qctx->cipher_key = qaeCryptoMemAlloc(EVP_CIPHER_CTX_key_length(ctx), __FILE__, __LINE__);
+#endif
         if (qctx->cipher_key == NULL) {
             WARN("Unable to allocate memory for qctx->cipher_key.\n");
             QATerr(QAT_F_QAT_SESSION_DATA_INIT, QAT_R_KEY_MALLOC_FAILURE);
             return 0;
         }
+#ifdef QAT_OPENSSL_PROVIDER
+        memcpy(qctx->cipher_key, key, keylen);
+#else
         memcpy(qctx->cipher_key, key, EVP_CIPHER_CTX_key_length(ctx));
+#endif
         qctx->key_set = 1;
     }
 
@@ -152,7 +178,11 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
     qctx->session_data->cipherSetupData.cipherAlgorithm =
      CPA_CY_SYM_CIPHER_AES_GCM;
     /* Cipher key length */
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx->session_data->cipherSetupData.cipherKeyLenInBytes = (Cpa32U)keylen;
+#else
     qctx->session_data->cipherSetupData.cipherKeyLenInBytes = (Cpa32U)EVP_CIPHER_CTX_key_length(ctx);
+#endif
 
     if (qctx->key_set)
         qctx->session_data->cipherSetupData.pCipherKey = (Cpa8U *)qctx->cipher_key;
@@ -200,9 +230,8 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
 
 /******************************************************************************
 * function:
-*         qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
-*                          const unsigned char *inkey,
-*                          const unsigned char *iv,
+*         qat_aes_gcm_init(EVP_CIPHER_CTX *ctx, const unsigned char *inkey,
+*                          int keylen, const unsigned char *iv, int ivlen,
 *                          int enc)
 *
 * @param ctx     [IN]  - pointer to existing context
@@ -218,12 +247,22 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
 *  EVP context.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_aes_gcm_init( void *ctx, const unsigned char *inkey,
+                     int keylen, const unsigned char *iv, int ivlen,
+                     int enc)
+#else
 int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
                      const unsigned char *inkey,
                      const unsigned char *iv,
                      int enc)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_GCM_CTX* qctx = NULL;
+#else
     qat_gcm_ctx* qctx = NULL;
+#endif
 
     if (NULL == ctx) {
         WARN("ctx is NULL\n");
@@ -239,8 +278,14 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
         return 1;
     }
 
-    /* Initialise a QAT session and set the cipher keys*/
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx = (QAT_GCM_CTX *)ctx;
+    qctx->enc = enc;
+#else
     qctx = QAT_GCM_GET_CTX(ctx);
+#endif
+
+    /* Initialise a QAT session and set the cipher keys*/
     if (NULL == qctx) {
         WARN("qctx is NULL\n");
         QATerr(QAT_F_QAT_AES_GCM_INIT, QAT_R_QCTX_NULL);
@@ -250,8 +295,13 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
     /* Initialize pointers to NULL to handle failures correctly */
     qctx->iv = NULL;
 
+#ifdef QAT_OPENSSL_PROVIDER
+    DEBUG("IV Len = %d Key Len = %d\n",
+           ivlen, keylen);
+#else
     DEBUG("IV Len = %d Key Len = %d\n",
            EVP_CIPHER_CTX_iv_length(ctx), EVP_CIPHER_CTX_key_length(ctx));
+#endif
 
     /* The length of the IV in the TLS case is fixed = 12 Bytes */
     qctx->iv_len = QAT_GCM_TLS_TOTAL_IV_LEN;
@@ -261,12 +311,23 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
      * When the length is equal to 12 (TLS case) a padding of 0s is
      * automatically added, but you need to reserve memory for the entire block.
      * That's why EVP_CIPHER_CTX_iv_length(ctx) returns 16 */
+#ifdef QAT_OPENSSL_PROVIDER
+    if (iv != NULL) {
+        qctx->iv = qaeCryptoMemAlloc(ivlen, __FILE__, __LINE__);
+        if (qctx->iv == NULL) {
+            WARN("iv is NULL.\n");
+            QATerr(QAT_F_QAT_AES_GCM_INIT, QAT_R_IV_MALLOC_FAILURE);
+            goto err;
+        }
+    }
+#else
     qctx->iv = qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx), __FILE__, __LINE__);
     if (qctx->iv == NULL) {
         WARN("iv is NULL.\n");
         QATerr(QAT_F_QAT_AES_GCM_INIT, QAT_R_IV_MALLOC_FAILURE);
         goto err;
     }
+#endif
 
     /* Set the value of the IV */
     if (NULL != iv) {
@@ -275,18 +336,27 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
         qctx->iv_set = 1;
         DUMPL("iv", iv, qctx->iv_len);
     } else {
+#ifndef QAT_OPENSSL_PROVIDER
         memset(qctx->iv, 0, qctx->iv_len);
+#endif
         memset(qctx->next_iv, 0, qctx->iv_len);
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    DUMPL("inkey", inkey, keylen);
+#else
     DUMPL("inkey", inkey, EVP_CIPHER_CTX_key_length(ctx));
+#endif
 
     qctx->tls_aad_len = -1;
     qctx->tag_len = -1;
     qctx->iv_gen = 0;
 
     /* Initialize QAT session */
+#ifdef QAT_OPENSSL_PROVIDER
+    if (0 == qat_session_data_init(ctx, qctx, inkey, keylen, iv, ivlen, enc)) {
+#else
     if (0 == qat_session_data_init(ctx, qctx, inkey, iv, enc)) {
+#endif
         WARN("qat_session_data_init failed.\n");
         goto err;
     }
@@ -775,9 +845,17 @@ static void qat_gcm_cb(void *pCallbackTag, CpaStatus status,
 *    This function synchronises the initialisation of the QAT session and
 *  pre-allocates the necessary buffers for the session.
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_aes_gcm_session_init(void *ctx)
+#else
 static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_GCM_CTX* qctx = NULL;
+#else
     qat_gcm_ctx* qctx = NULL;
+#endif
     CpaCySymSessionSetupData *sessionSetupData = NULL;
     Cpa32U sessionCtxSize = 0;
     CpaCySymSessionCtx pSessionCtx = NULL;
@@ -791,7 +869,11 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx = (QAT_GCM_CTX *)ctx;
+#else
     qctx = QAT_GCM_GET_CTX(ctx);
+#endif
 
     if (NULL == qctx) {
         WARN("qctx is NULL\n");
@@ -916,6 +998,12 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx)
     return 1;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int QAT_AES_CIPHER_CTX_encrypting(QAT_GCM_CTX *qctx)
+{
+        return qctx->enc;
+}
+#endif
 /******************************************************************************
 * function:
 *    qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
@@ -1153,7 +1241,8 @@ err:
 /******************************************************************************
 * function:
 *    qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
-*                       const unsigned char *in, size_t len)
+*                       size_t *padlen, const unsigned char *in,
+*                       size_t len)
 *
 * @param ctx    [IN]  - pointer to existing context
 * @param out        [OUT] - output buffer for transform result
@@ -1200,12 +1289,22 @@ err:
 *  a single operation like in the QAT engine.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_aes_gcm_cipher(void *ctx, unsigned char *out,
+                       size_t *padlen,const unsigned char *in,
+                       size_t len)
+#else
 int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                        const unsigned char *in, size_t len)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_GCM_CTX *qctx = NULL;
+#else
+    qat_gcm_ctx *qctx = NULL;
+#endif
     CpaStatus sts = 0;
     op_done_t op_done;
-    qat_gcm_ctx *qctx = NULL;
     const int RET_SUCCESS = 0;
     const int RET_FAIL = -1;
     int ret_val = RET_FAIL;
@@ -1224,14 +1323,22 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return RET_FAIL;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx = (QAT_GCM_CTX *)ctx;
+#else
     qctx = QAT_GCM_GET_CTX(ctx);
+#endif
+
     if (NULL == qctx) {
         WARN("qctx is NULL\n");
         QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_QCTX_NULL);
         return RET_FAIL;
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    enc = QAT_AES_CIPHER_CTX_encrypting(qctx);
+#else
     enc = EVP_CIPHER_CTX_encrypting(ctx);
+#endif
     DEBUG("enc = %d - ctx = %p, out = %p, in = %p, len = %zu\n",
           enc, (void*)ctx, (void*)out, (void*)in, len);
 
@@ -1287,7 +1394,11 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         } else {
             /* The key has been set in the init function: no need to check it */
             if (0 == qctx->is_session_init) {
+#ifdef QAT_OPENSSL_PROVIDER
+                if (0 == qat_aes_gcm_session_init(qctx)) {
+#else
                 if (0 == qat_aes_gcm_session_init(ctx)) {
+#endif
                     WARN("Unable to initialise Cipher context.\n");
                     return RET_FAIL ;
                 }
@@ -1320,7 +1431,11 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             */
             if (!enc) {
                 /* Check that a tag has been set */
+#ifdef QAT_OPENSSL_PROVIDER
+                if (NULL == qctx->buf) {
+#else
                 if (NULL == EVP_CIPHER_CTX_buf_noconst(ctx)) {
+#endif
                     WARN("Tag not set\n");
                     qaeCryptoMemFreeNonZero(qctx->srcFlatBuffer[0].pData);
                     qctx->srcFlatBuffer[0].pData = NULL;
@@ -1330,9 +1445,16 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 /* Copy EVP_GCM_TLS_TAG_LEN bytes from tag buffer
                    as the maximum tag length can only be
                    EVP_GCM_TLS_TAG_LEN */
+#ifdef QAT_OPENSSL_PROVIDER
+                memcpy(qctx->dstFlatBuffer[0].pData + len,
+                       qctx->buf,
+                       EVP_GCM_TLS_TAG_LEN);
+                qctx->tag_len = EVP_GCM_TLS_TAG_LEN;
+#else
                 memcpy(qctx->dstFlatBuffer[0].pData + len,
                        EVP_CIPHER_CTX_buf_noconst(ctx),
                        EVP_GCM_TLS_TAG_LEN);
+#endif
             }
 
             tlv = qat_check_create_local_variables();
@@ -1421,9 +1543,15 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
             if (enc) {
                 /* After encryption, copy the TAG from the buffer to the ctx */
+#ifdef QAT_OPENSSL_PROVIDER
+                memcpy(qctx->buf,
+                       qctx->dstFlatBuffer[0].pData + len,
+                       EVP_GCM_TLS_TAG_LEN);
+#else
                 memcpy(EVP_CIPHER_CTX_buf_noconst(ctx),
                        qctx->dstFlatBuffer[0].pData + len,
                        EVP_GCM_TLS_TAG_LEN);
+#endif
                 qctx->tag_len = EVP_GCM_TLS_TAG_LEN;
             }
 
@@ -1431,7 +1559,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             qaeCryptoMemFreeNonZero(qctx->srcFlatBuffer[0].pData);
             qctx->srcFlatBuffer[0].pData = NULL;
             qctx->dstFlatBuffer[0].pData = NULL;
-
+#ifdef QAT_OPENSSL_PROVIDER
+            *padlen = len;
+#endif
             return ret_val;
         }
     } else {

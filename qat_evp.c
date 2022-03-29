@@ -529,8 +529,10 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 
         res &= EVP_CIPHER_meth_set_iv_length(c, GCM_IV_DATA_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, VAESGCM_FLAG);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_init(c, vaesgcm_ciphers_init);
         res &= EVP_CIPHER_meth_set_do_cipher(c, vaesgcm_ciphers_do_cipher);
+#endif
         res &= EVP_CIPHER_meth_set_cleanup(c, vaesgcm_ciphers_cleanup);
         res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(vaesgcm_ctx));
         res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
@@ -553,8 +555,10 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 
         res &= EVP_CIPHER_meth_set_iv_length(c, AES_GCM_IV_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, QAT_GCM_FLAGS);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_init(c, qat_aes_gcm_init);
         res &= EVP_CIPHER_meth_set_do_cipher(c, qat_aes_gcm_cipher);
+#endif
         res &= EVP_CIPHER_meth_set_cleanup(c, qat_aes_gcm_cleanup);
         res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_gcm_ctx));
         res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?

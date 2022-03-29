@@ -53,6 +53,10 @@
 
 #define ECDH_NEGATIVE_TESTCOUNT 2 /* Should be incremented when new negative tests added */
 
+#ifdef QAT_OPENSSL_PROVIDER
+# define MAX_ECDH_SIZE   256
+EVP_PKEY *get_ec_key(const int nid);
+#endif
 
 /******************************************************************************
 * function:
@@ -107,6 +111,7 @@ int get_nid(int type)
 }
 
 static const int KDF1_SHA1_len = 20;
+#ifndef QAT_OPENSSL_PROVIDER
 static void *KDF1_SHA1(const void *in, size_t inlen, void *out, size_t *outlen)
 {
     if (*outlen < SHA_DIGEST_LENGTH)
@@ -115,7 +120,7 @@ static void *KDF1_SHA1(const void *in, size_t inlen, void *out, size_t *outlen)
         *outlen = SHA_DIGEST_LENGTH;
     return SHA1(in, inlen, out);
 }
-
+#endif
 /******************************************************************************
 * function:
 *       test_ecdh_curve (ENGINE *e,
@@ -161,7 +166,22 @@ static int test_ecdh_curve(ENGINE * e,
     *x_b = NULL, *y_b = NULL;
     char buf[12];
     unsigned char *abuf = NULL, *bbuf = NULL;
-    int i, aout = 0, bout, ret = 0;
+    int i, ret = 0;
+#ifndef QAT_OPENSSL_PROVIDER
+    int aout = 0, bout;
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+    EVP_PKEY_CTX *key_ctx = NULL;
+    EVP_PKEY_CTX *test_ctx = NULL;
+    EVP_PKEY *key1 = NULL;
+    EVP_PKEY *key2 = NULL;
+    size_t outlen = 0;
+    size_t test_outlen = 0;
+    unsigned char *secret_a = OPENSSL_malloc(MAX_ECDH_SIZE);
+    unsigned char *secret_b = OPENSSL_malloc(MAX_ECDH_SIZE) ;
+    int ecdh_checks = 1;
+#endif
+#ifndef QAT_OPENSSL_PROVIDER
     size_t alen = 0, blen = 0;
     const EC_GROUP *group;
 
@@ -361,9 +381,117 @@ static int test_ecdh_curve(ENGINE * e,
         BIO_puts(out,text);
         BIO_puts(out,"\n");
     }
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+    if (print_output) {
+        BIO_puts(out,"\nTesting key generation with ");
+        BIO_puts(out,text);
+        BIO_puts(out,"\n");
+       }
+
+    key1 = get_ec_key(nid);
+    key2 = get_ec_key(nid);
+
+    if (!(key_ctx = EVP_PKEY_CTX_new(key1, NULL))) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH key_ctx generation failed\n");
+        goto err;
+    }
+
+    if ((test_ctx = EVP_PKEY_CTX_new(key2, NULL)) <= 0) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH test_ctx generation failed\n");
+        goto err;
+    }
+
+    if (EVP_PKEY_derive_init(key_ctx) <= 0) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH derive init failed\n");
+        goto err;
+    }
+
+    if (EVP_PKEY_derive_set_peer(key_ctx, key2) <= 0) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH set peer pubkey failed\n");
+        goto err;
+    }
+
+    if (EVP_PKEY_derive(key_ctx, NULL, &outlen) <= 0 || outlen == 0) {
+         ecdh_checks = 0;
+         fprintf(stderr, "ECDH derive failed or outlen is NULL\n");
+         goto err;
+    }
+
+    if (!EVP_PKEY_derive_init(test_ctx)) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH test derive init failed\n");
+        goto err;
+    }
+
+    if (!EVP_PKEY_derive_set_peer(test_ctx, key1)) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH set peer pubkey failed\n");
+        goto err;
+    }
+
+    if (!EVP_PKEY_derive(test_ctx, NULL, &test_outlen)) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH derive failed \n");
+        goto err;
+    }
+    if (!EVP_PKEY_derive(key_ctx, secret_a, &outlen)) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH derive failed \n");
+        goto err;
+    }
+
+    if (!EVP_PKEY_derive(test_ctx, secret_b, &test_outlen) || test_outlen != outlen) {
+        ecdh_checks = 0;
+        fprintf(stderr, "ECDH derive failed or tests_outlen & outlen are not equal\n");
+        goto err;
+    }
+
+    if (CRYPTO_memcmp(secret_a, secret_b, outlen)) {
+       ecdh_checks = 0;
+       fprintf(stderr, "ECDH computations don't match.\n");
+       goto err;
+    }
+
+    if (ecdh_checks != 0) {
+        BIO_puts(out,"Positive test \n");
+        if (print_output) {
+            BIO_puts(out,"  key =");
+            if (outlen > KDF1_SHA1_len)
+                outlen = KDF1_SHA1_len;
+            if (test_outlen > KDF1_SHA1_len)
+                test_outlen = KDF1_SHA1_len;
+            for (i = 0; i < outlen; i++) {
+                sprintf(buf,"%02X",secret_a[i]);
+                BIO_puts(out,buf);
+            }
+            BIO_puts(out,"\n");
+        }
+
+        if (print_output) {
+            BIO_puts(out,"  key1 =");
+            for (i = 0; i < test_outlen; i++) {
+                sprintf(buf,"%02X",secret_b[i]);
+                BIO_puts(out, buf);
+
+            }
+            BIO_puts(out,"\n");
+         }
+        printf("# PASS  verify for ECDH.  %s \n", text);
+    } else {  /*(ecdh_checks == 0) */
+        BIO_puts(out,"Negative test \n");
+        fprintf(stderr, "# FAIL verify for ECDH.  %s \n", text);
+    }
+#endif
 
 err:
+#ifndef QAT_OPENSSL_PROVIDER
     ERR_print_errors_fp(stderr);
+#endif
     if (abuf != NULL) OPENSSL_free(abuf);
     if (bbuf != NULL) OPENSSL_free(bbuf);
     if (x_a) BN_free(x_a);
@@ -372,10 +500,54 @@ err:
     if (y_b) BN_free(y_b);
     if (b) EC_KEY_free(b);
     if (a) EC_KEY_free(a);
-
+#ifdef QAT_OPENSSL_PROVIDER
+    if (key1 != NULL) EVP_PKEY_free(key1);
+    if (key2 != NULL) EVP_PKEY_free(key2);
+    EVP_PKEY_CTX_free(test_ctx);
+    EVP_PKEY_CTX_free(key_ctx);
+#endif
     return ret;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+EVP_PKEY *get_ec_key(const int nid)
+{
+    EVP_PKEY *ec_key = NULL;
+    EVP_PKEY_CTX *kctx = NULL;
+
+    kctx = EVP_PKEY_CTX_new_id(nid, NULL);
+
+    if(kctx == NULL) {
+    EVP_PKEY_CTX *pctx = NULL;
+    EVP_PKEY *params = NULL;
+
+    /* Create the context for parameter generation */
+    if ((pctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL)) == NULL
+        || EVP_PKEY_paramgen_init(pctx) <= 0
+        || EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx,
+                                                  nid) <= 0
+        || EVP_PKEY_paramgen(pctx, &params) <= 0) {
+        fprintf(stderr, "EC params init failure.\n");
+        EVP_PKEY_CTX_free(pctx);
+        return NULL;
+    }
+    EVP_PKEY_CTX_free(pctx);
+
+    /* Create the context for the key generation */
+    kctx = EVP_PKEY_CTX_new(params, NULL);
+    EVP_PKEY_free(params);
+    }
+
+    if (kctx == NULL
+        || EVP_PKEY_keygen_init(kctx) <= 0
+        || EVP_PKEY_keygen(kctx, &ec_key) <= 0) {
+        fprintf(stderr, "# FAIL ECDH - EC keygen init failed\n");
+                ec_key = NULL;
+    }
+    EVP_PKEY_CTX_free(kctx);
+    return ec_key;
+}
+#endif
 
 /******************************************************************************
 * function:
@@ -445,7 +617,10 @@ static int run_ecdh(void *args)
          }
      }
 err:
+
+#ifndef QAT_OPENSSL_PROVIDER
     ERR_print_errors_fp(stderr);
+#endif
     if (ctx) BN_CTX_free(ctx);
     BIO_free(out);
 

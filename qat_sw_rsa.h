@@ -63,4 +63,10 @@ void multibuff_free_RSA_methods(void);
 void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits);
 void process_RSA_pub_reqs(mb_thread_data *tlv, int rsa_bits);
 
+int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
+                           unsigned char *to, RSA *rsa, int padding);
+
+int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
+                          unsigned char *to, RSA *rsa, int padding);
+
 #endif /* QAT_SW_RSA_H */

@@ -55,4 +55,8 @@ RSA_METHOD *qat_get_RSA_methods(void);
 
 void qat_free_RSA_methods(void);
 
+int qat_rsa_priv_enc(int flen, const unsigned char *from,
+                     unsigned char *to, RSA *rsa, int padding);
+int qat_rsa_pub_dec(int flen, const unsigned char *from,
+                    unsigned char *to, RSA *rsa, int padding);
 #endif /* QAT_HW_RSA_H */
