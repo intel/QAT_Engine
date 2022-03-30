@@ -36,3 +36,7 @@
 * SM3 is disabled by default due to known issue from cryto_mb. When SM3 enabled,
   Performance drop observed in mulithread scenario for all ciphers suites
   due to the locks at engine_table_select in OpenSSL.
+* OpenSSL 1.1.1n introduced misleading error message(undefined symbol: EVP_PKEY_get_base_id)
+  during engine load which can be ignored as it is not a real failure. Details of error
+  message can be found [here] [1]
+  [1]:https://github.com/openssl/openssl/issues/17962

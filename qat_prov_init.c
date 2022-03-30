@@ -183,11 +183,13 @@ static int qat_get_params(void *provctx, OSSL_PARAM params[])
 }
 
 static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
+#if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     ALG(QAT_NAMES_AES_128_GCM, qat_aes128gcm_functions),
-#ifdef QAT_SW
+    ALG(QAT_NAMES_AES_256_GCM, qat_aes256gcm_functions),
+#endif
+#ifdef ENABLE_QAT_SW_GCM
     ALG(QAT_NAMES_AES_192_GCM, qat_aes192gcm_functions),
 #endif
-    ALG(QAT_NAMES_AES_256_GCM, qat_aes256gcm_functions),
     { { NULL, NULL, NULL }, NULL }
 };
 
@@ -196,7 +198,7 @@ static OSSL_ALGORITHM qat_exported_ciphers[OSSL_NELEM(qat_deflt_ciphers)];
 static const OSSL_ALGORITHM qat_keyexch[] = {
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keyexch_functions, "QAT X25519 keyexch implementation."},
     {"ECDH", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT ECDH keyexch implementation."},
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECX
     {"X448", QAT_DEFAULT_PROPERTIES, qat_X448_keyexch_functions, "QAT X448 keyexch implementation."},
 #endif
     {NULL, NULL, NULL}};
@@ -205,7 +207,7 @@ static const OSSL_ALGORITHM qat_keymgmt[] = {
     {"RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_keymgmt_functions, "QAT RSA Keymgmt implementation."},
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keymgmt_functions, "QAT X25519 Keymgmt implementation."},
     {"EC", QAT_DEFAULT_PROPERTIES, qat_ec_keymgmt_functions, "QAT EC Keymgmt implementation."},
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECX
     {"X448", QAT_DEFAULT_PROPERTIES, qat_X448_keymgmt_functions, "QAT X448 Keymgmt implementation."},
 #endif
     {NULL, NULL, NULL}};
@@ -310,8 +312,7 @@ int qat_get_params_from_core(const OSSL_CORE_HANDLE *handle)
     }
 
     if (qat_params.enable_external_polling == NULL) {
-        WARN("please ensure you have enable the qat_provider.cnf or we will use the default parameters.\n");
-        WARN("get_params from qat_provider.cnf is NULL. Use default params\n");
+        DEBUG("get_params is NULL. Using the default params\n");
         return 1;
     }
 

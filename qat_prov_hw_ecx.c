@@ -83,7 +83,7 @@
 #define QAT_X448_DATALEN       64
 #define X448_DATA_KEY_DIFF      8
 
-#ifdef QAT_OPENSSL_PROVIDER
+# ifdef QAT_OPENSSL_PROVIDER
 void *qat_pkey_ecx_keygen(void *genctx, OSSL_CALLBACK *osslcb,
                           void *cbarg)
 {
@@ -993,5 +993,5 @@ err:
     }
     return ret;
 }
-#endif
-#endif
+# endif /* Provider */
+#endif /* ENABLE_QAT_HW_ECX */
