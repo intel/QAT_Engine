@@ -798,20 +798,20 @@ linux*)
   AC_CHECK_PROG(USE_HEAD, head, yes, no)
   if test $USE_LDD == "yes" -a $USE_HEAD
   then
-    if test "`ldd --version | head -1 | awk '{print $4>=2.23?"1":"0"}' 2>/dev/null`" = "1"
+    if test "`ldd --version | head -1 | awk '{print ($4>=2.23)?"1":"0"}' 2>/dev/null`" = "1"
     then
-      AC_MSG_NOTICE([glibc version >= 2.23. glibc AVX-512 optimisation supported.])
+      AC_MSG_NOTICE([glibc version >= 2.23. glibc AVX-512 memcpy optimisation supported.])
     else
-      AC_MSG_NOTICE([glibc version < 2.23. glibc AVX-512 optimisation not supported.])
+      AC_MSG_NOTICE([glibc version < 2.23. glibc AVX-512 memcpy optimisation not supported.])
     fi
-    if test "`ldd --version | head -1 | awk '{print $4<2.17?"1":"0"}' 2>/dev/null`" = "1"
+    if test "`ldd --version | head -1 | awk '{print ($4<2.17)?"1":"0"}' 2>/dev/null`" = "1"
     then
       AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
       AC_SUBST(LIBS)
     fi
   else
     AC_MSG_NOTICE([glibc version could not be auto detected. Check manually using 'ldd --version'])
-    AC_MSG_NOTICE([glibc AVX-512 optimisation supported only from glibc version 2.23])
+    AC_MSG_NOTICE([glibc AVX-512 memcpy optimisation supported only from glibc version 2.23])
     AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
     AC_SUBST(LIBS)
 
