@@ -373,27 +373,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
-
-#  define DUMP_ECDSA_GENERIC_POINT_VERIFY(instance_handle, pOpData)                 \
-    do {                                                                            \
-        fprintf(qatDebugLogFile,"=========================\n");                     \
-        fprintf(qatDebugLogFile,"ECDSA Verify Request: %p\n", pOpData);             \
-        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);         \
-        DUMPL("a.pData", pOpData->pCurve->parameters.weierstrassParameters.a.pData, \
-               pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes); \
-        DUMPL("b.pData", pOpData->pCurve->parameters.weierstrassParameters.b.pData, \
-               pOpData->pCurve->parameters.weierstrassParameters.b.dataLenInBytes); \
-        DUMPL("p.pData", pOpData->pCurve->parameters.weierstrassParameters.p.pData, \
-               pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes); \
-        DUMPL("xP.pData", pOpData->xP.pData, pOpData->xP.dataLenInBytes);           \
-        DUMPL("yP.pData", pOpData->yP.pData, pOpData->yP.dataLenInBytes);           \
-        fprintf(qatDebugLogFile,"pOpData: fieldType = %d\n",                        \
-                pOpData->pCurve->parameters.weierstrassParameters.fieldType);       \
-        fprintf(qatDebugLogFile,"=========================\n");                     \
-        fflush(qatDebugLogFile);                                                    \
-    } while (0)
-
-
 #  define DUMP_DSA_SIGN(instance_handle, op_done, opData, bDsaSignStatus,      \
                         pResultR, pResultS)                                    \
     do {                                                                       \
@@ -851,7 +830,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_ECDSA_SIGN(...)
 #  define DUMP_ECDSA_SIGN_OUTPUT(...)
 #  define DUMP_ECDSA_VERIFY(...)
-#  define DUMP_ECDSA_GENERIC_POINT_VERIFY(...)
 #  define DUMP_DSA_SIGN(...)
 #  define DUMP_DSA_SIGN_OUTPUT(...)
 #  define DUMP_DSA_VERIFY(...)
