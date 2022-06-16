@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2021-2022 Intel Corporation.
+ *   Copyright(c) 2022 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -83,14 +83,18 @@
     qat_sha3_sw_impl(EVP_MD_CTX_type((ctx)) )
 
 #ifdef ENABLE_QAT_HW_SHA3
+# ifndef QAT_OPENSSL_PROVIDER
 static int qat_sha3_init(EVP_MD_CTX *ctx);
 static int qat_sha3_cleanup(EVP_MD_CTX *ctx);
 static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len);
 static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md);
+static int qat_get_hash_alg_data(EVP_MD_CTX *ctx, qat_sha3_ctx *sha3_ctx);
 static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1,void *p2);
 static int qat_get_sha3_block_size(int nid);
 static int qat_get_sha3_state_size(int nid);
-static int qat_get_hash_alg_data(EVP_MD_CTX *ctx, qat_sha3_ctx *sha3_ctx);
+# else
+static int qat_get_hash_alg_data(QAT_KECCAK1600_CTX *ctx, qat_sha3_ctx *sha3_ctx);
+# endif
 #endif
 
 static inline const EVP_MD *qat_sha3_sw_impl(int nid)
@@ -112,7 +116,7 @@ static inline const EVP_MD *qat_sha3_sw_impl(int nid)
 
 const EVP_MD *qat_create_sha3_meth(int nid , int key_type)
 {
-#ifdef ENABLE_QAT_HW_SHA3
+#if defined(ENABLE_QAT_HW_SHA3) && !defined(QAT_OPENSSL_PROVIDER)
     EVP_MD *c = NULL;
     int res = 1;
     int blocksize,statesize = 0;
@@ -170,6 +174,7 @@ static const CpaCySymOpData template_opData = {
     .pAdditionalAuthData = NULL
 };
 
+#ifndef QAT_OPENSSL_PROVIDER
 static int qat_get_sha3_block_size(int nid)
 {
 
@@ -204,15 +209,23 @@ static int qat_get_sha3_state_size(int nid)
         return 0;
     }
 }
+#endif
 
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_get_hash_alg_data(QAT_KECCAK1600_CTX *ctx, qat_sha3_ctx *sha3_ctx)
+#else
 static int qat_get_hash_alg_data(EVP_MD_CTX *ctx, qat_sha3_ctx *sha3_ctx)
+#endif
 {
     if (ctx == NULL || sha3_ctx == NULL) {
         WARN("Either ctx %p or sha3_ctx %p is NULL\n", ctx, sha3_ctx);
         return 0;
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    switch (ctx->md_type) {
+#else
     switch (EVP_MD_CTX_type(ctx)) {
+#endif
     case NID_sha3_224:
         sha3_ctx->hash_alg = CPA_CY_SYM_HASH_SHA3_224;
         sha3_ctx->digest_size = QAT_SHA3_224_DIGEST_SIZE;
@@ -249,8 +262,13 @@ static int qat_get_hash_alg_data(EVP_MD_CTX *ctx, qat_sha3_ctx *sha3_ctx)
 *
 *    It will return 1 if successful and 0 on failure.
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_sha3_session_data_init(QAT_KECCAK1600_CTX *ctx,
+                                      qat_sha3_ctx *sha3_ctx)
+#else
 static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
                                       qat_sha3_ctx *sha3_ctx)
+#endif
 {
     if (NULL == sha3_ctx || NULL == ctx){
         WARN("sha3_ctx or ctx is NULL\n");
@@ -280,6 +298,9 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
     sha3_ctx->session_data->hashSetupData.hashAlgorithm = sha3_ctx->hash_alg;
     sha3_ctx->session_data->hashSetupData.hashMode = CPA_CY_SYM_HASH_MODE_PLAIN;
     sha3_ctx->session_data->hashSetupData.digestResultLenInBytes = sha3_ctx->digest_size;
+    sha3_ctx->session_data->hashSetupData.authModeSetupData.authKey = NULL;
+    sha3_ctx->session_data->hashSetupData.nestedModeSetupData.pInnerPrefixData = NULL;
+    sha3_ctx->session_data->hashSetupData.nestedModeSetupData.pOuterPrefixData = NULL;
 
     /* Tag follows immediately after the region to hash */
     sha3_ctx->session_data->digestIsAppended = CPA_FALSE;
@@ -311,7 +332,11 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
 *    This function initialises the hash algorithm parameters for EVP context.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sha3_init(QAT_KECCAK1600_CTX *ctx)
+#else
 static int qat_sha3_init(EVP_MD_CTX *ctx)
+#endif
 {
     qat_sha3_ctx* sha3_ctx = NULL;
 
@@ -321,23 +346,36 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
     }
 
     /* Initialise a QAT session and set the hash*/
+#ifdef QAT_OPENSSL_PROVIDER
+    sha3_ctx = ctx->qctx;
+#else
     sha3_ctx = QAT_SHA3_GET_CTX(ctx);
+#endif
     if (NULL == sha3_ctx) {
         WARN("sha3_ctx is NULL\n");
         return 0;
     }
+#ifdef QAT_OPENSSL_PROVIDER
+    sha3_ctx->block_size = ctx->block_size;
+#else
     sha3_ctx->block_size = EVP_MD_CTX_block_size(ctx);
+#endif
     if (!sha3_ctx->block_size) {
         WARN("sha3 ctx block size is NULL\n");
         return 0;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    sha3_ctx->md_size = ctx->md_size;
+#else
     sha3_ctx->md_size = EVP_MD_CTX_size(ctx);
+#endif
     if (!sha3_ctx->md_size) {
         WARN("sha3_ctx md size is NULL\n");
         return 0;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
     /* Update the software init data */
     KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
@@ -351,6 +389,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
         k_ctx->md_size = EVP_MD_CTX_size(ctx);
         k_ctx->pad = '\x06';
     }
+#endif
 #endif
     /* Initialize QAT session */
     if (0 == qat_sha3_session_data_init(ctx, sha3_ctx)) {
@@ -377,6 +416,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
 *    This function is a generic control interface provided by the EVP API.
 *
 ******************************************************************************/
+#ifndef QAT_OPENSSL_PROVIDER
 static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1, void *p2)
 {
     qat_sha3_ctx *sha3_ctx = NULL;
@@ -407,6 +447,7 @@ static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1, void *p2)
         return -1;
     }
 }
+#endif
 
 /******************************************************************************
 * function:
@@ -422,7 +463,11 @@ static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1, void *p2)
 *  cryptographic transform.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sha3_cleanup(QAT_KECCAK1600_CTX *ctx)
+#else
 static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
+#endif
 {
     qat_sha3_ctx* sha3_ctx = NULL;
     CpaStatus status = 0;
@@ -434,8 +479,11 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
         QATerr(QAT_F_QAT_SHA3_CLEANUP, QAT_R_CTX_NULL);
         return 0;
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    sha3_ctx = ctx->qctx;
+#else
     sha3_ctx = QAT_SHA3_GET_CTX(ctx);
+#endif
 
     if (NULL == sha3_ctx) {
         WARN("sha3_ctx is NULL\n");
@@ -648,7 +696,11 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
 *    This function performs the copy operation of digest into md buffer.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sha3_final(QAT_KECCAK1600_CTX *ctx, unsigned char *md)
+#else
 static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
+#endif
 {
     qat_sha3_ctx *sha3_ctx = NULL;
     int ret = 1;
@@ -658,7 +710,11 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
         return -1;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    sha3_ctx = ctx->qctx;
+#else
     sha3_ctx = QAT_SHA3_GET_CTX(ctx);
+#endif
     if (sha3_ctx == NULL) {
         WARN("SHA3 context hash data is NULL.\n");
         QATerr(QAT_F_QAT_SHA3_FINAL, QAT_R_SHA3_CTX_NULL);
@@ -668,13 +724,14 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
         WARN("MD Size is NULL.\n");
         return ret;
     }
-
+#ifndef QAT_OPENSSL_PROVIDER
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
     if(sha3_ctx->packet_size <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT ) {
        ret = EVP_MD_meth_get_final(GET_SW_SHA3_DIGEST(ctx))
              (ctx, md);
        return ret;
     }
+#endif
 #endif
     /* Copy digest result into "md" buffer. */
     memcpy(md, sha3_ctx->digest_data, sha3_ctx->md_size);
@@ -701,7 +758,11 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
 *
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sha3_update(QAT_KECCAK1600_CTX *ctx, const void *in, size_t len)
+#else
 static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
+#endif
 {
     int outlen = 0;
     int job_ret = 0;
@@ -711,8 +772,10 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     qat_sha3_ctx *sha3_ctx = NULL;
     unsigned buffer_len = 0;
     Cpa8U *pDigestBuffer = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
     int retVal = 0;
+#endif
 #endif
 
     if (unlikely(ctx == NULL)) {
@@ -720,8 +783,11 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         QATerr(QAT_F_QAT_SHA3_UPDATE, QAT_R_CTX_NULL);
         return -1;
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    sha3_ctx = ctx->qctx;
+#else
     sha3_ctx = QAT_SHA3_GET_CTX(ctx);
+#endif
     if (sha3_ctx == NULL) {
         WARN("SHA3 context hash data is NULL.\n");
         QATerr(QAT_F_QAT_SHA3_UPDATE, QAT_R_SHA3_CTX_NULL);
@@ -730,7 +796,8 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 
     if (in != NULL) {
         sha3_ctx->packet_size = len;
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef QAT_OPENSSL_PROVIDER
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
         if (len <=
               qat_pkt_threshold_table_get_threshold(EVP_MD_CTX_type(ctx))) {
             KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
@@ -742,6 +809,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
             }
 	    return outlen;
         }
+# endif
 #endif
         if (sha3_ctx->context_params_set && !sha3_ctx->session_init) {
             /* Set SHA3 opdata params and initialise session. */
@@ -753,8 +821,12 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         }
         DEBUG("input length : %zu\n", len);
 
-	/*Get the md ctx size*/
+	    /*Get the md ctx size*/
+#ifdef QAT_OPENSSL_PROVIDER
+        sha3_ctx->md_size = ctx->md_size;
+#else
         sha3_ctx->md_size = EVP_MD_CTX_size(ctx);
+#endif
         /* Allocate buffer for HASH operation. */
         buffer_len = len + sha3_ctx->digest_size ;
         sha3_ctx->src_buffer[0].pData = qaeCryptoMemAlloc( buffer_len , __FILE__, __LINE__);

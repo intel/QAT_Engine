@@ -45,6 +45,16 @@ QAT_TEST_SRC = test/main.c                    \
                test/tests_aes256_gcm.c        \
                test/tests_sm3.c
 
+if QAT_PROVIDER
+QAT_HW_TEST_SRC = test/tests_dsa.c               \
+                  test/tests_dh.c                \
+                  test/tests_prf.c               \
+                  test/tests_hkdf.c              \
+                  test/tests_sha3.c              \
+                  test/tests_aes_cbc_hmac_sha.c  \
+                  test/tests_chacha20_poly1305.c
+endif
+
 if QAT_HW
 QAT_HW_TEST_SRC = test/tests_dsa.c               \
                   test/tests_dh.c                \

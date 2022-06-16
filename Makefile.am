@@ -36,7 +36,15 @@ if QAT_PROVIDER
                 qat_prov_ciphers.c   \
                 qat_prov_kmgmt_ec.c  \
                 qat_prov_ecdsa.c     \
-                qat_prov_ecdh.c
+                qat_prov_ecdh.c      \
+                qat_prov_dsa.c        \
+                qat_prov_kmgmt_dsa.c  \
+                qat_prov_dh.c         \
+                qat_prov_kmgmt_dh.c   \
+                qat_prov_hkdf.c       \
+                qat_prov_prf.c        \
+                qat_prov_cbc.c        \
+                qat_prov_sha3.c
 
 endif
 

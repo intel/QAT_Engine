@@ -38,5 +38,8 @@
   due to the locks at engine_table_select in OpenSSL.
 * OpenSSL 1.1.1n introduced misleading error message(undefined symbol: EVP_PKEY_get_base_id)
   during engine load which can be ignored as it is not a real failure. Details of error
-  message can be found [here] [1]
-  [1]:https://github.com/openssl/openssl/issues/17962
+  message can be found [here][1]
+* AES-CBC-HMAC-SHA chained ciphers does not support pipeline feature when built with
+  OpenSSL 3.0 as the corresponding support is not available in OpenSSL 3.0.
+
+[1]:https://github.com/openssl/openssl/issues/17962

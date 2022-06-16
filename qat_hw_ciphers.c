@@ -119,15 +119,6 @@
     get_cipher_from_nid(EVP_CIPHER_CTX_nid((ctx)))
 
 #define DEBUG_PPL DEBUG
-static int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
-                                    const unsigned char *inkey,
-                                    const unsigned char *iv, int enc);
-static int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx);
-static int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx,
-                                         unsigned char *out,
-                                         const unsigned char *in, size_t len);
-static int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
-                                    void *ptr);
 
 int qatPerformOpRetries = 0;
 
@@ -198,6 +189,23 @@ static inline const EVP_CIPHER *qat_chained_cipher_sw_impl(int nid)
     }
 }
 
+static inline const char *qat_get_cipher_name_from_nid(int nid)
+{
+    switch (nid) {
+        case NID_aes_128_cbc_hmac_sha1:
+            return "AES-128-CBC-HMAC-SHA1";
+        case NID_aes_256_cbc_hmac_sha1:
+            return "AES-256-CBC-HMAC-SHA1";
+        case NID_aes_128_cbc_hmac_sha256:
+            return "AES-128-CBC-HMAC-SHA256";
+        case NID_aes_256_cbc_hmac_sha256:
+            return "AES-256-CBC-HMAC-SHA256";
+        default:
+            WARN("Invalid nid %d\n", nid);
+            return NULL;
+    }
+}
+
 static inline const EVP_CIPHER *get_cipher_from_nid(int nid)
 {
     switch (nid) {
@@ -236,13 +244,15 @@ static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
 const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
 {
     EVP_CIPHER *c = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
     int res = 1;
+#endif
 
     if ((c = EVP_CIPHER_meth_new(nid, AES_BLOCK_SIZE, keylen)) == NULL) {
         WARN("Failed to allocate cipher methods for nid %d\n", nid);
         return NULL;
     }
-
+#ifndef QAT_OPENSSL_PROVIDER
     res &= EVP_CIPHER_meth_set_iv_length(c, AES_IV_LEN);
     res &= EVP_CIPHER_meth_set_flags(c, QAT_CHAINED_FLAG);
     res &= EVP_CIPHER_meth_set_init(c, qat_chained_ciphers_init);
@@ -262,6 +272,7 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
     }
 
     DEBUG("QAT HW ciphers registration succeeded\n");
+#endif
     if (qat_hw_offload)
         return c;
     else
@@ -356,11 +367,19 @@ static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
 *    This function initialises the flatbuffer and flat buffer list for use.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_setup_op_params(PROV_CIPHER_CTX *ctx)
+#else
 static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
+#endif
 {
     CpaCySymOpData *opd = NULL;
     Cpa32U msize = 0;
+#ifdef QAT_OPENSSL_PROVIDER
+    qat_chained_ctx *qctx = (qat_chained_ctx *)ctx->qat_cipher_ctx;
+#else
     qat_chained_ctx *qctx = qat_chained_data(ctx);
+#endif
     int i = 0;
     unsigned int start;
 
@@ -464,14 +483,21 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
 
         /* Update Opdata */
         opd->sessionCtx = qctx->session_ctx;
+#ifdef QAT_OPENSSL_PROVIDER
+        opd->pIv = qaeCryptoMemAlloc(ctx->ivlen, __FILE__, __LINE__);
+#else
         opd->pIv = qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx),
                                      __FILE__, __LINE__);
+#endif
         if (opd->pIv == NULL) {
             WARN("QMEM Mem Alloc failed for pIv for pipe %d.\n", i);
             goto err;
         }
-
+#ifdef QAT_OPENSSL_PROVIDER
+        opd->ivLenInBytes = (Cpa32U) ctx->ivlen;
+#else
         opd->ivLenInBytes = (Cpa32U) EVP_CIPHER_CTX_iv_length(ctx);
+#endif
     }
 
     DEBUG_PPL("[%p] qop setup for %u elements\n", ctx, qctx->qop_len);
@@ -502,9 +528,15 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
 *  EVP context.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_chained_ciphers_init(PROV_CIPHER_CTX *ctx,
+                             const unsigned char *inkey, size_t keylen,
+                             const unsigned char *iv, size_t ivlen, int enc)
+#else
 int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
                              const unsigned char *inkey,
                              const unsigned char *iv, int enc)
+#endif
 {
     CpaCySymSessionSetupData *ssd = NULL;
     Cpa32U sctx_size = 0;
@@ -520,8 +552,11 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         WARN("ctx or inkey is NULL.\n");
         return 0;
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx = (qat_chained_ctx *)ctx->qat_cipher_ctx;
+#else
     qctx = qat_chained_data(ctx);
+#endif
     if (qctx == NULL) {
         WARN("qctx is NULL.\n");
         return 0;
@@ -530,6 +565,18 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     DEBUG("QAT HW Ciphers Started\n");
     INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
 
+/* iv has been initialized in qatprovider, we don't 
+   need to do any oprations if using qatprovider here. */
+#ifdef QAT_OPENSSL_PROVIDER
+    if (qat_get_sw_fallback_enabled()){
+        if (iv != NULL)
+            memcpy(EVP_CIPHER_CTX_iv_noconst(ctx->sw_ctx), iv, ivlen);
+        else
+            memset(EVP_CIPHER_CTX_iv_noconst(ctx->sw_ctx), 0, ivlen);
+    }
+    ckeylen = keylen;
+    ckey = OPENSSL_malloc(keylen);
+#else
     if (iv != NULL)
         memcpy(EVP_CIPHER_CTX_iv_noconst(ctx), iv,
                EVP_CIPHER_CTX_iv_length(ctx));
@@ -539,6 +586,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     ckeylen = EVP_CIPHER_CTX_key_length(ctx);
     ckey = OPENSSL_malloc(ckeylen);
+#endif
     if (ckey == NULL) {
         WARN("Unable to allocate memory for Cipher key.\n");
         return 0;
@@ -558,6 +606,37 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         goto err;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+    EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL,
+                            qat_get_cipher_name_from_nid(ctx->nid),
+                            "provider=default");
+    if (sw_cipher == NULL){
+        WARN("SW cipher fetch failed!\n");
+        goto err;
+    }
+    if (!EVP_CipherInit_ex2(ctx->sw_ctx, sw_cipher, inkey, iv, enc, NULL)){
+        WARN("SW cipher init error!\n");
+        goto err;
+    }
+    ctx->sw_cipher = sw_cipher;
+# else
+    if (qat_get_sw_fallback_enabled()){
+        EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL,
+                                qat_get_cipher_name_from_nid(ctx->nid),
+                                "provider=default");
+        if (sw_cipher == NULL){
+            WARN("SW cipher fetch failed!\n");
+            goto err;
+        }
+        if (!EVP_CipherInit_ex2(ctx->sw_ctx, sw_cipher, inkey, iv, enc, NULL)){
+            WARN("SW cipher init error!\n");
+            goto err;
+        }
+        ctx->sw_cipher = sw_cipher;
+    }
+# endif
+#else
     const EVP_CIPHER *sw_cipher = GET_SW_CIPHER(ctx);
     unsigned int sw_size = EVP_CIPHER_impl_ctx_size(sw_cipher);
     if (sw_size != 0) {
@@ -575,6 +654,8 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
     if (ret != 1)
         goto err;
+#endif
+
     if (qat_get_qat_offload_disabled()) {
         /*
          * Setting qctx->fallback as a flag for the other functions.
@@ -610,7 +691,11 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     ssd->cipherSetupData.cipherKeyLenInBytes = ckeylen;
     ssd->cipherSetupData.pCipherKey = ckey;
 
+#ifdef QAT_OPENSSL_PROVIDER
+    dlen = get_digest_len(ctx->nid);
+#else
     dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
+#endif
 
     ssd->hashSetupData.digestResultLenInBytes = dlen;
 
@@ -708,7 +793,11 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 *  identify record payload size.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_chained_ciphers_ctrl(PROV_AES_HMAC_SHA_CTX *ctx, int type, int arg, void *ptr)
+#else
 int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
+#endif
 {
     qat_chained_ctx *qctx = NULL;
     unsigned char *hmac_key = NULL;
@@ -727,7 +816,11 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         return -1;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx = (qat_chained_ctx *)ctx->base.qat_cipher_ctx;
+#else
     qctx = qat_chained_data(ctx);
+#endif
 
     if (qctx == NULL) {
         WARN("qctx is NULL.\n");
@@ -737,7 +830,11 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     if (qctx->fallback == 1)
         goto sw_ctrl;
 
+#ifdef QAT_OPENSSL_PROVIDER
+    dlen = get_digest_len(ctx->base.nid);
+#else
     dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
+#endif
 
     switch (type) {
         case EVP_CTRL_AEAD_SET_MAC_KEY:
@@ -823,12 +920,20 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 
             len = GET_TLS_PAYLOAD_LEN(((char *)ptr));
             if (GET_TLS_VERSION(((char *)ptr)) >= TLS1_1_VERSION) {
+#ifdef QAT_OPENSSL_PROVIDER
+                if (len < ctx->base.ivlen) {
+#else
                 if (len < EVP_CIPHER_CTX_iv_length(ctx)) {
+#endif
                     WARN("Length is smaller than the IV length\n");
                     retVal = 0;
                     break;
                 }
+#ifdef QAT_OPENSSL_PROVIDER
+                len -= ctx->base.ivlen;
+#else
                 len -= EVP_CIPHER_CTX_iv_length(ctx);
+#endif
             } else if (qctx->aad_ctr > 1) {
                 /* pipelines are not supported for
                  * TLS version < TLS1.1
@@ -837,12 +942,23 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
                 retVal = -1;
                 break;
             }
-
+#ifdef QAT_OPENSSL_PROVIDER
+            if (ctx->base.enc){
+                ctx->tls_aad_pad = (int)(((len + dlen + AES_BLOCK_SIZE)
+                                    & -AES_BLOCK_SIZE) - len);
+                retVal = ctx->tls_aad_pad;
+            } else {
+                ctx->payload_length = arg;
+                ctx->tls_aad_pad = SHA_DIGEST_LENGTH;
+                retVal = 1;
+            }
+#else
             if (EVP_CIPHER_CTX_encrypting(ctx))
                 retVal = (int)(((len + dlen + AES_BLOCK_SIZE)
                                 & -AES_BLOCK_SIZE) - len);
             else
                 retVal = dlen;
+#endif
 
             INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_TLS_HDR_SET);
             break;
@@ -904,6 +1020,23 @@ sw_ctrl:
      * such that qctx->aad_ctr becomes > 1, which would imply the use of pipelining.
      * These multiple calls are always made to the s/w equivalent function.
      */
+#ifdef QAT_OPENSSL_PROVIDER
+    if (qat_get_sw_fallback_enabled()){
+        EVP_CIPHER_CTX *swctx = ctx->base.sw_ctx;
+
+        retVal_sw = EVP_CIPHER_CTX_ctrl(swctx, type, arg, ptr);
+
+        if ((qctx->fallback == 1) && (retVal_sw > 0)) {
+            DEBUG("- Switched to software mode.\n");
+            CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+            return retVal_sw;
+        }
+        if (retVal_sw <= 0) {
+            WARN("s/w chained ciphers ctrl function failed.\n");
+            return retVal_sw;
+        }
+    }
+#else
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
     retVal_sw = EVP_CIPHER_meth_get_ctrl(GET_SW_CIPHER(ctx))(ctx, type, arg, ptr);
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
@@ -916,6 +1049,7 @@ sw_ctrl:
         WARN("s/w chained ciphers ctrl function failed.\n");
         return retVal_sw;
     }
+#endif
     return retVal;
 }
 
@@ -934,7 +1068,11 @@ sw_ctrl:
 *  cryptographic transform.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_chained_ciphers_cleanup(PROV_CIPHER_CTX *ctx)
+#else
 int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
+#endif
 {
     qat_chained_ctx *qctx = NULL;
     CpaStatus sts = 0;
@@ -946,7 +1084,11 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx = (qat_chained_ctx *)ctx->qat_cipher_ctx;
+#else
     qctx = qat_chained_data(ctx);
+#endif
     if (qctx == NULL) {
         WARN("qctx parameter is NULL.\n");
         return 0;
@@ -956,6 +1098,17 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
         OPENSSL_free(qctx->sw_ctx_cipher_data);
         qctx->sw_ctx_cipher_data = NULL;
     }
+#ifdef QAT_OPENSSL_PROVIDER
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+    EVP_CIPHER_free(ctx->sw_cipher);
+    EVP_CIPHER_CTX_free(ctx->sw_ctx);
+# else
+    if (qat_get_sw_fallback_enabled()) {
+        EVP_CIPHER_free(ctx->sw_cipher);
+        EVP_CIPHER_CTX_free(ctx->sw_ctx);
+    }
+# endif
+#endif
 
     /* ctx may be cleaned before it gets a chance to allocate qop */
     qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
@@ -1008,8 +1161,13 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
 *  parameters setup during initialisation.
 *
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_chained_ciphers_do_cipher(PROV_CIPHER_CTX *ctx, unsigned char *out,
+                                  const unsigned char *in, size_t len)
+#else
 int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                   const unsigned char *in, size_t len)
+#endif
 {
     CpaStatus sts = 0;
     CpaCySymOpData *opd = NULL;
@@ -1042,7 +1200,11 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return -1;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx = (qat_chained_ctx *)ctx->qat_cipher_ctx;
+#else
     qctx = qat_chained_data(ctx);
+#endif
     if (qctx == NULL) {
         WARN("QAT CTX NULL\n");
         return -1;
@@ -1084,7 +1246,11 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return -1;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    enc = ctx->enc;
+#else
     enc = EVP_CIPHER_CTX_encrypting(ctx);
+#endif
 
     /* If we are encrypting and EVP_EncryptFinal_ex is called with a NULL
        input buffer then return 0. Note: we don't actually support partial
@@ -1151,9 +1317,13 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             INIT_SEQ_SET_FLAG(qctx, INIT_SEQ_QAT_SESSION_INIT);
         }
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    ivlen = ctx->ivlen;
+    dlen = get_digest_len(ctx->nid);
+#else
     ivlen = EVP_CIPHER_CTX_iv_length(ctx);
     dlen = get_digest_len(EVP_CIPHER_CTX_nid(ctx));
+#endif
 
     /* Check and setup data structures for pipeline */
     if (PIPELINE_SET(qctx)) {
@@ -1165,6 +1335,20 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         }
     } else {
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+# ifdef QAT_OPENSSL_PROVIDER
+        int threshold_val = qat_pkt_threshold_table_get_threshold(ctx->nid);
+        //threshold_val = 0; // in qatengine with openssl ver1.1.1, this value is always 0. Why?
+        if (len <= threshold_val) {
+            int sw_final_len = 0;
+            if (!EVP_CipherUpdate(ctx->sw_ctx, out, &outlen, in, len))
+                goto cleanup;
+            if (!EVP_CipherFinal_ex(ctx->sw_ctx, out + outlen, &sw_final_len))
+                goto cleanup;
+            outlen = len + sw_final_len;
+
+            return outlen;
+        }
+# else
         if (len <=
             qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
@@ -1176,6 +1360,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             }
             goto cleanup;
         }
+# endif
 #endif
         /* When no TLS AAD information is supplied, for example: speed,
          * the payload length for encrypt/decrypt is equal to buffer len
@@ -1274,7 +1459,11 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 error = 1;
                 break;
             }
+#ifdef QAT_OPENSSL_PROVIDER
+            memcpy(opd->pIv, ctx->iv, ivlen);
+#else
             memcpy(opd->pIv, EVP_CIPHER_CTX_iv(ctx), ivlen);
+#endif
         }
 
         /* Calculate payload and padding len */
@@ -1301,7 +1490,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 error = 1;
                 break;
             }
-        } else if (vtls >= TLS1_VERSION) {
+        } else if (vtls >= TLS1_VERSION) { 
             /* Decrypt the last block of the buffer to get the pad_len.
              * Calculate payload len using total length and padlen.
              * NOTE: plen so calculated does not account for ivlen
@@ -1316,7 +1505,6 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             int decryptFinal_out_len = 0;
             int decrypt_error = 0;
 
-
             if ((buflen - dlen) <= TLS_MAX_PADDING_LENGTH)
                 tmp_padlen = (((buflen - dlen) + (AES_BLOCK_SIZE - 1))
                               / AES_BLOCK_SIZE) * AES_BLOCK_SIZE;
@@ -1330,19 +1518,24 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 break;
             }
             EVP_CIPHER_CTX_init(dctx);
-
+            EVP_CIPHER_CTX_set_flags(dctx, EVP_CIPH_NO_PADDING);
+#ifdef QAT_OPENSSL_PROVIDER
+            if (!EVP_DecryptInit_ex(dctx, get_cipher_from_nid(ctx->nid), NULL,
+                                    qctx->session_data->cipherSetupData.pCipherKey, ivec)) {
+#else
             if (!EVP_DecryptInit_ex(dctx, GET_SW_NON_CHAINED_CIPHER(ctx), NULL,
                                     qctx->session_data->cipherSetupData.pCipherKey, ivec)) {
+#endif
                 WARN("DecryptInit error occurred.\n");
                 decrypt_error = 1;
             } else {
-                EVP_CIPHER_CTX_set_flags(dctx, EVP_CIPH_NO_PADDING);
                 if (!EVP_DecryptUpdate(dctx, out_blk, &rx_len, in_blk, tmp_padlen)
                     || !EVP_DecryptFinal_ex(dctx, out_blk + rx_len, &decryptFinal_out_len)) {
                     WARN("Decrypt error occurred.\n");
                     decrypt_error = 1;
                 }
             }
+
             EVP_CIPHER_CTX_cleanup(dctx);
             OPENSSL_free(dctx);
             dctx = NULL;
@@ -1404,8 +1597,12 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         } else {
             /* store IV for next cbc operation */
             if (vtls < TLS1_1_VERSION)
+#ifdef QAT_OPENSSL_PROVIDER
+                memcpy(ctx->iv, inb + (buflen - discardlen) - ivlen, ivlen);
+#else
                 memcpy(EVP_CIPHER_CTX_iv_noconst(ctx),
                        inb + (buflen - discardlen) - ivlen, ivlen);
+#endif
         }
 
         DUMP_SYM_PERFORM_OP(qat_instance_handles[qctx->inst_num], opd, s_sgl, d_sgl);
@@ -1521,8 +1718,12 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     } while (++pipe < qctx->numpipes);
 
     if (enc && vtls < TLS1_1_VERSION)
+#ifdef QAT_OPENSSL_PROVIDER
+        memcpy(ctx->iv, outb + buflen - discardlen - ivlen, ivlen);
+#else
         memcpy(EVP_CIPHER_CTX_iv_noconst(ctx),
                outb + buflen - discardlen - ivlen, ivlen);
+#endif
 
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
 cleanup:
@@ -1535,12 +1736,23 @@ fallback:
         } else {
             DEBUG("- Switched to software mode.\n");
             CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef QAT_OPENSSL_PROVIDER
+            int sw_final_len = 0;
+            if (!EVP_CipherUpdate(ctx->sw_ctx, out, &outlen, in, len)) {
+                WARN("EVP_CipherUpdate failed.\n");
+            }
+            if (!EVP_CipherFinal_ex(ctx->sw_ctx, out + outlen, &sw_final_len)) {
+                WARN("EVP_CipherFinal_ex failed.\n");
+            }
+            outlen = len + sw_final_len;
+#else
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
             retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))
                 (ctx, out, in, len);
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
             if (retVal)
                 outlen = len;
+#endif
         }
     }
 

@@ -165,9 +165,9 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
 int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx,
                        unsigned char *out,
                        const unsigned char *in, size_t len);
-#endif
 int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx);
 int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
                      void *ptr);
+#endif
 
 #endif /* QAT_HW_GCM_H */

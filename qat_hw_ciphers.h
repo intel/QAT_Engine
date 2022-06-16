@@ -46,10 +46,20 @@
 #ifndef QAT_HW_CIPHERS_H
 # define QAT_HW_CIPHERS_H
 
+# ifdef QAT_HW
+
 # include <openssl/engine.h>
 # include <openssl/ssl.h>
 # include <openssl/crypto.h>
 # include <openssl/aes.h>
+
+# include "cpa.h"
+# include "cpa_types.h"
+# include "cpa_cy_sym.h"
+
+#ifdef QAT_OPENSSL_PROVIDER
+#include "qat_prov_cbc.h"
+#endif
 
 # define AES_IV_LEN                 16
 # define AES_KEY_SIZE_256           32
@@ -118,6 +128,8 @@
                         (qctx)->numpipes = 1; \
                     } while(0)
 
+typedef struct prov_cipher_ctx_st PROV_CIPHER_CTX;
+typedef struct prov_aes_hmac_sha_ctx_st PROV_AES_HMAC_SHA_CTX;
 /* These are QAT API operation parameters */
 typedef struct qat_op_params_t {
     CpaCySymOpData op_data;
@@ -170,4 +182,22 @@ CpaStatus qat_sym_perform_op(int inst_num,
 
 const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen);
 
+# ifdef QAT_OPENSSL_PROVIDER
+int qat_chained_ciphers_init(PROV_CIPHER_CTX *ctx,
+                             const unsigned char *inkey, size_t keylen,
+                             const unsigned char *iv, size_t ivlen, int enc);
+int qat_chained_ciphers_cleanup(PROV_CIPHER_CTX *ctx);
+int qat_chained_ciphers_do_cipher(PROV_CIPHER_CTX *ctx, unsigned char *out,
+                                  const unsigned char *in, size_t len);
+int qat_chained_ciphers_ctrl(PROV_AES_HMAC_SHA_CTX *ctx, int type, int arg, void *ptr);
+# else
+int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
+                                    const unsigned char *inkey,
+                                    const unsigned char *iv, int enc);
+int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx);
+int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+                                  const unsigned char *in, size_t len);
+int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr);
+# endif
+#endif /* QAT_HW */
 #endif  /* QAT_HW_CIPHERS_H */

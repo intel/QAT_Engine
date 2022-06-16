@@ -80,19 +80,6 @@
 # endif
 #endif
 
-#ifndef DISABLE_QAT_HW_DSA
-static DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen, DSA *dsa);
-static int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
-                             DSA_SIG *sig, DSA *dsa);
-static int qat_dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in,
-                              BIGNUM **kinvp, BIGNUM **rp);
-static int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const
-                              BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
-                              BN_MONT_CTX *m_ctx);
-static int qat_dsa_init(DSA *dsa);
-static int qat_dsa_finish(DSA *dsa);
-#endif
-
 /* Qat DSA method structure declaration. */
 static DSA_METHOD *qat_dsa_method = NULL;
 

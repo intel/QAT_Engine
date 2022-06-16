@@ -51,6 +51,7 @@
 #include "tests.h"
 #include "../qat_utils.h"
 
+#ifndef QAT_OPENSSL_PROVIDER
 static const unsigned char BNp_512[] = {
     0xFA, 0xF7, 0x2D, 0x97, 0x66, 0x5C, 0x47, 0x66,
     0xB9, 0xBB, 0x3C, 0x33, 0x75, 0xCC, 0x54, 0xE0,
@@ -316,7 +317,33 @@ static const unsigned char BNp_8192[]= {
 };
 
 static const unsigned char BNg[] = {0x05};
+#endif
 
+#ifdef QAT_OPENSSL_PROVIDER
+
+#define NID_dh2048 1126
+#define NID_dh4096 1128
+#define NID_dh8192 1130
+
+#define MAX_DH_SIZE 1024
+
+static unsigned int get_dh_nid(int size)
+{
+    switch (size)
+    {
+    case 2048:
+        return NID_dh2048;
+    case 4096:
+        return NID_dh4096;
+    case 8192:
+        return NID_dh8192;
+    default:
+        WARN("Not support dh size!\n");
+    }
+    return 0;
+}
+
+#endif
 
 /******************************************************************************
 * function:
@@ -334,8 +361,11 @@ static const unsigned char BNg[] = {0x05};
 static int run_dh(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
-    int count = *(temp_args->count);
     int size = temp_args->size;
+    int ret = 1;
+
+#ifndef QAT_OPENSSL_PROVIDER
+    int count = *(temp_args->count);
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
 
@@ -349,7 +379,7 @@ static int run_dh(void *args)
     const BIGNUM *pub_key_b = NULL, *priv_key_b = NULL;
     char buf[12] = {0};
     unsigned char *abuf = NULL, *bbuf = NULL;
-    int i = 0, alen = 0, blen = 0, aout = 0, bout = 0, ret = 1;
+    int i = 0, alen = 0, blen = 0, aout = 0, bout = 0;
     BIO *out = NULL;
     out = BIO_new(BIO_s_file());
     if (out == NULL)
@@ -520,9 +550,127 @@ static int run_dh(void *args)
         } else
             INFO("# PASS verify for DH. \n");
     }
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+    EVP_PKEY *pkey_A = NULL;
+    EVP_PKEY *pkey_B = NULL;
+    EVP_PKEY_CTX *dh_ctx = NULL;
+    EVP_PKEY_CTX *test_ctx = NULL;
+    unsigned char *secret_ff_a = NULL;
+    unsigned char *secret_ff_b = NULL;
+    size_t secret_size;
+    size_t test_out;
+
+    pkey_A = EVP_PKEY_new();
+    if (!pkey_A){
+        WARN("# FAIL while initialising EVP_PKEY (out of memory?).\n");
+        goto err;
+    }
+    pkey_B = EVP_PKEY_new();
+    if (!pkey_B){
+        WARN("# FAIL while initialising EVP_PKEY (out of memory?).\n");
+        goto err;
+    }
+
+    dh_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
+    if (!dh_ctx){
+        WARN("# FAIL while allocating EVP_PKEY_CTX.\n");
+        goto err;
+    }
+    if (EVP_PKEY_keygen_init(dh_ctx) <= 0){
+        WARN("# FAIL while initialising EVP_PKEY_CTX.\n");
+        goto err;
+    }
+    if (EVP_PKEY_CTX_set_dh_nid(dh_ctx, get_dh_nid(size)) <= 0){
+        WARN("# FAIL setting DH key size for keygen.\n");
+        goto err;
+    }
+
+    if (EVP_PKEY_keygen(dh_ctx, &pkey_A) <= 0 ||
+        EVP_PKEY_keygen(dh_ctx, &pkey_B) <= 0){
+        WARN("# FAIL FFDH key generation failure.\n");
+        goto err;
+    }
+
+    EVP_PKEY_CTX_free(dh_ctx);
+
+    dh_ctx = EVP_PKEY_CTX_new(pkey_A, NULL);
+    if (dh_ctx == NULL){
+        WARN("# FAIL while allocating EVP_PKEY_CTX.\n");
+        goto err;
+    }
+    if (EVP_PKEY_derive_init(dh_ctx) <= 0){
+        WARN("# FAIL FFDH derivation context init failure.\n");
+        goto err;
+    }
+    if (EVP_PKEY_derive_set_peer(dh_ctx, pkey_B) <= 0){
+        WARN("# FAIL Assigning peer key for derivation failed.\n");
+        goto err;
+    }
+    if (EVP_PKEY_derive(dh_ctx, NULL, &secret_size) <= 0){
+        WARN("# FAIL Checking size of shared secret failed.\n");
+        goto err;
+    }
+    if (secret_size > MAX_DH_SIZE){
+        WARN("# FAIL Assertion failure: shared secret too large.\n");
+        goto err;
+    }
+
+    secret_ff_a = OPENSSL_malloc(MAX_DH_SIZE);
+    if (secret_ff_a == NULL){
+        WARN("# FAIL Secret buf a malloc failed!\n");
+        goto err;
+    }
+    secret_ff_b = OPENSSL_malloc(MAX_DH_SIZE);
+    if (secret_ff_b == NULL){
+        WARN("# FAIL Secret buf b malloc failed!\n");
+        goto err;
+    }
+
+    if (EVP_PKEY_derive(dh_ctx, secret_ff_a, &secret_size) <= 0){
+        WARN("# FAIL Shared secret derive failure.\n");
+        goto err;
+    }
+
+    /* Now check from side B */
+    test_ctx = EVP_PKEY_CTX_new(pkey_B, NULL);
+    if (!test_ctx){
+        WARN("# FAIL while allocating EVP_PKEY_CTX.\n");
+        goto err;
+    }
+    if (!EVP_PKEY_derive_init(test_ctx) ||
+        !EVP_PKEY_derive_set_peer(test_ctx, pkey_A) ||
+        !EVP_PKEY_derive(test_ctx, NULL, &test_out) ||
+        !EVP_PKEY_derive(test_ctx, secret_ff_b, &test_out) ||
+        test_out != secret_size){
+        WARN("# FAIL DH computation failure.\n");
+        goto err;
+    }
+
+    /* compare the computed secrets */
+    if (CRYPTO_memcmp(secret_ff_a, secret_ff_b, secret_size)){
+        WARN("# FAIL DH computations don't match.\n");
+        goto err;
+    }
+
+    INFO("# PASS verify for DH. \n");
+#endif
 
 err:
     ERR_print_errors_fp(stderr);
+#ifdef QAT_OPENSSL_PROVIDER
+    EVP_PKEY_free(pkey_A);
+    pkey_A = NULL;
+    EVP_PKEY_free(pkey_B);
+    pkey_B = NULL;
+    EVP_PKEY_CTX_free(test_ctx);
+    test_ctx = NULL;
+    OPENSSL_free(secret_ff_a);
+    secret_ff_a = NULL;
+    OPENSSL_free(secret_ff_b);
+    secret_ff_b = NULL;
+#endif
+#ifndef QAT_OPENSSL_PROVIDER
     if (abuf != NULL)
         OPENSSL_free(abuf);
     if (bbuf != NULL)
@@ -532,6 +680,7 @@ err:
     if (dh_a != NULL)
         DH_free(dh_a);
     BIO_free(out);
+#endif
     return ret;
 }
 

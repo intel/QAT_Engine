@@ -87,9 +87,6 @@
 #endif
 
 #ifndef DISABLE_QAT_HW_DH
-static int qat_dh_generate_key(DH *dh);
-static int qat_dh_compute_key(unsigned char *key, const BIGNUM *pub_key,
-                              DH *dh);
 static int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
                           const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
                           BN_MONT_CTX *m_ctx);

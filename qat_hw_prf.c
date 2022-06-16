@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2022 Intel Corporation.
+ *   Copyright(c) 2022 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -51,19 +51,7 @@
 #include <signal.h>
 #include <stdarg.h>
 
-#include "openssl/ossl_typ.h"
-#include "openssl/async.h"
-#include "openssl/kdf.h"
-#include "openssl/evp.h"
-#include "openssl/ssl.h"
-#include "qat_evp.h"
-#include "qat_utils.h"
-#include "qat_hw_asym_common.h"
-#include "e_qat.h"
-#include "qat_hw_callback.h"
-#include "qat_hw_polling.h"
-#include "qat_events.h"
-
+#include "qat_hw_prf.h"
 
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"
@@ -81,43 +69,6 @@
 #  undef DISABLE_QAT_HW_PRF
 # endif
 #endif
-
-/* These limits are based on QuickAssist limits.
- * OpenSSL is more generous but better to restrict and fail
- * early on here if they are exceeded rather than later on
- * down in the driver.
- */
-#if CPA_CY_API_VERSION_NUM_MAJOR > 2
-# define QAT_TLS1_PRF_SECRET_MAXBUF 1024
-#else
-# define QAT_TLS1_PRF_SECRET_MAXBUF 512
-#endif
-#define QAT_TLS1_PRF_SEED_MAXBUF 64
-#define QAT_TLS1_PRF_LABEL_MAXBUF 136
-
-#ifdef ENABLE_QAT_HW_PRF
-/* QAT TLS  pkey context structure */
-typedef struct {
-    /* Buffer of concatenated seeds from seed2 to seed5 data */
-    unsigned char qat_seed[QAT_TLS1_PRF_SEED_MAXBUF];
-    size_t qat_seedlen;
-    unsigned char *qat_userLabel;
-    size_t qat_userLabel_len;
-    /* Digest to use for PRF */
-    const EVP_MD *qat_md;
-    /* Secret value to use for PRF */
-    unsigned char *qat_sec;
-    size_t qat_seclen;
-    void *sw_prf_ctx_data;
-} QAT_TLS1_PRF_CTX;
-
-/* Function Declarations */
-static int qat_tls1_prf_init(EVP_PKEY_CTX *ctx);
-static void qat_prf_cleanup(EVP_PKEY_CTX *ctx);
-static int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
-                                size_t *olen);
-static int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-#endif /* DISABLE_QAT_HW_PRF */
 
 static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 

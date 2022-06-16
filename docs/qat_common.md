@@ -21,9 +21,29 @@ flags (eg:--enable-qat_sw_rsa) in which case the individual algorithms enabled
 
 Intel&reg; QAT OpenSSL\* Engine supports Provider interface for OpenSSL 3.0.
 The qatprovider support can be enabled using configure flag `--enable-qat_provider`
-and the default if not specified will use engine interface. Currently RSA, ECDSA,
-ECDH, ECX and AES-GCM algorithms are only supported for both QAT_HW
-and QAT_SW. This support is added as an experimental feature and tested with
+and the default if not specified will use engine interface.
+
+| Algorithms | Supported by |
+| :---: | :---: |
+| RSA | QAT_HW & QAT_SW |
+| ECDSA | QAT_HW & QAT_SW |
+| ECDH | QAT_HW & QAT_SW |
+| ECX | QAT_HW & QAT_SW |
+| AES-GCM | QAT_HW & QAT_SW |
+| DSA | QAT_HW |
+| DH | QAT_HW |
+| HKDF | QAT_HW |
+| PRF | QAT_HW |
+| AES128_CBC_HMAC_SHA1 | QAT_HW |
+| AES256_CBC_HMAC_SHA1 | QAT_HW |
+| AES128_CBC_HMAC_SHA256 | QAT_HW |
+| AES256_CBC_HMAC_SHA256 | QAT_HW |
+| SHA3-224 | QAT_HW |
+| SHA3-256 | QAT_HW |
+| SHA3-384 | QAT_HW |
+| SHA3-512 | QAT_HW |
+
+This support is added as an experimental feature and tested with
 OpenSSL Speed and testapp only and not tested with any application.
 
 Example OpenSSL Speed command to test using qatprovider:

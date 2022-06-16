@@ -54,4 +54,16 @@ DSA_METHOD *qat_get_DSA_methods(void);
 
 void qat_free_DSA_methods(void);
 
+# ifndef DISABLE_QAT_HW_DSA
+int qat_dsa_bn_mod_exp(DSA *dsa, BIGNUM *r, const BIGNUM *a, const BIGNUM *p,
+                       const BIGNUM *m, BN_CTX *ctx, BN_MONT_CTX *m_ctx);
+DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
+                         DSA *dsa);
+int qat_dsa_sign_setup(DSA *dsa, BN_CTX *ctx_in, BIGNUM **kinvp, BIGNUM **rp);
+int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
+                      DSA_SIG *sig, DSA *dsa);
+int qat_dsa_init(DSA *dsa);
+int qat_dsa_finish(DSA *dsa);
+# endif
+
 #endif  /* QAT_HW_DSA_H */

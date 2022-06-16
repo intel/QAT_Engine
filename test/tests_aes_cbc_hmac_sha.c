@@ -229,14 +229,30 @@ static EVP_CIPHER_CTX *setup_ctx(const test_info *t, int enc,
     if (ctx == NULL)
         return NULL;
 
+#ifdef QAT_OPENSSL_PROVIDER
+    EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL,
+                            t->c->name,
+                            e == USE_SW ? "provider=default" : "");
 
+    if (sw_cipher == NULL)
+        goto err;
+    if (!EVP_CipherInit_ex2(ctx, sw_cipher,
+                        t->c->key,
+                        t->tls->v >= TLS1_1_VERSION && enc == 0 ?
+                        NULL : _ivec, enc, NULL)){
+
+        EVP_CIPHER_free(sw_cipher);
+        goto err;
+    }
+
+#else
     if (EVP_CipherInit_ex(ctx, t->c->pfunc(),
                           e == USE_ENGINE ? t->e : NULL,
                           t->c->key,
                           t->tls->v >= TLS1_1_VERSION && enc == 0 ?
                           NULL : _ivec, enc) != 1)
         goto err;
-
+#endif
     /* call the EVP API to set up the HMAC key */
     if (!(cfg & NO_HMAC_KEY))
         EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_MAC_KEY,
@@ -857,7 +873,7 @@ err:
     OPENSSL_free(decbuf);
     return ret;
 }
-
+#ifndef QAT_OPENSSL_PROVIDER
 static int test_pipeline_setup(const test_info *t)
 {
 #define NUMPIPES 10
@@ -1090,7 +1106,7 @@ end:
     set_pkt_threshold(t->e, t->c->name, 0);
     return status;
 }
-
+#endif
 /*
  * run_aes_cbc_hmac_sha :
  *      For each version of supported TLS protocol,
@@ -1148,6 +1164,39 @@ static int run_aes_cbc_hmac_sha(void *pointer)
     for (cnt = 0; ret && cnt < *(args->count); cnt++) {
         for (i = 0; i < ntls; i++) {
             ti.tls = (tls_v *)&test_tls[i];
+#ifdef QAT_OPENSSL_PROVIDER
+            if (
+                /*
+                 * Running the test with SW implementation to check if
+                 * the test logic is correct.
+                 */
+                (test_crypto_op(&ti, USE_SW, USE_SW) != 1) ||
+                (test_auth_header(&ti, USE_SW) != 1) ||
+                (test_auth_pkt(&ti, USE_SW) != 1) ||
+                (
+                    /*
+                    * Perform these tests only if engine
+                    * is present.
+                    */
+                    (test_encrypted_buffer(&ti) != 1) ||
+                    (test_no_hmac_key_set(&ti) != 1) ||
+                    (test_crypto_op(&ti, USE_ENGINE, USE_SW) != 1) ||
+                    (test_crypto_op(&ti, USE_SW, USE_ENGINE) != 1) ||
+                    (test_crypto_op(&ti, USE_ENGINE, USE_ENGINE) != 1) ||
+                    (test_auth_header(&ti, USE_ENGINE) != 1) ||
+                    (test_auth_pkt(&ti, USE_ENGINE) != 1) ||
+                    (test_multi_op(&ti) != 1)
+                    /*
+                    * 1. cipher pipeline feature is not support in
+                    *    qatprovider due to limitation.
+                    * 2. small package offloading is support in qat-
+                    *    provider, but there's no relevant API to set
+                    *    threshold in OpenSSL 3.0, so this testcase is
+                    *    also deactiaved.
+                    */
+                )
+               ) {
+#else
             if (
                 /*
                  * Running the test with SW implementation to check if
@@ -1174,6 +1223,7 @@ static int run_aes_cbc_hmac_sha(void *pointer)
                  )
                 )
                ) {
+#endif
                 ret = 0;
                 break;
             }

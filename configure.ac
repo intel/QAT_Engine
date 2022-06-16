@@ -544,7 +544,7 @@ else
   AC_MSG_NOTICE([Not Accelerating DH to Hardware])
 fi
 
-if test "x$enable_qat_hw_prf" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
+if test "x$enable_qat_hw_prf" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_prf="-DENABLE_QAT_HW_PRF"
   AC_MSG_NOTICE([Accelerating PRF to Hardware])
@@ -553,7 +553,7 @@ else
   AC_MSG_NOTICE([Not Accelerating PRF to Hardware])
 fi
 
-if test "x$enable_qat_hw_hkdf" = "xyes" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
+if test "x$enable_qat_hw_hkdf" = "xyes" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_hkdf="-DENABLE_QAT_HW_HKDF"
   AC_MSG_NOTICE([Accelerating HKDF to Hardware])
@@ -562,7 +562,7 @@ else
   AC_MSG_NOTICE([Not Accelerating HKDF to Hardware])
 fi
 
-if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x" -a "x$cflags_openssl_3" = "x"
+if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   enable_qat_hw_ciphers="-DENABLE_QAT_HW_CIPHERS"
   AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])

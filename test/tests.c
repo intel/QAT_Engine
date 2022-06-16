@@ -747,7 +747,7 @@ void tests_run(TEST_PARAMS *args, int id)
         break;
 #endif
 
-#ifdef QAT_HW
+#if defined(QAT_OPENSSL_PROVIDER) || defined(QAT_HW)
     /* DSA sign & verify tests, input message length 124 bytes */
     case TEST_DSA:
         tests_run_dsa(args);

@@ -62,6 +62,7 @@
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
+#include "qat_hw_hkdf.h"
 
 
 #ifdef USE_QAT_CONTIG_MEM
@@ -87,26 +88,6 @@
  * down in the driver.
  */
 #define QAT_HKDF_INFO_MAXBUF 1024
-
-#ifdef ENABLE_QAT_HW_HKDF
-/* QAT TLS  pkey context structure */
-typedef struct {
-    /* Mode: Extract, Expand or both */
-    int mode;
-    /* Digest to use for HKDF */
-    const EVP_MD *qat_md;
-    void *sw_hkdf_ctx_data;
-    /* Struct that contains salt, key and info */
-    CpaCyKeyGenHKDFOpData *hkdf_op_data;
-} QAT_HKDF_CTX;
-
-/* Function Declarations */
-static int qat_hkdf_init(EVP_PKEY_CTX *ctx);
-static void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx);
-static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
-                                size_t *olen);
-static int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-#endif /* ENABLE_QAT_HW_HKDF */
 
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 static const EVP_PKEY_METHOD *sw_hkdf_pmeth = NULL;
@@ -507,7 +488,7 @@ static int qat_set_hkdf_mode(QAT_HKDF_CTX * qat_hkdf_ctx)
 * description:
 *   HKDF derive function for TLS case
 ******************************************************************************/
-static int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
+int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 {
     int ret = 0, job_ret = 0;
     CpaFlatBuffer *generated_key = NULL;

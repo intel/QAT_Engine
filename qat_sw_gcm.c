@@ -299,6 +299,7 @@ static inline void aes_gcm_increment_counter(unsigned char* ifc)
     }
 }
 
+#ifndef QAT_OPENSSL_PROVIDER
 /******************************************************************************
  * function:
  *    vaesgcm_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
@@ -724,6 +725,7 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
     }
     return 1;
 }
+#endif
 
 #ifdef QAT_OPENSSL_PROVIDER
 int QAT_AES_GCM_CTX_get_nid(const QAT_AES_GCM_CTX *ctx)
@@ -772,7 +774,6 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
     QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)ctx;
 #else
     vaesgcm_ctx* qctx = NULL;
-    qctx = vaesgcm_data(ctx);
 #endif
     int  enc = 0;
     int  nid = 0;
@@ -785,6 +786,9 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
         return -1;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
+    qctx = vaesgcm_data(ctx);
+#endif
     if (qctx == NULL) {
         WARN("qctx == NULL\n");
         QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_QCTX_NULL);
@@ -811,7 +815,9 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
     /* Distinguish between a regular crypto update and the TLS case
      * qctx->tls_aad_len only set when EVP_CTRL_AEAD_TLS1_AAD control is sent */
     if (qctx->tls_aad_len >= 0)
+#ifndef QAT_OPENSSL_PROVIDER
         return aes_gcm_tls_cipher(ctx, out, in, len, qctx, enc);
+#endif
 
     gcm_ctx_ptr  = &(qctx->gcm_ctx);
 
@@ -915,6 +921,7 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
 #endif
 }
 
+#ifndef QAT_OPENSSL_PROVIDER
 /******************************************************************************
  * function:
  *    aes_gcm_tls_cipher(EVP_CIPHER_CTX *evp_ctx, unsigned char *out,
@@ -1052,7 +1059,7 @@ int aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx,
     else
         return message_len;
 }
-
+#endif
 /******************************************************************************
  * function:
  *    vaesgcm_init_key(EVP_CIPHER_CTX* ctx, const unsigned char* inkey)
@@ -1076,7 +1083,7 @@ int vaesgcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char* inkey)
 #ifdef QAT_OPENSSL_PROVIDER
     QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)ctx;
 #else
-    vaesgcm_ctx* qctx = vaesgcm_data(ctx);
+    vaesgcm_ctx* qctx = NULL;
 #endif
     int nid = 0;
     struct gcm_key_data* key_data_ptr = NULL;
@@ -1088,6 +1095,9 @@ int vaesgcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char* inkey)
         return 0;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
+    qctx = vaesgcm_data(ctx);
+#endif
     if (qctx == NULL) {
         WARN("qctx is NULL\n");
         QATerr(QAT_F_VAESGCM_INIT_KEY, QAT_R_QCTX_NULL);
@@ -1138,7 +1148,7 @@ int vaesgcm_init_gcm(EVP_CIPHER_CTX *ctx)
 #ifdef QAT_OPENSSL_PROVIDER
     QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)ctx;
 #else
-    vaesgcm_ctx* qctx = vaesgcm_data(ctx);
+    vaesgcm_ctx* qctx = NULL;
 #endif
     int nid = 0;
     int aad_len = 0;
@@ -1152,6 +1162,9 @@ int vaesgcm_init_gcm(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
+    qctx = vaesgcm_data(ctx);
+#endif
 
     if (qctx == NULL) {
         WARN("qctx == NULL\n");

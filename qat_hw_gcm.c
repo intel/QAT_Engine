@@ -411,6 +411,7 @@ static inline void qat_aes_gcm_inc_ctr(unsigned char* ifc)
     }
 }
 
+#ifndef QAT_OPENSSL_PROVIDER
 /******************************************************************************
 * function:
 *    qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx,
@@ -801,6 +802,7 @@ int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
     return ret_val;
 }
 
+#endif
 /******************************************************************************
  *  * function:
  *
@@ -1004,6 +1006,8 @@ int QAT_AES_CIPHER_CTX_encrypting(QAT_GCM_CTX *qctx)
         return qctx->enc;
 }
 #endif
+
+#ifndef QAT_OPENSSL_PROVIDER
 /******************************************************************************
 * function:
 *    qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
@@ -1237,7 +1241,7 @@ err:
     DEBUG("Function result = %d\n",ret_val);
     return ret_val;
 }
-
+#endif
 /******************************************************************************
 * function:
 *    qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
@@ -1334,6 +1338,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_QCTX_NULL);
         return RET_FAIL;
     }
+
 #ifdef QAT_OPENSSL_PROVIDER
     enc = QAT_AES_CIPHER_CTX_encrypting(qctx);
 #else
@@ -1344,7 +1349,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     /* Distinguish the Update and TLS case */
     if (qctx->tls_aad_len >= 0) {
+#ifndef QAT_OPENSSL_PROVIDER
         return qat_aes_gcm_tls_cipher(ctx, out, in, len);
+#endif
     }
 
     /* If either key or IV not set, throw error here. */
@@ -1383,6 +1390,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 /* Set the length of the AAD */
                 qctx->session_data->hashSetupData.authModeSetupData.aadLenInBytes = aad_len;
             }
+#ifdef QAT_OPENSSL_PROVIDER
+            *padlen = aad_len;
+#endif
 
             memcpy(qctx->aad, in, aad_len);
             DUMPL("qctx->aad", qctx->aad, aad_len);

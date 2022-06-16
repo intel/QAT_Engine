@@ -101,12 +101,6 @@ int vaesgcm_ciphers_do_cipher(void *ctx,
                               size_t *padlen,
                               const unsigned char* in,
                               size_t               len);
-int aes_gcm_tls_cipher(EVP_CIPHER_CTX *evp_ctx,
-                       unsigned char*       out,
-                       const unsigned char* in,
-                       size_t               len,
-                       void*                vctx,
-                       int                  enc);
 #else
 int vaesgcm_ciphers_init(EVP_CIPHER_CTX *ctx,
                          const unsigned char* inkey,
