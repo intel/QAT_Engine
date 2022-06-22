@@ -47,8 +47,6 @@
 #ifndef QAT_HW_PRF_H
 #define QAT_HW_PRF_H
 
-#ifdef ENABLE_QAT_HW_PRF
-
 #include <pthread.h>
 #include <string.h>
 #include <signal.h>
@@ -72,13 +70,14 @@
  * early on here if they are exceeded rather than later on
  * down in the driver.
  */
-#if CPA_CY_API_VERSION_NUM_MAJOR > 2
-# define QAT_TLS1_PRF_SECRET_MAXBUF 1024
-#else
-# define QAT_TLS1_PRF_SECRET_MAXBUF 512
-#endif
-#define QAT_TLS1_PRF_SEED_MAXBUF 64
-#define QAT_TLS1_PRF_LABEL_MAXBUF 136
+# ifdef ENABLE_QAT_HW_PRF
+#  if CPA_CY_API_VERSION_NUM_MAJOR > 2
+#   define QAT_TLS1_PRF_SECRET_MAXBUF 1024
+#  else
+#   define QAT_TLS1_PRF_SECRET_MAXBUF 512
+#  endif
+#  define QAT_TLS1_PRF_SEED_MAXBUF 64
+#  define QAT_TLS1_PRF_LABEL_MAXBUF 136
 
 /* QAT TLS  pkey context structure */
 typedef struct {
@@ -101,6 +100,6 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx);
 int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                                 size_t *olen);
 int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-#endif /* DISABLE_QAT_HW_PRF */
+# endif /* DISABLE_QAT_HW_PRF */
 
 #endif /* QAT_HW_PRF_H */

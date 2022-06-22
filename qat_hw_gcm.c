@@ -1007,7 +1007,6 @@ int QAT_AES_CIPHER_CTX_encrypting(QAT_GCM_CTX *qctx)
 }
 #endif
 
-#ifndef QAT_OPENSSL_PROVIDER
 /******************************************************************************
 * function:
 *    qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
@@ -1241,7 +1240,7 @@ err:
     DEBUG("Function result = %d\n",ret_val);
     return ret_val;
 }
-#endif
+
 /******************************************************************************
 * function:
 *    qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
@@ -1349,9 +1348,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     /* Distinguish the Update and TLS case */
     if (qctx->tls_aad_len >= 0) {
-#ifndef QAT_OPENSSL_PROVIDER
         return qat_aes_gcm_tls_cipher(ctx, out, in, len);
-#endif
     }
 
     /* If either key or IV not set, throw error here. */

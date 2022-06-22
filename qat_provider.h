@@ -50,8 +50,8 @@
 # include <openssl/provider.h>
 # include <openssl/bio.h>
 
-# define QAT_PROVIDER_VERSION_STR "v0.6.12"
-# define QAT_PROVIDER_FULL_VERSION_STR "QAT Provider v0.6.12"
+# define QAT_PROVIDER_VERSION_STR "v0.6.13"
+# define QAT_PROVIDER_FULL_VERSION_STR "QAT Provider v0.6.13"
 
 # if defined(QAT_HW) && defined(QAT_SW)
 #  define QAT_PROVIDER_NAME_STR "QAT Provider for QAT_HW and QAT_SW"

@@ -138,7 +138,7 @@ void process_sm3_update_reqs(mb_thread_data *tlv)
     sm3_update_op_data *sm3_update_req_array[MULTIBUFF_SM3_BATCH] = {0};
     int  sm3_data_len[MULTIBUFF_SM3_BATCH] = {0};
     const unsigned char *sm3_data[MULTIBUFF_SM3_BATCH] = {0};
-    SM3_CTX_mb16 sm3_update_ctx;
+    SM3_CTX_mb16 sm3_update_ctx = {0};
     unsigned int sm3_sts = 0;
     int local_request_no = 0;
     int req_num = 0, i = 0;
@@ -203,7 +203,7 @@ void process_sm3_final_reqs(mb_thread_data *tlv)
 {
     sm3_final_op_data *sm3_final_req_array[MULTIBUFF_SM3_BATCH] = {0};
     int8u *sm3_hash[MULTIBUFF_SM3_BATCH] = {0};
-    SM3_CTX_mb16 sm3_final_ctx;
+    SM3_CTX_mb16 sm3_final_ctx = {0};
     unsigned int sm3_sts = 0;
     int local_request_no = 0;
     int req_num = 0, i = 0;

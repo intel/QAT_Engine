@@ -738,190 +738,7 @@ int QAT_AES_CIPHER_CTX_encrypting(QAT_GCM_CTX *qctx)
     return qctx->enc;
 }
 #endif
-/******************************************************************************
- * function:
- *    vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
- *                              size_t *padlen,, const unsigned char *in,
-*                               size_t len)
- *
- * @param ctx    [IN]  - pointer to existing ctx
- * @param out   [OUT]  - output buffer for transform result
- * @param in     [IN]  - input buffer
- * @param len    [IN]  - length of input buffer
- *
- * @retval -1      function failed
- * @retval 0,1     function succeeded
- *
- * description:
- *    This function performs the cryptographic transform according to the
- *  parameters setup during initialisation.
- *
- ******************************************************************************/
-#ifdef QAT_OPENSSL_PROVIDER
-int vaesgcm_ciphers_do_cipher(void *ctx,
-                              unsigned char*       out,
-                              size_t *padlen,
-                              const unsigned char* in,
-                              size_t               len)
-#else
-int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
-                              unsigned char*       out,
-                              const unsigned char* in,
-                              size_t               len)
-#endif
-{
-#ifdef QAT_OPENSSL_PROVIDER
-    QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)ctx;
-#else
-    vaesgcm_ctx* qctx = NULL;
-#endif
-    int  enc = 0;
-    int  nid = 0;
-    struct gcm_key_data* key_data_ptr = NULL;
-    struct gcm_context_data* gcm_ctx_ptr = NULL;
 
-    if (ctx == NULL) {
-        WARN("ctx == NULL\n");
-        QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_CTX_NULL);
-        return -1;
-    }
-
-#ifndef QAT_OPENSSL_PROVIDER
-    qctx = vaesgcm_data(ctx);
-#endif
-    if (qctx == NULL) {
-        WARN("qctx == NULL\n");
-        QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_QCTX_NULL);
-        return -1;
-    }
-#ifdef QAT_OPENSSL_PROVIDER
-    enc = QAT_AES_CIPHER_CTX_encrypting(qctx);
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)qctx);
-    key_data_ptr = (struct gcm_key_data*)&(qctx->ks);
-#else
-    enc = EVP_CIPHER_CTX_encrypting(ctx);
-    nid = EVP_CIPHER_CTX_nid(ctx);
-    key_data_ptr = &(qctx->key_data);
-#endif
-    if (!qat_check_gcm_nid(nid)) {
-        WARN("NID not supported %d\n", nid);
-        QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_NID_NOT_SUPPORTED);
-        return -1;
-    }
-
-    DEBUG("enc = %d - ctx = %p, NID = %d out = %p, in = %p, len = %zu\n",
-           enc, (void*)ctx, nid, (void*)out, (void*)in, len);
-
-    /* Distinguish between a regular crypto update and the TLS case
-     * qctx->tls_aad_len only set when EVP_CTRL_AEAD_TLS1_AAD control is sent */
-    if (qctx->tls_aad_len >= 0)
-#ifndef QAT_OPENSSL_PROVIDER
-        return aes_gcm_tls_cipher(ctx, out, in, len, qctx, enc);
-#endif
-
-    gcm_ctx_ptr  = &(qctx->gcm_ctx);
-
-    /* If we have a case where out == NULL, and in != NULL,
-     * then its aad being passed */
-    if ((out == NULL) && (in != NULL)) {
-        qat_imb_aes_gcm_init_var_iv(nid, ipsec_mgr,
-                                    key_data_ptr,
-                                    gcm_ctx_ptr,
-                                    qctx->iv, qctx->iv_len, in, len);
-
-        DEBUG("AAD passsed in\n");
-#ifdef QAT_OPENSSL_PROVIDER
-        *padlen = len;
-#else
-        return 0;
-#endif
-    }
-
-    /* Handle the case where EVP_EncryptFinal_ex is called with a NULL input buffer.
-     * Note: Null CT/PT provided to EVP_Encrypt|DecryptUpdate shares the same function
-     * signature as if EVP_Encrypt|DecryptFinal_ex() was called */
-    if (in == NULL && out != NULL) {
-
-        if (enc) {
-            if (qctx->tag == NULL || qctx->tag_len <= 0) {
-                WARN("AES-GCM Tag == NULL || tag_len <=0\n");
-                return -1;
-            }
-
-            /* if we haven't already calculated and the set the tag,
-             * then do so */
-            if (qctx->tag_set < 1) {
-                qat_imb_aes_gcm_enc_finalize(nid, ipsec_mgr, key_data_ptr,
-                                             gcm_ctx_ptr, qctx->tag,
-                                             qctx->tag_len);
-            }
-            qctx->tag_set = 1;
-#ifdef QAT_OPENSSL_PROVIDER
-           memcpy(qctx->buf,qctx->tag,qctx->tag_len);
-           return qctx->tag_len;
-#else
-           return len;
-#endif
-
-        } else {  /* Decrypt Flow */
-
-            if (qctx->tag_calculated < 1) {
-                qat_imb_aes_gcm_dec_finalize(nid, ipsec_mgr, key_data_ptr,
-                        gcm_ctx_ptr, out,
-                        qctx->tag_len);
-
-                /* Stash the calculated tag from the decryption,
-                 * so it can get compared to expected value below */
-                if (qctx->calculated_tag)
-                    memcpy(qctx->calculated_tag, out, qctx->tag_len);
-
-                DUMPL("Decrypt - Calculated Tag",
-                     (const unsigned char*)qctx->calculated_tag ,
-                      qctx->tag_len);
-                qctx->tag_calculated = 1;
-            }
-
-            DUMPL("Decrypt - Set Tag", (const unsigned char*)qctx->tag,
-                  qctx->tag_len);
-
-            /* Wait until signaled by EVP_CTRL_GCM_SET_TAG, that a tag
-             * has been set via the control function before we compared
-             * the one we calculated if qctx->tag_set == 0, then itsi
-             * likely that NULL plaintext was sent in and this looksi
-             * just like a DecryptFinal_Ex() call, so wait until control
-             * function calls to set the tag */
-            if (qctx->tag_set) {
-                DEBUG("Decrypt - GCM Tag Set so calling memcmp\n");
-                if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0)
-                    return 0;
-                else{
-                    WARN("AES-GCM calculated tag comparison failed\n");
-                    DUMPL("Expected   Tag:", (const unsigned char *)qctx->tag, qctx->tag_len);
-                    DUMPL("Calculated Tag:", (const unsigned char *)qctx->calculated_tag, qctx->tag_len);
-                    DUMPL("Decrypt - Calculated Tag",
-                         (const unsigned char*)qctx->calculated_tag ,
-                          qctx->tag_len);
-                    return -1;
-                }
-            }
-        }
-    } else {
-        if (enc)
-            qat_imb_aes_gcm_enc_update(nid, ipsec_mgr, key_data_ptr,
-                                       gcm_ctx_ptr, out, in, len);
-        else
-            qat_imb_aes_gcm_dec_update(nid, ipsec_mgr, key_data_ptr,
-                                       gcm_ctx_ptr, out, in, len);
-    }
-#ifdef QAT_OPENSSL_PROVIDER
-    *padlen = len;
-     return 1;
-#else
-     return len;
-#endif
-}
-
-#ifndef QAT_OPENSSL_PROVIDER
 /******************************************************************************
  * function:
  *    aes_gcm_tls_cipher(EVP_CIPHER_CTX *evp_ctx, unsigned char *out,
@@ -1059,7 +876,188 @@ int aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx,
     else
         return message_len;
 }
+
+/******************************************************************************
+ * function:
+ *    vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+ *                              size_t *padlen,, const unsigned char *in,
+*                               size_t len)
+ *
+ * @param ctx    [IN]  - pointer to existing ctx
+ * @param out   [OUT]  - output buffer for transform result
+ * @param in     [IN]  - input buffer
+ * @param len    [IN]  - length of input buffer
+ *
+ * @retval -1      function failed
+ * @retval 0,1     function succeeded
+ *
+ * description:
+ *    This function performs the cryptographic transform according to the
+ *  parameters setup during initialisation.
+ *
+ ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
+int vaesgcm_ciphers_do_cipher(void *ctx,
+                              unsigned char*       out,
+                              size_t *padlen,
+                              const unsigned char* in,
+                              size_t               len)
+#else
+int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
+                              unsigned char*       out,
+                              const unsigned char* in,
+                              size_t               len)
 #endif
+{
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)ctx;
+#else
+    vaesgcm_ctx* qctx = NULL;
+#endif
+    int  enc = 0;
+    int  nid = 0;
+    struct gcm_key_data* key_data_ptr = NULL;
+    struct gcm_context_data* gcm_ctx_ptr = NULL;
+
+    if (ctx == NULL) {
+        WARN("ctx == NULL\n");
+        QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_CTX_NULL);
+        return -1;
+    }
+
+#ifndef QAT_OPENSSL_PROVIDER
+    qctx = vaesgcm_data(ctx);
+#endif
+    if (qctx == NULL) {
+        WARN("qctx == NULL\n");
+        QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_QCTX_NULL);
+        return -1;
+    }
+#ifdef QAT_OPENSSL_PROVIDER
+    enc = QAT_AES_CIPHER_CTX_encrypting(qctx);
+    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)qctx);
+    key_data_ptr = (struct gcm_key_data*)&(qctx->ks);
+#else
+    enc = EVP_CIPHER_CTX_encrypting(ctx);
+    nid = EVP_CIPHER_CTX_nid(ctx);
+    key_data_ptr = &(qctx->key_data);
+#endif
+    if (!qat_check_gcm_nid(nid)) {
+        WARN("NID not supported %d\n", nid);
+        QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_NID_NOT_SUPPORTED);
+        return -1;
+    }
+
+    DEBUG("enc = %d - ctx = %p, NID = %d out = %p, in = %p, len = %zu\n",
+           enc, (void*)ctx, nid, (void*)out, (void*)in, len);
+
+    /* Distinguish between a regular crypto update and the TLS case
+     * qctx->tls_aad_len only set when EVP_CTRL_AEAD_TLS1_AAD control is sent */
+    if (qctx->tls_aad_len >= 0)
+        return aes_gcm_tls_cipher(ctx, out, in, len, qctx, enc);
+
+    gcm_ctx_ptr  = &(qctx->gcm_ctx);
+
+    /* If we have a case where out == NULL, and in != NULL,
+     * then its aad being passed */
+    if ((out == NULL) && (in != NULL)) {
+        qat_imb_aes_gcm_init_var_iv(nid, ipsec_mgr,
+                                    key_data_ptr,
+                                    gcm_ctx_ptr,
+                                    qctx->iv, qctx->iv_len, in, len);
+
+        DEBUG("AAD passsed in\n");
+#ifdef QAT_OPENSSL_PROVIDER
+        *padlen = len;
+#else
+        return 0;
+#endif
+    }
+
+    /* Handle the case where EVP_EncryptFinal_ex is called with a NULL input buffer.
+     * Note: Null CT/PT provided to EVP_Encrypt|DecryptUpdate shares the same function
+     * signature as if EVP_Encrypt|DecryptFinal_ex() was called */
+    if (in == NULL && out != NULL) {
+
+        if (enc) {
+            if (qctx->tag == NULL || qctx->tag_len <= 0) {
+                WARN("AES-GCM Tag == NULL || tag_len <=0\n");
+                return -1;
+            }
+
+            /* if we haven't already calculated and the set the tag,
+             * then do so */
+            if (qctx->tag_set < 1) {
+                qat_imb_aes_gcm_enc_finalize(nid, ipsec_mgr, key_data_ptr,
+                                             gcm_ctx_ptr, qctx->tag,
+                                             qctx->tag_len);
+            }
+            qctx->tag_set = 1;
+#ifdef QAT_OPENSSL_PROVIDER
+           memcpy(qctx->buf,qctx->tag,qctx->tag_len);
+           return qctx->tag_len;
+#else
+           return len;
+#endif
+
+        } else {  /* Decrypt Flow */
+
+            if (qctx->tag_calculated < 1) {
+                qat_imb_aes_gcm_dec_finalize(nid, ipsec_mgr, key_data_ptr,
+                        gcm_ctx_ptr, out,
+                        qctx->tag_len);
+
+                /* Stash the calculated tag from the decryption,
+                 * so it can get compared to expected value below */
+                if (qctx->calculated_tag)
+                    memcpy(qctx->calculated_tag, out, qctx->tag_len);
+
+                DUMPL("Decrypt - Calculated Tag",
+                     (const unsigned char*)qctx->calculated_tag ,
+                      qctx->tag_len);
+                qctx->tag_calculated = 1;
+            }
+
+            DUMPL("Decrypt - Set Tag", (const unsigned char*)qctx->tag,
+                  qctx->tag_len);
+
+            /* Wait until signaled by EVP_CTRL_GCM_SET_TAG, that a tag
+             * has been set via the control function before we compared
+             * the one we calculated if qctx->tag_set == 0, then itsi
+             * likely that NULL plaintext was sent in and this looksi
+             * just like a DecryptFinal_Ex() call, so wait until control
+             * function calls to set the tag */
+            if (qctx->tag_set) {
+                DEBUG("Decrypt - GCM Tag Set so calling memcmp\n");
+                if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0)
+                    return 0;
+                else{
+                    WARN("AES-GCM calculated tag comparison failed\n");
+                    DUMPL("Expected   Tag:", (const unsigned char *)qctx->tag, qctx->tag_len);
+                    DUMPL("Calculated Tag:", (const unsigned char *)qctx->calculated_tag, qctx->tag_len);
+                    DUMPL("Decrypt - Calculated Tag",
+                         (const unsigned char*)qctx->calculated_tag ,
+                          qctx->tag_len);
+                    return -1;
+                }
+            }
+        }
+    } else {
+        if (enc)
+            qat_imb_aes_gcm_enc_update(nid, ipsec_mgr, key_data_ptr,
+                                       gcm_ctx_ptr, out, in, len);
+        else
+            qat_imb_aes_gcm_dec_update(nid, ipsec_mgr, key_data_ptr,
+                                       gcm_ctx_ptr, out, in, len);
+    }
+#ifdef QAT_OPENSSL_PROVIDER
+    *padlen = len;
+     return 1;
+#else
+     return len;
+#endif
+}
+
 /******************************************************************************
  * function:
  *    vaesgcm_init_key(EVP_CIPHER_CTX* ctx, const unsigned char* inkey)

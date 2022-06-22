@@ -21,8 +21,8 @@
   in the Intel&reg; QAT OpenSSL\* Engine configuration when building against earlier
   versions of the Linux driver.
 * Support for QAT HW ECX, QAT SW ECX, QAT HW PRF and QAT HW HKDF is disabled when built
-  against OpenSSL 3.0 due to known issues instead it uses non-accelerated implementation
-  from OpenSSL.
+  against OpenSSL 3.0 engine interface due to known issues, instead it uses
+  non-accelerated implementation from OpenSSL.
 * There is known performance scaling issue (performance drop with threads >32)
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode
   in the Haproxy application. This issue is not observed when using RSA ciphers
@@ -37,9 +37,8 @@
   Performance drop observed in mulithread scenario for all ciphers suites
   due to the locks at engine_table_select in OpenSSL.
 * OpenSSL 1.1.1n introduced misleading error message(undefined symbol: EVP_PKEY_get_base_id)
-  during engine load which can be ignored as it is not a real failure. Details of error
-  message can be found [here][1]
+  during engine load which can be ignored as it is not a real failure. This is later fixed in
+  OpenSSL\* 1.1.1o release.
 * AES-CBC-HMAC-SHA chained ciphers does not support pipeline feature when built with
   OpenSSL 3.0 as the corresponding support is not available in OpenSSL 3.0.
-
-[1]:https://github.com/openssl/openssl/issues/17962
+* There is a known issue with OpenSSL s_server application using qatprovider on OpenSSL 3.0.

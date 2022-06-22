@@ -144,13 +144,13 @@
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.12";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.13";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v0.6.12";
+    "Reference implementation of QAT crypto engine(qat_hw) v0.6.13";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v0.6.12";
+    "Reference implementation of QAT crypto engine(qat_sw) v0.6.13";
 #endif
 unsigned int engine_inited = 0;
 
@@ -421,15 +421,15 @@ int hw_support(void) {
         vpclmulqdq = 1;
 
     DEBUG("Processor Support - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
-          avx512f, vaes, vpclmulqdq);
+           avx512f, vaes, vpclmulqdq);
 
     if (avx512f && vaes && vpclmulqdq) {
         qat_sw_ipsec = 1;
         return 1;
     } else {
-        WARN("Processor unsupported - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
-             avx512f, vaes, vpclmulqdq);
-	return 0;
+        fprintf(stderr, "Processor unsupported for QAT_SW - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
+                avx512f, vaes, vpclmulqdq);
+        return 0;
     }
 }
 #endif
@@ -468,7 +468,7 @@ int qat_engine_init(ENGINE *e)
 #ifdef QAT_HW
     if (qat_hw_offload) {
         if (!qat_init(e)) {
-            WARN("QAT initialization Failed\n");
+            fprintf(stderr, "QAT_HW initialization Failed\n");
             return 0;
         }
     }
@@ -477,7 +477,7 @@ int qat_engine_init(ENGINE *e)
 #ifdef QAT_SW
     if (qat_sw_offload) {
         if (!multibuff_init(e)) {
-            WARN("Multibuff initialization Failed\n");
+            fprintf(stderr, "QAT_SW initialization Failed\n");
             return 0;
         }
     }
@@ -858,8 +858,8 @@ static int bind_qat(ENGINE *e, const char *id)
     if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
         qat_hw_offload = 1;
     } else {
-        WARN("Qat Intree device not available\n");
 #  ifndef QAT_SW
+        fprintf(stderr, "Qat Intree device not available\n");
         goto end;
 #  endif
     }
@@ -867,12 +867,12 @@ static int bind_qat(ENGINE *e, const char *id)
     if (access(QAT_DEV, F_OK) == 0) {
         qat_hw_offload = 1;
         if (access(QAT_MEM_DEV, F_OK) != 0) {
-            WARN("Qat memory driver not present\n");
+            fprintf(stderr, "Qat memory driver not present\n");
             goto end;
         }
     } else {
-        WARN("Qat device not available\n");
 #  ifndef QAT_SW
+        fprintf(stderr, "Qat device not available\n");
         goto end;
 #  endif
     }
@@ -885,12 +885,12 @@ static int bind_qat(ENGINE *e, const char *id)
     }
 
     if (!ENGINE_set_id(e, engine_qat_id)) {
-        WARN("ENGINE_set_id failed\n");
+        fprintf(stderr, "ENGINE_set_id failed\n");
         goto end;
     }
 
     if (!ENGINE_set_name(e, engine_qat_name)) {
-        WARN("ENGINE_set_name failed\n");
+        fprintf(stderr, "ENGINE_set_name failed\n");
         goto end;
     }
 
@@ -965,7 +965,7 @@ static int bind_qat(ENGINE *e, const char *id)
     if (hw_support()) {
 # ifdef ENABLE_QAT_SW_GCM
         if (!vaesgcm_init_ipsec_mb_mgr()) {
-            WARN("IPSec Multi-Buffer Manager Initialization failed\n");
+            fprintf(stderr, "IPSec Multi-Buffer Manager Initialization failed\n");
             goto end;
         }
 # endif
@@ -1000,7 +1000,7 @@ static int bind_qat(ENGINE *e, const char *id)
     ret &= ENGINE_set_finish_function(e, qat_engine_finish);
     ret &= ENGINE_set_cmd_defns(e, qat_cmd_defns);
     if (ret == 0) {
-        WARN("Engine failed to register init, finish or destroy functions\n");
+        fprintf(stderr, "Engine failed to register init, finish or destroy functions\n");
     }
 
     /*
@@ -1046,13 +1046,13 @@ static ENGINE *engine_qat(void)
     ret = ENGINE_new();
 
     if (!ret) {
-        WARN("Failed to create Engine\n");
+        fprintf(stderr, "Failed to create Engine\n");
         QATerr(QAT_F_ENGINE_QAT, QAT_R_QAT_CREATE_ENGINE_FAILURE);
         return NULL;
     }
 
     if (!bind_qat(ret, engine_qat_id)) {
-        WARN("Qat engine bind failed\n");
+        fprintf(stderr, "Qat Engine bind failed\n");
         ENGINE_free(ret);
         return NULL;
     }

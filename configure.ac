@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [0.6.12], [])
+AC_INIT([qatengine], [0.6.13], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -255,7 +255,7 @@ AC_SUBST([LIBQATNAME], "qatengine")
 AC_CHECK_FILE(${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h,
 	      [with_icp_sal_versions_h=yes],
 	      [with_icp_sal_versions_h=no])
-if test "x$with_icp_sal_versions_h" = "xyes" -a "x$enable_qat_sw" = "x"
+if test "x$with_icp_sal_versions_h" = "xyes"
 then
   if test `grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h | wc -l` = "1"
   then
@@ -377,7 +377,7 @@ then
     if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
     then
       AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
-                   [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/loca/lib -lcrypto_mb"])],
+                   [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lcrypto_mb"])],
                    [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
       AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
     fi
