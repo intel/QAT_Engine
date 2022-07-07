@@ -126,6 +126,14 @@ static int run_aesgcm256_update(void *args)
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
+    const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_256_gcm);
+
+    if (!c) {
+        INFO("AES-256-GCM disabled in QAT_Engine\n");
+        e = NULL;
+    }
+#endif
 
     if (plaintext == NULL || ciphertext == NULL || dec_cipher == NULL) {
         INFO("# FAIL: [%s] --- Initial parameters malloc failed ! \n",
@@ -432,6 +440,14 @@ static int run_aesgcm256_tls(void *args)
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
+    const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_256_gcm);
+
+    if (!c) {
+        INFO("AES-256-GCM disabled in QAT_Engine\n");
+        e = NULL;
+    }
+#endif
 
     if (input == NULL) {
         INFO("# FAIL: [%s] --- Initial parameters malloc failed ! \n",

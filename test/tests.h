@@ -85,6 +85,7 @@ struct test_params_t {
     int verify_only;
     int encrypt_only;
     int decrypt_only;
+    int rsa_all;
     int async_jobs;
     ASYNC_JOB **jobs;
     ASYNC_WAIT_CTX **awcs;
@@ -101,6 +102,7 @@ struct async_additional_args_rsa {
     int verify_only;
     int encrypt_only;
     int decrypt_only;
+    int rsa_all;
     int padding;
 };
 

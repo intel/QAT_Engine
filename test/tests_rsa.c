@@ -2164,6 +2164,9 @@ static int run_rsa(void *args)
     int verify_only = extra_args->verify_only;
     int encrypt_only = extra_args->encrypt_only;
     int decrypt_only = extra_args->decrypt_only;
+#ifndef QAT_OPENSSL_PROVIDER
+    int rsa_all = extra_args->rsa_all;
+#endif
     int pad = extra_args->padding;
 
 #ifdef QAT_OPENSSL_PROVIDER
@@ -2570,7 +2573,7 @@ static int run_rsa(void *args)
         }
     } /* count for-loop */
 
-    if (encrypt_only || decrypt_only) {
+    if (encrypt_only || decrypt_only || rsa_all) {
         /* Compare and verify the encrypted and decrypted message */
         if (verify) {
             if (memcmp(ptext, expectedPtext, plen))
@@ -2591,7 +2594,7 @@ static int run_rsa(void *args)
          }
     }
 
-    if (sign_only || verify_only || status) {
+    if (sign_only || verify_only || status || rsa_all) {
         /* Compare and verify the signed and verified message */
         if (verify) {
             if (memcmp(verMsg, HashData, verLen)) {
@@ -2802,12 +2805,15 @@ static void rsa_tests_triage(TEST_PARAMS *args, int sign_only,
     extra_args.encrypt_only = encrypt_only;
     extra_args.decrypt_only = decrypt_only;
 
+    if (!sign_only && !verify_only && !encrypt_only && !decrypt_only) {
+        extra_args.rsa_all = 1;
+    }
     for (i = 0; i < sizeof(padding) / sizeof(padding[0]); i++) {
         extra_args.padding = padding[i];
         if (((padding[i] == RSA_PKCS1_OAEP_PADDING) &&
-            (sign_only || verify_only)) ||
+            (sign_only || verify_only || extra_args.rsa_all)) ||
             ((padding[i] == RSA_X931_PADDING) &&
-            (encrypt_only || decrypt_only)))
+            (encrypt_only || decrypt_only || extra_args.rsa_all)))
             continue;
         if (!args->enable_async)
             run_rsa(args);

@@ -164,7 +164,7 @@ static inline int set_pkt_threshold(ENGINE *e, const char* cipher, int thr)
     ret = ENGINE_ctrl_cmd(e, "SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD",
                           0, (void *)thr_str, NULL, 0);
     if (ret != 1)
-        FAIL_MSG("Failed to set threshold %d for cipher %s\n", thr, cipher);
+        WARN("Not able to set threshold %d for cipher %s\n", thr, cipher);
 
     return ret;
 }
@@ -1143,6 +1143,11 @@ static int run_aes_cbc_hmac_sha(void *pointer)
      */
     if (ti.e != NULL) {
         ret = set_pkt_threshold(ti.e, ti.c->name, 0);
+        /* Set engine to NULL as threshhold will fail if NID not supported*/
+        if (ret != 1) {
+            ti.e = NULL;
+            ret = 1;
+        }
         if (ret != 1)
             return 0;
     }

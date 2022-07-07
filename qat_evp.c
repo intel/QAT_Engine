@@ -175,7 +175,8 @@ int qat_digest_nids[] = {
 };
 const int num_digest_nids = sizeof(qat_digest_nids) / sizeof(qat_digest_nids[0]);
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifdef QAT_HW
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
 typedef struct cipher_threshold_table_s {
     int nid;
     int threshold;
@@ -203,6 +204,7 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 
 static int pkt_threshold_table_size =
     (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
+# endif
 #endif
 
 static EC_KEY_METHOD *qat_ec_method = NULL;
@@ -840,7 +842,8 @@ void qat_free_EC_methods(void)
     }
 }
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifdef QAT_HW
+# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
 /******************************************************************************
 * function:
 *         qat_pkt_threshold_table_set_threshold(const char *cn, int threshold)
@@ -898,4 +901,5 @@ int qat_pkt_threshold_table_get_threshold(int nid)
     WARN("nid %d not found in threshold table", nid);
     return 0;
 }
+# endif
 #endif
