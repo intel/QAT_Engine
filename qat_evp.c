@@ -58,6 +58,7 @@
 #include "qat_utils.h"
 
 #ifdef QAT_HW
+# include "qat_hw_rsa.h"
 # include "qat_hw_ciphers.h"
 # include "qat_hw_ec.h"
 # include "qat_hw_gcm.h"
@@ -70,6 +71,7 @@
 #endif
 
 #ifdef QAT_SW
+# include "qat_sw_rsa.h"
 # include "qat_sw_ecx.h"
 # include "qat_sw_ec.h"
 # include "qat_sw_sm3.h"
@@ -146,18 +148,20 @@ const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
 
 typedef struct _digest_data {
     const int m_type;
+    EVP_MD *md;
     const int pkey_type;
+
 } digest_data;
 
 static digest_data digest_info[] = {
 #ifdef ENABLE_QAT_HW_SHA3
-    { NID_sha3_224,  NID_RSA_SHA3_224},
-    { NID_sha3_256,  NID_RSA_SHA3_256},
-    { NID_sha3_384,  NID_RSA_SHA3_384},
-    { NID_sha3_512,  NID_RSA_SHA3_512},
+    { NID_sha3_224,  NULL, NID_RSA_SHA3_224},
+    { NID_sha3_256,  NULL, NID_RSA_SHA3_256},
+    { NID_sha3_384,  NULL, NID_RSA_SHA3_384},
+    { NID_sha3_512,  NULL, NID_RSA_SHA3_512},
 #endif
 #ifdef ENABLE_QAT_SW_SM3
-    { NID_sm3,  NID_sm3WithRSAEncryption},
+    { NID_sm3,  NULL, NID_sm3WithRSAEncryption},
 #endif
 };
 
@@ -208,84 +212,130 @@ static int pkt_threshold_table_size =
 #endif
 
 static EC_KEY_METHOD *qat_ec_method = NULL;
-static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
-static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
-static EVP_MD *qat_sw_sm3_meth = NULL;
+static RSA_METHOD *qat_rsa_method = NULL;
 
+static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
+
+static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
+/* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
 
 const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 {
 #ifdef ENABLE_QAT_SW_SM3
     int res = 1;
+    EVP_MD *qat_sw_sm3_meth = NULL;
 
-    if (qat_sw_sm3_meth)
-        return qat_sw_sm3_meth;
+    if (qat_sw_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM3)) {
+        if ((qat_sw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
+            WARN("Failed to allocate digest methods for nid %d\n", nid);
+            return NULL;
+        }
 
-    if ((qat_sw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
-        WARN("Failed to allocate digest methods for nid %d\n", nid);
-        return NULL;
-    }
+        /* For now check using MBX_ALGO_X25519 as algo info for sm3 is not implemented */
+        if (mbx_get_algo_info(MBX_ALGO_X25519)) {
+            res &= EVP_MD_meth_set_result_size(qat_sw_sm3_meth, 32);
+            res &= EVP_MD_meth_set_input_blocksize(qat_sw_sm3_meth, SM3_MSG_BLOCK_SIZE);
+            res &= EVP_MD_meth_set_app_datasize(qat_sw_sm3_meth, sizeof(EVP_MD *) + sizeof(SM3_CTX_mb));
+            res &= EVP_MD_meth_set_flags(qat_sw_sm3_meth, EVP_MD_CTX_FLAG_REUSE);
+            res &= EVP_MD_meth_set_init(qat_sw_sm3_meth, qat_sw_sm3_init);
+            res &= EVP_MD_meth_set_update(qat_sw_sm3_meth, qat_sw_sm3_update);
+            res &= EVP_MD_meth_set_final(qat_sw_sm3_meth, qat_sw_sm3_final);
+        }
 
-    /* For now check using MBX_ALGO_X25519 as algo info for sm3 is not implemented */
-    if (mbx_get_algo_info(MBX_ALGO_X25519)) {
-        res &= EVP_MD_meth_set_result_size(qat_sw_sm3_meth, 32);
-        res &= EVP_MD_meth_set_input_blocksize(qat_sw_sm3_meth, SM3_MSG_BLOCK_SIZE);
-        res &= EVP_MD_meth_set_app_datasize(qat_sw_sm3_meth, sizeof(EVP_MD *) + sizeof(SM3_CTX_mb));
-        res &= EVP_MD_meth_set_flags(qat_sw_sm3_meth, EVP_MD_CTX_FLAG_REUSE);
-        res &= EVP_MD_meth_set_init(qat_sw_sm3_meth, qat_sw_sm3_init);
-        res &= EVP_MD_meth_set_update(qat_sw_sm3_meth, qat_sw_sm3_update);
-        res &= EVP_MD_meth_set_final(qat_sw_sm3_meth, qat_sw_sm3_final);
+        if (0 == res) {
+            WARN("Failed to set MD methods for nid %d\n", nid);
+            EVP_MD_meth_free(qat_sw_sm3_meth);
+            return NULL;
+        }
+
         qat_sw_sm3_offload = 1;
         DEBUG("QAT SW SM3 Registration succeeded\n");
+        return qat_sw_sm3_meth;
+    } else {
+        qat_sw_sm3_offload = 0;
+        DEBUG("QAT SW SM3 is disabled, using OpenSSL SW\n");
+        return (EVP_MD *)EVP_sm3();
     }
-
-    if (0 == res) {
-        WARN("Failed to set MD methods for nid %d\n", nid);
-        EVP_MD_meth_free(qat_sw_sm3_meth);
-        qat_sw_sm3_meth = NULL;
-    }
-
+#else
+    qat_sw_sm3_offload = 0;
+    DEBUG("QAT SW SM3 is disabled, using OpenSSL SW\n");
+    return (EVP_MD *)EVP_sm3();
 #endif
-
-    if (!qat_sw_sm3_offload) {
-        qat_sw_sm3_meth = (EVP_MD *)EVP_sm3();
-        DEBUG("OpenSSL SW SM3\n");
-    }
-
-    return qat_sw_sm3_meth;
 }
 
 /******************************************************************************
  * function:
- *         qat_create_digest_meth(int nid , int pkeytype)
- *
- * @param nid    [IN] - EVP operation id
+ *         qat_create_digest_meth(void)
  *
  * description:
- *   Creates qat EVP MD methods for the nid
+ *   Creates qat EVP MD methods.
 ******************************************************************************/
-static const EVP_MD *qat_create_digest_meth(int nid , int pkeytype)
+void qat_create_digest_meth(void)
 {
-    switch (nid) {
+    int i;
+
+    /* free the old method while algorithm reload */
+    if (qat_reload_algo)
+        qat_free_digest_meth();
+
+    for (i = 0; i < num_digest_nids; i++) {
+        if (digest_info[i].md == NULL) {
+            switch (digest_info[i].m_type) {
 #ifdef ENABLE_QAT_HW_SHA3
-    case NID_sha3_224:
-    case NID_sha3_256:
-    case NID_sha3_384:
-    case NID_sha3_512:
-        if (qat_hw_offload)
-            return qat_create_sha3_meth(nid , pkeytype);
+            case NID_sha3_224:
+            case NID_sha3_256:
+            case NID_sha3_384:
+            case NID_sha3_512:
+                digest_info[i].md = (EVP_MD *) 
+                    qat_create_sha3_meth(digest_info[i].m_type , digest_info[i].pkey_type);
+                break;
 #endif
 #ifdef ENABLE_QAT_SW_SM3
-    case NID_sm3:
-        return qat_sw_create_sm3_meth(nid , pkeytype);
+            case NID_sm3:
+                digest_info[i].md = (EVP_MD *) 
+                    qat_sw_create_sm3_meth(digest_info[i].m_type , digest_info[i].pkey_type);
+                break;
 #endif
-    default:
-        WARN("Invalid nid %d\n", nid);
-        return NULL;
+            default:
+                break;
+            }
+        }
     }
+
+}
+
+void qat_free_digest_meth(void)
+{
+    int i;
+
+    for (i = 0; i < num_digest_nids; i++) {
+        if (digest_info[i].md != NULL) {
+            switch (digest_info[i].m_type) {
+#ifdef ENABLE_QAT_HW_SHA3
+            case NID_sha3_224:
+            case NID_sha3_256:
+            case NID_sha3_384:
+            case NID_sha3_512:
+                if (qat_hw_sha_offload)
+                    EVP_MD_meth_free(digest_info[i].md);
+                break;
+#endif
+#ifdef ENABLE_QAT_SW_SM3
+            case NID_sm3:
+                if (qat_sw_sm3_offload)
+                    EVP_MD_meth_free(digest_info[i].md);
+                break;
+#endif
+            }
+            digest_info[i].md = NULL;
+        }
+    }
+    qat_hw_sha_offload = 0;
+    qat_sw_sm3_offload = 0;
 }
 
 /******************************************************************************
@@ -318,8 +368,9 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
 
     for (i = 0; i < num_digest_nids; i++) {
         if (nid == qat_digest_nids[i]) {
-            *md = qat_create_digest_meth(digest_info[i].m_type,
-                                         digest_info[i].pkey_type);
+            if (digest_info[i].md == NULL)
+                qat_create_digest_meth();
+            *md = digest_info[i].md;
             return 1;
         }
     }
@@ -331,8 +382,12 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
 
 EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 {
-    if (_hidden_x25519_pmeth)
-        return _hidden_x25519_pmeth;
+    if (_hidden_x25519_pmeth) {
+        if (!qat_reload_algo)
+            return _hidden_x25519_pmeth;
+        EVP_PKEY_meth_free(_hidden_x25519_pmeth);
+        _hidden_x25519_pmeth = NULL;
+    }
 
     if ((_hidden_x25519_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_X25519, 0)) == NULL) {
@@ -348,22 +403,30 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
     }
 
 #ifdef ENABLE_QAT_HW_ECX
-    if (qat_hw_offload) {
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519)) {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_derive25519);
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, qat_pkey_ecx_ctrl, NULL);
         qat_hw_ecx_offload = 1;
         DEBUG("QAT HW X25519 registration succeeded\n");
+    } else {
+        qat_hw_ecx_offload = 0;
+        DEBUG("QAT HW X25519 is disabled\n");
     }
 #endif
 
 #ifdef ENABLE_QAT_SW_ECX
-    if (!qat_hw_ecx_offload && mbx_get_algo_info(MBX_ALGO_X25519)) {
+    if (qat_sw_offload && !qat_hw_ecx_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519) &&
+        mbx_get_algo_info(MBX_ALGO_X25519)) {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
         qat_sw_ecx_offload = 1;
         DEBUG("QAT SW X25519 registration succeeded\n");
+    } else {
+        qat_sw_ecx_offload = 0;
+        DEBUG("QAT SW X25519 disabled\n");
     }
 #endif
 
@@ -375,8 +438,12 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 
 EVP_PKEY_METHOD *qat_x448_pmeth(void)
 {
-    if (_hidden_x448_pmeth)
-        return _hidden_x448_pmeth;
+    if (_hidden_x448_pmeth) {
+        if (!qat_reload_algo)
+            return _hidden_x448_pmeth;
+        EVP_PKEY_meth_free(_hidden_x448_pmeth);
+        _hidden_x448_pmeth = NULL;
+    }
 
     if ((_hidden_x448_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_X448, 0)) == NULL) {
@@ -392,17 +459,23 @@ EVP_PKEY_METHOD *qat_x448_pmeth(void)
     }
 
 #ifdef ENABLE_QAT_HW_ECX
-    if (qat_hw_offload) {
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX448)) {
         EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
         EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);
         qat_hw_ecx_offload = 1;
         DEBUG("QAT HW ECDH X448 Registration succeeded\n");
+    } else {
+        qat_hw_ecx_offload = 0;
     }
+#else
+    qat_hw_ecx_offload = 0;
 #endif
 
-    if (!qat_hw_ecx_offload)
+    if (!qat_hw_ecx_offload) {
         EVP_PKEY_meth_copy(_hidden_x448_pmeth, sw_x448_pmeth);
+        DEBUG("QAT HW ECDH X448 is disabled, using OpenSSL SW\n");
+    }
 
     return _hidden_x448_pmeth;
 }
@@ -522,13 +595,13 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
     EVP_CIPHER *c = NULL;
     int res = 1;
 
-#ifdef ENABLE_QAT_SW_GCM
-    if (qat_sw_ipsec) {
-        if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
-            WARN("Failed to allocate cipher methods for nid %d\n", nid);
-            return NULL;
-        }
+    if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
+        WARN("Failed to allocate cipher methods for nid %d\n", nid);
+        return NULL;
+    }
 
+#ifdef ENABLE_QAT_SW_GCM
+    if (qat_sw_ipsec && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_AES_GCM)) {
         res &= EVP_CIPHER_meth_set_iv_length(c, GCM_IV_DATA_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, VAESGCM_FLAG);
 #ifndef QAT_OPENSSL_PROVIDER
@@ -543,18 +616,20 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
         res &= EVP_CIPHER_meth_set_ctrl(c, vaesgcm_ciphers_ctrl);
 #endif
         qat_sw_gcm_offload = 1;
-        DEBUG("QAT SW AES_GCM registration\n");
+        DEBUG("QAT SW AES_GCM_%d registration succeeded\n", keylen*8);
+    } else {
+        qat_sw_gcm_offload = 0;
+        DEBUG("QAT SW AES_GCM_%d is disabled\n", keylen*8);
     }
 #endif
 
 #ifdef ENABLE_QAT_HW_GCM
-    if (!qat_sw_gcm_offload && qat_hw_offload) {
-        if (nid == NID_aes_192_gcm)
+    if (!qat_sw_gcm_offload && qat_hw_offload &&
+        (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_AES_GCM)) {
+        if (nid == NID_aes_192_gcm) {
+            EVP_CIPHER_meth_free(c);
+            DEBUG("OpenSSL SW AES_GCM_%d registration succeeded\n", keylen*8);
             return qat_gcm_cipher_sw_impl(nid);
-
-	if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
-            WARN("Failed to allocate cipher methods for nid %d\n", nid);
-            return NULL;
         }
 
         res &= EVP_CIPHER_meth_set_iv_length(c, AES_GCM_IV_LEN);
@@ -573,8 +648,11 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
         res &= EVP_CIPHER_meth_set_ctrl(c, qat_aes_gcm_ctrl);
 #endif
         qat_hw_gcm_offload = 1;
-        DEBUG("QAT HW AES_GCM registration\n");
-     }
+        DEBUG("QAT HW AES_GCM_%d registration succeeded\n", keylen*8);
+    } else {
+        qat_hw_gcm_offload = 0;
+        DEBUG("QAT HW AES_GCM_%d is disabled\n", keylen*8);
+    }
 #endif
 
     if (0 == res) {
@@ -584,7 +662,7 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
     }
 
     if (!qat_sw_gcm_offload && !qat_hw_gcm_offload) {
-        DEBUG("OpenSSL SW AES_GCM registration\n");
+        DEBUG("OpenSSL SW AES_GCM_%d registration succeeded\n", keylen*8);
         return qat_gcm_cipher_sw_impl(nid);
     }
 
@@ -594,6 +672,10 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 void qat_create_ciphers(void)
 {
     int i;
+
+    /* free the old method while algorithm reload */
+    if (qat_reload_algo)
+        qat_free_ciphers();
 
     for (i = 0; i < num_cc; i++) {
         if (info[i].cipher == NULL) {
@@ -653,25 +735,29 @@ void qat_free_ciphers(void)
                     EVP_CIPHER_meth_free(info[i].cipher);
 #endif
                 break;
-            case NID_chacha20_poly1305:
 #ifndef DISABLE_QAT_HW_CHACHAPOLY
-                EVP_CIPHER_meth_free(info[i].cipher);
-#endif
+            case NID_chacha20_poly1305:
+                if (qat_hw_chacha_poly_offload)
+                    EVP_CIPHER_meth_free(info[i].cipher);
                 break;
+#endif
+#ifndef DISABLE_QAT_HW_CIPHERS
             case NID_aes_128_cbc_hmac_sha1:
             case NID_aes_128_cbc_hmac_sha256:
             case NID_aes_256_cbc_hmac_sha1:
             case NID_aes_256_cbc_hmac_sha256:
-#ifndef DISABLE_QAT_HW_CIPHERS
-                EVP_CIPHER_meth_free(info[i].cipher);
-#endif
+                if (qat_hw_aes_cbc_hmac_sha_offload)
+                    EVP_CIPHER_meth_free(info[i].cipher);
                 break;
+#endif
             }
             info[i].cipher = NULL;
         }
     }
     qat_hw_gcm_offload = 0;
     qat_sw_gcm_offload = 0;
+    qat_hw_chacha_poly_offload = 0;
+    qat_hw_aes_cbc_hmac_sha_offload = 0;
 }
 
 /******************************************************************************
@@ -723,7 +809,7 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
 
 EC_KEY_METHOD *qat_get_EC_methods(void)
 {
-    if (qat_ec_method != NULL)
+    if (qat_ec_method != NULL && !qat_reload_algo)
         return qat_ec_method;
 
     EC_KEY_METHOD *def_ec_meth = (EC_KEY_METHOD *)EC_KEY_get_default_method();
@@ -736,6 +822,7 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
 
+    qat_free_EC_methods();
     if ((qat_ec_method = EC_KEY_METHOD_new(qat_ec_method)) == NULL) {
         WARN("Unable to allocate qat EC_KEY_METHOD\n");
         QATerr(QAT_F_QAT_GET_EC_METHODS, QAT_R_QAT_GET_EC_METHOD_MALLOC_FAILURE);
@@ -743,7 +830,7 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     }
 
 #ifdef ENABLE_QAT_HW_ECDSA
-    if (qat_hw_offload) {
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA)) {
         EC_KEY_METHOD_set_sign(qat_ec_method,
                                qat_ecdsa_sign,
                                NULL,
@@ -753,11 +840,15 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
                                  qat_ecdsa_do_verify);
         qat_hw_ecdsa_offload = 1;
         DEBUG("QAT HW ECDSA Registration succeeded\n");
+    } else {
+        qat_hw_ecdsa_offload = 0;
+        DEBUG("QAT HW ECDSA is disabled\n");
     }
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDSA
-    if (!qat_hw_ecdsa_offload &&
+    if (qat_sw_offload && !qat_hw_ecdsa_offload &&
+       (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA) &&
        (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
         mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
@@ -775,6 +866,9 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
                                  verify_sig_pfunc);
         qat_sw_ecdsa_offload = 1;
         DEBUG("QAT SW ECDSA registration succeeded\n");
+    } else {
+        qat_sw_ecdsa_offload = 0;
+        DEBUG("QAT SW ECDSA is disabled\n");
     }
 #endif
 
@@ -797,16 +891,20 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     }
 
 #ifdef ENABLE_QAT_HW_ECDH
-    if (qat_hw_offload) {
+    if (qat_hw_offload&& (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECDH)) {
         EC_KEY_METHOD_set_keygen(qat_ec_method, qat_ecdh_generate_key);
         EC_KEY_METHOD_set_compute_key(qat_ec_method, qat_engine_ecdh_compute_key);
         qat_hw_ecdh_offload = 1;
         DEBUG("QAT HW ECDH Registration succeeded\n");
+    } else {
+        qat_hw_ecdh_offload = 0;
+        DEBUG("QAT HW ECDH disabled\n");
     }
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDH
-    if (!qat_hw_ecdh_offload &&
+    if (qat_sw_offload && !qat_hw_ecdh_offload &&
+       (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDH) &&
        (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
         mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
@@ -815,6 +913,9 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         EC_KEY_METHOD_set_compute_key(qat_ec_method, mb_ecdh_compute_key);
         qat_sw_ecdh_offload = 1;
         DEBUG("QAT SW ECDH registration succeeded\n");
+    } else {
+        qat_sw_ecdh_offload = 0;
+        DEBUG("QAT SW ECDH disabled\n");
     }
 #endif
 
@@ -841,6 +942,94 @@ void qat_free_EC_methods(void)
         qat_sw_ecdsa_offload = 0;
     }
 }
+
+
+RSA_METHOD *qat_get_RSA_methods(void)
+{
+    int res = 1;
+    RSA_METHOD *def_rsa_method = NULL;
+
+    if (qat_rsa_method != NULL && !qat_reload_algo)
+        return qat_rsa_method;
+
+    qat_free_RSA_methods();
+    if ((qat_rsa_method = RSA_meth_new("QAT RSA method", 0)) == NULL) {
+        WARN("Failed to allocate QAT RSA methods\n");
+        QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_ALLOC_QAT_RSA_METH_FAILURE);
+        return NULL;
+    }
+
+#ifdef ENABLE_QAT_HW_RSA
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_RSA)) {
+        res &= RSA_meth_set_pub_enc(qat_rsa_method, qat_rsa_pub_enc);
+        res &= RSA_meth_set_pub_dec(qat_rsa_method, qat_rsa_pub_dec);
+        res &= RSA_meth_set_priv_enc(qat_rsa_method, qat_rsa_priv_enc);
+        res &= RSA_meth_set_priv_dec(qat_rsa_method, qat_rsa_priv_dec);
+        res &= RSA_meth_set_mod_exp(qat_rsa_method, qat_rsa_mod_exp);
+        res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, BN_mod_exp_mont);
+        res &= RSA_meth_set_init(qat_rsa_method, qat_rsa_init);
+        res &= RSA_meth_set_finish(qat_rsa_method, qat_rsa_finish);
+        if (!res) {
+            WARN("Failed to set QAT RSA methods\n");
+            QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_SET_QAT_RSA_METH_FAILURE);
+            qat_hw_rsa_offload = 0;
+            return NULL;
+        }
+        qat_hw_rsa_offload = 1;
+        DEBUG("QAT HW RSA Registration succeeded\n");
+    } else {
+        qat_hw_rsa_offload = 0;
+        DEBUG("QAT HW RSA is disabled\n");
+    }
+#endif
+
+#ifdef ENABLE_QAT_SW_RSA
+    if (qat_sw_offload && !qat_hw_rsa_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_RSA) &&
+        mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
+        mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
+        mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
+        res &= RSA_meth_set_priv_enc(qat_rsa_method, multibuff_rsa_priv_enc);
+        res &= RSA_meth_set_priv_dec(qat_rsa_method, multibuff_rsa_priv_dec);
+        res &= RSA_meth_set_pub_enc(qat_rsa_method, multibuff_rsa_pub_enc);
+        res &= RSA_meth_set_pub_dec(qat_rsa_method, multibuff_rsa_pub_dec);
+        res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, RSA_meth_get_bn_mod_exp(RSA_PKCS1_OpenSSL()));
+        res &= RSA_meth_set_mod_exp(qat_rsa_method, RSA_meth_get_mod_exp(RSA_PKCS1_OpenSSL()));
+        res &= RSA_meth_set_init(qat_rsa_method, multibuff_rsa_init);
+        res &= RSA_meth_set_finish(qat_rsa_method, multibuff_rsa_finish);
+        if (!res) {
+            WARN("Failed to set SW RSA methods\n");
+            QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE);
+            qat_sw_rsa_offload = 0;
+            return NULL;
+        }
+        qat_sw_rsa_offload = 1;
+        DEBUG("QAT SW RSA Registration succeeded\n");
+    } else {
+        qat_sw_rsa_offload = 0;
+        DEBUG("QAT SW RSA is disabled\n");
+    }
+#endif
+
+    if ((qat_hw_rsa_offload == 0) && (qat_sw_rsa_offload == 0)) {
+        def_rsa_method = (RSA_METHOD *)RSA_get_default_method();
+        DEBUG("QAT_HW and QAT_SW RSA not supported! Using OpenSSL SW method\n");
+        return def_rsa_method;
+    }
+
+    return qat_rsa_method;
+}
+
+void qat_free_RSA_methods(void)
+{
+    if (qat_rsa_method != NULL) {
+        RSA_meth_free(qat_rsa_method);
+        qat_rsa_method = NULL;
+        qat_hw_rsa_offload = 0;
+        qat_sw_rsa_offload = 0;
+    }
+}
+
 
 #ifdef QAT_HW
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD

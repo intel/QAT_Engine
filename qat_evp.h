@@ -118,13 +118,15 @@ int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md);
 
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
-int qat_digest_methods(ENGINE *e, const EVP_MD **md,
-                     const int **nids, int nid);
 EVP_PKEY_METHOD *qat_prf_pmeth(void);
 EVP_PKEY_METHOD *qat_hkdf_pmeth(void);
 EVP_PKEY_METHOD *qat_x25519_pmeth(void);
 EVP_PKEY_METHOD *qat_x448_pmeth(void);
 
+void qat_create_digest_meth(void);
+void qat_free_digest_meth(void);
+int qat_digest_methods(ENGINE *e, const EVP_MD **md,
+                       const int **nids, int nid);
 
 void qat_create_ciphers(void);
 void qat_free_ciphers(void);
@@ -138,7 +140,9 @@ int qat_pkt_threshold_table_get_threshold(int nid);
 # endif
 
 EC_KEY_METHOD *qat_get_EC_methods(void);
-
 void qat_free_EC_methods(void);
+
+RSA_METHOD *qat_get_RSA_methods(void);
+void qat_free_RSA_methods(void);
 
 #endif /* QAT_EVP_H */

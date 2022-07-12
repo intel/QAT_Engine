@@ -121,41 +121,56 @@ const EVP_MD *qat_create_sha3_meth(int nid , int key_type)
     int res = 1;
     int blocksize,statesize = 0;
 
-    if ((c = EVP_MD_meth_new(nid,key_type)) == NULL) {
-        WARN("Failed to allocate digest methods for nid %d\n", nid);
-        return NULL;
+    if (qat_hw_offload &&
+        (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_SHA3)) {
+        if ((c = EVP_MD_meth_new(nid,key_type)) == NULL) {
+            WARN("Failed to allocate digest methods for nid %d\n", nid);
+            return NULL;
+        }
+
+        blocksize = qat_get_sha3_block_size(nid);
+        if (!blocksize){
+            WARN("Failed to get block size for nid %d\n", nid);
+            EVP_MD_meth_free(c);
+            return NULL;
+        }
+
+        statesize = qat_get_sha3_state_size(nid);
+        if (!statesize){
+            WARN("Failed to state size for nid %d\n", nid);
+            EVP_MD_meth_free(c);
+            return NULL;
+        }
+
+        res &= EVP_MD_meth_set_result_size(c, statesize);
+        res &= EVP_MD_meth_set_input_blocksize(c,blocksize);
+        res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD*) + sizeof(qat_sha3_ctx));
+        res &= EVP_MD_meth_set_flags(c, (EVP_MD_CTX_FLAG_ONESHOT|
+                            EVP_MD_CTX_FLAG_NO_INIT));
+        res &= EVP_MD_meth_set_init(c, qat_sha3_init);
+        res &= EVP_MD_meth_set_update(c, qat_sha3_update);
+        res &= EVP_MD_meth_set_final(c, qat_sha3_final);
+        res &= EVP_MD_meth_set_cleanup(c, qat_sha3_cleanup);
+        res &= EVP_MD_meth_set_ctrl(c, qat_sha3_ctrl);
+
+        if (0 == res) {
+            WARN("Failed to set cipher methods for nid %d\n", nid);
+            EVP_MD_meth_free(c);
+            return NULL;
+        }
+
+        qat_hw_sha_offload = 1;
+        DEBUG("QAT HW SHA3 Registration succeeded\n");
+        return c;
     }
-
-   blocksize = qat_get_sha3_block_size(nid);
-   if (!blocksize){
-        WARN("Failed to get block size for nid %d\n", nid);
-	return NULL;
-   }
-   statesize = qat_get_sha3_state_size(nid);
-   if (!statesize){
-        WARN("Failed to state size for nid %d\n", nid);
-        return NULL;
-   }
-    res &= EVP_MD_meth_set_result_size(c, statesize);
-    res &= EVP_MD_meth_set_input_blocksize(c,blocksize);
-    res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD*) + sizeof(qat_sha3_ctx));
-    res &= EVP_MD_meth_set_flags(c, (EVP_MD_CTX_FLAG_ONESHOT|
-			             EVP_MD_CTX_FLAG_NO_INIT));
-    res &= EVP_MD_meth_set_init(c, qat_sha3_init);
-    res &= EVP_MD_meth_set_update(c, qat_sha3_update);
-    res &= EVP_MD_meth_set_final(c, qat_sha3_final);
-    res &= EVP_MD_meth_set_cleanup(c, qat_sha3_cleanup);
-    res &= EVP_MD_meth_set_ctrl(c, qat_sha3_ctrl);
-
-    if (0 == res) {
-        WARN("Failed to set cipher methods for nid %d\n", nid);
-        EVP_MD_meth_free(c);
-        c = NULL;
+    else {
+        qat_hw_sha_offload = 0;
+        DEBUG("QAT HW SHA3 is disabled, using OpenSSL SW\n");
+        return qat_sha3_sw_impl(nid);
     }
-
-    DEBUG("QAT HW SHA3 Registration succeeded\n");
-    return c;
 #else
+    qat_hw_sha_offload = 0;
+    DEBUG("QAT HW SHA3 is disabled, using OpenSSL SW\n");
     return qat_sha3_sw_impl(nid);
 #endif
 }

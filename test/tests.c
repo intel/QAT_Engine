@@ -83,6 +83,9 @@ static int qat_keep_polling = 0;
 pthread_t *testapp_polling_threads;
 pthread_t *testapp_heartbeat_threads;
 
+char *sw_algo_bitmap = NULL;
+char *hw_algo_bitmap = NULL;
+
 static int eng_poll_handler(ENGINE *eng, int *poll_status)
 {
     /* Poll for 0 means process all packets on the instance */
@@ -502,6 +505,20 @@ ENGINE *tests_initialise_engine(char *engine_id, int enable_external_polling,
     }
 
     if (strncmp(engine_id, QAT_ENGINE_ID, QAT_ENGINE_ID_LENGTH) == 0) {
+        if (hw_algo_bitmap) {
+            if (!ENGINE_ctrl_cmd(e, "HW_ALGO_BITMAP", 0,
+                                 hw_algo_bitmap, NULL, 0)) {
+                WARN("# FAIL: Unable to set hw algorithm mask\n");
+                goto err;
+            }
+        }
+        if (sw_algo_bitmap) {
+            if (!ENGINE_ctrl_cmd(e, "SW_ALGO_BITMAP", 0,
+                                 sw_algo_bitmap, NULL, 0)) {
+                WARN("# FAIL: Unable to set sw algorithm mask\n");
+                goto err;
+            }
+        }
         if (enable_event_driven_polling) {
             if (!ENGINE_ctrl_cmd(e, "ENABLE_EVENT_DRIVEN_POLLING_MODE", 0,
                                  NULL, NULL, 0)) {

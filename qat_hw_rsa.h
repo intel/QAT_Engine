@@ -49,14 +49,19 @@
 
 # include <openssl/rsa.h>
 
+#ifdef ENABLE_QAT_HW_RSA
 /* Qat engine RSA methods declaration */
-
-RSA_METHOD *qat_get_RSA_methods(void);
-
-void qat_free_RSA_methods(void);
-
 int qat_rsa_priv_enc(int flen, const unsigned char *from,
-                     unsigned char *to, RSA *rsa, int padding);
+                            unsigned char *to, RSA *rsa, int padding);
+int qat_rsa_priv_dec(int flen, const unsigned char *from,
+                            unsigned char *to, RSA *rsa, int padding);
+int qat_rsa_pub_enc(int flen, const unsigned char *from,
+                           unsigned char *to, RSA *rsa, int padding);
 int qat_rsa_pub_dec(int flen, const unsigned char *from,
-                    unsigned char *to, RSA *rsa, int padding);
+                           unsigned char *to, RSA *rsa, int padding);
+int qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
+int qat_rsa_init(RSA *rsa);
+int qat_rsa_finish(RSA *rsa);
+#endif
+
 #endif /* QAT_HW_RSA_H */

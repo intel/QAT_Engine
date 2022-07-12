@@ -75,67 +75,6 @@
 # define RSA_MULTIBUFF_PUB_ENC  3
 # define RSA_MULTIBUFF_PUB_DEC  4
 
-/* Multibuff RSA methods declaration */
-int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
-                                  unsigned char *to, RSA *rsa, int padding);
-
-static int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
-                                  unsigned char *to, RSA *rsa, int padding);
-
-static int multibuff_rsa_pub_enc(int flen, const unsigned char *from,
-                                 unsigned char *to, RSA *rsa, int padding);
-
-int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
-                                 unsigned char *to, RSA *rsa, int padding);
-
-static int multibuff_rsa_init(RSA *rsa);
-
-static int multibuff_rsa_finish(RSA *rsa);
-
-static RSA_METHOD *multibuff_rsa_method = NULL;
-
-RSA_METHOD *multibuff_get_RSA_methods(void)
-{
-    int res = 1;
-
-    if (multibuff_rsa_method != NULL)
-        return multibuff_rsa_method;
-
-    if ((multibuff_rsa_method = RSA_meth_new("Multibuff RSA method", 0)) == NULL) {
-        WARN("Failed to allocate Multibuff RSA methods\n");
-        QATerr(QAT_F_MULTIBUFF_GET_RSA_METHODS, QAT_R_ALLOC_MULTIBUFF_RSA_METH_FAILURE);
-        return NULL;
-    }
-
-    res &= RSA_meth_set_priv_enc(multibuff_rsa_method, multibuff_rsa_priv_enc);
-    res &= RSA_meth_set_priv_dec(multibuff_rsa_method, multibuff_rsa_priv_dec);
-    res &= RSA_meth_set_pub_enc(multibuff_rsa_method, multibuff_rsa_pub_enc);
-    res &= RSA_meth_set_pub_dec(multibuff_rsa_method, multibuff_rsa_pub_dec);
-    res &= RSA_meth_set_bn_mod_exp(multibuff_rsa_method, RSA_meth_get_bn_mod_exp(RSA_PKCS1_OpenSSL()));
-    res &= RSA_meth_set_mod_exp(multibuff_rsa_method, RSA_meth_get_mod_exp(RSA_PKCS1_OpenSSL()));
-    res &= RSA_meth_set_init(multibuff_rsa_method, multibuff_rsa_init);
-    res &= RSA_meth_set_finish(multibuff_rsa_method, multibuff_rsa_finish);
-
-    if (res == 0) {
-        WARN("Failed to set Multibuff RSA methods\n");
-        QATerr(QAT_F_MULTIBUFF_GET_RSA_METHODS, QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE);
-        return NULL;
-    }
-
-    DEBUG("QAT SW RSA registration succeeded\n");
-    return multibuff_rsa_method;
-}
-
-void multibuff_free_RSA_methods(void)
-{
-#ifdef ENABLE_QAT_SW_RSA
-    if (multibuff_rsa_method != NULL) {
-        RSA_meth_free(multibuff_rsa_method);
-        multibuff_rsa_method = NULL;
-        qat_sw_rsa_offload = 0;
-    }
-#endif
-}
 
 /*
  * The RSA range check is performed so that if the op sizes are not in the

@@ -95,8 +95,11 @@ static EVP_PKEY_METHOD *_hidden_hkdf_pmeth = NULL;
 
 EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
 {
-    if (_hidden_hkdf_pmeth)
-        return _hidden_hkdf_pmeth;
+    if (_hidden_hkdf_pmeth) {
+        if (!qat_reload_algo)
+            return _hidden_hkdf_pmeth;
+        EVP_PKEY_meth_free(_hidden_hkdf_pmeth);
+    }
 
     if ((_hidden_hkdf_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_HKDF, 0)) == NULL) {
@@ -111,7 +114,7 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
         return NULL;
     }
 #ifdef ENABLE_QAT_HW_HKDF
-    if (qat_hw_offload) {
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_HKDF)) {
         EVP_PKEY_meth_set_init(_hidden_hkdf_pmeth, qat_hkdf_init);
         EVP_PKEY_meth_set_cleanup(_hidden_hkdf_pmeth, qat_hkdf_cleanup);
         EVP_PKEY_meth_set_derive(_hidden_hkdf_pmeth, NULL,
@@ -120,11 +123,15 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
         qat_hw_hkdf_offload = 1;
         DEBUG("QAT HW HKDF Registration succeeded\n");
     }
+    else {
+        qat_hw_hkdf_offload = 0;
+    }
 #endif
     if (!qat_hw_hkdf_offload) {
         EVP_PKEY_meth_copy(_hidden_hkdf_pmeth, sw_hkdf_pmeth);
-        DEBUG("OpenSSL SW HKDF\n");
+        DEBUG("OpenSSL HW HKDF is disabled, using OpenSSL SW\n");
     }
+
     return _hidden_hkdf_pmeth;
 }
 

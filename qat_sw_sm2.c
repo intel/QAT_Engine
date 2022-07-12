@@ -104,12 +104,15 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *ctx,
 
 EVP_PKEY_METHOD *mb_sm2_pmeth(void)
 {
-    if (_hidden_sm2_pmeth && qat_sw_sm2_offload)
-        return _hidden_sm2_pmeth;
+    if (_hidden_sm2_pmeth && qat_sw_sm2_offload) {
+        if (!qat_reload_algo)
+            return _hidden_sm2_pmeth;
+        EVP_PKEY_meth_free(_hidden_sm2_pmeth);
+    }
 
-    /* EVP_PKEY_meth_copy doesnt copy digest_custom from SW method
-     * so directly returning sw method sperately here */
-    if (sw_sm2_pmeth && !qat_sw_sm2_offload)
+    /* EVP_PKEY_meth_copy doesn't copy digest_custom from SW method
+     * so directly returning sw method separately here */
+    if (sw_sm2_pmeth && !qat_sw_sm2_offload && !qat_reload_algo)
        return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
 
     if ((_hidden_sm2_pmeth =
@@ -123,7 +126,9 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
     }
 
 #ifdef ENABLE_QAT_SW_SM2
-    if (mbx_get_algo_info(MBX_ALGO_X25519)) {
+    if (qat_sw_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
+        mbx_get_algo_info(MBX_ALGO_X25519)) {
         EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
         EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
         EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
@@ -132,6 +137,10 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
         EVP_PKEY_meth_set_digestverify(_hidden_sm2_pmeth, mb_ecdsa_sm2_verify);
         qat_sw_sm2_offload = 1;
         DEBUG("QAT SW SM2 registration succeeded\n");
+    }
+    else {
+        qat_sw_sm2_offload = 0;
+        DEBUG("QAT SW SM2 disabled\n");
     }
 #endif
 

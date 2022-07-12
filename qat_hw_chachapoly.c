@@ -101,7 +101,6 @@ static void qat_chacha20_core(chacha_buf *output,
 static void qat_chacha20_ctr32(unsigned char *out, const unsigned char *inp,
                                size_t len, const unsigned int key[8],
                                const unsigned int counter[4]);
-#endif
 
 /******************************************************************************
  * function:
@@ -117,45 +116,50 @@ static void qat_chacha20_ctr32(unsigned char *out, const unsigned char *inp,
  ******************************************************************************/
 const EVP_CIPHER *chachapoly_cipher_meth(int nid, int keylen)
 {
-#ifdef ENABLE_QAT_HW_CHACHAPOLY
     EVP_CIPHER *c = NULL;
     int res = 1;
 
-    /* block size is 1 and key size is 32 bytes. */
-    if ((c = EVP_CIPHER_meth_new(nid, 1, keylen)) == NULL) {
-        WARN("Failed to allocate cipher methods for nid %d\n", nid);
-        return NULL;
+    if (qat_hw_offload &&
+        (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_CHACHA_POLY)) {
+        /* block size is 1 and key size is 32 bytes. */
+        if ((c = EVP_CIPHER_meth_new(nid, 1, keylen)) == NULL) {
+            WARN("Failed to allocate cipher methods for nid %d\n", nid);
+            return NULL;
+        }
+
+        /* IV size is 12 bytes for TLS protocol */
+        res &= EVP_CIPHER_meth_set_iv_length(c, QAT_CHACHA20_POLY1305_MAX_IVLEN);
+        res &= EVP_CIPHER_meth_set_flags(c, EVP_CIPH_FLAG_AEAD_CIPHER |
+                                        EVP_CIPH_CUSTOM_IV |
+                                        EVP_CIPH_ALWAYS_CALL_INIT |
+                                        EVP_CIPH_CTRL_INIT | EVP_CIPH_CUSTOM_COPY |
+                                        EVP_CIPH_FLAG_CUSTOM_CIPHER |
+                                        EVP_CIPH_CUSTOM_IV_LENGTH);
+        res &= EVP_CIPHER_meth_set_init(c, qat_chacha20_poly1305_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_chacha20_poly1305_do_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, qat_chacha20_poly1305_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, 0);
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_ctrl(c, qat_chacha20_poly1305_ctrl);
+
+        if (res == 0) {
+            WARN("Failed to set cipher methods for nid %d\n", nid);
+            EVP_CIPHER_meth_free(c);
+            c = NULL;
+        }
+
+        qat_hw_chacha_poly_offload = 1;
+        DEBUG("QAT HW CHACHA POLY registration succeeded\n");
+        return c;
     }
-
-    /* IV size is 12 bytes for TLS protocol */
-    res &= EVP_CIPHER_meth_set_iv_length(c, QAT_CHACHA20_POLY1305_MAX_IVLEN);
-    res &= EVP_CIPHER_meth_set_flags(c, EVP_CIPH_FLAG_AEAD_CIPHER |
-                                     EVP_CIPH_CUSTOM_IV |
-                                     EVP_CIPH_ALWAYS_CALL_INIT |
-                                     EVP_CIPH_CTRL_INIT | EVP_CIPH_CUSTOM_COPY |
-                                     EVP_CIPH_FLAG_CUSTOM_CIPHER |
-                                     EVP_CIPH_CUSTOM_IV_LENGTH);
-    res &= EVP_CIPHER_meth_set_init(c, qat_chacha20_poly1305_init);
-    res &= EVP_CIPHER_meth_set_do_cipher(c, qat_chacha20_poly1305_do_cipher);
-    res &= EVP_CIPHER_meth_set_cleanup(c, qat_chacha20_poly1305_cleanup);
-    res &= EVP_CIPHER_meth_set_impl_ctx_size(c, 0);
-    res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
-    res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
-    res &= EVP_CIPHER_meth_set_ctrl(c, qat_chacha20_poly1305_ctrl);
-
-    if (res == 0) {
-        WARN("Failed to set cipher methods for nid %d\n", nid);
-        EVP_CIPHER_meth_free(c);
-        c = NULL;
+    else {
+        qat_hw_chacha_poly_offload = 0;
+        DEBUG("QAT HW CHACHA POLY is disabled, using OpenSSL SW\n");
+        return EVP_chacha20_poly1305();
     }
-
-    return c;
-#else
-    return EVP_chacha20_poly1305();
-#endif
 }
 
-#ifdef ENABLE_QAT_HW_CHACHAPOLY
 /******************************************************************************
  * function:
  *         qat_chachapoly_cb(void *callbackTag, CpaStatus status,

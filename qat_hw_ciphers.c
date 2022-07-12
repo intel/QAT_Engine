@@ -248,35 +248,42 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
     int res = 1;
 #endif
 
-    if ((c = EVP_CIPHER_meth_new(nid, AES_BLOCK_SIZE, keylen)) == NULL) {
-        WARN("Failed to allocate cipher methods for nid %d\n", nid);
-        return NULL;
-    }
+    if (qat_hw_offload && 
+        (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_AES_CBC_HMAC_SHA)) {
+        if ((c = EVP_CIPHER_meth_new(nid, AES_BLOCK_SIZE, keylen)) == NULL) {
+            WARN("Failed to allocate cipher methods for nid %d\n", nid);
+            return NULL;
+        }
+
 #ifndef QAT_OPENSSL_PROVIDER
-    res &= EVP_CIPHER_meth_set_iv_length(c, AES_IV_LEN);
-    res &= EVP_CIPHER_meth_set_flags(c, QAT_CHAINED_FLAG);
-    res &= EVP_CIPHER_meth_set_init(c, qat_chained_ciphers_init);
-    res &= EVP_CIPHER_meth_set_do_cipher(c, qat_chained_ciphers_do_cipher);
-    res &= EVP_CIPHER_meth_set_cleanup(c, qat_chained_ciphers_cleanup);
-    res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_chained_ctx));
-    res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                               NULL : EVP_CIPHER_set_asn1_iv);
-    res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                               NULL : EVP_CIPHER_get_asn1_iv);
-    res &= EVP_CIPHER_meth_set_ctrl(c, qat_chained_ciphers_ctrl);
+        res &= EVP_CIPHER_meth_set_iv_length(c, AES_IV_LEN);
+        res &= EVP_CIPHER_meth_set_flags(c, QAT_CHAINED_FLAG);
+        res &= EVP_CIPHER_meth_set_init(c, qat_chained_ciphers_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_chained_ciphers_do_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, qat_chained_ciphers_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_chained_ctx));
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                NULL : EVP_CIPHER_set_asn1_iv);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                NULL : EVP_CIPHER_get_asn1_iv);
+        res &= EVP_CIPHER_meth_set_ctrl(c, qat_chained_ciphers_ctrl);
 
-    if (res == 0) {
-        WARN("Failed to set cipher methods for nid %d\n", nid);
-        EVP_CIPHER_meth_free(c);
-        c = NULL;
-    }
+        if (res == 0) {
+            WARN("Failed to set cipher methods for nid %d\n", nid);
+            EVP_CIPHER_meth_free(c);
+            c = NULL;
+        }
 
-    DEBUG("QAT HW ciphers registration succeeded\n");
+        qat_hw_aes_cbc_hmac_sha_offload = 1;
+        DEBUG("QAT HW AES_CBC_%d_HMAC_SHA registration succeeded\n", keylen*8);
 #endif
-    if (qat_hw_offload)
         return c;
-    else
+    }
+    else {
+        qat_hw_aes_cbc_hmac_sha_offload = 0;
+        DEBUG("QAT HW AES_CBC_%d_HMAC_SHA is disabled, using OpenSSL SW\n", keylen*8);
         return qat_chained_cipher_sw_impl(nid);
+    }
 }
 
 /******************************************************************************

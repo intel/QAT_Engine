@@ -82,6 +82,7 @@
 
 /* Qat DSA method structure declaration. */
 static DSA_METHOD *qat_dsa_method = NULL;
+static DSA_METHOD *def_dsa_method = NULL;
 
 DSA_METHOD *qat_get_DSA_methods(void)
 {
@@ -89,32 +90,42 @@ DSA_METHOD *qat_get_DSA_methods(void)
     int res = 1;
 #endif
 
-    if (qat_dsa_method != NULL)
+    if (qat_dsa_method != NULL && !qat_reload_algo)
         return qat_dsa_method;
 
-#ifndef DISABLE_QAT_HW_DSA
+    qat_free_DSA_methods();
     if ((qat_dsa_method = DSA_meth_new("QAT DSA method", 0)) == NULL) {
         WARN("Failed to allocate DSA methods\n");
         QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_ALLOC_QAT_DSA_METH_FAILURE);
         return NULL;
     }
 
-    res &= DSA_meth_set_sign(qat_dsa_method, qat_dsa_do_sign);
-    res &= DSA_meth_set_sign_setup(qat_dsa_method, qat_dsa_sign_setup);
-    res &= DSA_meth_set_verify(qat_dsa_method, qat_dsa_do_verify);
-    res &= DSA_meth_set_bn_mod_exp(qat_dsa_method, qat_dsa_bn_mod_exp);
-    res &= DSA_meth_set_init(qat_dsa_method, qat_dsa_init);
-    res &= DSA_meth_set_finish(qat_dsa_method, qat_dsa_finish);
+#ifndef DISABLE_QAT_HW_DSA
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_DSA)) {
+        res &= DSA_meth_set_sign(qat_dsa_method, qat_dsa_do_sign);
+        res &= DSA_meth_set_sign_setup(qat_dsa_method, qat_dsa_sign_setup);
+        res &= DSA_meth_set_verify(qat_dsa_method, qat_dsa_do_verify);
+        res &= DSA_meth_set_bn_mod_exp(qat_dsa_method, qat_dsa_bn_mod_exp);
+        res &= DSA_meth_set_init(qat_dsa_method, qat_dsa_init);
+        res &= DSA_meth_set_finish(qat_dsa_method, qat_dsa_finish);
 
-    if (res == 0) {
-        WARN("Failed to set DSA methods\n");
-        QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_SET_QAT_DSA_METH_FAILURE);
-        return NULL;
+        if (res == 0) {
+            WARN("Failed to set DSA methods\n");
+            QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_SET_QAT_DSA_METH_FAILURE);
+            return NULL;
+        }
+
+        DEBUG("QAT HW DSA registration succeeded\n");
     }
-
-    DEBUG("QAT HW DSA registration succeeded\n");
+    else {
+        def_dsa_method = (DSA_METHOD *)DSA_get_default_method();
+        DEBUG("QAT HW DSA is disabled, using OpenSSL SW\n");
+        return def_dsa_method;
+    }
 #else
-    qat_dsa_method = (DSA_METHOD *)DSA_get_default_method();
+    def_dsa_method = (DSA_METHOD *)DSA_get_default_method();
+    DEBUG("QAT HW DSA is disabled, using OpenSSL SW\n");
+    return def_dsa_method;
 #endif
 
     return qat_dsa_method;
@@ -122,15 +133,11 @@ DSA_METHOD *qat_get_DSA_methods(void)
 
 void qat_free_DSA_methods(void)
 {
-#ifndef DISABLE_QAT_HW_DSA
     if (qat_dsa_method != NULL) {
         DSA_meth_free(qat_dsa_method);
         qat_dsa_method = NULL;
-    } else {
-        WARN("Failed to free DSA methods\n");
-        QATerr(QAT_F_QAT_FREE_DSA_METHODS, QAT_R_FREE_QAT_DSA_METH_FAILURE);
+        def_dsa_method = NULL;
     }
-#endif
 }
 
 

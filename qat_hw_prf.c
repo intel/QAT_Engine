@@ -77,8 +77,11 @@ static const EVP_PKEY_METHOD *sw_prf_pmeth = NULL;
 
 EVP_PKEY_METHOD *qat_prf_pmeth(void)
 {
-    if (_hidden_prf_pmeth)
-        return _hidden_prf_pmeth;
+    if (_hidden_prf_pmeth) {
+        if (!qat_reload_algo)
+            return _hidden_prf_pmeth;
+        EVP_PKEY_meth_free(_hidden_prf_pmeth);
+    }
 
     if ((_hidden_prf_pmeth =
          EVP_PKEY_meth_new(EVP_PKEY_TLS1_PRF, 0)) == NULL) {
@@ -94,7 +97,7 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
     }
 
 #ifdef ENABLE_QAT_HW_PRF
-    if (qat_hw_offload) {
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_PRF)) {
         EVP_PKEY_meth_set_init(_hidden_prf_pmeth, qat_tls1_prf_init);
         EVP_PKEY_meth_set_cleanup(_hidden_prf_pmeth, qat_prf_cleanup);
         EVP_PKEY_meth_set_derive(_hidden_prf_pmeth, NULL,
@@ -103,9 +106,14 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
         qat_hw_prf_offload = 1;
         DEBUG("QAT HW PRF Registration succeeded\n");
     }
+    else {
+        qat_hw_prf_offload = 0;
+    }
 #endif
-    if (!qat_hw_prf_offload)
+    if (!qat_hw_prf_offload) {
         EVP_PKEY_meth_copy(_hidden_prf_pmeth, sw_prf_pmeth);
+        DEBUG("QAT HW PRF is disabled, using OpenSSL SW\n");
+    }
 
     return _hidden_prf_pmeth;
 }

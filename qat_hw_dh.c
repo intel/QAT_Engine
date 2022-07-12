@@ -95,6 +95,7 @@ static int qat_dh_finish(DH *dh);
 #endif
 
 static DH_METHOD *qat_dh_method = NULL;
+static DH_METHOD *def_dh_method = NULL;
 
 DH_METHOD *qat_get_DH_methods(void)
 {
@@ -102,31 +103,41 @@ DH_METHOD *qat_get_DH_methods(void)
     int res = 1;
 #endif
 
-    if (qat_dh_method != NULL)
+    if (qat_dh_method != NULL && !qat_reload_algo)
         return qat_dh_method;
 
-#ifndef DISABLE_QAT_HW_DH
+    qat_free_DH_methods();
     if ((qat_dh_method = DH_meth_new("QAT DH method", 0)) == NULL) {
         WARN("Failure allocating DH methods\n");
         QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_ALLOC_DH_METH_FAILURE);
         return NULL;
     }
 
-    res &= DH_meth_set_generate_key(qat_dh_method, qat_dh_generate_key);
-    res &= DH_meth_set_compute_key(qat_dh_method, qat_dh_compute_key);
-    res &= DH_meth_set_bn_mod_exp(qat_dh_method, qat_dh_mod_exp);
-    res &= DH_meth_set_init(qat_dh_method, qat_dh_init);
-    res &= DH_meth_set_finish(qat_dh_method, qat_dh_finish);
+#ifndef DISABLE_QAT_HW_DH
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_DH)) {
+        res &= DH_meth_set_generate_key(qat_dh_method, qat_dh_generate_key);
+        res &= DH_meth_set_compute_key(qat_dh_method, qat_dh_compute_key);
+        res &= DH_meth_set_bn_mod_exp(qat_dh_method, qat_dh_mod_exp);
+        res &= DH_meth_set_init(qat_dh_method, qat_dh_init);
+        res &= DH_meth_set_finish(qat_dh_method, qat_dh_finish);
 
-    if (res == 0) {
-        WARN("Failure setting DH methods\n");
-        QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_SET_DH_METH_FAILURE);
-        return NULL;
+        if (res == 0) {
+            WARN("Failure setting DH methods\n");
+            QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_SET_DH_METH_FAILURE);
+            return NULL;
+        }
+
+        DEBUG("QAT HW DH registration succeeded\n");
     }
-
-    DEBUG("QAT HW DH registration succeeded\n");
+    else {
+        def_dh_method = (DH_METHOD *)DH_get_default_method();
+        DEBUG("QAT HW DH is disabled, using OpensSSL SW\n");
+        return def_dh_method;
+    }
 #else
-    qat_dh_method = (DH_METHOD *)DH_get_default_method();
+    def_dh_method = (DH_METHOD *)DH_get_default_method();
+    DEBUG("QAT HW DH is disabled, using OpensSSL SW\n");
+    return def_dh_method;
 #endif
 
     return qat_dh_method;
@@ -134,15 +145,10 @@ DH_METHOD *qat_get_DH_methods(void)
 
 void qat_free_DH_methods(void)
 {
-#ifndef DISABLE_QAT_HW_DH
     if (qat_dh_method != NULL) {
         DH_meth_free(qat_dh_method);
         qat_dh_method = NULL;
-    } else {
-     	WARN("Failure freeing DH methods\n");
-        QATerr(QAT_F_QAT_FREE_DH_METHODS, QAT_R_FREE_DH_METH_FAILURE);
     }
-#endif
 }
 
 

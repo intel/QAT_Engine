@@ -109,8 +109,8 @@ AC_ARG_ENABLE(qat_sw_sm2,
 AC_SUBST(enable_qat_sw_sm2)
 
 AC_ARG_ENABLE(qat_sw_sm3,
-              AS_HELP_STRING([--disable-qat_sw_sm3],
-                             [Disable qat_sw SM3 acceleration]))
+              AS_HELP_STRING([--enable-qat_sw_sm3],
+                             [Enable qat_sw SM3 acceleration]))
 AC_SUBST(enable_qat_sw_sm3)
 
 AC_ARG_ENABLE(qat_hw_small_pkt_offload,
@@ -406,18 +406,20 @@ AM_CONDITIONAL([QAT_ERR_FILES_BUILD], [test "x$with_openssl_dir" != "x"])
 
 if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
 then
-  if test "x$enable_qat_hw_rsa" = "xyes"
-  then
-    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA"])
-    AC_MSG_NOTICE([Accelerating RSA to Hardware])
-  else if test "x$enable_qat_sw_rsa" = "xyes"
-  then
-    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_SW_RSA"])
-    AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
-  else if test "x$enable_qat_hw_rsa" != "xno"
+  if test "x$enable_qat_hw_rsa" != "xno" -a "x$enable_qat_sw_rsa" != "xno"
   then
     AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA -DENABLE_QAT_SW_RSA"])
     AC_MSG_NOTICE([Co-existence RSA Acceleration])
+  else if test "x$enable_qat_hw_rsa" = "xno" -a "x$enable_qat_sw_rsa" != "xno"
+  then
+    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_SW_RSA"])
+    AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
+  else if test "x$enable_qat_sw_rsa" = "xno" -a "x$enable_qat_hw_rsa" != "xno"
+  then
+    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA"])
+    AC_MSG_NOTICE([Accelerating RSA to Hardware])
+  else
+    AC_MSG_NOTICE([No RSA Acceleration])
   fi
   fi
   fi
@@ -435,18 +437,20 @@ fi
 
 if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
 then
-  if test "x$enable_qat_hw_ecx" = "xyes"
-  then
-    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
-    AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
-  else if test "x$enable_qat_sw_ecx" = "xyes"
-  then
-    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_SW_ECX"])
-    AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
-  else if test "x$enable_qat_hw_ecx" != "xno"
+  if test "x$enable_qat_hw_ecx" != "xno" -a "x$enable_qat_sw_ecx" != "xno"
   then
     AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX -DENABLE_QAT_SW_ECX"])
     AC_MSG_NOTICE([Co-existence X25519/X448 Acceleration])
+  else if test "x$enable_qat_hw_ecx" = "xno" -a "x$enable_qat_sw_ecx" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_SW_ECX"])
+    AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
+  else if test "x$enable_qat_sw_ecx" = "xno" -a "x$enable_qat_hw_ecx" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
+    AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
+  else 
+    AC_MSG_NOTICE([No X25519/X448 Acceleration])
   fi
   fi
   fi
@@ -464,21 +468,20 @@ fi
 
 if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
 then
-  if test "x$enable_qat_hw_ecdh" = "xyes"
-  then
-    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
-    AC_MSG_NOTICE([Accelerating ECDH to Hardware])
-  else if test "x$enable_qat_sw_ecdh" = "xyes"
-  then
-    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
-    AC_MSG_NOTICE([Accelerating ECDH P256, P384 & SM2 to Software (Multi-buffer)])
-  else if test "x$enable_qat_hw_ecdh" != "xno"
+  if test "x$enable_qat_hw_ecdh" != "xno" -a "x$enable_qat_sw_ecdh" != "xno"
   then
     AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH -DENABLE_QAT_SW_ECDH"])
     AC_MSG_NOTICE([Co-existence ECDH P256, P384 & SM2 Acceleration])
+  else if test "x$enable_qat_hw_ecdh" = "xno" -a "x$enable_qat_sw_ecdh" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
+    AC_MSG_NOTICE([Accelerating ECDH P256, P384 & SM2 to Software (Multi-buffer)])
+  else if test "x$enable_qat_sw_ecdh" = "xno" -a "x$enable_qat_hw_ecdh" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
+    AC_MSG_NOTICE([Accelerating ECDH to Hardware])
   else
-    AC_SUBST([cflags_qat_ecdh], ["-DDISABLE_QAT_HW_ECDH"])
-    AC_MSG_NOTICE([Not Accelerating ECDH to QAT_HW])
+    AC_MSG_NOTICE([No ECDH Accelerating])
   fi
   fi
   fi
@@ -496,21 +499,20 @@ fi
 
 if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
 then
-  if test "x$enable_qat_hw_ecdsa" = "xyes"
-  then
-    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
-    AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
-  else if test "x$enable_qat_sw_ecdsa" = "xyes"
-  then
-    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_SW_ECDSA"])
-    AC_MSG_NOTICE([Accelerating ECDSA P256 &P384 to Software (Multi-buffer)])
-  else if test "x$enable_qat_hw_ecdsa" != "xno"
+  if test "x$enable_qat_hw_ecdsa" != "xno" -a "x$enable_qat_sw_ecdsa" != "xno"
   then
     AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA -DENABLE_QAT_SW_ECDSA"])
     AC_MSG_NOTICE([Co-existence ECDSA Acceleration])
+  else if test "x$enable_qat_hw_ecdsa" = "xno" -a "x$enable_qat_sw_ecdsa" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_SW_ECDSA"])
+    AC_MSG_NOTICE([Accelerating ECDSA P256 &P384 to Software (Multi-buffer)])
+  else if test "x$enable_qat_sw_ecdsa" = "xno" -a "x$enable_qat_hw_ecdsa" != "xno"
+  then
+    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
+    AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
   else
-    AC_SUBST([cflags_qat_ecdsa], ["-DDISABLE_QAT_HW_ECDSA"])
-    AC_MSG_NOTICE([Not Accelerating ECDSA to QAT_HW])
+    AC_MSG_NOTICE([No ECDSA Accelerating])
   fi
   fi
   fi
@@ -573,31 +575,32 @@ fi
 
 if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw_ipsec" != "x"
 then
-  if test "x$enable_qat_hw_gcm" = "xyes"
+  if test "x$enable_qat_sw_gcm" != "xno"
+  then
+    if test "x$enable_qat_hw_gcm" = "xyes"
+    then
+      AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM -DENABLE_QAT_HW_GCM"])
+      AC_MSG_NOTICE([Co-existence AES-GCM Acceleration])
+    else
+      AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
+      AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
+    fi
+  else if test "x$enable_qat_hw_gcm" = "xyes"
   then
     AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_HW_GCM"])
     AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
-  else if test "x$enable_qat_sw_gcm" = "xyes"
-  then
-    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
-    AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
-  else if test "x$enable_qat_sw_gcm" != "xno"
-  then
-    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
-    AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
   else
-    AC_MSG_NOTICE([Not Accelerating AES-GCM to Software (IPSec_mb)])
-  fi
+    AC_MSG_NOTICE([No AES-GCM Accelerating])
   fi
   fi
 else if test "x$enable_qat_sw_gcm" != "xno" -a "x$cflags_qat_sw_ipsec" != "x"
-  then
-    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
-    AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
+then
+  AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
+  AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
 else if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
-  then
-    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_HW_GCM"])
-    AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
+then
+  AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_HW_GCM"])
+  AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
 fi
 fi
 fi

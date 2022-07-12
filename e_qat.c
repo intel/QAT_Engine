@@ -168,7 +168,10 @@ int qat_sw_ecx_offload = 0;
 int qat_sw_ecdh_offload = 0;
 int qat_sw_ecdsa_offload = 0;
 int qat_sw_gcm_offload = 0;
+int qat_hw_chacha_poly_offload = 0;
+int qat_hw_aes_cbc_hmac_sha_offload = 0;
 int qat_sw_sm2_offload = 0;
+int qat_hw_sha_offload = 0;
 int qat_sw_sm3_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
@@ -226,6 +229,24 @@ BIGNUM *e_check = NULL;
 mb_thread_data *mb_tlv = NULL;
 pthread_key_t mb_thread_key;
 #endif
+
+#ifdef QAT_HW
+uint64_t qat_hw_algo_enable_mask = 0xFFFF;
+#else
+uint64_t qat_hw_algo_enable_mask = 0;
+#endif
+
+#ifdef QAT_SW
+uint64_t qat_sw_algo_enable_mask = 0xFFFF;
+#else
+uint64_t qat_sw_algo_enable_mask = 0;
+#endif
+
+static int bind_qat(ENGINE *e, const char *id);
+/* Algorithm reload needs to free the previous method and reallocate it to
+   exclude the impact of different offload modes, like QAT_HW -> QAT_SW.
+   Use this flag to distinguish it from the other cases. */
+int qat_reload_algo = 0;
 
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -338,6 +359,25 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "Perform crypto operations on core",
         ENGINE_CMD_FLAG_NO_INPUT},
 #endif
+
+#ifdef QAT_HW
+    {
+        QAT_CMD_HW_ALGO_BITMAP,
+        "HW_ALGO_BITMAP",
+        "Set the HW algorithm bitmap and reload the algorithm registration",
+        ENGINE_CMD_FLAG_STRING
+    },
+#endif
+
+#ifdef QAT_SW
+    {
+        QAT_CMD_SW_ALGO_BITMAP,
+        "SW_ALGO_BITMAP",
+        "Set the SW algorithm bitmap and reload the algorithm registration",
+        ENGINE_CMD_FLAG_STRING
+    },
+#endif
+
     {0, NULL, NULL, 0}
 };
 
@@ -358,15 +398,12 @@ static int qat_engine_destroy(ENGINE *e)
 #ifdef QAT_HW
     qat_free_DH_methods();
     qat_free_DSA_methods();
-    qat_free_RSA_methods();
-#endif
-
-#ifdef QAT_SW
-    multibuff_free_RSA_methods();
 #endif
 
 #if defined(QAT_SW) || defined(QAT_HW)
     qat_free_EC_methods();
+    qat_free_RSA_methods();
+    qat_free_digest_meth();
 #endif
 
 #if defined(QAT_SW_IPSEC) || defined(QAT_HW)
@@ -561,6 +598,8 @@ int qat_engine_finish(ENGINE *e)
 int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 {
     unsigned int retVal = 1;
+    char *temp = NULL;
+    uint64_t val = 0; 
 #ifdef QAT_HW
 # ifndef __FreeBSD__
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -817,6 +856,38 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         break;
 #endif
 
+#ifdef QAT_HW
+        case QAT_CMD_HW_ALGO_BITMAP:
+        BREAK_IF(NULL == p, "The CMD HW_ALGO_BITMAP needs a string input.\n");
+        val = strtoul(p, &temp, 0);
+        BREAK_IF(errno == ERANGE || temp == p || *temp != '\0',
+                "The hardware enable mask is invalid.\n");
+        BREAK_IF(val < 0 || val > 0xFFFF,
+                "The hardware enable mask is out of the range.\n");
+        DEBUG("QAT_CMD_HW_ALGO_BITMAP = 0x%lx\n", val);
+        qat_hw_algo_enable_mask = val;
+        qat_reload_algo = 1;
+        BREAK_IF(!bind_qat(e, engine_qat_id), "QAT Engine bind failed\n");
+        qat_reload_algo = 0;
+        break;
+#endif
+
+#ifdef QAT_SW
+        case QAT_CMD_SW_ALGO_BITMAP:
+        BREAK_IF(NULL == p, "The CMD SW_ALGO_BITMAP needs a string input.\n");
+        val = strtoul(p, &temp, 0);
+        BREAK_IF(errno == ERANGE || temp == p || *temp != '\0',
+                "The software enable mask is invalid.\n");
+        BREAK_IF(val < 0 || val > 0xFFFF,
+                "The software enable mask is out of the range.\n");
+        DEBUG("QAT_CMD_SW_ALGO_BITMAP = 0x%lx\n", val);
+        qat_sw_algo_enable_mask = val;
+        qat_reload_algo = 1;
+        BREAK_IF(!bind_qat(e, engine_qat_id), "QAT Engine bind failed\n");
+        qat_reload_algo = 0;
+        break;
+#endif
+
         default:
         WARN("CTRL command not implemented\n");
         retVal = 0;
@@ -901,13 +972,6 @@ static int bind_qat(ENGINE *e, const char *id)
 #ifdef QAT_HW
         DEBUG("Registering QAT HW supported algorithms\n");
 
-# ifdef ENABLE_QAT_HW_RSA
-        if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
-            WARN("ENGINE_set_RSA QAT HW failed\n");
-            goto end;
-        }
-# endif
-
 # ifdef ENABLE_QAT_HW_DSA
         if (!ENGINE_set_DSA(e, qat_get_DSA_methods())) {
             WARN("ENGINE_set_DSA QAT HW failed\n");
@@ -932,22 +996,14 @@ static int bind_qat(ENGINE *e, const char *id)
         DEBUG("Registering QAT SW supported algorithms\n");
         qat_sw_offload = 1;
 # endif
-
-# ifdef ENABLE_QAT_SW_RSA
-        if (!qat_hw_rsa_offload &&
-            mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
-            mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
-            mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
-            DEBUG("QAT SW RSA Supported\n");
-            if (!ENGINE_set_RSA(e, multibuff_get_RSA_methods())) {
-                WARN("ENGINE_set_RSA QAT SW failed\n");
-                goto end;
-            }
-        }
-# endif
 #endif
 
 #if defined(QAT_HW) || defined(QAT_SW)
+    if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
+        WARN("ENGINE_set_RSA QAT HW failed\n");
+        goto end;
+    }
+
      if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
           WARN("ENGINE_set_EC failed\n");
           goto end;
@@ -959,6 +1015,13 @@ static int bind_qat(ENGINE *e, const char *id)
           goto end;
      }
 # endif
+
+    qat_create_digest_meth();
+    if (!ENGINE_set_digests(e, qat_digest_methods)) {
+        WARN("ENGINE_set_digests failed\n");
+        goto end;
+    }
+
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -979,13 +1042,6 @@ static int bind_qat(ENGINE *e, const char *id)
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
-        goto end;
-    }
-#endif
-
-#if defined(QAT_HW) || defined(QAT_SW)
-    if (!ENGINE_set_digests(e, qat_digest_methods)) {
-        WARN("ENGINE_set_digests failed\n");
         goto end;
     }
 #endif

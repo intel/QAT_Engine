@@ -349,12 +349,15 @@ extern int qat_hw_ecdsa_offload;
 extern int qat_hw_prf_offload;
 extern int qat_hw_hkdf_offload;
 extern int qat_hw_gcm_offload;
+extern int qat_hw_chacha_poly_offload;
+extern int qat_hw_aes_cbc_hmac_sha_offload;
 extern int qat_sw_rsa_offload;
 extern int qat_sw_ecx_offload;
 extern int qat_sw_ecdh_offload;
 extern int qat_sw_ecdsa_offload;
 extern int qat_sw_gcm_offload;
 extern int qat_sw_sm2_offload;
+extern int qat_hw_sha_offload;
 extern int qat_sw_sm3_offload;
 extern int qat_keep_polling;
 extern int multibuff_keep_polling;
@@ -375,6 +378,27 @@ extern sigset_t set;
 extern pthread_t qat_timer_poll_func_thread;
 extern int cleared_to_start;
 extern int qat_sw_ipsec;
+
+#define ALGO_ENABLE_MASK_RSA                0x0001
+#define ALGO_ENABLE_MASK_DSA                0x0002
+#define ALGO_ENABLE_MASK_DH                 0x0004
+#define ALGO_ENABLE_MASK_ECDSA              0x0008
+#define ALGO_ENABLE_MASK_ECDH               0x0010
+#define ALGO_ENABLE_MASK_ECX25519           0x0020
+#define ALGO_ENABLE_MASK_ECX448             0x0040
+#define ALGO_ENABLE_MASK_PRF                0x0080
+#define ALGO_ENABLE_MASK_HKDF               0x0100
+#define ALGO_ENABLE_MASK_SM2                0x0200
+#define ALGO_ENABLE_MASK_AES_GCM            0x0400
+#define ALGO_ENABLE_MASK_AES_CBC_HMAC_SHA   0x0800
+#define ALGO_ENABLE_MASK_SM4                0x1000
+#define ALGO_ENABLE_MASK_CHACHA_POLY        0x2000
+#define ALGO_ENABLE_MASK_SHA3               0x4000
+#define ALGO_ENABLE_MASK_SM3                0x8000
+
+extern int qat_reload_algo;
+extern uint64_t qat_hw_algo_enable_mask;
+extern uint64_t qat_sw_algo_enable_mask;
 
 # ifdef QAT_HW
 extern char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE];
@@ -459,6 +483,8 @@ extern mb_req_rates mb_sm3_final_req_rates;
 # define QAT_CMD_ENABLE_SW_FALLBACK (ENGINE_CMD_BASE + 17)
 # define QAT_CMD_HEARTBEAT_POLL (ENGINE_CMD_BASE + 18)
 # define QAT_CMD_DISABLE_QAT_OFFLOAD (ENGINE_CMD_BASE + 19)
+# define QAT_CMD_HW_ALGO_BITMAP (ENGINE_CMD_BASE + 20)
+# define QAT_CMD_SW_ALGO_BITMAP (ENGINE_CMD_BASE + 21)
 
 # ifdef QAT_HW
 /******************************************************************************

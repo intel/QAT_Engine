@@ -54,19 +54,20 @@
 # define RSA_3K_LENGTH 3072
 # define RSA_4K_LENGTH 4096
 
-/* Multibuffer RSA methods declaration */
-
-RSA_METHOD *multibuff_get_RSA_methods(void);
-
-void multibuff_free_RSA_methods(void);
-
+#ifdef ENABLE_QAT_SW_RSA
 void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits);
 void process_RSA_pub_reqs(mb_thread_data *tlv, int rsa_bits);
 
 int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding);
-
+                                  unsigned char *to, RSA *rsa, int padding);
+int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
+                                  unsigned char *to, RSA *rsa, int padding);
+int multibuff_rsa_pub_enc(int flen, const unsigned char *from,
+                                 unsigned char *to, RSA *rsa, int padding);
 int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
-                          unsigned char *to, RSA *rsa, int padding);
+                                 unsigned char *to, RSA *rsa, int padding);
+int multibuff_rsa_init(RSA *rsa);
+int multibuff_rsa_finish(RSA *rsa);
+#endif
 
 #endif /* QAT_SW_RSA_H */

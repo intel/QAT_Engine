@@ -286,4 +286,31 @@ Description:
     acceleration devices when QAT HW Acceleration is enabled, with the immediate
     effect that these operations are performed on-core instead.
     This message may be sent at any time after engine initialization.
+
+Message String: HW_ALGO_BITMAP
+Param 3:        0
+Param 4:        pointer to an unsigned long int
+Description:
+    This message is used to set the global QAT_HW algorithm bitmap and will
+    trigger the bind_qat() again to reload the QAT_HW algorithm method according
+    to the input bitmap value. The input value should be a hex string, like
+    0x82EF, which is the combination of the bitmap for each algorithm. Currently,
+    the Engine supports the first 16 bits of the input value, the higher bit value
+    will be deprecated. The default QAT_HW algorithm bitmap is 0xFFFF which means
+    all algorithms are supported at the runtime level.
+    For more detailed usage, refer to: docs/qat_common.md
+
+Message String: SW_ALGO_BITMAP
+Param 3:        0
+Param 4:        pointer to an unsigned long int
+Description:
+    This message is used to set the global QAT_SW algorithm bitmap and will
+    trigger the bind_qat() again to reload the QAT_SW algorithm method according
+    to the input bitmap value. The input value should be a hex string, like
+    0x82EF, which is the combination of the bitmap for each algorithm. Currently,
+    the Engine supports the first 16 bits of the input value, the higher bits value
+    will be deprecated. The default QAT_SW algorithm bitmap is 0xFFFF which means
+    all algorithms are supported at the runtime level.
+    For more detailed usage, refer to: docs/qat_common.md
+
 ```

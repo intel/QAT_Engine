@@ -127,6 +127,9 @@ The following is a list of the options that can be used with the
 --disable-qat_hw_ecdsa/--enable-qat_hw_ecdsa
     Disable/Enable Intel(R) QAT Hardware ECDSA acceleration (enabled by default).
 
+--disable-qat_hw_gcm/--enable-qat_hw_gcm
+    Disable/Enable Intel(R) QAT Hardware AES-GCM acceleration (disabled by default).
+
 --disable-qat_hw_ciphers/--enable-qat_hw_ciphers
     Disable/Enable Intel(R) QAT Hardware Chained Cipher acceleration
     (enabled by default).

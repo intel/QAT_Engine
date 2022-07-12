@@ -129,6 +129,8 @@ static int sign_only = 0;
 static int verify_only = 0;
 static int encrypt_only = 0;
 static int decrypt_only = 0;
+extern char *sw_algo_bitmap;
+extern char *hw_algo_bitmap;
 
 /* Thread_info structure declaration */
 typedef struct {
@@ -648,6 +650,8 @@ static void usage(char *program)
     printf("\t-poll   enable external polling of the engine (qat engine only)\n");
     printf("\t-f      specifies whether to enable(1) or disable(0) KDF for ECDH \n");
     printf("\t-engine specify the engine to use, eg -engine qatengine (default is software)\n");
+    printf("\t-hw_algo specify the hw algorithm enabling bitmap\n");
+    printf("\t-sw_algo specify the sw algorithm enabling bitmap\n");
     printf("\t-provider specify the provider to use, eg -provider qat (default is software)\n");
     printf("\t-ne     enables negative scenario test cases \n");
     printf("\t-tls_version  specifies tls_version TLSv1,TLSv1_1, TLSv1_2 \n");
@@ -965,6 +969,12 @@ static void handle_option(int argc, char *argv[], int *index)
         sw_fallback = 1;
     else if (!strcmp(option, "-h"))
         usage(argv[0]);
+    else if (!strcmp(option, "-sw_algo")) {
+        parse_option_string(index, argc, argv, &sw_algo_bitmap);
+    }
+    else if (!strcmp(option, "-hw_algo")) {
+        parse_option_string(index, argc, argv, &hw_algo_bitmap);
+    }
     else {
         printf("\n# FAIL: Invalid option '%s'\n", option);
         usage(argv[0]);

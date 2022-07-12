@@ -1230,7 +1230,10 @@ int vaesgcm_init_ipsec_mb_mgr()
         }
     }
 
-    WARN("Error: Intel IPsec MB_MGR already allocated\n");
+    if (qat_reload_algo)
+        return 1;
+
+    WARN("Intel IPsec MB_MGR already allocated\n");
     return 0;
 }
 
