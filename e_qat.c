@@ -179,6 +179,7 @@ int enable_external_polling = 0;
 int enable_heuristic_polling = 0;
 pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t qat_polling_thread;
+sem_t hw_polling_thread_sem;
 
 /* QAT number of inflight requests */
 int num_requests_in_flight = 0;

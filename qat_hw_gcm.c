@@ -1183,8 +1183,9 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
     if (qat_use_signals()) {
         if (tlv->localOpsInFlight == 1) {
-            if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                WARN("qat_kill_thread error\n");
+            if (sem_post(&hw_polling_thread_sem) != 0) {
+                WARN("hw sem_post failed!, hw_polling_thread_sem address: %p.\n",
+                      &hw_polling_thread_sem);
                 QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                 goto err;
@@ -1504,8 +1505,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
             if (qat_use_signals()) {
                 if (tlv->localOpsInFlight == 1) {
-                    if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-                        WARN("qat_kill_thread error\n");
+                    if (sem_post(&hw_polling_thread_sem) != 0) {
+                        WARN("hw sem_post failed!, hw_polling_thread_sem address: %p.\n",
+                              &hw_polling_thread_sem);
                         QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
                         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
                         return RET_FAIL;

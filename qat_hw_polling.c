@@ -143,6 +143,7 @@ void *qat_timer_poll_func(void *ih)
     int sig = 0;
     unsigned int eintr_count = 0;
     struct timespec previous_time = { 0 };
+    struct timespec hw_polling_abs_timeout;
 
     DEBUG("timer_poll_func started\n");
     qat_timer_poll_func_thread = pthread_self();
@@ -161,15 +162,16 @@ void *qat_timer_poll_func(void *ih)
 
             timeout_time.tv_sec = QAT_EVENT_TIMEOUT_IN_SEC;
             timeout_time.tv_nsec = 0;
-            while ((sig = sigtimedwait((const sigset_t *)&set, NULL, &timeout_time)) == -1 &&
-                    errno == EINTR &&
+            get_sem_wait_abs_time(&hw_polling_abs_timeout, timeout_time);
+            while ((sig = sem_timedwait(&hw_polling_thread_sem,
+                    &hw_polling_abs_timeout)) == -1 && errno == EINTR &&
                     eintr_count < QAT_CRYPTO_NUM_EVENT_RETRIES) {
                 eintr_count++;
             }
             eintr_count = 0;
             if (unlikely(sig == -1)) {
                 if ((qat_get_sw_fallback_enabled())
-                    && (errno == EAGAIN || errno == EINTR)) {
+                    && (errno == ETIMEDOUT || errno == EINTR)) {
                     clock_gettime(clock_id, &previous_time);
                     poll_heartbeat();
                 }

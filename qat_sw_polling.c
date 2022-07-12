@@ -364,6 +364,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
     int sig = 0;
     unsigned int eintr_count = 0;
     mb_thread_data *tlv = (mb_thread_data *)thread_ptr;
+    struct timespec mb_polling_abs_timeout;
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_SM3)
     unsigned int submission_count = 0;
 #endif
@@ -400,14 +401,15 @@ void *multibuff_timer_poll_func(void *thread_ptr)
     DEBUG("Polling Timeout %ld tlv %p\n", mb_poll_timeout_time.tv_nsec, tlv);
 
     while (tlv->keep_polling && multibuff_keep_polling) {
-        while ((sig = sigtimedwait((const sigset_t *)&tlv->set, NULL, &mb_poll_timeout_time)) == -1 &&
-                errno == EINTR &&
+        get_sem_wait_abs_time(&mb_polling_abs_timeout, mb_poll_timeout_time);
+        while ((sig = sem_timedwait(&tlv->mb_polling_thread_sem,
+                &mb_polling_abs_timeout)) == -1 && errno == EINTR &&
                 eintr_count < QAT_SW_NUM_EVENT_RETRIES) {
             eintr_count++;
         }
         eintr_count = 0;
         if (unlikely(sig == -1)) {
-            if (errno == EAGAIN || errno == EINTR) {
+            if (errno == ETIMEDOUT || errno == EINTR) {
                 /* Deal with requests less than 8 */
 
 #ifdef ENABLE_QAT_SW_RSA

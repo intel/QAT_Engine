@@ -50,6 +50,7 @@
 # include <sys/types.h>
 # include <unistd.h>
 # include <string.h>
+# include <semaphore.h>
 
 # ifdef QAT_OPENSSL_3
 #  include "qat_prov_err.h"
@@ -365,6 +366,7 @@ extern int enable_external_polling;
 extern int enable_heuristic_polling;
 extern pthread_mutex_t qat_engine_mutex;
 extern pthread_t qat_polling_thread;
+extern sem_t hw_polling_thread_sem;
 
 extern int num_requests_in_flight;
 extern int num_asym_requests_in_flight;

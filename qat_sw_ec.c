@@ -838,8 +838,9 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
         }
@@ -995,8 +996,9 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
         }
@@ -1227,8 +1229,9 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
         }
@@ -1433,8 +1436,9 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
         }
@@ -1614,8 +1618,9 @@ int mb_ecdh_compute_key(unsigned char **out,
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
             /* If we fail the pthread_kill carry on as the timeout
              * will catch processing the request in the polling thread */
         }

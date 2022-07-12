@@ -50,6 +50,7 @@
 # include <stdio.h>
 # include "qat_sw_request.h"
 # include "qat_sw_queue.h"
+#include <semaphore.h>
 
 typedef struct _mb_flist_rsa_priv
 {
@@ -138,7 +139,7 @@ typedef struct _mb_flist_sm3_final
 typedef struct _mb_thread_data{
     pthread_t polling_thread;
     int keep_polling;
-    sigset_t set;
+    sem_t mb_polling_thread_sem;
     /* RSA */
     mb_flist_rsa_priv *rsa_priv_freelist;
     mb_flist_rsa_pub *rsa_pub_freelist;

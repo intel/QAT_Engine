@@ -275,8 +275,9 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }
@@ -427,8 +428,9 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
-        if (qat_kill_thread(tlv->polling_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
             /* If we fail the pthread_kill carry on as the timeout
                will catch processing the request in the polling thread */
         }

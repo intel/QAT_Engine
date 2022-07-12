@@ -57,6 +57,8 @@
 
 # define QAT_BYTE_ALIGNMENT 64
 # define NANO_TO_MICROSECS 1000
+#define NSEC_TO_SEC 1000000000L /* Nanosecond coverts to second. */
+
 /* For best performance data buffers should be 64-byte aligned */
 # define QAT_CONTIG_MEM_ALIGN(x)                              \
          (void *)(((uintptr_t)(x) + QAT_BYTE_ALIGNMENT - 1) & \
@@ -1068,5 +1070,9 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
 #  define START_RDTSC(ptr_clock)
 #  define STOP_RDTSC(ptr_clock, inc, ptr_name)
 # endif /* QAT_CPU_CYCLES_COUNT */
+
+/* Get absolute time by relative time. */
+void get_sem_wait_abs_time(struct timespec *polling_abs_timeout,
+                           const struct timespec polling_timeout);
 
 #endif                          /* QAT_UTILS_H */

@@ -259,3 +259,14 @@ void rdtsc_initialize(void)
 }
 
 #endif /* QAT_CPU_CYCLES_COUNT */
+
+/* Get absolute time by relative time. */
+void get_sem_wait_abs_time(struct timespec *polling_abs_timeout,
+                           const struct timespec polling_timeout)
+{
+    clock_gettime(CLOCK_REALTIME, polling_abs_timeout); /* Get current real time. */
+    polling_abs_timeout->tv_sec +=  polling_timeout.tv_sec;
+    polling_abs_timeout->tv_nsec += polling_timeout.tv_nsec;
+    polling_abs_timeout->tv_sec += polling_abs_timeout->tv_nsec / NSEC_TO_SEC;
+    polling_abs_timeout->tv_nsec = polling_abs_timeout->tv_nsec % NSEC_TO_SEC;
+}

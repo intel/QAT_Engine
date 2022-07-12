@@ -656,6 +656,15 @@ int qat_init(ENGINE *e)
                 return 0;
             }
         }
+
+        if (sem_init(&hw_polling_thread_sem, 0, 0) != 0) {
+            WARN("hw sem_init failed!\n");
+            QATerr(QAT_F_QAT_INIT, QAT_R_POLLING_THREAD_SEM_INIT_FAILURE);
+            qat_pthread_mutex_unlock();
+            qat_engine_finish(e);
+            return 0;
+        }
+
 #ifndef __FreeBSD__
         if (qat_create_thread(&qat_polling_thread, NULL, qat_is_event_driven() ?
                               event_poll_func : qat_timer_poll_func, NULL)) {
@@ -697,9 +706,10 @@ int qat_finish_int(ENGINE *e, int reset_globals)
 
     qat_keep_polling = 0;
     if (qat_use_signals_no_engine_start()) {
-        if (qat_kill_thread(qat_timer_poll_func_thread, SIGUSR1) != 0) {
-            WARN("qat_kill_thread error\n");
-            QATerr(QAT_F_QAT_FINISH_INT, QAT_R_PTHREAD_KILL_FAILURE);
+        if (sem_post(&hw_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, hw_polling_thread_sem address: %p.\n",
+                  &hw_polling_thread_sem);
+            QATerr(QAT_F_QAT_FINISH_INT, QAT_R_SEM_POST_FAILURE);
             ret = 0;
         }
     }
@@ -773,7 +783,7 @@ int qat_finish_int(ENGINE *e, int reset_globals)
 
     DEBUG("Calling pthread_key_delete()\n");
     pthread_key_delete(thread_local_variables);
-
+    sem_destroy(&hw_polling_thread_sem); /* destroy qat hw semaphore: hw_polling_thread_sem. */
 
     /* Reset the configuration global variables (to their default values) only
      * if requested, i.e. when we are not re-initializing the engine after

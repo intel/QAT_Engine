@@ -272,36 +272,36 @@ QAT_R_OUTX_OUTY_LEN_NULL:252:outx outy len null
 QAT_R_OUTY_MALLOC_FAILURE:253:outy malloc failure
 QAT_R_PADDING_UNKNOWN:254:padding unknown
 QAT_R_POLLING_THREAD_CREATE_FAILURE:255:polling thread create failure
-QAT_R_POLLING_THREAD_SIGMASK_FAILURE:256:polling thread sigmask failure
-QAT_R_POLL_INSTANCE_FAILURE:257:poll instance failure
-QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE:258:popdata a pdata malloc failure
-QAT_R_POPDATA_MALLOC_FAILURE:259:popdata malloc failure
-QAT_R_POPDATA_PCURVE_MALLOC_FAILURE:260:popdata pcurve malloc failure
-QAT_R_PPV_MALLOC_FAILURE:261:ppv malloc failure
-QAT_R_PPV_PDATA_MALLOC_FAILURE:262:ppv pdata malloc failure
-QAT_R_PRESULTR_MALLOC_FAILURE:263:presultr malloc failure
-QAT_R_PRESULTR_PDATA_MALLOC_FAILURE:264:presultr pdata malloc failure
-QAT_R_PRESULTS_MALLOC_FAILURE:265:presults malloc failure
-QAT_R_PRESULTS_PDATA_MALLOC_FAILURE:266:presults pdata malloc failure
-QAT_R_PRESULTX_MALLOC_FAILURE:267:presultx malloc failure
-QAT_R_PRESULTX_PDATA_MALLOC_FAILURE:268:presultx pdata malloc failure
-QAT_R_PRESULTY_LENGTH_CHECK_FAILURE:269:presulty length check failure
-QAT_R_PRESULTY_MALLOC_FAILURE:270:presulty malloc failure
-QAT_R_PRESULTY_PDATA_MALLOC_FAILURE:271:presulty pdata malloc failure
-QAT_R_PRIV_KEY_DUPLICATE_FAILURE:272:priv key duplicate failure
-QAT_R_PRIV_KEY_MALLOC_FAILURE:273:priv key malloc failure
-QAT_R_PRIV_KEY_M_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:274:\
+QAT_R_POLLING_THREAD_SEM_INIT_FAILURE:256:polling thread sem init failure
+QAT_R_POLLING_THREAD_SIGMASK_FAILURE:257:polling thread sigmask failure
+QAT_R_POLL_INSTANCE_FAILURE:258:poll instance failure
+QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE:259:popdata a pdata malloc failure
+QAT_R_POPDATA_MALLOC_FAILURE:260:popdata malloc failure
+QAT_R_POPDATA_PCURVE_MALLOC_FAILURE:261:popdata pcurve malloc failure
+QAT_R_PPV_MALLOC_FAILURE:262:ppv malloc failure
+QAT_R_PPV_PDATA_MALLOC_FAILURE:263:ppv pdata malloc failure
+QAT_R_PRESULTR_MALLOC_FAILURE:264:presultr malloc failure
+QAT_R_PRESULTR_PDATA_MALLOC_FAILURE:265:presultr pdata malloc failure
+QAT_R_PRESULTS_MALLOC_FAILURE:266:presults malloc failure
+QAT_R_PRESULTS_PDATA_MALLOC_FAILURE:267:presults pdata malloc failure
+QAT_R_PRESULTX_MALLOC_FAILURE:268:presultx malloc failure
+QAT_R_PRESULTX_PDATA_MALLOC_FAILURE:269:presultx pdata malloc failure
+QAT_R_PRESULTY_LENGTH_CHECK_FAILURE:270:presulty length check failure
+QAT_R_PRESULTY_MALLOC_FAILURE:271:presulty malloc failure
+QAT_R_PRESULTY_PDATA_MALLOC_FAILURE:272:presulty pdata malloc failure
+QAT_R_PRIV_KEY_DUPLICATE_FAILURE:273:priv key duplicate failure
+QAT_R_PRIV_KEY_MALLOC_FAILURE:274:priv key malloc failure
+QAT_R_PRIV_KEY_M_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:275:\
 	priv key m xg yg a b p convert to fb failure
-QAT_R_PRIV_KEY_NULL:275:priv key null
-QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE:276:priv key rand generate failure
-QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:277:\
+QAT_R_PRIV_KEY_NULL:276:priv key null
+QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE:277:priv key rand generate failure
+QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE:278:\
 	priv key xg yg a b p convert to fb failure
-QAT_R_PRIV_KEY_XP_YP_A_B_P_CONVERT_TO_FB_FAILURE:278:\
+QAT_R_PRIV_KEY_XP_YP_A_B_P_CONVERT_TO_FB_FAILURE:279:\
 	priv key xp yp a b p convert to fb failure
-QAT_R_PTHREAD_CREATE_FAILURE:279:pthread create failure
-QAT_R_PTHREAD_GETAFFINITY_FAILURE:280:pthread getaffinity failure
-QAT_R_PTHREAD_JOIN_FAILURE:281:pthread join failure
-QAT_R_PTHREAD_KILL_FAILURE:282:pthread kill failure
+QAT_R_PTHREAD_CREATE_FAILURE:280:pthread create failure
+QAT_R_PTHREAD_GETAFFINITY_FAILURE:281:pthread getaffinity failure
+QAT_R_PTHREAD_JOIN_FAILURE:282:pthread join failure
 QAT_R_PTHREAD_SETAFFINITY_FAILURE:283:pthread setaffinity failure
 QAT_R_PUB_KEY_DUPLICATE_FAILURE:284:pub key duplicate failure
 QAT_R_PUB_KEY_MALLOC_FAILURE:285:pub key malloc failure
@@ -341,41 +341,42 @@ QAT_R_RSA_OUTPUT_BUF_PDATA_MALLOC_FAILURE:314:\
 QAT_R_R_Q_COMPARE_FAILURE:315:r q compare failure
 QAT_R_SECRET_KEY_MALLOC_FAILURE:316:secret key malloc failure
 QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE:317:secret key pdata malloc failure
-QAT_R_SETUP_ASYNC_EVENT_FAILURE:318:setup async event failure
-QAT_R_SET_ADDRESS_TRANSLATION_FAILURE:319:set address translation failure
-QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE:320:\
+QAT_R_SEM_POST_FAILURE:318:sem post failure
+QAT_R_SETUP_ASYNC_EVENT_FAILURE:319:setup async event failure
+QAT_R_SET_ADDRESS_TRANSLATION_FAILURE:320:set address translation failure
+QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE:321:\
 	set file descriptor nonblocking failure
-QAT_R_SET_INSTANCE_FAILURE:321:set instance failure
-QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE:322:set multibuff rsa meth failure
-QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE:323:set notification callback failure
-QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE:324:\
+QAT_R_SET_INSTANCE_FAILURE:322:set instance failure
+QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE:323:set multibuff rsa meth failure
+QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE:324:set notification callback failure
+QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE:325:\
 	set polling thread affinity failure
-QAT_R_SET_PRIV_KEY_FAILURE:325:set priv key failure
-QAT_R_SET_QAT_DSA_METH_FAILURE:326:set qat dsa meth failure
-QAT_R_SET_QAT_RSA_METH_FAILURE:327:set qat rsa meth failure
-QAT_R_SET_TAG_INVALID_OP:328:set tag invalid op
-QAT_R_SHA3_CTX_NULL:329:sha3 ctx null
-QAT_R_SIG_GET_R_S_FAILURE:330:sig get r s failure
-QAT_R_SIG_MALLOC_FAILURE:331:sig malloc failure
-QAT_R_SM3_FINAL_FAILURE:332:sm3 final failure
-QAT_R_SM3_INIT_FAILURE:333:sm3 init failure
-QAT_R_SM3_UPDATE_FAILURE:334:sm3 update failure
-QAT_R_SSD_MALLOC_FAILURE:335:ssd malloc failure
-QAT_R_SSD_NULL:336:ssd null
-QAT_R_START_INSTANCE_FAILURE:337:start instance failure
-QAT_R_STOP_INSTANCE_FAILURE:338:stop instance failure
-QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:339:sw get compute key pfunc null
-QAT_R_SW_GET_KEYGEN_PFUNC_NULL:340:sw get keygen pfunc null
-QAT_R_SW_GET_SIGN_PFUNC_NULL:341:sw get sign pfunc null
-QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:342:sw get sign setup pfunc null
-QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:343:sw get sign sig pfunc null
-QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:344:sw get verify sig pfunc null
-QAT_R_SW_METHOD_NULL:345:sw method null
-QAT_R_S_NULL:346:s null
-QAT_R_S_Q_COMPARE_FAILURE:347:s q compare failure
-QAT_R_UNKNOWN_PADDING:348:unknown padding
-QAT_R_UNKNOWN_PADDING_TYPE:349:unknown padding type
-QAT_R_WAKE_PAUSE_JOB_FAILURE:350:wake pause job failure
-QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:351:x y tx ty bn malloc failure
-QAT_R_X_Y_Z_MALLOC_FAILURE:352:x y z malloc failure
-QAT_R_Z_ALLOCATE_FAILURE:353:z allocate failure
+QAT_R_SET_PRIV_KEY_FAILURE:326:set priv key failure
+QAT_R_SET_QAT_DSA_METH_FAILURE:327:set qat dsa meth failure
+QAT_R_SET_QAT_RSA_METH_FAILURE:328:set qat rsa meth failure
+QAT_R_SET_TAG_INVALID_OP:329:set tag invalid op
+QAT_R_SHA3_CTX_NULL:330:sha3 ctx null
+QAT_R_SIG_GET_R_S_FAILURE:331:sig get r s failure
+QAT_R_SIG_MALLOC_FAILURE:332:sig malloc failure
+QAT_R_SM3_FINAL_FAILURE:333:sm3 final failure
+QAT_R_SM3_INIT_FAILURE:334:sm3 init failure
+QAT_R_SM3_UPDATE_FAILURE:335:sm3 update failure
+QAT_R_SSD_MALLOC_FAILURE:336:ssd malloc failure
+QAT_R_SSD_NULL:337:ssd null
+QAT_R_START_INSTANCE_FAILURE:338:start instance failure
+QAT_R_STOP_INSTANCE_FAILURE:339:stop instance failure
+QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:340:sw get compute key pfunc null
+QAT_R_SW_GET_KEYGEN_PFUNC_NULL:341:sw get keygen pfunc null
+QAT_R_SW_GET_SIGN_PFUNC_NULL:342:sw get sign pfunc null
+QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:343:sw get sign setup pfunc null
+QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:344:sw get sign sig pfunc null
+QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:345:sw get verify sig pfunc null
+QAT_R_SW_METHOD_NULL:346:sw method null
+QAT_R_S_NULL:347:s null
+QAT_R_S_Q_COMPARE_FAILURE:348:s q compare failure
+QAT_R_UNKNOWN_PADDING:349:unknown padding
+QAT_R_UNKNOWN_PADDING_TYPE:350:unknown padding type
+QAT_R_WAKE_PAUSE_JOB_FAILURE:351:wake pause job failure
+QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:352:x y tx ty bn malloc failure
+QAT_R_X_Y_Z_MALLOC_FAILURE:353:x y z malloc failure
+QAT_R_Z_ALLOCATE_FAILURE:354:z allocate failure

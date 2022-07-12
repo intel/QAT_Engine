@@ -204,13 +204,14 @@ mb_thread_data* mb_check_thread_local(void)
         }
 #endif
 
-        /* Sig set for Signalling via pthread_kill */
         if (!enable_external_polling) {
+            /* Qat sw semaphore init. */
+            if (sem_init(&tlv->mb_polling_thread_sem, 0, 0) == -1) {
+                WARN("sem_init failed!\n");
+                return NULL;
+            }
+
             tlv->keep_polling = 1;
-            sigemptyset(&tlv->set);
-            sigaddset(&tlv->set, SIGUSR1);
-            if (pthread_sigmask(SIG_BLOCK, &tlv->set, NULL) != 0)
-                WARN("pthread_sigmask error\n");
             /* Create Polling thread */
             if (qat_create_thread(&tlv->polling_thread,
                         NULL, multibuff_timer_poll_func, tlv)) {
@@ -518,6 +519,7 @@ void mb_thread_local_destructor(void *tlv_ptr)
         mb_flist_sm3_final_cleanup(tlv->sm3_final_freelist);
 #endif
 
+        sem_destroy(&tlv->mb_polling_thread_sem); // destroy qat sw semaphore: mb_polling_thread_sem.
         OPENSSL_free(tlv);
     } else {
         DEBUG("tlv NULL\n");
