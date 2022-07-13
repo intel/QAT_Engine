@@ -205,7 +205,8 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
     }
 
     do {
-        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+            == QAT_INVALID_INSTANCE) {
             WARN("Failure to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);

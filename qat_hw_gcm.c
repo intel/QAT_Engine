@@ -897,7 +897,7 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
-    qctx->inst_num = get_next_inst_num();
+    qctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
     if (qctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get QAT Instance Handle\n");
         QATerr(QAT_F_QAT_AES_GCM_SESSION_INIT, ERR_R_INTERNAL_ERROR);

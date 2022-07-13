@@ -633,7 +633,8 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     do {
-        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM))
+             == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);

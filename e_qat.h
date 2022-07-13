@@ -61,6 +61,7 @@
 # ifdef QAT_HW
 #  include "cpa.h"
 #  include "cpa_types.h"
+#  include "cpa_cy_common.h"
 # endif
 
 # ifdef QAT_SW
@@ -111,7 +112,8 @@
 
 # ifdef QAT_HW
 typedef struct {
-    int qatInstanceNumForThread;
+    int qatAsymInstanceNumForThread;
+    int qatSymInstanceNumForThread;
     unsigned int localOpsInFlight;
 # ifdef QAT_HW_SET_INSTANCE_THREAD
     long int threadId;
@@ -121,15 +123,16 @@ typedef struct {
 typedef struct {
     CpaInstanceInfo2  qat_instance_info;
     unsigned int qat_instance_started;
-# ifdef QAT_HW_SET_INSTANCE_THREAD
-    unsigned int instCount;
-# endif
 } qat_instance_details_t;
 
 typedef struct {
     unsigned int qat_accel_present;
     unsigned int qat_accel_reset_status;
 } qat_accel_details_t;
+
+# define INSTANCE_TYPE_CRYPTO 1
+# define INSTANCE_TYPE_CRYPTO_ASYM 8
+# define INSTANCE_TYPE_CRYPTO_SYM 16
 
 # define QAT_RETRY_BACKOFF_MODULO_DIVISOR 8
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
@@ -413,6 +416,8 @@ extern int disable_qat_offload;
 extern int enable_sw_fallback;
 extern CpaInstanceHandle *qat_instance_handles;
 extern Cpa16U qat_num_instances;
+extern Cpa16U qat_asym_num_instance;
+extern Cpa16U qat_sym_num_instance;
 extern Cpa32U qat_num_devices;
 extern pthread_key_t thread_local_variables;
 extern pthread_mutex_t qat_instance_mutex;
@@ -421,8 +426,9 @@ extern qat_accel_details_t qat_accel_details[QAT_MAX_CRYPTO_ACCELERATORS];
 extern useconds_t qat_poll_interval;
 extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
+extern unsigned int qat_map_sym_inst[QAT_MAX_CRYPTO_INSTANCES];
+extern unsigned int qat_map_asym_inst[QAT_MAX_CRYPTO_INSTANCES];
 # ifdef QAT_HW_SET_INSTANCE_THREAD
-extern unsigned int qat_map_inst[QAT_MAX_CRYPTO_INSTANCES];
 extern long int threadId[QAT_MAX_CRYPTO_THREADS];
 extern int threadCount;
 # endif
@@ -562,13 +568,13 @@ int is_any_device_available(void);
 
 /******************************************************************************
  * function:
- *         get_next_inst_num(void)
+ *         get_next_inst_num(int inst_type)
  *
  * description:
  *   Return the next instance number to use for an operation.
  *
  ******************************************************************************/
-int get_next_inst_num(void);
+int get_next_inst_num(int inst_type);
 
 
 /******************************************************************************

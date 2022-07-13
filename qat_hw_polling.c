@@ -270,9 +270,13 @@ end:
 CpaStatus poll_instances(void)
 {
     unsigned int poll_loop;
-    int inst_num = QAT_INVALID_INSTANCE;
+    int inst_asym;
+    int inst_sym;
+    int instance_polled = 0;
+
     CpaStatus internal_status = CPA_STATUS_SUCCESS,
         ret_status = CPA_STATUS_SUCCESS;
+
     if (enable_instance_for_thread) {
         thread_local_variables_t *tlv = NULL;
         tlv = qat_check_create_local_variables();
@@ -281,9 +285,45 @@ CpaStatus poll_instances(void)
             QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
             return CPA_STATUS_FAIL;
         }
-        inst_num = tlv->qatInstanceNumForThread;
-        if (inst_num != QAT_INVALID_INSTANCE && qat_instance_handles) {
-            return icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+        inst_asym = qat_map_asym_inst[tlv->qatAsymInstanceNumForThread];
+        inst_sym = qat_map_sym_inst[tlv->qatSymInstanceNumForThread];
+
+        if (qat_instance_handles) {
+            /* Asymmetric instance */
+            if (QAT_INVALID_INSTANCE != inst_asym) {
+                internal_status =
+                    icp_sal_CyPollInstance(qat_instance_handles[inst_asym], 0);
+
+                if (CPA_STATUS_SUCCESS != internal_status) {
+                    WARN("Fail to poll Asymmetric instance\n");
+                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+                    ret_status = CPA_STATUS_FAIL;
+                }
+                instance_polled = 1;
+            }
+
+            /* Symmetric instance */
+            if (QAT_INVALID_INSTANCE != inst_sym &&
+                inst_asym != inst_sym) {
+                internal_status =
+                    icp_sal_CyPollInstance(qat_instance_handles[inst_sym], 0);
+
+                if (CPA_STATUS_SUCCESS != internal_status) {
+                    WARN("Fail to poll Symmetric instance\n");
+                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+                    ret_status = CPA_STATUS_FAIL;
+                }
+                instance_polled = 1;
+            }
+
+            if (instance_polled) {
+                return ret_status;
+            } else {
+                WARN("neither asym nor sym instance is valid\n");
+                QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+                return CPA_STATUS_FAIL;
+            }
+
         } else {
             WARN("could not get a valid instance to poll\n");
             QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);

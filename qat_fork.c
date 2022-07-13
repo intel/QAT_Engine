@@ -63,6 +63,7 @@
 /* Local Includes */
 #include "qat_fork.h"
 #include "qat_utils.h"
+#include "e_qat.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
@@ -226,6 +227,7 @@ int qat_fcntl(int fd, int cmd, int arg)
 
 int qat_set_instance_for_thread(long instanceNum)
 {
+    int inst_idx;
     thread_local_variables_t *tlv = NULL;
     tlv = qat_check_create_local_variables();
     if (NULL == tlv || 0 == qat_num_instances ||
@@ -235,7 +237,21 @@ int qat_set_instance_for_thread(long instanceNum)
         return 0;
     }
 
-    tlv->qatInstanceNumForThread = instanceNum % qat_num_instances;
+    tlv->qatAsymInstanceNumForThread = QAT_INVALID_INSTANCE;
+    tlv->qatSymInstanceNumForThread = QAT_INVALID_INSTANCE;
+
+    /* If asym can be supported */
+    if (qat_asym_num_instance > 0) {
+        inst_idx = instanceNum % qat_asym_num_instance;
+        tlv->qatAsymInstanceNumForThread = qat_map_asym_inst[inst_idx];
+    }
+
+    /* If asym can be supported */
+    if (qat_sym_num_instance > 0) {
+        inst_idx = instanceNum % qat_sym_num_instance;
+        tlv->qatSymInstanceNumForThread = qat_map_sym_inst[inst_idx];
+    }
+
     enable_instance_for_thread = 1;
     return 1;
 }

@@ -33,6 +33,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     "alloc qat x448 meth failure"},
     {ERR_PACK(0, 0, QAT_R_ALLOC_TAG_FAILURE), "alloc tag failure"},
     {ERR_PACK(0, 0, QAT_R_BUF_CONV_FAIL), "buf conv fail"},
+    {ERR_PACK(0, 0, QAT_R_CAPABILITY_FAILURE), "capability failure"},
     {ERR_PACK(0, 0, QAT_R_CHACHAPOLY_CTX_NULL), "chachapoly ctx null"},
     {ERR_PACK(0, 0, QAT_R_CLOSE_READFD_FAILURE), "close readfd failure"},
     {ERR_PACK(0, 0, QAT_R_COMPUTE_FAILURE), "compute failure"},

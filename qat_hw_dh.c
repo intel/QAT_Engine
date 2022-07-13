@@ -375,7 +375,8 @@ int qat_dh_generate_key(DH *dh)
 
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     do {
-        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+             == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -701,7 +702,8 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
 
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     do {
-        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+             == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);

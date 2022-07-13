@@ -229,7 +229,8 @@ void *qat_pkey_ecx_keygen(void *genctx, OSSL_CALLBACK *osslcb,
     }
 
     do {
-        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+             == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -542,7 +543,8 @@ int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secre
     }
 
     do {
-        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+             == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -825,7 +827,8 @@ int qat_pkey_ecx_derive448(void *vecxctx, unsigned char *secret, size_t *secretl
     }
 
     do {
-        if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+             == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);

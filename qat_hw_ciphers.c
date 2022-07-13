@@ -711,7 +711,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     ssd->hashSetupData.authModeSetupData.authKey = qctx->hmac_key;
 
-    qctx->inst_num = get_next_inst_num();
+    qctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
     if (qctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");
         if (qat_get_sw_fallback_enabled()) {

@@ -365,7 +365,8 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     CRYPTO_QAT_LOG("RSA - %s\n", __func__);
 
-    if ((inst_num = get_next_inst_num()) == QAT_INVALID_INSTANCE) {
+    if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+         == QAT_INVALID_INSTANCE) {
         WARN("Failure to get an instance\n");
         if (qat_get_sw_fallback_enabled()) {
             CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);

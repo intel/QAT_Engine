@@ -819,6 +819,18 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
+#  define DUMP_INSTANCE_MAPPING(title, map_instance, num_instances)            \
+    do {                                                                       \
+        unsigned int index = 0;                                                \
+        fprintf(qatDebugLogFile,"%s: ", title);                                \
+                                                                               \
+        for (index = 0; index < num_instances; index++) {                      \
+            fprintf(qatDebugLogFile, "%d ", map_instance[index]);              \
+        }                                                                      \
+        fprintf(qatDebugLogFile, "\n");                                        \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
 # else
 #  define DUMP_DH_GEN_PHASE1(...)
 #  define DUMP_DH_GEN_PHASE2(...)
@@ -852,6 +864,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_SYM_PERFORM_OP_SHA3_OUTPUT(...)
 #  define DUMP_CP_PERFORM_OP(...)
 #  define DUMP_CP_PERFORM_OP_OUTPUT(...)
+#  define DUMP_INSTANCE_MAPPING(...)
 # endif                         /* QAT_DEBUG */
 
 

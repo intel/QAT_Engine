@@ -624,7 +624,7 @@ static int qat_chachapoly_setup_op_params(qat_chachapoly_ctx *cp_ctx)
         return 0;
     }
 
-    cp_ctx->inst_num = get_next_inst_num();
+    cp_ctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
 
     if (cp_ctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");

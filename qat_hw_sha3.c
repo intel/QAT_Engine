@@ -606,7 +606,7 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
         return 0;
     }
 
-    sha3_ctx->inst_num = get_next_inst_num();
+    sha3_ctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
 
     if (sha3_ctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");
