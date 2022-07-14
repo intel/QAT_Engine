@@ -762,7 +762,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
@@ -935,7 +935,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
@@ -1093,7 +1093,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);
@@ -1233,7 +1233,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);

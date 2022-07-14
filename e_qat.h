@@ -51,6 +51,7 @@
 # include <unistd.h>
 # include <string.h>
 # include <semaphore.h>
+# include <sched.h>
 
 # ifdef QAT_OPENSSL_3
 #  include "qat_prov_err.h"

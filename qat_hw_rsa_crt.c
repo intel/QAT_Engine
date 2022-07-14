@@ -475,7 +475,7 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
         }
         else
-            pthread_yield();
+            sched_yield();
     } while(op_done.req != op_done.resp);
 
     /* discard results if the 2nd request sending failed */

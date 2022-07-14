@@ -166,7 +166,7 @@ void* multibuff_x25519_keygen(void *genctx, OSSL_CALLBACK *osslcb,
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", x25519_keygen_req, sts);
@@ -300,7 +300,7 @@ int multibuff_x25519_derive(void *vecxctx, unsigned char *secret,
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", x25519_derive_req, sts);

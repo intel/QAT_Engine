@@ -302,9 +302,9 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||

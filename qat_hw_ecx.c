@@ -401,9 +401,9 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||
@@ -738,9 +738,9 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||
@@ -1030,9 +1030,9 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||

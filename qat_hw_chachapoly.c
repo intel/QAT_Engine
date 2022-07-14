@@ -955,9 +955,9 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     } while (!op_done.flag ||
             QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
@@ -1262,9 +1262,9 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                        loop around and try again until the request
                        completes and we can continue. */
                     if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                        pthread_yield();
+                        sched_yield();
                 } else {
-                    pthread_yield();
+                    sched_yield();
                 }
             } while (!op_done.flag ||
                     QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));

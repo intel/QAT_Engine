@@ -474,9 +474,9 @@ int qat_dh_generate_key(DH *dh)
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||
@@ -801,9 +801,9 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||

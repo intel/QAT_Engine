@@ -857,7 +857,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
          * loop around and try again until the request
          * completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", ecdsa_sign_req, sts);
@@ -1015,7 +1015,7 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
          * loop around and try again until the request
          * completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", ecdsa_sign_setup_req, sts);
@@ -1248,7 +1248,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
          * loop around and try again until the request
          * completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", ecdsa_sign_sig_req, sts);
@@ -1455,7 +1455,7 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
          * loop around and try again until the request
          * completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", ecdh_keygen_req, sts);
@@ -1637,7 +1637,7 @@ int mb_ecdh_compute_key(unsigned char **out,
          * loop around and try again until the request
          * completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", ecdh_compute_req, sts);

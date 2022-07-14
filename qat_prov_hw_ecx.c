@@ -332,9 +332,9 @@ void *qat_pkey_ecx_keygen(void *genctx, OSSL_CALLBACK *osslcb,
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||
@@ -646,9 +646,9 @@ int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secre
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||
@@ -930,9 +930,9 @@ int qat_pkey_ecx_derive448(void *vecxctx, unsigned char *secret, size_t *secretl
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     }
     while (!op_done.flag ||

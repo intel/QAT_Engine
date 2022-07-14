@@ -1208,9 +1208,9 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
-            pthread_yield();
+            sched_yield();
         }
     } while (!op_done.flag ||
             QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
@@ -1530,9 +1530,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                        loop around and try again until the request
                        completes and we can continue. */
                     if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
-                        pthread_yield();
+                        sched_yield();
                 } else {
-                    pthread_yield();
+                    sched_yield();
                 }
             } while (!op_done.flag ||
                      QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));

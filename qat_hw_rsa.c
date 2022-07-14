@@ -307,7 +307,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     }
     while (!op_done.flag ||
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
@@ -659,12 +659,12 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                loop around and try again until the request
                completes and we can continue. */
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
-                pthread_yield();
+                sched_yield();
         } else {
             if(getEnableInlinePolling()) {
                 icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
             } else {
-                pthread_yield();
+                sched_yield();
             }
         }
     } while (!op_done.flag ||

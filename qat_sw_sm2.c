@@ -821,7 +821,7 @@ static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
          * loop around and try again until the request
          * completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", ecdsa_sm2_sign_req, sts);
@@ -1039,7 +1039,7 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
          * loop around and try again until the request
          * completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", ecdsa_sm2_verify_req, sts);

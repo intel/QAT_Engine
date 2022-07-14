@@ -339,7 +339,7 @@ int qat_sw_sm3_init(EVP_MD_CTX *ctx)
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", sm3_init_req, sts);
@@ -440,7 +440,7 @@ int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", sm3_update_req, sts);
@@ -540,7 +540,7 @@ int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
            loop around and try again until the request
            completes and we can continue. */
         if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            pthread_yield();
+            sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DEBUG("Finished: %p status = %d\n", sm3_final_req, sts);
