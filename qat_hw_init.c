@@ -81,7 +81,7 @@
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined QAT_BORINGSSL
 #include <openssl/async.h>
 #endif
 #include <openssl/objects.h>
@@ -140,10 +140,12 @@ int qat_use_signals(void)
         if (!qat_engine_init(e)) {
             WARN("Failure in qat_engine_init function\n");
             ENGINE_free(e);
+            ENGINE_QAT_PTR_RESET();
             return 0;
         }
 
         ENGINE_free(e);
+        ENGINE_QAT_PTR_RESET();
     }
 
     return qat_use_signals_no_engine_start();
@@ -228,6 +230,7 @@ int get_next_inst_num(int inst_type)
         }
 
         ENGINE_free(e);
+        ENGINE_QAT_PTR_RESET();
     }
 
     tlv = qat_check_create_local_variables();
@@ -924,7 +927,9 @@ int qat_finish_int(ENGINE *e, int reset_globals)
     internal_efd = 0;
     qat_instance_handles = NULL;
     qat_keep_polling = 1;
+#ifndef QAT_BORINGSSL
     qatPerformOpRetries = 0;
+#endif
 
     DEBUG("Calling pthread_key_delete()\n");
     pthread_key_delete(thread_local_variables);

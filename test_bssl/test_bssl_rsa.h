@@ -1,10 +1,9 @@
-
 /* ====================================================================
  *
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2022 Intel Corporation.
+ *   Copyright(c) 2022 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -38,42 +37,20 @@
  */
 
 /*****************************************************************************
- * @file qat_hw_rsa.h
+ * @file test_bssl_rsa.h
  *
- * This file provides an RSA interface for an OpenSSL engine
+ * This file provides a QAT Engine test functions.
  *
  *****************************************************************************/
 
-#ifndef QAT_HW_RSA_H
-# define QAT_HW_RSA_H
+#ifndef TEST_BSSL_RSA_H
+# define TEST_BSSL_RSA_H
 
-# include <openssl/rsa.h>
+enum {
+    RSA_ASYNC_MODE = 1,
+    RSA_DECRYPT_TEST  = 2,
+};
 
-#ifdef ENABLE_QAT_HW_RSA
-/* Qat engine RSA methods declaration */
-int qat_rsa_priv_enc(int flen, const unsigned char *from,
-                            unsigned char *to, RSA *rsa, int padding);
-int qat_rsa_priv_dec(int flen, const unsigned char *from,
-                            unsigned char *to, RSA *rsa, int padding);
-int qat_rsa_pub_enc(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding);
-int qat_rsa_pub_dec(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding);
-#ifndef QAT_BORINGSSL
-int qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
-int qat_rsa_init(RSA *rsa);
-int qat_rsa_finish(RSA *rsa);
-#else /* QAT_BORINGSSL */
-int qat_rsa_priv_sign(RSA *rsa, size_t *out_len, uint8_t *out,
-                             size_t max_out, const uint8_t *in, size_t in_len,
-                             int padding);
-int qat_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
-                                size_t max_out, const uint8_t *in, size_t in_len,
-                                int padding);
+int qat_rsa_test(const EVP_PKEY *pkey, int async_mode);
 
-int RSA_private_encrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding);
-int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding);
-#endif /* QAT_BORINGSSL */
-#endif
-
-#endif /* QAT_HW_RSA_H */
+#endif /* TEST_BSSL_RSA_H */

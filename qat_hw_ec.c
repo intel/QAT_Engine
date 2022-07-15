@@ -53,7 +53,12 @@
 #include <signal.h>
 
 #include <openssl/ecdh.h>
+#ifndef QAT_BORINGSSL
 #include <openssl/async.h>
+#else
+#include <openssl/ecdsa.h>
+#include <openssl/bytestring.h>
+#endif /* QAT_BORINGSSL */
 #include <openssl/err.h>
 #include <openssl/ec.h>
 #include <openssl/obj_mac.h>
@@ -62,6 +67,9 @@
 
 #include "cpa.h"
 #include "cpa_types.h"
+#ifdef QAT_BORINGSSL
+#include "icp_sal_poll.h"
+#endif
 #include "cpa_cy_ec.h"
 #include "cpa_cy_ecdsa.h"
 #include "e_qat.h"
@@ -81,6 +89,9 @@
 
 CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
 {
+    /* For BoringSSL,EC_METHOD_get_field_type only support NID_X9_62_prime_field
+    * and EC_METHOD_get_field_type return NID_X9_62_prime_field directly
+    */
     if (EC_METHOD_get_field_type(EC_GROUP_method_of(group))
         == NID_X9_62_prime_field)
         return CPA_CY_EC_FIELD_TYPE_PRIME;
@@ -842,6 +853,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
 #endif /* #ifdef ENABLE_QAT_HW_ECDH */
 
 #ifdef ENABLE_QAT_HW_ECDSA
+#ifndef QAT_BORINGSSL
 /* Callback to indicate QAT completion of ECDSA Sign */
 static void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
                                     void *pOpData, CpaBoolean bEcdsaSignStatus,
@@ -854,6 +866,102 @@ static void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, bEcdsaSignStatus);
 }
+#else
+static void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
+                                    void *pOpData, CpaBoolean bEcdsaSignStatus,
+                                    CpaFlatBuffer * pResultR,
+                                    CpaFlatBuffer * pResultS)
+{
+    CpaBufferList pBuffer;
+    CpaFlatBuffer *ret_sig = NULL;
+    ECDSA_SIG *s = NULL;
+    size_t bytes_len = 0;
+    pBuffer.pBuffers = NULL;
+
+    if (!bEcdsaSignStatus) {
+        WARN("ECDSA sign failed, status %d verifyResult %d\n", status, bEcdsaSignStatus);
+        goto err;
+    }
+
+    op_done_t *opDone = (op_done_t *)pCallbackTag;
+    if (unlikely(opDone == NULL)) {
+        WARN("opDone is empty in ECDSA callback\n");
+        goto err;
+    }
+
+    /* Sync mode */
+    if (!opDone->job) {
+        return qat_crypto_callbackFn(pCallbackTag, status,
+                        CPA_CY_SYM_OP_CIPHER, pOpData, NULL, bEcdsaSignStatus);
+    }
+
+    /* Async mode */
+    if (!opDone->job->waitctx || !opDone->job->waitctx->data) {
+        WARN("Async job context or data buffer is empty\n");
+        goto err;
+    }
+
+    ret_sig = (CpaFlatBuffer *)(opDone->job->waitctx->data);
+    pBuffer.pBuffers = ret_sig;
+
+    s = ECDSA_SIG_new();
+    if (!s) {
+        WARN("Failure to allocate ECDSA_SIG in ECDSA callback\n");
+        goto err;
+    }
+
+    BN_bin2bn(pResultR->pData, pResultR->dataLenInBytes, s->r);
+    BN_bin2bn(pResultS->pData, pResultS->dataLenInBytes, s->s);
+
+    CBB cbb;
+    CBB_zero(&cbb);
+    if (!CBB_init_fixed(&cbb, ret_sig->pData, ret_sig->dataLenInBytes) ||
+        !ECDSA_SIG_marshal(&cbb, s) ||
+        !CBB_finish(&cbb, NULL, &bytes_len)) {
+        CBB_cleanup(&cbb);
+    }
+    ret_sig->dataLenInBytes = bytes_len;
+
+err:
+    if (s)
+        ECDSA_SIG_free(s);
+    if (pResultR) {
+        QAT_CHK_QMFREE_FLATBUFF(*pResultR);
+        OPENSSL_free(pResultR);
+    }
+    if (pResultS) {
+        QAT_CHK_QMFREE_FLATBUFF(*pResultS);
+        OPENSSL_free(pResultS);
+    }
+
+    qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
+                          &pBuffer, bEcdsaSignStatus);
+}
+
+static void ec_decrypt_op_buf_free(CpaCyEcdsaSignRSOpData * opData,
+                        CpaFlatBuffer* out_buf)
+{
+    if (out_buf) {
+        if (out_buf->pData) {
+            qaeCryptoMemFreeNonZero(out_buf->pData);
+        }
+        OPENSSL_free(out_buf);
+    }
+
+    if (opData) {
+        QAT_CHK_QMFREE_FLATBUFF(opData->n);
+        QAT_CHK_QMFREE_FLATBUFF(opData->m);
+        QAT_CHK_QMFREE_FLATBUFF(opData->xg);
+        QAT_CHK_QMFREE_FLATBUFF(opData->yg);
+        QAT_CHK_QMFREE_FLATBUFF(opData->a);
+        QAT_CHK_QMFREE_FLATBUFF(opData->b);
+        QAT_CHK_QMFREE_FLATBUFF(opData->q);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->k);
+        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->d);
+        OPENSSL_free(opData);
+    }
+}
+#endif /* QAT_BORINGSSL */
 
 /* Callback to indicate QAT completion of ECDSA Verify */
 static void qat_ecdsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
@@ -867,6 +975,7 @@ static void qat_ecdsaVerifyCallbackFn(void *pCallbackTag, CpaStatus status,
 }
 
 
+#ifndef QAT_BORINGSSL
 int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                    unsigned char *sig, unsigned int *siglen,
                    const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
@@ -896,6 +1005,7 @@ int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     ECDSA_SIG_free(s);
     return 1;
 }
+#endif /* QAT_BORINGSSL */
 
 
 ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
@@ -916,6 +1026,10 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     CpaFlatBuffer *pResultR = NULL;
     CpaFlatBuffer *pResultS = NULL;
+#ifdef QAT_BORINGSSL
+    CpaFlatBuffer *ret_sig = NULL;
+    op_done_t *op_done_bssl = NULL;
+#endif /* QAT_BORINGSSL */
     int inst_num = QAT_INVALID_INSTANCE;
     CpaCyEcdsaSignRSOpData *opData = NULL;
     CpaBoolean bEcdsaSignStatus = 0;
@@ -1040,7 +1154,11 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     opData->fieldType = qat_get_field_type(group);
 
+#ifdef QAT_BORINGSSL
+    if (!EC_GROUP_get_curve_GFp(group, p, a, b, ctx)) {
+#else
     if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+#endif /* QAT_BORINGSSL */
         WARN("Failure to get the curve\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -1164,6 +1282,27 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         }
     }
 
+#ifdef QAT_BORINGSSL
+    if (op_done.job) {
+        ret_sig = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
+        if (ret_sig == NULL) {
+            WARN("Failure to allocate ret_sig\n");
+            goto err;
+        }
+        ret_sig->pData = qaeCryptoMemAlloc(ECDSA_size(eckey), __FILE__, __LINE__);
+        if (ret_sig->pData == NULL) {
+            WARN("Failure to allocate ret_sig->pData\n");
+            goto err;
+        }
+        ret_sig->dataLenInBytes = (Cpa32U)ECDSA_size(eckey);
+
+        op_done.job->waitctx->data = ret_sig;
+        op_done_bssl = (op_done_t *)op_done.job->copy_op_done(&op_done,
+                        sizeof(op_done),
+                        (void (*)(void *, void *))ec_decrypt_op_buf_free);
+    }
+#endif /* QAT_BORINGSSL */
+
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
     do {
         if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
@@ -1176,6 +1315,9 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                 QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
             }
             if (op_done.job != NULL) {
+#ifdef QAT_BORINGSSL
+                op_done.job->free_op_done(op_done_bssl);
+#endif
                 qat_clear_async_event_notification(op_done.job);
             }
             qat_cleanup_op_done(&op_done);
@@ -1184,12 +1326,29 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
         CRYPTO_QAT_LOG("AU - %s\n", __func__);
         DUMP_ECDSA_SIGN(qat_instance_handles[inst_num], opData, pResultR, pResultS);
+#ifndef QAT_BORINGSSL
         status = cpaCyEcdsaSignRS(qat_instance_handles[inst_num],
                                   qat_ecdsaSignCallbackFn,
                                   &op_done,
                                   opData,
                                   &bEcdsaSignStatus, pResultR, pResultS);
-
+#else
+        if (op_done.job) {
+            status = cpaCyEcdsaSignRS(qat_instance_handles[inst_num],
+                                qat_ecdsaSignCallbackFn,
+                                op_done_bssl,
+                                opData,
+                                &bEcdsaSignStatus, pResultR, pResultS);
+        }
+        else {
+            DEBUG("Running sync mode for ECDSA request\n");
+            status = cpaCyEcdsaSignRS(qat_instance_handles[inst_num],
+                                    qat_ecdsaSignCallbackFn,
+                                    &op_done,
+                                    opData,
+                                    &bEcdsaSignStatus, pResultR, pResultS);
+        }
+#endif /* QAT_BORINGSSL */
         if (status == CPA_STATUS_RETRY) {
             if (op_done.job == NULL) {
                 usleep(ulPollInterval +
@@ -1203,11 +1362,13 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                     }
                 }
             } else {
+#ifndef QAT_BORINGSSL
                 if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
                     (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
                     WARN("qat_wake_job or qat_pause_job failed\n");
                     break;
                 }
+#endif
             }
         }
     }
@@ -1226,6 +1387,9 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
             QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         }
         if (op_done.job != NULL) {
+#ifdef QAT_BORINGSSL
+            op_done.job->free_op_done(op_done_bssl);
+#endif
             qat_clear_async_event_notification(op_done.job);
         }
         qat_cleanup_op_done(&op_done);
@@ -1240,11 +1404,25 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                       &hw_polling_thread_sem);
                 QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+#ifdef QAT_BORINGSSL
+                if (op_done.job)
+                    op_done.job->free_op_done(op_done_bssl);
+#endif
                 goto err;
             }
         }
     }
 
+#ifdef QAT_BORINGSSL
+    if (op_done.job != NULL) {
+        qat_cleanup_op_done(&op_done);
+        if (ctx) {
+            BN_CTX_end(ctx);
+            BN_CTX_free(ctx);
+        }
+        return ret;
+    }
+#endif
     if (qat_get_sw_fallback_enabled()) {
         CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n", inst_num,
                        qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
@@ -1268,7 +1446,17 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+#ifdef QAT_BORINGSSL
+            /* Support inline polling in current scenario */
+            if(getEnableInlinePolling()) {
+                icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+                ECDSA_INLINE_POLLING_USLEEP();
+            } else {
+                sched_yield();
+            }
+#else
             sched_yield();
+#endif /* QAT_BORINGSSL */
         }
     }
     while (!op_done.flag ||
@@ -1305,6 +1493,13 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         ECDSA_SIG_free(ret);
         ret = NULL;
     }
+
+#ifdef QAT_BORINGSSL
+    if (ret_sig) {
+        QAT_CHK_QMFREE_FLATBUFF(*ret_sig);
+        OPENSSL_free(ret_sig);
+    }
+#endif /* QAT_BORINGSSL */
 
     if (pResultR) {
         QAT_CHK_QMFREE_FLATBUFF(*pResultR);
@@ -1513,7 +1708,11 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 
     opData->fieldType = qat_get_field_type(group);
 
+#ifdef QAT_BORINGSSL
+    if (!EC_GROUP_get_curve_GFp(group, p, a, b, ctx)) {
+#else
     if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+#endif /* QAT_BORINGSSL */
         WARN("Failure to get the curve\n");
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -1739,4 +1938,49 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     DEBUG("- Finished\n");
     return ret;
 }
+
+#ifdef QAT_BORINGSSL
+/* Referred to boringssl/crypto/ecdsa_extra/ecdsa_asn1.c
+ */
+int qat_ecdsa_sign_bssl(const uint8_t *digest, size_t digest_len, uint8_t *sig,
+                        unsigned int *sig_len, EC_KEY *eckey) {
+
+  int ret = 0;
+  DEBUG("Start qat_ecdsa_sign_bssl\n");
+  ASYNC_JOB* current_job = (ASYNC_JOB*)ASYNC_get_current_job();
+  ECDSA_SIG *s = qat_ecdsa_do_sign(digest, digest_len, NULL, NULL, eckey);
+
+  if (s == NULL) {
+    *sig_len = 0;
+    goto err;
+  }
+
+  if (current_job) {
+    *sig_len = 0;
+    ret = -1;
+    goto err;
+  }
+
+  CBB cbb;
+  CBB_zero(&cbb);
+  size_t len;
+  if (!CBB_init_fixed(&cbb, sig, ECDSA_size(eckey)) ||
+      !ECDSA_SIG_marshal(&cbb, s) ||
+      !CBB_finish(&cbb, NULL, &len)) {
+    OPENSSL_PUT_ERROR(ECDSA, ECDSA_R_ENCODE_ERROR);
+    CBB_cleanup(&cbb);
+    *sig_len = 0;
+    goto err;
+  }
+  *sig_len = (unsigned)len;
+  ret = 1;
+
+err:
+  if (current_job) {
+      current_job->tlv_destructor(NULL);
+  }
+  ECDSA_SIG_free(s);
+  return ret;
+}
+#endif /* QAT_BORINGSSL */
 #endif /* #ifdef ENABLE_QAT_HW_ECDSA */

@@ -209,6 +209,12 @@ void qat_crypto_callbackFn(void *callbackTag, CpaStatus status,
 
     opDone->flag = 1;
     if (job) {
+#ifdef QAT_BORINGSSL
+        /* TODO: Possible to move this as callback to qat_wake_job */
+        bssl_qat_before_wake_job(job, ASYNC_STATUS_OK, pOpData,
+                                 pDstBuffer->pBuffers, opDone);
+#endif /* QAT_BORINGSSL */
+
         qat_wake_job(job, ASYNC_STATUS_OK);
     }
 }

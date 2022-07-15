@@ -1,6 +1,10 @@
 ACLOCAL_AMFLAGS = -I m4
+AUTOMAKE_OPTIONS = subdir-objects
 
 lib_LTLIBRARIES = @LIBQATNAME@.la
+if QAT_BORINGSSL
+bin_PROGRAMS = qatengine_test
+endif
 
 if QAT_HW
 if QAT_HW_CONTIG_MEM
@@ -18,7 +22,8 @@ if QAT_HW_USDM
 endif
 endif
 
-QAT_COMMON_SRC = e_qat.c      \
+if !QAT_BORINGSSL
+ QAT_COMMON_SRC = e_qat.c     \
                  qat_fork.c   \
                  qat_events.c \
                  qat_utils.c  \
@@ -89,6 +94,28 @@ if QAT_SW_IPSEC
   QAT_SW_IPSEC_SRC = qat_sw_gcm.c       \
                      qat_sw_ipsec_inf.c
 endif
+endif
+
+if QAT_BORINGSSL
+ QAT_COMMON_SRC = e_qat.c      \
+                  qat_utils.c  \
+                  qat_fork.c   \
+                  qat_events.c \
+                  qat_evp.c    \
+                  qat_bssl.c
+
+QAT_ERR_SRC = e_qat_err.c
+
+if QAT_HW
+ QAT_HW_SRC = qat_hw_init.c        \
+              qat_hw_asym_common.c \
+              qat_hw_polling.c     \
+              qat_hw_callback.c    \
+              qat_hw_rsa.c         \
+              qat_hw_rsa_crt.c     \
+              qat_hw_ec.c
+endif
+endif
 
 @LIBQATNAME@_la_SOURCES = ${QAT_COMMON_SRC}   \
                           ${QAT_PROV_SRC}     \
@@ -103,6 +130,7 @@ AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)  \
 
 AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(cflags_mem_driver) $(cflags_openssl_3)                 \
+            $(cflags_boringssl)                                      \
             $(cflags_qat_engine_id) $(cflags_qat_hw_intree)          \
             $(cflags_qat_hw) $(cflags_qat_sw) $(cflags_qat_sw_ipsec) \
             $(cflags_qat_rsa) $(cflags_qat_ecx) $(cflags_qat_ecdsa)  \
@@ -125,10 +153,25 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
                           -shared $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB) \
                           $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)  \
                           $(QAT_SW_IPSEC_MB_LIB)
+if QAT_BORINGSSL
+override @LIBQATNAME@_la_LDFLAGS := $(subst -module, ,${@LIBQATNAME@_la_LDFLAGS}) $(QAT_BORINGSSL_LIB)
+override @LIBQATNAME@_la_LDFLAGS := $(subst -shared, ,${@LIBQATNAME@_la_LDFLAGS}) $(QAT_BORINGSSL_LIB)
+endif
+
+if QAT_BORINGSSL
+qatengine_test_LDFLAGS = $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB) \
+                        $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)  \
+                        $(QAT_SW_IPSEC_MB_LIB) $(QAT_BORINGSSL_LIB)
+qatengine_test_SOURCES = test_bssl/main.c test_bssl/test_bssl_rsa.c \
+                         test_bssl/test_bssl_ecdsa.c test_bssl/test_bssl_utils.c
+qatengine_test_LDADD = $(lib_LTLIBRARIES) -lpthread
+endif
 
 mostlyclean-generic:
-	-rm -f *.obj lib tags core .pure .nfs* \
-	*.old *.bak fluff *.so *.sl *.dll test/*.obj testapp
+	-rm -rf *.obj bin lib tags core .pure .nfs* \
+	*.old *.bak fluff *.so *.sl *.dll test/*.obj testapp \
+	test/.dirstamp test/*.o test_bssl/*obj test_bssl/.dirstamp \
+       test_bssl/*.o qatengine_test
 
 if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make

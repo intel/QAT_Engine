@@ -52,7 +52,7 @@
 
 #include <pthread.h>
 #include <openssl/rsa.h>
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined QAT_BORINGSSL
 #include <openssl/async.h>
 #endif
 #include <openssl/err.h>
@@ -130,11 +130,19 @@ static inline int qat_rsa_range_check(int plen)
 static void qat_rsaCallbackFn(void *pCallbackTag, CpaStatus status, void *pOpData,
                               CpaFlatBuffer * pOut)
 {
+#ifdef QAT_BORINGSSL
+    CpaBufferList pBuffer;
+    pBuffer.pBuffers = pOut;
+
+    qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
+                          &pBuffer, CPA_TRUE);
+#else
     if (enable_heuristic_polling) {
         QAT_ATOMIC_DEC(num_asym_requests_in_flight);
     }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
                           NULL, CPA_TRUE);
+#endif /* QAT_BORINGSSL */
 }
 
 static void
@@ -180,6 +188,9 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     int job_ret = 0;
     int sync_mode_ret = 0;
     thread_local_variables_t *tlv = NULL;
+#ifdef QAT_BORINGSSL
+    op_done_t *op_done_bssl = NULL;
+#endif
 
     DEBUG("- Started\n");
 
@@ -222,6 +233,10 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
         return sync_mode_ret;
     }
+#ifdef QAT_BORINGSSL
+    op_done_bssl = (op_done_t*)op_done.job->copy_op_done(&op_done,
+       sizeof(op_done), (void (*)(void *, void *))rsa_decrypt_op_buf_free);
+#endif
     /*
      * cpaCyRsaDecrypt() is the function called for RSA Sign in the API.
      * For that particular case the dec_op_data [IN] contains both the
@@ -240,12 +255,22 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             } else {
                 QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             }
+#ifdef QAT_BORINGSSL
+            op_done.job->free_op_done(op_done_bssl);
+#endif
             qat_clear_async_event_notification(op_done.job);
             qat_cleanup_op_done(&op_done);
             return 0;
         }
         DUMP_RSA_DECRYPT(qat_instance_handles[inst_num], &op_done, dec_op_data, output_buf);
-        sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn, &op_done,
+#ifdef QAT_BORINGSSL
+        sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn,
+                              op_done_bssl,
+                              dec_op_data, output_buf);
+        /* No need for wake up job or pause job here */
+#else
+        sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn,
+                              &op_done,
                               dec_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
             if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
@@ -254,6 +279,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 break;
             }
         }
+#endif /* QAT_BORINGSSL */
     }
     while (sts == CPA_STATUS_RETRY);
 
@@ -268,8 +294,12 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         } else {
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
         }
+#ifdef QAT_BORINGSSL
+        op_done.job->free_op_done(op_done_bssl);
+#endif
         qat_clear_async_event_notification(op_done.job);
         qat_cleanup_op_done(&op_done);
+
         return 0;
     }
 
@@ -281,10 +311,18 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                       &hw_polling_thread_sem);
                 QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
+#ifdef QAT_BORINGSSL
+                op_done.job->free_op_done(op_done_bssl);
+#endif
                 return 0;
             }
         }
     }
+
+#ifdef QAT_BORINGSSL
+    qat_cleanup_op_done(&op_done);
+    return -1; /* Async mode for BoringSSL */
+#endif /* QAT_BORINGSSL */
 
     if (qat_get_sw_fallback_enabled()) {
         CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
@@ -865,7 +903,7 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     int rsa_len = 0;
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
-    int sts = 1, fallback = 0;
+    int sts = 1, fallback = 0, dec_ret = 0;
 #ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
     unsigned char *ver_msg = NULL;
     const BIGNUM *n = NULL;
@@ -913,8 +951,20 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
         goto exit;
     }
 
-    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer, &fallback)) {
-        WARN("Failure in qat_rsa_decrypt  fallback = %d\n", fallback);
+    dec_ret = qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer, &fallback);
+    if (1 != dec_ret) {
+#ifdef QAT_BORINGSSL
+        if (-1 == dec_ret) {
+            DEBUG("Async job pause, waiting for wake up.\n");
+
+            /* For the Async mode when BoringSSL enabled, rsa_decrypt_op_buf_free is
+            * called at the end of callback function. */
+            return 1;
+        }
+        else
+#endif /* QAT_BORINGSSL */
+            WARN("Failure in qat_rsa_decrypt  fallback = %d\n", fallback);
+
         /* Errors are already raised within qat_rsa_decrypt. */
         sts = 0;
         goto exit;
@@ -970,6 +1020,7 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 exit:
     /* Free all the memory allocated in this function */
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
+
 #ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
 exit_lenstra:
 #endif
@@ -1010,7 +1061,7 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
 {
     int rsa_len = 0;
     int output_len = -1;
-    int sts = 1, fallback = 0;
+    int sts = 1, fallback = 0, dec_ret = 0;
     CpaCyRsaDecryptOpData *dec_op_data = NULL;
     CpaFlatBuffer *output_buffer = NULL;
 #ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
@@ -1055,8 +1106,23 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         goto exit;
     }
 
-    if (1 != qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer, &fallback)) {
-        WARN("Failure in qat_rsa_decrypt\n");
+    dec_ret = qat_rsa_decrypt(dec_op_data, rsa_len, output_buffer, &fallback);
+    if (1 != dec_ret) {
+#ifdef QAT_BORINGSSL
+        if (-1 == dec_ret) {
+            DEBUG("Async job pause, waiting for wake up.\n");
+
+            /* For the Async mode when BoringSSL enabled, rsa_decrypt_op_buf_free is
+            * called at the end of callback function.
+            * For private key decryption in BoringSSL, not add padding before return
+            * since RSA_NO_PADDING is passed to RSA_decrypt in ssl_private_key_decrypt.
+            */
+            return 1;
+        }
+        else
+#endif /* QAT_BORINGSSL */
+            WARN("Failure in qat_rsa_decrypt  fallback = %d\n", fallback);
+
         if (fallback == 0) {
             /* Most but not all error cases are also raised within qat_rsa_decrypt. */
             QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
@@ -1395,6 +1461,7 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     return 0;
 }
 
+#ifndef QAT_BORINGSSL
 /******************************************************************************
 * function:
 *         qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx)
@@ -1449,5 +1516,86 @@ qat_rsa_finish(RSA *rsa)
 {
     return RSA_meth_get_finish(RSA_PKCS1_OpenSSL())(rsa);
 }
+#else
+/* Referred to boringssl/crypto/fipsmodule/rsa/rsa_impl.c*/
+int qat_rsa_priv_sign(RSA *rsa, size_t *out_len, uint8_t *out, size_t max_out,
+                      const uint8_t *in, size_t in_len, int padding)
+{
+    int len = 0;
+    const unsigned rsa_size = RSA_size(rsa);
+    int __attribute__((unused)) _ret;
+
+    if (max_out < rsa_size) {
+        OPENSSL_PUT_ERROR(RSA, RSA_R_OUTPUT_BUFFER_TOO_SMALL);
+        return 0;
+    }
+
+    len = qat_rsa_priv_enc(in_len, in, out, rsa, padding);
+    if(0 >= len) {
+        _ret = ASYNC_current_job_last_check_and_get();
+        return 0;
+    }
+
+    if (1 == len) { /* async mode */
+        _ret = ASYNC_current_job_last_check_and_get();
+        len = 0;
+    }
+
+    *out_len = len;
+    return 1;
+}
+
+int qat_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
+                         size_t max_out, const uint8_t *in, size_t in_len,
+                         int padding)
+{
+    int len = 0;
+    const unsigned rsa_size = RSA_size(rsa);
+    int __attribute__((unused)) _ret;
+
+    if (max_out < rsa_size) {
+        OPENSSL_PUT_ERROR(RSA, RSA_R_OUTPUT_BUFFER_TOO_SMALL);
+        return 0;
+    }
+
+    if (in_len != rsa_size) {
+        OPENSSL_PUT_ERROR(RSA, RSA_R_DATA_LEN_NOT_EQUAL_TO_MOD_LEN);
+        return 0;
+    }
+
+    len = qat_rsa_priv_dec(in_len, in, out, rsa, padding);
+    if(0 >= len) {
+        _ret = ASYNC_current_job_last_check_and_get();
+        return 0;
+    }
+
+    if (1 == len) { /* async mode */
+        _ret = ASYNC_current_job_last_check_and_get();
+        len = 0;
+    }
+
+    *out_len = len;
+    return 1;
+}
+
+int RSA_private_encrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding)
+{
+    void *temp = (void *)(rsa->meth->sign_raw);
+    rsa->meth->sign_raw = NULL;
+    int ret = RSA_private_encrypt(flen, from, to, rsa, padding);
+    rsa->meth->sign_raw = temp;
+    return ret;
+}
+
+int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding)
+{
+    void *temp = (void *)(rsa->meth->decrypt);
+    rsa->meth->decrypt = NULL;
+    int ret = RSA_private_decrypt(flen, from, to, rsa, padding);
+    rsa->meth->decrypt = temp;
+    return ret;
+}
+
+#endif /* QAT_BORINGSSL */
 
 #endif /* #ifndef ENABLE_QAT_HW_RSA */

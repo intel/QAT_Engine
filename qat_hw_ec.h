@@ -49,9 +49,15 @@
 # include <openssl/ossl_typ.h>
 
 # ifdef ENABLE_QAT_HW_ECDSA
+#  ifndef QAT_BORINGSSL
 int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                    unsigned char *sig, unsigned int *siglen,
                    const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
+#  else
+int qat_ecdsa_sign_bssl(const uint8_t *digest, size_t digest_len, uint8_t *sig,
+                        unsigned int *sig_len, EC_KEY *eckey);
+#  endif /* QAT_BORINGSSL */
+
 ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dlen,
                              const BIGNUM *in_kinv, const BIGNUM *in_r,
                              EC_KEY *eckey);

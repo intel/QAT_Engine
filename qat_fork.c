@@ -110,6 +110,9 @@ void engine_init_child_at_fork_handler(void)
         QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_INIT_FAILURE);
     }
     ENGINE_free(e);
+#ifdef QAT_BORINGSSL
+    ENGINE_QAT_PTR_RESET();
+#endif /* QAT_BORINGSSL */
 # else
     QAT_PROV_CTX *ctx;
     OSSL_PROVIDER *prov;
@@ -144,6 +147,7 @@ void engine_finish_before_fork_handler(void)
 
     qat_engine_finish_int(e, QAT_RETAIN_GLOBALS);
     ENGINE_free(e);
+    ENGINE_QAT_PTR_RESET();
 
 #else
     QAT_PROV_CTX *ctx;

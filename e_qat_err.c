@@ -11,6 +11,10 @@
 #include <openssl/err.h>
 #include "e_qat_err.h"
 
+#ifdef QAT_BORINGSSL
+# define OPENSSL_NO_ERR
+#endif
+
 #ifndef OPENSSL_NO_ERR
 
 static ERR_STRING_DATA QAT_str_functs[] = {

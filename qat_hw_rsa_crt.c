@@ -473,6 +473,9 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     do {
         if(getEnableInlinePolling()) {
             icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+#ifdef QAT_BORINGSSL
+            RSA_INLINE_POLLING_USLEEP();
+#endif /* QAT_BORINGSSL */
         }
         else
             sched_yield();

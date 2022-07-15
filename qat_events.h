@@ -49,7 +49,7 @@
 # include <sys/types.h>
 # include <unistd.h>
 
-# if OPENSSL_VERSION_NUMBER >= 0x10100000L
+# if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined QAT_BORINGSSL
 # include <openssl/async.h>
 # endif
 

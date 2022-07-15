@@ -11,10 +11,16 @@
 #ifndef HEADER_QATERR_H
 # define HEADER_QATERR_H
 
+#ifndef QAT_BORINGSSL
 # include <openssl/symhacks.h>
 
 # define QATerr(f, r) ERR_QAT_error((f), (r), OPENSSL_FILE, OPENSSL_LINE)
 
+#else
+/* macros redefined to do noting */
+# define QATerr(f, r) ERR_QAT_error((f), (r), __FILE__, __LINE__)
+# define ERR_PUT_error(lib_code, function, reason, file, line) ERR_put_error(lib_code, function, reason, file, line)
+#endif
 
 # ifdef  __cplusplus
 extern "C" {

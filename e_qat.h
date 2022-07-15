@@ -53,6 +53,10 @@
 # include <semaphore.h>
 # include <sched.h>
 
+#ifdef QAT_BORINGSSL
+# include "qat_bssl.h"
+#endif /* QAT_BORINGSSL */
+
 # ifdef QAT_OPENSSL_3
 #  include "qat_prov_err.h"
 # else
@@ -494,6 +498,14 @@ extern mb_req_rates mb_sm3_final_req_rates;
 # define QAT_CMD_DISABLE_QAT_OFFLOAD (ENGINE_CMD_BASE + 19)
 # define QAT_CMD_HW_ALGO_BITMAP (ENGINE_CMD_BASE + 20)
 # define QAT_CMD_SW_ALGO_BITMAP (ENGINE_CMD_BASE + 21)
+
+#ifndef QAT_BORINGSSL
+#ifndef ENGINE_QAT_PTR_DEFINE
+# define ENGINE_QAT_PTR_RESET()
+# define ENGINE_QAT_PTR_SET(pt)
+# define ENGINE_QAT_PTR_GET()       NULL
+#endif
+#endif /* QAT_BORINGSSL */
 
 # ifdef QAT_HW
 /******************************************************************************

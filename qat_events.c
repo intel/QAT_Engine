@@ -183,6 +183,12 @@ int qat_clear_async_event_notification(volatile ASYNC_JOB *job)
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
 
+#ifdef QAT_BORINGSSL
+    if (ASYNC_current_job_last_check_and_get()) {
+        /* Do nothing */
+    }
+#endif /* QAT_BORINGSSL */
+
     if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {
         WARN("Could not obtain wait context for job\n");
         return 0;

@@ -378,6 +378,13 @@ algorithms and IPSec_mb library for AES-GCM).
 </details>
 
 <details>
+<summary>[For BoringSSL Support only] Build the Intel&reg; QuickAssist Technology BoringSSL* Library</summary>
+
+Please refer [BoringSSL section](docs/bssl_support.md) for steps to build the Intel® QuickAssist Technology BoringSSL* library which supports RSA and ECDSA QAT Hardware Acceleration using BoringSSL.
+
+</details>
+
+<details>
 <summary>Copy the Intel&reg; QuickAssist Technology Driver config file(s)</summary>
 
 ## Copy the Intel&reg; QuickAssist Technology Driver config files for qat_hw

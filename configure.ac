@@ -176,7 +176,7 @@ AC_SUBST(with_qat_hw_dir)
 # Other non mandatory parameters
 AC_ARG_WITH(openssl_install_dir,
               AS_HELP_STRING([--with-openssl_install_dir],
-                             [Path to where the OpenSSL libraries are installed to. The Engine will be installed to the lib/engines subdirectory of this path]))
+                             [Path to where the OpenSSL libraries are installed to. The Engine will be installed to the lib/engines subdirectory of this path. If you are using BoringSSL, please use the source code dir, because BoringSSL cannot be installed.]))
 AC_SUBST(with_openssl_install_dir)
 
 AC_ARG_WITH(openssl_dir,
@@ -280,26 +280,50 @@ AS_IF([test "$host_cpu" = "x86_64"], [AC_SUBST([openssl3_lib], "lib64")], [AC_SU
 # OpenSSL install dir or set system openssl install dir if not provided
 if test "x$with_openssl_install_dir" != "x"
 then
-  ac_default_prefix=$with_openssl_install_dir
-  if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
+  if test -f $with_openssl_install_dir/include/openssl/base.h
   then
-    if test "x$enable_qat_provider" = "xyes"
+    if test "`grep "define BORINGSSL_API_VERSION" $with_openssl_install_dir/include/openssl/base.h | wc -l`" = "1"
     then
-      AC_MSG_NOTICE([Build QAT Provider against OpenSSL 3.0])
-      libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/ossl-modules"
-      AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED -DQAT_OPENSSL_PROVIDER"])
-      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
-      AC_SUBST([LIBQATNAME], "qatprovider")
-    else
-      AC_MSG_NOTICE([Build QAT Engine against OpenSSL 3.0])
-      libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/engines-3"
-      AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
-      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
+      AC_MSG_NOTICE([Build QAT engine against BoringSSL])
+      AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL"])
+      if test ! -d "$with_openssl_install_dir/lib"
+      then
+        AC_MSG_ERROR([$with_openssl_install_dir/lib not exist])
+      else
+        if test "x`find $with_openssl_install_dir/lib -name '*.so' -o -name '*.a'`" == "x"
+        then
+          AC_MSG_ERROR([Not found any librares in $with_openssl_install_dir/lib])
+        fi
+      fi
+      AC_SUBST([QAT_BORINGSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -ldecrepit -lcrypto -lssl"])
+      AC_SUBST([LIBQATNAME], "libqatengine")
+      if test -d "$with_openssl_install_dir/crypto"
+      then
+        AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL -DBSSL_SOURCE"])
+      fi
     fi
   else
-    AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.1])
-    libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
-    AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
+    ac_default_prefix=$with_openssl_install_dir
+    if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
+    then
+      if test "x$enable_qat_provider" = "xyes"
+      then
+        AC_MSG_NOTICE([Build QAT Provider against OpenSSL 3.0])
+        libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/ossl-modules"
+        AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED -DQAT_OPENSSL_PROVIDER"])
+        AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
+        AC_SUBST([LIBQATNAME], "qatprovider")
+      else
+        AC_MSG_NOTICE([Build QAT Engine against OpenSSL 3.0])
+        libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/engines-3"
+        AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
+        AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
+      fi
+    else
+      AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.1])
+      libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
+      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
+    fi
   fi
   AC_SUBST([includes_openssl], ["-I\$(with_openssl_install_dir)/include"])
 else
@@ -328,6 +352,7 @@ else
 fi
 AM_CONDITIONAL([QAT_OPENSSL_3], [test "x$cflags_openssl_3" != "x"])
 AM_CONDITIONAL([QAT_PROVIDER], [test "x$enable_qat_provider" = "xyes"])
+AM_CONDITIONAL([QAT_BORINGSSL], [test "x$cflags_boringssl" != "x"])
 
 # If both QAT HW and QAT SW configured, then check the libraries from standard location and use accordingly.
 if test "x$cflags_qat_hw_intree" = "x"
@@ -401,6 +426,28 @@ then
   AC_MSG_NOTICE([Build with existing error files without regenerating from OpenSSL source])
 fi
 AM_CONDITIONAL([QAT_ERR_FILES_BUILD], [test "x$with_openssl_dir" != "x"])
+
+# Disabled unsupported algorithms with BoringSSl enabled
+if test "x$cflags_boringssl" != "x"
+then
+    # Disabled all HW methods that not supported
+    if test "x$cflags_qat_hw" != "x"
+    then
+        AC_SUBST([enable_qat_hw_ciphers], ["no"])
+        AC_SUBST([enable_qat_hw_ecdh], ["no"])
+        AC_SUBST([enable_qat_hw_dsa], ["no"])
+        AC_SUBST([enable_qat_hw_dh], ["no"])
+        AC_SUBST([enable_qat_hw_prf], ["no"])
+        AC_SUBST([enable_qat_hw_hkdf], ["no"])
+        AC_SUBST([enable_qat_hw_ecx], ["no"])
+        AC_SUBST([enable_qat_hw_gcm], ["no"])
+    fi
+    # Show error when both QAT SW enabled and BoringSSl enabled
+    if test "x$cflags_qat_sw" != "x"
+    then
+        AC_MSG_ERROR([Not supported for QAT SW acceleration with BoringSSl enabled])
+    fi
+fi
 
 # Checking the parameters given and parsing the relevant flags
 
@@ -522,8 +569,14 @@ then
   AC_MSG_NOTICE([Accelerating ECDSA P256 &P384 to Software (Multi-buffer)])
 else if test "x$enable_qat_hw_ecdsa" != "xno" -a "x$cflags_qat_hw" != "x"
 then
+  if test "x$cflags_boringssl" != "x" -a "x$enable_qat_hw_ecdsa" != "xyes"
+  then
+  AC_SUBST([cflags_qat_ecdsa], ["-DDISABLE_QAT_HW_ECDSA"])
+  AC_MSG_NOTICE([Not Accelerating ECDSA to QAT_HW])
+  else
   AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
   AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
+  fi
 fi
 fi
 fi
@@ -745,13 +798,13 @@ case "$host_os" in
 *linux*)
   if test "`cc --version | head -1 | awk '{print $3>=4.9}' 2>/dev/null`" = "1"
   then
-    AC_SUBST([cflags], ["-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong -fno-strict-overflow"])
+    AC_SUBST([cflags], ["-fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong -fno-strict-overflow"])
   else
-    AC_SUBST([cflags], ["-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector -fno-strict-overflow"])
+    AC_SUBST([cflags], ["-fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector -fno-strict-overflow"])
   fi
 ;;
 *freebsd*)
-    AC_SUBST([cflags], ["-shared -fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong"])
+    AC_SUBST([cflags], ["-fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong"])
 ;;
 *) ;;
 esac

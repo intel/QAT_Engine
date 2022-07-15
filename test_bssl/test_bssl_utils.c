@@ -1,10 +1,9 @@
-
 /* ====================================================================
  *
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2022 Intel Corporation.
+ *   Copyright(c) 2022 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -38,42 +37,73 @@
  */
 
 /*****************************************************************************
- * @file qat_hw_rsa.h
+ * @file test_bssl_utils.c
  *
- * This file provides an RSA interface for an OpenSSL engine
+ * This file provides a QAT Engine test functions.
  *
  *****************************************************************************/
 
-#ifndef QAT_HW_RSA_H
-# define QAT_HW_RSA_H
-
-# include <openssl/rsa.h>
-
-#ifdef ENABLE_QAT_HW_RSA
-/* Qat engine RSA methods declaration */
-int qat_rsa_priv_enc(int flen, const unsigned char *from,
-                            unsigned char *to, RSA *rsa, int padding);
-int qat_rsa_priv_dec(int flen, const unsigned char *from,
-                            unsigned char *to, RSA *rsa, int padding);
-int qat_rsa_pub_enc(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding);
-int qat_rsa_pub_dec(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding);
-#ifndef QAT_BORINGSSL
-int qat_rsa_mod_exp(BIGNUM *r0, const BIGNUM *I, RSA *rsa, BN_CTX *ctx);
-int qat_rsa_init(RSA *rsa);
-int qat_rsa_finish(RSA *rsa);
-#else /* QAT_BORINGSSL */
-int qat_rsa_priv_sign(RSA *rsa, size_t *out_len, uint8_t *out,
-                             size_t max_out, const uint8_t *in, size_t in_len,
-                             int padding);
-int qat_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
-                                size_t max_out, const uint8_t *in, size_t in_len,
-                                int padding);
-
-int RSA_private_encrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding);
-int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding);
-#endif /* QAT_BORINGSSL */
+/* macros defined to allow use of the cpu get and set affinity functions */
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
 #endif
 
-#endif /* QAT_HW_RSA_H */
+#ifndef __USE_GNU
+# define __USE_GNU
+#endif
+
+#ifndef QAT_DEBUG
+# define TEST_DEBUG
+#endif
+
+#include <stdio.h>
+
+#include "qat_utils.h"
+
+/* OpenSSL Includes */
+#include <openssl/base.h>
+#include <openssl/pem.h>
+#include <openssl/bio.h>
+
+void *qat_load_priv_key(const char *key_path)
+{
+    EVP_PKEY *pkey = NULL;
+    BIO *bp;
+
+    if (access(key_path, F_OK)) {
+        printf("-- File %s does not exist\n", key_path);
+        return NULL;
+    }
+
+    bp = BIO_new_file(key_path, "r");
+    if (!bp) {
+        printf("-- BIO new failed\n");
+        return NULL;
+    }
+
+    pkey = PEM_read_bio_PrivateKey(bp, NULL, 0, NULL);
+    if (!pkey) {
+        printf("-- Error in PEM_read_bio_PrivateKey\n");
+        return NULL;
+    }
+
+    return pkey;
+}
+
+void qat_hex_dump2(const unsigned char p[], int l)
+{
+    int i;
+
+    if (NULL != p && l > 0) {
+        for (i = 0; i < l; i++) {
+            if (i > 0 && i % 16 == 0)
+                puts("");
+            else if (i > 0 &&  i % 8 == 0) {
+                putc('-', stdout);
+                putc(' ', stdout);
+            }
+            printf("%02x ", p[i]);
+        }
+    }
+    puts("");
+}

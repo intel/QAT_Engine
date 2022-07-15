@@ -84,12 +84,16 @@
 #include "qat_utils.h"
 
 #ifdef QAT_HW
+#ifndef QAT_BORINGSSL
 # include "qat_hw_ciphers.h"
+#endif /* QAT_BORINGSSL */
 # include "qat_hw_polling.h"
 # include "qat_hw_rsa.h"
+#ifndef QAT_BORINGSSL
 # include "qat_hw_dsa.h"
 # include "qat_hw_dh.h"
 # include "qat_hw_gcm.h"
+#endif /* QAT_BORINGSSL */
 
 /* QAT includes */
 # include "cpa.h"
@@ -114,7 +118,7 @@
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined QAT_BORINGSSL
 # include <openssl/async.h>
 #endif
 #include <openssl/objects.h>
@@ -252,6 +256,7 @@ static int bind_qat(ENGINE *e, const char *id);
    Use this flag to distinguish it from the other cases. */
 int qat_reload_algo = 0;
 
+#ifndef QAT_BORINGSSL
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
         QAT_CMD_ENABLE_EXTERNAL_POLLING,
@@ -384,6 +389,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
 
     {0, NULL, NULL, 0}
 };
+#endif /* QAT_BORINGSSL */
 
 /******************************************************************************
 * function:
@@ -400,18 +406,24 @@ static int qat_engine_destroy(ENGINE *e)
 {
     DEBUG("---- Destroying Engine...\n\n");
 #ifdef QAT_HW
+#ifndef QAT_BORINGSSL
     qat_free_DH_methods();
     qat_free_DSA_methods();
+#endif /* QAT_BORINGSSL */
 #endif
 
 #if defined(QAT_SW) || defined(QAT_HW)
     qat_free_EC_methods();
     qat_free_RSA_methods();
+#ifndef QAT_BORINGSSL
     qat_free_digest_meth();
+#endif /* QAT_BORINGSSL */
 #endif
 
 #if defined(QAT_SW_IPSEC) || defined(QAT_HW)
+#ifndef QAT_BORINGSSL
     qat_free_ciphers();
+#endif
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -690,6 +702,8 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         break;
 # endif
 
+/* qatPerformOpRetries and qat_pkt_threshold_table_set_threshold undefined */
+#ifndef QAT_BORINGSSL
         case QAT_CMD_SET_INSTANCE_FOR_THREAD:
         BREAK_IF(!engine_inited, \
                 "SET_INSTANCE_FOR_THREAD failed as the engine is not initialized\n");
@@ -711,6 +725,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         DEBUG("Set max retry counter = %ld\n", i);
         qat_max_retry_count = (int)i;
         break;
+#endif
 
         case QAT_CMD_SET_INTERNAL_POLL_INTERVAL:
         BREAK_IF(i < 1 || i > 1000000,
@@ -718,6 +733,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         DEBUG("Set internal poll interval = %ld ns\n", i);
         qat_poll_interval = (useconds_t) i;
         break;
+#ifndef QAT_BORINGSSL
         case QAT_CMD_SET_EPOLL_TIMEOUT:
         BREAK_IF(i < 1 || i > 10000,
                 "The epoll timeout value is out of range, using default value\n")
@@ -764,6 +780,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         retVal = 0;
 # endif
         break;
+#endif /* QAT_BORINGSSL */
 #endif
 
         case QAT_CMD_ENABLE_HEURISTIC_POLLING:
@@ -1020,14 +1037,17 @@ static int bind_qat(ENGINE *e, const char *id)
      }
 # endif
 
+#ifndef QAT_BORINGSSL
     qat_create_digest_meth();
     if (!ENGINE_set_digests(e, qat_digest_methods)) {
         WARN("ENGINE_set_digests failed\n");
         goto end;
     }
+#endif /* QAT_BORINGSSL */
 
 #endif
 
+#ifndef QAT_BORINGSSL
 #ifdef QAT_SW_IPSEC
     if (hw_support()) {
 # ifdef ENABLE_QAT_SW_GCM
@@ -1052,6 +1072,10 @@ static int bind_qat(ENGINE *e, const char *id)
 
     pthread_atfork(engine_finish_before_fork_handler, NULL,
                    engine_init_child_at_fork_handler);
+#else
+    /* Set handler to ENGINE_unload_qat and ENGINE_load_qat */
+    pthread_atfork(ENGINE_unload_qat, NULL, ENGINE_load_qat);
+#endif /* QAT_BORINGSSL */
 
     ret = 1;
     ret &= ENGINE_set_destroy_function(e, qat_engine_destroy);
@@ -1103,7 +1127,16 @@ static ENGINE *engine_qat(void)
     ENGINE *ret = NULL;
     DEBUG("- Starting\n");
 
+    /* For boringssl enabled, no API like ENGINE_add to add a new engine to
+     * engine list, so just return existing gobal engine pointer
+     */
+    if (ENGINE_QAT_PTR_GET()) {
+        return ENGINE_QAT_PTR_GET();
+    }
+
     ret = ENGINE_new();
+    /* qat_engine_ptr points the new engine */
+    ENGINE_QAT_PTR_SET(ret);
 
     if (!ret) {
         fprintf(stderr, "Failed to create Engine\n");
@@ -1114,6 +1147,7 @@ static ENGINE *engine_qat(void)
     if (!bind_qat(ret, engine_qat_id)) {
         fprintf(stderr, "Qat Engine bind failed\n");
         ENGINE_free(ret);
+        ENGINE_QAT_PTR_RESET();
         return NULL;
     }
 
@@ -1138,9 +1172,30 @@ void ENGINE_load_qat(void)
     }
 
     DEBUG("adding engine\n");
+    /* For boringssl enabled, no API like ENGINE_add to add a new engine to
+     * engine list, so here ENGINE_add was redefined to do nothing. And also
+     * not free the engine using ENGINE_free
+     */
     ENGINE_add(toadd);
+#ifndef QAT_BORINGSSL
     ENGINE_free(toadd);
+#endif /* QAT_BORINGSSL */
     ERR_clear_error();
 }
 
+#ifdef QAT_BORINGSSL
+void ENGINE_unload_qat(void)
+{
+    ENGINE *todel;
+    DEBUG("- Stopping\n");
+
+    todel = ENGINE_QAT_PTR_GET();
+    if (todel != NULL) {
+        qat_engine_destroy(todel);
+        qat_engine_finish(todel);
+        ENGINE_free(todel);
+        ENGINE_QAT_PTR_RESET();
+    }
+}
+#endif /* QAT_BORINGSSL */
 #endif

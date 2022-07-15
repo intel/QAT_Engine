@@ -36,10 +36,13 @@ qat_contig_mem_test
 *.lib
 *.la
 testapp
+qatengine_test
 
 # Autotools generated files
 test/.deps
+test_bssl/.deps
 test/.dirstamp
+test_bssl/.dirstamp
 /.deps
 /.libs
 /m4

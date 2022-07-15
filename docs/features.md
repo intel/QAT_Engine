@@ -42,3 +42,5 @@
 
 Note: RSA Padding schemes are handled by OpenSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL does natively.
+
+## [BoringSSL Support](bssl_support.md)

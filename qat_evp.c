@@ -50,7 +50,9 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include "openssl/ossl_typ.h"
+#ifndef QAT_BORINGSSL
 #include "openssl/kdf.h"
+#endif
 #include "openssl/evp.h"
 
 #include "e_qat.h"
@@ -59,11 +61,15 @@
 
 #ifdef QAT_HW
 # include "qat_hw_rsa.h"
+#  ifndef QAT_BORINGSSL
 # include "qat_hw_ciphers.h"
+#  endif /* QAT_BORINGSSL */
 # include "qat_hw_ec.h"
+#  ifndef QAT_BORINGSSL
 # include "qat_hw_gcm.h"
 # include "qat_hw_sha3.h"
 # include "qat_hw_chachapoly.h"
+# endif /* QAT_BORINGSSL */
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -72,10 +78,12 @@
 
 #ifdef QAT_SW
 # include "qat_sw_rsa.h"
+#  ifndef QAT_BORINGSSL
 # include "qat_sw_ecx.h"
 # include "qat_sw_ec.h"
 # include "qat_sw_sm3.h"
 # include "crypto_mb/cpu_features.h"
+# endif /* QAT_BORINGSSL */
 #endif
 
 #ifdef QAT_HW_INTREE
@@ -83,6 +91,7 @@
 # define ENABLE_QAT_HW_CHACHAPOLY
 #endif
 
+#  ifndef QAT_BORINGSSL
 typedef struct _chained_info {
     const int nid;
     EVP_CIPHER *cipher;
@@ -210,9 +219,11 @@ static int pkt_threshold_table_size =
     (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
 # endif
 #endif
+#endif /* QAT_BORINGSSL */
 
 static EC_KEY_METHOD *qat_ec_method = NULL;
 static RSA_METHOD *qat_rsa_method = NULL;
+#ifndef QAT_BORINGSSL
 
 static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
@@ -806,21 +817,28 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
     *cipher = NULL;
     return 0;
 }
+#endif
 
 EC_KEY_METHOD *qat_get_EC_methods(void)
 {
     if (qat_ec_method != NULL && !qat_reload_algo)
         return qat_ec_method;
 
+#ifndef QAT_BORINGSSL
     EC_KEY_METHOD *def_ec_meth = (EC_KEY_METHOD *)EC_KEY_get_default_method();
+#endif /* QAT_BORINGSSL */
 
     PFUNC_SIGN sign_pfunc = NULL;
+#if !(defined(QAT_BORINGSSL) && defined(ENABLE_QAT_HW_ECDSA))
     PFUNC_SIGN_SETUP sign_setup_pfunc = NULL;
+#endif /* QAT_BORINGSSL */
     PFUNC_SIGN_SIG sign_sig_pfunc = NULL;
     PFUNC_VERIFY verify_pfunc = NULL;
     PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
+#ifndef QAT_BORINGSSL
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
+#endif /* QAT_BORINGSSL */
 
     qat_free_EC_methods();
     if ((qat_ec_method = EC_KEY_METHOD_new(qat_ec_method)) == NULL) {
@@ -832,7 +850,11 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
 #ifdef ENABLE_QAT_HW_ECDSA
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA)) {
         EC_KEY_METHOD_set_sign(qat_ec_method,
+#ifndef QAT_BORINGSSL
                                qat_ecdsa_sign,
+#else
+                               qat_ecdsa_sign_bssl,
+#endif /* QAT_BORINGSSL */
                                NULL,
                                qat_ecdsa_do_sign);
         EC_KEY_METHOD_set_verify(qat_ec_method,
@@ -846,6 +868,7 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     }
 #endif
 
+#ifndef QAT_BORINGSSL
 #ifdef ENABLE_QAT_SW_ECDSA
     if (qat_sw_offload && !qat_hw_ecdsa_offload &&
        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA) &&
@@ -871,6 +894,7 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         DEBUG("QAT SW ECDSA is disabled\n");
     }
 #endif
+#endif /* QAT_BORINGSSL */
 
     if ((qat_hw_ecdsa_offload == 0) && (qat_sw_ecdsa_offload == 0)) {
         EC_KEY_METHOD_get_sign(def_ec_meth,
@@ -890,6 +914,7 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         DEBUG("QAT_HW and QAT_SW ECDSA not supported! Using OpenSSL SW method\n");
     }
 
+#ifndef QAT_BORINGSSL
 #ifdef ENABLE_QAT_HW_ECDH
     if (qat_hw_offload&& (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECDH)) {
         EC_KEY_METHOD_set_keygen(qat_ec_method, qat_ecdh_generate_key);
@@ -926,6 +951,7 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
          EC_KEY_METHOD_set_compute_key(qat_ec_method, comp_key_pfunc);
          DEBUG("QAT_HW and QAT_SW ECDH not supported! Using OpenSSL SW method\n");
     }
+#endif /* QAT_BORINGSSL */
 
     return qat_ec_method;
 }
@@ -961,6 +987,10 @@ RSA_METHOD *qat_get_RSA_methods(void)
 
 #ifdef ENABLE_QAT_HW_RSA
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_RSA)) {
+#ifdef QAT_BORINGSSL
+        res &= RSA_meth_set_priv_bssl(qat_rsa_method, qat_rsa_priv_sign,
+                                  qat_rsa_priv_decrypt);
+#endif //QAT_BORINGSSL
         res &= RSA_meth_set_pub_enc(qat_rsa_method, qat_rsa_pub_enc);
         res &= RSA_meth_set_pub_dec(qat_rsa_method, qat_rsa_pub_dec);
         res &= RSA_meth_set_priv_enc(qat_rsa_method, qat_rsa_priv_enc);
@@ -1033,6 +1063,7 @@ void qat_free_RSA_methods(void)
 
 #ifdef QAT_HW
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef QAT_BORINGSSL
 /******************************************************************************
 * function:
 *         qat_pkt_threshold_table_set_threshold(const char *cn, int threshold)
@@ -1090,5 +1121,6 @@ int qat_pkt_threshold_table_get_threshold(int nid)
     WARN("nid %d not found in threshold table", nid);
     return 0;
 }
+#endif /* QAT_BORINGSSL */
 # endif
 #endif

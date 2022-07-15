@@ -63,6 +63,13 @@ typedef int (*PFUNC_COMP_KEY)(unsigned char **,
 
 typedef int (*PFUNC_GEN_KEY)(EC_KEY *);
 
+#ifdef QAT_BORINGSSL
+typedef int (*PFUNC_SIGN)(const uint8_t *,
+                        size_t,
+                        uint8_t *,
+                        unsigned int *,
+                        EC_KEY *);
+#else /* QAT_BORINGSSL */
 typedef int (*PFUNC_SIGN)(int,
                           const unsigned char *,
                           int,
@@ -71,6 +78,7 @@ typedef int (*PFUNC_SIGN)(int,
                           const BIGNUM *,
                           const BIGNUM *,
                           EC_KEY *);
+#endif /* QAT_BORINGSSL */
 
 typedef int (*PFUNC_SIGN_SETUP)(EC_KEY *,
                                 BN_CTX *,
@@ -94,6 +102,7 @@ typedef int (*PFUNC_VERIFY_SIG)(const unsigned char *,
                                 int,
                                 const ECDSA_SIG *,
                                 EC_KEY *eckey);
+#ifndef QAT_BORINGSSL
 extern const EVP_PKEY_METHOD *sw_x25519_pmeth;
 extern const EVP_PKEY_METHOD *sw_x448_pmeth;
 
@@ -115,6 +124,7 @@ int qat_sw_sm3_init(EVP_MD_CTX *ctx);
 int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len);
 int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md);
 # endif
+
 
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
@@ -138,6 +148,7 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen);
 int qat_pkt_threshold_table_set_threshold(const char *cn , int threshold);
 int qat_pkt_threshold_table_get_threshold(int nid);
 # endif
+#endif /* QAT_BORINGSSL */
 
 EC_KEY_METHOD *qat_get_EC_methods(void);
 void qat_free_EC_methods(void);
