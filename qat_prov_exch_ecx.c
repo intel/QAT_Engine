@@ -244,12 +244,22 @@ static void qat_ecx_freectx(void *vecxctx)
     OPENSSL_free(ecxctx);
 }
 
+static void *qat_ecx_dupctx(void *vecxctx)
+{
+    typedef void * (*fun_ptr)(void *vecxctx);
+    fun_ptr fun = get_default_x25519_keyexch().dupctx;
+    if (!fun)
+        return NULL;
+    return fun(vecxctx);
+}
+
 const OSSL_DISPATCH qat_X25519_keyexch_functions[] = {
     { OSSL_FUNC_KEYEXCH_NEWCTX, (void (*)(void))qat_x25519_newctx },
     { OSSL_FUNC_KEYEXCH_INIT, (void (*)(void))qat_ecx_init },
     { OSSL_FUNC_KEYEXCH_DERIVE, (void (*)(void))qat_ecx_derive25519 },
     { OSSL_FUNC_KEYEXCH_SET_PEER, (void (*)(void))qat_ecx_set_peer },
     { OSSL_FUNC_KEYEXCH_FREECTX, (void (*)(void))qat_ecx_freectx },
+    { OSSL_FUNC_KEYEXCH_DUPCTX, (void (*)(void))qat_ecx_dupctx },
     { 0, NULL }
 };
 

@@ -177,13 +177,14 @@ static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
                                                             ctx->pctx);
     const EVP_MD *md;
 
+    if (!qat_prov_is_running() || !qat_tls_prf_set_ctx_params(ctx, params))
+        return 0;
+
     md = qat_prov_digest_md(&ctx->digest);
     if (md == NULL) {
         ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
         return 0;
     }
-    if (!qat_prov_is_running() || !qat_tls_prf_set_ctx_params(ctx, params))
-        return 0;
 
     if (ctx->P_hash == NULL) {
         ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);

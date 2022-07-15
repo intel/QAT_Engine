@@ -62,7 +62,8 @@
 # include "cpa_types.h"
 # include "cpa_cy_sym.h"
 # include "cpa_cy_drbg.h"
-#else
+#endif
+# ifdef ENABLE_QAT_SW_GCM
 # include <intel-ipsec-mb.h>
 #endif
 
@@ -226,7 +227,8 @@ typedef struct qat_gcm_ctx_st {
 
     /* Flag to keep track of key passed */
     int key_set;
-#else
+#endif
+#ifdef ENABLE_QAT_SW_GCM
     struct gcm_key_data     key_data;
     struct gcm_context_data gcm_ctx;
     int init_flags;

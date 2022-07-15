@@ -160,6 +160,126 @@ static const OSSL_PARAM *qat_keymgmt_rsa_import_types(int selection)
     return fun(selection);
 }
 
+static void *qat_keymgmt_rsa_gen_init(void *provctx, int selection,
+                          const OSSL_PARAM params[])
+{
+    typedef void * (*fun_ptr)(void *, int, const OSSL_PARAM *);
+    fun_ptr fun = get_default_keymgmt().gen_init;
+    if (!fun)
+        return NULL;
+    return fun(provctx, selection, params);
+}
+
+static int qat_keymgmt_rsa_gen_set_params(void *genctx, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *, const OSSL_PARAM *);
+    fun_ptr fun = get_default_keymgmt().gen_set_params;
+    if (!fun)
+        return 0;
+    return fun(genctx, params);
+}
+
+static const OSSL_PARAM *qat_keymgmt_rsa_gen_settable_params(ossl_unused void *genctx,
+                                                 ossl_unused void *provctx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(void *, void *);
+    fun_ptr fun = get_default_keymgmt().gen_settable_params;
+    if (!fun)
+        return NULL;
+    return fun(genctx, provctx);
+}
+
+static void *qat_keymgmt_rsa_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
+{
+    typedef void * (*fun_ptr)(void *, OSSL_CALLBACK *, void *);
+    fun_ptr fun = get_default_keymgmt().gen;
+    if (!fun)
+        return NULL;
+    return fun(genctx, osslcb, cbarg);
+}
+
+static void qat_keymgmt_rsa_gen_cleanup(void *genctx)
+{
+    typedef void (*fun_ptr)(void *);
+    fun_ptr fun = get_default_keymgmt().gen_cleanup;
+    if (!fun)
+        return;
+    fun(genctx);
+}
+
+static void *qat_keymgmt_rsa_load(const void *reference, size_t reference_sz)
+{
+    typedef void * (*fun_ptr)(const void *, size_t);
+    fun_ptr fun = get_default_keymgmt().load;
+    if (!fun)
+        return NULL;
+    return fun(reference, reference_sz);
+}
+
+static int qat_keymgmt_rsa_get_params(void *key, OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *, OSSL_PARAM *);
+    fun_ptr fun = get_default_keymgmt().get_params;
+    if (!fun)
+        return 0;
+    return fun(key, params);
+}
+
+static const OSSL_PARAM *qat_keymgmt_rsa_gettable_params(void *provctx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(void *);
+    fun_ptr fun = get_default_keymgmt().gettable_params;
+    if (!fun)
+        return NULL;
+    return fun(provctx);
+}
+
+static int qat_keymgmt_rsa_match(const void *keydata1, const void *keydata2, int selection)
+{
+    typedef int (*fun_ptr)(const void *, const void *, int);
+    fun_ptr fun = get_default_keymgmt().match;
+    if (!fun)
+        return 0;
+    return fun(keydata1, keydata2, selection);
+}
+
+static int qat_keymgmt_rsa_validate(const void *keydata, int selection, int checktype)
+{
+    typedef int (*fun_ptr)(const void *, int, int);
+    fun_ptr fun = get_default_keymgmt().validate;
+    if (!fun)
+        return 0;
+    return fun(keydata, selection, checktype);
+}
+
+static int qat_keymgmt_rsa_export(void *keydata, int selection,
+                      OSSL_CALLBACK *param_callback, void *cbarg)
+{
+    typedef int (*fun_ptr)(void *, int, OSSL_CALLBACK *, void *);
+    fun_ptr fun = get_default_keymgmt().export;
+    if (!fun)
+        return 0;
+    return fun(keydata, selection, param_callback, cbarg);
+}
+
+static const OSSL_PARAM *qat_keymgmt_rsa_export_types(int selection)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(int);
+    fun_ptr fun = get_default_keymgmt().export_types;
+    if (!fun)
+        return NULL;
+    return fun(selection);
+}
+
+static void *qat_keymgmt_rsa_dup(const void *keydata_from, int selection)
+{
+    typedef void * (*fun_ptr)(const void *, int);
+    fun_ptr fun = get_default_keymgmt().dup;
+    if (!fun)
+        return NULL;
+    return fun(keydata_from, selection);
+}
+
 
 const OSSL_DISPATCH qat_rsa_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))qat_keymgmt_rsa_newdata},
@@ -167,7 +287,21 @@ const OSSL_DISPATCH qat_rsa_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_HAS, (void (*)(void))qat_keymgmt_rsa_has},
     {OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_keymgmt_rsa_import},
     {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_keymgmt_rsa_import_types},
+    { OSSL_FUNC_KEYMGMT_GEN_INIT, (void (*)(void))qat_keymgmt_rsa_gen_init },
+    { OSSL_FUNC_KEYMGMT_GEN_SET_PARAMS,
+      (void (*)(void))qat_keymgmt_rsa_gen_set_params },
+    { OSSL_FUNC_KEYMGMT_GEN_SETTABLE_PARAMS,
+      (void (*)(void))qat_keymgmt_rsa_gen_settable_params },
+    { OSSL_FUNC_KEYMGMT_GEN, (void (*)(void))qat_keymgmt_rsa_gen },
+    { OSSL_FUNC_KEYMGMT_GEN_CLEANUP, (void (*)(void))qat_keymgmt_rsa_gen_cleanup },
+    { OSSL_FUNC_KEYMGMT_LOAD, (void (*)(void))qat_keymgmt_rsa_load },
+    { OSSL_FUNC_KEYMGMT_GET_PARAMS, (void (*) (void))qat_keymgmt_rsa_get_params },
+    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))qat_keymgmt_rsa_gettable_params },
+    { OSSL_FUNC_KEYMGMT_MATCH, (void (*)(void))qat_keymgmt_rsa_match },
+    { OSSL_FUNC_KEYMGMT_VALIDATE, (void (*)(void))qat_keymgmt_rsa_validate },
+    { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_keymgmt_rsa_export },
+    { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_keymgmt_rsa_export_types },
+    { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_keymgmt_rsa_dup },
     {0, NULL}
 };
-
 

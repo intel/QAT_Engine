@@ -184,8 +184,12 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
     qctx->session_data->cipherSetupData.cipherKeyLenInBytes = (Cpa32U)EVP_CIPHER_CTX_key_length(ctx);
 #endif
 
-    if (qctx->key_set)
+    if (qctx->key_set){
         qctx->session_data->cipherSetupData.pCipherKey = (Cpa8U *)qctx->cipher_key;
+#ifdef QAT_OPENSSL_PROVIDER
+        qctx->session_data->cipherSetupData.cipherKeyLenInBytes = (Cpa32U)qctx->keylen;
+#endif
+    }
 
     /* Operation to perform */
     if (enc) {

@@ -30,26 +30,28 @@ if !QAT_BORINGSSL
                  qat_evp.c
 
 if QAT_PROVIDER
- QAT_PROV_SRC = qat_prov_init.c      \
-                qat_prov_kmgmt_rsa.c \
-                qat_prov_sign_rsa.c  \
-                qat_prov_rsa.c       \
-                qat_prov_kmgmt_ecx.c \
-                qat_prov_exch_ecx.c  \
-                qat_prov_hw_ecx.c    \
-                qat_prov_sw_ecx.c    \
-                qat_prov_ciphers.c   \
-                qat_prov_kmgmt_ec.c  \
-                qat_prov_ecdsa.c     \
-                qat_prov_ecdh.c      \
-                qat_prov_dsa.c        \
-                qat_prov_kmgmt_dsa.c  \
-                qat_prov_dh.c         \
-                qat_prov_kmgmt_dh.c   \
-                qat_prov_hkdf.c       \
-                qat_prov_prf.c        \
-                qat_prov_cbc.c        \
-                qat_prov_sha3.c
+ QAT_PROV_SRC = qat_prov_init.c           \
+                qat_prov_kmgmt_rsa.c      \
+                qat_prov_sign_rsa.c       \
+                qat_prov_rsa.c            \
+                qat_prov_kmgmt_ecx.c      \
+                qat_prov_exch_ecx.c       \
+                qat_prov_hw_ecx.c         \
+                qat_prov_sw_ecx.c         \
+                qat_prov_ciphers.c        \
+                qat_prov_kmgmt_ec.c       \
+                qat_prov_ecdsa.c          \
+                qat_prov_ecdh.c           \
+                qat_prov_dsa.c            \
+                qat_prov_kmgmt_dsa.c      \
+                qat_prov_dh.c             \
+                qat_prov_kmgmt_dh.c       \
+                qat_prov_hkdf.c           \
+                qat_prov_prf.c            \
+                qat_prov_cbc.c            \
+                qat_prov_sha3.c           \
+                qat_prov_bio.c            \
+                qat_prov_capabilities.c
 
 endif
 

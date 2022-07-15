@@ -61,6 +61,60 @@ static OSSL_FUNC_signature_freectx_fn qat_dsa_freectx;
 static OSSL_FUNC_signature_set_ctx_params_fn qat_dsa_set_ctx_params;
 static OSSL_FUNC_signature_settable_ctx_params_fn qat_dsa_settable_ctx_params;
 
+typedef int CRYPTO_REF_COUNT;
+
+struct evp_signature_st {
+    int name_id;
+    char *type_name;
+    const char *description;
+    OSSL_PROVIDER *prov;
+    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_RWLOCK *lock;
+
+    OSSL_FUNC_signature_newctx_fn *newctx;
+    OSSL_FUNC_signature_sign_init_fn *sign_init;
+    OSSL_FUNC_signature_sign_fn *sign;
+    OSSL_FUNC_signature_verify_init_fn *verify_init;
+    OSSL_FUNC_signature_verify_fn *verify;
+    OSSL_FUNC_signature_verify_recover_init_fn *verify_recover_init;
+    OSSL_FUNC_signature_verify_recover_fn *verify_recover;
+    OSSL_FUNC_signature_digest_sign_init_fn *digest_sign_init;
+    OSSL_FUNC_signature_digest_sign_update_fn *digest_sign_update;
+    OSSL_FUNC_signature_digest_sign_final_fn *digest_sign_final;
+    OSSL_FUNC_signature_digest_sign_fn *digest_sign;
+    OSSL_FUNC_signature_digest_verify_init_fn *digest_verify_init;
+    OSSL_FUNC_signature_digest_verify_update_fn *digest_verify_update;
+    OSSL_FUNC_signature_digest_verify_final_fn *digest_verify_final;
+    OSSL_FUNC_signature_digest_verify_fn *digest_verify;
+    OSSL_FUNC_signature_freectx_fn *freectx;
+    OSSL_FUNC_signature_dupctx_fn *dupctx;
+    OSSL_FUNC_signature_get_ctx_params_fn *get_ctx_params;
+    OSSL_FUNC_signature_gettable_ctx_params_fn *gettable_ctx_params;
+    OSSL_FUNC_signature_set_ctx_params_fn *set_ctx_params;
+    OSSL_FUNC_signature_settable_ctx_params_fn *settable_ctx_params;
+    OSSL_FUNC_signature_get_ctx_md_params_fn *get_ctx_md_params;
+    OSSL_FUNC_signature_gettable_ctx_md_params_fn *gettable_ctx_md_params;
+    OSSL_FUNC_signature_set_ctx_md_params_fn *set_ctx_md_params;
+    OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
+} /* EVP_SIGNATURE */;
+
+static EVP_SIGNATURE get_default_dsa_signature()
+{
+    static EVP_SIGNATURE s_signature;
+    static int initialized = 0;
+    if (!initialized) {
+        EVP_SIGNATURE *signature = (EVP_SIGNATURE *)EVP_SIGNATURE_fetch(NULL, "DSA", "provider=default");
+        if (signature) {
+            s_signature = *signature;
+            EVP_SIGNATURE_free((EVP_SIGNATURE *)signature);
+            initialized = 1;
+        } else {
+            WARN("EVP_SIGNATURE_fetch from default provider failed");
+        }
+    }
+    return s_signature;
+}
+
 static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
 {
     *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
@@ -522,6 +576,164 @@ static const OSSL_PARAM *qat_dsa_settable_ctx_params(void *vpdsactx,
     return settable_ctx_params;
 }
 
+static int qat_dsa_digest_sign_init(void *vpdsactx, const char *mdname,
+                                    void *vdsa, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *vpdsactx, const char *mdname,
+                                          void *vdsa, const OSSL_PARAM params[]);
+    fun_ptr fun = get_default_dsa_signature().digest_sign_init;
+    if (!fun)
+        return 0;
+    return fun(vpdsactx, mdname, vdsa, params);
+}
+
+int qat_dsa_digest_signverify_update(void *vpdsactx, const unsigned char *data,
+                                 size_t datalen)
+{
+    QAT_PROV_DSA_CTX *pdsactx = (QAT_PROV_DSA_CTX *)vpdsactx;
+
+    if (pdsactx == NULL || pdsactx->mdctx == NULL)
+        return 0;
+
+    return EVP_DigestUpdate(pdsactx->mdctx, data, datalen);
+}
+
+
+int qat_dsa_digest_sign_final(void *vpdsactx, unsigned char *sig, size_t *siglen,
+                              size_t sigsize)
+{
+    QAT_PROV_DSA_CTX *pdsactx = (QAT_PROV_DSA_CTX *)vpdsactx;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int dlen = 0;
+
+    if (!qat_prov_is_running() || pdsactx == NULL || pdsactx->mdctx == NULL)
+        return 0;
+
+    /*
+     * If sig is NULL then we're just finding out the sig size. Other fields
+     * are ignored. Defer to dsa_sign.
+     */
+    if (sig != NULL) {
+        /*
+         * There is the possibility that some externally provided
+         * digests exceed EVP_MAX_MD_SIZE. We should probably handle that somehow -
+         * but that problem is much larger than just in DSA.
+         */
+        if (!EVP_DigestFinal_ex(pdsactx->mdctx, digest, &dlen))
+            return 0;
+    }
+
+    pdsactx->flag_allow_md = 1;
+
+    return qat_dsa_sign(vpdsactx, sig, siglen, sigsize, digest, (size_t)dlen);
+}
+
+
+static int qat_dsa_digest_verify_init(void *vpdsactx, const char *mdname,
+                                      void *vdsa, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *vpdsactx, const char *mdname,
+                           void *vdsa, const OSSL_PARAM params[]);
+    fun_ptr fun = get_default_dsa_signature().digest_verify_init;
+    if (!fun)
+        return 0;
+    return fun(vpdsactx, mdname, vdsa, params);
+}
+
+
+int qat_dsa_digest_verify_final(void *vpdsactx, const unsigned char *sig,
+                                size_t siglen)
+{
+    QAT_PROV_DSA_CTX *pdsactx = (QAT_PROV_DSA_CTX *)vpdsactx;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int dlen = 0;
+
+    if (!qat_prov_is_running() || pdsactx == NULL || pdsactx->mdctx == NULL)
+        return 0;
+
+    /*
+     * There is the possibility that some externally provided
+     * digests exceed EVP_MAX_MD_SIZE. We should probably handle that somehow -
+     * but that problem is much larger than just in DSA.
+     */
+    if (!EVP_DigestFinal_ex(pdsactx->mdctx, digest, &dlen))
+        return 0;
+
+    pdsactx->flag_allow_md = 1;
+
+    return qat_dsa_verify(vpdsactx, sig, siglen, digest, (size_t)dlen);
+}
+
+
+static void *qat_dsa_dupctx(void *vpdsactx)
+{
+    typedef void * (*fun_ptr)(void *vpdsactx);
+    fun_ptr fun = get_default_dsa_signature().dupctx;
+    if (!fun)
+        return NULL;
+    return fun(vpdsactx);
+}
+
+
+static int qat_dsa_get_ctx_params(void *vpdsactx, OSSL_PARAM *params)
+{
+    typedef int (*fun_ptr)(void *vpdsactx, OSSL_PARAM *params);
+    fun_ptr fun = get_default_dsa_signature().get_ctx_params;
+    if (!fun)
+        return 0;
+    return fun(vpdsactx, params);
+}
+
+
+static const OSSL_PARAM *qat_dsa_gettable_ctx_params(ossl_unused void *ctx,
+                                                     ossl_unused void *provctx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(ossl_unused void *ctx,
+                                          ossl_unused void *provctx);
+    fun_ptr fun = get_default_dsa_signature().gettable_ctx_params;
+    if (!fun)
+        return NULL;
+    return fun(ctx, provctx);
+}
+
+
+static int qat_dsa_get_ctx_md_params(void *vpdsactx, OSSL_PARAM *params)
+{
+    typedef int (*fun_ptr)(void *vpdsactx, OSSL_PARAM *params);
+    fun_ptr fun = get_default_dsa_signature().get_ctx_md_params;
+    if (!fun)
+        return 0;
+    return fun(vpdsactx, params);
+}
+
+static const OSSL_PARAM *qat_dsa_gettable_ctx_md_params(void *vpdsactx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(void *vpdsactx);
+    fun_ptr fun = get_default_dsa_signature().gettable_ctx_md_params;
+    if (!fun)
+        return NULL;
+    return fun(vpdsactx);
+}
+
+static int qat_dsa_set_ctx_md_params(void *vpdsactx, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *vpdsactx, const OSSL_PARAM params[]);
+    fun_ptr fun = get_default_dsa_signature().set_ctx_md_params;
+    if (!fun)
+        return 0;
+    return fun(vpdsactx, params);
+}
+
+static const OSSL_PARAM *qat_dsa_settable_ctx_md_params(void *vpdsactx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(void *vpdsactx);
+    fun_ptr fun = get_default_dsa_signature().settable_ctx_md_params;
+    if (!fun)
+        return NULL;
+    return fun(vpdsactx);
+}
+
+
 const OSSL_DISPATCH qat_dsa_signature_functions[] = {
     {OSSL_FUNC_SIGNATURE_NEWCTX, (void (*)(void))qat_dsa_newctx},
     {OSSL_FUNC_SIGNATURE_SIGN_INIT, (void (*)(void))qat_dsa_sign_init},
@@ -531,6 +743,30 @@ const OSSL_DISPATCH qat_dsa_signature_functions[] = {
     {OSSL_FUNC_SIGNATURE_FREECTX, (void (*)(void))qat_dsa_freectx},
     {OSSL_FUNC_SIGNATURE_SET_CTX_PARAMS, (void (*)(void))qat_dsa_set_ctx_params},
     {OSSL_FUNC_SIGNATURE_SETTABLE_CTX_PARAMS, (void (*)(void))qat_dsa_settable_ctx_params},
+    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT,
+      (void (*)(void))qat_dsa_digest_sign_init },
+    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_UPDATE,
+      (void (*)(void))qat_dsa_digest_signverify_update },
+    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_FINAL,
+      (void (*)(void))qat_dsa_digest_sign_final },
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_INIT,
+      (void (*)(void))qat_dsa_digest_verify_init },
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_UPDATE,
+      (void (*)(void))qat_dsa_digest_signverify_update },
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_FINAL,
+      (void (*)(void))qat_dsa_digest_verify_final },
+    { OSSL_FUNC_SIGNATURE_DUPCTX, (void (*)(void))qat_dsa_dupctx },
+    { OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, (void (*)(void))qat_dsa_get_ctx_params },
+    { OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS,
+      (void (*)(void))qat_dsa_gettable_ctx_params },
+    { OSSL_FUNC_SIGNATURE_GET_CTX_MD_PARAMS,
+      (void (*)(void))qat_dsa_get_ctx_md_params },
+    { OSSL_FUNC_SIGNATURE_GETTABLE_CTX_MD_PARAMS,
+      (void (*)(void))qat_dsa_gettable_ctx_md_params },
+    { OSSL_FUNC_SIGNATURE_SET_CTX_MD_PARAMS,
+      (void (*)(void))qat_dsa_set_ctx_md_params },
+    { OSSL_FUNC_SIGNATURE_SETTABLE_CTX_MD_PARAMS,
+      (void (*)(void))qat_dsa_settable_ctx_md_params },
     {0, NULL}};
 
 #endif /* QAT_HW */

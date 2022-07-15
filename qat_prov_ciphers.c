@@ -61,6 +61,7 @@
 
 #define AEAD_FLAGS (PROV_CIPHER_FLAG_AEAD | PROV_CIPHER_FLAG_CUSTOM_IV)
 
+#if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
 void qat_gcm_initctx(void *provctx, QAT_GCM_CTX *ctx, size_t keybits,
                      size_t ivlen_min)
 {
@@ -449,4 +450,4 @@ QAT_aes_gcm_cipher(qat_aes, gcm, GCM, AEAD_FLAGS, 128, 8, 96, NID_aes_128_gcm);
 QAT_aes_gcm_cipher(qat_aes, gcm, GCM, AEAD_FLAGS, 192, 8, 96, NID_aes_192_gcm);
 /* qat_aes256gcm_functions */
 QAT_aes_gcm_cipher(qat_aes, gcm, GCM, AEAD_FLAGS, 256, 8, 96, NID_aes_256_gcm);
-
+#endif

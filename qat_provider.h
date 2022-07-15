@@ -49,6 +49,7 @@
 # include <openssl/core.h>
 # include <openssl/provider.h>
 # include <openssl/bio.h>
+# include <openssl/core_dispatch.h>
 
 # define QAT_PROVIDER_VERSION_STR "v0.6.13"
 # define QAT_PROVIDER_FULL_VERSION_STR "QAT Provider v0.6.13"
@@ -77,6 +78,8 @@
 # define ALG(NAMES, FUNC) ALGC(NAMES, FUNC, NULL)
 
 static const char QAT_DEFAULT_PROPERTIES[] = "provider=qatprovider";
+
+OSSL_FUNC_provider_get_capabilities_fn qat_prov_get_capabilities;
 
 typedef struct bio_method_st {
     int type;

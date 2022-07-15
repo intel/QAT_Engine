@@ -52,6 +52,60 @@ static const unsigned char digestinfo_##name##_der[] = {                       \
       ASN1_OCTET_STRING_, sz                                                   \
 };
 
+typedef int CRYPTO_REF_COUNT;
+
+struct evp_signature_st {
+    int name_id;
+    char *type_name;
+    const char *description;
+    OSSL_PROVIDER *prov;
+    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_RWLOCK *lock;
+
+    OSSL_FUNC_signature_newctx_fn *newctx;
+    OSSL_FUNC_signature_sign_init_fn *sign_init;
+    OSSL_FUNC_signature_sign_fn *sign;
+    OSSL_FUNC_signature_verify_init_fn *verify_init;
+    OSSL_FUNC_signature_verify_fn *verify;
+    OSSL_FUNC_signature_verify_recover_init_fn *verify_recover_init;
+    OSSL_FUNC_signature_verify_recover_fn *verify_recover;
+    OSSL_FUNC_signature_digest_sign_init_fn *digest_sign_init;
+    OSSL_FUNC_signature_digest_sign_update_fn *digest_sign_update;
+    OSSL_FUNC_signature_digest_sign_final_fn *digest_sign_final;
+    OSSL_FUNC_signature_digest_sign_fn *digest_sign;
+    OSSL_FUNC_signature_digest_verify_init_fn *digest_verify_init;
+    OSSL_FUNC_signature_digest_verify_update_fn *digest_verify_update;
+    OSSL_FUNC_signature_digest_verify_final_fn *digest_verify_final;
+    OSSL_FUNC_signature_digest_verify_fn *digest_verify;
+    OSSL_FUNC_signature_freectx_fn *freectx;
+    OSSL_FUNC_signature_dupctx_fn *dupctx;
+    OSSL_FUNC_signature_get_ctx_params_fn *get_ctx_params;
+    OSSL_FUNC_signature_gettable_ctx_params_fn *gettable_ctx_params;
+    OSSL_FUNC_signature_set_ctx_params_fn *set_ctx_params;
+    OSSL_FUNC_signature_settable_ctx_params_fn *settable_ctx_params;
+    OSSL_FUNC_signature_get_ctx_md_params_fn *get_ctx_md_params;
+    OSSL_FUNC_signature_gettable_ctx_md_params_fn *gettable_ctx_md_params;
+    OSSL_FUNC_signature_set_ctx_md_params_fn *set_ctx_md_params;
+    OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
+} /* EVP_SIGNATURE */;
+
+static EVP_SIGNATURE get_default_rsa_signature()
+{
+    static EVP_SIGNATURE s_signature;
+    static int initilazed = 0;
+    if (!initilazed) {
+        EVP_SIGNATURE *signature = (EVP_SIGNATURE *)EVP_SIGNATURE_fetch(NULL, "RSA", "provider=default");
+        if (signature) {
+            s_signature = *signature;
+            EVP_SIGNATURE_free((EVP_SIGNATURE *)signature);
+            initilazed = 1;
+        } else {
+            WARN("EVP_SIGNATURE_fetch from default provider failed");
+        }
+    }
+    return s_signature;
+}
+
 /* SHA-1 (1 3 14 3 2 26) */
 static const unsigned char digestinfo_sha1_der[] = {
     ASN1_SEQUENCE, 0x0d + SHA_DIGEST_LENGTH,
@@ -1642,6 +1696,164 @@ static const OSSL_PARAM *qat_signature_rsa_settable_ctx_params(void *vprsactx,
     return settable_ctx_params;
 }
 
+static int qat_signature_rsa_digest_sign_init(void *vprsactx, const char *mdname,
+                                void *vrsa, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *vprsactx, const char *mdname,
+                                void *vrsa, const OSSL_PARAM params[]);
+    fun_ptr fun = get_default_rsa_signature().digest_sign_init;
+    if (!fun)
+        return 0;
+    return fun(vprsactx, mdname, vrsa, params);
+}
+
+static int qat_signature_rsa_digest_signverify_update(void *vprsactx,
+                                        const unsigned char *data,
+                                        size_t datalen)
+{
+    QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
+
+    if (prsactx == NULL || prsactx->mdctx == NULL)
+        return 0;
+
+    return EVP_DigestUpdate(prsactx->mdctx, data, datalen);
+}
+
+static int qat_signature_rsa_digest_sign_final(void *vprsactx, unsigned char *sig,
+                                 size_t *siglen, size_t sigsize)
+{
+    QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int dlen = 0;
+
+    if (!qat_prov_is_running() || prsactx == NULL)
+        return 0;
+    prsactx->flag_allow_md = 1;
+    if (prsactx->mdctx == NULL)
+        return 0;
+    /*
+     * If sig is NULL then we're just finding out the sig size. Other fields
+     * are ignored. Defer to rsa_sign.
+     */
+    if (sig != NULL) {
+        /*
+         * The digests used here are all known (see rsa_get_md_nid()), so they
+         * should not exceed the internal buffer size of EVP_MAX_MD_SIZE.
+         */
+        if (!EVP_DigestFinal_ex(prsactx->mdctx, digest, &dlen))
+            return 0;
+    }
+
+    return qat_signature_rsa_sign(vprsactx, sig, siglen, sigsize,
+                                  digest, (size_t)dlen);
+}
+
+static int qat_signature_rsa_digest_verify_init(void *vprsactx, const char *mdname,
+                                  void *vrsa, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *vprsactx, const char *mdname,
+                           void *vrsa, const OSSL_PARAM params[]);
+    fun_ptr fun = get_default_rsa_signature().digest_verify_init;
+    if (!fun)
+        return 0;
+    return fun(vprsactx, mdname, vrsa, params);
+}
+
+
+int qat_signature_rsa_digest_verify_final(void *vprsactx, const unsigned char *sig,
+                                          size_t siglen)
+{
+    QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int dlen = 0;
+
+    if (!qat_prov_is_running())
+        return 0;
+
+    if (prsactx == NULL)
+        return 0;
+    prsactx->flag_allow_md = 1;
+    if (prsactx->mdctx == NULL)
+        return 0;
+
+    /*
+     * The digests used here are all known (see rsa_get_md_nid()), so they
+     * should not exceed the internal buffer size of EVP_MAX_MD_SIZE.
+     */
+    if (!EVP_DigestFinal_ex(prsactx->mdctx, digest, &dlen))
+        return 0;
+
+    return qat_signature_rsa_verify(vprsactx, sig, siglen,
+                                    digest, (size_t)dlen);
+}
+
+
+static void *qat_signature_rsa_dupctx(void *vprsactx)
+{
+    typedef void* (*fun_ptr)(void *vprsactx);
+    fun_ptr fun = get_default_rsa_signature().dupctx;
+    if (!fun)
+        return NULL;
+    return fun(vprsactx);
+}
+
+static int qat_signature_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM *params)
+{
+    typedef int (*fun_ptr)(void *vprsactx, OSSL_PARAM *params);
+    fun_ptr fun = get_default_rsa_signature().get_ctx_params;
+    if (!fun)
+        return 0;
+    return fun(vprsactx, params);
+}
+
+static const OSSL_PARAM *qat_signature_rsa_gettable_ctx_md_params(void *vprsactx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(void *vprsactx);
+    fun_ptr fun = get_default_rsa_signature().gettable_ctx_md_params;
+    if (!fun)
+        return NULL;
+    return fun(vprsactx);
+}
+
+
+static int qat_signature_rsa_set_ctx_md_params(void *vprsactx, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *vprsactx, const OSSL_PARAM params[]);
+    fun_ptr fun = get_default_rsa_signature().set_ctx_md_params;
+    if (!fun)
+        return 0;
+    return fun(vprsactx, params);
+}
+
+static const OSSL_PARAM *qat_signature_rsa_settable_ctx_md_params(void *vprsactx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(void *vprsactx);
+    fun_ptr fun = get_default_rsa_signature().settable_ctx_md_params;
+    if (!fun)
+        return NULL;
+    return fun(vprsactx);
+}
+
+static const OSSL_PARAM *qat_signature_rsa_gettable_ctx_params(ossl_unused void *vprsactx,
+                                                 ossl_unused void *provctx)
+{
+    typedef const OSSL_PARAM * (*fun_ptr)(ossl_unused void *vprsactx,
+                                          ossl_unused void *provctx);
+    fun_ptr fun = get_default_rsa_signature().gettable_ctx_params;
+    if (!fun)
+        return NULL;
+    return fun(vprsactx, provctx);
+}
+
+static int qat_signature_rsa_get_ctx_md_params(void *vprsactx, OSSL_PARAM *params)
+{
+    typedef int (*fun_ptr)(void *vprsactx, OSSL_PARAM *params);
+    fun_ptr fun = get_default_rsa_signature().get_ctx_md_params;
+    if (!fun)
+        return 0;
+    return fun(vprsactx, params);
+}
+
 const OSSL_DISPATCH qat_rsa_signature_functions[] = {
     {OSSL_FUNC_SIGNATURE_NEWCTX, (void (*)(void))qat_signature_rsa_newctx},
     {OSSL_FUNC_SIGNATURE_SIGN_INIT, (void (*)(void))qat_signature_rsa_sign_init},
@@ -1656,5 +1868,29 @@ const OSSL_DISPATCH qat_rsa_signature_functions[] = {
     {OSSL_FUNC_SIGNATURE_SET_CTX_PARAMS, (void (*)(void))qat_signature_rsa_set_ctx_params},
     {OSSL_FUNC_SIGNATURE_SETTABLE_CTX_PARAMS,
         (void (*)(void))qat_signature_rsa_settable_ctx_params},
+    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT,
+      (void (*)(void))qat_signature_rsa_digest_sign_init },
+    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_UPDATE,
+      (void (*)(void))qat_signature_rsa_digest_signverify_update },
+    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_FINAL,
+      (void (*)(void))qat_signature_rsa_digest_sign_final },
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_INIT,
+      (void (*)(void))qat_signature_rsa_digest_verify_init },
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_UPDATE,
+      (void (*)(void))qat_signature_rsa_digest_signverify_update },
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_FINAL,
+      (void (*)(void))qat_signature_rsa_digest_verify_final },
+    { OSSL_FUNC_SIGNATURE_DUPCTX, (void (*)(void))qat_signature_rsa_dupctx },
+    { OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, (void (*)(void))qat_signature_rsa_get_ctx_params },
+    { OSSL_FUNC_SIGNATURE_GETTABLE_CTX_PARAMS,
+      (void (*)(void))qat_signature_rsa_gettable_ctx_params },
+    { OSSL_FUNC_SIGNATURE_GET_CTX_MD_PARAMS,
+      (void (*)(void))qat_signature_rsa_get_ctx_md_params },
+    { OSSL_FUNC_SIGNATURE_GETTABLE_CTX_MD_PARAMS,
+      (void (*)(void))qat_signature_rsa_gettable_ctx_md_params },
+    { OSSL_FUNC_SIGNATURE_SET_CTX_MD_PARAMS,
+      (void (*)(void))qat_signature_rsa_set_ctx_md_params },
+    { OSSL_FUNC_SIGNATURE_SETTABLE_CTX_MD_PARAMS,
+      (void (*)(void))qat_signature_rsa_settable_ctx_md_params },
     {0, NULL}
 };

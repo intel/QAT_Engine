@@ -13,6 +13,7 @@
 #include "e_qat.h"
 #include "qat_fork.h"
 #include "qat_utils.h"
+#include "qat_prov_bio.h"
 
 #ifdef QAT_SW
 # include "qat_sw_polling.h"
@@ -315,6 +316,8 @@ static const OSSL_DISPATCH qat_dispatch_table[] = {
     {OSSL_FUNC_PROVIDER_GETTABLE_PARAMS, (void (*)(void))qat_gettable_params},
     {OSSL_FUNC_PROVIDER_GET_PARAMS, (void (*)(void))qat_get_params},
     {OSSL_FUNC_PROVIDER_QUERY_OPERATION, (void (*)(void))qat_query},
+    { OSSL_FUNC_PROVIDER_GET_CAPABILITIES,
+      (void (*)(void))qat_prov_get_capabilities},
     {0, NULL}};
 
 /* Functions provided by the core */
@@ -420,6 +423,9 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
     BIO_METHOD *corebiometh = NULL;
     QAT_DEBUG_LOG_INIT();
 
+    if (!ossl_prov_bio_from_dispatch(in))
+        return 0;
+
     for (; in->function_id != 0; in++) {
         switch (in->function_id) {
         case OSSL_FUNC_CORE_GETTABLE_PARAMS:
@@ -455,7 +461,7 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
     qat_ctx->libctx = (OSSL_LIB_CTX *)c_get_libctx(handle);
 
     *provctx = (void *)qat_ctx;
-    corebiometh = OPENSSL_zalloc(sizeof(BIO_METHOD));
+    corebiometh = ossl_bio_prov_init_bio_method();
     qat_prov_ctx_set_core_bio_method(*provctx, corebiometh);
     *out = qat_dispatch_table;
     qat_prov_cache_exported_algorithms(qat_deflt_ciphers, qat_exported_ciphers);
