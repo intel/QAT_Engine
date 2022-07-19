@@ -164,7 +164,7 @@ static inline int set_pkt_threshold(ENGINE *e, const char* cipher, int thr)
     ret = ENGINE_ctrl_cmd(e, "SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD",
                           0, (void *)thr_str, NULL, 0);
     if (ret != 1)
-        WARN("Not able to set threshold %d for cipher %s\n", thr, cipher);
+        FAIL_MSG("Failed to set threshold %d for cipher %s\n", thr, cipher);
 
     return ret;
 }
@@ -1137,6 +1137,14 @@ static int run_aes_cbc_hmac_sha(void *pointer)
      */
     ti.e = args->e;
 
+    if (ti.e) {
+        EVP_CIPHER *cipher = (EVP_CIPHER *)ENGINE_get_cipher(ti.e, NID_aes_256_cbc_hmac_sha256);
+        /* Set Engine to NULL if this algorithm is disabled in configuration or
+           disabled by the co-existence algorithm bitmap. */
+        if (cipher == NULL || cipher == EVP_aes_256_cbc_hmac_sha256())
+            ti.e = NULL;
+    }
+
     /*
      * For the qat engine, offload all packet sizes to engine
      * by setting the threshold sizes to 0 for the cipher under test.
@@ -1145,11 +1153,8 @@ static int run_aes_cbc_hmac_sha(void *pointer)
         ret = set_pkt_threshold(ti.e, ti.c->name, 0);
         /* Set engine to NULL as threshhold will fail if NID not supported*/
         if (ret != 1) {
-            ti.e = NULL;
-            ret = 1;
-        }
-        if (ret != 1)
             return 0;
+        }
     }
 
     if (args->performance) {
