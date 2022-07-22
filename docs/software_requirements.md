@@ -6,12 +6,11 @@ that supports OpenSSL\* 1.1.1 or OpenSSL\* 3.0 or BoringSSL\* and Intel&reg; Qui
 Technology Driver for Linux or Intel&reg;  QuickAssist Technology
 Driver for FreeBSD. This release was validated on the following:
 
-* Operating system: CentOS\* 7.4 64-bit version & FreeBSD\* 11.4 64-bit version
-* Kernel: GNU\*/Linux\* 3.10.0-693
+* Operating system: CentOS* 8.4, Ubuntu\* 20.04.2 LTS & FreeBSD\* 12.3
 * Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.18**
 * Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.12**
-* OpenSSL\* 1.1.1o & 3.0.3
-* BoringSSL\* commit - [fa3fbda07b] [1]
+* OpenSSL\* 1.1.1q & 3.0.5
+* BoringSSL\* commit - [fa3fbda07b][1]
 
 ## qat_sw Requirements
 Successful operation of the Intel&reg; QAT Software acceleration requires a
@@ -27,12 +26,11 @@ The Intel&reg; QAT Engine supports QAT SW AES-GCM from OpenSSL\* 1.1.1d.
 
 This release was validated on the following:
 
-* Operating system: Ubuntu 20.04.2 LTS
-* Kernel: 5.4.0-62-generic
+* Operating system: Ubuntu\* 20.04.2 LTS
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][2] release
   version **IPP Crypto 2021.5**
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.2**
-* OpenSSL\* 1.1.1o & 3.0.3
+* OpenSSL\* 1.1.1q & 3.0.5
 
 [1]:https://github.com/google/boringssl/tree/fa3fbda07bbf70925453d6a3c25a7aa455aa1cef
 [2]:https://github.com/intel/ipp-crypto

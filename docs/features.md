@@ -23,6 +23,7 @@
 * [Pipelined Operations](qat_hw.md#using-the-openssl-pipelining-capability)
 * [Intel&reg; QAT OpenSSL\* Engine Software Fallback](qat_hw.md#intel-qat-openssl-engine-software-fallback-feature)
 * RSA8K, SHA3-224/256/384/512 and ChaCha20-Poly1305 using 4xxx (QAT gen4 devices) only.
+* [BoringSSL Support](bssl_support.md)
 
 ## qat_sw Features
 * [Intel&reg; QAT Software Acceleration for Asymmetric PKE and AES-GCM](qat_sw.md)
@@ -37,10 +38,10 @@
     * SM3 Hash Support using 16 Multibuffer requests (Experimental).
     * AES128-GCM, AES192-GCM and AES256-GCM
 
-##### [QAT_HW & QAT_SW Co-existence Feature](qat_common.md#qat-hw-and-qat-sw-co-existence-feature)
-##### [OpenSSL 3.0 Provider Support](qat_common.md#openssl-3.0-provider-support)
+## Common Features to qat_hw & qat_sw
+* [QAT_HW & QAT_SW Co-existence with runtime configuration](qat_common.md#qat-hw-and-qat-sw-co-existence)
+* [OpenSSL 3.0 Provider Support](qat_common.md#openssl-30-provider-support)
 
-Note: RSA Padding schemes are handled by OpenSSL\* rather than accelerated, so the
-engine supports the same padding schemes as OpenSSL does natively.
+Note: RSA Padding schemes are handled by OpenSSL\* or BoringSSL\* rather than accelerated, so the
+engine supports the same padding schemes as OpenSSL\* or BoringSSL\* does natively.
 
-## [BoringSSL Support](bssl_support.md)

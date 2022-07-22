@@ -1,4 +1,4 @@
-# QAT_HW and QAT_SW Co-existence Feature
+# QAT_HW and QAT_SW Co-existence
 
 Intel&reg; QAT OpenSSL\* Engine supports QAT_HW and QAT_SW Co-existence build
 with both QAT_HW and QAT_SW dependant libraries(QAT Driver, crypto_mb and
@@ -17,7 +17,7 @@ The default behavior can be changed using corresponding algorithm's enable
 flags (eg:--enable-qat_sw_rsa) in which case the individual algorithms enabled
 (either qat_hw or qat_sw) in the build configure will get accelerated.
 
-## Setup HW&SW algorithm bitmap
+## Run time Co-existence configuration using HW & SW algorithm bitmap
 Intel&reg; QAT OpenSSL\* Engine supports a runtime mechanism to dynamically choose
 the QAT_HW or QAT_SW or both for each algorithm, using QAT_HW and QAT_SW dependent
 libraries linked in a single qatengine.
