@@ -106,7 +106,7 @@ if QAT_BORINGSSL
                   qat_evp.c    \
                   qat_bssl.c
 
-QAT_ERR_SRC = e_qat_err.c
+QAT_ERR_SRC = qat_bssl_err.c
 
 if QAT_HW
  QAT_HW_SRC = qat_hw_init.c        \

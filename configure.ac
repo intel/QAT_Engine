@@ -306,6 +306,7 @@ then
       then
         AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL -DBSSL_SOURCE"])
       fi
+      AC_SUBST([with_openssl_dir], [""])
     fi
   else
     ac_default_prefix=$with_openssl_install_dir
@@ -421,7 +422,12 @@ AM_CONDITIONAL([QAT_SW_IPSEC], [test "x$cflags_qat_sw_ipsec" != "x"])
 # OpenSSL source dir to regenerate err files if any changes in err messages
 if test "x$with_openssl_dir" = "x"
 then
-  AC_MSG_NOTICE([Build with existing error files without regenerating from OpenSSL source])
+  if test "x$cflags_boringssl" != "x"
+  then
+       AC_MSG_NOTICE([Build with existing error files for BoringSSL])
+  else
+       AC_MSG_NOTICE([Build with existing error files without regenerating from OpenSSL source])
+  fi
 fi
 AM_CONDITIONAL([QAT_ERR_FILES_BUILD], [test "x$with_openssl_dir" != "x"])
 

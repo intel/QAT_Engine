@@ -59,6 +59,8 @@
 
 # ifdef QAT_OPENSSL_3
 #  include "qat_prov_err.h"
+# elif defined(QAT_BORINGSSL)
+#  include "qat_bssl_err.h"
 # else
 #  include "e_qat_err.h"
 # endif
