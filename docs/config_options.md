@@ -43,8 +43,8 @@ The following is a list of the options that can be used with the
     Multi-buffer and Intel(R) Multi-buffer crypto for IPsec library and headers
     from the default path (/usr/local and /usr/ respectively). If the crypto_mb
     and IPSec_MB libraries are installed in the path other than default then use
-    --with-qat_sw_install_dir to set the install dir. --with-qat_sw_install_dir
-    path should contain both crypto_mb and IPSec_MB libraries (disabled by default).
+    `--with-qat_sw_crypto_mb_install_dir` and `--with-qat_sw_ipsec_mb_install_dir`
+    to set the crypto_mb and ipsec_mb libraries install dir respectively. (disabled by default).
 
 --disable-qat_hw
     Disable Intel(R) QAT Hardware acceleration. This flag needs to be enabled if
@@ -82,17 +82,23 @@ The following is a list of the options that can be used with the
     with '/build' appended.  You only need to specify this parameter if the
     driver library files have been built somewhere other than the default.
 
---with-qat_sw_install_dir=/path/to/ipp-crypto&ipsec_mb_build
+--with-qat_sw_crypto_mb_install_dir=/path/to/crypto_mb install location
     Specify the path of the built Intel(R) Crypto Multi-buffer library
-    (crypto_mb) and Intel(R) Multi-buffer crypto for IPsec library (IPSec_mb).
-    This path is needed in order to link to the crypto_mb library and the IPsec
-    library and both crypto_mb and IPSec_mb are installed in the same path.
-    The default if not specified is to use the standard installation path
-    which is '/usr/local' and '/usr' for crypto_mb and IPSec_MB respectively.
+    (crypto_mb). This path is needed in order to link to the crypto_mb
+    library. The default if not specified is to use the standard
+    installation path which is '/usr/local'.
 
-    You only need to specify this parameter if the Intel(R)
-    crypto_mb and IPSec_MB library files have been built somewhere other than
-    the default.
+    You only need to specify this parameter if the Intel(R) crypto_mb
+    library files have been built somewhere other than the default.
+
+--with-qat_sw_ipsec_mb_install_dir=/path/to/ipsec_mb install location
+    Specify the path of the built Intel(R) Multi-buffer crypto for IPsec
+    library (IPSec_mb). This path is needed in order to link to the IPsec_MB
+    library. The default if not specified is to use the standard
+    installation path which is '/usr'.
+
+    You only need to specify this parameter if the Intel(R) IPSec_MB
+    library files have been built somewhere other than the default.
 
 --enable-qat_hw_contig_mem/--disable-qat_hw_contig_mem
     Enable/Disable compiling against the qat_contig_mem driver supplied within

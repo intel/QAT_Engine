@@ -189,10 +189,15 @@ AC_ARG_WITH(qat_hw_install_dir,
                              [Path to the Intel Quickassist Technology Driver build output]))
 AC_SUBST(with_qat_hw_install_dir)
 
-AC_ARG_WITH(qat_sw_install_dir,
-              AS_HELP_STRING([--with-qat_sw_install_dir],
-                             [Path to the Multi-buffer based Intel(R) Crypto Multi-buffer library and Intel(R) IPSec library build output]))
-AC_SUBST(with_qat_sw_install_dir)
+AC_ARG_WITH(qat_sw_crypto_mb_install_dir,
+              AS_HELP_STRING([--with-qat_sw_crypto_mb_install_dir],
+                             [Path to the Multi-buffer based Intel(R) Crypto Multi-buffer library install location]))
+AC_SUBST(with_qat_sw_crypto_mb_install_dir)
+
+AC_ARG_WITH(qat_sw_ipsec_mb_install_dir,
+              AS_HELP_STRING([--with-qat_sw_ipsec_mb_install_dir],
+                             [Path to the Intel(R) Multi-Buffer Crypto for IPsec library install location]))
+AC_SUBST(with_qat_sw_ipsec_mb_install_dir)
 
 AC_ARG_ENABLE(qat_hw_contig_mem,
               AS_HELP_STRING([--enable-qat_hw_contig_mem],
@@ -354,24 +359,6 @@ AM_CONDITIONAL([QAT_OPENSSL_3], [test "x$cflags_openssl_3" != "x"])
 AM_CONDITIONAL([QAT_PROVIDER], [test "x$enable_qat_provider" = "xyes"])
 AM_CONDITIONAL([QAT_BORINGSSL], [test "x$cflags_boringssl" != "x"])
 
-# If both QAT HW and QAT SW configured, then check the libraries from standard location and use accordingly.
-if test "x$cflags_qat_hw_intree" = "x"
-then
-  if test "x$with_qat_hw_dir" != "x" -a "x$enable_qat_sw" = "xyes"
-  then
-    AC_CHECK_LIB(qat_s, cpaCyRsaDecrypt, [AC_MSG_NOTICE([QAT libraries found in the system])], [AC_MSG_NOTICE([QAT Library not found in the standard location])], [])
-    # Check if QAT HW is installed, otherwise use QAT SW
-    if test "x$ac_cv_lib_qat_s_cpaCyRsaDecrypt" = "xno"
-    then
-      if test "x$with_qat_sw_install_dir" == "x"
-      then
-        AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])], [AC_MSG_ERROR([Both QAT HW and QAT SW Crypto Multi-buffer library not found in the standard path. Install either QAT or Crypto Multi-buffer library])], [])
-        AM_CONDITIONAL([QAT_SW], [test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"])
-      fi
-    fi
-  fi
-fi
-
 # qat_hw_dir configured, enable qat_hw
 if test "x$with_qat_hw_dir" != "x"
 then
@@ -388,33 +375,44 @@ AM_CONDITIONAL([QAT_HW], [test "x$cflags_qat_hw" != "x"])
 # QAT SW acceleration enabled
 if test "x$enable_qat_sw" = "xyes"
 then
-  if test "x$with_qat_sw_install_dir" != "x"
+#Crypto_mb install path provided
+  if test "x$with_qat_sw_crypto_mb_install_dir" != "x"
   then
-    AC_MSG_NOTICE([Enabling build for QAT SW and QAT SW IPSEC, library from the path provided in qat_sw_install_dir])
+    AC_MSG_NOTICE([Enabling build for QAT SW for PKE with crypto_mb library from the path provided])
     AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-    AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
-    AC_SUBST([includes_qat_sw], ["-I\$(with_qat_sw_install_dir)/include"])
-    AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_install_dir)/lib -L\$(with_qat_sw_install_dir)/lib -lcrypto_mb -lIPSec_MB"])
+    AC_SUBST([includes_qat_sw_crypto_mb], ["-I\$(with_qat_sw_crypto_mb_install_dir)/include"])
+    AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_crypto_mb_install_dir)/lib -L\$(with_qat_sw_crypto_mb_install_dir)/lib -lcrypto_mb"])
   else
-    AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Enabling build for QAT SW])], [AC_MSG_NOTICE([crypto_mb Library not found, Disabling QAT SW])], [])
-    AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([Enabling build for QAT SW IPSEC])], [AC_MSG_NOTICE([IPSec_MB Library not found, Disabling QAT_SW GCM])], [])
-    AC_SUBST([includes_qat_sw], ["-I/usr/local/include -I/usr/include"])
+    AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Enabling build for QAT SW for PKE with crypto_mb library from standard path])], [AC_MSG_NOTICE([crypto_mb Library not found, Disabling QAT SW for PKE algorithms])], [])
     if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
     then
+      AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
+      AC_SUBST([includes_qat_sw_crypto_mb], ["-I/usr/local/include"])
       AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
                    [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lcrypto_mb"])],
                    [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
-      AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
     fi
+  fi
+
+#IPSEC_MB install path provided
+  if test "x$with_qat_sw_ipsec_mb_install_dir" != "x"
+  then
+    AC_MSG_NOTICE([Enabling build for QAT SW for AES-GCM with IPsec_mb library from the path provided])
+    AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
+    AC_SUBST([includes_qat_sw_ipsec_mb], ["-I\$(with_qat_sw_ipsec_mb_install_dir)/include"])
+    AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_ipsec_mb_install_dir)/lib -L\$(with_qat_sw_ipsec_mb_install_dir)/lib -lIPSec_MB"])
+  else
+    AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([Enabling build for QAT SW for AES-GCM with IPsec_mb library from standard path])], [AC_MSG_NOTICE([IPSec_MB Library not found, Disabling QAT_SW GCM])], [])
     if test "x$ac_cv_lib_IPSec_MB_imb_get_version" = "xyes"
     then
       AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
+      AC_SUBST([includes_qat_sw_ipsec_mb], ["-I/usr/include"])
       AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-lIPSec_MB"])
     fi
-    if test "x$ac_cv_lib_crypto_mb_mbx_getversion" != "xyes" -a "x$ac_cv_lib_IPSec_MB_imb_get_version" != "xyes"
-    then
-      AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependant libraries or provide path via --with-qat_sw_install_dir if installed other than the default location])
-    fi
+  fi
+  if test "x$cflags_qat_sw" = "x" -a "x$cflags_qat_sw_ipsec" != "x"
+  then
+    AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependant libraries or provide path via --with-qat_sw_crypto_mb_install_dir & --with-qat_sw_ipsec_mb_install_dir if installed other than the default location])
   fi
 fi
 AM_CONDITIONAL([QAT_SW], [test "x$cflags_qat_sw" != "x"])

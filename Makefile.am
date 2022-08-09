@@ -127,8 +127,9 @@ endif
                           ${QAT_SW_SRC}       \
                           ${QAT_SW_IPSEC_SRC}
 
-AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)  \
-              $(includes_qat_hw) $(includes_qat_sw)
+AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)     \
+              $(includes_qat_hw) $(includes_qat_sw_crypto_mb) \
+              $(includes_qat_sw_ipsec_mb)
 
 AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(cflags_mem_driver) $(cflags_openssl_3)                 \
