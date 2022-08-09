@@ -49,8 +49,7 @@
 #include "qat_provider.h"
 #include "qat_prov_dh.h"
 
-#ifdef QAT_HW
-
+#ifdef ENABLE_QAT_HW_DH
 static OSSL_FUNC_keyexch_newctx_fn qat_dh_newctx;
 static OSSL_FUNC_keyexch_init_fn qat_dh_init;
 static OSSL_FUNC_keyexch_set_peer_fn qat_dh_set_peer;
@@ -61,21 +60,6 @@ static OSSL_FUNC_keyexch_set_ctx_params_fn qat_dh_set_ctx_params;
 static OSSL_FUNC_keyexch_settable_ctx_params_fn qat_dh_settable_ctx_params;
 static OSSL_FUNC_keyexch_get_ctx_params_fn qat_dh_get_ctx_params;
 static OSSL_FUNC_keyexch_gettable_ctx_params_fn qat_dh_gettable_ctx_params;
-
-static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
-    return 1;
-}
-
-static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret,
-                                      ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_sub(val, 1, __ATOMIC_RELAXED) - 1;
-    if (*ret == 0)
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    return 1;
-}
 
 static int qat_DH_up_ref(DH *r)
 {
@@ -671,4 +655,4 @@ const OSSL_DISPATCH qat_dh_keyexch_functions[] = {
      (void (*)(void))qat_dh_gettable_ctx_params},
     {0, NULL}};
 
-#endif /* QAT_HW */
+#endif /* ENABLE_QAT_HW_DH */

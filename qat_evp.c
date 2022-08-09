@@ -972,7 +972,9 @@ void qat_free_EC_methods(void)
 
 RSA_METHOD *qat_get_RSA_methods(void)
 {
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA) || defined(QAT_BORINGSSL)
     int res = 1;
+#endif
     RSA_METHOD *def_rsa_method = NULL;
 
     if (qat_rsa_method != NULL && !qat_reload_algo)
@@ -1124,3 +1126,4 @@ int qat_pkt_threshold_table_get_threshold(int nid)
 #endif /* QAT_BORINGSSL */
 # endif
 #endif
+

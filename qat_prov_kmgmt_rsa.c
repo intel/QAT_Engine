@@ -53,7 +53,7 @@
 #include "qat_prov_rsa.h"
 #include "qat_utils.h"
 
-
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 typedef struct{
     int id; /* libcrypto internal */
     int name_id;
@@ -304,4 +304,4 @@ const OSSL_DISPATCH qat_rsa_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_keymgmt_rsa_dup },
     {0, NULL}
 };
-
+#endif

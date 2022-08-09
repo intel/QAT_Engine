@@ -754,4 +754,21 @@ mb_thread_data *mb_check_thread_local(void);
 int hw_support(void);
 # endif
 
+# ifdef QAT_OPENSSL_PROVIDER
+static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
+{
+    *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
+    return 1;
+}
+
+static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret,
+		                      ossl_unused void *lock)
+{
+    *ret = __atomic_fetch_sub(val, 1, __ATOMIC_RELAXED) - 1;
+    if (*ret == 0)
+	__atomic_thread_fence(__ATOMIC_ACQUIRE);
+    return 1;
+}
+# endif
+
 #endif   /* E_QAT_H */

@@ -72,6 +72,8 @@
 # include "qat_sw_ec.h"
 #endif
 
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_HW_ECDH) \
+ || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
 typedef struct{
     int id; /* libcrypto internal */
     int name_id;
@@ -305,7 +307,11 @@ static void *qat_keymgmt_ec_load(const void *reference, size_t reference_sz)
     return fun(reference,reference_sz);
 
 }
-const OSSL_DISPATCH qat_ec_keymgmt_functions[] = {
+
+#endif
+
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
+const OSSL_DISPATCH qat_ecdsa_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))qat_keymgmt_ec_newdata },
     { OSSL_FUNC_KEYMGMT_GEN_INIT, (void (*)(void))qat_keymgmt_ec_gen_init },
     { OSSL_FUNC_KEYMGMT_GEN_SET_TEMPLATE,
@@ -330,3 +336,32 @@ const OSSL_DISPATCH qat_ec_keymgmt_functions[] = {
       (void (*)(void))qat_keymgmt_ec_query_operation_name },
     {0, NULL }
 };
+#endif
+
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+const OSSL_DISPATCH qat_ecdh_keymgmt_functions[] = {
+    { OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))qat_keymgmt_ec_newdata },
+    { OSSL_FUNC_KEYMGMT_GEN_INIT, (void (*)(void))qat_keymgmt_ec_gen_init },
+    { OSSL_FUNC_KEYMGMT_GEN_SET_TEMPLATE,
+      (void (*)(void))qat_keymgmt_ec_gen_set_template },
+    { OSSL_FUNC_KEYMGMT_GEN_SET_PARAMS, (void (*)(void))qat_keymgmt_ec_gen_set_params },
+    { OSSL_FUNC_KEYMGMT_GEN_SETTABLE_PARAMS,
+      (void (*)(void))qat_keymgmt_ec_gen_settable_params },
+    { OSSL_FUNC_KEYMGMT_GEN, (void (*)(void))qat_keymgmt_ec_gen },
+    { OSSL_FUNC_KEYMGMT_GEN_CLEANUP, (void (*)(void))qat_keymgmt_ec_gen_cleanup },
+    { OSSL_FUNC_KEYMGMT_LOAD, (void (*)(void))qat_keymgmt_ec_load },
+    { OSSL_FUNC_KEYMGMT_FREE, (void (*)(void))qat_keymgmt_ec_freedata},
+    { OSSL_FUNC_KEYMGMT_GET_PARAMS, (void (*) (void))qat_keymgmt_ec_get_params },
+    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))qat_keymgmt_ec_gettable_params },
+    { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_keymgmt_ec_set_params },
+    { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_keymgmt_ec_settable_params },
+    { OSSL_FUNC_KEYMGMT_HAS, (void (*)(void))qat_keymgmt_ec_has },
+    { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_keymgmt_ec_import },
+    { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_keymgmt_ec_import_types },
+    { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_keymgmt_ec_export },
+    { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_keymgmt_ec_export_types },
+    { OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
+      (void (*)(void))qat_keymgmt_ec_query_operation_name },
+    {0, NULL }
+};
+#endif

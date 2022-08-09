@@ -64,6 +64,7 @@
 # include "qat_sw_ec.h"
 #endif
 
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
 enum kdf_type {
     PROV_ECDH_KDF_NONE = 0,
     PROV_ECDH_KDF_X9_63
@@ -133,6 +134,106 @@ static const OSSL_PARAM known_gettable_ctx_params[] = {
     OSSL_PARAM_END
 };
 
+static int QAT_ECDH_KEY_up_ref(EC_KEY *r)
+{
+    int i;
+
+    if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
+        return 0;
+
+    if(i < 2){
+        WARN("refcount error");
+        return 0;
+    }
+    return i > 1 ? 1 : 0;
+}
+
+static void QAT_ECDH_KEY_free(EC_KEY *r)
+{
+    int i;
+
+    if (r == NULL)
+        return;
+
+    CRYPTO_DOWN_REF(&r->references, &i, r->lock);
+
+    if (i > 0)
+        return;
+
+    if(i < 0){
+        WARN("refcount error");
+        return;
+    }
+
+    if (r->meth != NULL && r->meth->finish != NULL)
+        r->meth->finish(r);
+
+    if (r->group && r->group->meth->keyfinish)
+        r->group->meth->keyfinish(r);
+
+    CRYPTO_free_ex_data(CRYPTO_EX_INDEX_EC_KEY, r, &r->ex_data);
+
+    CRYPTO_THREAD_lock_free(r->lock);
+
+    EC_GROUP_free(r->group);
+    EC_POINT_free(r->pub_key);
+    BN_clear_free(r->priv_key);
+    OPENSSL_free(r->propq);
+
+    OPENSSL_clear_free((void *)r, sizeof(EC_KEY));
+}
+
+static int qat_ecdh_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect)
+{
+# if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
+    if (qat_securitycheck_ecdh_enabled(ctx)) {
+        int nid, strength;
+        const char *curve_name;
+        const EC_GROUP *group = EC_KEY_get0_group(ec);
+
+        if (group == NULL) {
+            ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_CURVE, "No group");
+            return 0;
+        }
+        nid = EC_GROUP_get_curve_name(group);
+        if (nid == NID_undef) {
+            ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_CURVE,
+                           "Explicit curves are not allowed in fips mode");
+            return 0;
+        }
+
+        curve_name = EC_curve_nid2nist(nid);
+        if (curve_name == NULL) {
+            ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_CURVE,
+                           "Curve %s is not approved in FIPS mode", curve_name);
+            return 0;
+        }
+
+        /*
+         * For EC the security strength is the (order_bits / 2)
+         * e.g. P-224 is 112 bits.
+         */
+        strength = EC_GROUP_order_bits(group) / 2;
+        /* The min security strength allowed for legacy verification is 80 bits */
+        if (strength < 80) {
+            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_CURVE);
+            return 0;
+        }
+
+        /*
+         * For signing or key agreement only allow curves with at least 112 bits of
+         * security strength
+         */
+        if (protect && strength < 112) {
+            ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_CURVE,
+                           "Curve %s cannot be used for signing", curve_name);
+            return 0;
+        }
+    }
+# endif /* OPENSSL_NO_FIPS_SECURITYCHECKS */
+    return 1;
+}
+
 static void *qat_keyexch_ecdh_newctx(void *provctx)
 {
     QAT_PROV_ECDH_CTX *pectx;
@@ -159,14 +260,14 @@ static int qat_keyexch_ecdh_init(void *vpecdhctx, void *vecdh, const OSSL_PARAM 
     if (!qat_prov_is_running()
             || pecdhctx == NULL
             || vecdh == NULL
-            || !QAT_EC_KEY_up_ref(vecdh))
+            || !QAT_ECDH_KEY_up_ref(vecdh))
         return 0;
-    QAT_EC_KEY_free(pecdhctx->k);
+    QAT_ECDH_KEY_free(pecdhctx->k);
     pecdhctx->k = vecdh;
     pecdhctx->cofactor_mode = -1;
     pecdhctx->kdf_type = PROV_ECDH_KDF_NONE;
     return qat_keyexch_ecdh_set_ctx_params(pecdhctx, params)
-           && qat_ec_check_key(pecdhctx->libctx, vecdh, 1);
+           && qat_ecdh_check_key(pecdhctx->libctx, vecdh, 1);
 }
 
 OSSL_LIB_CTX *qat_ec_key_get_libctx(const EC_KEY *key)
@@ -203,11 +304,11 @@ static int qat_keyexch_ecdh_set_peer(void *vpecdhctx, void *vecdh)
             || pecdhctx == NULL
             || vecdh == NULL
             || !qat_keyexch_ecdh_match_params(pecdhctx->k, vecdh)
-            || !qat_ec_check_key(pecdhctx->libctx, vecdh, 1)
-            || !QAT_EC_KEY_up_ref(vecdh))
+            || !qat_ecdh_check_key(pecdhctx->libctx, vecdh, 1)
+            || !QAT_ECDH_KEY_up_ref(vecdh))
         return 0;
 
-    QAT_EC_KEY_free(pecdhctx->peerk);
+    QAT_ECDH_KEY_free(pecdhctx->peerk);
     pecdhctx->peerk = vecdh;
     return 1;
 }
@@ -216,8 +317,8 @@ static void qat_keyexch_ecdh_freectx(void *vpecdhctx)
 {
     QAT_PROV_ECDH_CTX *pecdhctx = (QAT_PROV_ECDH_CTX *)vpecdhctx;
 
-    QAT_EC_KEY_free(pecdhctx->k);
-    QAT_EC_KEY_free(pecdhctx->peerk);
+    QAT_ECDH_KEY_free(pecdhctx->k);
+    QAT_ECDH_KEY_free(pecdhctx->peerk);
 
     EVP_MD_free(pecdhctx->kdf_md);
     OPENSSL_clear_free(pecdhctx->kdf_ukm, pecdhctx->kdf_ukmlen);
@@ -248,12 +349,12 @@ static void *qat_keyexch_ecdh_dupctx(void *vpecdhctx)
 
     /* up-ref all ref-counted objects referenced in dstctx */
 
-    if (srcctx->k != NULL && !QAT_EC_KEY_up_ref(srcctx->k))
+    if (srcctx->k != NULL && !QAT_ECDH_KEY_up_ref(srcctx->k))
         goto err;
     else
         dstctx->k = srcctx->k;
 
-    if (srcctx->peerk != NULL && !QAT_EC_KEY_up_ref(srcctx->peerk))
+    if (srcctx->peerk != NULL && !QAT_ECDH_KEY_up_ref(srcctx->peerk))
         goto err;
     else
         dstctx->peerk = srcctx->peerk;
@@ -280,10 +381,6 @@ static void *qat_keyexch_ecdh_dupctx(void *vpecdhctx)
 
 static int qat_keyexch_digest_is_allowed(OSSL_LIB_CTX *ctx, const EVP_MD *md)
 {
-#if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
-    if (qat_securitycheck_enabled(ctx))
-        return qat_digest_ecdsa_get_approved_nid(md) != NID_undef;
-#endif /* OPENSSL_NO_FIPS_SECURITYCHECKS */
     return 1;
 }
 
@@ -675,3 +772,5 @@ const OSSL_DISPATCH qat_ecdh_keyexch_functions[] = {
       (void (*)(void))qat_keyexch_ecdh_gettable_ctx_params },
     { 0, NULL }
 };
+
+#endif

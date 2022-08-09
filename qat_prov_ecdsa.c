@@ -63,6 +63,7 @@
 # include "qat_sw_ec.h"
 #endif
 
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
 typedef struct evp_signature_st {
     int name_id;
     char *type_name;
@@ -128,20 +129,6 @@ static const OSSL_PARAM settable_ctx_params_no_digest[] = {
     OSSL_PARAM_uint(OSSL_SIGNATURE_PARAM_KAT, NULL),
     OSSL_PARAM_END
 };
-
-static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
-    return 1;
-}
-
-static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret, ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_sub(val, 1, __ATOMIC_RELAXED) - 1;
-    if (*ret == 0)
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    return 1;
-}
 
 int QAT_EC_KEY_up_ref(EC_KEY *r)
 {
@@ -718,3 +705,5 @@ const OSSL_DISPATCH qat_ecdsa_signature_functions[] = {
       (void (*)(void))qat_ecdsa_settable_ctx_md_params },
     {0, NULL}
 };
+
+#endif

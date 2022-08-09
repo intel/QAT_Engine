@@ -52,6 +52,7 @@ static const unsigned char digestinfo_##name##_der[] = {                       \
       ASN1_OCTET_STRING_, sz                                                   \
 };
 
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 typedef int CRYPTO_REF_COUNT;
 
 struct evp_signature_st {
@@ -1894,3 +1895,4 @@ const OSSL_DISPATCH qat_rsa_signature_functions[] = {
       (void (*)(void))qat_signature_rsa_settable_ctx_md_params },
     {0, NULL}
 };
+#endif

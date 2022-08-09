@@ -54,7 +54,7 @@
 #include "qat_utils.h"
 #include "e_qat.h"
 
-
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
 QAT_ECX_KEYMGMT get_default_x25519_keymgmt()
 {
     static QAT_ECX_KEYMGMT s_keymgmt;
@@ -401,6 +401,7 @@ const OSSL_DISPATCH qat_X25519_keymgmt_functions[] = {
         (void (*)(void))qat_ecx_gen_settable_params },
     { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_ecx_dup },
     { 0, NULL }};
+#endif
 
 #ifdef ENABLE_QAT_HW_ECX
 const OSSL_DISPATCH qat_X448_keymgmt_functions[] = {

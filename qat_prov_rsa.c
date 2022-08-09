@@ -2,7 +2,9 @@
 #include<openssl/bn.h>
 #include "qat_utils.h"
 #include "qat_prov_rsa.h"
+#include "e_qat.h"
 
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 void qat_rsa_multip_info_free_ex(RSA_PRIME_INFO *pinfo)
 {
     /* free pp and pinfo only */
@@ -19,21 +21,7 @@ void qat_rsa_multip_info_free(RSA_PRIME_INFO *pinfo)
     qat_rsa_multip_info_free_ex(pinfo);
 }
 
-static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
-    return 1;
-}
-
-static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret, ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_sub(val, 1, __ATOMIC_RELAXED) - 1;
-    if (*ret == 0)
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    return 1;
-}
-
-static int qat_rsa_finish(RSA *rsa)
+static int qat_prov_rsa_finish(RSA *rsa)
 {
     int i;
     RSA_PRIME_INFO *pinfo;
@@ -93,7 +81,7 @@ void QAT_RSA_free(RSA *r)
     }
 
     if (r->meth != NULL)
-        qat_rsa_finish(r);
+        qat_prov_rsa_finish(r);
 
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_RSA, r, &r->ex_data);
 
@@ -227,3 +215,4 @@ int QAT_RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 
     return 1;
 }
+#endif

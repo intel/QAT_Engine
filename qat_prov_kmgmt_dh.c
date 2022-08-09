@@ -59,6 +59,7 @@
 #include "qat_evp.h"
 #include "e_qat.h"
 
+#ifdef ENABLE_QAT_HW_DH
 typedef struct
 {
     int id; /* libcrypto internal */
@@ -361,3 +362,5 @@ const OSSL_DISPATCH qat_dh_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_dh_export_types},
     {OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_dh_dup},
     {0, NULL}};
+
+#endif

@@ -50,8 +50,7 @@
 #include "qat_provider.h"
 #include "qat_prov_dsa.h"
 
-#ifdef QAT_HW
-
+#ifdef ENABLE_QAT_HW_DSA
 static OSSL_FUNC_signature_newctx_fn qat_dsa_newctx;
 static OSSL_FUNC_signature_sign_init_fn qat_dsa_sign_init;
 static OSSL_FUNC_signature_verify_init_fn qat_dsa_verify_init;
@@ -113,21 +112,6 @@ static EVP_SIGNATURE get_default_dsa_signature()
         }
     }
     return s_signature;
-}
-
-static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
-    return 1;
-}
-
-static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret,
-                                      ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_sub(val, 1, __ATOMIC_RELAXED) - 1;
-    if (*ret == 0)
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    return 1;
 }
 
 static void qat_ffc_params_init(FFC_PARAMS *params)
@@ -769,4 +753,4 @@ const OSSL_DISPATCH qat_dsa_signature_functions[] = {
       (void (*)(void))qat_dsa_settable_ctx_md_params },
     {0, NULL}};
 
-#endif /* QAT_HW */
+#endif

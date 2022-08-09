@@ -56,6 +56,7 @@
 #include "qat_utils.h"
 #include "e_qat.h"
 
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
 QAT_EVP_KEYEXCH get_default_x25519_keyexch()
 {
     static QAT_EVP_KEYEXCH s_keyexch;
@@ -137,21 +138,6 @@ static void *qat_x448_newctx(void *provctx)
     return qat_ecx_newctx(provctx, X448_KEYLEN);
 }
 #endif
-
-static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
-    return 1;
-}
-
-static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret,
-                                      ossl_unused void *lock)
-{
-    *ret = __atomic_fetch_sub(val, 1, __ATOMIC_RELAXED) - 1;
-    if (*ret == 0)
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    return 1;
-}
 
 int qat_ecx_key_up_ref(ECX_KEY *key)
 {
@@ -262,8 +248,10 @@ const OSSL_DISPATCH qat_X25519_keyexch_functions[] = {
     { OSSL_FUNC_KEYEXCH_DUPCTX, (void (*)(void))qat_ecx_dupctx },
     { 0, NULL }
 };
+#endif
 
 #ifdef QAT_HW
+# ifdef ENABLE_QAT_HW_ECX
 const OSSL_DISPATCH qat_X448_keyexch_functions[] = {
     { OSSL_FUNC_KEYEXCH_NEWCTX, (void (*)(void))qat_x448_newctx },
     { OSSL_FUNC_KEYEXCH_INIT, (void (*)(void))qat_ecx_init },
@@ -272,4 +260,5 @@ const OSSL_DISPATCH qat_X448_keyexch_functions[] = {
     { OSSL_FUNC_KEYEXCH_FREECTX, (void (*)(void))qat_ecx_freectx },
     {0, NULL }
 };
+# endif
 #endif

@@ -63,6 +63,7 @@
 #include "qat_hw_dsa.h"
 #endif
 
+#ifdef ENABLE_QAT_HW_DSA
 typedef struct
 {
     int id; /* libcrypto internal */
@@ -323,3 +324,5 @@ const OSSL_DISPATCH qat_dsa_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_dsa_export_types},
     {OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_dsa_dup},
     {0, NULL}};
+
+#endif

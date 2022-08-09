@@ -43,40 +43,69 @@ void qat_prov_ctx_set_core_bio_method(QAT_PROV_CTX *ctx, QAT_BIO_METHOD *corebio
         ctx->corebiometh = corebiometh;
 }
 
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 extern const OSSL_DISPATCH qat_rsa_keymgmt_functions[];
-extern const OSSL_DISPATCH qat_ec_keymgmt_functions[];
+#endif
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
+extern const OSSL_DISPATCH qat_ecdsa_keymgmt_functions[];
+#endif
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+extern const OSSL_DISPATCH qat_ecdh_keymgmt_functions[];
+#endif
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 extern const OSSL_DISPATCH qat_rsa_signature_functions[];
+#endif
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
 extern const OSSL_DISPATCH qat_ecdsa_signature_functions[];
+#endif
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
 extern const OSSL_DISPATCH qat_X25519_keyexch_functions[];
+#endif
+#ifdef ENABLE_QAT_HW_ECX
 extern const OSSL_DISPATCH qat_X448_keyexch_functions[];
+#endif
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
 extern const OSSL_DISPATCH qat_ecdh_keyexch_functions[];
+#endif
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
 extern const OSSL_DISPATCH qat_X25519_keymgmt_functions[];
+#endif
+#ifdef ENABLE_QAT_HW_ECX
 extern const OSSL_DISPATCH qat_X448_keymgmt_functions[];
+#endif
 extern const OSSL_DISPATCH qat_aes128gcm_functions[];
 extern const OSSL_DISPATCH qat_aes192gcm_functions[];
 extern const OSSL_DISPATCH qat_aes256gcm_functions[];
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_DSA
 extern const OSSL_DISPATCH qat_dsa_keymgmt_functions[];
+#endif
+#ifdef ENABLE_QAT_HW_DH
 extern const OSSL_DISPATCH qat_dh_keymgmt_functions[];
+#endif
+#ifdef ENABLE_QAT_HW_DSA
 extern const OSSL_DISPATCH qat_dsa_signature_functions[];
+#endif
+#ifdef ENABLE_QAT_HW_DH
 extern const OSSL_DISPATCH qat_dh_keyexch_functions[];
+#endif
+#ifdef ENABLE_QAT_HW_CIPHERS
 extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha1_functions[];
 extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha256_functions[];
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha1_functions[];
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha256_functions[];
-# ifdef ENABLE_QAT_HW_SHA3
+#endif
+#ifdef ENABLE_QAT_HW_SHA3
 extern const OSSL_DISPATCH qat_sha3_224_functions[];
 extern const OSSL_DISPATCH qat_sha3_256_functions[];
 extern const OSSL_DISPATCH qat_sha3_384_functions[];
 extern const OSSL_DISPATCH qat_sha3_512_functions[];
-# endif /* ENABLE_QAT_HW_SHA3 */
-# ifdef ENABLE_QAT_HW_HKDF
+#endif /* ENABLE_QAT_HW_SHA3 */
+#ifdef ENABLE_QAT_HW_HKDF
 extern const OSSL_DISPATCH qat_kdf_hkdf_functions[];
-# endif
-# ifdef ENABLE_QAT_HW_PRF
+#endif
+#ifdef ENABLE_QAT_HW_PRF
 extern const OSSL_DISPATCH qat_tls_prf_functions[];
 # endif
-#endif
 
 QAT_PROV_PARAMS qat_params;
 
@@ -214,7 +243,7 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 #ifdef ENABLE_QAT_SW_GCM
     ALG(QAT_NAMES_AES_192_GCM, qat_aes192gcm_functions),
 #endif
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_CIPHERS
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA1, qat_aes128cbc_hmac_sha1_functions),
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA256, qat_aes128cbc_hmac_sha256_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA1, qat_aes256cbc_hmac_sha1_functions),
@@ -226,9 +255,13 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 static OSSL_ALGORITHM qat_exported_ciphers[OSSL_NELEM(qat_deflt_ciphers)];
 
 static const OSSL_ALGORITHM qat_keyexch[] = {
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keyexch_functions, "QAT X25519 keyexch implementation."},
+#endif
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
     {"ECDH", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT ECDH keyexch implementation."},
-#ifdef QAT_HW
+#endif
+#ifdef ENABLE_QAT_HW_DH
     {"DH", QAT_DEFAULT_PROPERTIES, qat_dh_keyexch_functions, "QAT DH keyexch implementation"},
 #endif
 #ifdef ENABLE_QAT_HW_ECX
@@ -237,11 +270,22 @@ static const OSSL_ALGORITHM qat_keyexch[] = {
     {NULL, NULL, NULL}};
 
 static const OSSL_ALGORITHM qat_keymgmt[] = {
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
     {"RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_keymgmt_functions, "QAT RSA Keymgmt implementation."},
+#endif
+#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keymgmt_functions, "QAT X25519 Keymgmt implementation."},
-    {"EC", QAT_DEFAULT_PROPERTIES, qat_ec_keymgmt_functions, "QAT EC Keymgmt implementation."},
-#ifdef QAT_HW
+#endif
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
+    {"EC", QAT_DEFAULT_PROPERTIES, qat_ecdsa_keymgmt_functions, "QAT EC Keymgmt implementation."},
+#endif
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+    {"EC", QAT_DEFAULT_PROPERTIES, qat_ecdh_keymgmt_functions, "QAT EC Keymgmt implementation."},
+#endif
+#ifdef ENABLE_QAT_HW_DSA
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_keymgmt_functions, "QAT DSA Keymgmt implementation."},
+# endif
+#ifdef ENABLE_QAT_HW_DH
     {"DH", QAT_DEFAULT_PROPERTIES, qat_dh_keymgmt_functions, "QAT DH Keymgmt implementation"},
 #endif
 #ifdef ENABLE_QAT_HW_ECX
@@ -250,9 +294,13 @@ static const OSSL_ALGORITHM qat_keymgmt[] = {
     {NULL, NULL, NULL}};
 
 static const OSSL_ALGORITHM qat_signature[] = {
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
     {"RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_signature_functions, "QAT RSA Signature implementation."},
+#endif
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
     {"ECDSA",QAT_DEFAULT_PROPERTIES, qat_ecdsa_signature_functions, "QAT ECDSA Signature implementation."},
-#ifdef QAT_HW
+#endif
+#ifdef ENABLE_QAT_HW_DSA
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_signature_functions, "QAT DSA Signature implementation."},
 #endif
     {NULL, NULL, NULL}};

@@ -46,6 +46,7 @@
 #ifndef QAT_EVP_H
 # define QAT_EVP_H
 
+
 # include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
 
@@ -155,5 +156,5 @@ void qat_free_EC_methods(void);
 
 RSA_METHOD *qat_get_RSA_methods(void);
 void qat_free_RSA_methods(void);
-
 #endif /* QAT_EVP_H */
+
