@@ -56,6 +56,7 @@
 # define AES_GCM_IV_LEN      12
 
 # define QAT_GCM_GET_CTX(ctx) (EVP_CIPHER_CTX_get_cipher_data(ctx))
+# define QAT_GCM_GET_ENC(ctx) ((ctx)->enc)
 
 # define QAT_GCM_TLS_TOTAL_IV_LEN (EVP_GCM_TLS_FIXED_IV_LEN + EVP_GCM_TLS_EXPLICIT_IV_LEN)
 # define QAT_GCM_TLS_PAYLOADLENGTH_MSB_OFFSET 2
@@ -158,6 +159,8 @@ int qat_aes_gcm_init(void *ctx, const unsigned char *inkey,
 int qat_aes_gcm_cipher(void *ctx, unsigned char *out,
                        size_t *padlen,const unsigned char *in,
                        size_t len);
+int qat_aes_gcm_ctrl(void *ctx, int type, int arg, void *ptr);
+int qat_aes_gcm_cleanup(void *ctx);
 #else
 int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
                      const unsigned char *inkey,

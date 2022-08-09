@@ -40,9 +40,6 @@
   OpenSSL\* 1.1.1o release.
 * AES-CBC-HMAC-SHA chained ciphers does not support pipeline feature when built with
   OpenSSL 3.0 as the corresponding support is not available in OpenSSL 3.0.
-* There is a known issue with OpenSSL s_server application for QAT_HW GCM and QAT_SW_GCM
-  using qatprovider on OpenSSL 3.0. Disable GCM Support using --disable-qat_sw_gcm(for QAT_SW_GCM)
-  in the build configure. For QAT_HW GCM is disabled by default.
 * QAT Engine doesn't support ENCRYPT_THEN_MAC(default) mode of operation meaning
   when Encrypt then MAC is negotiated for symmetric ciphers say AES-CBC, the requests will not
   get offloaded via QAT_HW, instead uses OpenSSL SW. Disable ENCRYPT_THEN_MAC with the flag

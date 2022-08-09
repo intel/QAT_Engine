@@ -210,6 +210,52 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
         ctx->iv_len = sz;
     }
 
+    p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_AAD);
+    if (p != NULL) {
+        if (p->data_type != OSSL_PARAM_OCTET_STRING) {
+            ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            return 0;
+        }
+#ifdef ENABLE_QAT_HW_GCM
+        sz = qat_aes_gcm_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size, p->data);
+#else
+        sz = vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size, p->data);
+#endif
+        if (sz == 0) {
+            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_AAD);
+            return 0;
+        }
+        ctx->tls_aad_pad_sz = sz;
+    }
+
+    p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_IV_FIXED);
+    if (p != NULL) {
+        if (p->data_type != OSSL_PARAM_OCTET_STRING) {
+            ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            return 0;
+        }
+#ifdef ENABLE_QAT_HW_GCM
+        if (qat_aes_gcm_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED, p->data_size, p->data) == 0) {
+#else
+        if (vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED, p->data_size, p->data) == 0) {
+#endif
+            ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            return 0;
+        }
+    }
+
+    p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_SET_IV_INV);
+    if (p != NULL) {
+        if (p->data == NULL
+            || p->data_type != OSSL_PARAM_OCTET_STRING
+#ifdef ENABLE_QAT_HW_GCM
+            || !qat_aes_gcm_ctrl(ctx, EVP_CTRL_GCM_SET_IV_INV, p->data_size, p->data))
+#else
+            || !vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_GCM_SET_IV_INV, p->data_size, p->data))
+#endif
+            return 0;
+    }
+
     return 1;
 }
 
@@ -293,7 +339,7 @@ int qat_gcm_stream_final(void *vctx, unsigned char *out,
     i = vaesgcm_ciphers_do_cipher(ctx, out, outl, NULL, 0);
 #endif
 
-    if (i < 0)
+    if (i <= 0)
         return 0;
 
     *outl = 0;
@@ -331,6 +377,16 @@ int qat_gcm_cipher(void *vctx, unsigned char *out,
 static void qat_aes_gcm_freectx(void *vctx)
 {
     QAT_AES_GCM_CTX *ctx = (QAT_AES_GCM_CTX *)vctx;
+    if (ctx->cipher){
+        OPENSSL_free(ctx->cipher);
+        ctx->cipher = NULL;
+    }
+#ifdef ENABLE_QAT_HW_GCM
+    qat_aes_gcm_cleanup((QAT_GCM_CTX *)ctx);
+#endif
+#ifdef ENABLE_QAT_SW_GCM
+    vaesgcm_ciphers_cleanup((QAT_GCM_CTX *)ctx);
+#endif
     OPENSSL_free(ctx);
 }
 

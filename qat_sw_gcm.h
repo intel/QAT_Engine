@@ -89,18 +89,20 @@ typedef struct vaesgcm_ctx_t {
 __attribute__((aligned(64))) vaesgcm_ctx;
 # pragma pack(pop)
 
-int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx);
 #ifdef QAT_OPENSSL_PROVIDER
 int vaesgcm_ciphers_init(void *ctx,
                          const unsigned char* inkey,
                          const unsigned char* iv,
                          int                  enc);
 
+int vaesgcm_ciphers_ctrl(void* ctx, int type, int arg, void* ptr);
+
 int vaesgcm_ciphers_do_cipher(void *ctx,
                               unsigned char*       out,
                               size_t *padlen,
                               const unsigned char* in,
                               size_t               len);
+int vaesgcm_ciphers_cleanup(void* ctx);
 #else
 int vaesgcm_ciphers_init(EVP_CIPHER_CTX *ctx,
                          const unsigned char* inkey,
@@ -110,8 +112,9 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX *ctx,
                               unsigned char*       out,
                               const unsigned char* in,
                               size_t               len);
-#endif
 int vaesgcm_ciphers_ctrl(EVP_CIPHER_CTX* ctx, int type, int arg, void* ptr);
+int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx);
+#endif
 
 int  vaesgcm_init_ipsec_mb_mgr(void);
 void vaesgcm_free_ipsec_mb_mgr(void);

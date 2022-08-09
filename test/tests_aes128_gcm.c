@@ -383,7 +383,6 @@ err:
 *       +-------------+-----------------------------+-------+
 *             8                     size                 16
 *******************************************************************************/
-#ifndef QAT_OPENSSL_PROVIDER
 static int run_aesgcm128_tls(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
@@ -427,12 +426,14 @@ static int run_aesgcm128_tls(void *args)
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
     const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_128_gcm);
 
     if (!c) {
         INFO("AES-128-GCM disabled in QAT_Engine\n");
         e = NULL;
     }
+#endif
 
     if (input == NULL) {
         INFO("# FAIL: [%s] --- Initial parameters malloc failed ! \n",
@@ -624,21 +625,16 @@ err:
 
     return ret;
 }
-#endif
 
 void tests_run_aes128_gcm(TEST_PARAMS *args)
 {
     args->additional_args = NULL;
     if (args->enable_async) {
         start_async_job(args, run_aesgcm128_update);
-#ifndef QAT_OPENSSL_PROVIDER
         start_async_job(args, run_aesgcm128_tls);
-#endif
     }
     else {
         run_aesgcm128_update(args);
-#ifndef QAT_OPENSSL_PROVIDER
-	run_aesgcm128_tls(args);
-#endif
+	    run_aesgcm128_tls(args);
     }
 }
