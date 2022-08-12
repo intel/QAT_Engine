@@ -133,28 +133,30 @@ typedef struct qat_evp_cipher_st {
     OSSL_FUNC_cipher_settable_ctx_params_fn *settable_ctx_params;
 }QAT_EVP_CIPHER;
 
+
+# pragma pack(push, 16)
 typedef struct qat_gcm_ctx_st {
-    unsigned int mode;                     /* The mode that we are using */
-    size_t keylen;
-    size_t ivlen_min;
-    size_t tls_aad_pad_sz;
-    uint64_t tls_enc_records;              /* Number of TLS records encrypted */
-
-    /*
-     * num contains the number of bytes of |iv| which are valid for modes that
-     * manage partial blocks themselves.
-     */
-    size_t num;
-    size_t bufsz;                         /* Number of bytes in buf */
-
-    unsigned int enc:1;                    /* Set to 1 if we are encrypting or 0 otherwise */
-    unsigned int pad:1;                    /* Whether padding should be used or not */
-    unsigned int iv_gen_rand:1;            /* No IV was specified, so generate a rand IV */
-
-    unsigned char buf[QAT_AES_BLOCK_SIZE]; /* Buffer of partial blocks processed via update calls */
-    OSSL_LIB_CTX *libctx;                  /* needed for rand calls */
-    ctr128_f ctr;
-    const void *ks;
+#ifdef ENABLE_QAT_SW_GCM
+    /* gcm_key_data to be at the top for 64 byte alignment
+     * needed by IPsec_mb library */
+    struct gcm_key_data     key_data;
+    struct gcm_context_data gcm_ctx;
+    int init_flags;
+    unsigned int ckey_set;
+    unsigned char* tls_aad;
+    int            tls_aad_len;
+    unsigned int   tls_aad_set;
+    unsigned char* tag;
+    unsigned char* calculated_tag;
+    size_t         tag_len;
+    unsigned int   tag_set;
+    unsigned int   tag_calculated;
+    unsigned char* iv;
+    unsigned char* next_iv;
+    int            iv_len;
+    unsigned int   iv_set;
+    int            iv_gen;
+#endif
 #ifdef ENABLE_QAT_HW_GCM
     int inst_num;
     CpaCySymSessionSetupData* session_data;
@@ -228,26 +230,29 @@ typedef struct qat_gcm_ctx_st {
     /* Flag to keep track of key passed */
     int key_set;
 #endif
-#ifdef ENABLE_QAT_SW_GCM
-    struct gcm_key_data     key_data;
-    struct gcm_context_data gcm_ctx;
-    int init_flags;
-    unsigned int ckey_set;
-    unsigned char* tls_aad;
-    int            tls_aad_len;
-    unsigned int   tls_aad_set;
-    unsigned char* tag;
-    unsigned char* calculated_tag;
-    size_t            tag_len;
-    unsigned int   tag_set;
-    unsigned int   tag_calculated;
-    unsigned char* iv;
-    unsigned char* next_iv;
-    int            iv_len;
-    unsigned int   iv_set;
-    int            iv_gen;
-#endif
-} QAT_GCM_CTX;
+    unsigned int mode;                     /* The mode that we are using */
+    size_t keylen;
+    size_t ivlen_min;
+    size_t tls_aad_pad_sz;
+    uint64_t tls_enc_records;              /* Number of TLS records encrypted */
+
+    /*
+     * num contains the number of bytes of |iv| which are valid for modes that
+     * manage partial blocks themselves.
+     */
+    size_t num;
+    size_t bufsz;                         /* Number of bytes in buf */
+
+    unsigned int enc:1;                    /* Set to 1 if we are encrypting or 0 otherwise */
+    unsigned int pad:1;                    /* Whether padding should be used or not */
+    unsigned int iv_gen_rand:1;            /* No IV was specified, so generate a rand IV */
+    unsigned char buf[QAT_AES_BLOCK_SIZE]; /* Buffer of partial blocks processed via update calls */
+    OSSL_LIB_CTX *libctx;                  /* needed for rand calls */
+    ctr128_f ctr;
+}
+__attribute__((aligned(64))) QAT_GCM_CTX;
+# pragma pack(pop)
+
 
 typedef struct qat_aes_gcm_ctx_st {
     QAT_GCM_CTX base;

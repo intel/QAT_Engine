@@ -1131,8 +1131,8 @@ int vaesgcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char* inkey)
     QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)ctx;
 #else
     vaesgcm_ctx* qctx = NULL;
-    struct gcm_key_data* key_data_ptr = NULL;
 #endif
+    struct gcm_key_data* key_data_ptr = NULL;
     int nid = 0;
     const void*          key          = NULL;
 
@@ -1161,13 +1161,9 @@ int vaesgcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char* inkey)
         return -1;
     }
     key = (const void*)(inkey);
-
-#ifdef QAT_OPENSSL_PROVIDER
-    qat_imb_aes_gcm_precomp(nid, ipsec_mgr, key, &(qctx->key_data));
-#else
     key_data_ptr = &(qctx->key_data);
+
     qat_imb_aes_gcm_precomp(nid, ipsec_mgr, key, key_data_ptr);
-#endif
 
     qctx->ckey_set = 1;
     return 1;
