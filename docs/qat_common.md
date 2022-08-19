@@ -98,6 +98,7 @@ and the default if not specified will use engine interface.
 | ECDH | QAT_HW & QAT_SW |
 | ECX | QAT_HW & QAT_SW |
 | AES-GCM | QAT_HW & QAT_SW |
+| SM2 | QAT_SW |
 | DSA | QAT_HW |
 | DH | QAT_HW |
 | HKDF | QAT_HW |
@@ -110,6 +111,7 @@ and the default if not specified will use engine interface.
 | SHA3-256 | QAT_HW |
 | SHA3-384 | QAT_HW |
 | SHA3-512 | QAT_HW |
+| ChachaPoly | QAT_HW |
 
 This support is added as an experimental feature and tested with
 OpenSSL Speed and testapp only and not tested with any application.

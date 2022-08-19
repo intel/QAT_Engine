@@ -55,11 +55,10 @@
 #include "qat_evp.h"
 #include "e_qat.h"
 
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECDSA
 # include "qat_hw_ec.h"
 #endif
-
-#ifdef QAT_SW
+#ifdef ENABLE_QAT_SW_ECDSA
 # include "qat_sw_ec.h"
 #endif
 
@@ -233,7 +232,7 @@ int qat_ec_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect)
         strength = EC_GROUP_order_bits(group) / 2;
         /* The min security strength allowed for legacy verification is 80 bits */
         if (strength < 80) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_CURVE);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_CURVE);
             return 0;
         }
 
@@ -358,7 +357,7 @@ static void *qat_signature_ecdsa_newctx(void *provctx, const char *propq)
     if (propq != NULL && (ctx->propq = OPENSSL_strdup(propq)) == NULL) {
         OPENSSL_free(ctx);
         ctx = NULL;
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
     }
     return ctx;
 }
@@ -451,13 +450,12 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
 
     if (ctx->mdsize != 0 && tbslen != ctx->mdsize)
         return 0;
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECDSA
     ret = qat_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
     if (ret <= 0)
         return 0;
 #endif
-
-#ifdef QAT_SW
+#ifdef ENABLE_QAT_SW_ECDSA
     ret = mb_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
     if (ret <= 0)
         return 0;
@@ -466,32 +464,26 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
     return 1;
 }
 
-#ifdef QAT_HW
 static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size_t siglen,
                         const unsigned char *tbs, size_t tbslen)
 {
+#ifdef ENABLE_QAT_HW_ECDSA
     QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
 
     if (!qat_prov_is_running() || (ctx->mdsize != 0 && tbslen != ctx->mdsize))
         return 0;
 
     return qat_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
-}
 #endif
-
-#ifdef QAT_SW
-static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size_t siglen,
-                        const unsigned char *tbs, size_t tbslen)
-{
-
+#ifdef ENABLE_QAT_SW_ECDSA
     typedef int (*fun_ptr)(void *, const unsigned char *, size_t, const unsigned char *, size_t);
     fun_ptr fun = get_default_ECDSA_signature().verify;
     if (!fun)
         return 0;
     DEBUG("ECDSA Verify using Default provider fetch method\n");
     return fun(vctx,sig,siglen,tbs,tbslen);
-}
 #endif
+}
 
 static void qat_signature_ecdsa_freectx(void *vctx)
 {

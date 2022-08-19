@@ -119,7 +119,7 @@ static void *qat_ecx_newctx(void *provctx, size_t keylen)
 
     ctx = OPENSSL_zalloc(sizeof(QAT_ECX_CTX));
     if (ctx == NULL) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
 
@@ -190,7 +190,7 @@ static int qat_ecx_init(void *vecxctx, void *vkey,
         || key == NULL
         || key->keylen != ecxctx->keylen
         || !qat_ecx_key_up_ref(key)) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_INTERNAL_ERROR);
+        QATerr(ERR_LIB_PROV, ERR_R_INTERNAL_ERROR);
         return 0;
     }
 
@@ -212,7 +212,7 @@ static int qat_ecx_set_peer(void *vecxctx, void *vkey)
         || key == NULL
         || key->keylen != ecxctx->keylen
         || !qat_ecx_key_up_ref(key)) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_INTERNAL_ERROR);
+        QATerr(ERR_LIB_PROV, ERR_R_INTERNAL_ERROR);
         return 0;
     }
 

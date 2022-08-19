@@ -119,13 +119,13 @@ typedef struct{
 static QAT_EC_KEYMGMT get_default_keymgmt()
 {
     static QAT_EC_KEYMGMT s_keymgmt;
-    static int initilazed = 0;
-    if (!initilazed) {
+    static int initialized = 0;
+    if (!initialized) {
         QAT_EC_KEYMGMT *keymgmt = (QAT_EC_KEYMGMT *)EVP_KEYMGMT_fetch(NULL, "EC", "provider=default");
         if (keymgmt) {
             s_keymgmt = *keymgmt;
             EVP_KEYMGMT_free((EVP_KEYMGMT *)keymgmt);
-            initilazed = 1;
+            initialized = 1;
         } else {
             WARN("EVP_KEYMGMT_fetch from default provider failed");
         }
@@ -364,4 +364,253 @@ const OSSL_DISPATCH qat_ecdh_keymgmt_functions[] = {
       (void (*)(void))qat_keymgmt_ec_query_operation_name },
     {0, NULL }
 };
-#endif
+
+# ifdef ENABLE_QAT_SW_SM2
+static QAT_EC_KEYMGMT sm2_get_default_keymgmt()
+{
+    static QAT_EC_KEYMGMT s_keymgmt;
+    static int initialized = 0;
+    if (!initialized) {
+        QAT_EC_KEYMGMT *keymgmt = (QAT_EC_KEYMGMT *)EVP_KEYMGMT_fetch(NULL, "SM2", "provider=default");
+        if (keymgmt) {
+            s_keymgmt = *keymgmt;
+            EVP_KEYMGMT_free((EVP_KEYMGMT *)keymgmt);
+            initialized = 1;
+        } else {
+            WARN("EVP_KEYMGMT_fetch from default provider failed");
+        }
+    }
+    return s_keymgmt;
+}
+
+static void *qat_sm2_keymgmt_ec_newdata(void *provctx)
+{
+    typedef void* (*fun_ptr)(void *);
+    fun_ptr fun = sm2_get_default_keymgmt().new;
+    if (!fun)
+        return NULL;
+    return fun(provctx);
+}
+
+static const char *qat_sm2_keymgmt_ec_query_operation_name(int operation_id)
+{
+    typedef const char* (*fun_ptr)(int);
+    fun_ptr fun = sm2_get_default_keymgmt().query_operation_name;
+    if (!fun)
+        return NULL;
+    return fun(operation_id);
+}
+
+static void *qat_sm2_keymgmt_ec_gen_init(void *provctx, int selection,
+                         const OSSL_PARAM params[])
+{
+    typedef void* (*fun_ptr)(void *, int, const OSSL_PARAM *);
+    fun_ptr fun = sm2_get_default_keymgmt().gen_init;
+    if (!fun)
+        return NULL;
+    return fun(provctx, selection, params);
+}
+
+static int qat_sm2_keymgmt_ec_gen_set_template(void *genctx, void *templ)
+{
+    typedef int (*fun_ptr)(void *, void *);
+    fun_ptr fun = sm2_get_default_keymgmt().gen_set_template;
+    if (!fun)
+        return 0;
+    return fun(genctx,templ);
+}
+
+static int qat_sm2_keymgmt_ec_gen_set_params(void *genctx, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *, const OSSL_PARAM *);
+    fun_ptr fun = sm2_get_default_keymgmt().gen_set_params;
+    if (!fun)
+        return 0;
+    return fun(genctx,params);
+}
+
+static const OSSL_PARAM *qat_sm2_keymgmt_ec_gen_settable_params(ossl_unused void *genctx,
+                                                ossl_unused void *provctx)
+{
+    typedef const OSSL_PARAM* (*fun_ptr)(void *, void *);
+    fun_ptr fun = sm2_get_default_keymgmt().gen_settable_params;
+    if (!fun)
+        return NULL;
+    return fun(genctx,provctx);
+}
+
+static void *qat_sm2_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
+{
+    typedef void* (*fun_ptr)(void *, OSSL_CALLBACK *, void *);
+    fun_ptr fun = sm2_get_default_keymgmt().gen;
+    if (!fun)
+        return NULL;
+    return fun(genctx,osslcb,cbarg);
+}
+
+static int qat_sm2_keymgmt_ec_get_params(void *key, OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *, OSSL_PARAM *);
+    fun_ptr fun = sm2_get_default_keymgmt().get_params;
+    if (!fun)
+        return 0;
+    return fun(key, params);
+}
+
+static const OSSL_PARAM *qat_sm2_keymgmt_ec_gettable_params(void *provctx)
+{
+    typedef const OSSL_PARAM* (*fun_ptr)(void *);
+    fun_ptr fun = sm2_get_default_keymgmt().gettable_params;
+    if (!fun)
+        return NULL;
+    return fun(provctx);
+}
+
+static const OSSL_PARAM *qat_sm2_keymgmt_ec_settable_params(void *provctx)
+{
+    typedef const OSSL_PARAM* (*fun_ptr)(void *);
+    fun_ptr fun = sm2_get_default_keymgmt().settable_params;
+    if (!fun)
+        return NULL;
+    return fun(provctx);
+}
+
+static int qat_sm2_keymgmt_ec_set_params(void *key, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *,const OSSL_PARAM *);
+    fun_ptr fun = sm2_get_default_keymgmt().set_params;
+    if (!fun)
+        return 0;
+    return fun(key,params);
+}
+
+static void qat_sm2_keymgmt_ec_freedata(void *keydata)
+{
+    typedef void (*fun_ptr)(void *);
+    fun_ptr fun = sm2_get_default_keymgmt().free;
+    if (!fun)
+        return;
+    fun(keydata);
+}
+
+static int qat_sm2_keymgmt_ec_has(const void *keydata, int selection)
+{
+    typedef int (*fun_ptr)(const void *,int);
+    fun_ptr fun = sm2_get_default_keymgmt().has;
+    if (!fun)
+        return 0;
+    return fun(keydata,selection);
+}
+
+static int qat_sm2_keymgmt_ec_import(void *keydata, int selection, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *, int, const OSSL_PARAM*);
+    fun_ptr fun = sm2_get_default_keymgmt().import;
+    if (!fun)
+        return 0;
+    return fun(keydata,selection,params);
+}
+
+static const OSSL_PARAM *qat_sm2_keymgmt_ec_import_types(int selection)
+{
+    typedef const OSSL_PARAM* (*fun_ptr)(int);
+    fun_ptr fun = sm2_get_default_keymgmt().import_types;
+    if (!fun)
+        return NULL;
+    return fun(selection);
+}
+
+static int qat_sm2_keymgmt_ec_export(void *keydata, int selection,
+              OSSL_CALLBACK *param_cb, void *cbarg)
+{
+    typedef int (*fun_ptr)(void *, int, OSSL_CALLBACK *, void *);
+    fun_ptr fun = sm2_get_default_keymgmt().export;
+    if (!fun)
+        return 0;
+    return fun(keydata,selection,param_cb,cbarg);
+}
+
+static const OSSL_PARAM *qat_sm2_keymgmt_ec_export_types(int selection)
+{
+    typedef const OSSL_PARAM* (*fun_ptr)(int);
+    fun_ptr fun = sm2_get_default_keymgmt().export_types;
+    if (!fun)
+        return NULL;
+    return fun(selection);
+}
+
+static void qat_sm2_keymgmt_ec_gen_cleanup(void *genctx)
+{
+    typedef void (*fun_ptr)(void *);
+    fun_ptr fun = sm2_get_default_keymgmt().gen_cleanup;
+    if (!fun)
+        return;
+    fun(genctx);
+}
+
+static void *qat_sm2_keymgmt_ec_load(const void *reference, size_t reference_sz)
+{
+    typedef void* (*fun_ptr)(const void *, size_t);
+    fun_ptr fun = sm2_get_default_keymgmt().load;
+    if (!fun)
+        return NULL;
+    return fun(reference,reference_sz);
+
+}
+
+static int qat_sm2_keymgmt_match(const void *keydata1, const void *keydata2, int selection)
+{
+    typedef int (*fun_ptr)(const void *, const void *, int);
+    fun_ptr fun = sm2_get_default_keymgmt().match;
+    if (!fun)
+        return 0;
+    return fun(keydata1, keydata2, selection);
+}
+
+int qat_sm2_keymgmt_validate(const void *keydata, int selection, int checktype)
+{
+    typedef int (*fun_ptr)(const void *, int, int);
+    fun_ptr fun = sm2_get_default_keymgmt().validate;
+    if (!fun)
+        return 0;
+    return fun(keydata, selection, checktype);
+}
+
+
+static void *qat_sm2_keymgmt_ec_dup(const void *keydata_from, int selection)
+{
+    typedef void * (*fun_ptr)(const void *, int);
+    fun_ptr fun = sm2_get_default_keymgmt().dup;
+    if (!fun)
+        return NULL;
+    return fun(keydata_from, selection);
+}
+
+
+const OSSL_DISPATCH qat_sm2_keymgmt_functions[] = {
+    { OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))qat_sm2_keymgmt_ec_newdata },
+    { OSSL_FUNC_KEYMGMT_GEN_INIT, (void (*)(void))qat_sm2_keymgmt_ec_gen_init },
+    { OSSL_FUNC_KEYMGMT_GEN_SET_TEMPLATE, (void (*)(void))qat_sm2_keymgmt_ec_gen_set_template },
+    { OSSL_FUNC_KEYMGMT_GEN_SET_PARAMS, (void (*)(void))qat_sm2_keymgmt_ec_gen_set_params },
+    { OSSL_FUNC_KEYMGMT_GEN_SETTABLE_PARAMS, (void (*)(void))qat_sm2_keymgmt_ec_gen_settable_params },
+    { OSSL_FUNC_KEYMGMT_GEN, (void (*)(void))qat_sm2_keymgmt_ec_gen },
+    { OSSL_FUNC_KEYMGMT_GEN_CLEANUP, (void (*)(void))qat_sm2_keymgmt_ec_gen_cleanup },
+    { OSSL_FUNC_KEYMGMT_LOAD, (void (*)(void))qat_sm2_keymgmt_ec_load },
+    { OSSL_FUNC_KEYMGMT_FREE, (void (*)(void))qat_sm2_keymgmt_ec_freedata},
+    { OSSL_FUNC_KEYMGMT_GET_PARAMS, (void (*) (void))qat_sm2_keymgmt_ec_get_params },
+    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))qat_sm2_keymgmt_ec_gettable_params },
+    { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_sm2_keymgmt_ec_set_params },
+    { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_sm2_keymgmt_ec_settable_params },
+    { OSSL_FUNC_KEYMGMT_HAS, (void (*)(void))qat_sm2_keymgmt_ec_has },
+    { OSSL_FUNC_KEYMGMT_MATCH, (void (*)(void))qat_sm2_keymgmt_match },
+    { OSSL_FUNC_KEYMGMT_VALIDATE, (void (*)(void))qat_sm2_keymgmt_validate },
+    { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_sm2_keymgmt_ec_import },
+    { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_sm2_keymgmt_ec_import_types },
+    { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_sm2_keymgmt_ec_export },
+    { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_sm2_keymgmt_ec_export_types },
+    { OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME, (void (*)(void))qat_sm2_keymgmt_ec_query_operation_name },
+    { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_sm2_keymgmt_ec_dup },
+    {0, NULL }
+};
+# endif /* ENABLE_QAT_SW_SM2 */
+#endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) */

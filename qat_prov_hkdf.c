@@ -44,6 +44,7 @@
  *****************************************************************************/
 
 #include "qat_prov_hkdf.h"
+#include "e_qat.h"
 
 #ifdef ENABLE_QAT_HW_HKDF
 
@@ -143,7 +144,7 @@ static void *qat_kdf_hkdf_new(void *provctx)
         return NULL;
 
     if ((ctx = OPENSSL_zalloc(sizeof(*ctx))) == NULL) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
     else
@@ -200,7 +201,7 @@ static size_t qat_kdf_hkdf_size(QAT_KDF_HKDF *ctx)
         return SIZE_MAX;
 
     if (md == NULL) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
         return 0;
     }
     sz = EVP_MD_get_size(md);
@@ -223,15 +224,15 @@ static int qat_kdf_hkdf_derive(void *vctx, unsigned char *key, size_t keylen,
 
     md = qat_prov_digest_md(&ctx->digest);
     if (md == NULL) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
         return 0;
     }
     if (ctx->key == NULL) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_KEY);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_KEY);
         return 0;
     }
     if (keylen == 0) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
+        QATerr(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
         return 0;
     }
     qat_hkdf_ctx->qat_md = md;
@@ -260,19 +261,19 @@ static int qat_hkdf_common_set_ctx_params(QAT_KDF_HKDF *ctx, const OSSL_PARAM pa
             } else if (strcasecmp(p->data, "EXPAND_ONLY") == 0) {
                 ctx->mode = EVP_KDF_HKDF_MODE_EXPAND_ONLY;
             } else {
-                ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_MODE);
+                QATerr(ERR_LIB_PROV, PROV_R_INVALID_MODE);
                 return 0;
             }
         } else if (OSSL_PARAM_get_int(p, &n)) {
             if (n != EVP_KDF_HKDF_MODE_EXTRACT_AND_EXPAND
                 && n != EVP_KDF_HKDF_MODE_EXTRACT_ONLY
                 && n != EVP_KDF_HKDF_MODE_EXPAND_ONLY) {
-                ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_MODE);
+                QATerr(ERR_LIB_PROV, PROV_R_INVALID_MODE);
                 return 0;
             }
             ctx->mode = n;
         } else {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_MODE);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_MODE);
             return 0;
         }
         if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_MODE,

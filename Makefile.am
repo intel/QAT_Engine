@@ -51,8 +51,9 @@ if QAT_PROVIDER
                 qat_prov_cbc.c            \
                 qat_prov_sha3.c           \
                 qat_prov_bio.c            \
-                qat_prov_capabilities.c
-
+                qat_prov_capabilities.c   \
+                qat_prov_chachapoly.c     \
+                qat_prov_sign_sm2.c
 endif
 
 if QAT_OPENSSL_3

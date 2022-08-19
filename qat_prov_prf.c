@@ -44,6 +44,7 @@
  *****************************************************************************/
 
 #include "qat_prov_prf.h"
+#include "e_qat.h"
 
 #ifdef ENABLE_QAT_HW_PRF
 
@@ -125,7 +126,7 @@ static void *qat_tls_prf_new(void *provctx)
         return NULL;
 
     if ((ctx = OPENSSL_zalloc(sizeof(*ctx))) == NULL) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
     else
@@ -182,24 +183,24 @@ static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
 
     md = qat_prov_digest_md(&ctx->digest);
     if (md == NULL) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
         return 0;
     }
 
     if (ctx->P_hash == NULL) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
         return 0;
     }
     if (ctx->sec == NULL) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_SECRET);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_SECRET);
         return 0;
     }
     if (ctx->seedlen == 0) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_SEED);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_SEED);
         return 0;
     }
     if (keylen == 0) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
+        QATerr(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
         return 0;
     }
 

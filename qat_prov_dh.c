@@ -221,7 +221,7 @@ static int qat_dh_match_params(DH *priv, DH *peer)
 
     ret = dhparams_priv != NULL && dhparams_peer != NULL && qat_ffc_params_cmp(dhparams_priv, dhparams_peer, 1);
     if (!ret)
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISMATCHING_DOMAIN_PARAMETERS);
+        QATerr(ERR_LIB_PROV, PROV_R_MISMATCHING_DOMAIN_PARAMETERS);
     return ret;
 }
 
@@ -247,7 +247,7 @@ static int qat_dh_plain_derive(void *vpdhctx,
 
     if (pdhctx->dh == NULL || pdhctx->dhpeer == NULL)
     {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_KEY);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_KEY);
         return 0;
     }
 
@@ -259,7 +259,7 @@ static int qat_dh_plain_derive(void *vpdhctx,
     }
     if (outlen < dhsize)
     {
-        ERR_raise(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
+        QATerr(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
         return 0;
     }
 
@@ -325,14 +325,14 @@ static int qat_dh_X9_42_kdf_derive(void *vpdhctx, unsigned char *secret,
 
     if (pdhctx->kdf_outlen > outlen)
     {
-        ERR_raise(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
+        QATerr(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
         return 0;
     }
     if (!qat_dh_plain_derive(pdhctx, NULL, &stmplen, 0))
         return 0;
     if ((stmp = OPENSSL_secure_malloc(stmplen)) == NULL)
     {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return 0;
     }
     if (!qat_dh_plain_derive(pdhctx, stmp, &stmplen, stmplen))

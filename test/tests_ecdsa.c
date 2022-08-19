@@ -91,10 +91,8 @@ static int get_nid(int type)
         return NID_sect409r1;
     case B_CURVE_571:
         return NID_sect571r1;
-#ifndef QAT_OPENSSL_3
     case P_CURVE_SM2:
         return NID_sm2;
-#endif
     case 0:
         return 0;
     }
@@ -295,6 +293,151 @@ builtin_err:
         INFO("# FAIL SM2_ECDSA Sign/Verify for nid %s\n",curveName);
     return ret;
 }
+#else
+static int test_sm2_ecdsa(int count, int size, ENGINE * e, int print_output,
+                          int verify, int nid, const char *curveName)
+{
+    unsigned char digest[size], wrong_digest[size];
+    unsigned char *signature = NULL;
+    BIO *out = NULL;
+    int ret = 0, i;
+    char buf[256];
+    EVP_PKEY_CTX *pctx = NULL;
+    EVP_PKEY_CTX *sm2_pctx = NULL;
+    EVP_PKEY_CTX *sm2_vfy_pctx = NULL;
+    EVP_PKEY *sm2_pkey = NULL;
+    EVP_MD_CTX *sm2_ctx = EVP_MD_CTX_new();
+    EVP_MD_CTX *sm2_vfy_ctx = EVP_MD_CTX_new();
+    size_t sigsize = 0;
+
+    out = BIO_new(BIO_s_file());
+    if (out == NULL) {
+        WARN("# FAIL: Unable to create BIO\n");
+        exit(1);
+    }
+    BIO_set_fp(out, stdout, BIO_NOCLOSE);
+
+    /* fill digest values with some random data */
+    if ((RAND_bytes(digest, size) <= 0) ||
+        (RAND_bytes(wrong_digest, size) <= 0)) {
+        WARN("# FAIL: unable to get random data\n");
+        ret = -1;
+        goto builtin_err;
+    }
+
+    /* SM2 keys are generated as normal EC keys with a special curve */
+    if (((pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SM2, NULL)) == NULL)
+                 || (EVP_PKEY_keygen_init(pctx) <= 0)
+                 || (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx,
+                    nid) <= 0)
+                 || EVP_PKEY_keygen(pctx, &sm2_pkey) <= 0) {
+                ret = -1;
+                EVP_PKEY_CTX_free(pctx);
+    }
+    EVP_PKEY_CTX_free(pctx);
+    
+    sigsize = EVP_PKEY_get_size(sm2_pkey);
+
+    sm2_pctx = EVP_PKEY_CTX_new(sm2_pkey, NULL);
+    if (sm2_pctx == NULL) {
+        ret = -1;
+        WARN("# FAIL: EVP_PKEY_CTX Alloc Failure\n");
+        goto builtin_err;
+    }
+    sm2_vfy_pctx = EVP_PKEY_CTX_new(sm2_pkey, NULL);
+    if (sm2_vfy_pctx == NULL) {
+        ret = -1;
+        WARN("# FAIL: EVP_PKEY_CTX Alloc Failure\n");
+        goto builtin_err;
+    }
+    if (EVP_PKEY_CTX_set1_id(sm2_pctx, SM2_ID, SM2_ID_LEN) != 1) {
+        ret = -1;
+        WARN("# FAIL: EVP_PKEY_CTX_set1_id Failure\n");
+        goto builtin_err;
+    }
+    if (EVP_PKEY_CTX_set1_id(sm2_vfy_pctx, SM2_ID, SM2_ID_LEN) != 1) {
+        ret = -1;
+        WARN("# FAIL: EVP_PKEY_CTX_set1_id Failure\n");
+        goto builtin_err;
+    }
+
+    EVP_MD_CTX_set_pkey_ctx(sm2_ctx, sm2_pctx);
+    EVP_MD_CTX_set_pkey_ctx(sm2_vfy_ctx, sm2_vfy_pctx);
+
+    if (!EVP_DigestSignInit(sm2_ctx, NULL, EVP_sm3(), NULL, sm2_pkey)) {
+        ret = -1;
+        WARN("# FAIL: EVP_DigestSignInit Failed\n");
+        goto builtin_err;
+    }
+    if (!EVP_DigestVerifyInit(sm2_vfy_ctx, NULL, EVP_sm3(), NULL, sm2_pkey)) {
+        ret = -1;
+        WARN("# FAIL: EVP_DigestVerifyInit Failed\n");
+        goto builtin_err;
+    }
+
+    if ((signature = OPENSSL_malloc(sigsize)) == NULL) {
+        ret = -1;
+        WARN("# FAIL: failed to malloc signature\n");
+        goto builtin_err;
+    }
+
+    if(print_output)
+        printf("%s\n", OBJ_nid2sn(nid));
+
+    for (i = 0; i < count; ++i) {
+        if (!EVP_DigestSign(sm2_ctx, signature, &sigsize,
+                            digest, 20)) {
+            WARN("# FAIL: Failed to Sign\n");
+            ret = -1;
+            goto builtin_err;
+        }
+        if (print_output) {
+            BIO_puts(out,"SM2_ECDSA_sign signature: ");
+            for (i = 0; i < sigsize; i++) {
+                sprintf(buf, "%02X ", signature[i]);
+                BIO_puts(out, buf);
+            }
+            BIO_puts(out, "\n");
+        }
+
+        /* Verify Signature */
+        if (EVP_DigestVerify(sm2_vfy_ctx, signature, sigsize,
+                             digest, 20) != 1) {
+            WARN("# FAIL: Failed to verify\n");
+            ret = -1;
+            goto builtin_err;
+        }
+    }
+
+    /* Verify Signature with a wrong digest*/
+    if (EVP_DigestVerify(sm2_vfy_ctx,signature, sigsize,
+                             wrong_digest, 20) == 1) {
+        WARN("# FAIL: Verified with wrong digest\n");
+        ret = -1;
+        goto builtin_err;
+    }
+
+builtin_err:
+    if (sm2_pkey)
+        EVP_PKEY_free(sm2_pkey);
+    if (sm2_pctx)
+        EVP_PKEY_CTX_free(sm2_pctx);
+    if (sm2_vfy_pctx)
+        EVP_PKEY_CTX_free(sm2_vfy_pctx);
+    if (sm2_ctx)
+        EVP_MD_CTX_free(sm2_ctx);
+    if (sm2_vfy_ctx)
+        EVP_MD_CTX_free(sm2_vfy_ctx);
+    if (signature)
+        OPENSSL_free(signature);
+    BIO_free(out);
+
+    if (0 == ret)
+        INFO("# PASS SM2_ECDSA Sign/Verify for nid %s\n",curveName);
+    else
+        INFO("# FAIL SM2_ECDSA Sign/Verify for nid %s\n",curveName);
+    return ret;
+}
 #endif
 
 /******************************************************************************
@@ -338,11 +481,9 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
     }
     BIO_set_fp(out, stdout, BIO_NOCLOSE);
 
-#ifndef QAT_OPENSSL_3
     if (nid == NID_sm2)
         return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
                               curveName);
-#endif
 
     ecdsa_key = get_ecdsa_key(nid);
     if (ecdsa_key == NULL) {

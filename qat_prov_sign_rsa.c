@@ -211,7 +211,7 @@ static int setup_tbuf(QAT_PROV_RSA_CTX *ctx)
     if (ctx->tbuf != NULL)
         return 1;
     if ((ctx->tbuf = OPENSSL_malloc(QAT_RSA_size(ctx->rsa))) == NULL) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return 0;
     }
     return 1;
@@ -293,11 +293,11 @@ static int qat_rsa_check_padding(const QAT_PROV_RSA_CTX *prsactx,
 {
     switch(prsactx->pad_mode) {
         case RSA_NO_PADDING:
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE);
             return 0;
         case RSA_X931_PADDING:
             if (RSA_X931_hash_id(mdnid) == -1) {
-                ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_X931_DIGEST);
+                QATerr(ERR_LIB_PROV, PROV_R_INVALID_X931_DIGEST);
                 return 0;
             }
             break;
@@ -306,7 +306,7 @@ static int qat_rsa_check_padding(const QAT_PROV_RSA_CTX *prsactx,
                 if ((mdname != NULL && !EVP_MD_is_a(prsactx->md, mdname))
                     || (mgf1_mdname != NULL
                         && !EVP_MD_is_a(prsactx->mgf1_md, mgf1_mdname))) {
-                    ERR_raise(ERR_LIB_PROV, PROV_R_DIGEST_NOT_ALLOWED);
+                    QATerr(ERR_LIB_PROV, PROV_R_DIGEST_NOT_ALLOWED);
                     return 0;
                 }
             break;
@@ -457,7 +457,7 @@ static int qat_rsa_check_parameters(QAT_PROV_RSA_CTX *prsactx, int min_saltlen)
         if ((QAT_RSA_bits(prsactx->rsa) & 0x7) == 1)
             max_saltlen--;
         if (min_saltlen < 0 || min_saltlen > max_saltlen) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
             return 0;
         }
         prsactx->min_saltlen = min_saltlen;
@@ -481,12 +481,12 @@ int QAT_RSA_sign_ASN1_OCTET_STRING(int type,
     i = i2d_ASN1_OCTET_STRING(&sig, NULL);
     j = QAT_RSA_size(rsa);
     if (i > (j - RSA_PKCS1_PADDING_SIZE)) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_DIGEST_TOO_BIG_FOR_RSA_KEY);
+        QATerr(ERR_LIB_RSA, RSA_R_DIGEST_TOO_BIG_FOR_RSA_KEY);
         return 0;
     }
     s = OPENSSL_malloc((unsigned int)j + 1);
     if (s == NULL) {
-        ERR_raise(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
         return 0;
     }
     p = s;
@@ -576,7 +576,7 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(RSA *rsa, unsigned char *EM,
     } else if (sLen == RSA_PSS_SALTLEN_MAX_SIGN) {
         sLen = RSA_PSS_SALTLEN_MAX;
     } else if (sLen < RSA_PSS_SALTLEN_MAX) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_SLEN_CHECK_FAILED);
+        QATerr(ERR_LIB_RSA, RSA_R_SLEN_CHECK_FAILED);
         goto err;
     }
 
@@ -587,19 +587,19 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(RSA *rsa, unsigned char *EM,
         emLen--;
     }
     if (emLen < hLen + 2) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE_FOR_KEY_SIZE);
+        QATerr(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE_FOR_KEY_SIZE);
         goto err;
     }
     if (sLen == RSA_PSS_SALTLEN_MAX) {
         sLen = emLen - hLen - 2;
     } else if (sLen > emLen - hLen - 2) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE_FOR_KEY_SIZE);
+        QATerr(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE_FOR_KEY_SIZE);
         goto err;
     }
     if (sLen > 0) {
         salt = OPENSSL_malloc(sLen);
         if (salt == NULL) {
-            ERR_raise(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
+            QATerr(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
             goto err;
         }
         if (RAND_bytes_ex(rsa->libctx, salt, sLen, 0) <= 0)
@@ -683,14 +683,14 @@ int QAT_RSA_verify_PKCS1_PSS_mgf1(RSA *rsa, const unsigned char *mHash,
     if (sLen == RSA_PSS_SALTLEN_DIGEST) {
         sLen = hLen;
     } else if (sLen < RSA_PSS_SALTLEN_MAX) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_SLEN_CHECK_FAILED);
+        QATerr(ERR_LIB_RSA, RSA_R_SLEN_CHECK_FAILED);
         goto err;
     }
 
     MSBits = (BN_num_bits(rsa->n) - 1) & 0x7;
     emLen = QAT_RSA_size(rsa);
     if (EM[0] & (0xFF << MSBits)) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_FIRST_OCTET_INVALID);
+        QATerr(ERR_LIB_RSA, RSA_R_FIRST_OCTET_INVALID);
         goto err;
     }
     if (MSBits == 0) {
@@ -698,24 +698,24 @@ int QAT_RSA_verify_PKCS1_PSS_mgf1(RSA *rsa, const unsigned char *mHash,
         emLen--;
     }
     if (emLen < hLen + 2) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE);
+        QATerr(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE);
         goto err;
     }
     if (sLen == RSA_PSS_SALTLEN_MAX) {
         sLen = emLen - hLen - 2;
     } else if (sLen > emLen - hLen - 2) { /* sLen can be small negative */
-        ERR_raise(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE);
+        QATerr(ERR_LIB_RSA, RSA_R_DATA_TOO_LARGE);
         goto err;
     }
     if (EM[emLen - 1] != 0xbc) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_LAST_OCTET_INVALID);
+        QATerr(ERR_LIB_RSA, RSA_R_LAST_OCTET_INVALID);
         goto err;
     }
     maskedDBLen = emLen - hLen - 1;
     H = EM + maskedDBLen;
     DB = OPENSSL_malloc(maskedDBLen);
     if (DB == NULL) {
-        ERR_raise(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
         goto err;
     }
     if (QAT_PKCS1_MGF1(DB, maskedDBLen, H, hLen, mgf1Hash) < 0)
@@ -726,7 +726,7 @@ int QAT_RSA_verify_PKCS1_PSS_mgf1(RSA *rsa, const unsigned char *mHash,
         DB[0] &= 0xFF >> (8 - MSBits);
     for (i = 0; DB[i] == 0 && i < (maskedDBLen - 1); i++) ;
     if (DB[i++] != 0x1) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_SLEN_RECOVERY_FAILED);
+        QATerr(ERR_LIB_RSA, RSA_R_SLEN_RECOVERY_FAILED);
         goto err;
     }
     if (sLen != RSA_PSS_SALTLEN_AUTO && (maskedDBLen - i) != sLen) {
@@ -746,7 +746,7 @@ int QAT_RSA_verify_PKCS1_PSS_mgf1(RSA *rsa, const unsigned char *mHash,
     if (!EVP_DigestFinal_ex(ctx, H_, NULL))
         goto err;
     if (memcmp(H_, H, hLen)) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
+        QATerr(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
         ret = 0;
     } else {
         ret = 1;
@@ -815,19 +815,19 @@ static int encode_pkcs1(unsigned char **out, size_t *out_len, int type,
     unsigned char *dig_info;
 
     if (type == NID_undef) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_UNKNOWN_ALGORITHM_TYPE);
+        QATerr(ERR_LIB_RSA, RSA_R_UNKNOWN_ALGORITHM_TYPE);
         return 0;
     }
     di_prefix = qat_rsa_digestinfo_encoding(type, &di_prefix_len);
     if (di_prefix == NULL) {
-        ERR_raise(ERR_LIB_RSA,
+        QATerr(ERR_LIB_RSA,
                   RSA_R_THE_ASN1_OBJECT_IDENTIFIER_IS_NOT_KNOWN_FOR_THIS_MD);
         return 0;
     }
     dig_info_len = di_prefix_len + m_len;
     dig_info = OPENSSL_malloc(dig_info_len);
     if (dig_info == NULL) {
-        ERR_raise(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
         return 0;
     }
     memcpy(dig_info, di_prefix, di_prefix_len);
@@ -854,7 +854,7 @@ int QAT_RSA_sign(int type, const unsigned char *m, unsigned int m_len,
          * RSASSA-PKCS1-v1_5.
          */
         if (m_len != SSL_SIG_LENGTH) {
-            ERR_raise(ERR_LIB_RSA, RSA_R_INVALID_MESSAGE_LENGTH);
+            QATerr(ERR_LIB_RSA, RSA_R_INVALID_MESSAGE_LENGTH);
             return 0;
         }
         encoded_len = SSL_SIG_LENGTH;
@@ -866,7 +866,7 @@ int QAT_RSA_sign(int type, const unsigned char *m, unsigned int m_len,
     }
 
     if (encoded_len + RSA_PKCS1_PADDING_SIZE > (size_t)QAT_RSA_size(rsa)) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_DIGEST_TOO_BIG_FOR_RSA_KEY);
+        QATerr(ERR_LIB_RSA, RSA_R_DIGEST_TOO_BIG_FOR_RSA_KEY);
         goto err;
     }
     encrypt_len = QAT_RSA_private_encrypt((int)encoded_len, encoded, sigret, rsa,
@@ -891,14 +891,14 @@ int QAT_RSA_verify(int type, const unsigned char *m, unsigned int m_len,
     unsigned char *decrypt_buf = NULL, *encoded = NULL;
 
     if (siglen != (size_t)QAT_RSA_size(rsa)) {
-        ERR_raise(ERR_LIB_RSA, RSA_R_WRONG_SIGNATURE_LENGTH);
+        QATerr(ERR_LIB_RSA, RSA_R_WRONG_SIGNATURE_LENGTH);
         return 0;
     }
 
     /* Recover the encoded digest. */
     decrypt_buf = OPENSSL_malloc(siglen);
     if (decrypt_buf == NULL) {
-        ERR_raise(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
         goto err;
     }
 
@@ -915,7 +915,7 @@ int QAT_RSA_verify(int type, const unsigned char *m, unsigned int m_len,
          * RSASSA-PKCS1-v1_5.
          */
         if (decrypt_len != SSL_SIG_LENGTH) {
-            ERR_raise(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
+            QATerr(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
             goto err;
         }
 
@@ -924,12 +924,12 @@ int QAT_RSA_verify(int type, const unsigned char *m, unsigned int m_len,
             *prm_len = SSL_SIG_LENGTH;
         } else {
             if (m_len != SSL_SIG_LENGTH) {
-                ERR_raise(ERR_LIB_RSA, RSA_R_INVALID_MESSAGE_LENGTH);
+                QATerr(ERR_LIB_RSA, RSA_R_INVALID_MESSAGE_LENGTH);
                 goto err;
             }
 
             if (memcmp(decrypt_buf, m, SSL_SIG_LENGTH) != 0) {
-                ERR_raise(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
+                QATerr(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
                 goto err;
             }
         }
@@ -944,12 +944,12 @@ int QAT_RSA_verify(int type, const unsigned char *m, unsigned int m_len,
             *prm_len = 16;
         } else {
             if (m_len != 16) {
-                ERR_raise(ERR_LIB_RSA, RSA_R_INVALID_MESSAGE_LENGTH);
+                QATerr(ERR_LIB_RSA, RSA_R_INVALID_MESSAGE_LENGTH);
                 goto err;
             }
 
             if (memcmp(m, decrypt_buf + 2, 16) != 0) {
-                ERR_raise(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
+                QATerr(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
                 goto err;
             }
         }
@@ -967,7 +967,7 @@ int QAT_RSA_verify(int type, const unsigned char *m, unsigned int m_len,
                 goto err;
             m_len = (unsigned int)len;
             if (m_len > decrypt_len) {
-                ERR_raise(ERR_LIB_RSA, RSA_R_INVALID_DIGEST_LENGTH);
+                QATerr(ERR_LIB_RSA, RSA_R_INVALID_DIGEST_LENGTH);
                 goto err;
             }
             m = decrypt_buf + decrypt_len - m_len;
@@ -979,7 +979,7 @@ int QAT_RSA_verify(int type, const unsigned char *m, unsigned int m_len,
 
         if (encoded_len != decrypt_len
                 || memcmp(encoded, decrypt_buf, encoded_len) != 0) {
-            ERR_raise(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
+            QATerr(ERR_LIB_RSA, RSA_R_BAD_SIGNATURE);
             goto err;
         }
 
@@ -1098,7 +1098,7 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx, const OSSL_PARAM par
         default:
         bad_pad:
             if (err_extra_text == NULL)
-                ERR_raise(ERR_LIB_PROV,
+                QATerr(ERR_LIB_PROV,
                           PROV_R_ILLEGAL_OR_UNSUPPORTED_PADDING_MODE);
             else
                 ERR_raise_data(ERR_LIB_PROV,
@@ -1142,7 +1142,7 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx, const OSSL_PARAM par
          * lowest saltlen number possible.
          */
         if (saltlen < RSA_PSS_SALTLEN_MAX) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
             return 0;
         }
 
@@ -1197,7 +1197,7 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx, const OSSL_PARAM par
         }
 
         if (pad_mode != RSA_PKCS1_PSS_PADDING) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_MGF1_MD);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_MGF1_MD);
             return  0;
         }
     }
@@ -1231,7 +1231,7 @@ static void *qat_signature_rsa_newctx(void *provctx, const char *propq)
     if ((prsactx = OPENSSL_zalloc(sizeof(QAT_PROV_RSA_CTX))) == NULL
         || (propq != NULL && (propq_copy = OPENSSL_strdup(propq)) == NULL)) {
         OPENSSL_free(prsactx);
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
 
@@ -1342,7 +1342,7 @@ static int qat_rsa_signverify_init(void *vprsactx, void *vrsa,
 
         break;
     default:
-        ERR_raise(ERR_LIB_RSA, PROV_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE);
+        QATerr(ERR_LIB_RSA, PROV_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE);
         return 0;
     }
 
@@ -1383,7 +1383,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
 
     if (mdsize != 0) {
         if (tbslen != mdsize) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_DIGEST_LENGTH);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST_LENGTH);
             return 0;
         }
 
@@ -1400,7 +1400,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                                              prsactx->rsa);
 
             if (ret <= 0) {
-                ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                 return 0;
             }
             ret = sltmp;
@@ -1416,7 +1416,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                 return 0;
             }
             if (!setup_tbuf(prsactx)) {
-                ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+                QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
                 return 0;
             }
             memcpy(prsactx->tbuf, tbs, tbslen);
@@ -1432,7 +1432,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                 ret = QAT_RSA_sign(prsactx->mdnid, tbs, tbslen, sig, &sltmp,
                                prsactx->rsa);
                 if (ret <= 0) {
-                    ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                    QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                     return 0;
                 }
                 ret = sltmp;
@@ -1474,7 +1474,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                                                 prsactx->tbuf, tbs,
                                                 prsactx->md, prsactx->mgf1_md,
                                                 prsactx->saltlen)) {
-                ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                 return 0;
             }
             ret = QAT_RSA_private_encrypt(QAT_RSA_size(prsactx->rsa), prsactx->tbuf,
@@ -1494,7 +1494,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
 
 end:
     if (ret <= 0) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+        QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
         return 0;
     }
 
@@ -1539,12 +1539,12 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
             ret = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf, prsactx->rsa,
                                          RSA_X931_PADDING);
             if (ret < 1) {
-                ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                 return 0;
             }
             ret--;
             if (prsactx->tbuf[ret] != RSA_X931_hash_id(prsactx->mdnid)) {
-                ERR_raise(ERR_LIB_PROV, PROV_R_ALGORITHM_MISMATCH);
+                QATerr(ERR_LIB_PROV, PROV_R_ALGORITHM_MISMATCH);
                 return 0;
             }
             if (ret != EVP_MD_size(prsactx->md)) {
@@ -1572,7 +1572,7 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
                 ret = QAT_RSA_verify(prsactx->mdnid, NULL, 0, rout, &sltmp,
                                       sig, siglen, prsactx->rsa);
                 if (ret <= 0) {
-                    ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                    QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                     return 0;
                 }
                 ret = sltmp;
@@ -1588,7 +1588,7 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
         ret = QAT_RSA_public_decrypt(siglen, sig, rout, prsactx->rsa,
                                  prsactx->pad_mode);
         if (ret < 0) {
-            ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+            QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
             return 0;
         }
     }
@@ -1620,7 +1620,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
         case RSA_PKCS1_PADDING:
             if (!QAT_RSA_verify(prsactx->mdnid, tbs, tbslen, NULL, NULL, sig, siglen,
                             prsactx->rsa)) {
-                ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                 return 0;
             }
             return 1;
@@ -1653,7 +1653,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
                 ret = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf,
                                          prsactx->rsa, RSA_NO_PADDING);
                 if (ret <= 0) {
-                    ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                    QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                     return 0;
                 }
                 ret = QAT_RSA_verify_PKCS1_PSS_mgf1(prsactx->rsa, tbs,
@@ -1661,7 +1661,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
                                                 prsactx->tbuf,
                                                 prsactx->saltlen);
                 if (ret <= 0) {
-                    ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                    QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                     return 0;
                 }
                 return 1;
@@ -1677,7 +1677,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
         rslen = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf, prsactx->rsa,
                                    prsactx->pad_mode);
         if (rslen == 0) {
-            ERR_raise(ERR_LIB_PROV, ERR_R_RSA_LIB);
+            QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
             return 0;
         }
     }

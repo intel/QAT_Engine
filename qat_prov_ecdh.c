@@ -56,11 +56,9 @@
 #include "qat_evp.h"
 #include "e_qat.h"
 
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECDH
 # include "qat_hw_ec.h"
-#endif
-
-#ifdef QAT_SW
+#elif ENABLE_QAT_SW_ECDH
 # include "qat_sw_ec.h"
 #endif
 
@@ -284,14 +282,14 @@ static int qat_keyexch_ecdh_match_params(const EC_KEY *priv, const EC_KEY *peer)
 
     ctx = BN_CTX_new_ex(qat_ec_key_get_libctx(priv));
     if (ctx == NULL) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return 0;
     }
     ret = group_priv != NULL
           && group_peer != NULL
           && EC_GROUP_cmp(group_priv, group_peer, ctx) == 0;
     if (!ret)
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISMATCHING_DOMAIN_PARAMETERS);
+        QATerr(ERR_LIB_PROV, PROV_R_MISMATCHING_DOMAIN_PARAMETERS);
     BN_CTX_free(ctx);
     return ret;
 }
@@ -567,19 +565,17 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
     unsigned char *sec = NULL;
     size_t seclen;
     if (eckey->meth->compute_key == NULL) {
-        ERR_raise(ERR_LIB_EC, EC_R_OPERATION_NOT_SUPPORTED);
+        QATerr(ERR_LIB_EC, EC_R_OPERATION_NOT_SUPPORTED);
         return 0;
     }
     if (outlen > INT_MAX) {
-        ERR_raise(ERR_LIB_EC, EC_R_INVALID_OUTPUT_LENGTH);
+        QATerr(ERR_LIB_EC, EC_R_INVALID_OUTPUT_LENGTH);
         return 0;
     }
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECDH
     if(!qat_engine_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
         return 0;
-#endif
-
-#ifdef QAT_SW
+#elif ENABLE_QAT_SW_ECDH
     if(!mb_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
         return 0;
 #endif
@@ -607,7 +603,7 @@ static ossl_inline int qat_keyexch_ecdh_plain_derive(void *vpecdhctx,
     int key_cofactor_mode;
 
     if (pecdhctx->k == NULL || pecdhctx->peerk == NULL) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_MISSING_KEY);
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_KEY);
         return 0;
     }
 
@@ -713,13 +709,13 @@ static ossl_inline int qat_keyexch_ecdh_X9_63_kdf_derive(void *vpecdhctx,
         return 1;
     }
     if (pecdhctx->kdf_outlen > outlen) {
-        ERR_raise(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
+        QATerr(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
         return 0;
     }
     if (!qat_keyexch_ecdh_plain_derive(vpecdhctx, NULL, &stmplen, 0))
         return 0;
     if ((stmp = OPENSSL_secure_malloc(stmplen)) == NULL) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return 0;
     }
     if (!qat_keyexch_ecdh_plain_derive(vpecdhctx, stmp, &stmplen, stmplen))

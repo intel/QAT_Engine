@@ -45,6 +45,14 @@
 # define OSSL_TLS_GROUP_ID_ffdhe4096        0x0102
 # define OSSL_TLS_GROUP_ID_ffdhe6144        0x0103
 # define OSSL_TLS_GROUP_ID_ffdhe8192        0x0104
+# define OSSL_TLS_GROUP_ID_sm2              0x0029
+
+# if !defined(NTLS1_1_VERSION)
+/* NTLS version.
+   OpenSSL3 doesn't support yet, define to pass the compile.
+ */
+#  define NTLS1_1_VERSION                   0x0101
+# endif
 
 typedef struct tls_group_constants_st {
     unsigned int group_id;   /* Group ID */
@@ -55,7 +63,7 @@ typedef struct tls_group_constants_st {
     int maxdtls;             /* Maximum DTLS version (or 0 for undefined) */
 } TLS_GROUP_CONSTANTS;
 
-static const TLS_GROUP_CONSTANTS group_list[35] = {
+static const TLS_GROUP_CONSTANTS group_list[36] = {
     { OSSL_TLS_GROUP_ID_sect163k1, 80, TLS1_VERSION, TLS1_2_VERSION,
       DTLS1_VERSION, DTLS1_2_VERSION },
     { OSSL_TLS_GROUP_ID_sect163r1, 80, TLS1_VERSION, TLS1_2_VERSION,
@@ -117,6 +125,7 @@ static const TLS_GROUP_CONSTANTS group_list[35] = {
     { OSSL_TLS_GROUP_ID_ffdhe4096, 128, TLS1_3_VERSION, 0, -1, -1 },
     { OSSL_TLS_GROUP_ID_ffdhe6144, 128, TLS1_3_VERSION, 0, -1, -1 },
     { OSSL_TLS_GROUP_ID_ffdhe8192, 192, TLS1_3_VERSION, 0, -1, -1 },
+    { OSSL_TLS_GROUP_ID_sm2, 128, NTLS1_1_VERSION, 0, -1, -1 },
 };
 
 #define TLS_GROUP_ENTRY(tlsname, realname, algorithm, idx) \
@@ -162,6 +171,8 @@ static const OSSL_PARAM param_group_list[][10] = {
     TLS_GROUP_ENTRY("ffdhe4096", "ffdhe4096", "DH", 32),
     TLS_GROUP_ENTRY("ffdhe6144", "ffdhe6144", "DH", 33),
     TLS_GROUP_ENTRY("ffdhe8192", "ffdhe8192", "DH", 34),
+
+    TLS_GROUP_ENTRY("curveSM2", "SM2", "SM2", 35),
 };
 #endif /* !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH) */
 

@@ -296,7 +296,7 @@ static void *qat_dsa_newctx(void *provctx, const char *propq)
     {
         OPENSSL_free(pdsactx);
         pdsactx = NULL;
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
     }
     return pdsactx;
 }
@@ -371,7 +371,7 @@ static int dsa_signverify_init(void *vpdsactx, void *vdsa,
 
     if (vdsa == NULL && pdsactx->dsa == NULL)
     {
-        ERR_raise(ERR_LIB_PROV, PROV_R_NO_KEY_SET);
+        QATerr(ERR_LIB_PROV, PROV_R_NO_KEY_SET);
         return 0;
     }
 
@@ -380,7 +380,7 @@ static int dsa_signverify_init(void *vpdsactx, void *vdsa,
         if (!qat_dsa_check_key(pdsactx->libctx, vdsa,
                                operation == EVP_PKEY_OP_SIGN))
         {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
             return 0;
         }
         if (!qat_DSA_up_ref(vdsa))

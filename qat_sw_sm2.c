@@ -48,29 +48,10 @@
 #endif
 #define __USE_GNU
 
-#include <pthread.h>
-#include <openssl/err.h>
-#include <string.h>
-#include <unistd.h>
-#include <signal.h>
 
-/* Local includes */
-#include "e_qat.h"
-#include "qat_utils.h"
-#include "qat_events.h"
-#include "qat_fork.h"
-#include "qat_evp.h"
-#include "qat_sw_ec.h"
-#include "qat_sw_request.h"
+#include "qat_sw_sm2.h"
 
-/* Crypto_mb includes */
-#include "crypto_mb/ec_sm2.h"
-#include "crypto_mb/cpu_features.h"
 
-/* The default user id as specified in GM/T 0009-2012 */
-# define SM2_DEFAULT_USERID "1234567812345678"
-# define SM2_DEFAULT_USERID_LEN sizeof(SM2_DEFAULT_USERID) - 1
-# define SM3_DIGEST_LENGTH 32
 
 typedef struct {
     /* Key and paramgen group */
@@ -85,21 +66,81 @@ typedef struct {
 } QAT_SM2_PKEY_CTX;
 
 static EVP_PKEY_METHOD *_hidden_sm2_pmeth = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
 static const EVP_PKEY_METHOD *sw_sm2_pmeth = NULL;
+#endif
 
-#ifdef ENABLE_QAT_SW_SM2
+#ifdef QAT_OPENSSL_PROVIDER
+typedef struct evp_signature_st {
+    int name_id;
+    char *type_name;
+    const char *description;
+    OSSL_PROVIDER *prov;
+    int refcnt;
+    void *lock;
+
+    OSSL_FUNC_signature_newctx_fn *newctx;
+    OSSL_FUNC_signature_sign_init_fn *sign_init;
+    OSSL_FUNC_signature_sign_fn *sign;
+    OSSL_FUNC_signature_verify_init_fn *verify_init;
+    OSSL_FUNC_signature_verify_fn *verify;
+    OSSL_FUNC_signature_verify_recover_init_fn *verify_recover_init;
+    OSSL_FUNC_signature_verify_recover_fn *verify_recover;
+    OSSL_FUNC_signature_digest_sign_init_fn *digest_sign_init;
+    OSSL_FUNC_signature_digest_sign_update_fn *digest_sign_update;
+    OSSL_FUNC_signature_digest_sign_final_fn *digest_sign_final;
+    OSSL_FUNC_signature_digest_sign_fn *digest_sign;
+    OSSL_FUNC_signature_digest_verify_init_fn *digest_verify_init;
+    OSSL_FUNC_signature_digest_verify_update_fn *digest_verify_update;
+    OSSL_FUNC_signature_digest_verify_final_fn *digest_verify_final;
+    OSSL_FUNC_signature_digest_verify_fn *digest_verify;
+    OSSL_FUNC_signature_freectx_fn *freectx;
+    OSSL_FUNC_signature_dupctx_fn *dupctx;
+    OSSL_FUNC_signature_get_ctx_params_fn *get_ctx_params;
+    OSSL_FUNC_signature_gettable_ctx_params_fn *gettable_ctx_params;
+    OSSL_FUNC_signature_set_ctx_params_fn *set_ctx_params;
+    OSSL_FUNC_signature_settable_ctx_params_fn *settable_ctx_params;
+    OSSL_FUNC_signature_get_ctx_md_params_fn *get_ctx_md_params;
+    OSSL_FUNC_signature_gettable_ctx_md_params_fn *gettable_ctx_md_params;
+    OSSL_FUNC_signature_set_ctx_md_params_fn *set_ctx_md_params;
+    OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
+} QAT_EVP_SIGNATURE /* EVP_SIGNATURE for QAT Provider sm2 */;
+
+struct bignum_st {
+    BN_ULONG *d;                /* Pointer to an array of 'BN_BITS2' bit
+                                 * chunks. */
+    int top;                    /* Index of last used d +1. */
+    /* The next are internal book keeping for bn_expand. */
+    int dmax;                   /* Size of the d array. */
+    int neg;                    /* one if the number is negative */
+    int flags;
+};
+
+static QAT_EVP_SIGNATURE get_default_signature_sm2()
+{
+    static QAT_EVP_SIGNATURE s_signature;
+    static int initilazed = 0;
+    if (!initilazed) {
+        QAT_EVP_SIGNATURE *signature = (QAT_EVP_SIGNATURE *)EVP_SIGNATURE_fetch(NULL, "SM2", "provider=default");
+        if (signature) {
+            s_signature = *signature;
+            EVP_SIGNATURE_free((QAT_EVP_SIGNATURE *)signature);
+            initilazed = 1;
+        } else {
+            WARN("EVP_SIGNATURE_fetch from default provider failed");
+        }
+    }
+    return s_signature;
+}
+#endif
+
+#ifndef QAT_OPENSSL_PROVIDER
+# ifdef ENABLE_QAT_SW_SM2
 static int mb_sm2_init(EVP_PKEY_CTX *ctx);
 static int mb_sm2_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
 static void mb_sm2_cleanup(EVP_PKEY_CTX *ctx);
 static int mb_digest_custom(EVP_PKEY_CTX *ctx, EVP_MD_CTX *mctx);
-static int mb_ecdsa_sm2_sign(EVP_MD_CTX *ctx,
-                             unsigned char *sig, size_t *siglen,
-                             const unsigned char *tbs,
-                             size_t tbslen);
-static int mb_ecdsa_sm2_verify(EVP_MD_CTX *ctx,
-                               const unsigned char *sig, size_t siglen,
-                               const unsigned char *tbs,
-                               size_t tbslen);
+# endif
 #endif
 
 EVP_PKEY_METHOD *mb_sm2_pmeth(void)
@@ -109,7 +150,7 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
             return _hidden_sm2_pmeth;
         EVP_PKEY_meth_free(_hidden_sm2_pmeth);
     }
-
+#ifndef QAT_OPENSSL_PROVIDER
     /* EVP_PKEY_meth_copy doesn't copy digest_custom from SW method
      * so directly returning sw method separately here */
     if (sw_sm2_pmeth && !qat_sw_sm2_offload && !qat_reload_algo)
@@ -125,7 +166,7 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
         return NULL;
     }
 
-#ifdef ENABLE_QAT_SW_SM2
+# ifdef ENABLE_QAT_SW_SM2
     if (qat_sw_offload &&
         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
         mbx_get_algo_info(MBX_ALGO_X25519)) {
@@ -142,13 +183,13 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
         qat_sw_sm2_offload = 0;
         DEBUG("QAT SW SM2 disabled\n");
     }
-#endif
+# endif
 
     if (!qat_sw_sm2_offload) {
         DEBUG("OpenSSL SW ECDSA SM2\n");
         return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
     }
-
+#endif /* QAT_OPENSSL_PROVIDER */
     return _hidden_sm2_pmeth;
 }
 
@@ -316,6 +357,7 @@ void process_ecdsa_sm2_verify_reqs(mb_thread_data *tlv)
     DEBUG("Processed Final Request\n");
 }
 
+# ifndef QAT_OPENSSL_PROVIDER
 static int mb_sm2_init(EVP_PKEY_CTX *ctx)
 {
     QAT_SM2_PKEY_CTX *smctx = NULL;
@@ -435,7 +477,7 @@ static int mb_sm2_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
          return -2;
     }
 }
-
+#endif
 
 /* OpenSSL Softare implementation for synchronous requests,
  * Since OpenSSL doesn't support single shot operation
@@ -570,6 +612,7 @@ int ossl_sm2_compute_z_digest(uint8_t *out,
     return rc;
 }
 
+# ifndef QAT_OPENSSL_PROVIDER
 static BIGNUM *sm2_compute_msg_hash(const EVP_MD *digest,
                                     const EC_KEY *key,
                                     const uint8_t *id,
@@ -624,11 +667,19 @@ static int mb_digest_custom(EVP_PKEY_CTX *ctx, EVP_MD_CTX *mctx)
      * corresponding digestsign and digestverify function */
     return 1;
 }
+#endif
 
-static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
+# ifdef QAT_OPENSSL_PROVIDER
+int mb_ecdsa_sm2_sign(QAT_PROV_SM2_CTX *smctx,
+                             unsigned char *sig, size_t *siglen,
+                             size_t sigsize, const unsigned char *tbs,
+                             size_t tbslen)
+# else
+int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
                              unsigned char *sig, size_t *siglen,
                              const unsigned char *tbs,
                              size_t tbslen)
+# endif
 {
     int ret = 0, len = 0, job_ret = 0, sts = 0;
     BN_CTX *ctx = NULL;
@@ -641,11 +692,15 @@ static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     const BIGNUM *priv_key, *order;
     const EC_POINT *pub_key = NULL;
     BIGNUM *ecdsa_sig_r = NULL, *ecdsa_sig_s = NULL;
-    unsigned char *dgst = NULL;
     ecdsa_sm2_sign_op_data *ecdsa_sm2_sign_req = NULL;
     mb_thread_data *tlv = NULL;
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
 
+#ifdef QAT_OPENSSL_PROVIDER
+    int (*sw_sm2_sign_fp)(void *, unsigned char *, size_t *,
+                          size_t, const unsigned char *, size_t);
+#else
+    unsigned char *dgst = NULL;
     BIGNUM *e = NULL;
     EVP_MD *md = NULL;
     int dlen = 0;
@@ -653,23 +708,36 @@ static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
                   unsigned char *sig, size_t *siglen,
                   const unsigned char *tbs,
                   size_t tbslen) = NULL;
+#endif
 
+# ifdef QAT_OPENSSL_PROVIDER
+    const EC_KEY *eckey = smctx->ec;
+# else
     EVP_PKEY_CTX *pctx = EVP_MD_CTX_pkey_ctx(mctx);
     EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey(pctx);
     const EC_KEY *eckey = EVP_PKEY_get0_EC_KEY(pkey);
+# endif
     const int sig_sz = ECDSA_size(eckey);
 
     DEBUG("Entering \n");
-    if (unlikely(eckey == NULL) || (*siglen < (size_t)sig_sz)) {
+    if (unlikely(eckey == NULL)) {
         WARN("Invalid Input param\n");
         QATerr(QAT_F_MB_ECDSA_SM2_SIGN, QAT_R_INPUT_PARAM_INVALID);
         return ret;
     }
 
+    /* To know how much memory is needed to store the sig */
     if (sig == NULL) {
         *siglen = (size_t)sig_sz;
         return 1;
     }
+
+    if (*siglen < (size_t)sig_sz) {
+        WARN("Invalid Input param\n");
+        QATerr(QAT_F_MB_ECDSA_SM2_SIGN, QAT_R_INPUT_PARAM_INVALID);
+        return ret;
+    }
+
     group = EC_KEY_get0_group(eckey);
     priv_key = EC_KEY_get0_private_key(eckey);
     pub_key = EC_KEY_get0_public_key(eckey);
@@ -680,12 +748,14 @@ static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
         return ret;
     }
 
+# ifndef QAT_OPENSSL_PROVIDER
     QAT_SM2_PKEY_CTX *smctx = (QAT_SM2_PKEY_CTX *)EVP_PKEY_CTX_get_data(pctx);
     if (!smctx->id_set) {
         smctx->id_set = 1;
         smctx->id = (uint8_t*)OPENSSL_memdup(SM2_DEFAULT_USERID, SM2_DEFAULT_USERID_LEN);
         smctx->id_len = SM2_DEFAULT_USERID_LEN;
     }
+# endif
 
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
@@ -789,13 +859,18 @@ static int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     ecdsa_sm2_sign_req->priv_key = priv_key;
     ecdsa_sm2_sign_req->job = job;
     ecdsa_sm2_sign_req->sts = &sts;
-    ecdsa_sm2_sign_req->digest = tbs;
     ecdsa_sm2_sign_req->x = x;
     ecdsa_sm2_sign_req->y = y;
     ecdsa_sm2_sign_req->z = z;
     ecdsa_sm2_sign_req->id = smctx->id;
     ecdsa_sm2_sign_req->id_len = smctx->id_len;
+#ifdef QAT_OPENSSL_PROVIDER
+    ecdsa_sm2_sign_req->digest = smctx->tbs;
+    ecdsa_sm2_sign_req->dig_len = smctx->tbs_len;
+#else
+    ecdsa_sm2_sign_req->digest = tbs;
     ecdsa_sm2_sign_req->dig_len = tbslen;
+#endif
 
     mb_queue_ecdsa_sm2_sign_enqueue(tlv->ecdsa_sm2_sign_queue, ecdsa_sm2_sign_req);
     STOP_RDTSC(&ecdsa_cycles_sign_setup, 1, "[ECDSA:sign_setup]");
@@ -856,6 +931,12 @@ err:
     return ret;
 
 use_sw_method:
+#ifdef QAT_OPENSSL_PROVIDER
+    sw_sm2_sign_fp = get_default_signature_sm2().sign;
+    if (!sw_sm2_sign_fp)
+        return 0;
+    return sw_sm2_sign_fp((void*)smctx, sig, siglen, sigsize, tbs, tbslen);
+#else
     EVP_PKEY_meth_get_sign((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &psign);
     md = (EVP_MD *)EVP_sm3();
     e = sm2_compute_msg_hash(md, eckey, smctx->id, smctx->id_len, tbs, tbslen);
@@ -866,12 +947,20 @@ use_sw_method:
     OPENSSL_free(dgst);
     DEBUG("SW Finished\n");
     return sts;
+#endif
 }
 
-static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
+# ifdef QAT_OPENSSL_PROVIDER
+int mb_ecdsa_sm2_verify(QAT_PROV_SM2_CTX *smctx,
                                const unsigned char *sig, size_t siglen,
                                const unsigned char *tbs,
                                size_t tbslen)
+# else
+int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
+                               const unsigned char *sig, size_t siglen,
+                               const unsigned char *tbs,
+                               size_t tbslen)
+# endif
 {
     int ret = 0, sts =0, job_ret = 0;
     const EC_GROUP *group = NULL;
@@ -881,23 +970,33 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     ecdsa_sm2_verify_op_data *ecdsa_sm2_verify_req = NULL;
     mb_thread_data *tlv = NULL;
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
-    unsigned char *dgst = NULL;
     static __thread int req_num = 0;
-    BIGNUM *e = NULL;
-    EVP_MD *md = NULL;
     ECDSA_SIG *s = NULL;
     BN_CTX *ctx = NULL;
     const unsigned char *p = sig;
     unsigned char *der = NULL;
-    int dlen = 0;
     int derlen = -1;
+    
+#ifdef QAT_OPENSSL_PROVIDER
+    int (*sw_sm2_verify_fp)(void *, const unsigned char *, size_t,
+                            const unsigned char *, size_t);
+#else
+    unsigned char *dgst = NULL;
+    BIGNUM *e = NULL;
+    EVP_MD *md = NULL;
+    int dlen = 0;
     int (*pverify) (EVP_PKEY_CTX *pctx,
                     const unsigned char *sig, size_t siglen,
                     const unsigned char *dgst, size_t tbslen) = NULL;
+#endif
 
+# ifdef QAT_OPENSSL_PROVIDER
+    const EC_KEY *eckey = smctx->ec;
+# else
     EVP_PKEY_CTX *pctx = EVP_MD_CTX_pkey_ctx(mctx);
     EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey(pctx);
     const EC_KEY *eckey = EVP_PKEY_get0_EC_KEY(pkey);
+# endif
 
     if (unlikely(eckey == NULL)) {
         WARN("Invalid Input param\n");
@@ -914,12 +1013,14 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
         return ret;
     }
 
+# ifndef QAT_OPENSSL_PROVIDER
     QAT_SM2_PKEY_CTX *smctx = (QAT_SM2_PKEY_CTX *)EVP_PKEY_CTX_get_data(pctx);
     if (!smctx->id_set) {
         smctx->id_set = 1;
         smctx->id = (uint8_t*)OPENSSL_memdup(SM2_DEFAULT_USERID, SM2_DEFAULT_USERID_LEN);
         smctx->id_len = SM2_DEFAULT_USERID_LEN;
     }
+# endif
 
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
@@ -1004,7 +1105,6 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     }
 
     ecdsa_sm2_verify_req->s = s;
-    ecdsa_sm2_verify_req->digest = tbs;
     ecdsa_sm2_verify_req->x = x;
     ecdsa_sm2_verify_req->y = y;
     ecdsa_sm2_verify_req->z = z;
@@ -1012,7 +1112,13 @@ static int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     ecdsa_sm2_verify_req->sts = &sts;
     ecdsa_sm2_verify_req->id = smctx->id;
     ecdsa_sm2_verify_req->id_len = smctx->id_len;
+#ifdef QAT_OPENSSL_PROVIDER
+    ecdsa_sm2_verify_req->digest = smctx->tbs;
+    ecdsa_sm2_verify_req->dig_len = smctx->tbs_len;
+#else
+    ecdsa_sm2_verify_req->digest = tbs;
     ecdsa_sm2_verify_req->dig_len = tbslen;
+#endif
 
     mb_queue_ecdsa_sm2_verify_enqueue(tlv->ecdsa_sm2_verify_queue, ecdsa_sm2_verify_req);
 
@@ -1067,6 +1173,12 @@ err:
     return ret;
 
 use_sw_method:
+#ifdef QAT_OPENSSL_PROVIDER
+    sw_sm2_verify_fp = get_default_signature_sm2().verify;
+    if (!sw_sm2_verify_fp)
+        return 0;
+    return sw_sm2_verify_fp((void*)smctx, sig, siglen, tbs, tbslen);
+#else
     EVP_PKEY_meth_get_verify((EVP_PKEY_METHOD *)sw_sm2_pmeth,
                               NULL, &pverify);
     md = (EVP_MD *)EVP_sm3();
@@ -1078,6 +1190,6 @@ use_sw_method:
     OPENSSL_free(dgst);
     DEBUG("SW Finished\n");
     return sts;
-
+#endif /* QAT_OPENSSL_PROVIDER */
 }
 #endif
