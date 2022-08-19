@@ -177,16 +177,18 @@ mostlyclean-generic:
        test_bssl/*.o qatengine_test
 
 if QAT_ERR_FILES_BUILD
+src_c_files_str := $(shell ls *.c)
+err_files_str := $(subst qat_bssl_err.c, , ${src_c_files_str})
 MAKE = make err-files && make
 endif
 
 err-files:
 if QAT_OPENSSL_3
 	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf qat_prov.ec \
-       -rebuild -reindex *.c
+       -rebuild -reindex $(err_files_str)
 else
 	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-	   -rebuild -reindex *.c
+	   -rebuild -reindex $(err_files_str)
 endif
 
 include test.am
