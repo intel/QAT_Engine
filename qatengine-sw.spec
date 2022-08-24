@@ -4,7 +4,7 @@
 %global enginesdir %(pkg-config --variable=enginesdir libcrypto)
 
 Name:           qatengine-sw
-Version:        0.6.14
+Version:        0.6.15
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
 # Most of the source code is BSD, with the following exceptions:
@@ -49,6 +49,9 @@ autoreconf -ivf
 %exclude %{enginesdir}/qatengine.la
 
 %changelog
+* Wed Aug 24 2022 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.15-1
+- Update to qatengine v0.6.15
+
 * Wed Jul 20 2022 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 0.6.14-1
 - Update to qatengine v0.6.14
 

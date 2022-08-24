@@ -178,8 +178,7 @@ mostlyclean-generic:
        test_bssl/*.o qatengine_test
 
 if QAT_ERR_FILES_BUILD
-src_c_files_str := $(shell ls *.c)
-err_files_str := $(subst qat_bssl_err.c, , ${src_c_files_str})
+err_files_str != ls *.c | sed "s/qat_bssl_err.c//"
 MAKE = make err-files && make
 endif
 

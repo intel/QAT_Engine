@@ -369,10 +369,11 @@ make install
 In the above example, `--disable-qat_hw` needs to be provided if the system
 has qatlib installed.
 Note : `--enable-qat_sw` checks crypto_mb and IPSec_MB libraries in its
-respective default path or in the path provided in the config flag
-`--with-qat_sw_install_dir`. If any of the libraries is not installed then
-their corresponding algorithm support is disabled (cryto_mb library for PKE
-algorithms and IPSec_mb library for AES-GCM).
+respective default path (/usr/local/lib and /usr/lib) or in the path provided
+in the config flag `--with-qat_sw_crypto_mb_install_dir` (for crypto_mb) and
+`--with-qat_sw_ipsec_mb_install_dir` (for ipsec_mb). If any of the libraries
+is not installed then their corresponding algorithm support is disabled
+(crypto_mb library for PKE algorithms and IPSec_mb library for AES-GCM).
 <br><br>
 </details>
 </details>

@@ -20,9 +20,10 @@
   of the Intel&reg; QAT driver for Linux. Use `--with-cc-opt="-DQAT_HW_DISABLE_NONZERO_MEMFREE"`
   in the Intel&reg; QAT OpenSSL\* Engine configuration when building against earlier
   versions of the Linux driver.
-* Support for QAT HW ECX, QAT SW ECX, QAT HW PRF and QAT HW HKDF is disabled when built
-  against OpenSSL 3.0 engine interface due to known issues, instead it uses
-  non-accelerated implementation from OpenSSL.
+* Support for QAT HW ECX, QAT SW ECX, QAT SW SM2 ECDSA, QAT HW PRF and QAT HW HKDF is disabled
+  when built against OpenSSL 3.0 engine interface since OpenSSL doesn't have default implementation
+  methods accessible from OpenSSL3.0 engine interface, instead it uses non-accelerated
+  implementation from OpenSSL default provider.
 * There is known performance scaling issue (performance drop with threads >32)
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode
   in the Haproxy application. This issue is not observed when using RSA ciphers
@@ -46,3 +47,6 @@
   `SSL_OP_NO_ENCRYPT_THEN_MAC` programmatically using SSL_CTX_set_options() to offload
   symmetric chained ciphers via QAT_HW. Please note disabling ENCRYPT_THEN_MAC has security
   implications.
+* Known issue with OpenSSL 3.0 s_server using qatengine with cipher "DHE-RSA-CHACHA20-POLY1305" which
+  works fine with Nginx. The issue is due to failure at EVP_PKEY_copy_parameter() in OpenSSL which is
+  yet to be root caused.
