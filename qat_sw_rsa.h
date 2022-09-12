@@ -54,7 +54,17 @@
 # define RSA_3K_LENGTH 3072
 # define RSA_4K_LENGTH 4096
 
-#ifdef ENABLE_QAT_SW_RSA
+#ifdef ENABLE_QAT_SW_RSA /* ENABLE_QAT_SW_RSA */
+
+#ifdef QAT_BORINGSSL
+typedef struct {
+    int status;
+    unsigned int length;
+    unsigned char *data;
+    mb_async_ctx async_ctx;
+} mb_bssl_rsa_async_ctx;
+#endif /* QAT_BORINGSSL */
+
 void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits);
 void process_RSA_pub_reqs(mb_thread_data *tlv, int rsa_bits);
 
@@ -66,8 +76,29 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from,
                                  unsigned char *to, RSA *rsa, int padding);
 int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
                                  unsigned char *to, RSA *rsa, int padding);
+
+#ifdef QAT_BORINGSSL
+int mb_bssl_rsa_priv_sign(RSA *rsa, size_t *out_len, uint8_t *out,
+                          size_t max_out, const uint8_t *in,
+                          size_t in_len, int padding);
+
+int mb_bssl_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
+                             size_t max_out, const uint8_t *in,
+                             size_t in_len, int padding);
+
+void mb_bssl_rsa_priv_enc_callback_fn(void *async_ctx,
+                                      unsigned char *out_buffer,
+                                      unsigned long *size,
+                                      unsigned long max_size);
+
+void mb_rsa_sign_sync_call_back_fn(void *async_ctx, unsigned char *out_buffer,
+                                   unsigned long *size, unsigned long max_size);
+#else /* OpenSSL */
 int multibuff_rsa_init(RSA *rsa);
+
 int multibuff_rsa_finish(RSA *rsa);
-#endif
+#endif /* QAT_BORINGSSL */
+
+#endif /* ENABLE_QAT_SW_RSA */
 
 #endif /* QAT_SW_RSA_H */

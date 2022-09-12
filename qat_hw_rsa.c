@@ -80,6 +80,7 @@
 #include "qat_hw_asym_common.h"
 #include "icp_sal_poll.h"
 #include "qat_hw_rsa_crt.h"
+#include "qat_evp.h"
 
 #ifdef ENABLE_QAT_HW_RSA
 # ifdef DISABLE_QAT_HW_RSA
@@ -1577,25 +1578,6 @@ int qat_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
     *out_len = len;
     return 1;
 }
-
-int RSA_private_encrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding)
-{
-    void *temp = (void *)(rsa->meth->sign_raw);
-    rsa->meth->sign_raw = NULL;
-    int ret = RSA_private_encrypt(flen, from, to, rsa, padding);
-    rsa->meth->sign_raw = temp;
-    return ret;
-}
-
-int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding)
-{
-    void *temp = (void *)(rsa->meth->decrypt);
-    rsa->meth->decrypt = NULL;
-    int ret = RSA_private_decrypt(flen, from, to, rsa, padding);
-    rsa->meth->decrypt = temp;
-    return ret;
-}
-
 #endif /* QAT_BORINGSSL */
 
 #endif /* #ifndef ENABLE_QAT_HW_RSA */

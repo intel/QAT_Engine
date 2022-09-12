@@ -7,11 +7,14 @@ This document details the capabilities, interfaces and limitations of the Boring
 - Asynchronous and Synchronous PKE QAT_HW Acceleration
   - RSA Support for Key Sizes 1024/2048/3072/4096.
   - ECDSA Support for NIST Prime Curves: P-256/P-384/P-521.(Disabled by default)
+- Asynchronous PKE QAT_SW Acceleration
+  - RSA Support for Key Sizes 2048/3072/4096.
+  - ECDSA Support for NIST Prime Curves: P-256/P-384.(Disabled by default)
 
 ## Limitations
 Some limitations specific for the current BoringSSL* Library:
 * NIST Binary Curves and NIST Koblitz Curves are not supported by BoringSSL.
-* Supports QAT_HW on Linux Only. QAT_SW and QAT_HW FreeBSD is not supported.
+* Supports QAT_HW and QAT_SW on Linux. QAT_SW and QAT_HW FreeBSD is not supported.
 * `RSA_padding_add_PKCS1_OAEP` fucntion is exported by BoringSSL `libdecrepit.so`,
 so it needs to be linked in the BoringSSL* Library. It may cause linking error while
 building with the system lack of that library.
@@ -53,6 +56,7 @@ BoringSSL* doesn't support "make install" to consolidate build output to an appr
   ln -sf $(pwd)/build/libboringssl_gtest.so lib/
   ln -sf $(pwd)/build/crypto/libcrypto.so lib/
   ln -sf $(pwd)/build/ssl/libssl.so lib/
+  ln -sf $(pwd)/build/decrepit/libdecrepit.so lib/
   ```
 
 Note: RSA Padding schemes are handled by BoringSSL* rather than accelerated, so the engine supports the same padding schemes as BoringSSL* does natively.
@@ -66,12 +70,25 @@ Note: RSA Padding schemes are handled by BoringSSL* rather than accelerated, so 
   ```
   Note: autogen.sh will regenerate autoconf tools files.
 
-  To build and install the Intel® QAT BoringSSL* Library:
+  To build and install the Intel® QAT_HW BoringSSL* Library:
   ```bash
   ./configure --with-openssl_install_dir=<path/to/boringssl/source/code> --with-qat_hw_dir=<path/to/qat/driver>
   make
   make install
   ```
+  To build and install the Intel® QAT_SW BoringSSL* Library:
+  ```bash
+  ./configure --enable-qat_sw --with-openssl_install_dir=<path/to/boringssl/source/code>
+  make
+  make install
+  ```
+  In the above example, `--disable-qat_hw` needs to be provided if the system
+  has qatlib installed.
+  Note : `--enable-qat_sw` checks crypto_mb and IPSec_MB libraries in its
+  respective default path (/usr/local/lib and /usr/lib) or in the path provided
+  in the config flag `--with-qat_sw_crypto_mb_install_dir` (for crypto_mb) and
+  `--with-qat_sw_ipsec_mb_install_dir` (for ipsec_mb). If any of the libraries
+  is not installed then their corresponding algorithm support is disabled.
   By here, the QAT BoringSSL* Library `libqatengine.so` is installed to system path `/usr/local/lib`. Set the `--prefix` if specific install path is expected.
 
 ### Test the Intel® QuickAssist Technology BoringSSL* Library
@@ -95,7 +112,7 @@ The test code is under `test_bssl/` directory and will be compiled along with th
     ./qatengine_test -k /opt/ec-secp384r1-priv-key.pem -a
   ```
 `Note:` All private keys mentioned here are just for example, pls instead by your locally generated or existing one.
-`Note:` Async mode can't be applied to the BoringSSL default method when QAT_HW is disabled.
+`Note:` Async mode can't be applied to the BoringSSL default method when QAT_HW and QAT_SW are disabled.
 
 - Tip: to get more debug information, enable QATEngine option: --enable-qat_debug when configuring QATEngine before compiling.
 

@@ -48,13 +48,18 @@
 
 # include <stdio.h>
 # include <stdint.h>
-# include <openssl/async.h>
+
 # include <openssl/bn.h>
 # include <openssl/rsa.h>
+# ifndef QAT_BORINGSSL
 # include <openssl/kdf.h>
+# endif /* QAT_BORINGSSL */
 # include <openssl/evp.h>
+#  ifndef QAT_BORINGSSL
+#   include <openssl/async.h>
+#  endif /* QAT_BORINGSSL */
 /* Crypto_mb includes */
-#include "crypto_mb/sm3.h"
+# include "crypto_mb/sm3.h"
 
 #define X25519_KEYLEN 32
 #define MAX_KEYLEN  57

@@ -53,6 +53,7 @@
 #include <pthread.h>
 #include <openssl/rsa.h>
 #include <openssl/err.h>
+
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -63,6 +64,7 @@
 #include "qat_events.h"
 #include "qat_fork.h"
 #include "qat_utils.h"
+#include "qat_evp.h"
 
 #ifdef ENABLE_QAT_SW_RSA
 # ifdef DISABLE_QAT_SW_RSA
@@ -74,7 +76,6 @@
 # define RSA_MULTIBUFF_PRIV_DEC 2
 # define RSA_MULTIBUFF_PUB_ENC  3
 # define RSA_MULTIBUFF_PUB_DEC  4
-
 
 /*
  * The RSA range check is performed so that if the op sizes are not in the
@@ -92,6 +93,7 @@ static inline int multibuff_rsa_range_check(int len)
     }
 }
 
+#ifndef QAT_BORINGSSL
 int multibuff_rsa_init(RSA *rsa)
 {
     return RSA_meth_get_init(RSA_PKCS1_OpenSSL())(rsa);
@@ -101,6 +103,7 @@ int multibuff_rsa_finish(RSA *rsa)
 {
     return RSA_meth_get_finish(RSA_PKCS1_OpenSSL())(rsa);
 }
+#endif /* QAT_BORINGSSL */
 
 static int multibuff_rsa_check_padding_priv_dec(unsigned char *from,
                                                 int from_len,
@@ -446,6 +449,10 @@ void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits)
                             rsa_priv_req_array[req_num]->padding);
             }
             if (rsa_priv_req_array[req_num]->job) {
+#ifdef QAT_BORINGSSL
+                bssl_mb_async_job_finish_wait(rsa_priv_req_array[req_num]->job,
+                                              ASYNC_JOB_COMPLETE, ASYNC_STATUS_OK);
+#endif /* QAT_BORINGSSL */
                 qat_wake_job(rsa_priv_req_array[req_num]->job, ASYNC_STATUS_OK);
             }
             OPENSSL_cleanse(rsa_priv_req_array[req_num], sizeof(rsa_priv_op_data));
@@ -608,6 +615,10 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     int job_ret = 0;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
+#ifdef QAT_BORINGSSL
+    ASYNC_WAIT_CTX *waitctx = NULL;
+    mb_bssl_rsa_async_ctx *bssl_rsa_async_ctx = NULL;
+#endif /* QAT_BORINGSSL */
 
     /* Check input parameters */
     if (unlikely(NULL == rsa || NULL == from || NULL == to || flen <= 0)) {
@@ -657,8 +668,12 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     }
 
     while ((rsa_priv_req = mb_flist_rsa_priv_pop(tlv->rsa_priv_freelist)) == NULL) {
+#ifdef QAT_BORINGSSL
+        goto use_sw_method;
+#else /* OpenSSL */
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#endif /* QAT_BORINGSSL */
     }
 
     DEBUG("QAT SW RSA Started %p\n", rsa_priv_req);
@@ -715,7 +730,6 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     rsa_priv_req->type = RSA_MULTIBUFF_PRIV_ENC;
     rsa_priv_req->flen = rsa_len;
     rsa_priv_req->from = rsa_priv_req->padded_buf;
-    rsa_priv_req->to = to;
     rsa_priv_req->rsa = rsa;
     rsa_priv_req->padding = padding;
     rsa_priv_req->job = job;
@@ -726,7 +740,42 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     rsa_priv_req->dmp1 = dmp1;
     rsa_priv_req->dmq1 = dmq1;
     rsa_priv_req->iqmp = iqmp;
+
+#ifdef QAT_BORINGSSL
+    waitctx = ASYNC_get_wait_ctx(job);
+    if (!waitctx) {
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
+        WARN("waitctx is NULL\n");
+        goto use_sw_method;
+    }
+
+    bssl_rsa_async_ctx = (mb_bssl_rsa_async_ctx *)OPENSSL_zalloc(
+                          sizeof(mb_bssl_rsa_async_ctx));
+    if (!bssl_rsa_async_ctx) {
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
+        WARN("Allocating for bssl_rsa_async_ctx failed.\n");
+        goto use_sw_method;
+    }
+
+    bssl_rsa_async_ctx->status = 0;
+    bssl_rsa_async_ctx->length = rsa_len;
+    bssl_rsa_async_ctx->async_ctx.callback_func = mb_bssl_rsa_priv_enc_callback_fn;
+    bssl_rsa_async_ctx->async_ctx.ctx = bssl_rsa_async_ctx;
+    waitctx->data = &(bssl_rsa_async_ctx->async_ctx);
+
+    rsa_priv_req->sts = (int *)(&bssl_rsa_async_ctx->status);
+    bssl_rsa_async_ctx->data = OPENSSL_zalloc(rsa_len);
+    if (!bssl_rsa_async_ctx->data) {
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
+        WARN("Allocating for bssl_rsa_async_ctx->data failed.\n");
+        OPENSSL_free(bssl_rsa_async_ctx);
+        goto use_sw_method;
+    }
+    rsa_priv_req->to = bssl_rsa_async_ctx->data;
+#else  /* QAT_BORINGSSL */
+    rsa_priv_req->to = to;
     rsa_priv_req->sts = &sts;
+#endif /* QAT_BORINGSSL */
 
     switch(rsa_bits) {
     case RSA_2K_LENGTH:
@@ -750,6 +799,13 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
                will catch processing the request in the polling thread */
         }
     }
+
+#ifdef QAT_BORINGSSL
+    if (job) {
+        job->tlv_destructor(NULL);
+        return 1;
+    }
+#endif /* QAT_BORINGSSL */
 
     DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
     do {
@@ -778,6 +834,20 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
 use_sw_method:
     sts = RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
+#ifdef QAT_BORINGSSL
+    if ((job = ASYNC_get_current_job())) {
+        job->tlv_destructor(NULL);
+        waitctx = ASYNC_get_wait_ctx(job);
+        if (waitctx && sts > 0) {
+            waitctx->data = (void *)(long long)sts;
+            bssl_mb_async_job_finish_wait(job, ASYNC_JOB_OPER_COMPLETE,
+                ASYNC_STATUS_OK);
+        } else {
+            bssl_mb_async_job_finish_wait(job, ASYNC_JOB_STOPPED,
+                ASYNC_STATUS_OK);
+        }
+    }
+#endif /* QAT_BORINGSSL */
     DEBUG("SW Finished\n");
     return sts;
 }
@@ -800,6 +870,10 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     int job_ret = 0;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
+#ifdef QAT_BORINGSSL
+    ASYNC_WAIT_CTX *waitctx = NULL;
+    mb_bssl_rsa_async_ctx *bssl_rsa_async_ctx = NULL;
+#endif /* QAT_BORINGSSL */
 
     /* Check input parameters */
     if (unlikely(rsa == NULL || from == NULL || to == NULL ||
@@ -848,8 +922,12 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     }
 
     while ((rsa_priv_req = mb_flist_rsa_priv_pop(tlv->rsa_priv_freelist)) == NULL) {
+#ifdef QAT_BORINGSSL
+        goto use_sw_method;
+#else /* QAT_BORINGSSL */
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#endif /* QAT_BORINGSSL */
     }
 
     DEBUG("QAT SW RSA Started %p\n", rsa_priv_req);
@@ -888,7 +966,6 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     rsa_priv_req->type = RSA_MULTIBUFF_PRIV_DEC;
     rsa_priv_req->flen = rsa_len;
     rsa_priv_req->from = from;
-    rsa_priv_req->to = to;
     rsa_priv_req->rsa = rsa;
     rsa_priv_req->padding = padding;
     rsa_priv_req->job = job;
@@ -899,7 +976,42 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     rsa_priv_req->dmp1 = dmp1;
     rsa_priv_req->dmq1 = dmq1;
     rsa_priv_req->iqmp = iqmp;
+
+#ifdef QAT_BORINGSSL
+    waitctx = ASYNC_get_wait_ctx(job);
+    if (!waitctx) {
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
+        WARN("waitctx is NULL\n");
+        goto use_sw_method;
+    }
+
+    bssl_rsa_async_ctx = (mb_bssl_rsa_async_ctx *)OPENSSL_zalloc(
+                          sizeof(mb_bssl_rsa_async_ctx));
+    if (!bssl_rsa_async_ctx) {
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
+        WARN("Allocating for bssl_rsa_async_ctx failed.\n");
+        goto use_sw_method;
+    }
+    
+    bssl_rsa_async_ctx->status = 0;
+    bssl_rsa_async_ctx->length = rsa_len;
+    bssl_rsa_async_ctx->async_ctx.callback_func = mb_bssl_rsa_priv_enc_callback_fn;
+    bssl_rsa_async_ctx->async_ctx.ctx = bssl_rsa_async_ctx;
+    waitctx->data = &(bssl_rsa_async_ctx->async_ctx);
+
+    rsa_priv_req->sts = (int *)(&bssl_rsa_async_ctx->status);
+    bssl_rsa_async_ctx->data = OPENSSL_zalloc(rsa_len);
+    if (!bssl_rsa_async_ctx->data) {
+        mb_flist_rsa_priv_push(tlv->rsa_priv_freelist, rsa_priv_req);
+        WARN("Allocating for bssl_rsa_async_ctx->data failed.\n");
+        OPENSSL_free(bssl_rsa_async_ctx);
+        goto use_sw_method;
+    }
+    rsa_priv_req->to = bssl_rsa_async_ctx->data;
+#else  /* QAT_BORINGSSL */
+    rsa_priv_req->to = to;
     rsa_priv_req->sts = &sts;
+#endif /* QAT_BORINGSSL */
 
     switch(rsa_bits) {
     case RSA_2K_LENGTH:
@@ -923,6 +1035,13 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
                will catch processing the request in the polling thread */
         }
     }
+
+#ifdef QAT_BORINGSSL
+    if (job) {
+        job->tlv_destructor(NULL);
+        return 1;
+    }
+#endif /* QAT_BORINGSSL */
 
     DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
     do {
@@ -949,6 +1068,20 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 
 use_sw_method:
     sts = RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
+#ifdef QAT_BORINGSSL
+    if ((job = ASYNC_get_current_job())) {
+        job->tlv_destructor(NULL);
+        waitctx = ASYNC_get_wait_ctx(job);
+        if (waitctx && sts > 0) {
+            waitctx->data = (void *)((long long)sts);
+            bssl_mb_async_job_finish_wait(job, ASYNC_JOB_OPER_COMPLETE,
+                ASYNC_STATUS_OK);
+        } else {
+            bssl_mb_async_job_finish_wait(job, ASYNC_JOB_STOPPED,
+                ASYNC_STATUS_OK);
+        }
+    }
+#endif /* QAT_BORINGSSL */
     DEBUG("SW Finished\n");
     return sts;
 }
@@ -1250,3 +1383,88 @@ use_sw_method:
     DEBUG("SW Finished\n");
     return sts;
 }
+
+#ifdef QAT_BORINGSSL
+int mb_bssl_rsa_priv_sign(RSA *rsa, size_t *out_len, uint8_t *out,
+                          size_t max_out, const uint8_t *in,
+                          size_t in_len, int padding)
+{
+    int len = 0;
+    const unsigned rsa_size = RSA_size(rsa);
+    int __attribute__((unused)) _ret;
+
+    if (max_out < rsa_size) {
+        OPENSSL_PUT_ERROR(RSA, RSA_R_OUTPUT_BUFFER_TOO_SMALL);
+        return 0;
+    }
+
+    len = multibuff_rsa_priv_enc(in_len, in, out, rsa, padding);
+    if(0 >= len) {
+        _ret = ASYNC_current_job_last_check_and_get();
+        WARN("Failure in mb_bssl_rsa_priv_sign.\n");
+        OPENSSL_PUT_ERROR(RSA, RSA_R_INTERNAL_ERROR);
+        return 0;
+    }
+
+    if (1 == len) { /* async mode */
+        _ret = ASYNC_current_job_last_check_and_get();
+        len = 0;
+    }
+
+    *out_len = len;
+    return 1;
+}
+
+int mb_bssl_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
+                             size_t max_out, const uint8_t *in,
+                             size_t in_len, int padding)
+{
+    int len = 0;
+    const unsigned rsa_size = RSA_size(rsa);
+    int __attribute__((unused)) _ret;
+
+    if (max_out < rsa_size) {
+        OPENSSL_PUT_ERROR(RSA, RSA_R_OUTPUT_BUFFER_TOO_SMALL);
+        return 0;
+    }
+
+    if (in_len != rsa_size) {
+        OPENSSL_PUT_ERROR(RSA, RSA_R_DATA_LEN_NOT_EQUAL_TO_MOD_LEN);
+        return 0;
+    }
+
+    len = multibuff_rsa_priv_dec(in_len, in, out, rsa, padding);
+    if(0 >= len) {
+        _ret = ASYNC_current_job_last_check_and_get();
+        return 0;
+    }
+
+    if (1 == len) { /* async mode */
+        _ret = ASYNC_current_job_last_check_and_get();
+        len = 0;
+    }
+
+    *out_len = len;
+    return 1;
+}
+
+void mb_bssl_rsa_priv_enc_callback_fn(void *async_ctx, unsigned char *out_buffer,
+                                      unsigned long *size, unsigned long max_size)
+{
+    if (!async_ctx) {
+        return;
+    }
+
+    mb_bssl_rsa_async_ctx *rsa_async_ctx = (mb_bssl_rsa_async_ctx *)async_ctx;
+
+    *size = rsa_async_ctx->length;
+    unsigned char *data = rsa_async_ctx->data;
+
+    if (rsa_async_ctx->status) {
+        bssl_memcpy(out_buffer, data, *size);
+    }
+
+    OPENSSL_free(rsa_async_ctx->data);
+    OPENSSL_free(rsa_async_ctx);
+}
+#endif /* QAT_BORINGSSL */

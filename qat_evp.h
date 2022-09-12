@@ -156,5 +156,19 @@ void qat_free_EC_methods(void);
 
 RSA_METHOD *qat_get_RSA_methods(void);
 void qat_free_RSA_methods(void);
+
+#ifdef QAT_BORINGSSL
+EC_KEY_METHOD *bssl_get_default_EC_methods(void);
+
+RSA_METHOD *bssl_get_default_RSA_methods(void);
+
+int RSA_private_encrypt_default(size_t flen, const uint8_t *from, uint8_t *to,
+                                RSA *rsa, int padding);
+
+int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to,
+                                RSA *rsa, int padding);
+
+#endif /* QAT_BORINGSSL */
+
 #endif /* QAT_EVP_H */
 

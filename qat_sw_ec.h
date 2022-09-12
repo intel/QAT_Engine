@@ -62,11 +62,16 @@ void process_ecdsa_sm2_verify_reqs(mb_thread_data *tlv);
 int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                   unsigned char *sig, unsigned int *siglen,
                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
+#ifndef QAT_BORINGSSL
 int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
                         BIGNUM **kinvp, BIGNUM **rp);
 ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
                              const BIGNUM *in_kinv, const BIGNUM *in_r,
                              EC_KEY *eckey);
+#else /* QAT_BORINGSSL */
+int mb_ecdsa_sign_bssl(const uint8_t *digest, size_t digest_len, uint8_t *sig,
+                        unsigned int *sig_len, EC_KEY *eckey);
+#endif /* QAT_BORINGSSL */
 void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bits);
 void process_ecdsa_sign_setup_reqs(mb_thread_data *tlv, int bits);
 void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bits);

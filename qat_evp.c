@@ -58,12 +58,11 @@
 #include "e_qat.h"
 #include "qat_evp.h"
 #include "qat_utils.h"
-
 #ifdef QAT_HW
 # include "qat_hw_rsa.h"
-#  ifndef QAT_BORINGSSL
-# include "qat_hw_ciphers.h"
-#  endif /* QAT_BORINGSSL */
+# ifndef QAT_BORINGSSL
+#  include "qat_hw_ciphers.h"
+# endif /* QAT_BORINGSSL */
 # include "qat_hw_ec.h"
 #  ifndef QAT_BORINGSSL
 # include "qat_hw_gcm.h"
@@ -77,13 +76,13 @@
 #endif
 
 #ifdef QAT_SW
-# include "qat_sw_rsa.h"
-#  ifndef QAT_BORINGSSL
-# include "qat_sw_ecx.h"
-# include "qat_sw_ec.h"
-# include "qat_sw_sm3.h"
-# include "crypto_mb/cpu_features.h"
+# ifndef QAT_BORINGSSL
+#  include "qat_sw_ecx.h"
+#  include "qat_sw_sm3.h"
 # endif /* QAT_BORINGSSL */
+# include "qat_sw_ec.h"
+# include "qat_sw_rsa.h"
+# include "crypto_mb/cpu_features.h"
 #endif
 
 #ifdef QAT_HW_INTREE
@@ -223,8 +222,12 @@ static int pkt_threshold_table_size =
 
 static EC_KEY_METHOD *qat_ec_method = NULL;
 static RSA_METHOD *qat_rsa_method = NULL;
-#ifndef QAT_BORINGSSL
+#ifdef QAT_BORINGSSL
+static RSA_METHOD  null_rsa_method = {.common={.is_static = 1}};
+static EC_KEY_METHOD null_ecdsa_method = {.common={.is_static = 1}};
+#endif /* QAT_BORINGSSL */
 
+#ifndef QAT_BORINGSSL
 static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
@@ -824,12 +827,9 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     if (qat_ec_method != NULL && !qat_reload_algo)
         return qat_ec_method;
 
-#ifndef QAT_BORINGSSL
     EC_KEY_METHOD *def_ec_meth = (EC_KEY_METHOD *)EC_KEY_get_default_method();
-#endif /* QAT_BORINGSSL */
-
     PFUNC_SIGN sign_pfunc = NULL;
-#if !(defined(QAT_BORINGSSL) && defined(ENABLE_QAT_HW_ECDSA))
+#ifndef QAT_BORINGSSL
     PFUNC_SIGN_SETUP sign_setup_pfunc = NULL;
 #endif /* QAT_BORINGSSL */
     PFUNC_SIGN_SIG sign_sig_pfunc = NULL;
@@ -868,7 +868,6 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
     }
 #endif
 
-#ifndef QAT_BORINGSSL
 #ifdef ENABLE_QAT_SW_ECDSA
     if (qat_sw_offload && !qat_hw_ecdsa_offload &&
        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA) &&
@@ -877,9 +876,15 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
         EC_KEY_METHOD_set_sign(qat_ec_method,
+#ifndef QAT_BORINGSSL
                                mb_ecdsa_sign,
                                mb_ecdsa_sign_setup,
                                mb_ecdsa_sign_sig);
+#else /* QAT_BORINGSSL */
+                               mb_ecdsa_sign_bssl,
+                               NULL,
+                               NULL);
+#endif
         /* Verify not supported in crypto_mb, Use SW implementation */
         EC_KEY_METHOD_get_verify(def_ec_meth,
                                  &verify_pfunc,
@@ -894,7 +899,6 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         DEBUG("QAT SW ECDSA is disabled\n");
     }
 #endif
-#endif /* QAT_BORINGSSL */
 
     if ((qat_hw_ecdsa_offload == 0) && (qat_sw_ecdsa_offload == 0)) {
         EC_KEY_METHOD_get_sign(def_ec_meth,
@@ -972,7 +976,7 @@ void qat_free_EC_methods(void)
 
 RSA_METHOD *qat_get_RSA_methods(void)
 {
-#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA) || defined(QAT_BORINGSSL)
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
     int res = 1;
 #endif
     RSA_METHOD *def_rsa_method = NULL;
@@ -992,7 +996,7 @@ RSA_METHOD *qat_get_RSA_methods(void)
 #ifdef QAT_BORINGSSL
         res &= RSA_meth_set_priv_bssl(qat_rsa_method, qat_rsa_priv_sign,
                                   qat_rsa_priv_decrypt);
-#endif //QAT_BORINGSSL
+#else /* QAT OpenSSL */
         res &= RSA_meth_set_pub_enc(qat_rsa_method, qat_rsa_pub_enc);
         res &= RSA_meth_set_pub_dec(qat_rsa_method, qat_rsa_pub_dec);
         res &= RSA_meth_set_priv_enc(qat_rsa_method, qat_rsa_priv_enc);
@@ -1001,6 +1005,8 @@ RSA_METHOD *qat_get_RSA_methods(void)
         res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, BN_mod_exp_mont);
         res &= RSA_meth_set_init(qat_rsa_method, qat_rsa_init);
         res &= RSA_meth_set_finish(qat_rsa_method, qat_rsa_finish);
+#endif /* QAT_BORINGSSL */
+
         if (!res) {
             WARN("Failed to set QAT RSA methods\n");
             QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_SET_QAT_RSA_METH_FAILURE);
@@ -1021,6 +1027,11 @@ RSA_METHOD *qat_get_RSA_methods(void)
         mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
         mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
         mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
+
+#ifdef QAT_BORINGSSL
+    res &= RSA_meth_set_priv_bssl(qat_rsa_method, mb_bssl_rsa_priv_sign,
+                                  mb_bssl_rsa_priv_decrypt);
+#else
         res &= RSA_meth_set_priv_enc(qat_rsa_method, multibuff_rsa_priv_enc);
         res &= RSA_meth_set_priv_dec(qat_rsa_method, multibuff_rsa_priv_dec);
         res &= RSA_meth_set_pub_enc(qat_rsa_method, multibuff_rsa_pub_enc);
@@ -1029,6 +1040,8 @@ RSA_METHOD *qat_get_RSA_methods(void)
         res &= RSA_meth_set_mod_exp(qat_rsa_method, RSA_meth_get_mod_exp(RSA_PKCS1_OpenSSL()));
         res &= RSA_meth_set_init(qat_rsa_method, multibuff_rsa_init);
         res &= RSA_meth_set_finish(qat_rsa_method, multibuff_rsa_finish);
+#endif /* QAT_BORINGSSL */
+
         if (!res) {
             WARN("Failed to set SW RSA methods\n");
             QATerr(QAT_F_QAT_GET_RSA_METHODS, QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE);
@@ -1062,6 +1075,53 @@ void qat_free_RSA_methods(void)
     }
 }
 
+#ifdef QAT_BORINGSSL
+EC_KEY_METHOD *bssl_get_default_EC_methods(void)
+{
+    return &null_ecdsa_method;
+}
+
+RSA_METHOD *bssl_get_default_RSA_methods(void)
+{
+    return &null_rsa_method;
+}
+
+int RSA_private_encrypt_default(size_t flen, const uint8_t *from, uint8_t *to,
+                                RSA *rsa, int padding)
+{
+    int ret = 0;
+    size_t rsa_len = 0;
+
+    rsa_len = RSA_size(rsa);
+    RSA_METHOD *origin_meth = rsa->meth;
+    rsa->meth = bssl_get_default_RSA_methods();
+    ret = RSA_sign_raw(rsa, &rsa_len, to, rsa_len, from, flen, padding);
+    rsa->meth = origin_meth;
+
+    if (ret == 0) {
+        return -1;
+    }
+    return rsa_len;
+}
+
+int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to,
+                                RSA *rsa, int padding)
+{
+    int ret = 0;
+    size_t rsa_len = 0;
+
+    rsa_len = RSA_size(rsa);
+    RSA_METHOD *origin_meth = rsa->meth;
+    rsa->meth = bssl_get_default_RSA_methods();
+    ret = RSA_decrypt(rsa, &rsa_len, to, rsa_len, from, flen, padding);
+    rsa->meth = origin_meth;
+
+    if (ret == 0) {
+        return -1;
+    }
+    return rsa_len;
+}
+#endif /* QAT_BORINGSSL */
 
 #ifdef QAT_HW
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD

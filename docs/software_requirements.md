@@ -10,7 +10,7 @@ Driver for FreeBSD. This release was validated on the following:
 * Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.18**
 * Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.12**
 * OpenSSL\* 1.1.1q & 3.0.5
-* BoringSSL\* commit - [fa3fbda07b][1]
+* BoringSSL\* commit - [15596efa5f][1]
 * BabaSSL - 8.3.1
 
 ## qat_sw Requirements
@@ -32,9 +32,10 @@ This release was validated on the following:
   version **IPP Crypto 2021.5**
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.2**
 * OpenSSL\* 1.1.1q & 3.0.5
+* BoringSSL\* commit - [15596efa5f][1]
 * BabaSSL - 8.3.1
 
-[1]:https://github.com/google/boringssl/tree/fa3fbda07bbf70925453d6a3c25a7aa455aa1cef
+[1]:https://github.com/google/boringssl/tree/15596efa5fe18e43bdc0ecd32d4ef93437f51d49
 [2]:https://github.com/intel/ipp-crypto
 [3]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
 [4]:https://github.com/intel/intel-ipsec-mb

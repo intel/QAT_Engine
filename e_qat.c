@@ -443,7 +443,8 @@ static int qat_engine_destroy(ENGINE *e)
     return 1;
 }
 
-#ifdef QAT_SW_IPSEC
+#ifndef QAT_BORINGSSL
+# ifdef QAT_SW_IPSEC
 int hw_support(void) {
 
     unsigned int  info[4] = {0, 0, 0, 0};
@@ -485,7 +486,8 @@ int hw_support(void) {
         return 0;
     }
 }
-#endif
+# endif
+#endif /* QAT_BORINGSSL */
 
 int qat_pthread_mutex_lock(void)
 {
@@ -1072,7 +1074,7 @@ static int bind_qat(ENGINE *e, const char *id)
 
     pthread_atfork(engine_finish_before_fork_handler, NULL,
                    engine_init_child_at_fork_handler);
-#else
+#else /* QAT_BORINGSSL */
     /* Set handler to ENGINE_unload_qat and ENGINE_load_qat */
     pthread_atfork(ENGINE_unload_qat, NULL, ENGINE_load_qat);
 #endif /* QAT_BORINGSSL */

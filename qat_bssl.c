@@ -56,8 +56,16 @@
 # include "qat_bssl.h"
 # include "e_qat.h"
 # include "qat_fork.h"
-# include "qat_hw_callback.h"
 # include "qat_utils.h"
+# ifdef QAT_HW
+# include "qat_hw_callback.h"
+# endif /* QAT_HW */
+# ifdef QAT_SW
+# include "qat_events.h"
+# include "qat_sw_rsa.h"
+# include "qat_evp.h"
+#endif /* QAT_SW */
+# include "qat_events.h"
 
 # include <openssl/rsa.h>
 # include <openssl/base.h>
@@ -194,6 +202,7 @@ ASYNC_JOB *bssl_qat_async_load_current_job(void)
                                             BSSL_THREAD_LOCAL_KEY(async_job));
 }
 
+#ifdef QAT_HW
 /* Duplicate op_done_t structure and set op_buf_free */
 static void *bssl_qat_copy_op_done(const void *op_done, unsigned int size,
                             void (*buffers_free)(void *in_buf, void *out_buf))
@@ -214,6 +223,7 @@ static void bssl_qat_free_op_done(void *op_done)
         OPENSSL_free(op_done);
     }
 }
+#endif /* QAT_HW */
 
 /* All bssl_async_wait_ctx*() copied from openssl/crypto/async/async_wait.c */
 static ASYNC_WAIT_CTX *bssl_async_wait_ctx_new(void)
@@ -451,8 +461,17 @@ async_ctx *bssl_qat_async_start_job(void)
     /* Config job */
     job->waitctx = wctx;
     job->status = ASYNC_JOB_RUNNING;
+
+#ifdef QAT_HW
     job->copy_op_done = bssl_qat_copy_op_done;
     job->free_op_done = bssl_qat_free_op_done;
+#endif /* QAT_HW */
+
+#ifdef QAT_SW
+    job->copy_op_done = NULL;
+    job->free_op_done = NULL;
+#endif /* QAT_SW */
+
     /* Config async_ctx */
     ctx->currjob = job;
     ctx->currjob_status = &ctx->currjob->status;
@@ -497,10 +516,22 @@ static void bssl_qat_async_reset_fds(const async_ctx *ctx)
     }
 }
 
+#ifdef QAT_SW
+static void mb_async_callback(mb_async_ctx *async_ctx,
+                              unsigned char *out_buffer, unsigned long *size,
+                              unsigned long max_size)
+{
+    if (async_ctx && async_ctx->callback_func) {
+        async_ctx->callback_func(async_ctx->ctx, out_buffer, size, max_size);
+    }
+}
+#endif /* QAT_SW */
+
 int bssl_qat_async_ctx_copy_result(const async_ctx *ctx, unsigned char *buffer,
                                    unsigned long *size, unsigned long max_size)
 {
-    unsigned int bytes_len = 0;
+    unsigned long bytes_len = 0;
+#ifdef QAT_HW
     CpaFlatBuffer *from;
 
     /* Decrease num_requests_in_flight by 1 to
@@ -508,23 +539,37 @@ int bssl_qat_async_ctx_copy_result(const async_ctx *ctx, unsigned char *buffer,
      */
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight,
                            qat_check_create_local_variables());
+ #endif /* QAT_HW */
 
     /* Change fds state from add to del */
     bssl_qat_async_reset_fds(ctx);
 
-    if (ctx &&
-        ctx->currjob &&
-        ctx->currjob->waitctx &&
-        ctx->currjob->waitctx->data &&
-        ctx->currjob->status == ASYNC_JOB_COMPLETE) {
-        from = (CpaFlatBuffer *)ctx->currjob->waitctx->data;
-        bytes_len = from->dataLenInBytes;
-        bssl_memcpy(buffer, from->pData, bytes_len);
+    if (ctx && ctx->currjob && ctx->currjob->waitctx) {
+        /* complete to operation with async, need to copy data to buffer. */
+        if (ctx->currjob->waitctx->data &&
+            ctx->currjob->status == ASYNC_JOB_COMPLETE) {
+#ifdef QAT_HW
+            from = (CpaFlatBuffer *)ctx->currjob->waitctx->data;
+            bytes_len = from->dataLenInBytes;
+            bssl_memcpy(buffer, from->pData, bytes_len);
 
-        /* Free output buffers allocated from build_decrypt_op_buf */
-        ctx->currjob->op_buf_free(NULL, from);
-        ctx->currjob->waitctx->data = NULL;
-        ctx->currjob->status = ASYNC_JOB_STOPPED;
+            /* Free output buffers allocated from build_decrypt_op_buf */
+            ctx->currjob->op_buf_free(NULL, from);
+#endif /* QAT_HW */
+
+#ifdef QAT_SW
+            mb_async_callback((mb_async_ctx *)ctx->currjob->waitctx->data,
+                              buffer, &bytes_len, max_size);
+#endif /* QAT_SW */
+            ctx->currjob->waitctx->data = NULL;
+            ctx->currjob->status = ASYNC_JOB_STOPPED;
+        } else if (ctx->currjob->status == ASYNC_JOB_OPER_COMPLETE) {
+            if (ctx->currjob->waitctx->data) {
+                bytes_len = (unsigned long)ctx->currjob->waitctx->data;
+            }
+            ctx->currjob->waitctx->data = NULL;
+            ctx->currjob->status = ASYNC_JOB_STOPPED;
+        }
     }
 
     if (bytes_len == 0 || bytes_len > max_size) {
@@ -561,6 +606,16 @@ int bssl_qat_before_wake_job(volatile ASYNC_JOB *job, int status, void *in_buf,
      */
     job->op_buf_free(NULL, out_buf);
     return 1; /* Fail */
+}
+
+void bssl_mb_async_job_finish_wait(volatile ASYNC_JOB *job, int job_status, int waitctx_status)
+{
+    ASYNC_WAIT_CTX *waitctx = ASYNC_get_wait_ctx(job);
+
+    if (waitctx && waitctx->init) {
+        waitctx->status = waitctx_status; /* Set waitctx->status to status */
+    }
+    job->status = job_status;
 }
 
 /* Refers to openssl/crypto/rsa/rsa_local.h */
@@ -858,6 +913,29 @@ ECDSA_SIG *bssl_default_ecdsa_sign(const unsigned char *dgst,
     return ECDSA_do_sign(dgst, dgst_len, eckey);
 }
 
+#ifdef QAT_SW
+int bssl_ecdsa_sign(const uint8_t *digest, size_t digest_len,
+        uint8_t *sig, unsigned int *sig_len, EC_KEY *eckey)
+{
+    EC_KEY *default_eckey  = NULL;
+    const EC_GROUP *ecgroup = NULL;
+    int ret = 0;
+    int type = 0;
+
+    if (eckey && (ecgroup = EC_KEY_get0_group(eckey))) {
+        type = EC_GROUP_get_curve_name(ecgroup);
+    }
+
+    default_eckey = EC_KEY_dup(eckey);
+    if (!default_eckey) {
+        return ret;
+    }
+    ret = ECDSA_sign(type, digest, digest_len, sig, sig_len, default_eckey);
+    EC_KEY_free(default_eckey);
+    return ret;
+}
+#endif /* QAT_SW */
+
 int bssl_default_ecdsa_verify(const unsigned char *dgst, int dgst_len,
                               const ECDSA_SIG *sig, EC_KEY *eckey)
 {
@@ -988,6 +1066,18 @@ void bssl_once(bssl_once_t *once, void (*init)(void))
   if (pthread_once(once, init) != 0) {
     abort();
   }
+}
+void bssl_ec_key_method_get_sign(EC_KEY_METHOD *meth, PFUNC_EC_SIGN *sig_func,
+                                   PFUNC_EC_SIGN_SIG *sig_sig_func)
+{
+    if (meth) {
+        if (sig_func) {
+            *sig_func = meth->sign;
+        }
+    }
+    if (sig_sig_func) {
+        *sig_sig_func = bssl_default_ecdsa_sign;
+    }
 }
 
 #endif /* QAT_BORINGSSL */

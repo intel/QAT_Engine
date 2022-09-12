@@ -381,7 +381,7 @@ is not installed then their corresponding algorithm support is disabled
 <details>
 <summary>[For BoringSSL Support only] Build the Intel&reg; QuickAssist Technology BoringSSL* Library</summary>
 
-Please refer [BoringSSL section](docs/bssl_support.md) for steps to build the Intel® QuickAssist Technology BoringSSL* library which supports RSA and ECDSA QAT Hardware Acceleration using BoringSSL.
+Please refer [BoringSSL section](docs/bssl_support.md) for steps to build the Intel® QuickAssist Technology BoringSSL* library which supports RSA and ECDSA QAT Hardware and QAT Software Acceleration using BoringSSL.
 
 </details>
 

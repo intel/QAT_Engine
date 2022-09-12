@@ -118,6 +118,16 @@ if QAT_HW
               qat_hw_rsa_crt.c     \
               qat_hw_ec.c
 endif
+
+if QAT_SW
+ QAT_SW_SRC = qat_sw_init.c     \
+              qat_sw_polling.c  \
+              qat_sw_freelist.c \
+              qat_sw_queue.c    \
+              qat_sw_rsa.c      \
+              qat_sw_ec.c
+endif
+
 endif
 
 @LIBQATNAME@_la_SOURCES = ${QAT_COMMON_SRC}   \

@@ -449,7 +449,16 @@ then
     # Show error when both QAT SW enabled and BoringSSl enabled
     if test "x$cflags_qat_sw" != "x"
     then
-        AC_MSG_ERROR([Not supported for QAT SW acceleration with BoringSSl enabled])
+        AC_SUBST([enable_qat_sw_ciphers], ["no"])
+        AC_SUBST([enable_qat_sw_ecdh], ["no"])
+        AC_SUBST([enable_qat_sw_dsa], ["no"])
+        AC_SUBST([enable_qat_sw_dh], ["no"])
+        AC_SUBST([enable_qat_sw_prf], ["no"])
+        AC_SUBST([enable_qat_sw_hkdf], ["no"])
+        AC_SUBST([enable_qat_sw_ecx], ["no"])
+        AC_SUBST([enable_qat_sw_gcm], ["no"])
+        AC_SUBST([enable_qat_sw_sm2], ["no"])
+        AC_SUBST([enable_qat_sw_heuristic_timeout], ["no"])
     fi
 fi
 

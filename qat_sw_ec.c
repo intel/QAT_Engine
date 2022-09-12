@@ -51,6 +51,9 @@
 #include <pthread.h>
 #include <openssl/rsa.h>
 #include <openssl/err.h>
+#ifdef QAT_BORINGSSL
+# include <openssl/ecdsa.h>
+#endif /* QAT_BORINGSSL */
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -80,9 +83,11 @@ static inline int mb_ec_check_curve(int curve_type)
     case NID_secp384r1:
         ret = EC_P384;
         break;
+#ifndef QAT_BORINGSSL
     case NID_sm2:
         ret = EC_SM2;
         break;
+#endif /* QAT_BORINGSSL */
     default:
         break;
     }
@@ -172,6 +177,10 @@ void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
         }
 
         if (ecdsa_sign_req_array[req_num]->job) {
+#ifdef QAT_BORINGSSL
+            bssl_mb_async_job_finish_wait(ecdsa_sign_req_array[req_num]->job,
+                ASYNC_JOB_COMPLETE, ASYNC_STATUS_OK);
+#endif
             qat_wake_job(ecdsa_sign_req_array[req_num]->job,
                          ASYNC_STATUS_OK);
         }
@@ -667,6 +676,53 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int curve)
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDSA
+#ifdef QAT_BORINGSSL
+typedef struct _mb_ecdsa_async_ctx {
+    mb_async_ctx async_ctx;
+    BN_CTX *ctx;
+    ECDSA_SIG *s;
+    unsigned char *sig;
+    unsigned char *dgst;
+    int dlen;
+    BIGNUM *ecdsa_sig_r;
+    BIGNUM *ecdsa_sig_s;
+    size_t buflen;
+    int sts;
+} mb_ecdsa_async_ctx;
+
+static void mb_ecdsa_sign_callback_fn(void *async_ctx, unsigned char *out_buffer,
+                           unsigned long *size, unsigned long max_size)
+{
+    mb_ecdsa_async_ctx *ecdsa_async_ctx = (mb_ecdsa_async_ctx *)async_ctx;
+
+    if (async_ctx == NULL || out_buffer == NULL ||
+            size == NULL || max_size <= 0) {
+        return;
+    }
+    if (ecdsa_async_ctx->sts) {
+        /* Convert the buffers to BN */
+       BN_bin2bn(ecdsa_async_ctx->sig, ecdsa_async_ctx->buflen, ecdsa_async_ctx->ecdsa_sig_r);
+       BN_bin2bn(ecdsa_async_ctx->sig + ecdsa_async_ctx->buflen, ecdsa_async_ctx->buflen,
+                 ecdsa_async_ctx->ecdsa_sig_s);
+
+       *size = i2d_ECDSA_SIG(ecdsa_async_ctx->s, &(out_buffer));
+        ECDSA_SIG_free(ecdsa_async_ctx->s);
+    } else {
+        *size = 0;
+        WARN("Failure in ECDSA Sign\n");
+        ECDSA_SIG_free(ecdsa_async_ctx->s);
+    }
+
+    if (ecdsa_async_ctx->ctx) {
+        BN_CTX_end(ecdsa_async_ctx->ctx);
+        BN_CTX_free(ecdsa_async_ctx->ctx);
+    }
+    OPENSSL_free(ecdsa_async_ctx->dgst);
+    OPENSSL_free(ecdsa_async_ctx->sig);
+    OPENSSL_free(ecdsa_async_ctx);
+}
+#endif /* QAT_BORINGSSL */
+
 int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                   unsigned char *sig, unsigned int *siglen,
                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
@@ -683,9 +739,16 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     const EC_POINT *pub_key = NULL;
     BIGNUM *ecdsa_sig_r = NULL, *ecdsa_sig_s = NULL;
     unsigned char *dgst_buf = NULL;
+#ifndef QAT_BORINGSSL
     PFUNC_SIGN sign_pfunc = NULL;
+#endif /* QAT_BORINGSSL */
     ecdsa_sign_op_data *ecdsa_sign_req = NULL;
     mb_thread_data *tlv = NULL;
+#ifdef QAT_BORINGSSL
+    ASYNC_WAIT_CTX *waitctx = NULL;
+    mb_ecdsa_async_ctx *ecdsa_async_ctx = NULL;
+    int alloc_sig = 0;
+#endif /* QAT_BORINGSSL */
 
     DEBUG("Entering \n");
     if (unlikely(dgst == NULL || dlen <= 0 ||
@@ -739,8 +802,12 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 
     while ((ecdsa_sign_req =
             mb_flist_ecdsa_sign_pop(tlv->ecdsa_sign_freelist)) == NULL) {
+#ifndef QAT_BORINGSSL
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#else /* QAT_BORINGSSL */
+        goto use_sw_method;
+#endif /* QAT_BORINGSSL */
     }
 
     DEBUG("QAT SW ECDSA Started %p\n", ecdsa_sign_req);
@@ -806,7 +873,11 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     if (kinv == NULL || r == NULL) {
         /* Get random k */
         do {
+#ifndef QAT_BORINGSSL
             if (!BN_priv_rand_range(k, order)) {
+#else /* QAT_BORINGSSL */
+            if (!BN_rand_range(k, order)) {
+#endif /* QAT_BORINGSSL */
                 mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
                 WARN("Failure in BN_priv_rand_range\n");
                 QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_RAND_GENERATE_FAILURE);
@@ -817,14 +888,63 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         BN_mod_inverse(k, kinv, order, ctx);
         DEBUG("Not Generating Random K\n");
     }
+#ifdef QAT_BORINGSSL
+    waitctx = ASYNC_get_wait_ctx(job);
+    if (!waitctx) {
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
+        WARN("waitctx == NULL\n");
+        QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_CTX_NULL);
+        goto err;
+    }
 
+    sig = OPENSSL_zalloc(ECDSA_size(eckey));
+    if (!sig) {
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
+        WARN("Failure to allocate sig buf\n");
+        QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_ECDSA_MALLOC_FAILURE);
+        goto err;
+    }
+    alloc_sig = 1;
+    if (!alloc_buf) {
+        dgst_buf = OPENSSL_zalloc(dlen);
+        if (!dgst_buf) {
+            mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
+            WARN("Failure to allocate dgst buf\n");
+            QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_ECDSA_MALLOC_FAILURE);
+            goto err;
+        }
+        alloc_buf = 1;
+        memcpy(dgst_buf, dgst, dlen);
+    }
+
+    ecdsa_async_ctx = OPENSSL_zalloc(sizeof(mb_ecdsa_async_ctx));
+    if (!ecdsa_async_ctx) {
+        mb_flist_ecdsa_sign_push(tlv->ecdsa_sign_freelist, ecdsa_sign_req);
+        WARN("Failure to allocate ecdsa_async_ctx\n");
+        QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_ECDSA_MALLOC_FAILURE);
+        goto err;
+    }
+    ecdsa_async_ctx->async_ctx.callback_func = mb_ecdsa_sign_callback_fn;
+    ecdsa_async_ctx->async_ctx.ctx = ecdsa_async_ctx;
+    ecdsa_async_ctx->dgst = dgst_buf;
+    ecdsa_async_ctx->dlen = dlen;
+    ecdsa_async_ctx->ctx = ctx;
+    ecdsa_async_ctx->s = s;
+    ecdsa_async_ctx->sig = sig;
+    ecdsa_async_ctx->ecdsa_sig_r = ecdsa_sig_r;
+    ecdsa_async_ctx->ecdsa_sig_s = ecdsa_sig_s;
+    ecdsa_async_ctx->buflen = buflen;
+    ecdsa_sign_req->sts = &(ecdsa_async_ctx->sts);
+    waitctx->data = &(ecdsa_async_ctx->async_ctx);
+#else /* QAT_BORINGSSL */
+    ecdsa_sign_req->sts = &sts;
+#endif/* QAT_BORINGSSL */
     ecdsa_sign_req->sign_r = sig;
     ecdsa_sign_req->sign_s = sig + buflen;
     ecdsa_sign_req->digest = dgst_buf;
     ecdsa_sign_req->eph_key = k;
     ecdsa_sign_req->priv_key = priv_key;
     ecdsa_sign_req->job = job;
-    ecdsa_sign_req->sts = &sts;
 
     switch (bit_len) {
     case EC_P256:
@@ -845,7 +965,12 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
              * will catch processing the request in the polling thread */
         }
     }
-
+#ifdef QAT_BORINGSSL
+    if (job) {
+        job->tlv_destructor(NULL);
+        return -1;
+    }
+#endif
     DEBUG("Pausing: %p status = %d\n", ecdsa_sign_req, sts);
     do {
         /* If we get a failure on qat_pause_job then we will
@@ -891,9 +1016,18 @@ err:
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
+#ifdef QAT_BORINGSSL
+    if (alloc_sig) {
+        OPENSSL_free(sig);
+    }
+    if (ecdsa_async_ctx) {
+        OPENSSL_free(ecdsa_async_ctx);
+    }
+#endif /* QAT_BORINGSSL */
     return ret;
 
 use_sw_method:
+#ifndef QAT_BORINGSSL
     EC_KEY_METHOD_get_sign((EC_KEY_METHOD *) EC_KEY_OpenSSL(),
                             &sign_pfunc, NULL, NULL);
     if (sign_pfunc == NULL) {
@@ -903,8 +1037,25 @@ use_sw_method:
     }
 
     return (*sign_pfunc)(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+#else /* QAT_BORINGSSL */
+    ret = bssl_ecdsa_sign(dgst, dlen, sig, siglen, eckey);
+    if ((job = ASYNC_get_current_job())) {
+        job->tlv_destructor(NULL);
+        waitctx = ASYNC_get_wait_ctx(job);
+        if (waitctx && siglen && ret == 1) {
+            waitctx->data = (void *)(long long)(*siglen);
+            bssl_mb_async_job_finish_wait(job, ASYNC_JOB_OPER_COMPLETE,
+                ASYNC_STATUS_OK);
+        } else {
+            bssl_mb_async_job_finish_wait(job, ASYNC_JOB_STOPPED,
+                ASYNC_STATUS_OK);
+        }
+    }
+    return ret;
+#endif /* QAT_BORINGSSL */
 }
 
+#ifndef QAT_BORINGSSL
 int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
                         BIGNUM **kinvp, BIGNUM **rp)
 {
@@ -1288,6 +1439,21 @@ use_sw_method:
 
     return (*sign_sig_pfunc)(dgst, dlen, in_kinv, in_r, eckey);
 }
+
+#else /* QAT_BORINGSSL */
+int mb_ecdsa_sign_bssl(const uint8_t *digest, size_t digest_len, uint8_t *sig,
+                        unsigned int *sig_len, EC_KEY *eckey)
+{
+    int type = 0;
+    const EC_GROUP *ecgroup = NULL;
+
+    if (eckey && (ecgroup  = EC_KEY_get0_group(eckey))) {
+        type = EC_GROUP_get_curve_name(ecgroup);
+    }
+ 
+    return mb_ecdsa_sign(type, digest, digest_len, sig, sig_len, NULL, NULL, eckey);
+}
+#endif /* QAT_BORINGSSL */
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDH

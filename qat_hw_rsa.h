@@ -70,9 +70,6 @@ int qat_rsa_priv_sign(RSA *rsa, size_t *out_len, uint8_t *out,
 int qat_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
                                 size_t max_out, const uint8_t *in, size_t in_len,
                                 int padding);
-
-int RSA_private_encrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding);
-int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to, RSA *rsa, int padding);
 #endif /* QAT_BORINGSSL */
 #endif
 

@@ -750,9 +750,11 @@ mb_thread_data *mb_check_thread_local(void);
 
 # endif
 
+#ifndef QAT_BORINGSSL
 # ifdef QAT_SW_IPSEC
 int hw_support(void);
 # endif
+#endif /* QAT_BORINGSSL */
 
 # ifdef QAT_OPENSSL_PROVIDER
 static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)

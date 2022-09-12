@@ -122,7 +122,6 @@ struct async_ctx_st {;
 };
 
 #ifndef BSSL_SOURCE
-
 struct ec_key_st {
   /* porting from boringssl/crypto/fipsmodule/ec/internal.h */
   EC_GROUP *group;
@@ -142,7 +141,6 @@ struct ec_key_st {
 
   CRYPTO_EX_DATA ex_data;
 } /* EC_KEY */;
-
 #endif /* BSSL_SOURCE */
 
 typedef pthread_once_t bssl_once_t;
@@ -153,6 +151,7 @@ typedef pthread_once_t bssl_once_t;
  * no defination in BoringSSL
  */
 /* Status of Async Jobs */
+#define ASYNC_JOB_OPER_COMPLETE                 5  /* OPERATION has completed */
 #define ASYNC_JOB_COMPLETE                      4
 #define ASYNC_JOB_RUNNING                       3
 #define ASYNC_JOB_ABORT                         2  /* unused */
@@ -175,7 +174,8 @@ typedef pthread_once_t bssl_once_t;
 #define ASYNC_pause_job(void)                   ASYNC_DEFAULT_VAL
 #define ASYNC_job_is_running(async_ctx)         \
     (*async_ctx->currjob_status != ASYNC_JOB_COMPLETE && \
-     *async_ctx->currjob_status != ASYNC_JOB_STOPPED)
+     *async_ctx->currjob_status != ASYNC_JOB_STOPPED && \
+     *async_ctx->currjob_status != ASYNC_JOB_OPER_COMPLETE)
 #define ASYNC_job_is_stopped(async_ctx)         \
     (*async_ctx->currjob_status == ASYNC_JOB_STOPPED)
 
@@ -183,7 +183,6 @@ typedef pthread_once_t bssl_once_t;
  * no defination in BoringSSL
  */
 # define ENGINE_DEFAULT                         (1)
-#ifdef QAT_HW
 # define ENGINE_set_id(e, id)                   ENGINE_DEFAULT
 # define ENGINE_set_name(e, name)               ENGINE_DEFAULT
 # define ENGINE_set_RSA(e, rsa_get_method)      \
@@ -195,7 +194,6 @@ typedef pthread_once_t bssl_once_t;
 # define ENGINE_set_pkey_meths(e, pkey)         ENGINE_DEFAULT
 # define ENGINE_set_ciphers(e, ciphers)         ENGINE_DEFAULT
 # define qat_create_ciphers()
-#endif
 
 # define ENGINE_set_destroy_function(e, des)    ENGINE_DEFAULT
 /* Called qat_engine_init in ENGINE_set_init_function when binding engine */
@@ -206,6 +204,8 @@ typedef pthread_once_t bssl_once_t;
 
 # define ENGINE_by_id(id)                       (qat_engine_ptr)
 # define ENGINE_add(add)                        {}
+
+# define EC_KEY_can_sign(ec_key)                        (1)
 
 # define bssl_engine_get_rsa_method()           \
     ENGINE_get_RSA_method(ENGINE_QAT_PTR_GET())
@@ -230,7 +230,7 @@ typedef pthread_once_t bssl_once_t;
 # define RSA_meth_set_bn_mod_exp(meth, exp) RSA_METH_RET_DEFAULT
 # define RSA_meth_set_init(meth, init)      RSA_METH_RET_DEFAULT
 # define RSA_meth_set_finish(meth, finish)  RSA_METH_RET_DEFAULT
-# define RSA_get_default_method()           NULL
+# define RSA_get_default_method()           bssl_get_default_RSA_methods()
 # define RSA_meth_new                       bssl_rsa_meth_new
 # define RSA_meth_free                      bssl_rsa_meth_free
 # define RSA_meth_get_pub_enc(meth)         RSA_public_encrypt
@@ -267,7 +267,9 @@ typedef pthread_once_t bssl_once_t;
  * not in BoringSSL
  */
 # define EC_KEY_METHOD                      ECDSA_METHOD
-# define EC_KEY_get_default_method()        NULL
+# define EC_KEY_get_default_method()        bssl_get_default_EC_methods()
+# define EC_KEY_OpenSSL()                   bssl_get_default_EC_methods()
+
 # define EC_KEY_METHOD_new                  bssl_ec_key_method_new
 # define EC_KEY_METHOD_free                 bssl_ec_key_method_free
 /* Do nothing */
@@ -284,19 +286,11 @@ typedef pthread_once_t bssl_once_t;
 # define EC_KEY_METHOD_get_sign(meth,       \
     sign_pfunc, sign_setup_pfunc,           \
     sign_sig_pfunc)                         \
-    *(sign_sig_pfunc) = bssl_default_ecdsa_sign
-#ifdef ENABLE_QAT_HW_ECDSA
+    bssl_ec_key_method_get_sign(meth, sign_pfunc, sign_sig_pfunc)
 # define EC_KEY_METHOD_set_sign(meth,       \
     sign_pfunc, sign_setup_pfunc,           \
     sign_sig_pfunc)                         \
     bssl_ecdsa_meth_set_do_sign(meth, sign_pfunc)
-#else
-/* Dismiss compile warning when disabled hw ecdsa */
-# define EC_KEY_METHOD_set_sign(meth,       \
-    sign_pfunc, sign_setup_pfunc,           \
-    sign_sig_pfunc)                         \
-    EC_KEY_NULL_METHOD(meth, sign_pfunc, sign_setup_pfunc, sign_sig_pfunc)
-#endif
 /* Ignored ECDSA get verify method */
 # define EC_KEY_METHOD_get_verify(meth,     \
     verify_pfunc, verify_sig_pfunc)         \
@@ -409,6 +403,10 @@ void bssl_ec_key_method_free(EC_KEY_METHOD *meth);
 ECDSA_SIG *bssl_default_ecdsa_sign(const unsigned char *dgst,
                                    int dgst_len, const BIGNUM *in_kinv,
                                    const BIGNUM *in_r, EC_KEY *eckey);
+#ifdef QAT_SW
+int bssl_ecdsa_sign(const uint8_t *digest, size_t digest_len,
+        uint8_t *sig, unsigned int *sig_len, EC_KEY *eckey);
+#endif /* QAT_SW */
 
 int bssl_default_ecdsa_verify(const unsigned char *dgst, int dgst_len,
                               const ECDSA_SIG *sig, EC_KEY *eckey);
@@ -520,4 +518,30 @@ int bssl_qat_set_default_string(const char *def_list);
 
 void bssl_once(bssl_once_t *once, void (*init)(void));
 
+typedef int (*PFUNC_EC_SIGN)(const uint8_t *,
+                        size_t,
+                        uint8_t *,
+                        unsigned int *,
+                        EC_KEY *);
+typedef ECDSA_SIG *(*PFUNC_EC_SIGN_SIG)(const unsigned char *,
+                                     int,
+                                     const BIGNUM *,
+                                     const BIGNUM *,
+                                     EC_KEY *);
+void bssl_ec_key_method_get_sign(EC_KEY_METHOD *meth, PFUNC_EC_SIGN *sig_func,
+                                    PFUNC_EC_SIGN_SIG *sig_sig_func);
+
+#ifdef QAT_SW
+typedef void (*mb_async_callback_func) (void *ctx, unsigned char *out_buffer,
+                                        unsigned long *size,
+                                        unsigned long max_size);
+
+typedef struct _mb_async_ctx {
+    mb_async_callback_func callback_func;
+    void *ctx;
+} mb_async_ctx;
+
+void bssl_mb_async_job_finish_wait(volatile ASYNC_JOB *job, int job_status, int waitctx_status);
+
+#endif /* QAT_SW */
 #endif
