@@ -369,6 +369,8 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     "x y tx ty bn malloc failure"},
     {ERR_PACK(0, 0, QAT_R_X_Y_Z_MALLOC_FAILURE), "x y z malloc failure"},
     {ERR_PACK(0, 0, QAT_R_Z_ALLOCATE_FAILURE), "z allocate failure"},
+    {ERR_PACK(0, 0, QAT_R_ECDSA_SIGN_NULL), "ecdsa sign null"},
+    {ERR_PACK(0, 0, QAT_R_ECDSA_VERIFY_NULL), "ecdsa verify null"},
     {0, NULL}
 };
 

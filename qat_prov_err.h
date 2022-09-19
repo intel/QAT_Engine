@@ -288,5 +288,8 @@ void ERR_QAT_error(int function, int reason, const char *file, int line);
 # define QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE                353
 # define QAT_R_X_Y_Z_MALLOC_FAILURE                       354
 # define QAT_R_Z_ALLOCATE_FAILURE                         355
+# define QAT_R_ECDSA_SIGN_NULL                            356
+# define QAT_R_ECDSA_VERIFY_NULL                          357
+
 
 #endif

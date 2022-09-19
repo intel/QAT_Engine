@@ -697,8 +697,7 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
 
 #ifdef QAT_OPENSSL_PROVIDER
-    int (*sw_sm2_sign_fp)(void *, unsigned char *, size_t *,
-                          size_t, const unsigned char *, size_t);
+    QAT_EVP_SIGNATURE sw_sm2_signature;
 #else
     unsigned char *dgst = NULL;
     BIGNUM *e = NULL;
@@ -864,13 +863,8 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     ecdsa_sm2_sign_req->z = z;
     ecdsa_sm2_sign_req->id = smctx->id;
     ecdsa_sm2_sign_req->id_len = smctx->id_len;
-#ifdef QAT_OPENSSL_PROVIDER
-    ecdsa_sm2_sign_req->digest = smctx->tbs;
-    ecdsa_sm2_sign_req->dig_len = smctx->tbs_len;
-#else
     ecdsa_sm2_sign_req->digest = tbs;
     ecdsa_sm2_sign_req->dig_len = tbslen;
-#endif
 
     mb_queue_ecdsa_sm2_sign_enqueue(tlv->ecdsa_sm2_sign_queue, ecdsa_sm2_sign_req);
     STOP_RDTSC(&ecdsa_cycles_sign_setup, 1, "[ECDSA:sign_setup]");
@@ -932,10 +926,21 @@ err:
 
 use_sw_method:
 #ifdef QAT_OPENSSL_PROVIDER
-    sw_sm2_sign_fp = get_default_signature_sm2().sign;
-    if (!sw_sm2_sign_fp)
-        return 0;
-    return sw_sm2_sign_fp((void*)smctx, sig, siglen, sigsize, tbs, tbslen);
+    sw_sm2_signature = get_default_signature_sm2();
+    if (sw_sm2_signature.digest_sign) {
+        return sw_sm2_signature.digest_sign((void*)smctx, sig, siglen, sigsize, tbs, tbslen);
+    } else {
+        if (sw_sm2_signature.digest_sign_update == NULL ||
+                sw_sm2_signature.digest_sign_final == NULL) {
+            WARN("ECDSA  digest_sign_update is NULL or digest_sign_final is NULL\n");
+            QATerr(QAT_F_MB_ECDSA_SM2_SIGN, QAT_R_ECDSA_SIGN_NULL);
+            return 0;
+        }
+        if (sw_sm2_signature.digest_sign_update((void*)smctx, tbs, tbslen) <= 0) {
+            return 0;
+        }
+        return sw_sm2_signature.digest_sign_final((void*)smctx, sig, siglen, sigsize);
+    }
 #else
     EVP_PKEY_meth_get_sign((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &psign);
     md = (EVP_MD *)EVP_sm3();
@@ -978,8 +983,7 @@ int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     int derlen = -1;
     
 #ifdef QAT_OPENSSL_PROVIDER
-    int (*sw_sm2_verify_fp)(void *, const unsigned char *, size_t,
-                            const unsigned char *, size_t);
+    QAT_EVP_SIGNATURE sw_sm2_signature;
 #else
     unsigned char *dgst = NULL;
     BIGNUM *e = NULL;
@@ -1112,13 +1116,8 @@ int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     ecdsa_sm2_verify_req->sts = &sts;
     ecdsa_sm2_verify_req->id = smctx->id;
     ecdsa_sm2_verify_req->id_len = smctx->id_len;
-#ifdef QAT_OPENSSL_PROVIDER
-    ecdsa_sm2_verify_req->digest = smctx->tbs;
-    ecdsa_sm2_verify_req->dig_len = smctx->tbs_len;
-#else
     ecdsa_sm2_verify_req->digest = tbs;
     ecdsa_sm2_verify_req->dig_len = tbslen;
-#endif
 
     mb_queue_ecdsa_sm2_verify_enqueue(tlv->ecdsa_sm2_verify_queue, ecdsa_sm2_verify_req);
 
@@ -1174,10 +1173,21 @@ err:
 
 use_sw_method:
 #ifdef QAT_OPENSSL_PROVIDER
-    sw_sm2_verify_fp = get_default_signature_sm2().verify;
-    if (!sw_sm2_verify_fp)
-        return 0;
-    return sw_sm2_verify_fp((void*)smctx, sig, siglen, tbs, tbslen);
+    sw_sm2_signature = get_default_signature_sm2();
+    if (sw_sm2_signature.digest_verify) {
+        return sw_sm2_signature.digest_verify((void*)smctx, sig, siglen, tbs, tbslen);
+    } else {
+        if (sw_sm2_signature.digest_verify_update == NULL ||
+                sw_sm2_signature.digest_verify_final == NULL) {
+            WARN("ECDSA  digest_verify_update is NULL or digest_verify_final is NULL\n");
+            QATerr(QAT_F_MB_ECDSA_SM2_VERIFY, QAT_R_ECDSA_VERIFY_NULL);
+            return -1;
+        }
+        if (sw_sm2_signature.digest_verify_update((void*)smctx, tbs, tbslen) <= 0) {
+            return -1;
+        }
+        return sw_sm2_signature.digest_verify_final((void*)smctx, sig, siglen);
+    }
 #else
     EVP_PKEY_meth_get_verify((EVP_PKEY_METHOD *)sw_sm2_pmeth,
                               NULL, &pverify);

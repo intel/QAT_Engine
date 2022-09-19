@@ -64,11 +64,9 @@ static OSSL_FUNC_signature_verify_init_fn qat_sm2sig_signature_init;
 static OSSL_FUNC_signature_sign_fn qat_sm2sig_sign;
 static OSSL_FUNC_signature_verify_fn qat_sm2sig_verify;
 static OSSL_FUNC_signature_digest_sign_init_fn qat_sm2sig_digest_signverify_init;
-static OSSL_FUNC_signature_digest_sign_update_fn qat_sm2sig_digest_signverify_update;
-static OSSL_FUNC_signature_digest_sign_final_fn qat_sm2sig_digest_sign_final;
+static OSSL_FUNC_signature_digest_sign_fn qat_sm2sig_digest_sign;
 static OSSL_FUNC_signature_digest_verify_init_fn qat_sm2sig_digest_signverify_init;
-static OSSL_FUNC_signature_digest_verify_update_fn qat_sm2sig_digest_signverify_update;
-static OSSL_FUNC_signature_digest_verify_final_fn qat_sm2sig_digest_verify_final;
+static OSSL_FUNC_signature_digest_verify_fn qat_sm2sig_digest_verify;
 static OSSL_FUNC_signature_freectx_fn qat_sm2sig_freectx;
 static OSSL_FUNC_signature_dupctx_fn qat_sm2sig_dupctx;
 static OSSL_FUNC_signature_get_ctx_params_fn qat_sm2sig_get_ctx_params;
@@ -168,39 +166,27 @@ static int qat_sm2sig_signature_init(void *vpsm2ctx, void *ec,
 static int qat_sm2sig_sign(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
                            size_t sigsize, const unsigned char *tbs, size_t tbslen)
 {
-    QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
-    int ret;
-    /* SM2 uses ECDSA_size as well */
-    size_t ecsize = ECDSA_size(ctx->ec);
+    int (*sw_sm2_sign_fp)(void *, unsigned char *, size_t *,
+                          size_t, const unsigned char *, size_t);
     
-    if (sig == NULL) {
-        *siglen = ecsize;
-        return 1;
-    }
-
-    if (sigsize < (size_t)ecsize)
+    sw_sm2_sign_fp = get_default_signature_sm2().sign;
+    if (!sw_sm2_sign_fp)
         return 0;
 
-    if (ctx->mdsize != 0 && tbslen != ctx->mdsize)
-        return 0;
-
-    ret = mb_ecdsa_sm2_sign(ctx, sig, siglen, sigsize, tbs, tbslen);
-    if (ret <= 0)
-        return 0;
-
-    return 1;
-    
+    return sw_sm2_sign_fp(vpsm2ctx, sig, siglen, sigsize, tbs, tbslen);
 }
 
 static int qat_sm2sig_verify(void *vpsm2ctx, const unsigned char *sig, size_t siglen,
                              const unsigned char *tbs, size_t tbslen)
 {
-    QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
+    int (*sw_sm2_verify_fp)(void *, const unsigned char *, size_t,
+                            const unsigned char *, size_t);
 
-    if (ctx->mdsize != 0 && tbslen != ctx->mdsize)
+    sw_sm2_verify_fp = get_default_signature_sm2().verify;
+    if (!sw_sm2_verify_fp)
         return 0;
 
-    return mb_ecdsa_sm2_verify(ctx, sig, siglen, tbs, tbslen);
+    return sw_sm2_verify_fp((void*)vpsm2ctx, sig, siglen, tbs, tbslen);
 }
 
 static void free_md(QAT_PROV_SM2_CTX *ctx)
@@ -221,90 +207,43 @@ static int qat_sm2sig_digest_signverify_init(void *vpsm2ctx, const char *mdname,
     return fun(vpsm2ctx, mdname, ec, params);
 }
 
-static int sm2sig_compute_z_digest(QAT_PROV_SM2_CTX *ctx)
+static int qat_sm2sig_digest_sign(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
+                           size_t sigsize, const unsigned char *tbs, size_t tbslen)
 {
-    uint8_t *z = NULL;
-    int ret = 1;
+    QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
+    int ret;
+    size_t ecsize;
 
-    if (ctx->flag_compute_z_digest) {
-        /* Only do this once */
-        ctx->flag_compute_z_digest = 0;
-
-        if ((z = OPENSSL_zalloc(ctx->mdsize)) == NULL
-            /* get hashed prefix 'z' of tbs message */
-            || !ossl_sm2_compute_z_digest(z, ctx->md, ctx->id, ctx->id_len,
-                                          ctx->ec)
-            || !EVP_DigestUpdate(ctx->mdctx, z, ctx->mdsize))
-            ret = 0;
-        OPENSSL_free(z);
+    if (ctx == NULL) {
+        return 0;
+    }
+     /* SM2 uses ECDSA_size as well */
+    ecsize = ECDSA_size(ctx->ec);
+    if (sig == NULL) {
+        *siglen = ecsize;
+        return 1;
     }
 
-    return ret;
-}
-
-int qat_sm2sig_digest_signverify_update(void *vpsm2ctx, const unsigned char *data,
-                                    size_t datalen)
-{
-    QAT_PROV_SM2_CTX *psm2ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
-
-    if (psm2ctx == NULL || psm2ctx->mdctx == NULL)
+    if (sigsize < (size_t)ecsize)
         return 0;
-    /*
-     * Crypto_mb library need the parameter data and datelen to 
-     * initialize the structure ecdsa_sm2_verify_req for both 
-     * sign and verify operation, but they are only provided 
-     * in this update function. So we have to store them here. 
-     */
-    psm2ctx->tbs = data;
-    psm2ctx->tbs_len = datalen;
 
-    return sm2sig_compute_z_digest(psm2ctx)
-        && EVP_DigestUpdate(psm2ctx->mdctx, data, datalen);
+    ret = mb_ecdsa_sm2_sign(ctx, sig, siglen, sigsize, tbs, tbslen);
+    if (ret <= 0)
+        return 0;
+
+    return 1;
 }
 
 
-
-int qat_sm2sig_digest_sign_final(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
-                             size_t sigsize)
+static int qat_sm2sig_digest_verify(void *vpsm2ctx, const unsigned char *sig, size_t siglen,
+                             const unsigned char *tbs, size_t tbslen)
 {
-    QAT_PROV_SM2_CTX *psm2ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int dlen = 0;
+    QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
 
-    if (psm2ctx == NULL || psm2ctx->mdctx == NULL)
+    if (vpsm2ctx == NULL) {
         return 0;
-
-    /*
-     * If sig is NULL then we're just finding out the sig size. Other fields
-     * are ignored. Defer to sm2sig_sign.
-     */
-    if (sig != NULL) {
-        if (!(sm2sig_compute_z_digest(psm2ctx)
-              && EVP_DigestFinal_ex(psm2ctx->mdctx, digest, &dlen)))
-            return 0;
     }
-
-    return qat_sm2sig_sign(vpsm2ctx, sig, siglen, sigsize, digest, (size_t)dlen);
-}
-
-
-int qat_sm2sig_digest_verify_final(void *vpsm2ctx, const unsigned char *sig,
-                               size_t siglen)
-{
-    QAT_PROV_SM2_CTX *psm2ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
-    unsigned char digest[EVP_MAX_MD_SIZE];
-    unsigned int dlen = 0;
-
-    if (psm2ctx == NULL
-        || psm2ctx->mdctx == NULL
-        || EVP_MD_get_size(psm2ctx->md) > (int)sizeof(digest))
-        return 0;
-
-    if (!(sm2sig_compute_z_digest(psm2ctx)
-          && EVP_DigestFinal_ex(psm2ctx->mdctx, digest, &dlen)))
-        return 0;
-
-    return qat_sm2sig_verify(vpsm2ctx, sig, siglen, digest, (size_t)dlen);
+    return mb_ecdsa_sm2_verify(ctx, sig, siglen, tbs, tbslen);
 }
 
 static void qat_sm2sig_freectx(void *vpsm2ctx)
@@ -448,16 +387,12 @@ const OSSL_DISPATCH qat_sm2_signature_functions[] = {
     { OSSL_FUNC_SIGNATURE_VERIFY, (void (*)(void))qat_sm2sig_verify },
     { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_INIT,
       (void (*)(void))qat_sm2sig_digest_signverify_init },
-    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_UPDATE,
-      (void (*)(void))qat_sm2sig_digest_signverify_update },
-    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_FINAL,
-      (void (*)(void))qat_sm2sig_digest_sign_final },
+    { OSSL_FUNC_SIGNATURE_DIGEST_SIGN,
+      (void (*)(void))qat_sm2sig_digest_sign },
     { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_INIT,
       (void (*)(void))qat_sm2sig_digest_signverify_init },
-    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_UPDATE,
-      (void (*)(void))qat_sm2sig_digest_signverify_update },
-    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_FINAL,
-      (void (*)(void))qat_sm2sig_digest_verify_final },
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY,
+      (void (*)(void))qat_sm2sig_digest_verify },
     { OSSL_FUNC_SIGNATURE_FREECTX, (void (*)(void))qat_sm2sig_freectx },
     { OSSL_FUNC_SIGNATURE_DUPCTX, (void (*)(void))qat_sm2sig_dupctx },
     { OSSL_FUNC_SIGNATURE_GET_CTX_PARAMS, (void (*)(void))qat_sm2sig_get_ctx_params },
