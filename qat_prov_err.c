@@ -73,6 +73,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_ECDH_UNKNOWN_FIELD_TYPE), "ecdh unknown field type"},
     {ERR_PACK(0, 0, QAT_R_ECDSA_MALLOC_FAILURE), "ecdsa malloc failure"},
     {ERR_PACK(0, 0, QAT_R_ECDSA_SIGN_FAILURE), "ecdsa sign failure"},
+    {ERR_PACK(0, 0, QAT_R_ECDSA_SIGN_NULL), "ecdsa sign null"},
     {ERR_PACK(0, 0, QAT_R_ECDSA_SIGN_SETUP_FAILURE),
     "ecdsa sign setup failure"},
     {ERR_PACK(0, 0, QAT_R_ECDSA_SIG_MALLOC_FAILURE),
@@ -80,6 +81,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_ECDSA_SIG_SET_R_S_FAILURE),
     "ecdsa sig set r s failure"},
     {ERR_PACK(0, 0, QAT_R_ECDSA_VERIFY_FAILURE), "ecdsa verify failure"},
+    {ERR_PACK(0, 0, QAT_R_ECDSA_VERIFY_NULL), "ecdsa verify null"},
     {ERR_PACK(0, 0, QAT_R_ECKEY_GROUP_PUBKEY_SIG_NULL),
     "eckey group pubkey sig null"},
     {ERR_PACK(0, 0, QAT_R_EC_KEY_GROUP_PRIV_KEY_NULL),
@@ -369,8 +371,6 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     "x y tx ty bn malloc failure"},
     {ERR_PACK(0, 0, QAT_R_X_Y_Z_MALLOC_FAILURE), "x y z malloc failure"},
     {ERR_PACK(0, 0, QAT_R_Z_ALLOCATE_FAILURE), "z allocate failure"},
-    {ERR_PACK(0, 0, QAT_R_ECDSA_SIGN_NULL), "ecdsa sign null"},
-    {ERR_PACK(0, 0, QAT_R_ECDSA_VERIFY_NULL), "ecdsa verify null"},
     {0, NULL}
 };
 

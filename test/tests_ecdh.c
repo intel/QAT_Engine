@@ -502,6 +502,8 @@ err:
     if (a) EC_KEY_free(a);
 #ifdef QAT_OPENSSL_PROVIDER
     if (key1 != NULL) EVP_PKEY_free(key1);
+    if (secret_a != NULL) OPENSSL_free(secret_a);
+    if (secret_b != NULL) OPENSSL_free(secret_b);
     if (key2 != NULL) EVP_PKEY_free(key2);
     EVP_PKEY_CTX_free(test_ctx);
     EVP_PKEY_CTX_free(key_ctx);

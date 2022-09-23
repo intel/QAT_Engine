@@ -26,7 +26,7 @@ CC		:= gcc -Wall -imacros $(AUTO_CONF)
 ifeq ($(KERNELRELEASE),)
 all:	$(MODULENAME)_test
 all:
-	$(MAKE) -C $(KDIR) SUBDIRS=$(PWD) modules
+	$(MAKE) -C $(KDIR) M=$(shell pwd) modules
 else
   obj-m	:= $(MODULENAME).o
 endif

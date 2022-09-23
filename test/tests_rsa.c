@@ -2779,6 +2779,11 @@ err:
         EVP_PKEY_CTX_free(enc_ctx);
     if (dec_ctx)
         EVP_PKEY_CTX_free(dec_ctx);
+#else
+    if (ptext)
+        OPENSSL_free(ptext);
+    if (ctext)
+        OPENSSL_free(ctext);
 #endif
     if (sig)
         OPENSSL_free(sig);

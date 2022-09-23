@@ -357,7 +357,6 @@ static qae_slab *crypto_create_slab(int size, int pool_index, int memfd)
     QAE_UINT alignment;
 
     qmcfg.length = SLAB_SIZE;
-#ifdef USE_QAT_CONTIG_MEM
     if (qat_ioctl(memfd, QAT_CONTIG_MEM_MALLOC, &qmcfg) == -1) {
         static char errmsg[LINE_MAX];
 
@@ -376,7 +375,6 @@ static qae_slab *crypto_create_slab(int size, int pool_index, int memfd)
         perror(errmsg);
         goto exit;
     }
-#endif
     MEM_DEBUG("slot size %d\n", size);
     slb->slot_size = size;
     slb->next_slot = NULL;
@@ -553,7 +551,6 @@ static void crypto_free_slab(qae_slab *slb, void *thread_key)
 {
     qat_contig_mem_config qmcfg;
     qae_slab_pools_local *tls_ptr = (qae_slab_pools_local *)thread_key;
-#ifdef USE_QAT_CONTIG_MEM
     MEM_DEBUG("do munmap  of %p\n", slb);
     qmcfg = *((qat_contig_mem_config *) slb);
 
@@ -567,7 +564,6 @@ static void crypto_free_slab(qae_slab *slb, void *thread_key)
         perror("ioctl QAT_CONTIG_MEM_FREE");
         exit(EXIT_FAILURE);
     }
-#endif
 }
 /*****************************************************************************
  * function:
@@ -696,7 +692,6 @@ void fork_slab_list(qae_slab_pool * list, int memfd)
         { 0, (uintptr_t) NULL, SLAB_SIZE, (uintptr_t) NULL };
 
     while (count < list->slot_size) {
-#ifdef USE_QAT_CONTIG_MEM
         if (qat_ioctl(memfd, QAT_CONTIG_MEM_MALLOC, &qmcfg) == -1) {
             static char errmsg[LINE_MAX];
 
@@ -720,7 +715,6 @@ void fork_slab_list(qae_slab_pool * list, int memfd)
                (void *)old_slb + sizeof(qat_contig_mem_config),
                SLAB_SIZE - sizeof(qat_contig_mem_config));
 
-#endif
         qae_slab *to_unmap = old_slb;
         old_slb = old_slb->next;
         if (qat_munmap(to_unmap, SLAB_SIZE) == -1) {
@@ -752,16 +746,13 @@ void fork_slab_list(qae_slab_pool * list, int memfd)
 static void crypto_free_slab_list(qae_slab_pool *list, int memfd)
 {
     qae_slab *slb, *s_next_slab;
-#ifdef USE_QAT_CONTIG_MEM
     qat_contig_mem_config qmcfg;
-#endif
 
     /* cleanup all the empty slabs */
     for (slb = list->next; list->slot_size > 0 ; slb = s_next_slab) {
         /* need to save this off before unmapping. This is why we can't have
            slb = slb->next_slab in the for loop above. */
         s_next_slab = slb->next;
-#ifdef USE_QAT_CONTIG_MEM
         MEM_DEBUG("do munmap of %p\n", slb);
         qmcfg = *((qat_contig_mem_config *) slb);
 
@@ -774,7 +765,6 @@ static void crypto_free_slab_list(qae_slab_pool *list, int memfd)
             perror("ioctl QAT_CONTIG_MEM_FREE");
             exit(EXIT_FAILURE);
         }
-#endif
         list->slot_size--;
     }
 
@@ -886,13 +876,12 @@ static void crypto_init(void)
     }
     init_pool(&(tls_ptr->full_slab_list));
 
-#ifdef USE_QAT_CONTIG_MEM
     if ((tls_ptr->crypto_qat_contig_memfd = open("/dev/qat_contig_mem", O_RDWR))
         == FD_ERROR) {
         perror("open qat_contig_mem");
         exit(EXIT_FAILURE);
     }
-#endif
+
     crypto_inited = 1;
 }
 

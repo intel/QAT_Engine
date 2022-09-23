@@ -849,14 +849,17 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
 
 #ifdef ENABLE_QAT_HW_ECDSA
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA)) {
-        EC_KEY_METHOD_set_sign(qat_ec_method,
 #ifndef QAT_BORINGSSL
+        EC_KEY_METHOD_set_sign(qat_ec_method,
                                qat_ecdsa_sign,
-#else
-                               qat_ecdsa_sign_bssl,
-#endif /* QAT_BORINGSSL */
                                NULL,
                                qat_ecdsa_do_sign);
+#else /* QAT_BORINGSSL */
+        EC_KEY_METHOD_set_sign(qat_ec_method,
+                               qat_ecdsa_sign_bssl,
+                               NULL,
+                               qat_ecdsa_do_sign);
+#endif /* QAT_BORINGSSL */
         EC_KEY_METHOD_set_verify(qat_ec_method,
                                  qat_ecdsa_verify,
                                  qat_ecdsa_do_verify);
@@ -875,12 +878,13 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
-        EC_KEY_METHOD_set_sign(qat_ec_method,
 #ifndef QAT_BORINGSSL
+        EC_KEY_METHOD_set_sign(qat_ec_method,
                                mb_ecdsa_sign,
                                mb_ecdsa_sign_setup,
                                mb_ecdsa_sign_sig);
 #else /* QAT_BORINGSSL */
+        EC_KEY_METHOD_set_sign(qat_ec_method,
                                mb_ecdsa_sign_bssl,
                                NULL,
                                NULL);
