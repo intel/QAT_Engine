@@ -15,8 +15,8 @@ Library with NGINX\* for QUIC support can be found at the following location in 
 
 * [Experimental QUIC support for NGINX][5]
 
-[1]:https://01.org/intel-quickassist-technology
-[2]:https://01.org/sites/default/files/downloads/intelr-quickassist-technology/337003-001-intelquickassisttechnologyandopenssl-110.pdf
+[1]:https://developer.intel.com/quickassist
+[2]:https://www.intel.com/content/www/us/en/content-details/709581/intel-quickassist-technology-and-openssl-1-1-0-performance.html?DocID=709581
 [3]:https://www.intel.com/content/www/us/en/developer/articles/guide/building-software-acceleration-features-in-the-intel-qat-engine-for-openssl.html
 [4]:https://github.com/intel/asynch_mode_nginx
 [5]:https://cdrdv2.intel.com/v1/dl/getContent/737522
