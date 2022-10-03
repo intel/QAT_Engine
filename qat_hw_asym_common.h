@@ -58,7 +58,7 @@ int qat_mod_exp(BIGNUM *r, const BIGNUM *a, const BIGNUM *p, const BIGNUM *m,
 void qat_ecx_cb(void *pCallbackTag, CpaStatus status,
                 void *pOpData, CpaBoolean multiplyStatus,
                 CpaFlatBuffer *pXk, CpaFlatBuffer *pYk);
-int reverse_bytes(unsigned char *tobuffer,
-                  unsigned char *frombuffer, unsigned int size);
+int reverse_bytes(unsigned char *tobuffer, unsigned char *frombuffer,
+                  unsigned int tosize, unsigned int fromsize);
 # endif
 #endif /* QAT_HW_ASYM_COMMON_H */

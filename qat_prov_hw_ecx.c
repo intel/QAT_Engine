@@ -171,7 +171,7 @@ void *qat_pkey_ecx_keygen(void *genctx, OSSL_CALLBACK *osslcb,
     qat_ecx_op_data->k.dataLenInBytes = (Cpa32U)qat_keylen;
 
     pubkey = key->pubkey;
-    privkey = key->privkey = OPENSSL_secure_zalloc(qat_keylen);
+    privkey = key->privkey = OPENSSL_secure_zalloc(key->keylen);
     if (privkey == NULL) {
         WARN("Cannot allocate privkey.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
@@ -204,7 +204,7 @@ void *qat_pkey_ecx_keygen(void *genctx, OSSL_CALLBACK *osslcb,
     qat_ecx_op_data->curveType =
         is_ecx_448 ? CPA_CY_EC_MONTEDWDS_CURVE448_TYPE : CPA_CY_EC_MONTEDWDS_CURVE25519_TYPE;
 
-    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, privkey, qat_keylen)) {
+    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, privkey, qat_keylen, key->keylen)) {
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -360,7 +360,7 @@ void *qat_pkey_ecx_keygen(void *genctx, OSSL_CALLBACK *osslcb,
 
     qat_cleanup_op_done(&op_done);
 
-    if (0 == reverse_bytes(pubkey, pXk->pData, key->keylen)) {
+    if (0 == reverse_bytes(pubkey, pXk->pData, key->keylen, qat_keylen)) {
         WARN("Failed to reverse bytes for data received from QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -442,7 +442,6 @@ int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secre
     CpaBoolean multiplyStatus = CPA_TRUE;
     CpaFlatBuffer *pXk = NULL;
     const unsigned char *privkey, *pubkey;
-    Cpa8U dataLenInBytes = X25519_KEYLEN;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
     int iMsgRetry = getQatMsgRetryCount();
@@ -465,7 +464,7 @@ int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secre
         return 0;
 
     if (secret == NULL) {
-        *secretlen = dataLenInBytes;
+        *secretlen = X25519_KEYLEN;
         return 1;
     }
 
@@ -479,21 +478,21 @@ int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secre
     }
     memset(qat_ecx_op_data, 0, sizeof(CpaCyEcMontEdwdsPointMultiplyOpData));
 
-    qat_ecx_op_data->k.pData = (Cpa8U *)qaeCryptoMemAlloc(dataLenInBytes, __FILE__, __LINE__);
+    qat_ecx_op_data->k.pData = (Cpa8U *)qaeCryptoMemAlloc(X25519_KEYLEN, __FILE__, __LINE__);
     if (qat_ecx_op_data->k.pData == NULL) {
         WARN("Failure to allocate k.pData.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    qat_ecx_op_data->k.dataLenInBytes = (Cpa32U)dataLenInBytes;
+    qat_ecx_op_data->k.dataLenInBytes = X25519_KEYLEN;
 
-    qat_ecx_op_data->x.pData = (Cpa8U *)qaeCryptoMemAlloc(dataLenInBytes, __FILE__, __LINE__);
+    qat_ecx_op_data->x.pData = (Cpa8U *)qaeCryptoMemAlloc(X25519_KEYLEN, __FILE__, __LINE__);
     if (qat_ecx_op_data->x.pData == NULL) {
         WARN("Failure to allocate x.pData.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    qat_ecx_op_data->x.dataLenInBytes = (Cpa32U)dataLenInBytes;
+    qat_ecx_op_data->x.dataLenInBytes = X25519_KEYLEN;
 
     pXk = (CpaFlatBuffer *)OPENSSL_zalloc(sizeof(CpaFlatBuffer));
     if (NULL == pXk) {
@@ -501,24 +500,26 @@ int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secre
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    pXk->pData = (Cpa8U *)qaeCryptoMemAlloc(dataLenInBytes, __FILE__, __LINE__);
+    pXk->pData = (Cpa8U *)qaeCryptoMemAlloc(X25519_KEYLEN, __FILE__, __LINE__);
     if (NULL == pXk->pData) {
         WARN("Failed to allocate memory for pXk data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    pXk->dataLenInBytes = dataLenInBytes;
+    pXk->dataLenInBytes = X25519_KEYLEN;
 
     qat_ecx_op_data->generator = CPA_FALSE;
     qat_ecx_op_data->curveType = CPA_CY_EC_MONTEDWDS_CURVE25519_TYPE;
 
-    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, (unsigned char *)privkey, dataLenInBytes)) {
+    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, (unsigned char *)privkey,
+                           X25519_KEYLEN, X25519_KEYLEN)) {
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
         goto err;
     }
 
-    if (0 == reverse_bytes(qat_ecx_op_data->x.pData,(unsigned char *)pubkey, dataLenInBytes)) {
+    if (0 == reverse_bytes(qat_ecx_op_data->x.pData,(unsigned char *)pubkey,
+                           X25519_KEYLEN, X25519_KEYLEN)) {
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -674,20 +675,20 @@ int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secre
 
     qat_cleanup_op_done(&op_done);
 
-    if (0 == reverse_bytes(secret, pXk->pData, dataLenInBytes)) {
+    if (0 == reverse_bytes(secret, pXk->pData, X25519_KEYLEN, X25519_KEYLEN)) {
         WARN("Failed to reverse bytes for data received from QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
         goto err;
     }
 
-    *secretlen = (size_t)dataLenInBytes;
+    *secretlen = X25519_KEYLEN;
     ret = 1;
 
 err:
     /* Clean the memory. */
     if (pXk != NULL) {
         if (pXk->pData != NULL) {
-            OPENSSL_cleanse(pXk->pData, dataLenInBytes);
+            OPENSSL_cleanse(pXk->pData, X25519_KEYLEN);
             qaeCryptoMemFreeNonZero(pXk->pData);
         }
         OPENSSL_free(pXk);
@@ -695,11 +696,11 @@ err:
 
     if (NULL != qat_ecx_op_data) {
         if (qat_ecx_op_data->k.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->k.pData, dataLenInBytes);
+            OPENSSL_cleanse(qat_ecx_op_data->k.pData, X25519_KEYLEN);
             qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
         }
         if (qat_ecx_op_data->x.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->x.pData, dataLenInBytes);
+            OPENSSL_cleanse(qat_ecx_op_data->x.pData, X25519_KEYLEN);
             qaeCryptoMemFreeNonZero(qat_ecx_op_data->x.pData);
         }
         qaeCryptoMemFreeNonZero(qat_ecx_op_data);
@@ -796,13 +797,16 @@ int qat_pkey_ecx_derive448(void *vecxctx, unsigned char *secret, size_t *secretl
     qat_ecx_op_data->generator = CPA_FALSE;
     qat_ecx_op_data->curveType = CPA_CY_EC_MONTEDWDS_CURVE448_TYPE;
 
-    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, (unsigned char *)privkey, QAT_X448_DATALEN)) {
+    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, (unsigned char *)privkey,
+                           QAT_X448_DATALEN, X448_KEYLEN)) {
+
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
         goto err;
     }
 
-    if (0 == reverse_bytes(qat_ecx_op_data->x.pData, (unsigned char *)pubkey, QAT_X448_DATALEN)) {
+    if (0 == reverse_bytes(qat_ecx_op_data->x.pData, (unsigned char *)pubkey,
+                           QAT_X448_DATALEN, X448_KEYLEN)) {
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -958,7 +962,7 @@ int qat_pkey_ecx_derive448(void *vecxctx, unsigned char *secret, size_t *secretl
 
     qat_cleanup_op_done(&op_done);
 
-    if (0 == reverse_bytes(secret, pXk->pData, X448_KEYLEN)) {
+    if (0 == reverse_bytes(secret, pXk->pData, X448_KEYLEN, QAT_X448_DATALEN)) {
         WARN("Failed to reverse bytes for data received from QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
         goto err;

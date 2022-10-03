@@ -844,17 +844,19 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 #endif
         /* Allocate buffer for HASH operation. */
         buffer_len = len + sha3_ctx->digest_size ;
-        sha3_ctx->src_buffer[0].pData = qaeCryptoMemAlloc( buffer_len , __FILE__, __LINE__);
+        sha3_ctx->src_buffer[0].pData = qaeCryptoMemAlloc(buffer_len, __FILE__, __LINE__);
 
         if ((sha3_ctx->src_buffer[0].pData) == NULL) {
-                WARN("Unable to allocate memory for buffer for sha3 hash.\n");
-                QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_MALLOC_FAILURE);
-                goto err;
+             WARN("Unable to allocate memory for buffer for sha3 hash.\n");
+             QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_MALLOC_FAILURE);
+             goto err;
         }
+
+        memset(sha3_ctx->src_buffer[0].pData, 0, buffer_len);
 
         sha3_ctx->dst_buffer[0].pData = sha3_ctx->src_buffer[0].pData;
 
-        memcpy(sha3_ctx->src_buffer[0].pData, in, buffer_len);
+        memcpy(sha3_ctx->src_buffer[0].pData, in, len);
 
         tlv = qat_check_create_local_variables();
         if (NULL == tlv) {
