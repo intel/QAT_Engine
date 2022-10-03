@@ -29,9 +29,11 @@
   in the Haproxy application. This issue is not observed when using RSA ciphers
   or in multi-process mode.
 * There is an issue in sshd daemon application when using the QAT for default openssl.
-  sshd looks to be closing the file descriptors associated with QAT engine and driver
-  after initialising openssl. Work around in sshd which comments out the closefrom()
-  calls is needed to unblock the issue.
+  sshd looks to be closing the file descriptors associated with QAT engine and driver after
+  initialising openssl. Similar issue was present which prevents the ability to ssh out of
+  the system using the QAT engine in versions of the ssh application before OpenSSH 8.7.
+  The issue has been fixed with this commit [c9f7bba][1] . This update can be applied to
+  sshd to work-around the issue.
 * SM2 ECDH and ECDSA application testing is done using BabaSSL only since OpenSSL
   doesn't support SMx cipher suites.
 * SM3 is disabled by default due to performance drop observed in mulithread scenario
@@ -50,3 +52,9 @@
 * Known issue with OpenSSL 3.0 s_server using qatengine with cipher "DHE-RSA-CHACHA20-POLY1305" which
   works fine with Nginx. The issue is due to failure at EVP_PKEY_copy_parameter() in OpenSSL which is
   yet to be root caused.
+* From version 4.19 of Intel&reg; QAT driver for Linux, legacy or insecure algorithms such as DES,
+  3DES, MD5, SHA1, RC4 are disabled by default so there will be failures observed in the relevant
+  ciphers. Driver needs to be built with flag "--enable-legacy-algorithms" to enable those algorithms
+  support.
+
+[1]:https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127
