@@ -148,13 +148,13 @@
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.16";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v0.6.17";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v0.6.16";
+    "Reference implementation of QAT crypto engine(qat_hw) v0.6.17";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v0.6.16";
+    "Reference implementation of QAT crypto engine(qat_sw) v0.6.17";
 #endif
 unsigned int engine_inited = 0;
 
