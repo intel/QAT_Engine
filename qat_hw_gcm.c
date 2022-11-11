@@ -395,24 +395,21 @@ err:
 static inline void qat_aes_gcm_inc_ctr(unsigned char* ifc)
 {
     int inv_field_size = 8;
-    int i = 0;
     unsigned char byte;
 
     /* Loop over ifc starting with the least significant byte
      * and work towards the most significant byte of ifc*/
-    for (i = inv_field_size - 1; i > 0; --i) {
-        byte = ifc[i];
+    do {
+        --inv_field_size;
+        byte = ifc[inv_field_size];
 
-        /* increment by one and copy back to invocation field */
-        byte++;
-        ifc[i] = byte;
+        /* Increment by one and copy back to invocation field */
+        ++byte;
+        ifc[inv_field_size] = byte;
 
-        /* check if incremented invocation field counter wrapped to zero,
-         * if greater than zero then break, else continue to loop and
-         * increment the next ifc byte */
-        if (byte > 0)
-            break;
-    }
+        if (byte)
+            return;
+    } while (inv_field_size);
 }
 
 /******************************************************************************

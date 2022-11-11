@@ -452,8 +452,10 @@ static void *qat_aes_cbc_hmac_sha1_newctx(void *provctx, size_t kbits,
 
     return ctx;
 err:
-    OPENSSL_free(base_ctx->sw_ctx);
-    OPENSSL_free(base_ctx->qat_cipher_ctx);
+    if (base_ctx->sw_ctx != NULL)
+        OPENSSL_free(base_ctx->sw_ctx);
+    if (base_ctx->qat_cipher_ctx != NULL)
+        OPENSSL_free(base_ctx->qat_cipher_ctx);
     OPENSSL_free(ctx);
     return NULL;
 }
@@ -512,8 +514,10 @@ static void *qat_aes_cbc_hmac_sha256_newctx(void *provctx, size_t kbits,
 
     return ctx;
 err:
-    OPENSSL_free(base_ctx->sw_ctx);
-    OPENSSL_free(base_ctx->qat_cipher_ctx);
+    if (base_ctx->sw_ctx != NULL)
+        OPENSSL_free(base_ctx->sw_ctx);
+    if (base_ctx->qat_cipher_ctx != NULL)
+        OPENSSL_free(base_ctx->qat_cipher_ctx);
     OPENSSL_free(ctx);
     return NULL;
 }

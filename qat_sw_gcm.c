@@ -288,24 +288,21 @@ int vaesgcm_ciphers_init(EVP_CIPHER_CTX *ctx,
 static inline void aes_gcm_increment_counter(unsigned char* ifc)
 {
     int inv_field_size = 8;
-    unsigned char byte = 0;
-    int i = 0;
+    unsigned char byte;
 
     /* Loop over ifc starting with the least significant byte
      * and work towards the most significant byte of ifc*/
-    for (i = inv_field_size; i > 0; --i) {
-        byte = ifc[i];
+    do {
+        --inv_field_size;
+        byte = ifc[inv_field_size];
 
         /* Increment by one and copy back to invocation field */
-        byte++;
-        ifc[i] = byte;
+        ++byte;
+        ifc[inv_field_size] = byte;
 
-        /* Check if incremented invocation field counter wrapped to zero,
-         * if greater than zero then break, else continue to loop and
-         * increment the next ifc byte */
-        if (byte > 0)
-            break;
-    }
+        if (byte)
+            return;
+    } while (inv_field_size);
 }
 
 /******************************************************************************
@@ -1050,6 +1047,11 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
 #endif
 
         } else {  /* Decrypt Flow */
+
+            if (qctx->tag_len < 0) {
+                WARN("AES-GCM tag_len <0\n");
+                return -1;
+            }
 
             if (qctx->tag_calculated < 1) {
                 qat_imb_aes_gcm_dec_finalize(nid, ipsec_mgr, key_data_ptr,
