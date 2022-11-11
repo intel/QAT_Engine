@@ -187,7 +187,7 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
 
     if (!qat_sw_sm2_offload) {
         DEBUG("OpenSSL SW ECDSA SM2\n");
-        return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
+        EVP_PKEY_meth_copy(_hidden_sm2_pmeth, sw_sm2_pmeth);
     }
 #endif /* QAT_OPENSSL_PROVIDER */
     return _hidden_sm2_pmeth;
@@ -950,6 +950,7 @@ use_sw_method:
 
     sts = (*psign)(pctx, sig, siglen, dgst, dlen);
     OPENSSL_free(dgst);
+    BN_free(e);
     DEBUG("SW Finished\n");
     return sts;
 #endif
@@ -1198,6 +1199,7 @@ use_sw_method:
     dlen = BN_bn2bin(e, dgst);
     sts = (*pverify)(pctx, sig, siglen, dgst, dlen);
     OPENSSL_free(dgst);
+    BN_free(e);
     DEBUG("SW Finished\n");
     return sts;
 #endif /* QAT_OPENSSL_PROVIDER */

@@ -474,16 +474,16 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
     EVP_PKEY_CTX *ecdsa_sign_ctx = NULL;
     EVP_PKEY_CTX *ecdsa_verify_ctx = NULL;
 
+    if (nid == NID_sm2)
+        return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
+                              curveName);
+
     out = BIO_new(BIO_s_file());
     if (out == NULL) {
         WARN("# FAIL: Unable to create BIO\n");
         exit(1);
     }
     BIO_set_fp(out, stdout, BIO_NOCLOSE);
-
-    if (nid == NID_sm2)
-        return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
-                              curveName);
 
     ecdsa_key = get_ecdsa_key(nid);
     if (ecdsa_key == NULL) {
