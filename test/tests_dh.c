@@ -564,31 +564,37 @@ static int run_dh(void *args)
     pkey_A = EVP_PKEY_new();
     if (!pkey_A){
         WARN("# FAIL while initialising EVP_PKEY (out of memory?).\n");
+        ret = 0;
         goto err;
     }
     pkey_B = EVP_PKEY_new();
     if (!pkey_B){
         WARN("# FAIL while initialising EVP_PKEY (out of memory?).\n");
+        ret = 0;
         goto err;
     }
 
     dh_ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_DH, NULL);
     if (!dh_ctx){
         WARN("# FAIL while allocating EVP_PKEY_CTX.\n");
+        ret = 0;
         goto err;
     }
     if (EVP_PKEY_keygen_init(dh_ctx) <= 0){
         WARN("# FAIL while initialising EVP_PKEY_CTX.\n");
+        ret = 0;
         goto err;
     }
     if (EVP_PKEY_CTX_set_dh_nid(dh_ctx, get_dh_nid(size)) <= 0){
         WARN("# FAIL setting DH key size for keygen.\n");
+        ret = 0;
         goto err;
     }
 
     if (EVP_PKEY_keygen(dh_ctx, &pkey_A) <= 0 ||
         EVP_PKEY_keygen(dh_ctx, &pkey_B) <= 0){
         WARN("# FAIL FFDH key generation failure.\n");
+        ret = 0;
         goto err;
     }
 
@@ -597,38 +603,46 @@ static int run_dh(void *args)
     dh_ctx = EVP_PKEY_CTX_new(pkey_A, NULL);
     if (dh_ctx == NULL){
         WARN("# FAIL while allocating EVP_PKEY_CTX.\n");
+        ret = 0;
         goto err;
     }
     if (EVP_PKEY_derive_init(dh_ctx) <= 0){
         WARN("# FAIL FFDH derivation context init failure.\n");
+        ret = 0;
         goto err;
     }
     if (EVP_PKEY_derive_set_peer(dh_ctx, pkey_B) <= 0){
         WARN("# FAIL Assigning peer key for derivation failed.\n");
+        ret = 0;
         goto err;
     }
     if (EVP_PKEY_derive(dh_ctx, NULL, &secret_size) <= 0){
         WARN("# FAIL Checking size of shared secret failed.\n");
+        ret = 0;
         goto err;
     }
     if (secret_size > MAX_DH_SIZE){
         WARN("# FAIL Assertion failure: shared secret too large.\n");
+        ret = 0;
         goto err;
     }
 
     secret_ff_a = OPENSSL_malloc(MAX_DH_SIZE);
     if (secret_ff_a == NULL){
         WARN("# FAIL Secret buf a malloc failed!\n");
+        ret = 0;
         goto err;
     }
     secret_ff_b = OPENSSL_malloc(MAX_DH_SIZE);
     if (secret_ff_b == NULL){
         WARN("# FAIL Secret buf b malloc failed!\n");
+        ret = 0;
         goto err;
     }
 
     if (EVP_PKEY_derive(dh_ctx, secret_ff_a, &secret_size) <= 0){
         WARN("# FAIL Shared secret derive failure.\n");
+        ret = 0;
         goto err;
     }
 
@@ -636,6 +650,7 @@ static int run_dh(void *args)
     test_ctx = EVP_PKEY_CTX_new(pkey_B, NULL);
     if (!test_ctx){
         WARN("# FAIL while allocating EVP_PKEY_CTX.\n");
+        ret = 0;
         goto err;
     }
     if (!EVP_PKEY_derive_init(test_ctx) ||
@@ -644,12 +659,14 @@ static int run_dh(void *args)
         !EVP_PKEY_derive(test_ctx, secret_ff_b, &test_out) ||
         test_out != secret_size){
         WARN("# FAIL DH computation failure.\n");
+        ret = 0;
         goto err;
     }
 
     /* compare the computed secrets */
     if (CRYPTO_memcmp(secret_ff_a, secret_ff_b, secret_size)){
         WARN("# FAIL DH computations don't match.\n");
+        ret = 0;
         goto err;
     }
 
@@ -657,7 +674,8 @@ static int run_dh(void *args)
 #endif
 
 err:
-    ERR_print_errors_fp(stderr);
+    if (ret != 1)
+        ERR_print_errors_fp(stderr);
 #ifdef QAT_OPENSSL_PROVIDER
     EVP_PKEY_free(pkey_A);
     pkey_A = NULL;

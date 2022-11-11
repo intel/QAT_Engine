@@ -244,7 +244,8 @@ static int test_ecx_curve(int nid,
         INFO("# FAIL verify for ECX.\n");
 
 err:
-    ERR_print_errors_fp(stderr);
+    if (ret != 0)
+        ERR_print_errors_fp(stderr);
 
     EVP_PKEY_free(key_A);
     EVP_PKEY_free(key_B);
@@ -326,7 +327,8 @@ static int run_ecx(void *args)
         ret = 0;
 
 err:
-    ERR_print_errors_fp(stderr);
+    if (ret != 1)
+        ERR_print_errors_fp(stderr);
     BIO_free(out);
 
     return ret;
