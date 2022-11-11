@@ -111,6 +111,10 @@ typedef struct ffc_params_st
      */
     const char *mdname;
     const char *mdprops;
+#if OPENSSL_VERSION_NUMBER >= 0x30000060
+    /* Default key length for known named groups according to RFC7919 */
+    int keylength;
+#endif
 } FFC_PARAMS;
 
 struct dsa_st

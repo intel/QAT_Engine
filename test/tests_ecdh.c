@@ -395,65 +395,76 @@ static int test_ecdh_curve(ENGINE * e,
     if (!(key_ctx = EVP_PKEY_CTX_new(key1, NULL))) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH key_ctx generation failed\n");
+        ret = -1;
         goto err;
     }
 
     if ((test_ctx = EVP_PKEY_CTX_new(key2, NULL)) <= 0) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH test_ctx generation failed\n");
+        ret = -1;
         goto err;
     }
 
     if (EVP_PKEY_derive_init(key_ctx) <= 0) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH derive init failed\n");
+        ret = -1;
         goto err;
     }
 
     if (EVP_PKEY_derive_set_peer(key_ctx, key2) <= 0) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH set peer pubkey failed\n");
+        ret = -1;
         goto err;
     }
 
     if (EVP_PKEY_derive(key_ctx, NULL, &outlen) <= 0 || outlen == 0) {
          ecdh_checks = 0;
          fprintf(stderr, "ECDH derive failed or outlen is NULL\n");
+         ret = -1;
          goto err;
     }
 
     if (!EVP_PKEY_derive_init(test_ctx)) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH test derive init failed\n");
+        ret = -1;
         goto err;
     }
 
     if (!EVP_PKEY_derive_set_peer(test_ctx, key1)) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH set peer pubkey failed\n");
+        ret = -1;
         goto err;
     }
 
     if (!EVP_PKEY_derive(test_ctx, NULL, &test_outlen)) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH derive failed \n");
+        ret = -1;
         goto err;
     }
     if (!EVP_PKEY_derive(key_ctx, secret_a, &outlen)) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH derive failed \n");
+        ret = -1;
         goto err;
     }
 
     if (!EVP_PKEY_derive(test_ctx, secret_b, &test_outlen) || test_outlen != outlen) {
         ecdh_checks = 0;
         fprintf(stderr, "ECDH derive failed or tests_outlen & outlen are not equal\n");
+        ret = -1;
         goto err;
     }
 
     if (CRYPTO_memcmp(secret_a, secret_b, outlen)) {
        ecdh_checks = 0;
        fprintf(stderr, "ECDH computations don't match.\n");
+       ret = -1;
        goto err;
     }
 
@@ -489,9 +500,8 @@ static int test_ecdh_curve(ENGINE * e,
 #endif
 
 err:
-#ifndef QAT_OPENSSL_PROVIDER
-    ERR_print_errors_fp(stderr);
-#endif
+    if (ret != 0)
+	    ERR_print_errors_fp(stderr);
     if (abuf != NULL) OPENSSL_free(abuf);
     if (bbuf != NULL) OPENSSL_free(bbuf);
     if (x_a) BN_free(x_a);
@@ -619,10 +629,8 @@ static int run_ecdh(void *args)
          }
      }
 err:
-
-#ifndef QAT_OPENSSL_PROVIDER
-    ERR_print_errors_fp(stderr);
-#endif
+    if (ret != 1)
+        ERR_print_errors_fp(stderr);
     if (ctx) BN_CTX_free(ctx);
     BIO_free(out);
 

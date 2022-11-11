@@ -32,6 +32,8 @@
 #define ASN1_NULL 0x05
 #define ASN1_OID 0x06
 
+#define NID_mdc2              95
+#define OSSL_DIGEST_NAME_MDC2 "MDC2"
 /* SHA OIDs are of the form: (2 16 840 1 101 3 4 2 |n|) */
 #define ENCODE_DIGESTINFO_SHA(name, n, sz)                                     \
 static const unsigned char digestinfo_##name##_der[] = {                       \
