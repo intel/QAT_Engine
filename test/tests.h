@@ -147,6 +147,7 @@ void tests_run_aes256_gcm(TEST_PARAMS *args);
 void tests_run_sha3(TEST_PARAMS *args);
 void tests_run_sm3(TEST_PARAMS *args);
 void tests_run_chacha20_poly1305(TEST_PARAMS *args);
+void tests_run_sm4_cbc(TEST_PARAMS *args);
 
 char *ecdh_curve_name(int type);
 char *test_name(int test);
@@ -175,6 +176,7 @@ enum test_algorithms {
     TEST_CHACHA20_POLY1305,
     TEST_SM2,
     TEST_SM3,
+    TEST_SM4_CBC,
     TEST_TYPE_MAX,
 };
 

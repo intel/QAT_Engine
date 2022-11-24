@@ -243,6 +243,14 @@ typedef struct {
                     QAT_QMEM_FREE_NONZERO_FLATBUFF(b); \
             } while(0)
 
+# define FLATBUFF_ALLOC_AND_CHAIN(b1, b2, len) \
+            do { \
+                (b1).pData = qaeCryptoMemAlloc(len, __FILE__, __LINE__); \
+                (b2).pData = (b1).pData; \
+                (b1).dataLenInBytes = len; \
+                (b2).dataLenInBytes = len; \
+            } while(0)
+
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
 # define QAT_MAX_CRYPTO_INSTANCES 256
 # define QAT_MAX_CRYPTO_ACCELERATORS 512
@@ -362,6 +370,7 @@ extern int qat_hw_hkdf_offload;
 extern int qat_hw_gcm_offload;
 extern int qat_hw_chacha_poly_offload;
 extern int qat_hw_aes_cbc_hmac_sha_offload;
+extern int qat_hw_sm4_cbc_offload;
 extern int qat_sw_rsa_offload;
 extern int qat_sw_ecx_offload;
 extern int qat_sw_ecdh_offload;

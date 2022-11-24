@@ -78,7 +78,8 @@ if QAT_HW
               qat_hw_hkdf.c        \
               qat_hw_ecx.c         \
               qat_hw_sha3.c        \
-              qat_hw_chachapoly.c
+              qat_hw_chachapoly.c  \
+              qat_hw_sm4_cbc.c
 endif
 
 if QAT_SW
@@ -160,7 +161,8 @@ AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
             $(enable_qat_auto_engine_init_on_fork)                   \
             $(enable_qat_debug) $(enable_qat_warnings)               \
             $(enable_qat_mem_debug) $(enable_qat_mem_warnings)       \
-            $(enable_qat_cycle_counts) $(enable_qat_hw_set_inst_thread)
+            $(enable_qat_cycle_counts) $(enable_qat_hw_sm4_cbc)      \
+            $(enable_qat_hw_set_inst_thread)
 
 
 @LIBQATNAME@_la_LDFLAGS = -module -no-undefined -avoid-version       \

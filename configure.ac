@@ -28,6 +28,11 @@ AC_ARG_ENABLE(qat_hw_ciphers,
                              [Disable qat_hw CIPHERS acceleration]))
 AC_SUBST(enable_qat_hw_ciphers)
 
+AC_ARG_ENABLE(qat_hw_sm4_cbc,
+              AS_HELP_STRING([--enable-qat_hw_sm4_cbc],
+                             [Enable qat_hw SM4-CBC acceleration]))
+AC_SUBST(enable_qat_hw_sm4_cbc)
+
 AC_ARG_ENABLE(qat_hw_ecdh,
               AS_HELP_STRING([--disable-qat_hw_ecdh],
                              [Disable qat_hw ECDH acceleration]))
@@ -438,6 +443,7 @@ then
     if test "x$cflags_qat_hw" != "x"
     then
         AC_SUBST([enable_qat_hw_ciphers], ["no"])
+        AC_SUBST([enable_qat_hw_sm4_cbc], ["no"])
         AC_SUBST([enable_qat_hw_ecdh], ["no"])
         AC_SUBST([enable_qat_hw_dsa], ["no"])
         AC_SUBST([enable_qat_hw_dh], ["no"])
@@ -637,6 +643,15 @@ then
 else
   enable_qat_hw_ciphers="-DDISABLE_QAT_HW_CIPHERS"
   AC_MSG_NOTICE([Not Accelerating CIPHERS to Hardware])
+fi
+
+if test "x$enable_qat_hw_sm4_cbc" = "xyes" -a "x$cflags_qat_hw" != "x"
+then
+  enable_qat_hw_sm4_cbc="-DENABLE_QAT_HW_SM4_CBC"
+  AC_MSG_NOTICE([Accelerating SM4-CBC to Hardware])
+else
+  enable_qat_hw_sm4_cbc="-DDISABLE_QAT_HW_SM4_CBC"
+  AC_MSG_NOTICE([Not Accelerating SM4-CBC to Hardware])
 fi
 
 if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw_ipsec" != "x"

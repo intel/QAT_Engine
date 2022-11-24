@@ -60,9 +60,10 @@
 #include "qat_utils.h"
 #ifdef QAT_HW
 # include "qat_hw_rsa.h"
-# ifndef QAT_BORINGSSL
-#  include "qat_hw_ciphers.h"
-# endif /* QAT_BORINGSSL */
+# include "qat_hw_sm4_cbc.h"
+#  ifndef QAT_BORINGSSL
+# include "qat_hw_ciphers.h"
+#  endif /* QAT_BORINGSSL */
 # include "qat_hw_ec.h"
 #  ifndef QAT_BORINGSSL
 # include "qat_hw_gcm.h"
@@ -112,6 +113,10 @@ static chained_info info[] = {
     {NID_aes_192_gcm, NULL, AES_KEY_SIZE_192},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
 #endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    /* sm4-cbc key size is fixed to 128 bits (16 bytes) */
+    {NID_sm4_cbc, NULL, SM4_KEY_SIZE},
+#endif
 };
 
 static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
@@ -131,6 +136,9 @@ int qat_cipher_nids[] = {
     NID_aes_128_gcm,
     NID_aes_192_gcm,
     NID_aes_256_gcm,
+#endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    NID_sm4_cbc,
 #endif
 };
 
@@ -211,6 +219,9 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 # endif
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     {NID_chacha20_poly1305, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+# endif
+# ifdef ENABLE_QAT_HW_SM4_CBC
+    {NID_sm4_cbc, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4},
 # endif
 };
 
@@ -720,6 +731,13 @@ void qat_create_ciphers(void)
                     qat_create_cipher_meth(info[i].nid, info[i].keylen);
                 break;
 # endif
+
+# ifdef ENABLE_QAT_HW_SM4_CBC
+            case NID_sm4_cbc:
+                info[i].cipher = (EVP_CIPHER *)
+                    qat_create_sm4_cipher_meth(info[i].nid, info[i].keylen);
+                break;
+# endif
 #endif
             default:
                 /* Do nothing */
@@ -764,6 +782,12 @@ void qat_free_ciphers(void)
                     EVP_CIPHER_meth_free(info[i].cipher);
                 break;
 #endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+            case NID_sm4_cbc:
+                if (qat_hw_sm4_cbc_offload)
+                    EVP_CIPHER_meth_free(info[i].cipher);
+                break;
+#endif
             }
             info[i].cipher = NULL;
         }
@@ -772,6 +796,7 @@ void qat_free_ciphers(void)
     qat_sw_gcm_offload = 0;
     qat_hw_chacha_poly_offload = 0;
     qat_hw_aes_cbc_hmac_sha_offload = 0;
+    qat_hw_sm4_cbc_offload = 0;
 }
 
 /******************************************************************************
