@@ -18,11 +18,15 @@
 * Symmetric Chained Cipher acceleration with pipelining capability:
     * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
     * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
+* The following algorithms are supported when using 4xxx (QAT gen4 devices) only
+  *  RSA8K
+  *  SM4-CBC
+  *  SHA3-224/256/384/512
+  *  ChaCha20-Poly1305
 * Pseudo Random Function (PRF) Acceleration.
 * [HMAC Key Derivation Function (HKDF) Acceleration.](qat_hw.md#intel-qat-openssl-engine-hkdf-support)
 * [Pipelined Operations](qat_hw.md#using-the-openssl-pipelining-capability)
 * [Intel&reg; QAT OpenSSL\* Engine Software Fallback](qat_hw.md#intel-qat-openssl-engine-software-fallback-feature)
-* RSA8K, SHA3-224/256/384/512 and ChaCha20-Poly1305 using 4xxx (QAT gen4 devices) only.
 * [BoringSSL Support](bssl_support.md)
 
 ## qat_sw Features

@@ -149,6 +149,9 @@ The following is a list of the options that can be used with the
 --disable-qat_hw_ecx/--enable-qat_hw_ecx
     Disable/Enable Intel(R) QAT Hardware X25519/X448 acceleration (enabled by default).
 
+--disable-qat_hw_sm4_cbc/--enable-qat_hw_sm4_cbc
+    Disable/Enable Intel(R) QAT Hardware SM4-CBC acceleration (disabled by default).
+
 --disable-qat_hw_sha3/--enable-qat_hw_sha3
     Disable/Enable Intel(R) QAT Hardware SHA-3 acceleration (disabled by default).
     This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available

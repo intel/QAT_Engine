@@ -174,6 +174,7 @@ int qat_sw_ecdsa_offload = 0;
 int qat_sw_gcm_offload = 0;
 int qat_hw_chacha_poly_offload = 0;
 int qat_hw_aes_cbc_hmac_sha_offload = 0;
+int qat_hw_sm4_cbc_offload = 0;
 int qat_sw_sm2_offload = 0;
 int qat_hw_sha_offload = 0;
 int qat_sw_sm3_offload = 0;

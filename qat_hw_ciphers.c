@@ -103,14 +103,6 @@
                     hdr[12] = len & 0xff; \
                 } while(0)
 
-#define FLATBUFF_ALLOC_AND_CHAIN(b1, b2, len) \
-                do { \
-                    (b1).pData = qaeCryptoMemAlloc(len, __FILE__, __LINE__); \
-                    (b2).pData = (b1).pData; \
-                    (b1).dataLenInBytes = len; \
-                    (b2).dataLenInBytes = len; \
-                } while(0)
-
 # define GET_SW_CIPHER(ctx) \
     qat_chained_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
 

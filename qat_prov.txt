@@ -255,22 +255,36 @@ QAT_R_SIG_MALLOC_FAILURE:335:sig malloc failure
 QAT_R_SM3_FINAL_FAILURE:336:sm3 final failure
 QAT_R_SM3_INIT_FAILURE:337:sm3 init failure
 QAT_R_SM3_UPDATE_FAILURE:338:sm3 update failure
-QAT_R_SSD_MALLOC_FAILURE:339:ssd malloc failure
-QAT_R_SSD_NULL:340:ssd null
-QAT_R_START_INSTANCE_FAILURE:341:start instance failure
-QAT_R_STOP_INSTANCE_FAILURE:342:stop instance failure
-QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:343:sw get compute key pfunc null
-QAT_R_SW_GET_KEYGEN_PFUNC_NULL:344:sw get keygen pfunc null
-QAT_R_SW_GET_SIGN_PFUNC_NULL:345:sw get sign pfunc null
-QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:346:sw get sign setup pfunc null
-QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:347:sw get sign sig pfunc null
-QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:348:sw get verify sig pfunc null
-QAT_R_SW_METHOD_NULL:349:sw method null
-QAT_R_S_NULL:350:s null
-QAT_R_S_Q_COMPARE_FAILURE:351:s q compare failure
-QAT_R_UNKNOWN_PADDING:352:unknown padding
-QAT_R_UNKNOWN_PADDING_TYPE:353:unknown padding type
-QAT_R_WAKE_PAUSE_JOB_FAILURE:354:wake pause job failure
-QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:355:x y tx ty bn malloc failure
-QAT_R_X_Y_Z_MALLOC_FAILURE:356:x y z malloc failure
-QAT_R_Z_ALLOCATE_FAILURE:357:z allocate failure
+QAT_R_SM4_GET_INSTANCE_FAILED:339:sm4 get instance failed
+QAT_R_SM4_GET_SESSIONCTX_SIZE_FAILED:340:sm4 get sessionctx size failed
+QAT_R_SM4_MALLOC_FAILED:341:sm4 malloc failed
+QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE:342:sm4 no qat instance available
+QAT_R_SM4_NULL_CKEY:343:sm4 null ckey
+QAT_R_SM4_NULL_CTX_OR_KEY:344:sm4 null ctx or key
+QAT_R_SM4_NULL_POINTER:345:sm4 null pointer
+QAT_R_SM4_NULL_QCTX:346:sm4 null qctx
+QAT_R_SM4_QAT_CONTEXT_NOT_INITIALISED:347:sm4 qat context not initialised
+QAT_R_SM4_QAT_INITSESSION_FAILED:348:sm4 qat initsession failed
+QAT_R_SM4_QAT_SUBMIT_REQUEST_FAILED:349:sm4 qat submit request failed
+QAT_R_SM4_REMOVE_SESSION_FAILED:350:sm4 remove session failed
+QAT_R_SM4_SETUP_META_DATA_FAILED:351:sm4 setup meta data failed
+QAT_R_SM4_SET_METHODS_FAILED:352:sm4 set methods failed
+QAT_R_SSD_MALLOC_FAILURE:353:ssd malloc failure
+QAT_R_SSD_NULL:354:ssd null
+QAT_R_START_INSTANCE_FAILURE:355:start instance failure
+QAT_R_STOP_INSTANCE_FAILURE:356:stop instance failure
+QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:357:sw get compute key pfunc null
+QAT_R_SW_GET_KEYGEN_PFUNC_NULL:358:sw get keygen pfunc null
+QAT_R_SW_GET_SIGN_PFUNC_NULL:359:sw get sign pfunc null
+QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:360:sw get sign setup pfunc null
+QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:361:sw get sign sig pfunc null
+QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:362:sw get verify sig pfunc null
+QAT_R_SW_METHOD_NULL:363:sw method null
+QAT_R_S_NULL:364:s null
+QAT_R_S_Q_COMPARE_FAILURE:365:s q compare failure
+QAT_R_UNKNOWN_PADDING:366:unknown padding
+QAT_R_UNKNOWN_PADDING_TYPE:367:unknown padding type
+QAT_R_WAKE_PAUSE_JOB_FAILURE:368:wake pause job failure
+QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:369:x y tx ty bn malloc failure
+QAT_R_X_Y_Z_MALLOC_FAILURE:370:x y z malloc failure
+QAT_R_Z_ALLOCATE_FAILURE:371:z allocate failure
