@@ -56,13 +56,17 @@
 #include "openssl/kdf.h"
 #include "openssl/evp.h"
 #include "openssl/ssl.h"
-#include "qat_evp.h"
+#include "e_qat.h"
 #include "qat_utils.h"
 #include "qat_hw_asym_common.h"
-#include "e_qat.h"
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
+#ifdef QAT_OPENSSL_PROVIDER
+# include "qat_prov_ecx.h"
+#else
+# include "qat_evp.h"
+#endif
 
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"
@@ -87,10 +91,12 @@
 #define QAT_X448_DATALEN       64
 #define X448_DATA_KEY_DIFF      8
 
+#ifndef QAT_OPENSSL_PROVIDER
 typedef struct {
     unsigned char pubkey[QAT_X448_DATALEN];
     unsigned char *privkey;
 } ECX_KEY;
+#endif
 
 int reverse_bytes(unsigned char *tobuffer, unsigned char *frombuffer,
                   unsigned int tosize, unsigned int fromsize)
@@ -150,12 +156,38 @@ void qat_ecx_cb(void *pCallbackTag, CpaStatus status,
                           NULL, multiplyStatus);
 }
 
-#ifndef QAT_OPENSSL_PROVIDER
+static void qat_pkey_ecx_keygen_op_data_free(CpaFlatBuffer *pXk,
+	                                     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data,
+					     int qat_keylen)
+{
+    /* Clean the memory. */
+    if (pXk != NULL) {
+        if (pXk->pData != NULL) {
+            OPENSSL_cleanse(pXk->pData, qat_keylen);
+            qaeCryptoMemFreeNonZero(pXk->pData);
+        }
+        OPENSSL_free(pXk);
+    }
+
+    if (NULL != qat_ecx_op_data) {
+        if (qat_ecx_op_data->k.pData != NULL) {
+            OPENSSL_cleanse(qat_ecx_op_data->k.pData, qat_keylen);
+            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
+        }
+        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
+        qat_ecx_op_data = NULL;
+    }
+}
+
+# ifdef QAT_OPENSSL_PROVIDER
+void *qat_pkey_ecx_keygen(void *ctx, OSSL_CALLBACK *osslcb,
+                          void *cbarg)
+#else
 int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
+#endif
 {
     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data = NULL;
 
-    int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
     int ret = 0;
     int job_ret = 0;
     CpaStatus status = CPA_STATUS_FAIL;
@@ -174,19 +206,31 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     ECX_KEY *key = NULL;
     unsigned char *privkey = NULL;
     unsigned char *pubkey = NULL;
-    int type = 0;
     int is_ecx_448 = 0;
+
+#ifndef QAT_OPENSSL_PROVIDER
+    int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
+    int type = 0;
     const EVP_PKEY_METHOD **pmeth_from_ctx;
     void *void_ptr_ctx = (void *)ctx;
+#else
+    QAT_GEN_CTX *gctx = ctx;
+#endif
 
     DEBUG("QAT HW ECX Started\n");
+    key = OPENSSL_zalloc(sizeof(*key));
+    if (key == NULL) {
+        WARN("Cannot allocate key.\n");
+        QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
+        goto err;
+    }
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
         return 0;
     }
-
+#ifndef QAT_OPENSSL_PROVIDER
     /* Get X25519/X448 NID from the pmeth */
     pmeth_from_ctx = (const EVP_PKEY_METHOD **)void_ptr_ctx;
     EVP_PKEY_meth_get0_info(&type, NULL, *pmeth_from_ctx);
@@ -207,9 +251,41 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
             QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
             return 0;
     }
-
-   if (qat_get_qat_offload_disabled()) {
+#else
+    key->references = 1;
+    key->lock = CRYPTO_THREAD_lock_new();
+    switch (gctx->type) {
+     case ECX_KEY_TYPE_X25519:
+            is_ecx_448 = 0;
+            keylen = key->keylen = X25519_KEYLEN;
+            qat_keylen = X25519_KEYLEN;
+            DEBUG("EVP_PKEY_X25519\n");
+            break;
+     case ECX_KEY_TYPE_X448:
+            is_ecx_448 = 1;
+            keylen = key->keylen = X448_KEYLEN;
+            qat_keylen = QAT_X448_DATALEN;
+            DEBUG("EVP_PKEY_X448\n");
+            break;
+     default:
+            WARN("Unsupported NID: %d\n", gctx->type);
+            QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
+            return 0;
+    }
+#endif
+    if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
+#ifdef QAT_OPENSSL_PROVIDER
+        if (is_ecx_448 == 0) {
+            typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
+            sw_prov_fun_ptr sw_fn_ptr = get_default_x25519_keymgmt().gen;
+            return sw_fn_ptr(ctx, osslcb, cbarg);
+        } else if (is_ecx_448 == 1) {
+                typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
+                sw_prov_fun_ptr sw_fn_ptr = get_default_x448_keymgmt().gen;
+                return sw_fn_ptr(ctx, osslcb, cbarg);
+        }
+#else
         EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)
                                  (is_ecx_448 ? sw_x448_pmeth : sw_x25519_pmeth),
                                  NULL, &sw_fn_ptr);
@@ -219,7 +295,8 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
             QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
         }
         return ret;
-    }
+#endif
+      }
     qat_ecx_op_data = (CpaCyEcMontEdwdsPointMultiplyOpData *)
                        qaeCryptoMemAlloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
                                          __FILE__, __LINE__);
@@ -238,12 +315,6 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     }
     qat_ecx_op_data->k.dataLenInBytes = (Cpa32U)qat_keylen;
 
-    key = OPENSSL_zalloc(sizeof(*key));
-    if (key == NULL) {
-        WARN("Cannot allocate key.\n");
-        QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
-        goto err;
-    }
     pubkey = key->pubkey;
     privkey = key->privkey = OPENSSL_secure_zalloc(keylen);
     if (privkey == NULL) {
@@ -439,29 +510,16 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
         goto err;
     }
-
+#ifdef QAT_OPENSSL_PROVIDER
+    qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen);
+    return key;
+#else
     EVP_PKEY_assign(pkey, (is_ecx_448 ? EVP_PKEY_X448 : EVP_PKEY_X25519), key);
     ret = 1;
+#endif
 
 err:
-    /* Clean the memory. */
-    if (pXk != NULL) {
-        if (pXk->pData != NULL) {
-            OPENSSL_cleanse(pXk->pData, qat_keylen);
-            qaeCryptoMemFreeNonZero(pXk->pData);
-        }
-        OPENSSL_free(pXk);
-    }
-
-    if (NULL != qat_ecx_op_data) {
-        if (qat_ecx_op_data->k.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->k.pData, qat_keylen);
-            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
-        }
-        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
-        qat_ecx_op_data = NULL;
-    }
-
+    qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen);
     /* For success case cleanup will be taken care by calling application */
     if (ret == 0) {
         if (NULL != privkey) {
@@ -473,22 +531,60 @@ err:
             }
         }
     }
-
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef QAT_OPENSSL_PROVIDER
+        if (is_ecx_448 == 0) {
+            typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
+            sw_prov_fun_ptr sw_fun_ptr = get_default_x25519_keymgmt().gen;
+            return sw_fun_ptr(ctx, osslcb, cbarg);
+        } else if (is_ecx_448 == 1) {
+                typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
+                sw_prov_fun_ptr sw_fun_ptr = get_default_x448_keymgmt().gen;
+                return sw_fun_ptr(ctx, osslcb, cbarg);
+        }
+#else
         EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)
                                  (is_ecx_448 ? sw_x448_pmeth : sw_x25519_pmeth),
                                  NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, pkey);
+#endif
     }
+#ifdef QAT_OPENSSL_PROVIDER
+    return NULL;
+#else
     return ret;
+#endif
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_validate_ecx_derive(void *ctx,
+                                   const unsigned char **privkey,
+                                   const unsigned char **pubkey)
+#else
 static int qat_validate_ecx_derive(EVP_PKEY_CTX *ctx,
                                    const unsigned char **privkey,
                                    const unsigned char **pubkey)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_ECX_CTX *ecxctx = (QAT_ECX_CTX *)ctx;
+
+    if (ecxctx == NULL || ecxctx->key->privkey == NULL) {
+        WARN("ecxctx or ecxctx->key->privkey is NULL\n");
+        QATerr(QAT_F_QAT_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PRIVATE_KEY);
+        return 0;
+    }
+    if (ecxctx->peerkey->pubkey == NULL) {
+        WARN("ecxctx->peerkey->pubkey is NULL\n");
+        QATerr(QAT_F_QAT_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PEER_KEY);
+        return 0;
+    }
+    *privkey = ecxctx->key->privkey;
+    *pubkey = ecxctx->peerkey->pubkey;
+
+#else
     const ECX_KEY *ecxkey, *peerecxkey;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY *peerkey = NULL;
@@ -515,15 +611,22 @@ static int qat_validate_ecx_derive(EVP_PKEY_CTX *ctx,
     }
     *privkey = ecxkey->privkey;
     *pubkey = peerecxkey->pubkey;
-
+#endif
     return 1;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_pkey_ecx_derive25519(void *ctx, unsigned char *key, size_t *keylen,
+                             size_t outlen)
+#else
 int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen)
+#endif
 {
     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data = NULL;
 
+#ifndef QAT_OPENSSL_PROVIDER
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
+#endif
     int ret = 0;
     int job_ret = 0;
     CpaStatus status = CPA_STATUS_FAIL;
@@ -548,6 +651,11 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
+#ifdef QAT_OPENSSL_PROVIDER
+        typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
+        sw_prov_fun_ptr sw_fun_ptr = get_default_x25519_keyexch().derive;
+        return sw_fun_ptr(ctx, key, keylen, outlen);
+#else
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
         if (ret != 1) {
@@ -555,6 +663,7 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
             QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
         }
         return ret;
+#endif
     }
 
     if (!qat_validate_ecx_derive(ctx, &privkey, &pubkey))
@@ -807,17 +916,30 @@ err:
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef QAT_OPENSSL_PROVIDER
+        typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
+        sw_prov_fun_ptr sw_fun_ptr = get_default_x25519_keyexch().derive;
+        return sw_fun_ptr(ctx, key, keylen, outlen);
+#else
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
+#endif
     }
     return ret;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_pkey_ecx_derive448(void *ctx, unsigned char *key, size_t *keylen,
+                           size_t outlen)
+#else
 int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen)
+#endif
 {
     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data = NULL;
 
+#ifndef QAT_OPENSSL_PROVIDER
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
+#endif
     int ret = 0;
     int job_ret = 0;
     CpaStatus status = CPA_STATUS_FAIL;
@@ -842,6 +964,11 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
+#ifdef QAT_OPENSSL_PROVIDER
+        typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
+        sw_prov_fun_ptr sw_fun_ptr = get_default_x448_keyexch().derive;
+        return sw_fun_ptr(ctx, key, keylen, outlen);
+#else
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x448_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
         if (ret != 1) {
@@ -849,6 +976,7 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
             QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
         }
         return ret;
+#endif
     }
 
     if (!qat_validate_ecx_derive(ctx, &privkey, &pubkey))
@@ -1101,13 +1229,19 @@ err:
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef QAT_OPENSSL_PROVIDER
+        typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
+        sw_prov_fun_ptr sw_fun_ptr = get_default_x448_keyexch().derive;
+        return sw_fun_ptr(ctx, key, keylen, outlen);
+#else
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x448_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
+#endif
     }
     return ret;
 }
-#endif
 
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     DEBUG("Started\n");
@@ -1117,3 +1251,4 @@ int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
     return -2;
 }
+#endif

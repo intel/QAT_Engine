@@ -431,7 +431,9 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519)) {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_derive25519);
+# ifndef QAT_OPENSSL_PROVIDER
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, qat_pkey_ecx_ctrl, NULL);
+# endif
         qat_hw_ecx_offload = 1;
         DEBUG("QAT HW X25519 registration succeeded\n");
     } else {
@@ -446,7 +448,9 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
         mbx_get_algo_info(MBX_ALGO_X25519)) {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
+# ifndef QAT_OPENSSL_PROVIDER
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
+# endif
         qat_sw_ecx_offload = 1;
         DEBUG("QAT SW X25519 registration succeeded\n");
     } else {
@@ -487,7 +491,9 @@ EVP_PKEY_METHOD *qat_x448_pmeth(void)
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX448)) {
         EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
+# ifndef QAT_OPENSSL_PROVIDER
         EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);
+# endif
         qat_hw_ecx_offload = 1;
         DEBUG("QAT HW ECDH X448 Registration succeeded\n");
     } else {
