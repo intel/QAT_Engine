@@ -62,7 +62,11 @@
 #include "qat_utils.h"
 #include "qat_events.h"
 #include "qat_fork.h"
+#ifdef QAT_OPENSSL_PROVIDER
+#include "qat_prov_ecx.h"
+#else
 #include "qat_evp.h"
+#endif
 #include "qat_sw_ecx.h"
 #include "qat_sw_request.h"
 
@@ -78,6 +82,7 @@
 #define X25519_MULTIBUFF_BIT_DEPTH 2048
 #define X25519_MULTIBUFF_KEYGEN 1
 #define X25519_MULTIBUFF_DERIVE 2
+
 
 /* X25519 nid */
 int x25519_nid[] = {
@@ -194,14 +199,24 @@ void process_x25519_derive_reqs(mb_thread_data *tlv)
     DEBUG("Processed Final Request\n");
 }
 
-#ifndef QAT_OPENSSL_PROVIDER
+#ifdef QAT_OPENSSL_PROVIDER
+void* multibuff_x25519_keygen(void *ctx, OSSL_CALLBACK *osslcb,
+                              void *cbarg)
+#else
 int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
+#endif
 {
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     x25519_keygen_op_data *x25519_keygen_req = NULL;
+#ifdef QAT_OPENSSL_PROVIDER
+    typedef void* (*sw_prov_fn_ptr)(void *, OSSL_CALLBACK*, void*);
+    sw_prov_fn_ptr sw_fn_ptr = get_default_x25519_keymgmt().gen;
+    ECX_KEY *key = NULL;
+#else
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
     MB_ECX_KEY *key = NULL;
+#endif
     unsigned char *privkey = NULL, *pubkey = NULL;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
@@ -210,7 +225,11 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL.\n");
         QATerr(QAT_F_MULTIBUFF_X25519_KEYGEN, QAT_R_CTX_NULL);
+#ifdef QAT_OPENSSL_PROVIDER
+        return NULL;
+#else
         return sts;
+#endif
     }
 
     /* Check if we are running asynchronously. If not use the SW method */
@@ -246,8 +265,16 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     if (key == NULL) {
         WARN("Cannot allocate key.\n");
         QATerr(QAT_F_MULTIBUFF_X25519_KEYGEN, ERR_R_MALLOC_FAILURE);
+#ifdef QAT_OPENSSL_PROVIDER
+        return NULL;
+#else
         return sts;
+#endif
     }
+#ifdef QAT_OPENSSL_PROVIDER
+    key->keylen = X25519_KEYLEN;
+    key->references = 1;
+#endif
     pubkey = key->pubkey;
     privkey = key->privkey = OPENSSL_secure_malloc(X25519_KEYLEN);
     if (privkey == NULL) {
@@ -255,7 +282,11 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         QATerr(QAT_F_MULTIBUFF_X25519_KEYGEN, ERR_R_MALLOC_FAILURE);
         OPENSSL_free(key);
         key = NULL;
+#ifdef QAT_OPENSSL_PROVIDER
+        return NULL;
+#else
         return sts;
+#endif
     }
 
     if (RAND_priv_bytes(privkey, X25519_KEYLEN) <= 0) {
@@ -263,8 +294,9 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         QATerr(QAT_F_MULTIBUFF_X25519_KEYGEN, ERR_R_INTERNAL_ERROR);
         goto err;
     }
-
+#ifndef QAT_OPENSSL_PROVIDER
     x25519_keygen_req->pkey = pkey;
+#endif
     x25519_keygen_req->privkey =  privkey;
     x25519_keygen_req->pubkey =  pubkey;
     x25519_keygen_req->job = job;
@@ -300,8 +332,12 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     DEBUG("Finished: %p status = %d\n", x25519_keygen_req, sts);
 
     if (sts) {
+#ifdef QAT_OPENSSL_PROVIDER
+       return key;
+#else
        EVP_PKEY_assign(pkey, EVP_PKEY_X25519, key);
        return sts;
+#endif
     } else {
         WARN("Failure in Keygen\n");
         QATerr(QAT_F_MULTIBUFF_X25519_KEYGEN, QAT_R_KEYGEN_FAILURE);
@@ -319,21 +355,51 @@ err:
             }
         }
     }
+#ifdef QAT_OPENSSL_PROVIDER
+    return NULL;
+#else
     return sts;
+#endif
 
 use_sw_method:
+#ifdef QAT_OPENSSL_PROVIDER
+    DEBUG("SW Finished\n");
+    return sw_fn_ptr(ctx, osslcb, cbarg);
+#else
     EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)sw_x25519_pmeth,
                              NULL, &sw_fn_ptr);
     sts = (*sw_fn_ptr)(ctx, pkey);
     DEBUG("SW Finished\n");
     return sts;
-
+#endif
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+static int multibuff_validate_ecx_derive(void *ctx,
+                                         const unsigned char **privkey,
+                                         const unsigned char **pubkey)
+#else
 static int multibuff_validate_ecx_derive(EVP_PKEY_CTX *ctx,
                                          const unsigned char **privkey,
                                          const unsigned char **pubkey)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_ECX_CTX *ecxctx = (QAT_ECX_CTX *)ctx;
+
+    if (ecxctx == NULL || ecxctx->key->privkey == NULL) {
+        WARN("ecxctx or ecxctx->key->privkey is NULL\n");
+        QATerr(QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PRIVATE_KEY);
+        return 0;
+    }
+    if (ecxctx->peerkey->pubkey == NULL) {
+        WARN("ecxctx->peerkey->pubkey is NULL\n");
+        QATerr(QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PEER_KEY);
+        return 0;
+    }
+    *privkey = ecxctx->key->privkey;
+    *pubkey = ecxctx->peerkey->pubkey;
+#else
     const MB_ECX_KEY *ecxkey, *peerecxkey;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY *peerkey = NULL;
@@ -358,18 +424,28 @@ static int multibuff_validate_ecx_derive(EVP_PKEY_CTX *ctx,
     }
     *privkey = ecxkey->privkey;
     *pubkey = peerecxkey->pubkey;
-
+#endif
     return 1;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int multibuff_x25519_derive(void *ctx, unsigned char *key,
+                            size_t *keylen, size_t outlen)
+#else
 int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
                             unsigned char *key,
                             size_t *keylen)
+#endif
 {
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     x25519_derive_op_data *x25519_derive_req = NULL;
+#ifdef QAT_OPENSSL_PROVIDER
+    typedef int (*sw_prov_fn_ptr)(void *, unsigned char*, size_t*, size_t);
+    sw_prov_fn_ptr sw_fn_ptr = get_default_x25519_keyexch().derive;
+#else
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
+#endif
     const unsigned char *privkey, *pubkey;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
@@ -462,13 +538,18 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     }
 
 use_sw_method:
+#ifdef QAT_OPENSSL_PROVIDER
+    DEBUG("SW Finished\n");
+    return sw_fn_ptr(ctx, key, keylen, outlen);
+#else
     EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
     sts = (*sw_fn_ptr)(ctx, key, keylen);
     DEBUG("SW Finished\n");
     return sts;
-}
 #endif
+}
 
+#ifndef QAT_OPENSSL_PROVIDER
 int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     /* Only need to handle peer key for derivation */
@@ -476,3 +557,4 @@ int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
     return -2;
 }
+#endif

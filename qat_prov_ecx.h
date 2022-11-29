@@ -145,13 +145,13 @@ typedef struct ecx_gen_ctx {
 
 int qat_ecx_key_up_ref(ECX_KEY *key);
 void qat_ecx_key_free(ECX_KEY *key);
-int qat_pkey_ecx_derive25519(void *vecxctx, unsigned char *secret, size_t *secretlen,
+int qat_pkey_ecx_derive25519(void *ctx, unsigned char *key, size_t *keylen,
                              size_t outlen);
-int qat_pkey_ecx_derive448(void *vecxctx, unsigned char *secret, size_t *secretlen,
+int qat_pkey_ecx_derive448(void *ctx, unsigned char *key, size_t *keylen,
                            size_t outlen);
-void *qat_pkey_ecx_keygen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg);
-void* multibuff_x25519_keygen(void *genctx, OSSL_CALLBACK *osslcb,
+void *qat_pkey_ecx_keygen(void *ctx, OSSL_CALLBACK *osslcb, void *cbarg);
+void* multibuff_x25519_keygen(void *ctx, OSSL_CALLBACK *osslcb,
                               void *cbarg);
-int multibuff_x25519_derive(void *vecxctx, unsigned char *secret,
-                            size_t *secretlen,size_t outlen);
+int multibuff_x25519_derive(void *ctx, unsigned char *key,
+                            size_t *keylen,size_t outlen);
 #endif /* QAT_PROV_ECX_H */

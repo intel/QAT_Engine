@@ -36,8 +36,6 @@ if QAT_PROVIDER
                 qat_prov_rsa.c            \
                 qat_prov_kmgmt_ecx.c      \
                 qat_prov_exch_ecx.c       \
-                qat_prov_hw_ecx.c         \
-                qat_prov_sw_ecx.c         \
                 qat_prov_ciphers.c        \
                 qat_prov_kmgmt_ec.c       \
                 qat_prov_ecdsa.c          \
