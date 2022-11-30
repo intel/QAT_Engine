@@ -161,13 +161,14 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
         qctx->OpData.pIv = qctx->iv;
         qctx->OpData.ivLenInBytes = qctx->iv_len;
     }
-    qctx->session_data = OPENSSL_zalloc(sizeof(CpaCySymSessionSetupData));
     if (NULL == qctx->session_data) {
-        WARN("session setup data zalloc failure\n");
-        QATerr(QAT_F_QAT_SESSION_DATA_INIT, QAT_R_SSD_MALLOC_FAILURE);
-        return 0;
+        qctx->session_data = OPENSSL_zalloc(sizeof(CpaCySymSessionSetupData));
+        if (NULL == qctx->session_data) {
+            WARN("session setup data zalloc failure\n");
+            QATerr(QAT_F_QAT_SESSION_DATA_INIT, QAT_R_SSD_MALLOC_FAILURE);
+            return 0;
+        }
     }
-
     /* Set priority and operation of this session */
     qctx->session_data->sessionPriority = CPA_CY_PRIORITY_HIGH;
     qctx->session_data->symOperation = CPA_CY_SYM_OP_ALGORITHM_CHAINING;
@@ -296,60 +297,28 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
         return 0;
     }
 
-    /* Initialize pointers to NULL to handle failures correctly */
-    qctx->iv = NULL;
-
+    if (NULL == qctx->iv) {
+        /* The length of the IV in the TLS case is fixed = 12 Bytes */
+        qctx->iv_len = QAT_GCM_TLS_TOTAL_IV_LEN;
 #ifdef QAT_OPENSSL_PROVIDER
-    DEBUG("IV Len = %d Key Len = %d\n",
-           ivlen, keylen);
-#else
-    DEBUG("IV Len = %d Key Len = %d\n",
-           EVP_CIPHER_CTX_iv_length(ctx), EVP_CIPHER_CTX_key_length(ctx));
-#endif
-
-    /* The length of the IV in the TLS case is fixed = 12 Bytes */
-    qctx->iv_len = QAT_GCM_TLS_TOTAL_IV_LEN;
-
-    /* Allocate pinned memory since there can be at most 1 in-flight request */
-    /* The length of the full IV used by GCM must be multiple of the block size.
-     * When the length is equal to 12 (TLS case) a padding of 0s is
-     * automatically added, but you need to reserve memory for the entire block.
-     * That's why EVP_CIPHER_CTX_iv_length(ctx) returns 16 */
-#ifdef QAT_OPENSSL_PROVIDER
-    if (qctx->iv == NULL) {
         qctx->iv = qaeCryptoMemAlloc(GCM_IV_MAX_SIZE, __FILE__, __LINE__);
+#else
+        qctx->iv = qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx), __FILE__, __LINE__);
+#endif
         if (qctx->iv == NULL) {
             WARN("iv is NULL.\n");
             QATerr(QAT_F_QAT_AES_GCM_INIT, QAT_R_IV_MALLOC_FAILURE);
             goto err;
         }
     }
-#else
-    qctx->iv = qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx), __FILE__, __LINE__);
-    if (qctx->iv == NULL) {
-        WARN("iv is NULL.\n");
-        QATerr(QAT_F_QAT_AES_GCM_INIT, QAT_R_IV_MALLOC_FAILURE);
-        goto err;
-    }
-#endif
 
-    /* Set the value of the IV */
-    if (NULL != iv) {
+    if (iv) {
+        /* Set the value of the IV */
         memcpy(qctx->iv, iv, qctx->iv_len);
         memcpy(qctx->next_iv, iv, qctx->iv_len);
         qctx->iv_set = 1;
         DUMPL("iv", iv, qctx->iv_len);
-    } else {
-#ifndef QAT_OPENSSL_PROVIDER
-        memset(qctx->iv, 0, qctx->iv_len);
-#endif
-        memset(qctx->next_iv, 0, qctx->iv_len);
     }
-#ifdef QAT_OPENSSL_PROVIDER
-    DUMPL("inkey", inkey, keylen);
-#else
-    DUMPL("inkey", inkey, EVP_CIPHER_CTX_key_length(ctx));
-#endif
 
     qctx->tls_aad_len = -1;
     qctx->tag_len = -1;
@@ -777,12 +746,6 @@ int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
         WARN("qctx is NULL\n");
         QATerr(QAT_F_QAT_AES_GCM_CLEANUP, QAT_R_QCTX_NULL);
         return 0;
-    }
-
-    if (0 == qctx->is_session_init) {
-        /* It is valid to call cleanup even if the context has not been
-         * initialised. */
-        return ret_val;
     }
 
     session_data = qctx->session_data;
@@ -1459,6 +1422,11 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
             memcpy(qctx->aad, in, aad_len);
             DUMPL("qctx->aad", qctx->aad, aad_len);
+            /* The pAdditionalAuthData will be initialized firstly in
+             * qat_aes_gcm_session_init(), but the AAD can be updated
+             * for several times. So it is very important to update the
+             * AAD pointer in qat OpData structure in time. */
+            qctx->OpData.pAdditionalAuthData = qctx->aad;
 
             /* In this case no data is actually encrypted/decrypted.
              * The return value follows the standard rule of OpenSSL: success -> 1
@@ -1550,6 +1518,8 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             DUMP_SYM_PERFORM_OP_GCM(qat_instance_handles[qctx->inst_num],
                                     qctx->OpData, qctx->srcBufferList,
                                     qctx->dstBufferList);
+            DUMPL("AAD: ", qctx->OpData.pAdditionalAuthData,
+                           qctx->session_data->hashSetupData.authModeSetupData.aadLenInBytes);
 
             sts = qat_sym_perform_op(qctx->inst_num,
                                      &op_done,
