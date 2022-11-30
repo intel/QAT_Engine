@@ -177,7 +177,7 @@ void *qat_timer_poll_func(void *ih)
                 }
                 continue;
             }
-         } else {
+        } else {
              if (qat_get_sw_fallback_enabled()) {
                  qat_poll_heartbeat_timer_expiry(&previous_time);
              }
