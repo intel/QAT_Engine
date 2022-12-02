@@ -297,7 +297,7 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
         return 0;
     }
 
-    sha3_ctx->session_data = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
+    sha3_ctx->session_data = OPENSSL_zalloc(sizeof(CpaCySymSessionSetupData));
     if (NULL == sha3_ctx->session_data) {
         WARN("session setup data Malloc failure\n");
         QATerr(QAT_F_QAT_SHA3_SESSION_DATA_INIT, QAT_R_SSD_MALLOC_FAILURE);
@@ -406,12 +406,14 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
     }
 #endif
 #endif
+
+#ifdef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
     /* Initialize QAT session */
     if (0 == qat_sha3_session_data_init(ctx, sha3_ctx)) {
         WARN("qat_session_data_init failed.\n");
         return 0;
     }
-
+#endif
     return 1;
 }
 
@@ -813,8 +815,15 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         sha3_ctx->packet_size = len;
 #ifndef QAT_OPENSSL_PROVIDER
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-        if (len <=
+        if (len >=
               qat_pkt_threshold_table_get_threshold(EVP_MD_CTX_type(ctx))) {
+
+            if (0 == qat_sha3_session_data_init(ctx, sha3_ctx)) {
+                WARN("qat_session_data_init failed.\n");
+                return 0;
+            }
+        } else if (len <=
+            qat_pkt_threshold_table_get_threshold(EVP_MD_CTX_type(ctx))) {
             KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
             memset(k_ctx->A, 0, sizeof(k_ctx->A));
             retVal = EVP_MD_meth_get_update(GET_SW_SHA3_DIGEST(ctx))
