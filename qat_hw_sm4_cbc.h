@@ -46,6 +46,7 @@
 #ifndef QAT_HW_SM4_CBC_H
 # define QAT_HW_SM4_CBC_H
 
+# ifdef ENABLE_QAT_HW_SM4_CBC
 # ifdef QAT_HW
 
 # include <openssl/engine.h>
@@ -113,5 +114,6 @@ int qat_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx);
 int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                   const unsigned char *in, size_t len);
 
-#endif /* QAT_HW */
+# endif /* QAT_HW */
+# endif /* ENABLE_QAT_HW_SM4_CBC */
 #endif  /* QAT_HW_SM4_H */

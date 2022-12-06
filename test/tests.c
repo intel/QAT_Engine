@@ -795,9 +795,11 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_CHACHA20_POLY1305:
         tests_run_chacha20_poly1305(args);
         break;
+# ifdef ENABLE_QAT_HW_SM4_CBC
     case TEST_SM4_CBC:
         tests_run_sm4_cbc(args);
         break;
+# endif /* ENABLE_QAT_HW_SM4_CBC */
 #endif
     default:
         WARN("# FAIL: Unknown test type %d\n", args->type);
