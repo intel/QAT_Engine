@@ -36,6 +36,8 @@
  * ====================================================================
  */
 
+#ifdef ENABLE_QAT_HW_SM4_CBC
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -695,3 +697,5 @@ void tests_run_sm4_cbc(TEST_PARAMS *args)
     else
         start_async_job(args, run_sm4_cbc);
 }
+
+#endif /* ENABLE_QAT_HW_SM4_CBC */

@@ -46,6 +46,9 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
+
+#ifdef ENABLE_QAT_HW_SM4_CBC
+
 #include <pthread.h>
 #include <signal.h>
 #ifdef USE_QAT_CONTIG_MEM
@@ -746,3 +749,4 @@ fallback:
     return outlen;
 }
 
+#endif /* ENABLE_QAT_HW_SM4_CBC */
