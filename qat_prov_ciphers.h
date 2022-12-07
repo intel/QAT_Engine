@@ -176,8 +176,8 @@ typedef struct qat_gcm_ctx_st {
      */
     CpaBufferList srcBufferList;
     CpaBufferList dstBufferList;
-    CpaFlatBuffer srcFlatBuffer[1];
-    CpaFlatBuffer dstFlatBuffer[1];
+    CpaFlatBuffer srcFlatBuffer;
+    CpaFlatBuffer dstFlatBuffer;
     /* -- Crypto -- */
 
     /* Pointer to the IV that is used in the current operation:

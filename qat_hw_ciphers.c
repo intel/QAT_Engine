@@ -181,6 +181,7 @@ static inline const EVP_CIPHER *qat_chained_cipher_sw_impl(int nid)
     }
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
 static inline const char *qat_get_cipher_name_from_nid(int nid)
 {
     switch (nid) {
@@ -197,6 +198,7 @@ static inline const char *qat_get_cipher_name_from_nid(int nid)
             return NULL;
     }
 }
+#endif
 
 static inline const EVP_CIPHER *get_cipher_from_nid(int nid)
 {

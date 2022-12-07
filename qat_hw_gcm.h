@@ -94,8 +94,8 @@ typedef struct qat_aes_gcm_ctx_t
      */
     CpaBufferList srcBufferList;
     CpaBufferList dstBufferList;
-    CpaFlatBuffer srcFlatBuffer[1];
-    CpaFlatBuffer dstFlatBuffer[1];
+    CpaFlatBuffer srcFlatBuffer;
+    CpaFlatBuffer dstFlatBuffer;
 
     /* -- Crypto -- */
 

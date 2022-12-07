@@ -69,13 +69,13 @@ typedef struct qat_chachapoly_ctx_t {
     CpaCySymOpData *opd;
     CpaBufferList pSrcBufferList;
     CpaBufferList pDstBufferList;
-    CpaFlatBuffer src_buffer[2];
-    CpaFlatBuffer dst_buffer[2];
+    CpaFlatBuffer src_buffer;
+    CpaFlatBuffer dst_buffer;
 
     unsigned char tag[QAT_POLY1305_BLOCK_SIZE];
     unsigned char *tls_aad;
     unsigned char cipher_key[QAT_CHACHA_KEY_SIZE];
-    unsigned char mac_key[QAT_CHACHA_BLK_SIZE];
+    unsigned char *mac_key;
     unsigned char nonce[QAT_CHACHA20_POLY1305_MAX_IVLEN];
     unsigned char derived_iv[QAT_CHACHA20_POLY1305_MAX_IVLEN];
     unsigned int counter[QAT_CHACHA_CTR_SIZE/4];
@@ -206,15 +206,6 @@ const EVP_CIPHER *chachapoly_cipher_meth(int nid, int keylen);
                 x[c] += x[d], x[b] = ROTATE((x[b] ^ x[c]),12), \
                 x[a] += x[b], x[d] = ROTATE((x[d] ^ x[a]), 8), \
                 x[c] += x[d], x[b] = ROTATE((x[b] ^ x[c]), 7)  )
-
-# define FLATBUFF_ALLOC_AND_CHAIN(b1, b2, len) \
-                do { \
-                    (b1).pData = qaeCryptoMemAlloc(len, __FILE__, __LINE__); \
-                    (b2).pData = (b1).pData; \
-                    (b1).dataLenInBytes = len; \
-                    (b2).dataLenInBytes = len; \
-                } while(0)
-
 
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
 #  ifdef QAT_OPENSSL_PROVIDER

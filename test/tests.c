@@ -802,7 +802,7 @@ void tests_run(TEST_PARAMS *args, int id)
 # endif /* ENABLE_QAT_HW_SM4_CBC */
 #endif
     default:
-        WARN("# FAIL: Unknown test type %d\n", args->type);
+        printf("# FAIL: Test type %d not supported\n", args->type);
         exit(EXIT_FAILURE);
     }
 

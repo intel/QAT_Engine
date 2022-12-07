@@ -385,6 +385,9 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
 #else
     sha3_ctx->md_size = EVP_MD_CTX_size(ctx);
 #endif
+    sha3_ctx->context_params_set = 0;
+    sha3_ctx->session_init = 0;
+
     if (!sha3_ctx->md_size) {
         WARN("sha3_ctx md size is NULL\n");
         return 0;
@@ -407,13 +410,6 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
 #endif
 #endif
 
-#ifdef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-    /* Initialize QAT session */
-    if (0 == qat_sha3_session_data_init(ctx, sha3_ctx)) {
-        WARN("qat_session_data_init failed.\n");
-        return 0;
-    }
-#endif
     return 1;
 }
 
@@ -548,6 +544,7 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
     }
     sha3_ctx->session_init = 0;
     sha3_ctx->packet_size=0;
+    sha3_ctx->context_params_set = 0;
     return ret_val;
 }
 
@@ -815,14 +812,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         sha3_ctx->packet_size = len;
 #ifndef QAT_OPENSSL_PROVIDER
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-        if (len >=
-              qat_pkt_threshold_table_get_threshold(EVP_MD_CTX_type(ctx))) {
-
-            if (0 == qat_sha3_session_data_init(ctx, sha3_ctx)) {
-                WARN("qat_session_data_init failed.\n");
-                return 0;
-            }
-        } else if (len <=
+        if (len <=
             qat_pkt_threshold_table_get_threshold(EVP_MD_CTX_type(ctx))) {
             KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
             memset(k_ctx->A, 0, sizeof(k_ctx->A));
@@ -835,6 +825,14 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         }
 # endif
 #endif
+        if (!sha3_ctx->context_params_set) {
+            if (0 == qat_sha3_session_data_init(ctx, sha3_ctx)) {
+                WARN("qat_session_data_init failed.\n");
+                QATerr(QAT_F_QAT_SHA3_UPDATE, ERR_R_INTERNAL_ERROR);
+                return 0;
+            }
+        }
+
         if (sha3_ctx->context_params_set && !sha3_ctx->session_init) {
             /* Set SHA3 opdata params and initialise session. */
             if (!qat_sha3_setup_param(sha3_ctx)) {

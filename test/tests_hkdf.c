@@ -190,7 +190,6 @@ static int runHkdfOps(void *args)
     int verify = temp_args->verify;
     char *digest_kdf = temp_args->digest_kdf;
     const EVP_MD *md = NULL;
-    int mode = 0;
 
     unsigned char *salt = NULL;
     unsigned char *secret = NULL, *expectedMasterSecret = NULL;
@@ -225,8 +224,7 @@ static int runHkdfOps(void *args)
 
         if ((verify && count == 0) || res == 0) {
             if (memcmp(masterSecret, expectedMasterSecret, masterSecretSize)) {
-                mode = mode; /* only used in DEBUG mode */
-                INFO("# FAIL verify for HKDF mode %d.\n", mode);
+                INFO("# FAIL verify for HKDF mode.\n");
                 tests_hexdump("HKDF actual  :", masterSecret, masterSecretSize);
                 tests_hexdump("HKDF expected:", expectedMasterSecret,
                               masterSecretSize);
