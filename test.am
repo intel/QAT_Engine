@@ -72,7 +72,8 @@ testapp_SOURCES = ${QAT_TEST_SRC}    \
 testapp_CFLAGS =  $(includes_qat_hw) $(includes_openssl)         \
                   $(cflags) $(cflags_openssl_3) $(cflags_qat_hw) \
                   $(cflags_qat_sw) $(cflags_qat_sw_ipsec)        \
-                  $(enable_qat_debug) $(enable_qat_warnings)
+                  $(enable_qat_debug) $(enable_qat_warnings)     \
+                  $(enable_qat_hw_sm4_cbc)
 
 testapp_LDADD = -ldl -lrt -lpthread $(OPENSSL_LIB)
 

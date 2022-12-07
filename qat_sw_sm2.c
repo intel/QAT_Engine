@@ -187,7 +187,8 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
 
     if (!qat_sw_sm2_offload) {
         DEBUG("OpenSSL SW ECDSA SM2\n");
-        EVP_PKEY_meth_copy(_hidden_sm2_pmeth, sw_sm2_pmeth);
+        EVP_PKEY_meth_free(_hidden_sm2_pmeth);
+        return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
     }
 #endif /* QAT_OPENSSL_PROVIDER */
     return _hidden_sm2_pmeth;

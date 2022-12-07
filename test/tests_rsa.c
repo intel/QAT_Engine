@@ -2219,7 +2219,6 @@ static int run_rsa(void *args)
         goto err;
     }
     pad_str = get_padding_str(pad);
-    pad_str = pad_str; /* only used in DEBUG mode */
 
     DEBUG("[%s] Input:\n sign_only = %d \n verify_only = %d \n"
           "encrypt_only = %d \n decrypt_only = %d\n padding = %s\n --- \n",
