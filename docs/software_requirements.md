@@ -9,7 +9,7 @@ Driver for FreeBSD. This release was validated on the following:
 * Operating system: CentOS* 8.4, Ubuntu\* 20.04.2 LTS & FreeBSD\* 12.3
 * Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.19**
 * Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.12**
-* OpenSSL\* 1.1.1q & 3.0.5
+* OpenSSL\* 1.1.1s & 3.0.7
 * BoringSSL\* commit - [15596efa5f][1]
 * BabaSSL - 8.3.1
 
@@ -30,8 +30,8 @@ This release was validated on the following:
 * Operating system: Ubuntu\* 20.04.2 LTS
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][2] release
   version **IPP Crypto 2021.6**
-* Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.2**
-* OpenSSL\* 1.1.1q & 3.0.5
+* Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.3**
+* OpenSSL\* 1.1.1s & 3.0.7
 * BoringSSL\* commit - [15596efa5f][1]
 * BabaSSL - 8.3.1
 

@@ -1681,8 +1681,8 @@ static int qat_chacha20_poly1305_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg,
         cp_ctx->mac_key_set = 0;
 
 # if !defined(ENABLE_QAT_HW_SMALL_PKT_OFFLOAD) && !defined(QAT_OPENSSL_PROVIDER)
-        if (cp_ctx->packet_size <= qat_pkt_threshold_table_get_threshold(
-            EVP_CIPHER_CTX_nid(ctx))) {
+        if (len <= qat_pkt_threshold_table_get_threshold(
+                   EVP_CIPHER_CTX_nid(ctx))) {
             goto sw_ctrl;
         }
 # endif
