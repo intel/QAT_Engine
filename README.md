@@ -30,8 +30,8 @@ section.
 ## Features
 Features of the QAT_Engine are described [here](docs/features.md).
 
-## Limitations
-Limitations for the QAT_Engine are described [here](docs/limitations.md).
+## Limitations and Known Issues
+Limitations and known issues for the QAT_Engine are described [here](docs/limitations.md).
 
 ## Requirements
 - [Hardware Requirements](docs/hardware_requirements.md)
