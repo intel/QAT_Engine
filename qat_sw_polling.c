@@ -1276,7 +1276,7 @@ int multibuff_poll()
                 multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                                  ecdsap384_sign_sig_previous_time,
                                                  current_time) == 1) {
-            process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384);
+            process_ecdsa_sign_sig_reqs(mb_tlv, EC_P384);
             clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_sig_previous_time);
         }
     }

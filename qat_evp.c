@@ -624,7 +624,9 @@ static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
 const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 {
     EVP_CIPHER *c = NULL;
+#if defined(ENABLE_QAT_SW_GCM) || defined(ENABLE_QAT_HW_GCM)
     int res = 1;
+#endif
 
     if ((c = EVP_CIPHER_meth_new(nid, AES_GCM_BLOCK_SIZE, keylen)) == NULL) {
         WARN("Failed to allocate cipher methods for nid %d\n", nid);
@@ -646,6 +648,12 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 #ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_ctrl(c, vaesgcm_ciphers_ctrl);
 #endif
+        if (0 == res) {
+            WARN("Failed to set cipher methods for nid %d\n", nid);
+            EVP_CIPHER_meth_free(c);
+            return NULL;
+        }
+
         qat_sw_gcm_offload = 1;
         DEBUG("QAT SW AES_GCM_%d registration succeeded\n", keylen*8);
     } else {
@@ -678,6 +686,12 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 #ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_ctrl(c, qat_aes_gcm_ctrl);
 #endif
+        if (0 == res) {
+            WARN("Failed to set cipher methods for nid %d\n", nid);
+            EVP_CIPHER_meth_free(c);
+            return NULL;
+        }
+
         qat_hw_gcm_offload = 1;
         DEBUG("QAT HW AES_GCM_%d registration succeeded\n", keylen*8);
     } else {
@@ -685,12 +699,6 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
         DEBUG("QAT HW AES_GCM_%d is disabled\n", keylen*8);
     }
 #endif
-
-    if (0 == res) {
-        WARN("Failed to set cipher methods for nid %d\n", nid);
-        EVP_CIPHER_meth_free(c);
-        c = NULL;
-    }
 
     if (!qat_sw_gcm_offload && !qat_hw_gcm_offload) {
         DEBUG("OpenSSL SW AES_GCM_%d registration succeeded\n", keylen*8);

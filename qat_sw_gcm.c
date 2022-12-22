@@ -1048,8 +1048,8 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
 
         } else {  /* Decrypt Flow */
 
-            if (qctx->tag_len < 0) {
-                WARN("AES-GCM tag_len <0\n");
+            if (qctx->tag_len < 0 || qctx->calculated_tag == NULL) {
+                WARN("AES-GCM tag_len <0 or calculated tag NULL\n");
                 return -1;
             }
 
@@ -1060,8 +1060,7 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
 
                 /* Stash the calculated tag from the decryption,
                  * so it can get compared to expected value below */
-                if (qctx->calculated_tag)
-                    memcpy(qctx->calculated_tag, out, qctx->tag_len);
+                memcpy(qctx->calculated_tag, out, qctx->tag_len);
 
                 DUMPL("Decrypt - Calculated Tag",
                      (const unsigned char*)qctx->calculated_tag ,
@@ -1074,15 +1073,15 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
 
             /* Wait until signaled by EVP_CTRL_GCM_SET_TAG, that a tag
              * has been set via the control function before we compared
-             * the one we calculated if qctx->tag_set == 0, then itsi
+             * the one we calculated if qctx->tag_set == 0, then it is
              * likely that NULL plaintext was sent in and this looksi
              * just like a DecryptFinal_Ex() call, so wait until control
              * function calls to set the tag */
             if (qctx->tag_set) {
                 DEBUG("Decrypt - GCM Tag Set so calling memcmp\n");
-                if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0)
+                if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0) {
                     return 0;
-                else{
+                } else {
                     WARN("AES-GCM calculated tag comparison failed\n");
                     DUMPL("Expected   Tag:", (const unsigned char *)qctx->tag, qctx->tag_len);
                     DUMPL("Calculated Tag:", (const unsigned char *)qctx->calculated_tag, qctx->tag_len);

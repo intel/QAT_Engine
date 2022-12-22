@@ -548,6 +548,10 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     int ckeylen;
     int dlen;
     int ret = 0;
+    EVP_CIPHER *sw_cipher = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
+    unsigned int sw_size = 0;
+#endif
 
     if (ctx == NULL || inkey == NULL) {
         WARN("ctx or inkey is NULL.\n");
@@ -609,7 +613,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
 #ifdef QAT_OPENSSL_PROVIDER
 # ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-    EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL,
+    sw_cipher = EVP_CIPHER_fetch(NULL,
                             qat_get_cipher_name_from_nid(ctx->nid),
                             "provider=default");
     if (sw_cipher == NULL){
@@ -623,7 +627,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     ctx->sw_cipher = sw_cipher;
 # else
     if (qat_get_sw_fallback_enabled()){
-        EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL,
+        sw_cipher = EVP_CIPHER_fetch(NULL,
                                 qat_get_cipher_name_from_nid(ctx->nid),
                                 "provider=default");
         if (sw_cipher == NULL){
@@ -638,8 +642,8 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     }
 # endif
 #else
-    const EVP_CIPHER *sw_cipher = GET_SW_CIPHER(ctx);
-    unsigned int sw_size = EVP_CIPHER_impl_ctx_size(sw_cipher);
+    sw_cipher = (EVP_CIPHER *)GET_SW_CIPHER(ctx);
+    sw_size = EVP_CIPHER_impl_ctx_size(sw_cipher);
     if (sw_size != 0) {
         qctx->sw_ctx_cipher_data = OPENSSL_zalloc(sw_size);
         if (qctx->sw_ctx_cipher_data == NULL) {

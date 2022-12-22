@@ -886,7 +886,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         val = strtoul(p, &temp, 0);
         BREAK_IF(errno == ERANGE || temp == p || *temp != '\0',
                 "The hardware enable mask is invalid.\n");
-        BREAK_IF(val < 0 || val > 0xFFFF,
+        BREAK_IF(val > 0xFFFF,
                 "The hardware enable mask is out of the range.\n");
         DEBUG("QAT_CMD_HW_ALGO_BITMAP = 0x%lx\n", val);
         qat_hw_algo_enable_mask = val;
@@ -902,7 +902,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         val = strtoul(p, &temp, 0);
         BREAK_IF(errno == ERANGE || temp == p || *temp != '\0',
                 "The software enable mask is invalid.\n");
-        BREAK_IF(val < 0 || val > 0xFFFF,
+        BREAK_IF(val > 0xFFFF,
                 "The software enable mask is out of the range.\n");
         DEBUG("QAT_CMD_SW_ALGO_BITMAP = 0x%lx\n", val);
         qat_sw_algo_enable_mask = val;

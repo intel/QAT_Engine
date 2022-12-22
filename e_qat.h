@@ -352,6 +352,21 @@ typedef struct {
  * Max number of multi-buffer Polling threads
  */
 # define NUM_POLL_THREADS 128
+
+/* Macro that does queue cleanup based on the algorithm
+ * request in (x) */
+# define QAT_SW_CLEANUP(x, opdata, ptr)             \
+    opdata *req_##x = NULL;                         \
+    mb_queue_##x##_disable(ptr);                    \
+    if (ptr) {                                      \
+        while ((req_##x =                           \
+            mb_queue_##x##_dequeue(ptr)) != NULL) { \
+            *req_##x->sts = -1;                     \
+            qat_wake_job(req_##x->job, 0);          \
+            OPENSSL_free(req_##x);                  \
+        }                                           \
+        mb_queue_##x##_cleanup(ptr);                \
+    }
 #endif
 
 /* Qat engine id declaration */
