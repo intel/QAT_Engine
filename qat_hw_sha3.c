@@ -387,6 +387,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
 #endif
     sha3_ctx->context_params_set = 0;
     sha3_ctx->session_init = 0;
+    sha3_ctx->update_flag = 0;
 
     if (!sha3_ctx->md_size) {
         WARN("sha3_ctx md size is NULL\n");
@@ -545,6 +546,7 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
     sha3_ctx->session_init = 0;
     sha3_ctx->packet_size=0;
     sha3_ctx->context_params_set = 0;
+    sha3_ctx->update_flag = 0;
     return ret_val;
 }
 
@@ -747,6 +749,31 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
 #endif
 #endif
+
+    /* Fix for 0byte data. */
+#ifdef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef QAT_OPENSSL_PROVIDER
+    KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
+    if(0 == sha3_ctx->packet_size && 1 != sha3_ctx->update_flag) {
+        size_t bsz = k_ctx->block_size;
+        size_t num = k_ctx->num;
+        k_ctx->buf[num] = k_ctx->pad;
+        k_ctx->buf[bsz - 1] |= 0x80;
+        qat_sha3_update(ctx, k_ctx->buf, bsz-num);
+    }
+#else
+    if(0 == sha3_ctx->packet_size && 1 != sha3_ctx->update_flag) {
+        size_t bsz = ctx->block_size;
+        size_t num = ctx->bufsz;
+        memset(ctx->buf + num, 0, bsz - num);
+        ctx->buf[num] = ctx->pad;
+        ctx->buf[bsz - 1] |= 0x80;
+        qat_sha3_update(ctx, ctx->buf, num);
+    }
+#endif
+#endif
+    /* Fix for 0byte */
+
     /* Copy digest result into "md" buffer. */
     memcpy(md, sha3_ctx->digest_data, sha3_ctx->md_size);
 
@@ -978,6 +1005,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
             }
         }
         outlen = len;
+        sha3_ctx->update_flag = 1;
         qat_cleanup_op_done(&op_done);
         memcpy(sha3_ctx->digest_data, sha3_ctx->opd->pDigestResult, sha3_ctx->md_size);
     }

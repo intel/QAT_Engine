@@ -79,6 +79,7 @@ typedef struct {
     size_t digest_size;
     unsigned char digest_data[EVP_MAX_MD_SIZE];
     size_t packet_size;
+    int update_flag;             /* track qat_sha3_update is called */
 }qat_sha3_ctx;
 
 # ifdef QAT_OPENSSL_PROVIDER
