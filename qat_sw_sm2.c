@@ -696,6 +696,7 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     ecdsa_sm2_sign_op_data *ecdsa_sm2_sign_req = NULL;
     mb_thread_data *tlv = NULL;
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
+    int sig_sz;
 
 #ifdef QAT_OPENSSL_PROVIDER
     QAT_EVP_SIGNATURE sw_sm2_signature;
@@ -717,14 +718,14 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     EVP_PKEY *pkey = EVP_PKEY_CTX_get0_pkey(pctx);
     const EC_KEY *eckey = EVP_PKEY_get0_EC_KEY(pkey);
 # endif
-    const int sig_sz = ECDSA_size(eckey);
 
     DEBUG("Entering \n");
-    if (unlikely(eckey == NULL)) {
-        WARN("Invalid Input param\n");
+    if (unlikely(eckey == NULL) || unlikely(siglen == NULL)) {
+        WARN("Invalid Input params\n");
         QATerr(QAT_F_MB_ECDSA_SM2_SIGN, QAT_R_INPUT_PARAM_INVALID);
         return ret;
     }
+    sig_sz = ECDSA_size(eckey);
 
     /* To know how much memory is needed to store the sig */
     if (sig == NULL) {

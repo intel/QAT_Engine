@@ -218,72 +218,76 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 #endif
 
     DEBUG("QAT HW ECX Started\n");
-    key = OPENSSL_zalloc(sizeof(*key));
-    if (key == NULL) {
-        WARN("Cannot allocate key.\n");
-        QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
-        goto err;
-    }
-
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
         return 0;
     }
+
+    key = OPENSSL_zalloc(sizeof(*key));
+    if (key == NULL) {
+        WARN("Cannot allocate key.\n");
+        QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
+        return 0;
+    }
+
 #ifndef QAT_OPENSSL_PROVIDER
     /* Get X25519/X448 NID from the pmeth */
     pmeth_from_ctx = (const EVP_PKEY_METHOD **)void_ptr_ctx;
     EVP_PKEY_meth_get0_info(&type, NULL, *pmeth_from_ctx);
     switch (type) {
-        case EVP_PKEY_X25519:
-            is_ecx_448 = 0;
-            keylen = qat_keylen = X25519_KEYLEN;
-            DEBUG("EVP_PKEY_X25519\n");
-            break;
-        case EVP_PKEY_X448:
-            is_ecx_448 = 1;
-            keylen = X448_KEYLEN;
-            qat_keylen = QAT_X448_DATALEN;
-            DEBUG("EVP_PKEY_X448\n");
-            break;
-        default:
-            WARN("Unsupported NID: %d\n", type);
-            QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
-            return 0;
+    case EVP_PKEY_X25519:
+        is_ecx_448 = 0;
+        keylen = qat_keylen = X25519_KEYLEN;
+        DEBUG("EVP_PKEY_X25519\n");
+        break;
+    case EVP_PKEY_X448:
+        is_ecx_448 = 1;
+        keylen = X448_KEYLEN;
+        qat_keylen = QAT_X448_DATALEN;
+        DEBUG("EVP_PKEY_X448\n");
+        break;
+    default:
+        WARN("Unsupported NID: %d\n", type);
+        QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
+        OPENSSL_free(key);
+        return 0;
     }
 #else
     key->references = 1;
     key->lock = CRYPTO_THREAD_lock_new();
     switch (gctx->type) {
-     case ECX_KEY_TYPE_X25519:
-            is_ecx_448 = 0;
-            keylen = key->keylen = X25519_KEYLEN;
-            qat_keylen = X25519_KEYLEN;
-            DEBUG("EVP_PKEY_X25519\n");
-            break;
-     case ECX_KEY_TYPE_X448:
-            is_ecx_448 = 1;
-            keylen = key->keylen = X448_KEYLEN;
-            qat_keylen = QAT_X448_DATALEN;
-            DEBUG("EVP_PKEY_X448\n");
-            break;
-     default:
-            WARN("Unsupported NID: %d\n", gctx->type);
-            QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
-            return 0;
+    case ECX_KEY_TYPE_X25519:
+        is_ecx_448 = 0;
+        keylen = key->keylen = X25519_KEYLEN;
+        qat_keylen = X25519_KEYLEN;
+        DEBUG("EVP_PKEY_X25519\n");
+        break;
+    case ECX_KEY_TYPE_X448:
+        is_ecx_448 = 1;
+        keylen = key->keylen = X448_KEYLEN;
+        qat_keylen = QAT_X448_DATALEN;
+        DEBUG("EVP_PKEY_X448\n");
+        break;
+    default:
+        WARN("Unsupported NID: %d\n", gctx->type);
+        QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
+        OPENSSL_free(key);
+        return 0;
     }
 #endif
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
+        OPENSSL_free(key);
 #ifdef QAT_OPENSSL_PROVIDER
-        if (is_ecx_448 == 0) {
+        if (!is_ecx_448) {
             typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
             sw_prov_fun_ptr sw_fn_ptr = get_default_x25519_keymgmt().gen;
             return sw_fn_ptr(ctx, osslcb, cbarg);
-        } else if (is_ecx_448 == 1) {
-                typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
-                sw_prov_fun_ptr sw_fn_ptr = get_default_x448_keymgmt().gen;
-                return sw_fn_ptr(ctx, osslcb, cbarg);
+        } else if (is_ecx_448) {
+            typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
+            sw_prov_fun_ptr sw_fn_ptr = get_default_x448_keymgmt().gen;
+            return sw_fn_ptr(ctx, osslcb, cbarg);
         }
 #else
         EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)
@@ -303,6 +307,7 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     if (NULL == qat_ecx_op_data) {
         WARN("Failed to allocate memory for qat_ecx_op_data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
+        OPENSSL_free(key);
         return 0;
     }
     memset(qat_ecx_op_data, 0, sizeof(CpaCyEcMontEdwdsPointMultiplyOpData));
@@ -320,8 +325,6 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     if (privkey == NULL) {
         WARN("Cannot allocate privkey.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
-        OPENSSL_free(key);
-        key = NULL;
         goto err;
     }
 
@@ -521,16 +524,17 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 err:
     qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen);
     /* For success case cleanup will be taken care by calling application */
-    if (ret == 0) {
+    if (!ret) {
         if (NULL != privkey) {
             OPENSSL_secure_free(privkey);
-            if (NULL != key) {
-                key->privkey = NULL;
-                OPENSSL_free(key);
-                key = NULL;
-            }
+            privkey = NULL;
+        }
+        if (NULL != key) {
+            OPENSSL_free(key);
+            key = NULL;
         }
     }
+
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
