@@ -259,6 +259,11 @@ AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
                              [Disable auto initialization of the engine following a fork]))
 AC_SUBST(enable_qat_auto_engine_init_on_fork)
 
+AC_ARG_ENABLE(qat_plock,
+              AS_HELP_STRING([--enable-qat_plock],
+                             [Enable plock, an optimized read-write lock. replace pthread's read/write lock with plock.]))
+AC_SUBST(enable_qat_plock)
+
 #Default library name is qatengine
 AC_SUBST([LIBQATNAME], "qatengine")
 
@@ -820,6 +825,16 @@ else
   enable_qat_hw_set_inst_thread=""
   AC_MSG_NOTICE([Disabling QAT hardware set instance for thread])
 fi
+
+if test "x$enable_qat_plock" = "xyes"
+then
+  enable_qat_plock="-DQAT_PLOCK"
+  AC_MSG_NOTICE([Enabling plock])
+else
+  enable_qat_plock=""
+  AC_MSG_NOTICE([Disabling plock])
+fi
+AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" != "x"])
 
 # Compiler security flags
 case "$host_os" in

@@ -376,12 +376,41 @@ is not installed then their corresponding algorithm support is disabled
 (crypto_mb library for PKE algorithms and IPSec_mb library for AES-GCM).
 <br><br>
 </details>
+
+<details>
+<summary>Enable plock optimization in QAT Engine for Multithread applications</summary>
+<br>
+
+Progressive Lock (plock) optimization in QAT Engine provides an alternative to
+pthread's rwlock as in Haproxy. This plock is an alternative to read/write locks
+in the pthread library and optimizes read/write locking with a series of atomic
+operations and there will be no more syscalls in case of contention. The benefit
+of plock is that it saves lot of CPU and improves performance with higher number
+of threads for multithread applications. In case of Haproxy, this can directly
+enabled in the Haproxy build with addition build flag "USE_PTHREAD_EMULATION=1".
+
+### Build Flag to enable plock optimization
+
+QAT Engine generates dynamic libraries and currently enables Plock by preloading.
+
+-  When compiling the qat engine, add the compilation option
+   `--enable-qat_plock`, and the `libplock.so` will be generated.
+   eg: ./configure --enable-qat_sw --enable-qat_plock
+       --with-openssl_install_dir=${OPENSSL_INSTALL_DIR}
+- Set the environment variable ‘LD_PRELOAD’ to use the plock optimization.
+   eg: export LD_PRELOAD = ${OPENSSL_INSTALL_DIR}/lib/engine-1.1/libplock.so
+Note: The `LD_PRELOAD` must be set before launching the multithread Appliaction.
+
+<br>
+</details>
 </details>
 
 <details>
-<summary>[For BoringSSL Support only] Build the Intel&reg; QuickAssist Technology BoringSSL* Library</summary>
+<summary>[For BoringSSL only] Build the Intel&reg; QuickAssist Technology BoringSSL* Library</summary>
 
-Please refer [BoringSSL section](docs/bssl_support.md) for steps to build the Intel® QuickAssist Technology BoringSSL* library which supports RSA and ECDSA QAT Hardware and QAT Software Acceleration using BoringSSL.
+Please refer [BoringSSL section](docs/bssl_support.md) for steps to build the
+Intel® QuickAssist Technology BoringSSL* library which supports RSA and ECDSA QAT
+Hardware and QAT Software Acceleration using BoringSSL.
 
 </details>
 
