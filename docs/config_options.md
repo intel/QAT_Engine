@@ -271,6 +271,12 @@ The following is a list of the options that can be used with the
     rebuilt for lockless by exporting ICP_WITHOUT_THREAD=1 is needed to get
     performance benefit (disabled by default).
 
+--enable-qat_plock
+   Enables Plock optimization within QAT Engine which is an alternative to
+   pthread's rwlock for multithread application. This flag when enabled uses
+   plock using preload as mentioned in QAT Engine install instructions and
+   improves performance for higher number of thread (disabled by default).
+
 --disable-qat_hw_lenstra_protection/--enable-qat_hw_lenstra_protection
     Disable/Enable protection against Lenstra attack (CVE-2017-5681)
     (protection is enabled by default). The RSA-CRT implementation in the

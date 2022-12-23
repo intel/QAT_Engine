@@ -6,6 +6,10 @@ if QAT_BORINGSSL
 bin_PROGRAMS = qatengine_test
 endif
 
+if QAT_PLOCK
+lib_LTLIBRARIES += libplock.la
+endif
+
 if QAT_HW
 if QAT_HW_CONTIG_MEM
  QAT_HW_MEM_SRC = qae_mem_utils.c \
@@ -179,6 +183,18 @@ qatengine_test_LDFLAGS = $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB) \
 qatengine_test_SOURCES = test_bssl/main.c test_bssl/test_bssl_rsa.c \
                          test_bssl/test_bssl_ecdsa.c test_bssl/test_bssl_utils.c
 qatengine_test_LDADD = $(lib_LTLIBRARIES) -lpthread
+endif
+
+if QAT_PLOCK
+libplock_la_LDFLAGS = --shared -fPIC -Wextra -Wundef                           \
+                      -Wdeclaration-after-statement -Wfatal-errors             \
+                      -Wtype-limits -Wshift-negative-value -Wshift-overflow=2  \
+                      -Wduplicated-cond -Wnull-dereference                     \
+                      -Wno-address-of-packed-member -Wno-unused-label          \
+                      -Wno-sign-compare -Wno-unused-parameter -Wno-clobbered   \
+                      -Wno-missing-field-initializers -Wno-cast-function-type  \
+                      -Wno-string-plus-int -Wno-atomic-alignment
+libplock_la_SOURCES = plock.c
 endif
 
 mostlyclean-generic:
