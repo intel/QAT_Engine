@@ -1,4 +1,4 @@
-# Copyright 1999-2022 The OpenSSL Project Authors. All Rights Reserved.
+# Copyright 1999-2023 The OpenSSL Project Authors. All Rights Reserved.
 #
 # Licensed under the OpenSSL license (the "License").  You may not use
 # this file except in compliance with the License.  You can obtain a copy
@@ -98,27 +98,28 @@ QAT_F_QAT_SESSION_DATA_INIT:188:qat_session_data_init
 QAT_F_QAT_SETUP_OP_PARAMS:189:qat_setup_op_params
 QAT_F_QAT_SET_INSTANCE_FOR_THREAD:190:qat_set_instance_for_thread
 QAT_F_QAT_SHA3_CLEANUP:191:qat_sha3_cleanup
-QAT_F_QAT_SHA3_CTRL:192:qat_sha3_ctrl
-QAT_F_QAT_SHA3_FINAL:193:qat_sha3_final
-QAT_F_QAT_SHA3_SESSION_DATA_INIT:194:qat_sha3_session_data_init
-QAT_F_QAT_SHA3_SETUP_PARAM:195:qat_sha3_setup_param
-QAT_F_QAT_SHA3_UPDATE:196:qat_sha3_update
-QAT_F_QAT_SM4_CBC_CLEANUP:197:qat_sm4_cbc_cleanup
-QAT_F_QAT_SM4_CBC_DO_CIPHER:198:qat_sm4_cbc_do_cipher
-QAT_F_QAT_SM4_CBC_INIT:199:qat_sm4_cbc_init
-QAT_F_QAT_SW_SM3_FINAL:200:qat_sw_sm3_final
-QAT_F_QAT_SW_SM3_INIT:201:qat_sw_sm3_init
-QAT_F_QAT_SW_SM3_UPDATE:202:qat_sw_sm3_update
-QAT_F_QAT_SYM_PERFORM_OP:203:qat_sym_perform_op
-QAT_F_QAT_VALIDATE_ECX_DERIVE:204:qat_validate_ecx_derive
-QAT_F_QAT_X25519_PMETH:205:qat_x25519_pmeth
-QAT_F_QAT_X448_PMETH:206:qat_x448_pmeth
-QAT_F_VAESGCM_CIPHERS_CTRL:207:vaesgcm_ciphers_ctrl
-QAT_F_VAESGCM_CIPHERS_DO_CIPHER:208:vaesgcm_ciphers_do_cipher
-QAT_F_VAESGCM_CIPHERS_INIT:209:vaesgcm_ciphers_init
-QAT_F_VAESGCM_INIT_GCM:210:vaesgcm_init_gcm
-QAT_F_VAESGCM_INIT_IPSEC_MB_MGR:211:vaesgcm_init_ipsec_mb_mgr
-QAT_F_VAESGCM_INIT_KEY:212:vaesgcm_init_key
+QAT_F_QAT_SHA3_COPY:192:qat_sha3_copy
+QAT_F_QAT_SHA3_CTRL:193:qat_sha3_ctrl
+QAT_F_QAT_SHA3_FINAL:194:qat_sha3_final
+QAT_F_QAT_SHA3_SESSION_DATA_INIT:195:qat_sha3_session_data_init
+QAT_F_QAT_SHA3_SETUP_PARAM:196:qat_sha3_setup_param
+QAT_F_QAT_SHA3_UPDATE:197:qat_sha3_update
+QAT_F_QAT_SM4_CBC_CLEANUP:198:qat_sm4_cbc_cleanup
+QAT_F_QAT_SM4_CBC_DO_CIPHER:199:qat_sm4_cbc_do_cipher
+QAT_F_QAT_SM4_CBC_INIT:200:qat_sm4_cbc_init
+QAT_F_QAT_SW_SM3_FINAL:201:qat_sw_sm3_final
+QAT_F_QAT_SW_SM3_INIT:202:qat_sw_sm3_init
+QAT_F_QAT_SW_SM3_UPDATE:203:qat_sw_sm3_update
+QAT_F_QAT_SYM_PERFORM_OP:204:qat_sym_perform_op
+QAT_F_QAT_VALIDATE_ECX_DERIVE:205:qat_validate_ecx_derive
+QAT_F_QAT_X25519_PMETH:206:qat_x25519_pmeth
+QAT_F_QAT_X448_PMETH:207:qat_x448_pmeth
+QAT_F_VAESGCM_CIPHERS_CTRL:208:vaesgcm_ciphers_ctrl
+QAT_F_VAESGCM_CIPHERS_DO_CIPHER:209:vaesgcm_ciphers_do_cipher
+QAT_F_VAESGCM_CIPHERS_INIT:210:vaesgcm_ciphers_init
+QAT_F_VAESGCM_INIT_GCM:211:vaesgcm_init_gcm
+QAT_F_VAESGCM_INIT_IPSEC_MB_MGR:212:vaesgcm_init_ipsec_mb_mgr
+QAT_F_VAESGCM_INIT_KEY:213:vaesgcm_init_key
 
 #Reason codes
 QAT_R_AAD_INVALID_PTR:100:aad invalid ptr

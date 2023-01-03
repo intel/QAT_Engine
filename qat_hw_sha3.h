@@ -59,6 +59,10 @@
 # define SHA3_BLOCKSIZE(bitlen) (KECCAK1600_WIDTH - bitlen * 2) / 8
 
 typedef struct {
+    uint64_t A[5][5];
+    size_t block_size;          /* cached ctx->digest->block_size */
+    size_t md_size;             /* output length, variable in XOF */
+
     void *sw_ctx_sha3_data;
     int inst_num;
     int context_params_set;
@@ -73,9 +77,6 @@ typedef struct {
     CpaFlatBuffer dst_buffer[2];
     int  hash_alg;
     int dgst_res_len;
-    uint64_t A[5][5];
-    size_t block_size;          /* cached ctx->digest->block_size */
-    size_t md_size;             /* output length, variable in XOF */
     size_t digest_size;
     unsigned char digest_data[EVP_MAX_MD_SIZE];
     size_t packet_size;

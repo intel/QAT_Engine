@@ -86,6 +86,9 @@ static int qat_keccak_init(void *vctx, ossl_unused const OSSL_PARAM params[])
     memset(ctx->A, 0, sizeof(ctx->A));
     ctx->bufsz = 0;
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+    if (!EVP_MD_up_ref(ctx->sw_md))
+        return 0;
+
     if (EVP_DigestInit(ctx->sw_md_ctx, ctx->sw_md) != 1) {
         WARN("EVP_DigestInit failed.\n");
         return 0;
@@ -120,6 +123,8 @@ static int qat_keccak_final(void *vctx, unsigned char *out, size_t *outl,
 
     if (!qat_prov_is_running())
         return 0;
+
+    *outl = ctx->md_size;
     if (outsz > 0){
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
         if(ctx->qctx->packet_size <=
@@ -134,7 +139,6 @@ static int qat_keccak_final(void *vctx, unsigned char *out, size_t *outl,
 #endif
     }
 
-    *outl = ctx->md_size;
     return ret;
 }
 
@@ -290,6 +294,8 @@ static void *qat_##name##_newctx(void *provctx)                                 
     ctx->sw_md = EVP_MD_fetch(NULL, sha_name, "provider=default");                 \
     if (ctx->sw_md == NULL)                                                        \
         WARN("EVP_MD_fetch failed.\n");                                            \
+    if (!EVP_MD_up_ref(ctx->sw_md))                                                \
+        return NULL;                                                               \
     return ctx;                                                                    \
 }
 #else

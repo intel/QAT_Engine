@@ -88,6 +88,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx);
 static int qat_sha3_cleanup(EVP_MD_CTX *ctx);
 static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len);
 static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md);
+static int qat_sha3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from);
 static int qat_get_hash_alg_data(EVP_MD_CTX *ctx, qat_sha3_ctx *sha3_ctx);
 static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1,void *p2);
 static int qat_get_sha3_block_size(int nid);
@@ -150,7 +151,7 @@ const EVP_MD *qat_create_sha3_meth(int nid , int key_type)
         res &= EVP_MD_meth_set_init(c, qat_sha3_init);
         res &= EVP_MD_meth_set_update(c, qat_sha3_update);
         res &= EVP_MD_meth_set_final(c, qat_sha3_final);
-        res &= EVP_MD_meth_set_cleanup(c, qat_sha3_cleanup);
+        res &= EVP_MD_meth_set_copy(c, qat_sha3_copy);
         res &= EVP_MD_meth_set_ctrl(c, qat_sha3_ctrl);
 
         if (0 == res) {
@@ -779,6 +780,13 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
 
     memset(sha3_ctx->digest_data, 0x00, sha3_ctx->md_size);
 
+#ifndef QAT_OPENSSL_PROVIDER
+    if (!qat_sha3_cleanup(ctx)) {
+        WARN("qat_sha3_cleanup failed\n");
+        QATerr(QAT_F_QAT_SHA3_FINAL, ERR_R_INTERNAL_ERROR);
+        return 0;
+    }
+#endif
     return ret;
 }
 
@@ -1016,4 +1024,48 @@ err:
     sha3_ctx->opd->pDigestResult = NULL;
     return outlen;
 }
+
+#ifndef QAT_OPENSSL_PROVIDER
+static int qat_sha3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
+{
+    qat_sha3_ctx *qat_from, *qat_to;
+
+    if (NULL == from || NULL == to) {
+        WARN("Either from %p or to %p is NULL\n", from, to);
+        QATerr(QAT_F_QAT_SHA3_COPY, QAT_R_CTX_NULL);
+        return 0;
+    }
+
+    if (EVP_MD_CTX_md_data(from) == 0) {
+        WARN("digest copy without md_data\n");
+        return 1;
+    }
+    qat_from = QAT_SHA3_GET_CTX(from);
+    qat_to = QAT_SHA3_GET_CTX(to);
+
+    if (NULL == qat_from || NULL == qat_to) {
+        WARN("Either qat_from %p or qat_to %p is NULL\n", qat_from, qat_to);
+        QATerr(QAT_F_QAT_SHA3_COPY, QAT_R_SHA3_CTX_NULL);
+        return 0;
+    }
+
+    qat_to->pSrcBufferList.numBuffers = 1;
+    qat_to->pDstBufferList.numBuffers = 1;
+
+    if (qat_from->pSrcBufferList.pPrivateMetaData &&  qat_from->pDstBufferList.pPrivateMetaData) {
+        qat_to->pSrcBufferList.pPrivateMetaData = qat_from->pSrcBufferList.pPrivateMetaData;
+        qat_to->pDstBufferList.pPrivateMetaData = qat_from->pDstBufferList.pPrivateMetaData;
+    } else {
+        qat_to->pSrcBufferList.pPrivateMetaData = NULL;
+        qat_to->pDstBufferList.pPrivateMetaData = NULL;
+    }
+
+    qat_to->pDstBufferList.pUserData = NULL;
+    qat_to->pSrcBufferList.pUserData = NULL;
+    qat_to->pSrcBufferList.pBuffers = qat_to->src_buffer;
+    qat_to->pDstBufferList.pBuffers = qat_to->dst_buffer;
+
+    return 1;
+}
+#endif
 #endif
