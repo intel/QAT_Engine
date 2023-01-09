@@ -138,6 +138,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_INVALID_CTRL_TYPE), "invalid ctrl type"},
     {ERR_PACK(0, 0, QAT_R_INVALID_CURVE), "invalid curve"},
     {ERR_PACK(0, 0, QAT_R_INVALID_HASH_DATA), "invalid hash data"},
+    {ERR_PACK(0, 0, QAT_R_INVALID_INPUT), "invalid input"},
     {ERR_PACK(0, 0, QAT_R_INVALID_INPUT_LENGTH), "invalid input length"},
     {ERR_PACK(0, 0, QAT_R_INVALID_INPUT_PARAMETER), "invalid input parameter"},
     {ERR_PACK(0, 0, QAT_R_INVALID_IVLEN), "invalid ivlen"},
