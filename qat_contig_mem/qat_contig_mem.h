@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only
- * Copyright (C) 2007-2022 Intel Corporation */
+ * Copyright (C) 2007-2023 Intel Corporation */
 
 #ifndef __QAT_CONTIG_MEM_H
 # define __QAT_CONTIG_MEM_H
