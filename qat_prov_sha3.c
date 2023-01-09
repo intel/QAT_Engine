@@ -76,6 +76,7 @@ static OSSL_FUNC_digest_final_fn qat_keccak_final;
 static OSSL_FUNC_digest_freectx_fn qat_keccak_freectx;
 static OSSL_FUNC_digest_dupctx_fn qat_keccak_dupctx;
 
+
 static int qat_keccak_init(void *vctx, ossl_unused const OSSL_PARAM params[])
 {
     QAT_KECCAK1600_CTX *ctx = (QAT_KECCAK1600_CTX *)vctx;
@@ -88,11 +89,6 @@ static int qat_keccak_init(void *vctx, ossl_unused const OSSL_PARAM params[])
 #ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
     if (!EVP_MD_up_ref(ctx->sw_md))
         return 0;
-
-    if (EVP_DigestInit(ctx->sw_md_ctx, ctx->sw_md) != 1) {
-        WARN("EVP_DigestInit failed.\n");
-        return 0;
-    }
 #endif
     if (!qat_sha3_init(ctx)){
         WARN("QAT sha3 ctx init failed!\n");
@@ -104,15 +100,11 @@ static int qat_keccak_init(void *vctx, ossl_unused const OSSL_PARAM params[])
 static int qat_keccak_update(void *vctx, const unsigned char *inp, size_t len)
 {
     QAT_KECCAK1600_CTX *ctx = vctx;
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-    if (len <= qat_pkt_threshold_table_get_threshold(ctx->md_type)) {
-        return EVP_DigestUpdate(ctx->sw_md_ctx, inp, len);
-    } else {
-        return qat_sha3_update(ctx, inp, len);
-    }
-#else
+
+    if (!qat_prov_is_running())
+        return 0;
+
     return qat_sha3_update(ctx, inp, len);
-#endif
 }
 
 static int qat_keccak_final(void *vctx, unsigned char *out, size_t *outl,
@@ -126,17 +118,7 @@ static int qat_keccak_final(void *vctx, unsigned char *out, size_t *outl,
 
     *outl = ctx->md_size;
     if (outsz > 0){
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-        if(ctx->qctx->packet_size <=
-           CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT ) {
-            unsigned int digest_length = EVP_MD_get_size(ctx->sw_md);
-            return EVP_DigestFinal(ctx->sw_md_ctx, out, &digest_length);
-        } else {
-            ret = qat_sha3_final(ctx, out);
-        }
-#else
         ret = qat_sha3_final(ctx, out);
-#endif
     }
 
     return ret;
@@ -168,13 +150,6 @@ static void qat_keccak_freectx(void *vctx)
     if (!qat_sha3_cleanup(ctx)){
         WARN("qat sha3 ctx cleanup failed.\n");
     }
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-    EVP_MD_CTX_free(ctx->sw_md_ctx);
-    EVP_MD_free(ctx->sw_md);
-    ctx->sw_md_ctx = NULL;
-    ctx->sw_md = NULL;
-#endif
-    OPENSSL_clear_free(ctx->qctx, sizeof(qat_sha3_ctx));
     OPENSSL_clear_free(ctx,  sizeof(*ctx));
 }
 
@@ -184,6 +159,8 @@ static void *qat_keccak_dupctx(void *ctx)
     QAT_KECCAK1600_CTX *ret = qat_prov_is_running() ?
                                 OPENSSL_malloc(sizeof(*ret))
                                 : NULL;
+
+    qat_sha3_copy(ret, in);
 
     if (ret != NULL)
         *ret = *in;
