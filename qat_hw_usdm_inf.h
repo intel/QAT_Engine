@@ -39,13 +39,13 @@
 /*****************************************************************************
  * @file qat_hw_usdm_inf.h
  *
- * This file provides an interface to a memory driver that supplies contig
+ * This file provides an interface to USDM memory driver that supplies contig
  * pinned memory.
  *
  *****************************************************************************/
 
-#ifndef CMN_MEM_DRV_INF_H
-# define CMN_MEM_DRV_INF_H
+#ifndef USDM_MEM_DRV_INF_H
+# define USDM_MEM_DRV_INF_H
 
 # include <stdio.h>
 # include <pthread.h>
@@ -98,4 +98,4 @@ void *copyAllocPinnedMemoryClean(void *ptr, size_t size, size_t original_size,
                                  const char *file, int line);
 int copyFreePinnedMemory(void *uptr, void *kptr, int size);
 
-#endif                          /* CMN_MEM_DRV_INF_H */
+#endif /* USDM_MEM_DRV_INF_H */
