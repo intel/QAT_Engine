@@ -53,9 +53,7 @@
 
 #define unlikely(x) __builtin_expect (!!(x), 0)
 
-static pthread_mutex_t mem_mutex = PTHREAD_MUTEX_INITIALIZER;
 static int crypto_inited = 0;
-
 
 static void crypto_init(void)
 {
@@ -65,11 +63,8 @@ static void crypto_init(void)
     crypto_inited = 1;
 }
 
-
 void qaeCryptoMemFree(void *ptr)
 {
-    int rc;
-
     MEM_DEBUG("Address: %p\n", ptr);
 
     if (unlikely(NULL == ptr)) {
@@ -77,25 +72,11 @@ void qaeCryptoMemFree(void *ptr)
         return;
     }
 
-    MEM_DEBUG("pthread_mutex_lock\n");
-    if ((rc = pthread_mutex_lock(&mem_mutex)) != 0) {
-        MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
-        return;
-    }
-
     qaeMemFreeNUMA(&ptr);
-
-    if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
-        MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
-        return;
-    }
-    MEM_DEBUG("pthread_mutex_unlock\n");
 }
 
 void qaeCryptoMemFreeNonZero(void *ptr)
 {
-    int rc;
-
     MEM_DEBUG("Address: %p\n", ptr);
 
     if (unlikely(NULL == ptr)) {
@@ -103,45 +84,24 @@ void qaeCryptoMemFreeNonZero(void *ptr)
         return;
     }
 
-    MEM_DEBUG("pthread_mutex_lock\n");
-    if ((rc = pthread_mutex_lock(&mem_mutex)) != 0) {
-        MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
-        return;
-    }
 #ifdef QAT_HW_DISABLE_NONZERO_MEMFREE
     qaeMemFreeNUMA(&ptr);
 #else
     qaeMemFreeNonZeroNUMA(&ptr);
 #endif
-    if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
-        MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
-        return;
-    }
-    MEM_DEBUG("pthread_mutex_unlock\n");
 }
 
 void *qaeCryptoMemAlloc(size_t memsize, const char *file, int line)
 {
     /* Input params should already have been sanity-checked by calling function. */
-    int rc;
     void *pAddress = NULL;
 
     if (!crypto_inited)
         crypto_init();
 
-    MEM_DEBUG("pthread_mutex_lock\n");
-    if ((rc = pthread_mutex_lock(&mem_mutex)) != 0) {
-        MEM_WARN("pthread_mutex_lock: %s\n", strerror(rc));
-        return NULL;
-    }
-
     pAddress = qaeMemAllocNUMA(memsize, NUMA_ANY_NODE, QAT_BYTE_ALIGNMENT);
     MEM_DEBUG("Address: %p Size: %zd File: %s:%d\n", pAddress,
-          memsize, file, line);
-    if ((rc = pthread_mutex_unlock(&mem_mutex)) != 0) {
-        MEM_WARN("pthread_mutex_unlock: %s\n", strerror(rc));
-    }
-    MEM_DEBUG("pthread_mutex_unlock\n");
+               memsize, file, line);
     return pAddress;
 }
 
@@ -152,9 +112,9 @@ void *qaeCryptoMemRealloc(void *ptr, size_t memsize, const char *file,
 
     /* copyAllocPinnedMemory() will check the input params. */
     nptr = copyAllocPinnedMemory(ptr, memsize, file, line);
-    if (nptr) {
+    if (nptr)
         qaeCryptoMemFree(ptr);
-    }
+
     return nptr;
 }
 
@@ -167,9 +127,9 @@ void *qaeCryptoMemReallocClean(void *ptr, size_t memsize,
     /* copyAllocPinnedMemoryClean() checks the input params. */
     nptr =
         copyAllocPinnedMemoryClean(ptr, memsize, original_size, file, line);
-    if (nptr) {
+    if (nptr)
         qaeCryptoMemFree(ptr);
-    }
+
     return nptr;
 }
 
