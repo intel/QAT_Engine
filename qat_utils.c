@@ -97,6 +97,26 @@ rdtsc_prof_t sm3_cycles_final_setup;
 rdtsc_prof_t sm3_cycles_final_execute;
 rdtsc_prof_t ecdsa_cycles_verify_setup;
 rdtsc_prof_t ecdsa_cycles_verify_execute;
+rdtsc_prof_t sm4_gcm_cycles_init_setup;
+rdtsc_prof_t sm4_gcm_cycles_init_execute;
+rdtsc_prof_t sm4_gcm_cycles_encrypt_setup;
+rdtsc_prof_t sm4_gcm_cycles_encrypt_execute;
+rdtsc_prof_t sm4_gcm_cycles_decrypt_setup;
+rdtsc_prof_t sm4_gcm_cycles_decrypt_execute;
+rdtsc_prof_t sm4_gcm_cycles_get_tag_setup;
+rdtsc_prof_t sm4_gcm_cycles_get_tag_execute;
+rdtsc_prof_t sm4_gcm_cycles_update_iv_setup;
+rdtsc_prof_t sm4_gcm_cycles_update_iv_execute;
+rdtsc_prof_t sm4_gcm_cycles_update_aad_setup;
+rdtsc_prof_t sm4_gcm_cycles_update_aad_execute;
+rdtsc_prof_t sm4_gcm_cycles_cipher_setup;
+rdtsc_prof_t sm4_gcm_cycles_cipher_execute;
+rdtsc_prof_t sm4_gcm_cycles_ctrl_setup;
+rdtsc_prof_t sm4_gcm_cycles_ctrl_execute;
+rdtsc_prof_t sm4_gcm_cycles_cleanup_setup;
+rdtsc_prof_t sm4_gcm_cycles_cleanup_execute;
+rdtsc_prof_t sm4_cbc_cycles_cipher_execute;
+rdtsc_prof_t sm4_cbc_cycles_cipher_dec_execute;
 
 volatile static double rdtsc_prof_cost = 0.0; /* cost of measurement */
 int print_cycle_count = 1;

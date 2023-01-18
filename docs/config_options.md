@@ -193,6 +193,11 @@ The following is a list of the options that can be used with the
     This flag is valid only when QAT SW acceleration is enabled using the flag
     '--enable-qat_sw' (enabled by default if qat_sw is enabled).
 
+--disable-qat_sw_sm4_cbc/--enable-qat_sw_sm4_cbc
+    Disable/Enable Intel(R) QAT Software SM4-CBC acceleration.
+    This flag is valid only when QAT SW acceleration is enabled using the flag
+    '--enable-qat_sw' (disabled by default if qat_sw is enabled).
+
 --disable-qat_sw_sm3/--enable-qat_sw_sm3
     Disable/Enable Intel(R) QAT Software SM3 acceleration.
     This flag is valid only when QAT SW acceleration is enabled using the flag

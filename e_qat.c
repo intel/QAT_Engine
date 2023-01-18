@@ -110,6 +110,7 @@
 # include "qat_sw_ec.h"
 # include "qat_sw_polling.h"
 # include "crypto_mb/cpu_features.h"
+# include "crypto_mb/sm4.h"
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -178,6 +179,7 @@ int qat_hw_sm4_cbc_offload = 0;
 int qat_sw_sm2_offload = 0;
 int qat_hw_sha_offload = 0;
 int qat_sw_sm3_offload = 0;
+int qat_sw_sm4_cbc_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -421,7 +423,8 @@ static int qat_engine_destroy(ENGINE *e)
 #endif /* QAT_BORINGSSL */
 #endif
 
-#if defined(QAT_SW_IPSEC) || defined(QAT_HW)
+#if defined(QAT_SW_IPSEC) || defined(QAT_HW) \
+    || defined(ENABLE_QAT_SW_SM4_CBC)
 #ifndef QAT_BORINGSSL
     qat_free_ciphers();
 #endif
@@ -439,6 +442,7 @@ static int qat_engine_destroy(ENGINE *e)
     qat_sw_ecx_offload = 0;
     qat_sw_sm2_offload = 0;
     qat_sw_sm3_offload = 0;
+    qat_sw_sm4_cbc_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
@@ -754,9 +758,12 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         DEBUG("Get number of crypto instances = %d\n", qat_num_instances);
         *(int *)p = qat_num_instances;
         break;
+#endif /* QAT_BORINGSSL */
+#endif
 
+#ifndef QAT_BORINGSSL
         case QAT_CMD_SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD:
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
         if (p != NULL) {
             char *token;
             char str_p[QAT_MAX_INPUT_STRING_LENGTH];
@@ -784,7 +791,6 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 # endif
         break;
 #endif /* QAT_BORINGSSL */
-#endif
 
         case QAT_CMD_ENABLE_HEURISTIC_POLLING:
         BREAK_IF(engine_inited,
@@ -1016,7 +1022,8 @@ static int bind_qat(ENGINE *e, const char *id)
 #ifdef QAT_SW
 # if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)    \
   || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA) \
-  || defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_SW_SM3)
+  || defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_SW_SM3) \
+  || defined(ENABLE_QAT_SW_SM4_CBC)
         DEBUG("Registering QAT SW supported algorithms\n");
         qat_sw_offload = 1;
 # endif
@@ -1066,7 +1073,8 @@ static int bind_qat(ENGINE *e, const char *id)
       * as this function will be called by a single thread. */
      qat_create_ciphers();
 
-#if defined(QAT_HW) || defined(QAT_SW_IPSEC)
+#if defined(QAT_HW) || defined(QAT_SW_IPSEC) \
+    || defined(ENABLE_QAT_SW_SM4_CBC)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
         goto end;

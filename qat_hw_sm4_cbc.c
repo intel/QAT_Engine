@@ -97,50 +97,6 @@ static const CpaCySymOpData template_opData = {
     .pAdditionalAuthData = NULL
 };
 
-const EVP_CIPHER *qat_create_sm4_cipher_meth(int nid, int keylen)
-{
-    EVP_CIPHER *c = NULL;
-    int res = 1;
-
-    if (qat_hw_offload &&
-        (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_SM4)) {
-        if ((c = EVP_CIPHER_meth_new(nid, SM4_BLOCK_SIZE, keylen)) == NULL) {
-            WARN("Failed to allocate cipher methods for nid %d\n", nid);
-            QATerr(QAT_F_QAT_CREATE_SM4_CIPHER_METH, QAT_R_SM4_MALLOC_FAILED);
-            return NULL;
-        }
-
-        res &= EVP_CIPHER_meth_set_iv_length(c, SM4_CBC_IV_LEN);
-        res &= EVP_CIPHER_meth_set_flags(c, QAT_CBC_FLAGS);
-        res &= EVP_CIPHER_meth_set_init(c, qat_sm4_cbc_init);
-        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sm4_cbc_do_cipher);
-        res &= EVP_CIPHER_meth_set_cleanup(c, qat_sm4_cbc_cleanup);
-        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_sm4_ctx));
-        res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                NULL : EVP_CIPHER_set_asn1_iv);
-        res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
-                                                NULL : EVP_CIPHER_get_asn1_iv);
-        /* SM4 CBC has no ctrl function. */
-        res &= EVP_CIPHER_meth_set_ctrl(c, NULL);
-
-        if (res == 0) {
-            WARN("Failed to set SM4 methods for nid %d\n", nid);
-            QATerr(QAT_F_QAT_CREATE_SM4_CIPHER_METH, QAT_R_SM4_SET_METHODS_FAILED);
-            EVP_CIPHER_meth_free(c);
-            c = NULL;
-        }
-
-        qat_hw_sm4_cbc_offload = 1;
-        DEBUG("QAT HW SM4_CBC registration succeeded\n");
-        return c;
-    }
-    else {
-        qat_hw_sm4_cbc_offload = 0;
-        DEBUG("QAT HW SM4_CBC is disabled, using OpenSSL SW\n");
-        return EVP_sm4_cbc();
-    }
-}
-
 static inline void qat_sm4_cbc_free_op(qat_sm4_op_params *op)
 {
     if (op == NULL) return;
@@ -587,7 +543,7 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
     ivlen = EVP_CIPHER_CTX_iv_length(ctx);
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (len <= qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         retVal = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_cbc())(ctx, out, in, len);
@@ -733,7 +689,7 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         DEBUG("Decryption succeeded.\n");
     }
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 cleanup:
 #endif
 fallback:

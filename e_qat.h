@@ -349,6 +349,22 @@ typedef struct {
 # endif
 
 /*
+ * SM4 can handle processing upto 16 requests while others can handle
+ * upto 8 requests only
+ */
+# ifndef MULTIBUFF_SM4_BATCH
+#  define MULTIBUFF_SM4_BATCH 16
+# endif
+
+# ifndef MULTIBUFF_SM4_MIN_BATCH
+#  define MULTIBUFF_SM4_MIN_BATCH 16
+# endif
+
+# ifndef MULTIBUFF_SM4_MAX_BATCH
+#  define MULTIBUFF_SM4_MAX_BATCH 16
+# endif
+
+/*
  * Max number of multi-buffer Polling threads
  */
 # define NUM_POLL_THREADS 128
@@ -394,6 +410,7 @@ extern int qat_sw_gcm_offload;
 extern int qat_sw_sm2_offload;
 extern int qat_hw_sha_offload;
 extern int qat_sw_sm3_offload;
+extern int qat_sw_sm4_cbc_offload;
 extern int qat_keep_polling;
 extern int multibuff_keep_polling;
 extern int enable_external_polling;

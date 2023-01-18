@@ -384,7 +384,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
     sha3_ctx->session_init = 0;
 
 #ifndef QAT_OPENSSL_PROVIDER
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     /* Update the software init data */
     KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
     size_t bsz = EVP_MD_CTX_block_size(ctx);
@@ -984,7 +984,7 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
         return -1;
     }
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     /* Another way to get threshold is qat_pkt_threshold_table_get_threshold */
     if (sha3_ctx->rcv_count < CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT) {
         int ret = 0;

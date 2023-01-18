@@ -175,6 +175,8 @@ static inline const EVP_CIPHER *qat_chained_cipher_sw_impl(int nid)
             return EVP_aes_128_cbc_hmac_sha256();
         case NID_aes_256_cbc_hmac_sha256:
             return EVP_aes_256_cbc_hmac_sha256();
+        case NID_sm4_cbc:
+            return EVP_sm4_cbc();
         default:
             WARN("Invalid nid %d\n", nid);
             return NULL;
@@ -612,7 +614,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     }
 
 #ifdef QAT_OPENSSL_PROVIDER
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     sw_cipher = EVP_CIPHER_fetch(NULL,
                             qat_get_cipher_name_from_nid(ctx->nid),
                             "provider=default");
@@ -1104,7 +1106,7 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
         qctx->sw_ctx_cipher_data = NULL;
     }
 #ifdef QAT_OPENSSL_PROVIDER
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     EVP_CIPHER_free(ctx->sw_cipher);
     EVP_CIPHER_CTX_free(ctx->sw_ctx);
 # else
@@ -1339,7 +1341,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             return -1;
         }
     } else {
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 # ifdef QAT_OPENSSL_PROVIDER
         int threshold_val = qat_pkt_threshold_table_get_threshold(ctx->nid);
         //threshold_val = 0; // in qatengine with openssl ver1.1.1, this value is always 0. Why?
@@ -1731,7 +1733,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                outb + buflen - discardlen - ivlen, ivlen);
 #endif
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 cleanup:
 #endif
 fallback:

@@ -867,10 +867,10 @@ static void handle_option(int argc, char *argv[], int *index)
         test_alg = TEST_PRF;
     else if (!strcmp(option, "sm3"))
         test_alg = TEST_SM3;
-    else if (!strcmp(option, "hkdf"))
-        test_alg = TEST_HKDF;
     else if (!strcmp(option, "sm4_cbc"))
         test_alg = TEST_SM4_CBC;
+    else if (!strcmp(option, "hkdf"))
+        test_alg = TEST_HKDF;
     else if (!strcmp(option, "chachapoly")) {
         test_alg = TEST_CHACHA20_POLY1305;
         test_size = 4096;

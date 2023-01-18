@@ -93,7 +93,8 @@ if QAT_SW
               qat_sw_ecx.c      \
               qat_sw_ec.c       \
               qat_sw_sm2.c      \
-              qat_sw_sm3.c
+              qat_sw_sm3.c      \
+              qat_sw_sm4_cbc.c
 endif
 
 if QAT_SW_IPSEC
@@ -145,27 +146,27 @@ AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)     \
               $(includes_qat_hw) $(includes_qat_sw_crypto_mb) \
               $(includes_qat_sw_ipsec_mb)
 
-AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)      \
-            $(cflags_mem_driver) $(cflags_openssl_3)                 \
-            $(cflags_boringssl)                                      \
-            $(cflags_qat_engine_id) $(cflags_qat_hw_intree)          \
-            $(cflags_qat_hw) $(cflags_qat_sw) $(cflags_qat_sw_ipsec) \
-            $(cflags_qat_rsa) $(cflags_qat_ecx) $(cflags_qat_ecdsa)  \
-            $(cflags_qat_ecdh) $(cflags_qat_gcm) $(enable_qat_hw_dh) \
-            $(enable_qat_hw_dsa) $(enable_qat_hw_ciphers)            \
-            $(enable_qat_hw_prf) $(enable_qat_hw_hkdf)               \
-            $(enable_qat_hw_sha3) $(enable_qat_hw_chachapoly)        \
-            $(enable_qat_sw_sm2) $(enable_qat_sw_sm3)                \
-            $(enable_qat_hw_small_pkt_offload)                       \
-            $(enable_qat_hw_lenstra_protection)                      \
-            $(enable_qat_hw_lenstra_verify_hw)                       \
-            $(enable_qat_sw_heuristic_timeout)                       \
-            $(enable_qat_auto_engine_init_on_fork)                   \
-            $(enable_qat_debug) $(enable_qat_warnings)               \
-            $(enable_qat_mem_debug) $(enable_qat_mem_warnings)       \
-            $(enable_qat_cycle_counts) $(enable_qat_hw_sm4_cbc)      \
+AM_CFLAGS = $(cflags) $(cflags_cc_opt) $(cflags_qat_debug_file)       \
+            $(cflags_mem_driver) $(cflags_openssl_3)                  \
+            $(cflags_boringssl)                                       \
+            $(cflags_qat_engine_id) $(cflags_qat_hw_intree)           \
+            $(cflags_qat_hw) $(cflags_qat_sw) $(cflags_qat_sw_ipsec)  \
+            $(cflags_qat_rsa) $(cflags_qat_ecx) $(cflags_qat_ecdsa)   \
+            $(cflags_qat_ecdh) $(cflags_qat_gcm) $(cflags_qat_sm4_cbc)\
+            $(enable_qat_hw_dh) $(enable_qat_hw_dsa)                  \
+            $(enable_qat_hw_ciphers)                                  \
+            $(enable_qat_hw_prf) $(enable_qat_hw_hkdf)                \
+            $(enable_qat_hw_sha3) $(enable_qat_hw_chachapoly)         \
+            $(enable_qat_sw_sm2) $(enable_qat_sw_sm3)                 \
+            $(enable_qat_small_pkt_offload)                           \
+            $(enable_qat_hw_lenstra_protection)                       \
+            $(enable_qat_hw_lenstra_verify_hw)                        \
+            $(enable_qat_sw_heuristic_timeout)                        \
+            $(enable_qat_auto_engine_init_on_fork)                    \
+            $(enable_qat_debug) $(enable_qat_warnings)                \
+            $(enable_qat_mem_debug) $(enable_qat_mem_warnings)        \
+            $(enable_qat_cycle_counts)                                \
             $(enable_qat_hw_set_inst_thread)
-
 
 @LIBQATNAME@_la_LDFLAGS = -module -no-undefined -avoid-version       \
                           -shared $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB) \

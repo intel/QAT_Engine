@@ -275,6 +275,15 @@ typedef struct _mb_queue_sm3_final
     int disabled;
 } mb_queue_sm3_final;
 
+typedef struct _mb_queue_sm4_cbc_cipher
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm4_cbc_cipher_op_data *head;
+    sm4_cbc_cipher_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm4_cbc_cipher;
+
 mb_queue_rsa2k_priv * mb_queue_rsa2k_priv_create();
 int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv * queue);
 int mb_queue_rsa2k_priv_cleanup(mb_queue_rsa2k_priv * queue);
@@ -430,7 +439,7 @@ int mb_queue_ecdhp384_compute_enqueue(mb_queue_ecdhp384_compute *queue,
 ecdh_compute_op_data
     *mb_queue_ecdhp384_compute_dequeue(mb_queue_ecdhp384_compute *queue);
 int mb_queue_ecdhp384_compute_get_size(mb_queue_ecdhp384_compute *queue);
-//SM3 Init
+/* SM3 Init */
 mb_queue_sm3_init * mb_queue_sm3_init_create();
 int mb_queue_sm3_init_disable(mb_queue_sm3_init * queue);
 int mb_queue_sm3_init_cleanup(mb_queue_sm3_init * queue);
@@ -440,7 +449,7 @@ sm3_init_op_data
     *mb_queue_sm3_init_dequeue(mb_queue_sm3_init *queue);
 int mb_queue_sm3_init_get_size(mb_queue_sm3_init *queue);
 
-//SM3 update
+/* SM3 update */
 mb_queue_sm3_update * mb_queue_sm3_update_create();
 int mb_queue_sm3_update_disable(mb_queue_sm3_update * queue);
 int mb_queue_sm3_update_cleanup(mb_queue_sm3_update * queue);
@@ -450,7 +459,7 @@ sm3_update_op_data
     *mb_queue_sm3_update_dequeue(mb_queue_sm3_update *queue);
 int mb_queue_sm3_update_get_size(mb_queue_sm3_update *queue);
 
-//SM3 Final
+/* SM3 Final */
 mb_queue_sm3_final * mb_queue_sm3_final_create();
 int mb_queue_sm3_final_disable(mb_queue_sm3_final * queue);
 int mb_queue_sm3_final_cleanup(mb_queue_sm3_final * queue);
@@ -495,4 +504,18 @@ int mb_queue_ecdsa_sm2_verify_enqueue(mb_queue_ecdsa_sm2_verify *queue,
 ecdsa_sm2_verify_op_data
     *mb_queue_ecdsa_sm2_verify_dequeue(mb_queue_ecdsa_sm2_verify *queue);
 int mb_queue_ecdsa_sm2_verify_get_size(mb_queue_ecdsa_sm2_verify *queue);
+
+/* SM4_CBC cipher */
+mb_queue_sm4_cbc_cipher * mb_queue_sm4_cbc_cipher_create();
+int mb_queue_sm4_cbc_cipher_disable(mb_queue_sm4_cbc_cipher * queue);
+int mb_queue_sm4_cbc_cipher_cleanup(mb_queue_sm4_cbc_cipher * queue);
+int mb_queue_sm4_cbc_cipher_enqueue(mb_queue_sm4_cbc_cipher *queue,
+                                  sm4_cbc_cipher_op_data *item);
+sm4_cbc_cipher_op_data
+    *mb_queue_sm4_cbc_cipher_dequeue(mb_queue_sm4_cbc_cipher *queue);
+int mb_queue_sm4_cbc_cipher_get_size(mb_queue_sm4_cbc_cipher *queue);
+int mb_queue_sm4_cbc_cipher_dec_disable(mb_queue_sm4_cbc_cipher * queue);
+int mb_queue_sm4_cbc_cipher_dec_cleanup(mb_queue_sm4_cbc_cipher * queue);
+sm4_cbc_cipher_op_data
+    *mb_queue_sm4_cbc_cipher_dec_dequeue(mb_queue_sm4_cbc_cipher *queue);
 #endif /* QAT_SW_QUEUE_H */
