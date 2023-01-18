@@ -136,6 +136,12 @@ typedef struct _mb_flist_sm3_final
     sm3_final_op_data *head;
 } mb_flist_sm3_final;
 
+typedef struct _mb_flist_sm4_cbc_cipher
+{
+    pthread_mutex_t mb_flist_mutex;
+    sm4_cbc_cipher_op_data *head;
+} mb_flist_sm4_cbc_cipher;
+
 typedef struct _mb_thread_data{
     pthread_t polling_thread;
     int keep_polling;
@@ -197,6 +203,11 @@ typedef struct _mb_thread_data{
     mb_queue_sm3_update *sm3_update_queue;
     mb_queue_sm3_final *sm3_final_queue;
 
+    /* SM4_CBC */
+    mb_flist_sm4_cbc_cipher *sm4_cbc_cipher_freelist;
+    mb_flist_sm4_cbc_cipher *sm4_cbc_cipher_dec_freelist;
+    mb_queue_sm4_cbc_cipher *sm4_cbc_cipher_queue;
+    mb_queue_sm4_cbc_cipher *sm4_cbc_cipher_dec_queue;
 } mb_thread_data;
 
 mb_flist_rsa_priv * mb_flist_rsa_priv_create();
@@ -286,4 +297,10 @@ int mb_flist_sm3_final_push(mb_flist_sm3_final *freelist,
                                sm3_final_op_data *item);
 sm3_final_op_data *mb_flist_sm3_final_pop(mb_flist_sm3_final *flist);
 
+mb_flist_sm4_cbc_cipher * mb_flist_sm4_cbc_cipher_create();
+int mb_flist_sm4_cbc_cipher_cleanup(mb_flist_sm4_cbc_cipher *freelist);
+int mb_flist_sm4_cbc_cipher_push(mb_flist_sm4_cbc_cipher *freelist,
+                               sm4_cbc_cipher_op_data *item);
+sm4_cbc_cipher_op_data
+    *mb_flist_sm4_cbc_cipher_pop(mb_flist_sm4_cbc_cipher *flist);
 #endif /* QAT_SW_FREELIST_H */

@@ -38,7 +38,7 @@ and the bit map of each algorithm is defined below:
 | SM2(ECDSA) | 0x0200 | SW |
 | AES_GCM | 0x0400 | Both (SW > HW) |
 | AES_CBC_HMAC_SHA | 0x0800 | HW |
-| SM4 | 0x1000 | SW |
+| SM4_CBC | 0x1000 | Both (HW > SW) |
 | CHACHA_POLY | 0x2000 | HW |
 | SHA3 | 0x4000 | HW |
 | SM3 | 0x8000 | SW |

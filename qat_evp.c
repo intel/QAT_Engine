@@ -83,12 +83,19 @@
 # endif /* QAT_BORINGSSL */
 # include "qat_sw_ec.h"
 # include "qat_sw_rsa.h"
+# include "qat_sw_sm3.h"
+# include "qat_sw_sm4_cbc.h"
+# include "crypto_mb/sm4.h"
 # include "crypto_mb/cpu_features.h"
 #endif
 
 #ifdef QAT_HW_INTREE
 # define ENABLE_QAT_HW_SHA3
 # define ENABLE_QAT_HW_CHACHAPOLY
+#endif
+
+#ifndef SM4_BLOCK_SIZE
+# define SM4_BLOCK_SIZE             16
 #endif
 
 #  ifndef QAT_BORINGSSL
@@ -113,7 +120,7 @@ static chained_info info[] = {
     {NID_aes_192_gcm, NULL, AES_KEY_SIZE_192},
     {NID_aes_256_gcm, NULL, AES_KEY_SIZE_256},
 #endif
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
     /* sm4-cbc key size is fixed to 128 bits (16 bytes) */
     {NID_sm4_cbc, NULL, SM4_KEY_SIZE},
 #endif
@@ -137,7 +144,7 @@ int qat_cipher_nids[] = {
     NID_aes_192_gcm,
     NID_aes_256_gcm,
 #endif
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
     NID_sm4_cbc,
 #endif
 };
@@ -195,8 +202,7 @@ int qat_digest_nids[] = {
 };
 const int num_digest_nids = sizeof(qat_digest_nids) / sizeof(qat_digest_nids[0]);
 
-#ifdef QAT_HW
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 typedef struct cipher_threshold_table_s {
     int nid;
     int threshold;
@@ -220,15 +226,14 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     {NID_chacha20_poly1305, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
-# ifdef ENABLE_QAT_HW_SM4_CBC
-    {NID_sm4_cbc, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4},
+#if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
+    {NID_sm4_cbc, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4_CBC},
 # endif
 };
 
 static int pkt_threshold_table_size =
     (sizeof(qat_pkt_threshold_table) / sizeof(qat_pkt_threshold_table[0]));
 # endif
-#endif
 #endif /* QAT_BORINGSSL */
 
 static EC_KEY_METHOD *qat_ec_method = NULL;
@@ -708,6 +713,103 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
     return c;
 }
 
+/******************************************************************************
+ * function:
+ *         qat_create_sm4_cbc_cipher_meth(void)
+ *
+ * @param nid    [IN] - Cipher NID to be created
+ * @param keylen [IN] - Key length of cipher [128|192|256]
+ * @retval            - EVP_CIPHER * to created cipher
+ * @retval            - EVP_CIPHER * EVP_sm4_cbc
+ * @retval            - NULL if failure
+ *
+ * description:
+ *   Create a new EVP_CIPHER based on requested nid for qat_hw or qat_sw
+ ******************************************************************************/
+const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
+{
+    EVP_CIPHER *c = NULL;
+#if (defined ENABLE_QAT_SW_SM4_CBC) || (defined ENABLE_QAT_HW_SM4_CBC)
+    int res = 1;
+#endif
+
+    if ((c = EVP_CIPHER_meth_new(nid, SM4_BLOCK_SIZE, keylen)) == NULL) {
+            WARN("Failed to allocate cipher methods for nid %d\n", nid);
+            QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_MALLOC_FAILED);
+            return NULL;
+    }
+
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_hw_offload &&
+        (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_SM4)) {
+        res &= EVP_CIPHER_meth_set_iv_length(c, SM4_CBC_IV_LEN);
+        res &= EVP_CIPHER_meth_set_flags(c, QAT_CBC_FLAGS);
+        res &= EVP_CIPHER_meth_set_init(c, qat_sm4_cbc_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sm4_cbc_do_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, qat_sm4_cbc_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_sm4_ctx));
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                NULL : EVP_CIPHER_set_asn1_iv);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                NULL : EVP_CIPHER_get_asn1_iv);
+        /* SM4 CBC has no ctrl function. */
+        res &= EVP_CIPHER_meth_set_ctrl(c, NULL);
+
+        if (res == 0) {
+            WARN("Failed to set SM4 methods for nid %d\n", nid);
+            QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_SET_METHODS_FAILED);
+            EVP_CIPHER_meth_free(c);
+            return NULL;
+        }
+
+        qat_hw_sm4_cbc_offload = 1;
+        DEBUG("QAT HW SM4_CBC registration succeeded\n");
+    }
+    else {
+        qat_hw_sm4_cbc_offload = 0;
+        DEBUG("QAT HW SM4_CBC is disabled\n");
+    }
+#endif
+
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    if (!qat_hw_sm4_cbc_offload && qat_sw_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM4) &&
+        mbx_get_algo_info(MBX_ALGO_SM4)) {
+        res &= EVP_CIPHER_meth_set_iv_length(c, SM4_IV_LEN);
+        res &= EVP_CIPHER_meth_set_flags(c, SM4_CBC_CUSTOM_FLAGS);
+        res &= EVP_CIPHER_meth_set_init(c, qat_sw_sm4_cbc_key_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sw_sm4_cbc_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, qat_sw_sm4_cbc_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(SM4_CBC_CTX));
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_ctrl(c, NULL);
+
+        if (res == 0) {
+            WARN("Failed to set SM4 methods for nid %d\n", nid);
+            QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_SET_METHODS_FAILED);
+            EVP_CIPHER_meth_free(c);
+            return NULL;
+        }
+        
+        qat_sw_sm4_cbc_offload = 1;
+        DEBUG("QAT SW SM4-CBC registration succeeded\n");
+    }
+    else {
+        qat_sw_sm4_cbc_offload = 0;
+        DEBUG("QAT SW SM4-CBC disabled\n");
+    }
+#endif
+
+    if (!qat_hw_sm4_cbc_offload && !qat_sw_sm4_cbc_offload) {
+        DEBUG("OpenSSL SW SM4 CBC registration\n");
+        EVP_CIPHER_meth_free(c);
+        return (const EVP_CIPHER *)EVP_sm4_cbc();
+    }
+
+    return c;
+}
+
 void qat_create_ciphers(void)
 {
     int i;
@@ -727,6 +829,12 @@ void qat_create_ciphers(void)
                     qat_create_gcm_cipher_meth(info[i].nid, info[i].keylen);
                 break;
 #endif
+# if defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_HW_SM4_CBC)
+            case NID_sm4_cbc:
+                info[i].cipher = (EVP_CIPHER *)
+                    qat_create_sm4_cbc_cipher_meth(info[i].nid, info[i].keylen);
+                break;
+#endif
 
 #ifdef QAT_HW
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
@@ -743,13 +851,6 @@ void qat_create_ciphers(void)
             case NID_aes_256_cbc_hmac_sha256:
                 info[i].cipher = (EVP_CIPHER *)
                     qat_create_cipher_meth(info[i].nid, info[i].keylen);
-                break;
-# endif
-
-# ifdef ENABLE_QAT_HW_SM4_CBC
-            case NID_sm4_cbc:
-                info[i].cipher = (EVP_CIPHER *)
-                    qat_create_sm4_cipher_meth(info[i].nid, info[i].keylen);
                 break;
 # endif
 #endif
@@ -781,6 +882,12 @@ void qat_free_ciphers(void)
                     EVP_CIPHER_meth_free(info[i].cipher);
 #endif
                 break;
+#if (defined ENABLE_QAT_SW_SM4_CBC) || (defined ENABLE_QAT_HW_SM4_CBC)
+            case NID_sm4_cbc:
+                if (qat_sw_sm4_cbc_offload || qat_hw_sm4_cbc_offload)
+                    EVP_CIPHER_meth_free(info[i].cipher);
+                break;
+#endif
 #ifndef DISABLE_QAT_HW_CHACHAPOLY
             case NID_chacha20_poly1305:
                 if (qat_hw_chacha_poly_offload)
@@ -796,12 +903,6 @@ void qat_free_ciphers(void)
                     EVP_CIPHER_meth_free(info[i].cipher);
                 break;
 #endif
-#ifdef ENABLE_QAT_HW_SM4_CBC
-            case NID_sm4_cbc:
-                if (qat_hw_sm4_cbc_offload)
-                    EVP_CIPHER_meth_free(info[i].cipher);
-                break;
-#endif
             }
             info[i].cipher = NULL;
         }
@@ -811,6 +912,7 @@ void qat_free_ciphers(void)
     qat_hw_chacha_poly_offload = 0;
     qat_hw_aes_cbc_hmac_sha_offload = 0;
     qat_hw_sm4_cbc_offload = 0;
+    qat_sw_sm4_cbc_offload = 0;
 }
 
 /******************************************************************************
@@ -1166,9 +1268,8 @@ int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to,
 }
 #endif /* QAT_BORINGSSL */
 
-#ifdef QAT_HW
-# ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
-#ifndef QAT_BORINGSSL
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+# ifndef QAT_BORINGSSL
 /******************************************************************************
 * function:
 *         qat_pkt_threshold_table_set_threshold(const char *cn, int threshold)
@@ -1226,7 +1327,6 @@ int qat_pkt_threshold_table_get_threshold(int nid)
     WARN("nid %d not found in threshold table", nid);
     return 0;
 }
-#endif /* QAT_BORINGSSL */
-# endif
+# endif /* QAT_BORINGSSL */
 #endif
 

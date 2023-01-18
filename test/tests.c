@@ -762,9 +762,14 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_ECX:              /* X25519 & X448 test application */
         tests_run_ecx(args);
         break;
+#if defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_HW_SM4_CBC)
+    case TEST_SM4_CBC:            /* SM4_CBC test application */
+        tests_run_sm4_cbc(args);
+        break;
+#endif
 #endif
 
-#if defined(QAT_OPENSSL_PROVIDER) || defined(QAT_HW)
+#ifdef QAT_HW
     /* DSA sign & verify tests, input message length 124 bytes */
     case TEST_DSA:
         tests_run_dsa(args);
@@ -794,12 +799,7 @@ void tests_run(TEST_PARAMS *args, int id)
         break;
     case TEST_CHACHA20_POLY1305:
         tests_run_chacha20_poly1305(args);
-        break;
-# ifdef ENABLE_QAT_HW_SM4_CBC
-    case TEST_SM4_CBC:
-        tests_run_sm4_cbc(args);
-        break;
-# endif /* ENABLE_QAT_HW_SM4_CBC */
+        break; /* ENABLE_QAT_HW_SM4_CBC */
 #endif
     default:
         printf("# FAIL: Test type %d not supported\n", args->type);

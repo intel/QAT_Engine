@@ -183,7 +183,7 @@ Description:
     The string should be NULL terminated and not more than 1024 bytes long
     including NULL terminator.
     This message is not supported when the engine is compiled with the flag
-    --enable-qat_hw_small_pkt_offload.
+    --enable-qat_small_pkt_offload.
 
 Message String: ENABLE_INLINE_POLLING
 Param 3:        0

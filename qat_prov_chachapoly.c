@@ -191,7 +191,7 @@ static void *qat_chacha20_poly1305_newctx(void *provctx)
             ctx->base.qat_cpctx->nonce_len = CHACHA20_POLY1305_IVLEN;
             ctx->base.qat_cpctx->tls_payload_length = NO_TLS_PAYLOAD_LENGTH;
         }
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
         ctx->base.sw_ctx = EVP_CIPHER_CTX_new();
         if (ctx->base.sw_ctx == NULL) {
             WARN("sw_ctx zalloc failed.\n");
@@ -208,7 +208,7 @@ static void *qat_chacha20_poly1305_newctx(void *provctx)
 
 #endif
     }
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 finish:
 #endif
     return ctx;
@@ -219,7 +219,7 @@ static void qat_chacha20_poly1305_freectx(void *vctx)
     PROV_CHACHA20_POLY1305_CTX *ctx = (PROV_CHACHA20_POLY1305_CTX *)vctx;
 
     if (ctx != NULL) {
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
         EVP_CIPHER_free(ctx->base.sw_cipher);
         EVP_CIPHER_CTX_free(ctx->base.sw_ctx);
 #endif
@@ -385,7 +385,7 @@ static int qat_chacha20_poly1305_set_ctx_params(void *vctx,
             return 0;
         }
     }
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     ctx->base.sw_cipher->set_ctx_params(ctx->base.sw_ctx->algctx, params);
 #endif
     /* ignore OSSL_CIPHER_PARAM_AEAD_MAC_KEY */
@@ -447,7 +447,7 @@ static int qat_chacha20_poly1305_einit(void *vctx, const unsigned char *key,
 
     if (ret && !qat_chacha20_poly1305_set_ctx_params(vctx, params))
         ret = 0;
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     ctx->sw_cipher->einit(ctx->sw_ctx->algctx, key, keylen, iv, ivlen, params);
 #endif
     return ret;
@@ -496,7 +496,7 @@ static int qat_chacha20_poly1305_dinit(void *vctx, const unsigned char *key,
     if (ret && !qat_chacha20_poly1305_set_ctx_params(vctx, params))
         ret = 0;
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     ctx->sw_cipher->dinit(ctx->sw_ctx->algctx, key, keylen, iv, ivlen, params);
 #endif
     memcpy(cp_ctx->tag, ctx->qat_cpctx->tag, ctx->qat_cpctx->tag_len);
@@ -509,7 +509,7 @@ static int qat_chacha20_poly1305_cipher(void *vctx, unsigned char *out,
                                     const unsigned char *in, size_t inl)
 {
     QAT_PROV_CIPHER_CTX *ctx = (QAT_PROV_CIPHER_CTX *)vctx;
-#ifdef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifdef ENABLE_QAT_SMALL_PKT_OFFLOAD
     PROV_CHACHA20_POLY1305_CTX *cp_ctx = (PROV_CHACHA20_POLY1305_CTX *)vctx;
 #endif
 
@@ -526,7 +526,7 @@ static int qat_chacha20_poly1305_cipher(void *vctx, unsigned char *out,
         return 0;
     }
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (inl <= qat_pkt_threshold_table_get_threshold(ctx->nid)){
         if (!ctx->sw_cipher->ccipher(ctx->sw_ctx->algctx, 
                                      out, outl, outsize, in, inl))
@@ -552,7 +552,7 @@ static int qat_chacha20_poly1305_final(void *vctx, unsigned char *out, size_t *o
 
     if (!qat_prov_is_running())
         return 0;
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (out != NULL && ctx->enc) {
         if (ctx->sw_cipher->cfinal(ctx->sw_ctx->algctx, 
                                    out, outl, outsize) <= 0)

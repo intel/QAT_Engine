@@ -74,6 +74,7 @@
 #include "qat_sw_ecx.h"
 #include "qat_sw_ec.h"
 #include "qat_sw_sm3.h"
+#include "qat_sw_sm4_cbc.h"
 #include "qat_sw_request.h"
 #include "qat_sw_freelist.h"
 #include "qat_sw_queue.h"
@@ -170,6 +171,15 @@ void mb_thread_local_destructor(void *tlv_ptr)
         mb_flist_sm3_update_cleanup(tlv->sm3_update_freelist);
     if (tlv->sm3_final_freelist)
         mb_flist_sm3_final_cleanup(tlv->sm3_final_freelist);
+#endif
+
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    QAT_SW_CLEANUP(sm4_cbc_cipher, sm4_cbc_cipher_op_data, tlv->sm4_cbc_cipher_queue);
+    QAT_SW_CLEANUP(sm4_cbc_cipher_dec, sm4_cbc_cipher_op_data, tlv->sm4_cbc_cipher_dec_queue);
+    if (tlv->sm4_cbc_cipher_freelist)
+        mb_flist_sm4_cbc_cipher_cleanup(tlv->sm4_cbc_cipher_freelist);
+    if (tlv->sm4_cbc_cipher_dec_freelist)
+        mb_flist_sm4_cbc_cipher_cleanup(tlv->sm4_cbc_cipher_dec_freelist);
 #endif
 
     sem_destroy(&tlv->mb_polling_thread_sem);
@@ -294,6 +304,20 @@ mb_thread_data* mb_check_thread_local(void)
            ((tlv->sm3_final_queue= mb_queue_sm3_final_create())
                  == NULL) ) {
             WARN("Failure to allocate SM3 Freelists and Queues\n");
+            goto err;
+        }
+#endif
+
+#ifdef ENABLE_QAT_SW_SM4_CBC
+        if(((tlv->sm4_cbc_cipher_freelist = mb_flist_sm4_cbc_cipher_create())
+                 == NULL) ||
+           ((tlv->sm4_cbc_cipher_dec_freelist = mb_flist_sm4_cbc_cipher_create())
+                 == NULL) ||
+           ((tlv->sm4_cbc_cipher_queue= mb_queue_sm4_cbc_cipher_create())
+                 == NULL) ||
+           ((tlv->sm4_cbc_cipher_dec_queue= mb_queue_sm4_cbc_cipher_create())
+                 == NULL) ) {
+            WARN("Failure to allocate SM4_CBC Freelists and Queues\n");
             goto err;
         }
 #endif

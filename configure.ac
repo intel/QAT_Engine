@@ -118,10 +118,15 @@ AC_ARG_ENABLE(qat_sw_sm3,
                              [Enable qat_sw SM3 acceleration]))
 AC_SUBST(enable_qat_sw_sm3)
 
-AC_ARG_ENABLE(qat_hw_small_pkt_offload,
-              AS_HELP_STRING([--enable-qat_hw_small_pkt_offload],
+AC_ARG_ENABLE(qat_sw_sm4_cbc,
+              AS_HELP_STRING([--enable-qat_sw_sm4_cbc],
+                             [Enable qat_sw SM4-CBC acceleration]))
+AC_SUBST(enable_qat_sw_sm4_cbc)
+
+AC_ARG_ENABLE(qat_small_pkt_offload,
+              AS_HELP_STRING([--enable-qat_small_pkt_offload],
                              [Enable small packet CIPHER acceleration]))
-AC_SUBST(enable_qat_hw_small_pkt_offload)
+AC_SUBST(enable_qat_small_pkt_offload)
 
 AC_ARG_ENABLE(qat_hw,
               AS_HELP_STRING([--disable-qat_hw],
@@ -469,6 +474,7 @@ then
         AC_SUBST([enable_qat_sw_ecx], ["no"])
         AC_SUBST([enable_qat_sw_gcm], ["no"])
         AC_SUBST([enable_qat_sw_sm2], ["no"])
+        AC_SUBST([enable_qat_sw_sm4_cbc], ["no"])
         AC_SUBST([enable_qat_sw_heuristic_timeout], ["no"])
     fi
 fi
@@ -502,6 +508,41 @@ else if test "x$enable_qat_hw_rsa" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA"])
   AC_MSG_NOTICE([Accelerating RSA to Hardware])
+else
+  AC_MSG_NOTICE([No RSA Acceleration])
+fi
+fi
+fi
+
+if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
+then
+  if test "x$enable_qat_hw_sm4_cbc" = "xyes" -a "x$enable_qat_sw_sm4_cbc" = "xyes"
+  then
+    AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_HW_SM4_CBC -DENABLE_QAT_SW_SM4_CBC"])
+    AC_MSG_NOTICE([Co-existence SM4_CBC Acceleration])
+  else if test "x$enable_qat_hw_sm4_cbc" != "xyes" -a "x$enable_qat_sw_sm4_cbc" = "xyes"
+  then
+    AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_SW_SM4_CBC"])
+    AC_MSG_NOTICE([Accelerating SM4_CBC to Software (Multi-buffer)])
+  else if test "x$enable_qat_sw_sm4_cbc" != "xyes" -a "x$enable_qat_hw_sm4_cbc" = "xyes"
+  then
+    AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_HW_SM4_CBC"])
+    AC_MSG_NOTICE([Accelerating SM4_CBC to Hardware])
+  else
+    AC_MSG_NOTICE([No SM4_CBC Acceleration])
+  fi
+  fi
+  fi
+else if test "x$enable_qat_sw_sm4_cbc" = "xyes" -a "x$cflags_qat_sw" != "x"
+then
+  AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_SW_SM4_CBC"])
+  AC_MSG_NOTICE([Accelerating SM4_CBC to Software (Multi-buffer)])
+else if test "x$enable_qat_hw_sm4_cbc" = "xyes" -a "x$cflags_qat_hw" != "x"
+then
+  AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_HW_SM4_CBC"])
+  AC_MSG_NOTICE([Accelerating SM4_CBC to Hardware])
+else
+  AC_MSG_NOTICE([No SM4_CBC Acceleration])
 fi
 fi
 fi
@@ -520,7 +561,7 @@ then
   then
     AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
     AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
-  else 
+  else
     AC_MSG_NOTICE([No X25519/X448 Acceleration])
   fi
   fi
@@ -533,6 +574,8 @@ else if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
   AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
+else 
+    AC_MSG_NOTICE([No X25519/X448 Acceleration])
 fi
 fi
 fi
@@ -564,6 +607,8 @@ else if test "x$enable_qat_hw_ecdh" != "xno" -a "x$cflags_qat_hw" != "x"
 then
   AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
   AC_MSG_NOTICE([Accelerating ECDH to Hardware])
+else
+    AC_MSG_NOTICE([No ECDH Accelerating])
 fi
 fi
 fi
@@ -601,6 +646,8 @@ then
   AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
   AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
   fi
+else
+    AC_MSG_NOTICE([No ECDSA Accelerating])
 fi
 fi
 fi
@@ -648,15 +695,6 @@ then
 else
   enable_qat_hw_ciphers="-DDISABLE_QAT_HW_CIPHERS"
   AC_MSG_NOTICE([Not Accelerating CIPHERS to Hardware])
-fi
-
-if test "x$enable_qat_hw_sm4_cbc" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_sm4_cbc="-DENABLE_QAT_HW_SM4_CBC"
-  AC_MSG_NOTICE([Accelerating SM4-CBC to Hardware])
-else
-  enable_qat_hw_sm4_cbc="-DDISABLE_QAT_HW_SM4_CBC"
-  AC_MSG_NOTICE([Not Accelerating SM4-CBC to Hardware])
 fi
 
 if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw_ipsec" != "x"
@@ -727,13 +765,13 @@ else
   AC_MSG_NOTICE([Not Accelerating CHACHA-POLY to Hardware])
 fi
 
-if test "x$enable_qat_hw_small_pkt_offload" = "xyes" -a "x$cflags_qat_hw" != "x"
+if test "x$enable_qat_small_pkt_offload" = "xyes"
 then
-  enable_qat_hw_small_pkt_offload="-DENABLE_QAT_HW_SMALL_PKT_OFFLOAD"
-  AC_MSG_NOTICE([Accelerating small packet CIPHERS to Hardware])
+  enable_qat_small_pkt_offload="-DENABLE_QAT_SMALL_PKT_OFFLOAD"
+  AC_MSG_NOTICE([Accelerating small packet CIPHERS])
 else
-  enable_qat_hw_small_pkt_offload=""
-  AC_MSG_NOTICE([Not Accelerating small packet CIPHERS to Hardware])
+  enable_qat_small_pkt_offload=""
+  AC_MSG_NOTICE([Not Accelerating small packet CIPHERS])
 fi
 
 if test "x$enable_qat_hw_lenstra_protection" = "xno" -a "x$cflags_qat_hw" != "x"

@@ -86,7 +86,7 @@ static int qat_keccak_init(void *vctx, ossl_unused const OSSL_PARAM params[])
     /* The newctx() handles most of the ctx fixed setup. */
     memset(ctx->A, 0, sizeof(ctx->A));
     ctx->bufsz = 0;
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (!EVP_MD_up_ref(ctx->sw_md))
         return 0;
 #endif
@@ -242,7 +242,7 @@ const OSSL_DISPATCH qat_##name##_functions[] = {                                
     { OSSL_FUNC_DIGEST_INIT, (void (*)(void))qat_keccak_init },                    \
     PROV_DISPATCH_FUNC_DIGEST_CONSTRUCT_END
 
-#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 # define SHA3_NEW_CTX(name, bitlen, pad_val, sha_name)                             \
 static OSSL_FUNC_digest_newctx_fn qat_##name##_newctx;                             \
 static void *qat_##name##_newctx(void *provctx)                                    \

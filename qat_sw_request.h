@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_sw_request.h
  *
- * This file provides the data structure for buffering mulibuff requests
+ * This file provides the data structure for buffering multibuff requests
  *
  *****************************************************************************/
 
@@ -59,10 +59,12 @@
 #   include <openssl/async.h>
 #  endif /* QAT_BORINGSSL */
 /* Crypto_mb includes */
-# include "crypto_mb/sm3.h"
+#include "crypto_mb/sm3.h"
+#include "crypto_mb/sm4.h"
 
 #define X25519_KEYLEN 32
 #define MAX_KEYLEN  57
+#define IV_LEN 16
 
 # pragma pack(push, 1)
 typedef struct _sm3_context{
@@ -263,4 +265,16 @@ typedef struct _sm3_final_op_data {
     int *sts;
 } sm3_final_op_data;
 
+typedef struct _sm4_cbc_cipher_op_data {
+    struct _sm4_cbc_cipher_op_data *next;
+    struct _sm4_cbc_cipher_op_data *prev;
+    ASYNC_JOB *job;
+    int *sts;
+    int8u *in_out;
+    const int8u *in_txt;
+    int in_txt_len;
+    int8u in_iv[IV_LEN];
+    sm4_key in_key;
+    int in_enc;
+} sm4_cbc_cipher_op_data;
 #endif /* QAT_SW_REQUEST_H */

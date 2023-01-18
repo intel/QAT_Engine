@@ -36,23 +36,43 @@
  * ====================================================================
  */
 
-#ifdef ENABLE_QAT_HW_SM4_CBC
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <openssl/evp.h>
-#include <openssl/engine.h>
-#include <openssl/bio.h>
 #include <openssl/err.h>
 #include <openssl/async.h>
 #include <openssl/objects.h>
-#include <openssl/tls1.h>
+#include <openssl/engine.h>
 
 #include "tests.h"
-#include "../qat_utils.h"
 
+#define ALGO_ENABLE_MASK_SM4                0x1000
+
+extern char *sw_algo_bitmap;
+extern char *hw_algo_bitmap;
+
+#ifdef ENABLE_QAT_HW_SM4_CBC
+#include <openssl/bio.h>
+#include <openssl/tls1.h>
+
+#include "../qat_utils.h"
+#endif
+
+#ifdef ENABLE_QAT_SW_SM4_CBC
+/* Crypto_mb includes */
+#include "crypto_mb/sm4.h"
+#include "crypto_mb/cpu_features.h"
+#endif
+
+#ifdef ENABLE_QAT_SW_SM4_CBC
+#define SM4_CBC_KEY_SIZE  (16)
+#define SM4_CBC_IV_SIZE  (16)
+#define MULTIBUFF_SM4_BATCH (16)
+#endif
+
+#ifdef ENABLE_QAT_HW_SM4_CBC
 #define ENC             1
 #define DEC             0
 #define USE_ENGINE      1
@@ -75,12 +95,12 @@
 
 /* AES key, 256 bits long */
 static const unsigned char _key16[] = {
-    0xEE, 0xE2, 0x7B, 0x5B, 0x10, 0xFD, 0xD2, 0x58, 
+    0xEE, 0xE2, 0x7B, 0x5B, 0x10, 0xFD, 0xD2, 0x58,
     0x49, 0x77, 0xF1, 0x22, 0xD7, 0x1B, 0xA4, 0xCA};
 
 /* Initialization vector */
 static const unsigned char _ivec[] = {
-    0x7E, 0x9B, 0x4C, 0x1D, 0x82, 0x4A, 0xC5, 0xDF, 
+    0x7E, 0x9B, 0x4C, 0x1D, 0x82, 0x4A, 0xC5, 0xDF,
     0x99, 0x4C, 0xA1, 0x44, 0xAA, 0x8D, 0x37, 0x27};
 
 typedef struct _sm4_alg_info {
@@ -191,7 +211,7 @@ static int perform_op(EVP_CIPHER_CTX *ctx, unsigned char **in,
         *in = inb = OPENSSL_malloc(size);
         if (inb == NULL)
             return 0;
-       
+
         /* setup input message values */
         for (i = 0; i < size; i++)
             inb[i] = i % 16;
@@ -278,7 +298,6 @@ static int decrypt_buff(const test_info *t, int impl, unsigned char **encbuf,
     ret = perform_op(ctx, encbuf, decbuf, len, &num_decbytes);
 
     EVP_CIPHER_CTX_free(ctx);
-
     return ret;
 }
 
@@ -500,7 +519,7 @@ static int test_encrypted_buffer(const test_info *t)
     int buflen = 0;
 
     ret = encrypt_and_compare(t, &buflen);
-    
+
     if (ret == ENCRYPT_BUFF_IDENTICAL) {
         ret = 1;
     } else {
@@ -652,10 +671,7 @@ static int run_sm4_cbc(void *pointer)
             */
             (test_crypto_op(&ti, USE_SW, USE_SW) != 1) ||
             ((ti.e != NULL) && (
-                /*  
-                * Perform these tests only if engine
-                * is present. 
-                */
+                /* Perform these tests only if engine is present */
                 (test_encrypted_buffer(&ti) != 1) ||
                 (test_crypto_op(&ti, USE_ENGINE, USE_SW) != 1) ||
                 (test_crypto_op(&ti, USE_SW, USE_ENGINE) != 1) ||
@@ -686,16 +702,369 @@ static int run_sm4_cbc(void *pointer)
     }
     return ret;
 }
+#endif /* ENABLE_QAT_HW_SM4_CBC */
 
+#ifdef ENABLE_QAT_SW_SM4_CBC
+void tests_sm4_cbc_hexdump(const char *title, const unsigned char *s, int l)
+{
+#ifdef QAT_DEBUG
+    int i = 0;
 
+    printf("%s", title);
+
+    for (i = 0; i < l; i++) {
+        if ((i % 8) == 0)
+            printf("\n        ");
+
+        printf("0x%02X, ", s[i]);
+    }
+
+    printf("\n\n");
+#endif
+}
+
+static int test_sm4_cbc_encrypt(int num_buffers, ENGINE *e, int *len,
+                                int8u **engine_in, int8u **engine_out,
+                                int8u **openssl_in, int8u **openssl_out,
+                                int8u **mb_in, int8u **mb_out,
+                                int8u **iv, sm4_key **key)
+{
+    mbx_sm4_key_schedule rkey;
+    EVP_CIPHER_CTX *ctx[MULTIBUFF_SM4_BATCH];
+    int outl;
+    int ret = 1;
+
+    /* Use Engine to do the encryption. */
+    for (int i = 0; i < num_buffers; i++) {
+        ctx[i] = EVP_CIPHER_CTX_new();
+        EVP_EncryptInit_ex(ctx[i], EVP_sm4_cbc(), e, (int8u*)key[i], iv[i]);
+    }
+
+    for (int i = 0; i < num_buffers; i++) {
+        EVP_EncryptUpdate(ctx[i], engine_out[i], &outl, engine_in[i], len[i]);
+    }
+
+    for (int i = 0; i < num_buffers; i++) {
+        EVP_EncryptFinal(ctx[i], engine_out[i] + len[i], &outl);
+        EVP_CIPHER_CTX_free(ctx[i]);
+    }
+
+    /* OpenSSL and crypto_mb are used as reference */
+    for (int i = 0; i < num_buffers; i++) {
+        ctx[i] = EVP_CIPHER_CTX_new();
+        EVP_EncryptInit(ctx[i], EVP_sm4_cbc(), (int8u*)key[i], iv[i]);
+        EVP_EncryptUpdate(ctx[i], openssl_out[i], &outl, openssl_in[i], len[i]);
+        EVP_EncryptFinal(ctx[i], openssl_out[i] + len[i], &outl);
+
+        EVP_CIPHER_CTX_free(ctx[i]);
+    }
+
+    /* crypto_mb encryption */
+    mbx_sm4_set_key_mb16(&rkey, (const sm4_key**)key);
+    mbx_sm4_encrypt_cbc_mb16(mb_out, (const int8u**)mb_in, (const int*)len, &rkey, (const int8u**)iv);
+
+    /* Comparison with OpenSSL and crypto_mb */
+    for (int i = 0; i < num_buffers; i++) {
+        tests_sm4_cbc_hexdump("mb_enc_txt", mb_out[i], len[i]);
+        tests_sm4_cbc_hexdump("openssl_enc_txt", openssl_out[i], len[i]);
+        tests_sm4_cbc_hexdump("engine_enc_txt", engine_out[i], len[i]);
+        if (memcmp(mb_out[i], openssl_out[i], len[i])) {
+            ret = 0;
+            printf("encryption: openssl_sw vs crypto_mb, not matched\n");
+        }
+        if (memcmp(mb_out[i], engine_out[i], len[i])) {
+            ret = 0;
+            printf("encryption: engine vs crypto_mb, not matched\n");
+        }
+        if (memcmp(openssl_out[i], engine_out[i], len[i])) {
+            ret = 0;
+            printf("encryption: engine vs openssl_sw, not matched\n");
+        }
+    }
+
+    if (ret)
+        printf("encryption test successful\n");
+    
+    return ret;
+}
+
+static int test_sm4_cbc_decrypt(int num_buffers, ENGINE *e, int *len,
+                                int8u **engine_in, int8u **engine_out,
+                                int8u **openssl_in, int8u **openssl_out,
+                                int8u **mb_in, int8u **mb_out,
+                                int8u **iv, sm4_key **key)
+{
+    mbx_sm4_key_schedule rkey;
+    EVP_CIPHER_CTX *ctx[MULTIBUFF_SM4_BATCH];
+    int outl;
+    int ret = 1;
+
+    /* Use Engine to do the decryption. */
+    for (int i = 0; i < num_buffers; i++) {
+        ctx[i] = EVP_CIPHER_CTX_new();
+        EVP_DecryptInit_ex(ctx[i], EVP_sm4_cbc(), e, (int8u*)key[i], iv[i]);
+    }
+
+    for (int i = 0; i < num_buffers; i++) {
+        EVP_DecryptUpdate(ctx[i], engine_out[i], &outl, engine_in[i], len[i]);
+    }
+
+    for (int i = 0; i < num_buffers; i++) {
+        EVP_DecryptFinal(ctx[i], engine_out[i] + len[i], &outl);
+        EVP_CIPHER_CTX_free(ctx[i]);
+    }
+
+    /* OpenSSL and crypto_mb are used as reference */
+    for (int i = 0; i < num_buffers; i++) {
+        ctx[i] = EVP_CIPHER_CTX_new();
+        EVP_DecryptInit(ctx[i], EVP_sm4_cbc(), (int8u*)key[i], iv[i]);
+        EVP_DecryptUpdate(ctx[i], openssl_out[i], &outl, openssl_in[i], len[i]);
+        EVP_DecryptFinal(ctx[i], openssl_out[i] + len[i], &outl);
+
+        EVP_CIPHER_CTX_free(ctx[i]);
+    }
+
+    /* crypto_mb decryption */
+    mbx_sm4_set_key_mb16(&rkey, (const sm4_key**)key);
+    mbx_sm4_decrypt_cbc_mb16(mb_out, (const int8u**)mb_in, (const int*)len, &rkey, (const int8u**)iv);
+
+    /* Comparison with OpenSSL and crypto_mb */
+    for (int i = 0; i < num_buffers; i++) {
+        tests_sm4_cbc_hexdump("mb_dec_txt", mb_out[i], len[i]);
+        tests_sm4_cbc_hexdump("openssl_dec_txt", openssl_out[i], len[i]);
+        tests_sm4_cbc_hexdump("engine_dec_txt", engine_out[i], len[i]);
+        if (memcmp(mb_out[i], openssl_out[i], len[i])) {
+            ret = 0;
+            printf("decryption: openssl_sw vs crypto_mb, not matched\n");
+        }
+        if (memcmp(mb_out[i], engine_out[i], len[i])) {
+            ret = 0;
+            printf("decryption: engine vs crypto_mb, not matched\n");
+        }
+        if (memcmp(openssl_out[i], engine_out[i], len[i])) {
+            ret = 0;
+            printf("decryption: engine vs openssl_sw, not matched\n");
+        }
+    }
+
+    if (ret)
+        printf("decryption test successful\n");
+
+    return ret;
+}
+
+static int test_sm4_cbc(ENGINE *e, int count, int size)
+{
+    int      len[MULTIBUFF_SM4_BATCH];
+    int8u*   mb_txt[MULTIBUFF_SM4_BATCH];
+    int8u*   mb_enc_txt[MULTIBUFF_SM4_BATCH];
+    int8u*   mb_dec_txt[MULTIBUFF_SM4_BATCH];
+    int8u*   mb_iv[MULTIBUFF_SM4_BATCH];
+    sm4_key* mb_key[MULTIBUFF_SM4_BATCH];
+
+    int8u* engine_enc_txt[MULTIBUFF_SM4_BATCH];
+    int8u* engine_dec_txt[MULTIBUFF_SM4_BATCH];
+    int8u* openssl_enc_txt[MULTIBUFF_SM4_BATCH];
+    int8u* openssl_dec_txt[MULTIBUFF_SM4_BATCH];
+
+    int num_buffers = MULTIBUFF_SM4_BATCH;
+    int ret = 1;
+
+    printf("\nStart %d round test, size: %d\n", count, size);
+
+    /* Init random data for testing */
+    for (int i = 0; i < num_buffers; i++) {
+        len[i] = size;
+        mb_key[i] = (sm4_key*)OPENSSL_zalloc(SM4_CBC_KEY_SIZE);
+        mb_enc_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
+        mb_dec_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
+        mb_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
+        mb_iv[i] = (int8u*)OPENSSL_zalloc(SM4_CBC_IV_SIZE);
+
+        engine_enc_txt[i] = OPENSSL_zalloc(len[i] + SM4_CBC_KEY_SIZE);
+        engine_dec_txt[i] = OPENSSL_zalloc(len[i] + SM4_CBC_KEY_SIZE);
+        openssl_enc_txt[i] = OPENSSL_zalloc(len[i] + SM4_CBC_KEY_SIZE);
+        openssl_dec_txt[i] = OPENSSL_zalloc(len[i] + SM4_CBC_KEY_SIZE);
+
+        RAND_bytes(*mb_key[i], SM4_CBC_KEY_SIZE);
+        RAND_bytes(mb_txt[i], len[i]);
+        RAND_bytes(mb_iv[i], SM4_CBC_IV_SIZE);
+
+        tests_sm4_cbc_hexdump("mb_key", *mb_key[i], SM4_CBC_KEY_SIZE);
+        tests_sm4_cbc_hexdump("mb_txt", mb_txt[i], len[i]);
+        tests_sm4_cbc_hexdump("mb_iv", mb_iv[i], SM4_CBC_IV_SIZE);
+    }
+
+    /* out-of-place operation */
+    printf("out-of-place operation tests: \n");
+
+    /* Encryption */
+    if (!test_sm4_cbc_encrypt(num_buffers, e, len,
+                                mb_txt, engine_enc_txt,
+                                mb_txt, openssl_enc_txt,
+                                mb_txt, mb_enc_txt,
+                                mb_iv, mb_key)) {
+        ret = 0;
+    }
+
+    /* Decryption */
+    if (!test_sm4_cbc_decrypt(num_buffers, e, len,
+                                engine_enc_txt, engine_dec_txt,
+                                openssl_enc_txt, openssl_dec_txt,
+                                mb_enc_txt, mb_dec_txt,
+                                mb_iv, mb_key)) {
+        ret = 0;
+    }
+
+if (ret)
+    printf("out-of-place tests are successful\n");
+else {
+    printf("out-of-place tests failed\n");
+}
+
+    /* in-place operation */
+    printf("\nin-place operation tests: \n");
+
+    /* Encryption */
+    for (int i = 0; i < num_buffers; i++) {
+        memset(engine_enc_txt[i], 0, len[i] + SM4_CBC_KEY_SIZE);
+        memcpy(engine_enc_txt[i], mb_txt[i], len[i]);
+        memset(openssl_enc_txt[i], 0, len[i] + SM4_CBC_KEY_SIZE);
+        memcpy(openssl_enc_txt[i], mb_txt[i], len[i]);
+        memcpy(mb_enc_txt[i], mb_txt[i], len[i]);
+    }
+    if (!test_sm4_cbc_encrypt(num_buffers, e, len,
+                                engine_enc_txt, engine_enc_txt,
+                                openssl_enc_txt, openssl_enc_txt,
+                                mb_enc_txt, mb_enc_txt,
+                                mb_iv, mb_key)) {
+        ret = 0;
+    }
+
+    /* Decryption */
+    for (int i = 0; i < num_buffers; i++) {
+        memset(engine_dec_txt[i], 0, len[i] + SM4_CBC_KEY_SIZE);
+        memcpy(engine_dec_txt[i], engine_enc_txt[i], len[i]);
+        memset(openssl_dec_txt[i], 0, len[i] + SM4_CBC_KEY_SIZE);
+        memcpy(openssl_dec_txt[i], openssl_enc_txt[i], len[i]);
+        memcpy(mb_dec_txt[i], mb_enc_txt[i], len[i]);
+    }
+    if (!test_sm4_cbc_decrypt(num_buffers, e, len,
+                                engine_dec_txt, engine_dec_txt,
+                                openssl_dec_txt, openssl_dec_txt,
+                                mb_dec_txt, mb_dec_txt,
+                                mb_iv, mb_key)) {
+        ret = 0;
+    }
+
+    if (ret)
+        printf("in-place tests are successful\n");
+    else {
+        printf("in-place tests failed\n");
+    }
+
+    /* Free memory */
+    for (int i = 0; i < num_buffers; i++) {
+        if (openssl_enc_txt[i])
+            OPENSSL_free(openssl_enc_txt[i]);
+        if (openssl_dec_txt[i])
+            OPENSSL_free(openssl_dec_txt[i]);
+        if (engine_enc_txt[i])
+            OPENSSL_free(engine_enc_txt[i]);
+        if (engine_dec_txt[i])
+            OPENSSL_free(engine_dec_txt[i]);
+        if (mb_enc_txt[i])
+            OPENSSL_free(mb_enc_txt[i]);
+        if (mb_dec_txt[i])
+            OPENSSL_free(mb_dec_txt[i]);
+        if (mb_txt[i])
+            OPENSSL_free(mb_txt[i]);
+        if (mb_iv[i])
+            OPENSSL_free(mb_iv[i]);
+        if (mb_key[i])
+            OPENSSL_free(mb_key[i]);
+    }
+
+    return ret;
+}
+
+/* message length list for test */
+static const int test_size[] = { 16, 64, 256, 1024, 2048, 4096, 8192, 16384 };
+
+static int run_sm4_cbc_msg(void *args)
+{
+    TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
+    int count = *(temp_args->count);
+    int ns = sizeof(test_size)/ sizeof(int);
+    int i = 0, cnt = 0;
+    int ret = 1;
+
+    /* If temp_args->explicit_engine is not set then set the
+       engine to NULL to allow fallback to software if
+       that engine under test does not support this operation.
+       This relies on the engine we are testing being
+       set as the default engine. */
+    ENGINE *e = temp_args->explicit_engine ? temp_args->e : NULL;
+
+    /* If the inner run fails, abandon test */
+    for (cnt = 0; ret && cnt < count; cnt++) {
+        for (i = 0; i < ns; i++) {
+            ret = test_sm4_cbc(e, cnt, test_size[i]);
+        }
+    }
+
+    if (ret)
+        printf("\nAll tests passed\n");
+
+    return ret;
+}
+#endif /* ENABLE_QAT_SW_SM4_CBC */
+
+/******************************************************************************
+* function:
+*   tests_run_sm4_cbc (TEST_PARAMS *args)
+*
+* @param args [IN] - the test parameters
+*
+* Description:
+*   This function is designed to test the QAT engine with all message sizes
+*   using the SM4_CBC algorithm. The higher level EVP interface function
+*   EVP_Encrypt*() and EVP_Decrypt*() are used inside of test application.
+*   This is a boundary test, the application should return the expected cipher value.
+******************************************************************************/
 void tests_run_sm4_cbc(TEST_PARAMS *args)
 {
     args->additional_args = NULL;
 
+#if (defined ENABLE_QAT_SW_SM4_CBC) && (defined ENABLE_QAT_HW_SM4_CBC)
+    int sw_bitmap = strtol(sw_algo_bitmap, NULL, 16);
+    int hw_bitmap = strtol(hw_algo_bitmap, NULL, 16);
+
+    if(((hw_bitmap & ALGO_ENABLE_MASK_SM4) == 0)
+        && ((sw_bitmap & ALGO_ENABLE_MASK_SM4) != 0)) {
+        if (!args->enable_async)
+            run_sm4_cbc_msg(args);
+        else
+            start_async_job(args, run_sm4_cbc_msg);
+    } else {
+        if (!args->enable_async)
+            run_sm4_cbc(args);
+        else
+            start_async_job(args, run_sm4_cbc);
+    }
+#endif
+
+#if (defined ENABLE_QAT_SW_SM4_CBC) && (!defined ENABLE_QAT_HW_SM4_CBC)
+        if (!args->enable_async)
+            run_sm4_cbc_msg(args);
+        else
+            start_async_job(args, run_sm4_cbc_msg);
+#endif
+
+#if (defined ENABLE_QAT_HW_SM4_CBC) && (!defined ENABLE_QAT_SW_SM4_CBC)
     if (!args->enable_async)
         run_sm4_cbc(args);
     else
         start_async_job(args, run_sm4_cbc);
+#endif
 }
-
-#endif /* ENABLE_QAT_HW_SM4_CBC */

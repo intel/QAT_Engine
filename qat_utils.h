@@ -913,7 +913,24 @@ extern rdtsc_prof_t sm3_cycles_final_setup;
 extern rdtsc_prof_t sm3_cycles_final_execute;
 extern rdtsc_prof_t ecdsa_cycles_verify_setup;
 extern rdtsc_prof_t ecdsa_cycles_verify_execute;
-
+extern rdtsc_prof_t sm4_gcm_cycles_init_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_init_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_encrypt_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_encrypt_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_decrypt_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_decrypt_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_get_tag_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_get_tag_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_update_iv_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_update_iv_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_update_aad_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_update_aad_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_cipher_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_cipher_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_ctrl_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_ctrl_execute;
+extern rdtsc_prof_t sm4_gcm_cycles_cleanup_setup;
+extern rdtsc_prof_t sm4_gcm_cycles_cleanup_execute;
 extern int print_cycle_count;
 
 /**
@@ -1025,8 +1042,10 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&sm3_cycles_update_execute, 0); \
         rdtsc_prof_init(&sm3_cycles_final_setup, 0);    \
         rdtsc_prof_init(&sm3_cycles_final_execute, 0);  \
-	rdtsc_prof_init(&ecdsa_cycles_verify_execute, 0);  \
-	rdtsc_prof_init(&ecdsa_cycles_verify_setup, 0);   \
+        rdtsc_prof_init(&ecdsa_cycles_verify_execute, 0);  \
+        rdtsc_prof_init(&ecdsa_cycles_verify_setup, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_init_setup, 0);     \
+        rdtsc_prof_init(&sm4_gcm_cycles_init_execute, 0);   \
     } while (0)
 
 
@@ -1065,8 +1084,10 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_print(&sm3_cycles_update_execute, "[SM3:update_execute]"); \
         rdtsc_prof_print(&sm3_cycles_final_setup, "[SM3:final_setup]");       \
         rdtsc_prof_print(&sm3_cycles_final_execute, "[SM3:final_execute]");   \
-	rdtsc_prof_print(&ecdsa_cycles_verify_setup, "[ECDSA:verify_setup]");       \
-	rdtsc_prof_print(&ecdsa_cycles_verify_execute, "[ECDSA:verify_execute]");   \
+        rdtsc_prof_print(&ecdsa_cycles_verify_setup, "[ECDSA:verify_setup]"); \
+        rdtsc_prof_print(&ecdsa_cycles_verify_execute, "[ECDSA:verify_execute]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_init_setup, "[SM4_GCM:init_setup]");       \
+        rdtsc_prof_print(&sm4_gcm_cycles_init_execute, "[SM4_GCM:init_execute]");   \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \
