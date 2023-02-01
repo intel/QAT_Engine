@@ -767,6 +767,11 @@ void tests_run(TEST_PARAMS *args, int id)
         tests_run_sm4_cbc(args);
         break;
 #endif
+#ifdef ENABLE_QAT_SW_SM4_GCM
+    case TEST_SM4_GCM:            /* SM4_GCM test application */
+        tests_run_sm4_gcm(args);
+        break;
+#endif /* ENABLE_QAT_SW_SM4_GCM */
 #endif
 
 #ifdef QAT_HW

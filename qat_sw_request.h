@@ -61,6 +61,7 @@
 /* Crypto_mb includes */
 #include "crypto_mb/sm3.h"
 #include "crypto_mb/sm4.h"
+# include "crypto_mb/sm4_gcm.h"
 
 #define X25519_KEYLEN 32
 #define MAX_KEYLEN  57
@@ -73,6 +74,18 @@ typedef struct _sm3_context{
     unsigned char msg_buffer[SM3_MSG_BLOCK_SIZE];
     unsigned int msg_hash[SM3_SIZE_IN_WORDS];
 } SM3_CTX_mb;
+# pragma pack(pop)
+
+# pragma pack(push, 1)
+typedef struct _sm4_context{
+   __m128i hashkey[SM4_GCM_HASHKEY_PWR_NUM];
+   __m128i j0;
+   __m128i ghash;
+   __m128i ctr;
+   unsigned long long len[2];
+   unsigned int key_sched[SM4_ROUNDS];
+   sm4_gcm_state state;
+} SM4_GCM_CTX_mb;
 # pragma pack(pop)
 
 typedef struct {
@@ -277,4 +290,42 @@ typedef struct _sm4_cbc_cipher_op_data {
     sm4_key in_key;
     int in_enc;
 } sm4_cbc_cipher_op_data;
+
+typedef struct _sm4_gcm_encrypt_op_data {
+    struct _sm4_gcm_encrypt_op_data *next;
+    struct _sm4_gcm_encrypt_op_data *prev;
+    SM4_GCM_CTX_mb *state;
+    ASYNC_JOB *job;
+    int init_flag;
+    const sm4_key *sm4_key;
+    const int8u *sm4_iv;
+    int sm4_ivlen;
+    const int8u *sm4_in;
+    int sm4_len;
+    int8u *sm4_out;
+    const int8u *sm4_aad;
+    int sm4_aadlen;
+    int8u *sm4_tag;
+    int sm4_taglen;
+    int *sts;
+} sm4_gcm_encrypt_op_data;
+
+typedef struct _sm4_gcm_decrypt_op_data {
+    struct _sm4_gcm_decrypt_op_data *next;
+    struct _sm4_gcm_decrypt_op_data *prev;
+    SM4_GCM_CTX_mb *state;
+    ASYNC_JOB *job;
+    int init_flag;
+    const sm4_key *sm4_key;
+    const int8u *sm4_iv;
+    int sm4_ivlen;
+    const int8u *sm4_in;
+    int sm4_len;
+    int8u *sm4_out;
+    const int8u *sm4_aad;
+    int sm4_aadlen;
+    int8u *sm4_tag;
+    int sm4_taglen;
+    int *sts;
+} sm4_gcm_decrypt_op_data;
 #endif /* QAT_SW_REQUEST_H */

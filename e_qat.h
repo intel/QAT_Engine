@@ -411,6 +411,7 @@ extern int qat_sw_sm2_offload;
 extern int qat_hw_sha_offload;
 extern int qat_sw_sm3_offload;
 extern int qat_sw_sm4_cbc_offload;
+extern int qat_sw_sm4_gcm_offload;
 extern int qat_keep_polling;
 extern int multibuff_keep_polling;
 extern int enable_external_polling;
@@ -432,22 +433,23 @@ extern pthread_t qat_timer_poll_func_thread;
 extern int cleared_to_start;
 extern int qat_sw_ipsec;
 
-#define ALGO_ENABLE_MASK_RSA                0x0001
-#define ALGO_ENABLE_MASK_DSA                0x0002
-#define ALGO_ENABLE_MASK_DH                 0x0004
-#define ALGO_ENABLE_MASK_ECDSA              0x0008
-#define ALGO_ENABLE_MASK_ECDH               0x0010
-#define ALGO_ENABLE_MASK_ECX25519           0x0020
-#define ALGO_ENABLE_MASK_ECX448             0x0040
-#define ALGO_ENABLE_MASK_PRF                0x0080
-#define ALGO_ENABLE_MASK_HKDF               0x0100
-#define ALGO_ENABLE_MASK_SM2                0x0200
-#define ALGO_ENABLE_MASK_AES_GCM            0x0400
-#define ALGO_ENABLE_MASK_AES_CBC_HMAC_SHA   0x0800
-#define ALGO_ENABLE_MASK_SM4                0x1000
-#define ALGO_ENABLE_MASK_CHACHA_POLY        0x2000
-#define ALGO_ENABLE_MASK_SHA3               0x4000
-#define ALGO_ENABLE_MASK_SM3                0x8000
+#define ALGO_ENABLE_MASK_RSA                0x00001
+#define ALGO_ENABLE_MASK_DSA                0x00002
+#define ALGO_ENABLE_MASK_DH                 0x00004
+#define ALGO_ENABLE_MASK_ECDSA              0x00008
+#define ALGO_ENABLE_MASK_ECDH               0x00010
+#define ALGO_ENABLE_MASK_ECX25519           0x00020
+#define ALGO_ENABLE_MASK_ECX448             0x00040
+#define ALGO_ENABLE_MASK_PRF                0x00080
+#define ALGO_ENABLE_MASK_HKDF               0x00100
+#define ALGO_ENABLE_MASK_SM2                0x00200
+#define ALGO_ENABLE_MASK_AES_GCM            0x00400
+#define ALGO_ENABLE_MASK_AES_CBC_HMAC_SHA   0x00800
+#define ALGO_ENABLE_MASK_SM4_CBC            0x01000
+#define ALGO_ENABLE_MASK_CHACHA_POLY        0x02000
+#define ALGO_ENABLE_MASK_SHA3               0x04000
+#define ALGO_ENABLE_MASK_SM3                0x08000
+#define ALGO_ENABLE_MASK_SM4_GCM            0x10000
 
 extern int qat_reload_algo;
 extern uint64_t qat_hw_algo_enable_mask;

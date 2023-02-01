@@ -284,6 +284,24 @@ typedef struct _mb_queue_sm4_cbc_cipher
     int disabled;
 } mb_queue_sm4_cbc_cipher;
 
+typedef struct _mb_queue_sm4_gcm_encrypt
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm4_gcm_encrypt_op_data *head;
+    sm4_gcm_encrypt_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm4_gcm_encrypt;
+
+typedef struct _mb_queue_sm4_gcm_decrypt
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm4_gcm_decrypt_op_data *head;
+    sm4_gcm_decrypt_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm4_gcm_decrypt;
+
 mb_queue_rsa2k_priv * mb_queue_rsa2k_priv_create();
 int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv * queue);
 int mb_queue_rsa2k_priv_cleanup(mb_queue_rsa2k_priv * queue);
@@ -518,4 +536,24 @@ int mb_queue_sm4_cbc_cipher_dec_disable(mb_queue_sm4_cbc_cipher * queue);
 int mb_queue_sm4_cbc_cipher_dec_cleanup(mb_queue_sm4_cbc_cipher * queue);
 sm4_cbc_cipher_op_data
     *mb_queue_sm4_cbc_cipher_dec_dequeue(mb_queue_sm4_cbc_cipher *queue);
+
+/* SM4_GCM encrypt */
+mb_queue_sm4_gcm_encrypt * mb_queue_sm4_gcm_encrypt_create();
+int mb_queue_sm4_gcm_encrypt_disable(mb_queue_sm4_gcm_encrypt * queue);
+int mb_queue_sm4_gcm_encrypt_cleanup(mb_queue_sm4_gcm_encrypt * queue);
+int mb_queue_sm4_gcm_encrypt_enqueue(mb_queue_sm4_gcm_encrypt *queue,
+                                  sm4_gcm_encrypt_op_data *item);
+sm4_gcm_encrypt_op_data
+    *mb_queue_sm4_gcm_encrypt_dequeue(mb_queue_sm4_gcm_encrypt *queue);
+int mb_queue_sm4_gcm_encrypt_get_size(mb_queue_sm4_gcm_encrypt *queue);
+
+/* SM4_GCM decrypt */
+mb_queue_sm4_gcm_decrypt * mb_queue_sm4_gcm_decrypt_create();
+int mb_queue_sm4_gcm_decrypt_disable(mb_queue_sm4_gcm_decrypt * queue);
+int mb_queue_sm4_gcm_decrypt_cleanup(mb_queue_sm4_gcm_decrypt * queue);
+int mb_queue_sm4_gcm_decrypt_enqueue(mb_queue_sm4_gcm_decrypt *queue,
+                                  sm4_gcm_decrypt_op_data *item);
+sm4_gcm_decrypt_op_data
+    *mb_queue_sm4_gcm_decrypt_dequeue(mb_queue_sm4_gcm_decrypt *queue);
+int mb_queue_sm4_gcm_decrypt_get_size(mb_queue_sm4_gcm_decrypt *queue);
 #endif /* QAT_SW_QUEUE_H */

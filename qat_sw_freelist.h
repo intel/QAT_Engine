@@ -142,6 +142,18 @@ typedef struct _mb_flist_sm4_cbc_cipher
     sm4_cbc_cipher_op_data *head;
 } mb_flist_sm4_cbc_cipher;
 
+typedef struct _mb_flist_sm4_gcm_encrypt
+{
+    pthread_mutex_t mb_flist_mutex;
+    sm4_gcm_encrypt_op_data *head;
+} mb_flist_sm4_gcm_encrypt;
+
+typedef struct _mb_flist_sm4_gcm_decrypt
+{
+    pthread_mutex_t mb_flist_mutex;
+    sm4_gcm_decrypt_op_data *head;
+} mb_flist_sm4_gcm_decrypt;
+
 typedef struct _mb_thread_data{
     pthread_t polling_thread;
     int keep_polling;
@@ -208,6 +220,11 @@ typedef struct _mb_thread_data{
     mb_flist_sm4_cbc_cipher *sm4_cbc_cipher_dec_freelist;
     mb_queue_sm4_cbc_cipher *sm4_cbc_cipher_queue;
     mb_queue_sm4_cbc_cipher *sm4_cbc_cipher_dec_queue;
+    /* SM4_GCM */
+    mb_flist_sm4_gcm_encrypt *sm4_gcm_encrypt_freelist;
+    mb_flist_sm4_gcm_decrypt *sm4_gcm_decrypt_freelist;
+    mb_queue_sm4_gcm_encrypt *sm4_gcm_encrypt_queue;
+    mb_queue_sm4_gcm_decrypt *sm4_gcm_decrypt_queue;
 } mb_thread_data;
 
 mb_flist_rsa_priv * mb_flist_rsa_priv_create();
@@ -303,4 +320,18 @@ int mb_flist_sm4_cbc_cipher_push(mb_flist_sm4_cbc_cipher *freelist,
                                sm4_cbc_cipher_op_data *item);
 sm4_cbc_cipher_op_data
     *mb_flist_sm4_cbc_cipher_pop(mb_flist_sm4_cbc_cipher *flist);
+
+mb_flist_sm4_gcm_encrypt * mb_flist_sm4_gcm_encrypt_create();
+int mb_flist_sm4_gcm_encrypt_cleanup(mb_flist_sm4_gcm_encrypt *freelist);
+int mb_flist_sm4_gcm_encrypt_push(mb_flist_sm4_gcm_encrypt *freelist,
+                               sm4_gcm_encrypt_op_data *item);
+sm4_gcm_encrypt_op_data
+    *mb_flist_sm4_gcm_encrypt_pop(mb_flist_sm4_gcm_encrypt *flist);
+
+mb_flist_sm4_gcm_decrypt * mb_flist_sm4_gcm_decrypt_create();
+int mb_flist_sm4_gcm_decrypt_cleanup(mb_flist_sm4_gcm_decrypt *freelist);
+int mb_flist_sm4_gcm_decrypt_push(mb_flist_sm4_gcm_decrypt *freelist,
+                               sm4_gcm_decrypt_op_data *item);
+sm4_gcm_decrypt_op_data
+    *mb_flist_sm4_gcm_decrypt_pop(mb_flist_sm4_gcm_decrypt *flist);
 #endif /* QAT_SW_FREELIST_H */

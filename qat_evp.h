@@ -130,6 +130,14 @@ int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len);
 int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md);
 # endif
 
+#ifdef ENABLE_QAT_SW_SM4_GCM
+int qat_sw_sm4_gcm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+        const unsigned char *iv, int enc);
+int qat_sw_sm4_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr);
+int qat_sw_sm4_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+        const unsigned char *in, size_t len);
+int qat_sw_sm4_gcm_cleanup(EVP_CIPHER_CTX *ctx);
+# endif
 
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);

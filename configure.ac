@@ -117,6 +117,10 @@ AC_ARG_ENABLE(qat_sw_sm3,
               AS_HELP_STRING([--enable-qat_sw_sm3],
                              [Enable qat_sw SM3 acceleration]))
 AC_SUBST(enable_qat_sw_sm3)
+AC_ARG_ENABLE(qat_sw_sm4_gcm,
+              AS_HELP_STRING([--enable-qat_sw_sm4_gcm],
+                             [Enable qat_sw SM4 GCM acceleration]))
+AC_SUBST(enable_qat_sw_sm4_gcm)
 
 AC_ARG_ENABLE(qat_sw_sm4_cbc,
               AS_HELP_STRING([--enable-qat_sw_sm4_cbc],
@@ -745,6 +749,15 @@ then
 else
   enable_qat_sw_sm3=""
   AC_MSG_NOTICE([Not Accelerating SM3 to Software])
+fi
+
+if test "x$enable_qat_sw_sm4_gcm" = "xyes" -a "x$cflags_qat_sw" != "x"
+then
+  enable_qat_sw_sm4_gcm="-DENABLE_QAT_SW_SM4_GCM"
+  AC_MSG_NOTICE([Accelerating SM4 GCM to Software (Multi-buffer)])
+else
+  enable_qat_sw_sm4_gcm=""
+  AC_MSG_NOTICE([Not Accelerating SM4 GCM to Software])
 fi
 
 if test "x$enable_qat_hw_sha3" = "xyes" -a "x$cflags_qat_hw" != "x"

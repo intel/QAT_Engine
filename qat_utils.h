@@ -1046,6 +1046,14 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&ecdsa_cycles_verify_setup, 0);   \
         rdtsc_prof_init(&sm4_gcm_cycles_init_setup, 0);     \
         rdtsc_prof_init(&sm4_gcm_cycles_init_execute, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_encrypt_setup, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_encrypt_execute, 0); \
+        rdtsc_prof_init(&sm4_gcm_cycles_decrypt_setup, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_decrypt_execute, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_ctrl_setup, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_ctrl_execute, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_cleanup_setup, 0);   \
+        rdtsc_prof_init(&sm4_gcm_cycles_cleanup_execute, 0);  \
     } while (0)
 
 
@@ -1088,6 +1096,14 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_print(&ecdsa_cycles_verify_execute, "[ECDSA:verify_execute]");   \
         rdtsc_prof_print(&sm4_gcm_cycles_init_setup, "[SM4_GCM:init_setup]");       \
         rdtsc_prof_print(&sm4_gcm_cycles_init_execute, "[SM4_GCM:init_execute]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_encrypt_setup, "[SM4_GCM:encrypt_setup]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_encrypt_execute, "[SM4_GCM:encrypt_execute]"); \
+        rdtsc_prof_print(&sm4_gcm_cycles_decrypt_setup, "[SM4_GCM:decrypt_setup]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_decrypt_execute, "[SM4_GCM:decrypt_execute]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_ctrl_setup, "[SM4_GCM:ctrl_setup]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_ctrl_execute, "[SM4_GCM:ctrl_execute]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_cleanup_setup, "[SM4_GCM:cleanup_setup]");   \
+        rdtsc_prof_print(&sm4_gcm_cycles_cleanup_execute, "[SM4_GCM:cleanup_execute]");  \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \

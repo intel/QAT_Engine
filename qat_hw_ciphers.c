@@ -175,8 +175,6 @@ static inline const EVP_CIPHER *qat_chained_cipher_sw_impl(int nid)
             return EVP_aes_128_cbc_hmac_sha256();
         case NID_aes_256_cbc_hmac_sha256:
             return EVP_aes_256_cbc_hmac_sha256();
-        case NID_sm4_cbc:
-            return EVP_sm4_cbc();
         default:
             WARN("Invalid nid %d\n", nid);
             return NULL;

@@ -203,6 +203,11 @@ The following is a list of the options that can be used with the
     This flag is valid only when QAT SW acceleration is enabled using the flag
     '--enable-qat_sw' (disabled by default).
 
+--disable-qat_sw_sm4_gcm/--enable-qat_sw_sm4_gcm
+    Disable/Enable Intel(R) QAT Software SM4-GCM acceleration.
+    This flag is valid only when QAT SW acceleration is enabled using the flag
+    '--enable-qat_sw' (disabled by default if qat_sw is enabled).
+
 --disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
     Enable the acceleration of small packet cipher operations to Intel(R) QAT
     Hardware. When disabled, these operations are performed using the CPU
