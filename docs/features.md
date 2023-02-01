@@ -41,6 +41,7 @@
         * SM2
     * SM3 Hash Support using 16 Multibuffer requests (Experimental).
     * SM4-CBC Support using 16 Multibuffer requests.
+    * SM4-GCM Support using 16 Multibuffer requests.
     * AES128-GCM, AES192-GCM and AES256-GCM
 
 ## Common Features to qat_hw & qat_sw

@@ -26,22 +26,23 @@ It can be accomplished through two ENGINE ctrl commands:
 and the bit map of each algorithm is defined below:
 | Algorithm | Bit | HW or SW supported(Priority) |
 | :- | :- | :-: |
-| RSA | 0x0001 | Both (HW > SW) |
-| DSA | 0x0002 | HW |
-| DH | 0x0004 | HW |
-| ECDSA | 0x0008 | Both (HW > SW) |
-| ECDH | 0x0010 | Both (HW > SW) |
-| ECX25519 | 0x0020 | Both (HW > SW) |
-| ECX448 | 0x0040 | HW |
-| PRF | 0x0080 | HW |
-| HKDF | 0x0100 | HW |
-| SM2(ECDSA) | 0x0200 | SW |
-| AES_GCM | 0x0400 | Both (SW > HW) |
-| AES_CBC_HMAC_SHA | 0x0800 | HW |
-| SM4_CBC | 0x1000 | Both (HW > SW) |
-| CHACHA_POLY | 0x2000 | HW |
-| SHA3 | 0x4000 | HW |
-| SM3 | 0x8000 | SW |
+| RSA | 0x00001 | Both (HW > SW) |
+| DSA | 0x00002 | HW |
+| DH | 0x00004 | HW |
+| ECDSA | 0x00008 | Both (HW > SW) |
+| ECDH | 0x00010 | Both (HW > SW) |
+| ECX25519 | 0x00020 | Both (HW > SW) |
+| ECX448 | 0x00040 | HW |
+| PRF | 0x00080 | HW |
+| HKDF | 0x00100 | HW |
+| SM2(ECDSA) | 0x00200 | SW |
+| AES_GCM | 0x00400 | Both (SW > HW) |
+| AES_CBC_HMAC_SHA | 0x00800 | HW |
+| SM4_CBC | 0x01000 | Both (HW > SW) |
+| CHACHA_POLY | 0x02000 | HW |
+| SHA3 | 0x04000 | HW |
+| SM3 | 0x08000 | SW |
+| SM4-GCM | 0x10000 | SW |
 
 **Note: ECDH-SM2 is included in ECDH SW group.**
 

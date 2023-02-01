@@ -111,6 +111,7 @@
 # include "qat_sw_polling.h"
 # include "crypto_mb/cpu_features.h"
 # include "crypto_mb/sm4.h"
+# include "crypto_mb/sm4_gcm.h"
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -180,6 +181,7 @@ int qat_sw_sm2_offload = 0;
 int qat_hw_sha_offload = 0;
 int qat_sw_sm3_offload = 0;
 int qat_sw_sm4_cbc_offload = 0;
+int qat_sw_sm4_gcm_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -242,13 +244,13 @@ pthread_key_t mb_thread_key;
 #endif
 
 #ifdef QAT_HW
-uint64_t qat_hw_algo_enable_mask = 0xFFFF;
+uint64_t qat_hw_algo_enable_mask = 0xFFFFF;
 #else
 uint64_t qat_hw_algo_enable_mask = 0;
 #endif
 
 #ifdef QAT_SW
-uint64_t qat_sw_algo_enable_mask = 0xFFFF;
+uint64_t qat_sw_algo_enable_mask = 0xFFFFF;
 #else
 uint64_t qat_sw_algo_enable_mask = 0;
 #endif
@@ -443,6 +445,7 @@ static int qat_engine_destroy(ENGINE *e)
     qat_sw_sm2_offload = 0;
     qat_sw_sm3_offload = 0;
     qat_sw_sm4_cbc_offload = 0;
+    qat_sw_sm4_gcm_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
@@ -892,7 +895,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         val = strtoul(p, &temp, 0);
         BREAK_IF(errno == ERANGE || temp == p || *temp != '\0',
                 "The hardware enable mask is invalid.\n");
-        BREAK_IF(val > 0xFFFF,
+        BREAK_IF(val > 0xFFFFF,
                 "The hardware enable mask is out of the range.\n");
         DEBUG("QAT_CMD_HW_ALGO_BITMAP = 0x%lx\n", val);
         qat_hw_algo_enable_mask = val;
@@ -908,7 +911,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         val = strtoul(p, &temp, 0);
         BREAK_IF(errno == ERANGE || temp == p || *temp != '\0',
                 "The software enable mask is invalid.\n");
-        BREAK_IF(val > 0xFFFF,
+        BREAK_IF(val > 0xFFFFF,
                 "The software enable mask is out of the range.\n");
         DEBUG("QAT_CMD_SW_ALGO_BITMAP = 0x%lx\n", val);
         qat_sw_algo_enable_mask = val;
@@ -1023,7 +1026,7 @@ static int bind_qat(ENGINE *e, const char *id)
 # if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)    \
   || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA) \
   || defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_SW_SM3) \
-  || defined(ENABLE_QAT_SW_SM4_CBC)
+  || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM)
         DEBUG("Registering QAT SW supported algorithms\n");
         qat_sw_offload = 1;
 # endif
@@ -1074,7 +1077,7 @@ static int bind_qat(ENGINE *e, const char *id)
      qat_create_ciphers();
 
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC) \
-    || defined(ENABLE_QAT_SW_SM4_CBC)
+    || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
         goto end;
