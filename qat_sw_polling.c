@@ -70,6 +70,7 @@
 #include "qat_sw_sm3.h"
 #include "qat_sw_sm4_cbc.h"
 #include "qat_sw_sm4_gcm.h"
+#include "qat_sw_sm4_ccm.h"
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
@@ -181,10 +182,16 @@ struct timespec sm4_gcm_decrypt_previous_time = { 0 };
 mb_req_rates mb_sm4_gcm_encrypt_req_rates = { 0 };
 mb_req_rates mb_sm4_gcm_decrypt_req_rates = { 0 };
 
+/* SM4-CCM */
+struct timespec sm4_ccm_encrypt_previous_time = { 0 };
+struct timespec sm4_ccm_decrypt_previous_time = { 0 };
+mb_req_rates mb_sm4_ccm_encrypt_req_rates = { 0 };
+mb_req_rates mb_sm4_ccm_decrypt_req_rates = { 0 };
+
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
     || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) \
     || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_SW_SM4_CBC) \
-    || defined(ENABLE_QAT_SW_SM4_GCM)
+    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM)
 void multibuff_set_normalized_timespec(struct timespec *ts, time_t sec, long long  nsec)
 {
     while (nsec >= QAT_SW_NSEC_PER_SEC) {
@@ -321,7 +328,9 @@ unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
         (mb_sm4_cbc_cipher_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
         (mb_sm4_cbc_cipher_dec_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
         (mb_sm4_gcm_encrypt_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
-        (mb_sm4_gcm_decrypt_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH)) &&
+        (mb_sm4_gcm_decrypt_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
+        (mb_sm4_ccm_encrypt_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH) ||
+        (mb_sm4_ccm_decrypt_req_rates.req_this_period  < MULTIBUFF_MIN_BATCH)) &&
         (timeout_level > QAT_SW_TIMEOUT_LEVEL_MIN))
         return timeout_level-1;
 
@@ -355,7 +364,9 @@ unsigned int multibuff_calc_timeout_level(unsigned int timeout_level)
         (mb_sm4_cbc_cipher_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
         (mb_sm4_cbc_cipher_dec_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
         (mb_sm4_gcm_encrypt_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
-        (mb_sm4_gcm_decrypt_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2)) &&
+        (mb_sm4_gcm_decrypt_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_sm4_ccm_encrypt_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2) ||
+        (mb_sm4_ccm_decrypt_req_rates.req_this_period  > MULTIBUFF_MAX_BATCH*2)) &&
         (timeout_level < QAT_SW_TIMEOUT_LEVEL_MAX))
         return timeout_level+1;
 
@@ -393,7 +404,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
     || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) \
     || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_SW_SM4_CBC) \
-    || defined(ENABLE_QAT_SW_SM4_GCM)
+    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM)
     unsigned int submission_count = 0;
 #endif
 
@@ -428,6 +439,8 @@ void *multibuff_timer_poll_func(void *thread_ptr)
     multibuff_init_req_rates(&mb_sm4_cbc_cipher_dec_req_rates);
     multibuff_init_req_rates(&mb_sm4_gcm_encrypt_req_rates);
     multibuff_init_req_rates(&mb_sm4_gcm_decrypt_req_rates);
+    multibuff_init_req_rates(&mb_sm4_ccm_encrypt_req_rates);
+    multibuff_init_req_rates(&mb_sm4_ccm_decrypt_req_rates);
 #endif
 
     DEBUG("Polling Timeout %ld tlv %p\n", mb_poll_timeout_time.tv_nsec, tlv);
@@ -846,6 +859,36 @@ void *multibuff_timer_poll_func(void *thread_ptr)
                  multibuff_update_req_timeout(&mb_sm4_gcm_decrypt_req_rates);
 # endif
 #endif
+
+#ifdef ENABLE_QAT_SW_SM4_CCM
+                if (mb_queue_sm4_ccm_encrypt_get_size(tlv->sm4_ccm_encrypt_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_mb_sm4_ccm_encrypt_reqs(tlv);
+                    submission_count--;
+                    while ((mb_queue_sm4_ccm_encrypt_get_size(tlv->sm4_ccm_encrypt_queue) >= MULTIBUFF_SM4_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_mb_sm4_ccm_encrypt_reqs(tlv);
+                        submission_count--;
+                    }
+                 }
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+                 multibuff_update_req_timeout(&mb_sm4_ccm_encrypt_req_rates);
+# endif
+
+                if (mb_queue_sm4_ccm_decrypt_get_size(tlv->sm4_ccm_decrypt_queue) > 0) {
+                    submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+                    process_mb_sm4_ccm_decrypt_reqs(tlv);
+                    submission_count--;
+                    while ((mb_queue_sm4_ccm_decrypt_get_size(tlv->sm4_ccm_decrypt_queue) >= MULTIBUFF_SM4_MIN_BATCH) &&
+                           (submission_count > 0)) {
+                        process_mb_sm4_ccm_decrypt_reqs(tlv);
+                        submission_count--;
+                    }
+                 }
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+                 multibuff_update_req_timeout(&mb_sm4_ccm_decrypt_req_rates);
+# endif
+#endif
                 continue;
             }
         }
@@ -1247,6 +1290,34 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 # endif
         }
 #endif
+
+#ifdef ENABLE_QAT_SW_SM4_CCM
+        if (mb_queue_sm4_ccm_encrypt_get_size(tlv->sm4_ccm_encrypt_queue) >= MULTIBUFF_SM4_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                DEBUG("%d SM4_GCM encrypt requests in flight, process them\n", MULTIBUFF_SM4_MAX_BATCH);
+                process_mb_sm4_ccm_encrypt_reqs(tlv);
+                submission_count--;
+            } while ((mb_queue_sm4_ccm_encrypt_get_size(tlv->sm4_ccm_encrypt_queue) >= MULTIBUFF_SM4_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_sm4_ccm_encrypt_req_rates);
+# endif
+        }
+        if (mb_queue_sm4_ccm_decrypt_get_size(tlv->sm4_ccm_decrypt_queue) >= MULTIBUFF_SM4_MAX_BATCH) {
+            submission_count = MULTIBUFF_MAX_SUBMISSIONS;
+            do {
+                DEBUG("%d SM4_GCM decrypt requests in flight, process them\n", MULTIBUFF_SM4_MAX_BATCH);
+                process_mb_sm4_ccm_decrypt_reqs(tlv);
+                submission_count--;
+            } while ((mb_queue_sm4_ccm_decrypt_get_size(tlv->sm4_ccm_decrypt_queue) >= MULTIBUFF_SM4_MIN_BATCH) &&
+                     (submission_count > 0));
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+            multibuff_update_req_timeout(&mb_sm4_ccm_decrypt_req_rates);
+# endif
+        }
+#endif
+
         DEBUG("Finished loop in the Polling Thread\n");
     }
 
@@ -1261,7 +1332,7 @@ int multibuff_poll()
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
     || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) \
     || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_SW_SM4_CBC) \
-    || defined(ENABLE_QAT_SW_SM4_GCM)
+    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM)
     int snapshot_num_reqs = 0;
 #endif
 
@@ -1834,5 +1905,46 @@ int multibuff_poll()
         }
     }
 #endif
+
+#ifdef ENABLE_QAT_SW_SM4_CCM
+    /* Deal with SM4_CCM Encrypt requests */
+    snapshot_num_reqs = mb_queue_sm4_ccm_encrypt_get_size(mb_tlv->sm4_ccm_encrypt_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_SM4_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_SM4_MIN_BATCH) {
+            process_mb_sm4_ccm_encrypt_reqs(mb_tlv);
+            snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_encrypt_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+                snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                                 sm4_ccm_encrypt_previous_time,
+                                                 current_time) == 1) {
+            process_mb_sm4_ccm_encrypt_reqs(mb_tlv);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_encrypt_previous_time);
+        }
+    }
+
+    /* Deal with SM4_CCM Decrypt requests */
+    snapshot_num_reqs = mb_queue_sm4_ccm_decrypt_get_size(mb_tlv->sm4_ccm_decrypt_queue);
+    if (snapshot_num_reqs >= MULTIBUFF_SM4_MAX_BATCH) {
+        while (snapshot_num_reqs >= MULTIBUFF_SM4_MIN_BATCH) {
+            process_mb_sm4_ccm_decrypt_reqs(mb_tlv);
+            snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
+        }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_decrypt_previous_time);
+    } else {
+        if (snapshot_num_reqs > 0 &&
+                snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
+                multibuff_poll_check_for_timeout(mb_poll_timeout_time,
+                                                 sm4_ccm_decrypt_previous_time,
+                                                 current_time) == 1) {
+            process_mb_sm4_ccm_decrypt_reqs(mb_tlv);
+            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_decrypt_previous_time);
+        }
+    }
+#endif
+
     return 1;
 }

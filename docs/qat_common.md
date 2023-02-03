@@ -43,6 +43,7 @@ and the bit map of each algorithm is defined below:
 | SHA3 | 0x04000 | HW |
 | SM3 | 0x08000 | SW |
 | SM4-GCM | 0x10000 | SW |
+| SM4-CCM | 0x20000 | SW |
 
 **Note: ECDH-SM2 is included in ECDH SW group.**
 

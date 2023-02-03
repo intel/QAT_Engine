@@ -931,6 +931,20 @@ extern rdtsc_prof_t sm4_gcm_cycles_ctrl_setup;
 extern rdtsc_prof_t sm4_gcm_cycles_ctrl_execute;
 extern rdtsc_prof_t sm4_gcm_cycles_cleanup_setup;
 extern rdtsc_prof_t sm4_gcm_cycles_cleanup_execute;
+extern rdtsc_prof_t sm4_ccm_cycles_init_setup;
+extern rdtsc_prof_t sm4_ccm_cycles_init_execute;
+extern rdtsc_prof_t sm4_ccm_cycles_encrypt_setup;
+extern rdtsc_prof_t sm4_ccm_cycles_encrypt_execute;
+extern rdtsc_prof_t sm4_ccm_cycles_decrypt_setup;
+extern rdtsc_prof_t sm4_ccm_cycles_decrypt_execute;
+extern rdtsc_prof_t sm4_ccm_cycles_ctrl_setup;
+extern rdtsc_prof_t sm4_ccm_cycles_ctrl_execute;
+extern rdtsc_prof_t sm4_ccm_cycles_cleanup_setup;
+extern rdtsc_prof_t sm4_ccm_cycles_cleanup_execute;
+extern rdtsc_prof_t sm4_ccm_cycles_get_tag_setup;
+extern rdtsc_prof_t sm4_ccm_cycles_get_tag_execute;
+extern rdtsc_prof_t sm4_ccm_cycles_update_aad_setup;
+extern rdtsc_prof_t sm4_ccm_cycles_update_aad_execute;
 extern int print_cycle_count;
 
 /**
@@ -1054,6 +1068,20 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&sm4_gcm_cycles_ctrl_execute, 0);   \
         rdtsc_prof_init(&sm4_gcm_cycles_cleanup_setup, 0);   \
         rdtsc_prof_init(&sm4_gcm_cycles_cleanup_execute, 0);  \
+        rdtsc_prof_init(&sm4_ccm_cycles_init_setup, 0);     \
+        rdtsc_prof_init(&sm4_ccm_cycles_init_execute, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_encrypt_setup, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_encrypt_execute, 0); \
+        rdtsc_prof_init(&sm4_ccm_cycles_decrypt_setup, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_decrypt_execute, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_ctrl_setup, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_ctrl_execute, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_cleanup_setup, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_cleanup_execute, 0);  \
+        rdtsc_prof_init(&sm4_ccm_cycles_get_tag_setup, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_get_tag_execute, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_update_aad_setup, 0);   \
+        rdtsc_prof_init(&sm4_ccm_cycles_update_aad_execute, 0);  \
     } while (0)
 
 
@@ -1104,6 +1132,20 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_print(&sm4_gcm_cycles_ctrl_execute, "[SM4_GCM:ctrl_execute]");   \
         rdtsc_prof_print(&sm4_gcm_cycles_cleanup_setup, "[SM4_GCM:cleanup_setup]");   \
         rdtsc_prof_print(&sm4_gcm_cycles_cleanup_execute, "[SM4_GCM:cleanup_execute]");  \
+        rdtsc_prof_print(&sm4_ccm_cycles_init_setup, "[SM4_CCM:init_setup]");       \
+        rdtsc_prof_print(&sm4_ccm_cycles_init_execute, "[SM4_CCM:init_execute]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_encrypt_setup, "[SM4_CCM:encrypt_setup]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_encrypt_execute, "[SM4_CCM:encrypt_execute]"); \
+        rdtsc_prof_print(&sm4_ccm_cycles_decrypt_setup, "[SM4_CCM:decrypt_setup]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_decrypt_execute, "[SM4_CCM:decrypt_execute]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_ctrl_setup, "[SM4_CCM:ctrl_setup]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_ctrl_execute, "[SM4_CCM:ctrl_execute]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_cleanup_setup, "[SM4_CCM:cleanup_setup]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_cleanup_execute, "[SM4_CCM:cleanup_execute]");  \
+        rdtsc_prof_print(&sm4_ccm_cycles_get_tag_setup, "[SM4_CCM:get_tag_setup]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_get_tag_execute, "[SM4_CCM:get_tag_execute]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_update_aad_setup, "[SM4_CCM:update_aad_setup]");   \
+        rdtsc_prof_print(&sm4_ccm_cycles_update_aad_execute, "[SM4_CCM:update_aad_execute]");  \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \

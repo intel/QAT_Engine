@@ -302,6 +302,24 @@ typedef struct _mb_queue_sm4_gcm_decrypt
     int disabled;
 } mb_queue_sm4_gcm_decrypt;
 
+typedef struct _mb_queue_sm4_ccm_encrypt
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm4_ccm_encrypt_op_data *head;
+    sm4_ccm_encrypt_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm4_ccm_encrypt;
+
+typedef struct _mb_queue_sm4_ccm_decrypt
+{
+    pthread_mutex_t mb_queue_mutex;
+    sm4_ccm_decrypt_op_data *head;
+    sm4_ccm_decrypt_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_sm4_ccm_decrypt;
+
 mb_queue_rsa2k_priv * mb_queue_rsa2k_priv_create();
 int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv * queue);
 int mb_queue_rsa2k_priv_cleanup(mb_queue_rsa2k_priv * queue);
@@ -556,4 +574,24 @@ int mb_queue_sm4_gcm_decrypt_enqueue(mb_queue_sm4_gcm_decrypt *queue,
 sm4_gcm_decrypt_op_data
     *mb_queue_sm4_gcm_decrypt_dequeue(mb_queue_sm4_gcm_decrypt *queue);
 int mb_queue_sm4_gcm_decrypt_get_size(mb_queue_sm4_gcm_decrypt *queue);
+
+/* SM4_CCM */
+mb_queue_sm4_ccm_encrypt * mb_queue_sm4_ccm_encrypt_create();
+int mb_queue_sm4_ccm_encrypt_disable(mb_queue_sm4_ccm_encrypt * queue);
+int mb_queue_sm4_ccm_encrypt_cleanup(mb_queue_sm4_ccm_encrypt * queue);
+int mb_queue_sm4_ccm_encrypt_enqueue(mb_queue_sm4_ccm_encrypt *queue,
+                                  sm4_ccm_encrypt_op_data *item);
+sm4_ccm_encrypt_op_data
+    *mb_queue_sm4_ccm_encrypt_dequeue(mb_queue_sm4_ccm_encrypt *queue);
+int mb_queue_sm4_ccm_encrypt_get_size(mb_queue_sm4_ccm_encrypt *queue);
+
+mb_queue_sm4_ccm_decrypt * mb_queue_sm4_ccm_decrypt_create();
+int mb_queue_sm4_ccm_decrypt_disable(mb_queue_sm4_ccm_decrypt * queue);
+int mb_queue_sm4_ccm_decrypt_cleanup(mb_queue_sm4_ccm_decrypt * queue);
+int mb_queue_sm4_ccm_decrypt_enqueue(mb_queue_sm4_ccm_decrypt *queue,
+                                  sm4_ccm_decrypt_op_data *item);
+sm4_ccm_decrypt_op_data
+    *mb_queue_sm4_ccm_decrypt_dequeue(mb_queue_sm4_ccm_decrypt *queue);
+int mb_queue_sm4_ccm_decrypt_get_size(mb_queue_sm4_ccm_decrypt *queue);
+
 #endif /* QAT_SW_QUEUE_H */

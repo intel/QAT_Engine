@@ -52,20 +52,21 @@
 #include "../qat_utils.h"
 
 #ifdef ENABLE_QAT_SW_SM4_GCM
-#define SM4_BLOCKSIZE 16
+# define SM4_BLOCKSIZE 16
+# define QAT_SM4_TAG_MAX_LEN 16
 
 static const unsigned char key[] = {
-	0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
-	0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+    0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10};
 
 /* 12 bytes initialisation vector */
 static const unsigned char iv[] = {
-	0x00, 0x00, 0x12, 0x34, 0x56, 0x78, 0x00,
-	0x00, 0x00, 0x00, 0xAB, 0xCD};
+    0x00, 0x00, 0x12, 0x34, 0x56, 0x78,
+    0x00, 0x00, 0x00, 0x00, 0xAB, 0xCD};
 
 /******************************************************************************
 * function:
-*         run_sm4gcm_update (void *args)
+*         run_sm4ccm_update (void *args)
 *
 * @param args [IN] - the test parameters
 *
@@ -84,10 +85,8 @@ static const unsigned char iv[] = {
 *  Decrypt Final    Verify the TAG and              Does nothing
 *                   return failure if not correct
 *
-*  This doesn't impact the TLS case because Update and Final are considered
-*  a single operation like in the QAT engine.
 *****************************************************************************/
-static int run_sm4gcm_update(void *args)
+static int run_sm4ccm_update(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
     ENGINE *e = temp_args->e;
@@ -99,22 +98,23 @@ static int run_sm4gcm_update(void *args)
     /* 16 bytes additional authentication data.
      * AAD is not to be encrypted. It is passed along with the plaintext
      * and ciphertext to the recipient. */
+    /*
     const unsigned char aad[] = {
-	0xFE,0xED,0xFA,0xCE,0xDE,0xAD,0xBE,0xEF,0xFE,0xED,
-	0xFA,0xCE,0xDE,0xAD,0xBE,0xEF,0xAB,0xAD,0xDA,0xD2};
-
+        0xFE,0xED,0xFA,0xCE,0xDE,0xAD,0xBE,0xEF,0xFE,0xED,
+        0xFA,0xCE,0xDE,0xAD,0xBE,0xEF,0xAB,0xAD,0xDA,0xD2};
+    */
     unsigned char plaintext[] = {
-	    0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
-	    0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB,
-	    0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
-	    0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD,
-	    0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE,
-	    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	    0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE,
-	    0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+        0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA,
+        0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB, 0xBB,
+        0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
+        0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD, 0xDD,
+        0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE,
+        0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+        0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE, 0xEE,
+        0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 
     unsigned char *ciphertext = OPENSSL_malloc(size + (SM4_BLOCKSIZE * 4));
-    unsigned char tag[EVP_GCM_TLS_TAG_LEN] = { 0 };
+    unsigned char tag[EVP_CCM_TLS_TAG_LEN] = { 0 };
     unsigned char *dec_cipher = OPENSSL_malloc(size + (SM4_BLOCKSIZE * 4));
     unsigned char *enc_cipher = NULL;
 
@@ -122,6 +122,7 @@ static int run_sm4gcm_update(void *args)
     int tmpout_len = 0;
     int enc_cipher_len = 0;
     int dec_cipher_len = 0;
+    int ivlen = 0;
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
@@ -139,20 +140,20 @@ static int run_sm4gcm_update(void *args)
     enc_cipher = ciphertext;
 
     if (print_output)
-        tests_hexdump("SM4-GCM: input message", plaintext, /*size*/sizeof(plaintext));
+        tests_hexdump("SM4-CCM: input message", plaintext, /*size*/sizeof(plaintext));
 
     /* Create context for encrypt operation */
     ctx = EVP_CIPHER_CTX_new();
     if (ctx == NULL) {
-        INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_new() failed for ctx\n",
+        INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_new() failed while creating ctx\n",
              __func__);
         goto err;
     }
 
-    /* Initialize encryption context for sm4-gcm */
-    ret = EVP_EncryptInit_ex(ctx, EVP_sm4_gcm() , e, NULL, NULL);
+    /* Initialize encryption context for sm4-ccm */
+    ret = EVP_EncryptInit_ex(ctx, EVP_sm4_ccm() , e, NULL, NULL);
     if (ret != 1) {
-        INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed: ret %d\n",
+        INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() encryption failed while setting context: ret %d\n",
              __func__, ret);
         goto err;
     }
@@ -162,32 +163,54 @@ static int run_sm4gcm_update(void *args)
      * only 12 bytes.
      * Optional - The default is 12 bytes according to the TLS spec.
      */
-    ret = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof(iv), NULL);
+    ret = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_SET_IVLEN, sizeof(iv), NULL);
     if (ret != 1) {
-        INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed: ret %d\n",
+        INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed while setting IVLEN: ret %d\n",
+             __func__, ret);
+        goto err;
+    }
+
+    ret = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_SET_TAG, QAT_SM4_TAG_MAX_LEN, NULL);
+    if (ret != 1) {
+        INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed while setting EVP_CTRL_AEAD_SET_TAG: ret %d\n",
              __func__, ret);
         goto err;
     }
 
     /*
-     *  Initialise the sm4-gcm encryption context with 16-byte key and
+     *  Initialise the sm4-ccm encryption context with 16-byte key and
      * 12-byte IV.
      */
-    ret = EVP_EncryptInit_ex(ctx, NULL, NULL, key, iv);
+    ret = EVP_EncryptInit_ex(ctx, NULL, NULL, key, NULL);
     if (ret != 1) {
-        INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed: ret %d\n",
+        INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed while setting key: ret %d\n",
              __func__, ret);
         goto err;
     }
 
-    /* Pass AAD to the encryption context before encrypting the input plaintext. */
+    ret = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GET_IVLEN, 0, &ivlen);
+    if (ret != 1) {
+        INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed while getting ivlen: ret %d\n",
+             __func__, ret);
+        goto err;
+    }
+
+    ret = EVP_EncryptInit_ex(ctx, NULL, NULL, NULL, iv);
+    if (ret != 1) {
+        INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed while setting iv: ret %d\n",
+             __func__, ret);
+        goto err;
+    }
+
+    /* Pass AAD to the encryption context before encrypting the input plaintext.*/ 
+    /*
     ret = EVP_EncryptUpdate(ctx, NULL, &tmpout_len, aad, sizeof(aad));
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptUpdate() failed when adding aad: ret %d\n",
              __func__, ret);
         goto err;
     }
-
+    */
     /* Encrypt the input plaintext. */
     ret = EVP_EncryptUpdate(ctx, ciphertext, &tmpout_len, plaintext, sizeof(plaintext));
     if (ret != 1) {
@@ -211,10 +234,10 @@ static int run_sm4gcm_update(void *args)
     ciphertext_len += tmpout_len;
 
     if (print_output)
-        tests_hexdump("SM4-GCM ciphertext:", ciphertext, ciphertext_len);
+        tests_hexdump("SM4-CCM ciphertext:", ciphertext, ciphertext_len);
 
     /* Retrieve the 16 byte tag */
-    ret = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, EVP_GCM_TLS_TAG_LEN,
+    ret = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_CCM_GET_TAG, EVP_CCM_TLS_TAG_LEN,
                               tag);
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed for tag: ret %d\n",
@@ -238,8 +261,8 @@ static int run_sm4gcm_update(void *args)
         goto err;
     }
 
-    /* Initialize decryption context for sm4-gcm */
-    ret = EVP_DecryptInit_ex(dec_ctx, EVP_sm4_gcm(), e, NULL, NULL);
+    /* Initialize decryption context for sm4-ccm */
+    ret = EVP_DecryptInit_ex(dec_ctx, EVP_sm4_ccm(), e, NULL, NULL);
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -249,38 +272,30 @@ static int run_sm4gcm_update(void *args)
     /* Set IV length other than the default 12 bytes but QAT Engine supports
      * only 12 bytes.
      * Optional - The default is 12 bytes according to the TLS spec. */
-    ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof(iv), NULL);
+    ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_CCM_SET_IVLEN, sizeof(iv), NULL);
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed: ret %d\n",
              __func__, ret);
         goto err;
     }
 
-    /*
-     *  Initialise the sm4-gcm decryption context with 16-byte key and
-     *  12-byte IV.
-     */
-    ret = EVP_DecryptInit_ex(dec_ctx, NULL, NULL, key, iv);
-    if (ret != 1) {
-        INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
-             __func__, ret);
-        goto err;
-    }
-
     /* QAT engine reads tag before starting the decrypt operation whereas
      * SW engine performs the decrypt op first and then reads the tag. */
-    ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_GCM_SET_TAG,
-                              EVP_GCM_TLS_TAG_LEN, tag);
+    ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_CCM_SET_TAG,
+                              EVP_CCM_TLS_TAG_LEN, tag);
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed while setting the tag: ret %d\n",
              __func__, ret);
         goto err;
     }
 
-    /* AAD is passed to EVP_DecryptUpdate() with output buffer set to NULL */
-    ret = EVP_DecryptUpdate(dec_ctx, NULL, &tmpout_len, aad, sizeof(aad));
+    /*
+     *  Initialise the sm4-ccm decryption context with 16-byte key and
+     *  12-byte IV.
+     */
+    ret = EVP_DecryptInit_ex(dec_ctx, NULL, NULL, key, iv);
     if (ret != 1) {
-        INFO("# FAIL: [%s] --- EVP_DecryptUpdate() failed when adding aad: ret %d\n",
+        INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);
         goto err;
     }
@@ -297,8 +312,8 @@ static int run_sm4gcm_update(void *args)
         dec_cipher_len += tmpout_len;
 
     /* Read the tag after the decrypt operation */
-    ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_GCM_SET_TAG,
-                              EVP_GCM_TLS_TAG_LEN, tag);
+    ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_CCM_SET_TAG,
+                              EVP_CCM_TLS_TAG_LEN, tag);
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed while setting the tag: ret %d\n",
              __func__, ret);
@@ -306,23 +321,22 @@ static int run_sm4gcm_update(void *args)
     }
 
     if (print_output)
-        tests_hexdump("SM4-GCM enc tag:", tag, EVP_GCM_TLS_TAG_LEN);
+        tests_hexdump("SM4-CCM enc tag:", tag, EVP_CCM_TLS_TAG_LEN);
 
     if (print_output)
-        tests_hexdump("SM4-GCM decrypted plaintext:", dec_cipher,
+        tests_hexdump("SM4-CCM decrypted plaintext:", dec_cipher,
                       dec_cipher_len);
 
     /* Compare and verify the decrypt and encrypt message. */
     if (verify) {
         if (memcmp(dec_cipher, plaintext, /*size*/sizeof(plaintext))) {
-            INFO("# FAIL verify for SM4 GCM update\n");
+            INFO("# FAIL verify for SM4 CCM update\n");
             ret = 0;
-
-            tests_hexdump("SM4GCM actual  :", dec_cipher, dec_cipher_len);
-            tests_hexdump("SM4GCM expected:", plaintext, size);
-        } else { 
-            INFO("# PASS verify for SM4 GCM update\n");
+            tests_hexdump("SM4CCM actual  :", dec_cipher, dec_cipher_len);
+            tests_hexdump("SM4CCM expected:", plaintext, size);
         }
+        else
+            INFO("# PASS verify for SM4 CCM update\n");
     }
 
     EVP_CIPHER_CTX_free(dec_ctx);
@@ -344,12 +358,13 @@ err:
     return ret;
 }
 
-void tests_run_sm4_gcm(TEST_PARAMS *args)
+void tests_run_sm4_ccm(TEST_PARAMS *args)
 {
     args->additional_args = NULL;
+
     if (args->enable_async)
-        start_async_job(args, run_sm4gcm_update);
+        start_async_job(args, run_sm4ccm_update);
     else
-        run_sm4gcm_update(args);
+        run_sm4ccm_update(args);
 }
-#endif /* ENABLE_QAT_SW_SM4_GCM */
+#endif /* ENABLE_QAT_SW_SM4_CCM */
