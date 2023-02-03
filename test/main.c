@@ -552,6 +552,8 @@ char *test_name(int test)
         return "SM4-CBC";
     case TEST_SM4_GCM:
         return "SM4-GCM";
+    case TEST_SM4_CCM:
+        return "SM4-CCM";
     case 0:
         return "all tests";
     default:
@@ -733,8 +735,9 @@ static void usage(char *program)
     printf("\tsha3-384    SHA3 384 test\n");
     printf("\tsha3-512    SHA3 512 test\n");
     printf("\tsm3         SM3 test\n");
-    printf("\tsm4_cbc     SM4 CBC test\n");
-    printf("\tsm4_gcm     SM4 GCM test\n");
+    printf("\tsm4-cbc     SM4 CBC test\n");
+    printf("\tsm4-gcm     SM4 GCM test\n");
+    printf("\tsm4-ccm     SM4 CCM test\n");
     printf("\tchachapoly  CHACHAPOLY test\n\n");
 
     printf("\nIf test algo is not specified, default tests"
@@ -870,10 +873,12 @@ static void handle_option(int argc, char *argv[], int *index)
         test_alg = TEST_PRF;
     else if (!strcmp(option, "sm3"))
         test_alg = TEST_SM3;
-    else if (!strcmp(option, "sm4_cbc"))
+    else if (!strcmp(option, "sm4-cbc"))
         test_alg = TEST_SM4_CBC;
     else if (!strcmp(option, "sm4-gcm"))
         test_alg = TEST_SM4_GCM;
+    else if (!strcmp(option, "sm4-ccm"))
+        test_alg = TEST_SM4_CCM;
     else if (!strcmp(option, "hkdf"))
         test_alg = TEST_HKDF;
     else if (!strcmp(option, "chachapoly")) {

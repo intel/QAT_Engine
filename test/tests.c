@@ -762,16 +762,21 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_ECX:              /* X25519 & X448 test application */
         tests_run_ecx(args);
         break;
-#if defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_HW_SM4_CBC)
+# if defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_HW_SM4_CBC)
     case TEST_SM4_CBC:            /* SM4_CBC test application */
         tests_run_sm4_cbc(args);
         break;
-#endif
-#ifdef ENABLE_QAT_SW_SM4_GCM
+# endif
+# ifdef ENABLE_QAT_SW_SM4_GCM
     case TEST_SM4_GCM:            /* SM4_GCM test application */
         tests_run_sm4_gcm(args);
         break;
-#endif /* ENABLE_QAT_SW_SM4_GCM */
+# endif /* ENABLE_QAT_SW_SM4_GCM */
+# ifdef ENABLE_QAT_SW_SM4_CCM
+    case TEST_SM4_CCM:            /* SM4_CCM test application */
+        tests_run_sm4_ccm(args);
+        break;
+# endif
 #endif
 
 #ifdef QAT_HW

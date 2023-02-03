@@ -191,6 +191,15 @@ void mb_thread_local_destructor(void *tlv_ptr)
         mb_flist_sm4_gcm_decrypt_cleanup(tlv->sm4_gcm_decrypt_freelist);
 #endif
 
+#ifdef ENABLE_QAT_SW_SM4_CCM
+    QAT_SW_CLEANUP(sm4_ccm_encrypt, sm4_ccm_encrypt_op_data, tlv->sm4_ccm_encrypt_queue);
+    QAT_SW_CLEANUP(sm4_ccm_decrypt, sm4_ccm_decrypt_op_data, tlv->sm4_ccm_decrypt_queue);
+    if (tlv->sm4_ccm_encrypt_freelist)
+        mb_flist_sm4_ccm_encrypt_cleanup(tlv->sm4_ccm_encrypt_freelist);
+    if (tlv->sm4_ccm_decrypt_freelist)
+        mb_flist_sm4_ccm_decrypt_cleanup(tlv->sm4_ccm_decrypt_freelist);
+#endif
+
     sem_destroy(&tlv->mb_polling_thread_sem);
     OPENSSL_free(tlv);
 
@@ -341,6 +350,20 @@ mb_thread_data* mb_check_thread_local(void)
            ((tlv->sm4_gcm_decrypt_queue= mb_queue_sm4_gcm_decrypt_create())
                   == NULL) ) {
             WARN("Failure to allocate SM4_GCM Freelists and Queues\n");
+            goto err;
+        }
+#endif
+
+#ifdef ENABLE_QAT_SW_SM4_CCM
+        if(((tlv->sm4_ccm_encrypt_freelist = mb_flist_sm4_ccm_encrypt_create())
+                  == NULL) ||
+           ((tlv->sm4_ccm_decrypt_freelist = mb_flist_sm4_ccm_decrypt_create())
+                  == NULL) ||
+           ((tlv->sm4_ccm_encrypt_queue= mb_queue_sm4_ccm_encrypt_create())
+                  == NULL) ||
+           ((tlv->sm4_ccm_decrypt_queue= mb_queue_sm4_ccm_decrypt_create())
+                  == NULL) ) {
+            WARN("Failure to allocate SM4_CCM Freelists and Queues\n");
             goto err;
         }
 #endif

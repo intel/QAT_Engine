@@ -37,6 +37,9 @@
   support.
 * QAT Engine built for OpenSSL3.0 is only compatible with dependant libraries also linked with OpenSSL3.0
   libraries due to [OpenSSL#17112][1]. Same applies for OpenSSL 1.1.1.
+* SM4-GCM and SM4-CCM are only supported with BabaSSL versions based on OpenSSL 1.1.1.
+  They are not supported with OpenSSL 1.1.1, OpenSSL 3.0 and BabaSSL versions based
+  on OpenSSL 3.0.
 
 ## Known Issues
 

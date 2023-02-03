@@ -139,6 +139,15 @@ int qat_sw_sm4_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 int qat_sw_sm4_gcm_cleanup(EVP_CIPHER_CTX *ctx);
 # endif
 
+#ifdef ENABLE_QAT_SW_SM4_CCM
+int qat_sw_sm4_ccm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
+        const unsigned char *iv, int enc);
+int qat_sw_sm4_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int p1, void *p2);
+int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+        const unsigned char *in, size_t len);
+int qat_sw_sm4_ccm_cleanup(EVP_CIPHER_CTX *ctx);
+#endif
+
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
 EVP_PKEY_METHOD *qat_prf_pmeth(void);

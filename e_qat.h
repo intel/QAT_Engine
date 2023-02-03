@@ -412,6 +412,7 @@ extern int qat_hw_sha_offload;
 extern int qat_sw_sm3_offload;
 extern int qat_sw_sm4_cbc_offload;
 extern int qat_sw_sm4_gcm_offload;
+extern int qat_sw_sm4_ccm_offload;
 extern int qat_keep_polling;
 extern int multibuff_keep_polling;
 extern int enable_external_polling;
@@ -450,6 +451,7 @@ extern int qat_sw_ipsec;
 #define ALGO_ENABLE_MASK_SHA3               0x04000
 #define ALGO_ENABLE_MASK_SM3                0x08000
 #define ALGO_ENABLE_MASK_SM4_GCM            0x10000
+#define ALGO_ENABLE_MASK_SM4_CCM            0x20000
 
 extern int qat_reload_algo;
 extern uint64_t qat_hw_algo_enable_mask;

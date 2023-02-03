@@ -195,6 +195,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     if (pOpData->pCurve == NULL) {
         WARN("Failure to allocate pOpData->pCurve\n");
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_PCURVE_MALLOC_FAILURE);
+        OPENSSL_free(pOpData);
         return ret;
     }
 

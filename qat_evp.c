@@ -86,9 +86,11 @@
 # include "qat_sw_sm3.h"
 # include "qat_sw_sm4_cbc.h"
 # include "qat_sw_sm4_gcm.h"
+# include "qat_sw_sm4_ccm.h"
 # include "crypto_mb/sm4.h"
 # include "crypto_mb/cpu_features.h"
 # include "crypto_mb/sm4_gcm.h"
+# include "crypto_mb/sm4_ccm.h"
 #endif
 
 #ifdef QAT_HW_INTREE
@@ -129,6 +131,9 @@ static chained_info info[] = {
 #ifdef ENABLE_QAT_SW_SM4_GCM
     {NID_sm4_gcm, NULL, SM4_KEY_SIZE},
 #endif
+#ifdef ENABLE_QAT_SW_SM4_CCM
+    {NID_sm4_ccm, NULL, SM4_KEY_SIZE},
+#endif
 };
 
 static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
@@ -154,6 +159,9 @@ int qat_cipher_nids[] = {
 #endif
 #ifdef ENABLE_QAT_SW_SM4_GCM
     NID_sm4_gcm,
+#endif
+#ifdef ENABLE_QAT_SW_SM4_CCM
+    NID_sm4_ccm,
 #endif
 };
 
@@ -868,6 +876,67 @@ const EVP_CIPHER *qat_create_sm4_gcm_cipher_meth(int nid, int keylen)
 # endif
 #endif /* ENABLE_QAT_SW_SM4_GCM */
 
+/******************************************************************************
+ * function:
+ *         qat_create_sm4_ccm_cipher_meth(int nid, in keylen)
+ *
+ * @retval            - EVP_CIPHER * to created cipher
+ * @retval            - EVP_CIPHER * EVP_sm4_ccm
+ * @retval            - NULL if failure
+ *
+ * description:
+ *   Create a new EVP_CIPHER based on requested nid for qat_sw
+ ******************************************************************************/
+#ifdef ENABLE_QAT_SW_SM4_CCM
+# if !defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+const EVP_CIPHER *qat_create_sm4_ccm_cipher_meth(int nid, int keylen)
+{
+    EVP_CIPHER *c = NULL;
+#ifdef ENABLE_QAT_SW_SM4_CCM
+    int res = 1;
+#endif
+
+    if ((c = EVP_CIPHER_meth_new(nid, SM4_BLOCK_SIZE, keylen)) == NULL) {
+        QATerr(QAT_F_QAT_CREATE_SM4_CCM_CIPHER_METH, QAT_R_SM4_MALLOC_FAILED);
+        WARN("Failed to generate meth\n");
+        return NULL;
+    }
+
+    if ( qat_sw_offload && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM4_CCM) &&
+        mbx_get_algo_info(MBX_ALGO_SM4)) {
+
+        res &= EVP_CIPHER_meth_set_flags(c, CUSTOM_CCM_FLAGS);
+        res &= EVP_CIPHER_meth_set_init(c, qat_sw_sm4_ccm_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sw_sm4_ccm_do_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, qat_sw_sm4_ccm_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(QAT_SM4_CCM_CTX));
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
+        res &= EVP_CIPHER_meth_set_ctrl(c, qat_sw_sm4_ccm_ctrl);
+
+        if (0 == res) {
+            WARN("Failed to set cipher methods for nid %d\n", NID_sm4_ccm);
+            EVP_CIPHER_meth_free(c);
+            return NULL;
+        }
+
+        qat_sw_sm4_ccm_offload = 1;
+        DEBUG("QAT SW SM4 CCM registration succeeded, res=%d\n", res);
+    } else {
+        qat_sw_sm4_ccm_offload = 0;
+        DEBUG("QAT SW SM4-CCM disabled\n");
+    }
+
+    if (!qat_sw_sm4_ccm_offload) {
+        DEBUG("OpenSSL SW SM4 CCM registration\n");
+        EVP_CIPHER_meth_free(c);
+        return (const EVP_CIPHER *)EVP_sm4_ccm();
+    }
+    return c;
+}
+# endif
+#endif /* ENABLE_QAT_SW_SM4_CCM */
+
 void qat_create_ciphers(void)
 {
     int i;
@@ -900,6 +969,14 @@ void qat_create_ciphers(void)
                     qat_create_sm4_gcm_cipher_meth(info[i].nid, info[i].keylen);
                 break;
 #endif
+
+#ifdef ENABLE_QAT_SW_SM4_CCM
+            case NID_sm4_ccm:
+                info[i].cipher = (EVP_CIPHER *)
+                qat_create_sm4_ccm_cipher_meth(info[i].nid, info[i].keylen);
+                break;
+#endif
+
 #ifdef QAT_HW
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
             case NID_chacha20_poly1305:
@@ -958,6 +1035,12 @@ void qat_free_ciphers(void)
                     EVP_CIPHER_meth_free(info[i].cipher);
                 break;
 #endif
+#ifdef ENABLE_QAT_SW_SM4_CCM
+            case NID_sm4_ccm:
+                if (qat_sw_sm4_ccm_offload)
+                    EVP_CIPHER_meth_free(info[i].cipher);
+                break;
+#endif
 #ifndef DISABLE_QAT_HW_CHACHAPOLY
             case NID_chacha20_poly1305:
                 if (qat_hw_chacha_poly_offload)
@@ -984,6 +1067,7 @@ void qat_free_ciphers(void)
     qat_hw_sm4_cbc_offload = 0;
     qat_sw_sm4_cbc_offload = 0;
     qat_sw_sm4_gcm_offload = 0;
+    qat_sw_sm4_ccm_offload = 0;
 }
 
 /******************************************************************************

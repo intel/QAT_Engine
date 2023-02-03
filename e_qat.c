@@ -112,6 +112,7 @@
 # include "crypto_mb/cpu_features.h"
 # include "crypto_mb/sm4.h"
 # include "crypto_mb/sm4_gcm.h"
+# include "crypto_mb/sm4_ccm.h"
 #endif
 
 #ifdef QAT_SW_IPSEC
@@ -182,6 +183,7 @@ int qat_hw_sha_offload = 0;
 int qat_sw_sm3_offload = 0;
 int qat_sw_sm4_cbc_offload = 0;
 int qat_sw_sm4_gcm_offload = 0;
+int qat_sw_sm4_ccm_offload = 0;
 int qat_keep_polling = 1;
 int multibuff_keep_polling = 1;
 int enable_external_polling = 0;
@@ -446,6 +448,7 @@ static int qat_engine_destroy(ENGINE *e)
     qat_sw_sm3_offload = 0;
     qat_sw_sm4_cbc_offload = 0;
     qat_sw_sm4_gcm_offload = 0;
+    qat_sw_sm4_ccm_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
@@ -1026,7 +1029,8 @@ static int bind_qat(ENGINE *e, const char *id)
 # if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)    \
   || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA) \
   || defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_SW_SM3) \
-  || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM)
+  || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM) \
+  || defined(ENABLE_QAT_SW_SM4_CCM)
         DEBUG("Registering QAT SW supported algorithms\n");
         qat_sw_offload = 1;
 # endif
@@ -1077,7 +1081,8 @@ static int bind_qat(ENGINE *e, const char *id)
      qat_create_ciphers();
 
 #if defined(QAT_HW) || defined(QAT_SW_IPSEC) \
-    || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM)
+    || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM) \
+    || defined(ENABLE_QAT_SW_SM4_CCM)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
         goto end;
