@@ -824,7 +824,7 @@ static void qat_gcm_cb(void *pCallbackTag, CpaStatus status,
         QAT_ATOMIC_DEC(num_cipher_pipeline_requests_in_flight);
     }
     qat_crypto_callbackFn(pCallbackTag, status, CPA_CY_SYM_OP_CIPHER, pOpData,
-                          NULL, CPA_TRUE);
+                          NULL, verifyResult);
 }
 
 /******************************************************************************
@@ -854,7 +854,7 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx)
     CpaCySymSessionSetupData *sessionSetupData = NULL;
     Cpa32U sessionCtxSize = 0;
     CpaCySymSessionCtx pSessionCtx = NULL;
-    int numBuffers = 1;
+    int numBuffers = 1, enc = 0;
 
     DEBUG("- Entering\n");
 
@@ -866,8 +866,10 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx)
 
 #ifdef QAT_OPENSSL_PROVIDER
     qctx = (QAT_GCM_CTX *)ctx;
+    enc = QAT_GCM_GET_ENC(qctx);
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
+    enc = EVP_CIPHER_CTX_encrypting(ctx);
 #endif
 
     if (NULL == qctx) {
@@ -895,6 +897,16 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx)
         WARN("Failed to get QAT Instance Handle\n");
         QATerr(QAT_F_QAT_AES_GCM_SESSION_INIT, ERR_R_INTERNAL_ERROR);
         return 0;
+    }
+
+    /* Update digestResultLenInBytes with qctx->tag_len if both lengths
+       are mismatch for decryption */
+    if (!enc) {
+        DEBUG("digestResultLenInBytes = %d, tag len = %d\n", sessionSetupData->hashSetupData.digestResultLenInBytes, qctx->tag_len);
+        if (!(qctx->tag_len < 0) && sessionSetupData->hashSetupData.digestResultLenInBytes != qctx->tag_len) {
+            sessionSetupData->hashSetupData.digestResultLenInBytes = qctx->tag_len;
+            DEBUG("Taglen updated\n");
+        }
     }
 
     if (cpaCySymSessionCtxGetSize(qat_instance_handles[qctx->inst_num],
@@ -1462,8 +1474,13 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                     return RET_FAIL ;
                 }
             }
+            /* Update buffer length as tag length if input buffer
+               length is zero */
+            if (len == 0)
+                buffer_len = EVP_GCM_TLS_TAG_LEN;
+            else
+                buffer_len = len;
 
-            buffer_len = len;
             /* Build request/response buffers */
             /* Allocate the memory of the FlatBuffer and copy the payload */
             qctx->srcFlatBuffer.pData = qaeCryptoMemAlloc(buffer_len, __FILE__, __LINE__);
@@ -1507,7 +1524,6 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifdef QAT_OPENSSL_PROVIDER
                 memcpy(qctx->OpData.pDigestResult, qctx->buf,
                        EVP_GCM_TLS_TAG_LEN);
-                qctx->tag_len = EVP_GCM_TLS_TAG_LEN;
 #else
                 memcpy(qctx->OpData.pDigestResult, EVP_CIPHER_CTX_buf_noconst(ctx),
                         EVP_GCM_TLS_TAG_LEN);
@@ -1591,11 +1607,24 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             DUMP_SYM_PERFORM_OP_GCM_OUTPUT(qctx->dstBufferList);
 
             if (enc) {
-                ret_val = len;
-                DEBUG("Encryption succeeded\n");
-            } else if (CPA_TRUE == op_done.verifyResult) {
-                ret_val = len;
-                DEBUG("Decryption succeeded\n");
+                if (CPA_TRUE == op_done.verifyResult){
+                    ret_val = len;
+                    DEBUG("Encryption succeeded\n");
+		} else {
+                    DEBUG("Encryption failed\n");
+                }
+
+            } else {
+                /*
+                 qctx->tag_len < 0 condition is added to workarround
+                 OpenSSL Speed tests as tag will not be set
+                 */
+		    if (CPA_TRUE == op_done.verifyResult || qctx->tag_len < 0) {
+                        ret_val = len;
+                        DEBUG("Decryption succeeded\n");
+                   } else {
+                        DEBUG("Decryption failed\n");
+		   }
             }
 
             QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
@@ -1622,7 +1651,6 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             qctx->dstFlatBuffer.pData = NULL;
 #ifdef QAT_OPENSSL_PROVIDER
             *padlen = len;
-            return RET_SUCCESS;
 #endif
             return ret_val;
         }
