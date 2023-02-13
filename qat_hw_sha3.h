@@ -99,7 +99,7 @@ typedef struct {
 
     unsigned char data[QAT_SHA3_OFFLOAD_THRESHOLD]; /* The buffer */
     unsigned int num; /* The data left in buffer */
-    unsigned int rcv_count; /* The data recived */
+    unsigned int sw_offload; /* Fallback Flag for small pkt offload */
 
     CpaCySymSessionSetupData *session_data;
     CpaCySymSessionCtx session_ctx;

@@ -51,7 +51,7 @@
 #include "tests.h"
 #include "../qat_utils.h"
 
-#ifdef ENABLE_QAT_SW_SM4_GCM
+#ifdef ENABLE_QAT_SW_SM4_CCM
 # define SM4_BLOCKSIZE 16
 # define QAT_SM4_TAG_MAX_LEN 16
 

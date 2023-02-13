@@ -31,10 +31,11 @@
   of the Intel&reg; QAT driver for Linux. Use `--with-cc-opt="-DQAT_HW_DISABLE_NONZERO_MEMFREE"`
   in the Intel&reg; QAT OpenSSL\* Engine configuration when building against earlier
   versions of the Linux driver.
-* From **version 4.19** of Intel&reg; QAT driver for Linux, legacy or insecure algorithms such as DES,
-  3DES, MD5, SHA1, RC4 are disabled by default so there will be failures observed in the relevant
-  ciphers. Driver needs to be built with flag "--enable-legacy-algorithms" to enable those algorithms
-  support.
+* From **version 4.19 and later** of Intel&reg; QAT driver for Linux, legacy or insecure
+  algorithms such as DH, DSA, SHA1, RSA keysizes < 2048, EC curves < 256 bits are
+  disabled by default hence there will be algo unsupported failures in the relevant ciphers.
+  Driver needs to be built with flag "--enable-legacy-algorithms" to enable those
+  algorithm support.
 * QAT Engine built for OpenSSL3.0 is only compatible with dependant libraries also linked with OpenSSL3.0
   libraries due to [OpenSSL#17112][1]. Same applies for OpenSSL 1.1.1.
 * SM4-GCM and SM4-CCM are only supported with BabaSSL versions based on OpenSSL 1.1.1.

@@ -79,6 +79,9 @@
 # define ENABLE_QAT_HW_SHA3
 #endif
 
+# define GET_SW_SHA3_DIGEST(ctx) \
+    qat_sha3_sw_impl(EVP_MD_CTX_type((ctx)) )
+
 #ifdef ENABLE_QAT_HW_SHA3
 # ifndef QAT_OPENSSL_PROVIDER
 static int qat_sha3_init(EVP_MD_CTX *ctx);
@@ -157,8 +160,7 @@ const EVP_MD *qat_create_sha3_meth(int nid , int key_type)
         qat_hw_sha_offload = 1;
         DEBUG("QAT HW SHA3 Registration succeeded\n");
         return c;
-    }
-    else {
+    } else {
         qat_hw_sha_offload = 0;
         DEBUG("QAT HW SHA3 is disabled, using OpenSSL SW\n");
         return qat_sha3_sw_impl(nid);
@@ -187,7 +189,6 @@ static const CpaCySymOpData template_opData = {
 #ifndef QAT_OPENSSL_PROVIDER
 static int qat_get_sha3_block_size(int nid)
 {
-
     switch (nid) {
     case NID_sha3_224:
         return QAT_SHA3_224_BLOCK_SIZE;
@@ -204,7 +205,6 @@ static int qat_get_sha3_block_size(int nid)
 }
 static int qat_get_sha3_state_size(int nid)
 {
-
     switch (nid) {
     case NID_sha3_224:
         return QAT_SHA3_224_STATE_SIZE;
@@ -223,7 +223,6 @@ static int qat_get_sha3_state_size(int nid)
 
 static int qat_get_sha3_data_size(int nid)
 {
-
     switch (nid) {
     case NID_sha3_224:
         return QAT_SHA3_224_OFFLOAD_THRESHOLD;
@@ -241,7 +240,6 @@ static int qat_get_sha3_data_size(int nid)
 
 static int qat_get_hash_alg_data(int nid)
 {
-
     switch (nid) {
     case NID_sha3_224:
         return CPA_CY_SYM_HASH_SHA3_224;
@@ -277,8 +275,8 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
                                       qat_sha3_ctx *sha3_ctx)
 #endif
 {
-    CpaCySymSessionSetupData *session_data;
-    CpaCySymOpData *pOpData;
+    CpaCySymSessionSetupData *session_data = NULL;
+    CpaCySymOpData *pOpData = NULL;
 
     if (NULL == sha3_ctx || NULL == ctx){
         WARN("sha3_ctx or ctx is NULL\n");
@@ -296,7 +294,6 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
     /* Set priority and operation of this session */
     session_data->sessionPriority = CPA_CY_PRIORITY_HIGH;
     session_data->symOperation = CPA_CY_SYM_OP_HASH;
-    /* --- Hash Configuration --- */
 
     /* Set the hash mode and the length of the digest */
 #ifdef QAT_OPENSSL_PROVIDER
@@ -325,7 +322,6 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
 
     sha3_ctx->session_data = session_data;
     sha3_ctx->opd = pOpData;
-
     sha3_ctx->context_params_set = 1;
 
     return 1;
@@ -352,13 +348,12 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
 {
 
     qat_sha3_ctx* sha3_ctx = NULL;
-
     if (NULL == ctx) {
         WARN("ctx is NULL\n");
         return 0;
     }
 
-    DEBUG("QAT HW SHA3 init Started\n");
+    DEBUG("QAT HW SHA3 init Started ctx %p\n", ctx);
     /* Initialise a QAT session and set the hash*/
 #ifdef QAT_OPENSSL_PROVIDER
     sha3_ctx = ctx->qctx;
@@ -384,7 +379,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
     sha3_ctx->session_init = 0;
 
 #ifndef QAT_OPENSSL_PROVIDER
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     /* Update the software init data */
     KECCAK1600_CTX *k_ctx = EVP_MD_CTX_md_data(ctx);
     size_t bsz = EVP_MD_CTX_block_size(ctx);
@@ -395,7 +390,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
         k_ctx->md_size = EVP_MD_CTX_size(ctx);
         k_ctx->pad = '\x06';
     }
-#endif
+# endif
 #endif
 
     return 1;
@@ -421,7 +416,6 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
 static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1, void *p2)
 {
     qat_sha3_ctx *sha3_ctx = NULL;
-
     if (NULL == ctx) {
        WARN("ctx is NULL.\n");
        QATerr(QAT_F_QAT_SHA3_CTRL, QAT_R_CTX_NULL);
@@ -491,24 +485,20 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
     }
 
     if (sha3_ctx->session_init) {
-
         if (sha3_ctx->pSrcBufferList.pPrivateMetaData) {
             qaeCryptoMemFreeNonZero(sha3_ctx->pSrcBufferList.pPrivateMetaData);
             sha3_ctx->pSrcBufferList.pPrivateMetaData = NULL;
         }
 
         if (is_instance_available(sha3_ctx->inst_num)) {
-
             /* Wait for in-flight requests before removing session */
             CpaBoolean sessionInUse = CPA_FALSE;
-
-            do
-            {
+            do {
                 cpaCySymSessionInUse(sha3_ctx->session_ctx, &sessionInUse);
             } while (sessionInUse);
 
             if ((status = cpaCySymRemoveSession(qat_instance_handles[sha3_ctx->inst_num], sha3_ctx->session_ctx))
-                    != CPA_STATUS_SUCCESS) {
+                                                != CPA_STATUS_SUCCESS) {
                  WARN("cpaCySymRemoveSession FAILED, status= %d.!\n", status);
                  ret_val = 0;
                 /* Lets not return yet and instead make a best effort to
@@ -519,7 +509,6 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
             qaeCryptoMemFreeNonZero(sha3_ctx->session_ctx);
             sha3_ctx->session_ctx = NULL;
 	}
-
         sha3_ctx->session_init = 0;
     }
 
@@ -529,7 +518,6 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
             sha3_ctx->opd = NULL;
         }
         OPENSSL_clear_free(sha3_ctx->session_data, sizeof(CpaCySymSessionSetupData));
-
         sha3_ctx->context_params_set = 0;
     }
 
@@ -583,7 +571,7 @@ static void qat_sha3_cb(void *pCallbackTag, CpaStatus status,
 ******************************************************************************/
 static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
 {
-    int numBuffers = 2;
+    int numBuffers = 1;
     Cpa32U bufferMetaSize = 0;
     Cpa32U sctx_size = 0;
     CpaStatus status;
@@ -602,19 +590,16 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
         return 0;
     }
 
-    DEBUG("inst_num = %d\n", sha3_ctx->inst_num);
-
     /* Determine size of session context to allocate */
-    status = cpaCySymSessionCtxGetSize(
-        qat_instance_handles[sha3_ctx->inst_num],
-        sha3_ctx->session_data,
-        &sctx_size);
+    status = cpaCySymSessionCtxGetSize(qat_instance_handles[sha3_ctx->inst_num],
+                                       sha3_ctx->session_data,
+                                       &sctx_size);
     if (status != CPA_STATUS_SUCCESS) {
         WARN("Failed to get SessionCtx size.\n");
         QATerr(QAT_F_QAT_SHA3_SETUP_PARAM, ERR_R_INTERNAL_ERROR);
         return 0;
     }
-    DEBUG("Size of session ctx = %d\n", sctx_size);
+    DEBUG("inst_num = %d, Size of session ctx = %d\n", sha3_ctx->inst_num, sctx_size);
 
     sha3_ctx->session_ctx =
         (CpaCySymSessionCtx)qaeCryptoMemAlloc(sctx_size, __FILE__, __LINE__);
@@ -627,11 +612,9 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
     DUMP_SESSION_SETUP_DATA(sha3_ctx->session_data);
     /* Initialise Session data */
     /* Remove session should be added if session init fail. */
-    status = cpaCySymInitSession(
-        qat_instance_handles[sha3_ctx->inst_num],
-        qat_sha3_cb,
-        sha3_ctx->session_data,
-        sha3_ctx->session_ctx);
+    status = cpaCySymInitSession(qat_instance_handles[sha3_ctx->inst_num],
+                                 qat_sha3_cb, sha3_ctx->session_data,
+                                 sha3_ctx->session_ctx);
     if (status != CPA_STATUS_SUCCESS) {
         WARN("cpaCySymInitSession failed! Status = %d\n", status);
         if (((status == CPA_STATUS_RESTARTING) || (status == CPA_STATUS_FAIL))) {
@@ -646,7 +629,7 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
 
     /* Get buffer metasize */
     status = cpaCyBufferListGetMetaSize(qat_instance_handles[sha3_ctx->inst_num],
-            numBuffers, &bufferMetaSize);
+                                        numBuffers, &bufferMetaSize);
     if (status != CPA_STATUS_SUCCESS) {
         WARN("cpaCyBufferListGetMetaSize failed for the instance id %d\n",
               sha3_ctx->inst_num);
@@ -658,7 +641,7 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
 
     if (bufferMetaSize) {
         sha3_ctx->pSrcBufferList.pPrivateMetaData =
-            qaeCryptoMemAlloc(bufferMetaSize, __FILE__, __LINE__);
+		  qaeCryptoMemAlloc(bufferMetaSize, __FILE__, __LINE__);
         if (sha3_ctx->pSrcBufferList.pPrivateMetaData == NULL) {
             WARN("QMEM alloc failed for PrivateData\n");
             QATerr(QAT_F_QAT_SHA3_SETUP_PARAM, ERR_R_MALLOC_FAILURE);
@@ -666,7 +649,7 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
             qaeCryptoMemFreeNonZero(sha3_ctx->pSrcBufferList.pPrivateMetaData);
             return 0;
         }
-        sha3_ctx->pSrcBufferList.numBuffers = 1;
+        sha3_ctx->pSrcBufferList.numBuffers = numBuffers;
 
     } else {
         sha3_ctx->pSrcBufferList.pPrivateMetaData = NULL;
@@ -769,7 +752,6 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
     }
 
     sha3_ctx->pSrcBufferList.pUserData = NULL;
-
     sha3_ctx->opd->sessionCtx = sha3_ctx->session_ctx;
 
     /* The type 'last partial cannot set without a partial set previous */
@@ -777,8 +759,7 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
         sha3_ctx->qat_offloaded == 0) {
         DEBUG("SHA3 data packet type: FULL\n");
         sha3_ctx->opd->packetType = CPA_CY_SYM_PACKET_TYPE_FULL;
-    }
-    else {
+    } else {
         DEBUG("SHA3 data packet type partial or last partial\n");
         sha3_ctx->opd->packetType = packet_type;
     }
@@ -791,9 +772,8 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
     if (!is_instance_available(sha3_ctx->inst_num)) {
         WARN("QAT instance %d not available.\n", sha3_ctx->inst_num);
         QATerr(QAT_F_QAT_HW_SHA3_OFFLOAD, ERR_R_INTERNAL_ERROR);
-        if (op_done.job != NULL) {
+        if (op_done.job != NULL)
             qat_clear_async_event_notification(op_done.job);
-        }
         qat_cleanup_op_done(&op_done);
         goto err;
     }
@@ -831,9 +811,8 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
                     &hw_polling_thread_sem);
                 QATerr(QAT_F_QAT_HW_SHA3_OFFLOAD, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                if (op_done.job != NULL) {
+                if (op_done.job != NULL)
                     qat_clear_async_event_notification(op_done.job);
-                }
                 qat_cleanup_op_done(&op_done);
                 goto err;
             }
@@ -879,12 +858,11 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
     qat_cleanup_op_done(&op_done);
 
     /* final partial */
-    if (CPA_CY_SYM_PACKET_TYPE_LAST_PARTIAL == packet_type) {
+    if (CPA_CY_SYM_PACKET_TYPE_LAST_PARTIAL == packet_type)
         memcpy(sha3_ctx->digest_data, sha3_ctx->opd->pDigestResult, sha3_ctx->md_size);
-    }
-    else {
+    else
         sha3_ctx->qat_offloaded = 1;
-    }
+
     ret = 1;
 
 err:
@@ -908,6 +886,8 @@ static int qat_sha3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
         WARN("Either from %p or to %p are NULL\n", from, to);
         return 0;
     }
+
+    DEBUG("Copy to %p from %p \n", to, from);
 
 #ifdef QAT_OPENSSL_PROVIDER
     qat_from = from->qctx;
@@ -972,7 +952,6 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
         return -1;
     }
 
-    DEBUG("QAT HW SHA3 final, ctx %p, md %p\n", ctx, md);
 #ifdef QAT_OPENSSL_PROVIDER
     sha3_ctx = ctx->qctx;
 #else
@@ -983,44 +962,16 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
         QATerr(QAT_F_QAT_SHA3_FINAL, QAT_R_SHA3_CTX_NULL);
         return -1;
     }
+    DEBUG("QAT HW SHA3 final, ctx %p, md %p len %d\n", ctx, md, sha3_ctx->num);
 
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    /* Another way to get threshold is qat_pkt_threshold_table_get_threshold */
-    if (sha3_ctx->rcv_count < CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT) {
-        int ret = 0;
-# ifndef QAT_OPENSSL_PROVIDER
-        ENGINE *e = ENGINE_get_digest_engine(EVP_MD_CTX_type(ctx));
-        if (e != NULL)
-            ENGINE_unregister_digests(e);
-
-        EVP_MD_CTX *md_ctx = EVP_MD_CTX_new();
-
-        if (md_ctx == NULL)
-            return 0;
-
-        EVP_MD_CTX_set_flags(md_ctx, EVP_MD_CTX_FLAG_ONESHOT);
-        ret = EVP_DigestInit_ex(md_ctx, qat_sha3_sw_impl(EVP_MD_CTX_type(ctx)), NULL);
-        ret &= EVP_DigestUpdate(md_ctx, sha3_ctx->data, sha3_ctx->num);
-        ret &= EVP_DigestFinal_ex(md_ctx, md, NULL);
-        EVP_MD_CTX_free(md_ctx);
-# else
-        EVP_MD_CTX_set_flags(ctx->sw_md_ctx, EVP_MD_CTX_FLAG_ONESHOT);
-
-        ctx->sw_md = EVP_MD_fetch(NULL, EVP_MD_get0_name(qat_sha3_sw_impl(ctx->md_type)),
-			          "provider=default");
-        ret = EVP_DigestInit_ex(ctx->sw_md_ctx, ctx->sw_md, NULL);
-        ret &= EVP_DigestUpdate(ctx->sw_md_ctx, sha3_ctx->data, sha3_ctx->num);
-        ret &= EVP_DigestFinal_ex(ctx->sw_md_ctx, md, NULL);
-
-        OPENSSL_clear_free(sha3_ctx, sizeof(qat_sha3_ctx));
-        EVP_MD_CTX_free(ctx->sw_md_ctx);
-        EVP_MD_free(ctx->sw_md);
-        ctx->sw_md_ctx = NULL;
-        ctx->sw_md = NULL;
-
+#ifndef QAT_OPENSSL_PROVIDER
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+    if (sha3_ctx->num <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT
+        && sha3_ctx->sw_offload) {
+        DEBUG("Packet size < 2048, Using OpenSSL SW\n");
+        return EVP_MD_meth_get_final(GET_SW_SHA3_DIGEST(ctx)) (ctx, md);
+    }
 # endif
-        return ret;
-   }
 #endif
 
     /* If num is 0, and a request has offloaded the
@@ -1097,7 +1048,18 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 #endif
 
     n = sha3_ctx->num;
-    sha3_ctx->rcv_count += len;
+
+#ifndef QAT_OPENSSL_PROVIDER
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+    if (sha3_ctx->sw_offload ||
+       (len <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT)) {
+        DEBUG("Packet size < 2048, Using OpenSSL SW\n");
+        sha3_ctx->sw_offload = 1;
+        return EVP_MD_meth_get_update(GET_SW_SHA3_DIGEST(ctx))
+                  (ctx, in, len);
+    }
+# endif
+#endif
 
     /* Packets left from previous process */
     if (n != 0) {
@@ -1125,7 +1087,6 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
             /* Append the new packets to buffer */
             memcpy(p + n, data, len);
             sha3_ctx->num += (unsigned int)len;
-
             return 1;
         }
     }
@@ -1135,7 +1096,6 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         n *= data_size;
 
         qat_hw_sha3_offload(ctx, in, n, CPA_CY_SYM_PACKET_TYPE_PARTIAL);
-
         data += n;
         len -= n;
     }
