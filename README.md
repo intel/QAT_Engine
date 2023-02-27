@@ -52,8 +52,8 @@ Installation consists of the following:
 |Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset<br>Intel&reg; Atom&trade; Processor <br> Intel&reg; Communications Chipset 8925 to 8955 Series:|Intel&reg; QuickAssist Technology Software for Linux\* - [Getting Started Guide - HW version 1.7 (336212)](https://01.org/sites/default/files/downloads/336212007qatswgsg.pdf) |
 
 Other technical collaterals of the Intel&reg; QuickAssist Technology driver
-can be found in the below 01.org page.
-- [Intel&reg; QuickAssist Technology](https://01.org/intel-quickassist-technology)
+can be found in the below page.
+- [Intel&reg; QuickAssist Technology](https://developer.intel.com/quickassist)
 
 ## Contiguous memory driver
 
@@ -429,41 +429,40 @@ by either using the engine ctrl command SET_CONFIGURATION_SECTION_NAME or by
 setting the environment variable "QAT_SECTION_NAME".
 The conf files are located at:
 
-    /path/to/qat_engine/qat/config
+    /path/to/qat_engine/qat_hw_config
 
-The files are grouped by acceleration device(dh895xcc or c6xx or c3xxx), please
-choose the files appropriate to your acceleration device only.
+The files are grouped by acceleration device(dh895xcc or c6xx or c3xxx
+or 200xx or c4xxx or 4xxx), please choose the files appropriate to your
+acceleration device only.
 
-The files are also split into `multi_process_optimized` and
-`multi_thread_optimized`.
+The files are also split into `multi_process` and `multi_thread`.
 
 If your application runs one (or very few) processes, but has multiple threads
 in each process, each accessing the acceleration device, then you should pick
-the `multi_thread_optimized` config files. An example of this is a webserver
+the `multi_thread` config files. An example of this is a webserver
 that creates a new thread for each incoming connection.
 
 If your application scales by creating new processes, then you should pick the
-`multi_process_optimized` config files. An example of this is an event driven
+`multi_process` config files. An example of this is an event driven
 application that runs as a single thread in an event loop.  In this type of
 application it is usual for the application to create at least one new process
 for each cpu core you want to utilize.
 
-There are also similar config files for if you are using the event driven
-polling feature of the Intel&reg; QAT Driver contained in
-`multi_thread_event-driven_optimized` and `multi_process_event-driven_optimized`
-respectively. Event driven config files are only supported in Linux.
-Once you have decided which config file you should use,
-or created your own you should follow the procedure below to install it:
+For event driven polling based application, change the parameter `Cy$nIsPolled=1`
+to `Cy$nIsPolled=2` for each instances($n) in the respective config file to use
+event driven polling support. Event driven config files are only supported in Linux.
+Once you have decided which config file you should use, or created your own you
+should follow the procedure below to install it:
 
 1. Stop the acceleration driver as decribed in the Section 3.4
    Starting/Stopping the Acceleration software from the
-   [Getting Started Guide - HW version 1.7 (336212)][9]
+   Getting Started Guide available in [Intel&reg; QuickAssist Technology Driver](https://developer.intel.com/quickassist)
 
-2. Copy the appropriate `.conf` file to `/etc`
+2. Copy the appropriate `.conf` file to `/etc` for n number of QAT devices
 
 3. Start the acceleration driver as decribed in the Section 3.4
    Starting/Stopping the Acceleration software from the
-   [Getting Started Guide - HW version 1.7 (336212)][9]
+   Getting Started Guide available in [Intel&reg; QuickAssist Technology Driver](https://developer.intel.com/quickassist)
 </details>
 
 <details>
