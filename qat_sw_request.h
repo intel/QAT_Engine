@@ -217,6 +217,18 @@ typedef struct _ecdsa_sign_sig_op_data {
     int *sts;
 } ecdsa_sign_sig_op_data;
 
+typedef struct _ecdsa_verify_op_data {
+    struct _ecdsa_verify_op_data *next;
+    struct _ecdsa_verify_op_data *prev;
+    BIGNUM *x;
+    BIGNUM *y;
+    BIGNUM *z;
+    const unsigned char *digest;
+    const ECDSA_SIG *s;
+    ASYNC_JOB *job;
+    int *sts;
+} ecdsa_verify_op_data;
+
 typedef struct _ecdh_keygen_op_data {
     struct _ecdh_keygen_op_data *next;
     struct _ecdh_keygen_op_data *prev;

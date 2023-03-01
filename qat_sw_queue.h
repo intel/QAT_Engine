@@ -149,6 +149,15 @@ typedef struct _mb_queue_ecdsap256_sign_sig
     int disabled;
 } mb_queue_ecdsap256_sign_sig;
 
+typedef struct _mb_queue_ecdsap256_verify
+{
+    pthread_mutex_t mb_queue_mutex;
+    ecdsa_verify_op_data *head;
+    ecdsa_verify_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_ecdsap256_verify;
+
 typedef struct _mb_queue_ecdsap384_sign
 {
      pthread_mutex_t mb_queue_mutex;
@@ -175,6 +184,15 @@ typedef struct _mb_queue_ecdsap384_sign_sig
     int num_items;
     int disabled;
 } mb_queue_ecdsap384_sign_sig;
+
+typedef struct _mb_queue_ecdsap384_verify
+{
+    pthread_mutex_t mb_queue_mutex;
+    ecdsa_verify_op_data *head;
+    ecdsa_verify_op_data *tail;
+    int num_items;
+    int disabled;
+} mb_queue_ecdsap384_verify;
 
 typedef struct _mb_queue_ecdhp256_keygen
 {
@@ -413,6 +431,15 @@ ecdsa_sign_sig_op_data
     *mb_queue_ecdsap256_sign_sig_dequeue(mb_queue_ecdsap256_sign_sig *queue);
 int mb_queue_ecdsap256_sign_sig_get_size(mb_queue_ecdsap256_sign_sig *queue);
 
+mb_queue_ecdsap256_verify * mb_queue_ecdsap256_verify_create();
+int mb_queue_ecdsap256_verify_disable(mb_queue_ecdsap256_verify * queue);
+int mb_queue_ecdsap256_verify_cleanup(mb_queue_ecdsap256_verify * queue);
+int mb_queue_ecdsap256_verify_enqueue(mb_queue_ecdsap256_verify *queue,
+                                    ecdsa_verify_op_data *item);
+ecdsa_verify_op_data
+    *mb_queue_ecdsap256_verify_dequeue(mb_queue_ecdsap256_verify *queue);
+int mb_queue_ecdsap256_verify_get_size(mb_queue_ecdsap256_verify *queue);
+
 mb_queue_ecdsap384_sign * mb_queue_ecdsap384_sign_create();
 int mb_queue_ecdsap384_sign_disable(mb_queue_ecdsap384_sign * queue);
 int mb_queue_ecdsap384_sign_cleanup(mb_queue_ecdsap384_sign * queue);
@@ -439,6 +466,15 @@ int mb_queue_ecdsap384_sign_sig_enqueue(mb_queue_ecdsap384_sign_sig *queue,
 ecdsa_sign_sig_op_data
     *mb_queue_ecdsap384_sign_sig_dequeue(mb_queue_ecdsap384_sign_sig *queue);
 int mb_queue_ecdsap384_sign_sig_get_size(mb_queue_ecdsap384_sign_sig *queue);
+
+mb_queue_ecdsap384_verify * mb_queue_ecdsap384_verify_create();
+int mb_queue_ecdsap384_verify_disable(mb_queue_ecdsap384_verify * queue);
+int mb_queue_ecdsap384_verify_cleanup(mb_queue_ecdsap384_verify * queue);
+int mb_queue_ecdsap384_verify_enqueue(mb_queue_ecdsap384_verify *queue,
+                                    ecdsa_verify_op_data *item);
+ecdsa_verify_op_data
+    *mb_queue_ecdsap384_verify_dequeue(mb_queue_ecdsap384_verify *queue);
+int mb_queue_ecdsap384_verify_get_size(mb_queue_ecdsap384_verify *queue);
 
 mb_queue_ecdhp256_keygen * mb_queue_ecdhp256_keygen_create();
 int mb_queue_ecdhp256_keygen_disable(mb_queue_ecdhp256_keygen * queue);
