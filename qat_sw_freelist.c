@@ -66,7 +66,7 @@ mb_flist_rsa_priv * mb_flist_rsa_priv_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -98,7 +98,7 @@ int mb_flist_rsa_priv_cleanup(mb_flist_rsa_priv *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -110,16 +110,15 @@ int mb_flist_rsa_priv_push(mb_flist_rsa_priv *freelist, rsa_priv_op_data *item)
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -130,23 +129,20 @@ rsa_priv_op_data *mb_flist_rsa_priv_pop(mb_flist_rsa_priv *freelist)
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -161,7 +157,7 @@ mb_flist_rsa_pub * mb_flist_rsa_pub_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -193,7 +189,7 @@ int mb_flist_rsa_pub_cleanup(mb_flist_rsa_pub *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -205,16 +201,15 @@ int mb_flist_rsa_pub_push(mb_flist_rsa_pub *freelist, rsa_pub_op_data *item)
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -225,23 +220,20 @@ rsa_pub_op_data * mb_flist_rsa_pub_pop(mb_flist_rsa_pub *freelist)
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -256,7 +248,7 @@ mb_flist_x25519_keygen * mb_flist_x25519_keygen_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -288,7 +280,7 @@ int mb_flist_x25519_keygen_cleanup(mb_flist_x25519_keygen *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -301,16 +293,15 @@ int mb_flist_x25519_keygen_push(mb_flist_x25519_keygen *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -321,23 +312,20 @@ x25519_keygen_op_data *mb_flist_x25519_keygen_pop(mb_flist_x25519_keygen *freeli
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -352,7 +340,7 @@ mb_flist_x25519_derive *mb_flist_x25519_derive_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -384,7 +372,7 @@ int mb_flist_x25519_derive_cleanup(mb_flist_x25519_derive *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -397,16 +385,15 @@ int mb_flist_x25519_derive_push(mb_flist_x25519_derive *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -417,12 +404,11 @@ x25519_derive_op_data *mb_flist_x25519_derive_pop(mb_flist_x25519_derive *freeli
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling) {
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
         }
         return NULL;
@@ -431,9 +417,8 @@ x25519_derive_op_data *mb_flist_x25519_derive_pop(mb_flist_x25519_derive *freeli
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -448,7 +433,7 @@ mb_flist_ecdsa_sign * mb_flist_ecdsa_sign_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -480,7 +465,7 @@ int mb_flist_ecdsa_sign_cleanup(mb_flist_ecdsa_sign *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -493,16 +478,15 @@ int mb_flist_ecdsa_sign_push(mb_flist_ecdsa_sign *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -514,23 +498,20 @@ ecdsa_sign_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -545,7 +526,7 @@ mb_flist_ecdsa_sign_setup * mb_flist_ecdsa_sign_setup_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -577,7 +558,7 @@ int mb_flist_ecdsa_sign_setup_cleanup(mb_flist_ecdsa_sign_setup *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -590,16 +571,15 @@ int mb_flist_ecdsa_sign_setup_push(mb_flist_ecdsa_sign_setup *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -611,23 +591,20 @@ ecdsa_sign_setup_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -642,7 +619,7 @@ mb_flist_ecdsa_sign_sig * mb_flist_ecdsa_sign_sig_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -674,7 +651,7 @@ int mb_flist_ecdsa_sign_sig_cleanup(mb_flist_ecdsa_sign_sig *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -687,16 +664,15 @@ int mb_flist_ecdsa_sign_sig_push(mb_flist_ecdsa_sign_sig *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -708,23 +684,113 @@ ecdsa_sign_sig_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
+
+    return item;
+}
+
+mb_flist_ecdsa_verify * mb_flist_ecdsa_verify_create()
+{
+    mb_flist_ecdsa_verify *freelist = NULL;
+    ecdsa_verify_op_data *item = NULL;
+    int num_items = MULTIBUFF_MAX_INFLIGHTS;
+
+    freelist = OPENSSL_zalloc(sizeof(mb_flist_ecdsa_verify));
+    if (freelist == NULL)
+        return NULL;
+
+    if (!enable_external_polling)
+        pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
+
+    DEBUG("Freelist Created %p\n", freelist);
+    freelist->head = NULL;
+
+    while (num_items > 0) {
+        item = OPENSSL_zalloc(sizeof(ecdsa_verify_op_data));
+        if (item == NULL) {
+            mb_flist_ecdsa_verify_cleanup(freelist);
+            return NULL;
+        }
+        if (mb_flist_ecdsa_verify_push(freelist, item) != 0) {
+            mb_flist_ecdsa_verify_cleanup(freelist);
+            return NULL;
+        }
+        num_items--;
     }
+    return freelist;
+}
+
+int mb_flist_ecdsa_verify_cleanup(mb_flist_ecdsa_verify *freelist)
+{
+    ecdsa_verify_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return 1;
+
+    while ((item = mb_flist_ecdsa_verify_pop(freelist)) != NULL) {
+       OPENSSL_free(item);
+    }
+
+    if (!enable_external_polling) {
+        pthread_mutex_destroy(&freelist->mb_flist_mutex);
+        OPENSSL_free(freelist);
+    }
+    return 0;
+}
+
+int mb_flist_ecdsa_verify_push(mb_flist_ecdsa_verify *freelist,
+                             ecdsa_verify_op_data *item)
+{
+    if (freelist == NULL)
+        return 1;
+
+    if (!enable_external_polling)
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+
+    item->next = freelist->head;
+    freelist->head = item;
+
+    if (!enable_external_polling)
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
+
+    return 0;
+}
+
+ecdsa_verify_op_data
+    *mb_flist_ecdsa_verify_pop(mb_flist_ecdsa_verify *freelist)
+{
+    ecdsa_verify_op_data *item = NULL;
+
+    if (freelist == NULL)
+        return NULL;
+
+    if (!enable_external_polling)
+        pthread_mutex_lock(&freelist->mb_flist_mutex);
+
+    if (freelist->head == NULL) {
+        if (!enable_external_polling)
+            pthread_mutex_unlock(&freelist->mb_flist_mutex);
+        return NULL;
+    }
+
+    item = freelist->head;
+    freelist->head = item->next;
+
+    if (!enable_external_polling)
+        pthread_mutex_unlock(&freelist->mb_flist_mutex);
 
     return item;
 }
@@ -739,7 +805,7 @@ mb_flist_ecdsa_sm2_sign * mb_flist_ecdsa_sm2_sign_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -771,7 +837,7 @@ int mb_flist_ecdsa_sm2_sign_cleanup(mb_flist_ecdsa_sm2_sign *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -784,16 +850,15 @@ int mb_flist_ecdsa_sm2_sign_push(mb_flist_ecdsa_sm2_sign *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -805,14 +870,12 @@ ecdsa_sm2_sign_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
@@ -820,9 +883,8 @@ ecdsa_sm2_sign_op_data
     freelist->head = item->next;
 
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -837,7 +899,7 @@ mb_flist_ecdsa_sm2_verify * mb_flist_ecdsa_sm2_verify_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -869,7 +931,7 @@ int mb_flist_ecdsa_sm2_verify_cleanup(mb_flist_ecdsa_sm2_verify *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -882,16 +944,15 @@ int mb_flist_ecdsa_sm2_verify_push(mb_flist_ecdsa_sm2_verify *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -903,23 +964,20 @@ ecdsa_sm2_verify_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -934,7 +992,7 @@ mb_flist_ecdh_keygen * mb_flist_ecdh_keygen_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -966,7 +1024,7 @@ int mb_flist_ecdh_keygen_cleanup(mb_flist_ecdh_keygen *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -979,16 +1037,15 @@ int mb_flist_ecdh_keygen_push(mb_flist_ecdh_keygen *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1000,23 +1057,20 @@ ecdh_keygen_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1031,7 +1085,7 @@ mb_flist_ecdh_compute * mb_flist_ecdh_compute_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1063,7 +1117,7 @@ int mb_flist_ecdh_compute_cleanup(mb_flist_ecdh_compute *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1076,16 +1130,15 @@ int mb_flist_ecdh_compute_push(mb_flist_ecdh_compute *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1097,23 +1150,20 @@ ecdh_compute_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1128,7 +1178,7 @@ mb_flist_sm3_init * mb_flist_sm3_init_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1160,7 +1210,7 @@ int mb_flist_sm3_init_cleanup(mb_flist_sm3_init *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1173,16 +1223,15 @@ int mb_flist_sm3_init_push(mb_flist_sm3_init *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1193,23 +1242,20 @@ sm3_init_op_data *mb_flist_sm3_init_pop(mb_flist_sm3_init *freelist)
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1224,7 +1270,7 @@ mb_flist_sm3_update * mb_flist_sm3_update_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1256,7 +1302,7 @@ int mb_flist_sm3_update_cleanup(mb_flist_sm3_update *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1269,16 +1315,15 @@ int mb_flist_sm3_update_push(mb_flist_sm3_update *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1289,23 +1334,20 @@ sm3_update_op_data *mb_flist_sm3_update_pop(mb_flist_sm3_update *freelist)
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1320,7 +1362,7 @@ mb_flist_sm3_final * mb_flist_sm3_final_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1352,7 +1394,7 @@ int mb_flist_sm3_final_cleanup(mb_flist_sm3_final *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1365,16 +1407,15 @@ int mb_flist_sm3_final_push(mb_flist_sm3_final *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1385,23 +1426,20 @@ sm3_final_op_data *mb_flist_sm3_final_pop(mb_flist_sm3_final *freelist)
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1416,7 +1454,7 @@ mb_flist_sm4_cbc_cipher *mb_flist_sm4_cbc_cipher_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1448,7 +1486,7 @@ int mb_flist_sm4_cbc_cipher_cleanup(mb_flist_sm4_cbc_cipher *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1461,16 +1499,15 @@ int mb_flist_sm4_cbc_cipher_push(mb_flist_sm4_cbc_cipher *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1482,23 +1519,20 @@ sm4_cbc_cipher_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1513,7 +1547,7 @@ mb_flist_sm4_gcm_encrypt *mb_flist_sm4_gcm_encrypt_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1545,7 +1579,7 @@ int mb_flist_sm4_gcm_encrypt_cleanup(mb_flist_sm4_gcm_encrypt *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1558,16 +1592,15 @@ int mb_flist_sm4_gcm_encrypt_push(mb_flist_sm4_gcm_encrypt *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1579,23 +1612,20 @@ sm4_gcm_encrypt_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1610,7 +1640,7 @@ mb_flist_sm4_gcm_decrypt *mb_flist_sm4_gcm_decrypt_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1642,7 +1672,7 @@ int mb_flist_sm4_gcm_decrypt_cleanup(mb_flist_sm4_gcm_decrypt *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1655,16 +1685,15 @@ int mb_flist_sm4_gcm_decrypt_push(mb_flist_sm4_gcm_decrypt *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1676,23 +1705,20 @@ sm4_gcm_decrypt_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1707,7 +1733,7 @@ mb_flist_sm4_ccm_encrypt *mb_flist_sm4_ccm_encrypt_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1739,7 +1765,7 @@ int mb_flist_sm4_ccm_encrypt_cleanup(mb_flist_sm4_ccm_encrypt *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1752,16 +1778,15 @@ int mb_flist_sm4_ccm_encrypt_push(mb_flist_sm4_ccm_encrypt *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1773,23 +1798,20 @@ sm4_ccm_encrypt_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }
@@ -1804,7 +1826,7 @@ mb_flist_sm4_ccm_decrypt *mb_flist_sm4_ccm_decrypt_create()
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling)
+    if (!enable_external_polling)
         pthread_mutex_init(&freelist->mb_flist_mutex, NULL);
 
     DEBUG("Freelist Created %p\n", freelist);
@@ -1836,7 +1858,7 @@ int mb_flist_sm4_ccm_decrypt_cleanup(mb_flist_sm4_ccm_decrypt *freelist)
        OPENSSL_free(item);
     }
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling) {
         pthread_mutex_destroy(&freelist->mb_flist_mutex);
         OPENSSL_free(freelist);
     }
@@ -1849,16 +1871,15 @@ int mb_flist_sm4_ccm_decrypt_push(mb_flist_sm4_ccm_decrypt *freelist,
     if (freelist == NULL)
         return 1;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     item->next = freelist->head;
     freelist->head = item;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
+
     return 0;
 }
 
@@ -1870,23 +1891,20 @@ sm4_ccm_decrypt_op_data
     if (freelist == NULL)
         return NULL;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_lock(&freelist->mb_flist_mutex);
-    }
 
     if (freelist->head == NULL) {
-        if (0 == enable_external_polling) {
+        if (!enable_external_polling)
             pthread_mutex_unlock(&freelist->mb_flist_mutex);
-        }
         return NULL;
     }
 
     item = freelist->head;
     freelist->head = item->next;
 
-    if (0 == enable_external_polling) {
+    if (!enable_external_polling)
         pthread_mutex_unlock(&freelist->mb_flist_mutex);
-    }
 
     return item;
 }

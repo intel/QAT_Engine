@@ -1185,13 +1185,19 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
                                NULL,
                                NULL);
 #endif
-        /* Verify not supported in crypto_mb, Use SW implementation */
+
+#ifdef QAT_BORINGSSL
         EC_KEY_METHOD_get_verify(def_ec_meth,
                                  &verify_pfunc,
                                  &verify_sig_pfunc);
         EC_KEY_METHOD_set_verify(qat_ec_method,
                                  verify_pfunc,
                                  verify_sig_pfunc);
+#else
+        EC_KEY_METHOD_set_verify(qat_ec_method,
+                                 mb_ecdsa_verify,
+                                 mb_ecdsa_do_verify);
+#endif
         qat_sw_ecdsa_offload = 1;
         DEBUG("QAT SW ECDSA registration succeeded\n");
     } else {

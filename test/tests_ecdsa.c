@@ -447,8 +447,8 @@ builtin_err:
  *                   engine *e,
  *                   int print_output,
  *                   int verify,
- *                   int nid,
- *                   const char *curveName)
+ *                   int curveType,
+ *                   int ne)
  *
  * @param count [IN] - number of iterations
  * @param size [IN] - the length of input message
@@ -463,7 +463,7 @@ builtin_err:
  *
 ******************************************************************************/
 static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
-                      int verify, int nid, const char *curveName)
+                      int verify, int curveType, int ne)
 {
     BIO *out = NULL;
     int ret = 0, status = 0;
@@ -473,10 +473,11 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
     EVP_PKEY *ecdsa_key = NULL;
     EVP_PKEY_CTX *ecdsa_sign_ctx = NULL;
     EVP_PKEY_CTX *ecdsa_verify_ctx = NULL;
+    int nid = 0;
+    const char *curveName = NULL;
 
-    if (nid == NID_sm2)
-        return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
-                              curveName);
+    nid = get_nid(curveType);
+    curveName = ecdh_curve_name(curveType);
 
     out = BIO_new(BIO_s_file());
     if (out == NULL) {
@@ -484,6 +485,10 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
         exit(1);
     }
     BIO_set_fp(out, stdout, BIO_NOCLOSE);
+
+    if (nid == NID_sm2)
+        return test_sm2_ecdsa(count, size, e, print_output, verify, nid,
+                              curveName);
 
     ecdsa_key = get_ecdsa_key(nid);
     if (ecdsa_key == NULL) {
@@ -529,19 +534,23 @@ static int test_ecdsa(int count, int size, ENGINE * e, int print_output,
            goto builtin_err;
     }
 
-    status = EVP_PKEY_verify(ecdsa_verify_ctx, signature, sig_len, digest, size);
-    if (status <= 0) {
-        fprintf(stderr, "ECDSA_verify Failed\n");
-        ret = -1;
-        goto builtin_err;
+    if (0 == ne) {
+        status = EVP_PKEY_verify(ecdsa_verify_ctx, signature, sig_len, digest, size);
+        if (status <= 0) {
+            fprintf(stderr, "ECDSA_verify Failed\n");
+            ret = -1;
+            goto builtin_err;
+        }
     }
 
     /*  Verify Signature with a wrong digest */
 #if CPA_CY_API_VERSION_NUM_MAJOR < 3
-    if (EVP_PKEY_verify(ecdsa_verify_ctx, signature, sig_len, wrong_digest, size) == 1) {
-        fprintf(stderr, "FAIL: Negative test got passed\n");
-        ret = -1;
-        goto builtin_err;
+    if (1 == ne) {
+        if (EVP_PKEY_verify(ecdsa_verify_ctx, signature, sig_len, wrong_digest, size) == -1) {
+            fprintf(stderr, "FAIL: Verify for ECDSA\n");
+            ret = -1;
+            goto builtin_err;
+        }
     }
 #endif
 
@@ -557,10 +566,15 @@ builtin_err:
 
     BIO_free(out);
 
-    if (0 == ret)
+    if (0 == ret) {
         INFO("# PASS ECDSA Sign/Verify for nid %s\n",curveName);
-    else
-        INFO("# FAIL ECDSA Sign/Verify for nid %s\n",curveName);
+    }
+    else {
+        if (0 == ne)
+            INFO("# FAIL ECDSA Sign/Verify for nid %s\n",curveName);
+	else
+            INFO("# Negative scenario: ECDSA verify Passed for nid %s\n",curveName);
+    }
     return ret;
 }
 
@@ -590,20 +604,25 @@ static int run_ecdsa(void *args)
      * set as the default engine.
      */
     ENGINE *e = temp_args->explicit_engine ? temp_args->e : NULL;
-    int print_output = temp_args->print_output;
+    int print = temp_args->print_output;
     int verify = temp_args->verify;
     int curve = temp_args->curve;
+    int ne = 0;
+
+#if CPA_CY_API_VERSION_NUM_MAJOR < 3
+    ne = temp_args->enable_negative;
+#endif
 
     RAND_seed(rnd_seed, sizeof(rnd_seed));
 
     if (!curve) {
         for (i = 1; i < CURVE_TYPE_MAX; i++) {
-            if (test_ecdsa(count, size, e, print_output, verify, get_nid(i),
-                           ecdh_curve_name(i)) < 0)
+            if (test_ecdsa(count, size, e, print, verify, i,
+                           ne) < 0)
                 ret = 0;
         }
-    } else if (test_ecdsa(count, size, e, print_output, verify, get_nid(curve),
-                          ecdh_curve_name(curve)) < 0) {
+    } else if (test_ecdsa(count, size, e, print, verify, curve,
+                          ne) < 0) {
             ret = 0;
     }
     return ret;

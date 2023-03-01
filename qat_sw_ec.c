@@ -404,6 +404,112 @@ void process_ecdsa_sign_sig_reqs(mb_thread_data *tlv, int bit_len)
     STOP_RDTSC(&ecdsa_cycles_sign_sig_execute, 1, "[ECDSA:sign_sig_execute]");
     DEBUG("Processed Final Request\n");
 }
+
+void process_ecdsa_verify_reqs(mb_thread_data *tlv, int bit_len)
+{
+    ecdsa_verify_op_data *ecdsa_verify_req_array[MULTIBUFF_BATCH] = {0};
+    const int8u* digest[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *ecdsa_verify_x[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *ecdsa_verify_y[MULTIBUFF_BATCH] = {0};
+    const BIGNUM *ecdsa_verify_z[MULTIBUFF_BATCH] = {0};
+    const ECDSA_SIG *sig[MULTIBUFF_BATCH] = {0};
+    int sts = 0;
+    int local_request_no = 0;
+    int req_num = 0;
+
+    START_RDTSC(&ecdsa_cycles_verify_execute);
+
+    /* Build Arrays of pointers for call */
+    switch (bit_len) {
+    case EC_P256:
+        DEBUG("Dequeue ECDSA p256 verify reqs.\n");
+        while ((ecdsa_verify_req_array[req_num] =
+                mb_queue_ecdsap256_verify_dequeue(tlv->ecdsap256_verify_queue)) != NULL) {
+            ecdsa_verify_x[req_num] = ecdsa_verify_req_array[req_num]->x;
+            ecdsa_verify_y[req_num] = ecdsa_verify_req_array[req_num]->y;
+	    ecdsa_verify_z[req_num] = ecdsa_verify_req_array[req_num]->z;
+            digest[req_num] = ecdsa_verify_req_array[req_num]->digest;
+            sig[req_num] = ecdsa_verify_req_array[req_num]->s;
+
+            req_num++;
+            if (req_num == MULTIBUFF_MIN_BATCH)
+                break;
+        }
+        break;
+    case EC_P384:
+        DEBUG("Dequeue ECDSA p384 verify reqs.\n");
+        while ((ecdsa_verify_req_array[req_num] =
+                mb_queue_ecdsap384_verify_dequeue(tlv->ecdsap384_verify_queue)) != NULL) {
+            ecdsa_verify_x[req_num] = ecdsa_verify_req_array[req_num]->x;
+            ecdsa_verify_y[req_num] = ecdsa_verify_req_array[req_num]->y;
+            ecdsa_verify_z[req_num] = ecdsa_verify_req_array[req_num]->z;
+            digest[req_num] = ecdsa_verify_req_array[req_num]->digest;
+            sig[req_num] = ecdsa_verify_req_array[req_num]->s;
+
+            req_num++;
+            if (req_num == MULTIBUFF_MIN_BATCH)
+                break;
+        }
+        break;
+    }
+    local_request_no = req_num;
+
+    switch (bit_len) {
+    case EC_P256:
+        DEBUG("Submitting %d ECDSA p256 verify requests\n", local_request_no);
+        sts = mbx_nistp256_ecdsa_verify_ssl_mb8(sig,
+                                              digest,
+                                              ecdsa_verify_x,
+                                              ecdsa_verify_y,
+					      ecdsa_verify_z,
+                                              NULL);
+        break;
+    case EC_P384:
+        DEBUG("Submitting %d ECDSA p384 verify requests\n", local_request_no);
+        sts = mbx_nistp384_ecdsa_verify_ssl_mb8(sig,
+                                              digest,
+                                              ecdsa_verify_x,
+                                              ecdsa_verify_y,
+                                              ecdsa_verify_z,
+                                              NULL);
+        break;
+    }
+    for (req_num = 0; req_num < local_request_no; req_num++) {
+        if (ecdsa_verify_req_array[req_num]->sts != NULL) {
+            if (MBX_GET_STS(sts, req_num) == MBX_STATUS_OK) {
+                DEBUG("Multibuffer ECDSA Verify request[%d] success\n", req_num);
+                *ecdsa_verify_req_array[req_num]->sts = 1;
+            } else {
+                WARN("Multibuffer ECDSA Verify request[%d] failure - sts %d\n",
+                      req_num, MBX_GET_STS(sts, req_num));
+                *ecdsa_verify_req_array[req_num]->sts = 0;
+            }
+        }
+
+        if (ecdsa_verify_req_array[req_num]->job) {
+            qat_wake_job(ecdsa_verify_req_array[req_num]->job,
+                         ASYNC_STATUS_OK);
+        }
+        OPENSSL_cleanse(ecdsa_verify_req_array[req_num],
+                        sizeof(ecdsa_verify_op_data));
+        mb_flist_ecdsa_verify_push(tlv->ecdsa_verify_freelist,
+                                 ecdsa_verify_req_array[req_num]);
+    }
+
+# ifdef QAT_SW_HEURISTIC_TIMEOUT
+    switch (bit_len) {
+    case EC_P256:
+        mb_ecdsap256_verify_req_rates.req_this_period += local_request_no;
+        break;
+    case EC_P384:
+        mb_ecdsap384_verify_req_rates.req_this_period += local_request_no;
+        break;
+    }
+# endif
+
+    STOP_RDTSC(&ecdsa_cycles_verify_execute, 1, "[ECDSA:verify_execute]");
+    DEBUG("Processed Final Request\n");
+}
 #endif
 
 #ifdef ENABLE_QAT_SW_ECDH
@@ -1455,6 +1561,270 @@ int mb_ecdsa_sign_bssl(const uint8_t *digest, size_t digest_len, uint8_t *sig,
 }
 #endif /* QAT_BORINGSSL */
 #endif
+
+#ifdef ENABLE_QAT_SW_ECDSA
+# ifndef QAT_BORINGSSL
+int mb_ecdsa_verify(int type, const unsigned char *dgst,
+                    int dgst_len, const unsigned char *sigbuf,
+                    int sig_len, EC_KEY *eckey)
+{
+    ECDSA_SIG *s;
+    const unsigned char *p = sigbuf;
+    unsigned char *der = NULL;
+    int derlen = -1;
+    int ret = -1;
+    ASYNC_JOB *job;
+    PFUNC_VERIFY verify_pfunc = NULL;
+
+    /* Check if we are running asynchronously */
+    if ((job = ASYNC_get_current_job()) == NULL) {
+        DEBUG("Running synchronously using sw method\n");
+        goto use_sw_method;
+    }
+
+    /* Setup asynchronous notifications */
+    if (!qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications, using sw method\n");
+        goto use_sw_method;
+    }
+
+    if ((s = ECDSA_SIG_new()) == NULL) {
+        WARN("Failure to allocate ECDSA_SIG\n");
+        return ret;
+    }
+
+    if (d2i_ECDSA_SIG(&s, &p, sig_len) == NULL) {
+        WARN("Failure to get ECDSA_SIG\n");
+        goto err;
+    }
+
+    /* Ensure signature uses DER and doesn't have trailing garbage */
+    derlen = i2d_ECDSA_SIG(s, &der);
+    if (derlen != sig_len || memcmp(sigbuf, der, derlen) != 0) {
+        WARN("Failure to get ECDSA_SIG\n");
+        goto err;
+    }
+
+    ret = mb_ecdsa_do_verify(dgst, dgst_len, s, eckey);
+ err:
+    OPENSSL_free(der);
+    ECDSA_SIG_free(s);
+    return ret;
+
+use_sw_method:
+    EC_KEY_METHOD_get_verify((EC_KEY_METHOD *) EC_KEY_OpenSSL(),
+                            &verify_pfunc, NULL);
+    if (verify_pfunc == NULL) {
+        WARN("verify_pfunc is NULL\n");
+        QATerr(QAT_F_MB_ECDSA_VERIFY, QAT_R_SW_GET_VERIFY_PFUNC_NULL);
+        return ret;
+    }
+
+    return (*verify_pfunc)(type, dgst, dgst_len, sigbuf, sig_len, eckey);
+}
+
+int mb_ecdsa_do_verify(const unsigned char *dgst,
+                    int dlen, const ECDSA_SIG *sig,
+                    EC_KEY *eckey)
+{
+    int ret = -1, len = 0, job_ret = 0, sts = 0, alloc_buf = 0, bit_len = 0;
+    BN_CTX *ctx = NULL;
+    ASYNC_JOB *job;
+    size_t buflen;
+    static __thread int req_num = 0;
+    const EC_GROUP *group;
+    const BIGNUM *order;
+    const EC_POINT *pub_key = NULL;
+    unsigned char *dgst_buf = NULL;
+    PFUNC_VERIFY_SIG verify_sig_pfunc = NULL;
+    ecdsa_verify_op_data *ecdsa_verify_req = NULL;
+    mb_thread_data *tlv = NULL;
+    BIGNUM *x = NULL, *y = NULL, *z = NULL;
+
+    DEBUG("Entering \n");
+    if (unlikely(dgst == NULL || dlen <= 0 ||
+                 eckey == NULL)) {
+        WARN("Invalid Input param\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_INPUT_PARAM_INVALID);
+        return ret;
+    }
+
+    group = EC_KEY_get0_group(eckey);
+    pub_key = EC_KEY_get0_public_key(eckey);
+
+    if (group == NULL || pub_key == NULL) {
+        WARN("Either group, priv_key or pub_key are NULL\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_GROUP_PUB_KEY_NULL);
+        return ret;
+    }
+
+    /* Check if curve is p256 or p384 */
+    if ((bit_len = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
+        DEBUG("Curve type not supported, using SW Method %d\n",
+               EC_GROUP_get_curve_name(group));
+        goto use_sw_method;
+    }
+
+    /* Check if we are running asynchronously */
+    if ((job = ASYNC_get_current_job()) == NULL) {
+        DEBUG("Running synchronously using sw method\n");
+        goto use_sw_method;
+    }
+
+    /* Setup asynchronous notifications */
+    if (!qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications, using sw method\n");
+        goto use_sw_method;
+    }
+
+    if (!EC_KEY_can_sign(eckey)) {
+        WARN("Curve doesn't support Signing\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_CURVE_DOES_NOT_SUPPORT_SIGNING);
+        return ret;
+    }
+
+    tlv = mb_check_thread_local();
+    if (NULL == tlv) {
+        WARN("Could not create thread local variables\n");
+        goto use_sw_method;
+    }
+
+    while ((ecdsa_verify_req =
+            mb_flist_ecdsa_verify_pop(tlv->ecdsa_verify_freelist)) == NULL) {
+        qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+        qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+    }
+
+    DEBUG("QAT SW ECDSA Verify Started %p\n", ecdsa_verify_req);
+    START_RDTSC(&ecdsa_cycles_verify_setup);
+
+    if ((ctx = BN_CTX_new()) == NULL) {
+        mb_flist_ecdsa_verify_push(tlv->ecdsa_verify_freelist, ecdsa_verify_req);
+        WARN("Failure to allocate ctx\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_CTX_MALLOC_FAILURE);
+        goto err;
+    }
+
+    BN_CTX_start(ctx);
+    x = BN_CTX_get(ctx);
+    y = BN_CTX_get(ctx);
+    z = BN_CTX_get(ctx);
+
+    if (x == NULL || y == NULL || z == NULL) {
+        mb_flist_ecdsa_verify_push(tlv->ecdsa_verify_freelist, ecdsa_verify_req);
+        WARN("Failed to allocate x or y or z\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_X_Y_Z_MALLOC_FAILURE);
+        goto err;
+    }
+
+    if (!EC_POINT_get_Jprojective_coordinates_GFp(group, pub_key, x, y, z,ctx)) {
+        mb_flist_ecdsa_verify_push(tlv->ecdsa_verify_freelist, ecdsa_verify_req);
+        WARN("Failure to get the Jacobian coordinates for public Key\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_INTERNAL_ERROR);
+        goto err;
+    }
+
+    if ((order = EC_GROUP_get0_order(group)) ==  NULL) {
+        mb_flist_ecdsa_verify_push(tlv->ecdsa_verify_freelist, ecdsa_verify_req);
+        WARN("Failure to get order from group\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_GET_ORDER_FAILURE);
+        goto err;
+    }
+
+    len = BN_num_bits(order);
+    buflen = (len + 7) / 8;
+
+    /* If digest size is less, expand length with zero as crypto_mb
+     * expects digest being sign length */
+    if (8 * dlen < len) {
+        dgst_buf = OPENSSL_zalloc(buflen);
+        if (dgst_buf == NULL) {
+            mb_flist_ecdsa_verify_push(tlv->ecdsa_verify_freelist, ecdsa_verify_req);
+            WARN("Failure to allocate dgst_buf\n");
+            QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_ECDSA_MALLOC_FAILURE);
+            goto err;
+        }
+        alloc_buf = 1;
+        memcpy(dgst_buf + buflen - dlen, dgst, dlen);
+    } else {
+        dgst_buf = (unsigned char *)dgst;
+    }
+
+    ecdsa_verify_req->sts = &sts;
+    ecdsa_verify_req->s = sig;
+    ecdsa_verify_req->x = x;
+    ecdsa_verify_req->y = y;
+    ecdsa_verify_req->z = z;
+    ecdsa_verify_req->digest = dgst_buf;
+    ecdsa_verify_req->job = job;
+
+    switch (bit_len) {
+    case EC_P256:
+        mb_queue_ecdsap256_verify_enqueue(tlv->ecdsap256_verify_queue, ecdsa_verify_req);
+        break;
+    case EC_P384:
+        mb_queue_ecdsap384_verify_enqueue(tlv->ecdsap384_verify_queue, ecdsa_verify_req);
+        break;
+    }
+    STOP_RDTSC(&ecdsa_cycles_verify_setup, 1, "[ECDSA:verify_setup]");
+
+    if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
+        DEBUG("Signal Polling thread, req_num %d\n", req_num);
+        if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
+            WARN("hw sem_post failed!, mb_polling_thread_sem address: %p.\n",
+                  &tlv->mb_polling_thread_sem);
+            /* If we fail the pthread_kill carry on as the timeout
+             * will catch processing the request in the polling thread */
+        }
+    }
+    DEBUG("Pausing: %p status = %d\n", ecdsa_verify_req, sts);
+    do {
+        /* If we get a failure on qat_pause_job then we will
+         * not flag an error here and quit because we have
+         * an asynchronous request in flight.
+         * We don't want to start cleaning up data
+         * structures that are still being used. If
+         * qat_pause_job fails we will just yield and
+         * loop around and try again until the request
+         * completes and we can continue. */
+        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+            sched_yield();
+    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+
+    DEBUG("Finished: %p status = %d\n", ecdsa_verify_req, sts);
+
+    if (sts) {
+        ret = 1;
+
+        if (alloc_buf)
+            OPENSSL_free(dgst_buf);
+    } else {
+        WARN("Failure in ECDSA Verify\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_ECDSA_VERIFY_FAILURE);
+        goto err;
+    }
+
+err:
+    if (ctx) {
+        BN_CTX_end(ctx);
+        BN_CTX_free(ctx);
+    }
+
+    return ret;
+
+use_sw_method:
+    EC_KEY_METHOD_get_verify((EC_KEY_METHOD *) EC_KEY_OpenSSL(),
+                            NULL, &verify_sig_pfunc);
+    if (verify_sig_pfunc == NULL) {
+        WARN("verify_sig_pfunc is NULL\n");
+        QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_SW_GET_VERIFY_PFUNC_NULL);
+        return ret;
+    }
+
+    return (*verify_sig_pfunc)(dgst, dlen, sig, eckey);
+}
+# endif /* QAT_BORINGSSL */
+#endif /* ENABLE_QAT_SW_ECDSA */
 
 #ifdef ENABLE_QAT_SW_ECDH
 int mb_ecdh_generate_key(EC_KEY *ecdh)

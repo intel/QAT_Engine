@@ -467,21 +467,15 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
 static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size_t siglen,
                         const unsigned char *tbs, size_t tbslen)
 {
-#ifdef ENABLE_QAT_HW_ECDSA
     QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
 
     if (!qat_prov_is_running() || (ctx->mdsize != 0 && tbslen != ctx->mdsize))
         return 0;
-
+#ifdef ENABLE_QAT_HW_ECDSA
     return qat_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
 #endif
 #ifdef ENABLE_QAT_SW_ECDSA
-    typedef int (*fun_ptr)(void *, const unsigned char *, size_t, const unsigned char *, size_t);
-    fun_ptr fun = get_default_ECDSA_signature().verify;
-    if (!fun)
-        return 0;
-    DEBUG("ECDSA Verify using Default provider fetch method\n");
-    return fun(vctx,sig,siglen,tbs,tbslen);
+    return mb_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
 #endif
 }
 

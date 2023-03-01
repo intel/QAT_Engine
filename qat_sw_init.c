@@ -127,15 +127,19 @@ void mb_thread_local_destructor(void *tlv_ptr)
     QAT_SW_CLEANUP(ecdsap256_sign, ecdsa_sign_op_data, tlv->ecdsap256_sign_queue);
     QAT_SW_CLEANUP(ecdsap256_sign_setup, ecdsa_sign_setup_op_data,tlv->ecdsap256_sign_setup_queue);
     QAT_SW_CLEANUP(ecdsap256_sign_sig, ecdsa_sign_sig_op_data, tlv->ecdsap256_sign_sig_queue);
+    QAT_SW_CLEANUP(ecdsap256_verify, ecdsa_verify_op_data, tlv->ecdsap256_verify_queue);
     QAT_SW_CLEANUP(ecdsap384_sign, ecdsa_sign_op_data, tlv->ecdsap384_sign_queue);
     QAT_SW_CLEANUP(ecdsap384_sign_setup, ecdsa_sign_setup_op_data,  tlv->ecdsap384_sign_setup_queue);
     QAT_SW_CLEANUP(ecdsap384_sign_sig, ecdsa_sign_sig_op_data,tlv->ecdsap384_sign_sig_queue);
+    QAT_SW_CLEANUP(ecdsap384_verify, ecdsa_verify_op_data,tlv->ecdsap384_verify_queue);
     if (tlv->ecdsa_sign_freelist)
         mb_flist_ecdsa_sign_cleanup(tlv->ecdsa_sign_freelist);
     if (tlv->ecdsa_sign_setup_freelist)
         mb_flist_ecdsa_sign_setup_cleanup(tlv->ecdsa_sign_setup_freelist);
     if (tlv->ecdsa_sign_sig_freelist)
         mb_flist_ecdsa_sign_sig_cleanup(tlv->ecdsa_sign_sig_freelist);
+    if (tlv->ecdsa_verify_freelist)
+        mb_flist_ecdsa_verify_cleanup(tlv->ecdsa_verify_freelist);
 #endif
 
 #ifdef ENABLE_QAT_SW_SM2
@@ -255,17 +259,23 @@ mb_thread_data* mb_check_thread_local(void)
                  == NULL) ||
            ((tlv->ecdsa_sign_sig_freelist = mb_flist_ecdsa_sign_sig_create())
                  == NULL) ||
+           ((tlv->ecdsa_verify_freelist = mb_flist_ecdsa_verify_create())
+                 == NULL) ||
            ((tlv->ecdsap256_sign_queue= mb_queue_ecdsap256_sign_create())
                  == NULL) ||
            ((tlv->ecdsap256_sign_setup_queue= mb_queue_ecdsap256_sign_setup_create())
                  == NULL) ||
            ((tlv->ecdsap256_sign_sig_queue= mb_queue_ecdsap256_sign_sig_create())
                  == NULL) ||
+           ((tlv->ecdsap256_verify_queue= mb_queue_ecdsap256_verify_create())
+                 == NULL) ||
            ((tlv->ecdsap384_sign_queue= mb_queue_ecdsap384_sign_create())
                  == NULL) ||
            ((tlv->ecdsap384_sign_setup_queue= mb_queue_ecdsap384_sign_setup_create())
                  == NULL) ||
            ((tlv->ecdsap384_sign_sig_queue= mb_queue_ecdsap384_sign_sig_create())
+                 == NULL) ||
+           ((tlv->ecdsap384_verify_queue= mb_queue_ecdsap384_verify_create())
                  == NULL)) {
             WARN("Failure to allocate ECDSA P256/P384 Freelists and Queues\n");
             goto err;

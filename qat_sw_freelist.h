@@ -94,6 +94,12 @@ typedef struct _mb_flist_ecdsa_sign_sig
     ecdsa_sign_sig_op_data *head;
 } mb_flist_ecdsa_sign_sig;
 
+typedef struct _mb_flist_ecdsa_verify
+{
+    pthread_mutex_t mb_flist_mutex;
+    ecdsa_verify_op_data *head;
+} mb_flist_ecdsa_verify;
+
 typedef struct _mb_flist_ecdsa_sm2_sign
 {
     pthread_mutex_t mb_flist_mutex;
@@ -190,14 +196,17 @@ typedef struct _mb_thread_data{
     mb_flist_ecdsa_sign *ecdsa_sign_freelist;
     mb_flist_ecdsa_sign_setup *ecdsa_sign_setup_freelist;
     mb_flist_ecdsa_sign_sig *ecdsa_sign_sig_freelist;
+    mb_flist_ecdsa_verify *ecdsa_verify_freelist;
     mb_queue_ecdsap256_sign *ecdsap256_sign_queue;
     mb_queue_ecdsap256_sign_setup *ecdsap256_sign_setup_queue;
     mb_queue_ecdsap256_sign_sig *ecdsap256_sign_sig_queue;
+    mb_queue_ecdsap256_verify *ecdsap256_verify_queue;
 
     /* ECDSA p384 */
     mb_queue_ecdsap384_sign *ecdsap384_sign_queue;
     mb_queue_ecdsap384_sign_setup *ecdsap384_sign_setup_queue;
     mb_queue_ecdsap384_sign_sig *ecdsap384_sign_sig_queue;
+    mb_queue_ecdsap384_verify *ecdsap384_verify_queue;
 
     /* ECDSA sm2 */
     mb_flist_ecdsa_sm2_sign *ecdsa_sm2_sign_freelist;
@@ -302,6 +311,13 @@ int mb_flist_ecdsa_sign_sig_push(mb_flist_ecdsa_sign_sig *freelist,
                                  ecdsa_sign_sig_op_data *item);
 ecdsa_sign_sig_op_data
     *mb_flist_ecdsa_sign_sig_pop(mb_flist_ecdsa_sign_sig *flist);
+
+mb_flist_ecdsa_verify * mb_flist_ecdsa_verify_create();
+int mb_flist_ecdsa_verify_cleanup(mb_flist_ecdsa_verify *freelist);
+int mb_flist_ecdsa_verify_push(mb_flist_ecdsa_verify *freelist,
+                             ecdsa_verify_op_data *item);
+ecdsa_verify_op_data
+    *mb_flist_ecdsa_verify_pop(mb_flist_ecdsa_verify *flist);
 
 mb_flist_ecdh_keygen * mb_flist_ecdh_keygen_create();
 int mb_flist_ecdh_keygen_cleanup(mb_flist_ecdh_keygen *freelist);
