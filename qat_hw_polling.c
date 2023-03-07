@@ -149,6 +149,14 @@ void *qat_timer_poll_func(void *ih)
     qat_timer_poll_func_thread = pthread_self();
     cleared_to_start = 1;
 
+    if (pthread_mutex_lock(&qat_poll_mutex) == 0) {
+        pthread_cond_signal(&qat_poll_condition);
+        if (pthread_mutex_unlock(&qat_poll_mutex) != 0)
+            WARN("Failed to unlock conditional wait mutex \n");
+    } else {
+        WARN("Failed to lock conditional wait mutex \n");
+    }
+
     DEBUG("qat_timer_poll_func_thread = 0x%lx\n", (unsigned long)qat_timer_poll_func_thread);
 
     if (qat_get_sw_fallback_enabled()) {
@@ -218,6 +226,7 @@ void *qat_timer_poll_func(void *ih)
     DEBUG("timer_poll_func finishing - pid = %d\n", getpid());
     qat_timer_poll_func_thread = 0;
     cleared_to_start = 0;
+    pthread_cond_signal(&qat_poll_condition);
     return NULL;
 }
 

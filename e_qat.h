@@ -433,6 +433,8 @@ extern sigset_t set;
 extern pthread_t qat_timer_poll_func_thread;
 extern int cleared_to_start;
 extern int qat_sw_ipsec;
+extern pthread_mutex_t qat_poll_mutex;
+extern pthread_cond_t qat_poll_condition;
 
 #define ALGO_ENABLE_MASK_RSA                0x00001
 #define ALGO_ENABLE_MASK_DSA                0x00002
