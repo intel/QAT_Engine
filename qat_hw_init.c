@@ -832,8 +832,16 @@ int qat_init(ENGINE *e)
             return 0;
         }
         if (!qat_is_event_driven()) {
-            while (!cleared_to_start)
-                sleep(1);
+            if (pthread_mutex_lock(&qat_poll_mutex) == 0) {
+                while (!cleared_to_start){
+                   if (pthread_cond_wait(&qat_poll_condition, &qat_poll_mutex) != 0)
+                       WARN("Failed to get conditional wait\n");
+                }
+                if (pthread_mutex_unlock(&qat_poll_mutex) != 0)
+                    WARN("Failed to unlock conditional wait mutex \n");
+            }else {
+                WARN("Failed to lock conditional wait mutex \n");
+            }
         }
     }
     return 1;
@@ -934,6 +942,14 @@ int qat_finish_int(ENGINE *e, int reset_globals)
     DEBUG("Calling pthread_key_delete()\n");
     pthread_key_delete(thread_local_variables);
     sem_destroy(&hw_polling_thread_sem); /* destroy qat hw semaphore: hw_polling_thread_sem. */
+
+    int res =0;
+    if ((res = pthread_mutex_unlock(&qat_poll_mutex)) != 0){
+         WARN("Unlocking of qat_poll_mutex failed. %d\n", res);
+    }
+    if ((res = pthread_cond_destroy(&qat_poll_condition)) != 0){
+        WARN("Destroying of qat_poll_condition failed. %d\n", res);
+    }
 
     /* Reset the configuration global variables (to their default values) only
      * if requested, i.e. when we are not re-initializing the engine after

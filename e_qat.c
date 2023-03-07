@@ -206,6 +206,8 @@ sigset_t set = {{0}};
 pthread_t qat_timer_poll_func_thread = 0;
 int cleared_to_start = 0;
 int qat_sw_ipsec = 0;
+pthread_mutex_t qat_poll_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t qat_poll_condition = PTHREAD_COND_INITIALIZER;
 
 #ifdef QAT_HW
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
