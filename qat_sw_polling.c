@@ -68,9 +68,11 @@
 #include "qat_sw_ec.h"
 #include "qat_utils.h"
 #include "qat_sw_sm3.h"
+#ifndef QAT_BORINGSSL
 #include "qat_sw_sm4_cbc.h"
 #include "qat_sw_sm4_gcm.h"
 #include "qat_sw_sm4_ccm.h"
+#endif /* QAT_BORINGSSL */
 
 /* OpenSSL Includes */
 #include <openssl/err.h>

@@ -116,7 +116,9 @@
 #endif
 
 #ifdef QAT_SW_IPSEC
+#ifndef QAT_BORINGSSL
 # include "qat_sw_gcm.h"
+#endif /* QAT_BORINGSSL */
 #endif
 
 /* OpenSSL Includes */
