@@ -279,6 +279,11 @@ AC_ARG_ENABLE(qat_plock,
                              [Enable plock, an optimized read-write lock. replace pthread's read/write lock with plock.]))
 AC_SUBST(enable_qat_plock)
 
+AC_ARG_ENABLE(qat_ntls,
+              AS_HELP_STRING([--enable-qat_ntls],
+                             [Enable ntls in engine for handing NTLS requests]))
+AC_SUBST(enable_qat_ntls)
+
 #Default library name is qatengine
 AC_SUBST([LIBQATNAME], "qatengine")
 
@@ -901,6 +906,15 @@ else
   AC_MSG_NOTICE([Disabling plock])
 fi
 AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" != "x"])
+
+if test "x$enable_qat_ntls" = "xyes"
+then
+  enable_qat_ntls="-DQAT_NTLS"
+  AC_MSG_NOTICE([Enabling NTLS for Engine])
+else
+  enable_qat_ntls=""
+  AC_MSG_NOTICE([Disabling NTLS for Engine])
+fi
 
 # Compiler security flags
 case "$host_os" in

@@ -877,7 +877,11 @@ static int qat_sw_sm4_gcm_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
     sm4_gcm_decrypt_req->sm4_taglen = qctx->tag_len;
     if (qctx->init_flag == 1) {
         sm4_gcm_decrypt_req->sm4_aad = qctx->tls_aad;
+#ifdef QAT_NTLS
+        sm4_gcm_decrypt_req->sm4_aadlen = qctx->tls_aad_len;
+#else
         sm4_gcm_decrypt_req->sm4_aadlen = qctx->aad_len;
+#endif
     }
     sm4_gcm_decrypt_req->init_flag = init_flag;
     mb_queue_sm4_gcm_decrypt_enqueue(tlv->sm4_gcm_decrypt_queue, sm4_gcm_decrypt_req);
@@ -1004,7 +1008,11 @@ static int qat_sw_sm4_gcm_encrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
     sm4_gcm_encrypt_req->sm4_taglen = qctx->tag_len;
     if (qctx->init_flag == 1) {
         sm4_gcm_encrypt_req->sm4_aad = qctx->tls_aad;
+#ifdef QAT_NTLS
+        sm4_gcm_encrypt_req->sm4_aadlen = qctx->tls_aad_len;
+#else
         sm4_gcm_encrypt_req->sm4_aadlen = qctx->aad_len;
+#endif
     }
     sm4_gcm_encrypt_req->init_flag = init_flag;
     mb_queue_sm4_gcm_encrypt_enqueue(tlv->sm4_gcm_encrypt_queue, sm4_gcm_encrypt_req);
@@ -1067,7 +1075,6 @@ static int qat_sw_sm4_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 {
     QAT_SM4_GCM_CTX *qctx = NULL;
     int sts = -1;
-    int message_len = 0;
 
     DEBUG("started: ctx=%p out=%p in=%p len=%lu in_txt=%d\n",
           ctx, out, in, len, enc);
@@ -1094,45 +1101,38 @@ static int qat_sw_sm4_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
      * buffer.
      */
     if (EVP_CIPHER_CTX_ctrl(ctx, enc ? EVP_CTRL_GCM_IV_GEN
-                                              : EVP_CTRL_GCM_SET_IV_INV,
+                                     : EVP_CTRL_GCM_SET_IV_INV,
                             EVP_GCM_TLS_EXPLICIT_IV_LEN, out) <= 0)
         goto err;
 
-    /* Include the explicit part of the IV at the beginning of the output  */
+    /* Fix buffer and length to point to payload */
     in += EVP_GCM_TLS_EXPLICIT_IV_LEN;
     out += EVP_GCM_TLS_EXPLICIT_IV_LEN;
-
-    /* This is the length of the message that must be encrypted */
-    message_len = len - (EVP_GCM_TLS_EXPLICIT_IV_LEN + EVP_GCM_TLS_TAG_LEN);
-
+    len -= EVP_GCM_TLS_EXPLICIT_IV_LEN + EVP_GCM_TLS_TAG_LEN;
     if (enc) {
-        sts &= qat_sw_sm4_gcm_encrypt(ctx, out, in, message_len);
-	memcpy(out, qctx->tag, qctx->tag_len);
-	qctx->tag_set = 1;
+        /* Encrypt payload */
+        if (!qat_sw_sm4_gcm_encrypt(ctx, out, in,
+                                   len))
+            goto err;
+        out += len;
+        memcpy(out, qctx->tag, EVP_GCM_TLS_TAG_LEN);
+        sts = len + EVP_GCM_TLS_EXPLICIT_IV_LEN + EVP_GCM_TLS_TAG_LEN;
     } else {
-        sts &= qat_sw_sm4_gcm_decrypt(ctx, out, in, message_len);
-	memcpy(out, qctx->calculated_tag, qctx->tag_len);
-	qctx->tag_calculated = 1;
+        /* Decrypt */
+        if (!qat_sw_sm4_gcm_decrypt(ctx, out, in,
+                                   len))
+            goto err;
 
-        if (qctx->tag_set) {
-            DEBUG("Decrypt - GCM Tag Set so calling memcmp\n");
-            if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0)
-                sts = 0;
-            else{
-                WARN("SM4-GCM calculated tag comparison failed\n");
-                DUMPL("Expected   Tag:", (const unsigned char *)qctx->tag, qctx->tag_len);
-                DUMPL("Calculated Tag:", (const unsigned char *)qctx->calculated_tag, qctx->tag_len);
-                DUMPL("Decrypt - Calculated Tag",
-                     (const unsigned char*)qctx->calculated_tag ,
-                      qctx->tag_len);
-                sts = -1;
-            }
+        DUMPL("decrytp tag", qctx->calculated_tag, EVP_GCM_TLS_TAG_LEN);
+        DUMPL("encrypt tag", in + len, EVP_GCM_TLS_TAG_LEN);
+        if (memcmp(qctx->calculated_tag, in + len, EVP_GCM_TLS_TAG_LEN) == 0)
+            sts = len;
+        else {
+            WARN("SM4-GCM calculated tag comparison failed\n");
+            sts = -1;
         }
     }
-
-    return sts;
-
- err:
+err:
     qctx->iv_set = 0;
     qctx->tls_aad_len = -1;
     return sts;

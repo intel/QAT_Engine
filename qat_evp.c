@@ -844,7 +844,11 @@ const EVP_CIPHER *qat_create_sm4_gcm_cipher_meth(int nid, int keylen)
         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM4_GCM) &&
          mbx_get_algo_info(MBX_ALGO_SM4)) {
 
+#ifdef QAT_NTLS
+        if ((c = EVP_CIPHER_meth_new(nid, 1, keylen)) == NULL) {
+#else
         if ((c = EVP_CIPHER_meth_new(nid, SM4_BLOCK_SIZE, keylen)) == NULL) {
+#endif
             WARN("Failed to generate meth\n");
             return NULL;
         }

@@ -60,10 +60,11 @@
 #define QAT_SM4_TLS_TOTAL_IV_LEN (EVP_GCM_TLS_FIXED_IV_LEN + EVP_GCM_TLS_EXPLICIT_IV_LEN)
 
 /* babassl flags needed for sw method */
-#define CUSTOM_FLAGS    (EVP_CIPH_FLAG_DEFAULT_ASN1 \
+#define CUSTOM_FLAGS    (EVP_CIPH_FLAG_DEFAULT_ASN1 | EVP_CIPH_FLAG_AEAD_CIPHER \
                          | EVP_CIPH_CUSTOM_IV | EVP_CIPH_FLAG_CUSTOM_CIPHER \
                          | EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CTRL_INIT \
-                         | EVP_CIPH_CUSTOM_COPY | EVP_CIPH_CUSTOM_IV_LENGTH)
+                         | EVP_CIPH_CUSTOM_COPY | EVP_CIPH_CUSTOM_IV_LENGTH \
+                         | EVP_CIPH_GCM_MODE)
 
 typedef struct {
     SM4_GCM_CTX_mb16 smctx;
