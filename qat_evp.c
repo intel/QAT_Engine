@@ -73,7 +73,9 @@
 #endif
 
 #ifdef QAT_SW_IPSEC
+# ifndef QAT_BORINGSSL
 # include "qat_sw_gcm.h"
+#endif /* QAT_BORINGSSL */
 #endif
 
 #ifdef QAT_SW
@@ -84,13 +86,17 @@
 # include "qat_sw_ec.h"
 # include "qat_sw_rsa.h"
 # include "qat_sw_sm3.h"
+# ifndef QAT_BORINGSSL
 # include "qat_sw_sm4_cbc.h"
 # include "qat_sw_sm4_gcm.h"
 # include "qat_sw_sm4_ccm.h"
 # include "crypto_mb/sm4.h"
+# endif /* QAT_BORINGSSL */
 # include "crypto_mb/cpu_features.h"
+# ifndef QAT_BORINGSSL
 # include "crypto_mb/sm4_gcm.h"
 # include "crypto_mb/sm4_ccm.h"
+# endif /* QAT_BORINGSSL */
 #endif
 
 #ifdef QAT_HW_INTREE

@@ -74,7 +74,9 @@
 #include "qat_sw_ecx.h"
 #include "qat_sw_ec.h"
 #include "qat_sw_sm3.h"
+#ifndef QAT_BORINGSSL
 #include "qat_sw_sm4_cbc.h"
+#endif /* QAT_BORINGSSL */
 #include "qat_sw_request.h"
 #include "qat_sw_freelist.h"
 #include "qat_sw_queue.h"
