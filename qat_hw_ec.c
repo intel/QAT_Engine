@@ -87,6 +87,8 @@
 #include "qat_hw_ec.h"
 #include "qat_evp.h"
 
+# define QAT_EC_MIN_RANGE 256
+
 CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
 {
     /* For BoringSSL,EC_METHOD_get_field_type only support NID_X9_62_prime_field
@@ -469,6 +471,9 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
             *fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
+            *fallback = 1;
         } else {
             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         }
@@ -629,11 +634,13 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
                                 const EC_POINT *pub_key,
                                 const EC_KEY *ecdh)
 {
-    int fallback = 0;
-    int ret = 0;
+    int fallback = 0, ret = 0;
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
     const EC_GROUP *group = NULL;
     const BIGNUM *priv_key = NULL;
+#ifndef QAT_INSECURE_ALGO
+    int bitlen = 0;
+#endif
 
     DEBUG("QAT HW ECDH Started\n");
 
@@ -661,6 +668,15 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
         return ret;
     }
 
+#ifndef QAT_INSECURE_ALGO
+    /* Bits < 256 is not supported in QAT_HW */
+    bitlen = EC_GROUP_order_bits(group);
+    if (bitlen < QAT_EC_MIN_RANGE) {
+        DEBUG("Curve-Bitlen %d not supported! Using OPENSSL_SW\n", bitlen);
+        return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
+    }
+#endif
+
     ret = qat_ecdh_compute_key(out, outlen, NULL, NULL, pub_key, ecdh, &fallback);
     if (fallback == 1) {
         WARN("- Fallback to software mode.\n");
@@ -674,9 +690,8 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
 
 int qat_ecdh_generate_key(EC_KEY *ecdh)
 {
-    int ok = 0;
-    int alloc_priv = 0, alloc_pub = 0;
-    int field_size = 0;
+    int ok = 0, alloc_priv = 0, alloc_pub = 0;
+    int field_size = 0, fallback = 0;
     BN_CTX *ctx = NULL;
     BIGNUM *priv_key = NULL, *order = NULL, *x_bn = NULL,
            *y_bn = NULL, *tx_bn = NULL, *ty_bn = NULL;
@@ -688,7 +703,9 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     size_t temp_xfield_size = 0;
     size_t temp_yfield_size = 0;
     PFUNC_GEN_KEY gen_key_pfunc = NULL;
-    int fallback = 0;
+#ifndef QAT_INSECURE_ALGO
+    int bitlen = 0;
+#endif
 
     DEBUG("QAT HW ECDH Started\n");
 
@@ -709,6 +726,15 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_GROUP_NULL);
         return 0;
     }
+
+#ifndef QAT_INSECURE_ALGO
+    /* Bits < 256 is not supported in QAT_HW */
+    bitlen = EC_GROUP_order_bits(group);
+    if (bitlen < QAT_EC_MIN_RANGE) {
+        DEBUG("Curve-Bitlen %d not supported! Using OPENSSL_SW\n", bitlen);
+        return (*gen_key_pfunc)(ecdh);
+    }
+#endif
 
     if ((ctx = BN_CTX_new()) == NULL) {
         WARN("Failure to allocate ctx\n");
@@ -1042,6 +1068,9 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     int iMsgRetry = getQatMsgRetryCount();
     const EC_POINT *ec_point = NULL;
     thread_local_variables_t *tlv = NULL;
+#ifndef QAT_INSECURE_ALGO
+    int bitlen = 0;
+#endif
 
     DEBUG("QAT HW ECDSA Started\n");
 
@@ -1075,6 +1104,15 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_GROUP_PRIV_KEY_PUB_KEY_NULL);
         return ret;
     }
+
+#ifndef QAT_INSECURE_ALGO
+    /* Bits < 256 is not supported in QAT_HW */
+    bitlen = EC_GROUP_order_bits(group);
+    if (bitlen < QAT_EC_MIN_RANGE) {
+        DEBUG("Curve-Bitlen %d not supported! Using OPENSSL_SW\n", bitlen);
+        return (*sign_sig_pfunc)(dgst, dgst_len, in_kinv, in_r, eckey);
+    }
+#endif
 
     if ((ec_point = EC_GROUP_get0_generator(group)) == NULL) {
         WARN("Failure to retrieve ec_point\n");
@@ -1384,6 +1422,9 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
             fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
+            fallback = 1;
         } else {
             QATerr(QAT_F_QAT_ECDSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
         }
@@ -1602,6 +1643,9 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     useconds_t ulPollInterval = getQatPollInterval();
     int iMsgRetry = getQatMsgRetryCount();
     thread_local_variables_t *tlv = NULL;
+#ifndef QAT_INSECURE_ALGO
+    int bitlen = 0;
+#endif
 
     DEBUG("QAT HW ECDSA Started\n");
     if (unlikely(dgst == NULL || dgst_len <= 0)) {
@@ -1630,6 +1674,15 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_ECKEY_GROUP_PUBKEY_SIG_NULL);
         return ret;
     }
+
+#ifndef QAT_INSECURE_ALGO
+    /* Bits < 256 is not supported in QAT_HW */
+    bitlen = EC_GROUP_order_bits(group);
+    if (bitlen < QAT_EC_MIN_RANGE) {
+        DEBUG("Curve-Bitlen %d not supported! Using OPENSSL_SW\n", bitlen);
+        return (*verify_sig_pfunc)(dgst, dgst_len, sig, eckey);
+    }
+#endif
 
     if ((ec_point = EC_GROUP_get0_generator(group)) == NULL) {
         WARN("Failure to retrieve ec_point\n");
@@ -1840,6 +1893,9 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
                            inst_num,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
+            fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
             fallback = 1;
         } else {
             QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);

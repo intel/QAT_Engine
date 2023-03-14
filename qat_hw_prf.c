@@ -64,12 +64,6 @@
 #include "cpa_types.h"
 #include "cpa_cy_key.h"
 
-#ifdef ENABLE_QAT_HW_PRF
-# ifdef DISABLE_QAT_HW_PRF
-#  undef DISABLE_QAT_HW_PRF
-# endif
-#endif
-
 static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
@@ -105,8 +99,7 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
         EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
         qat_hw_prf_offload = 1;
         DEBUG("QAT HW PRF Registration succeeded\n");
-    }
-    else {
+    } else {
         qat_hw_prf_offload = 0;
     }
 #endif
@@ -696,6 +689,9 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
             fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
+            fallback = 1;
         } else {
             QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
         }
@@ -804,4 +800,4 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
     return ret;
 }
-#endif /* DISABLE_QAT_HW_PRF */
+#endif /* ENABLE_QAT_HW_PRF */

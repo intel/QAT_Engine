@@ -100,6 +100,6 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx);
 int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                                 size_t *olen);
 int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-# endif /* DISABLE_QAT_HW_PRF */
+# endif /* ENABLE_QAT_HW_PRF */
 
 #endif /* QAT_HW_PRF_H */

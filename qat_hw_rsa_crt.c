@@ -77,12 +77,6 @@
 #include "icp_sal_poll.h"
 
 #ifdef ENABLE_QAT_HW_RSA
-# ifdef DISABLE_QAT_HW_RSA
-#  undef DISABLE_QAT_HW_RSA
-# endif
-#endif
-
-#ifndef DISABLE_QAT_HW_RSA
 static void qat_rsaCallbackFn_CRT(void *pCallbackTag, CpaStatus status, void *pOpData,
                                   CpaFlatBuffer * pOut)
 {
@@ -525,4 +519,4 @@ err:
     DEBUG("- Finished\n");
     return ret;
 }
-#endif /* #ifndef DISABLE_QAT_HW_RSA */
+#endif /* ENABLE_QAT_HW_RSA */

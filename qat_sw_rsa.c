@@ -66,12 +66,6 @@
 #include "qat_utils.h"
 #include "qat_evp.h"
 
-#ifdef ENABLE_QAT_SW_RSA
-# ifdef DISABLE_QAT_SW_RSA
-#  undef DISABLE_QAT_SW_RSA
-# endif
-#endif
-
 # define RSA_MULTIBUFF_PRIV_ENC 1
 # define RSA_MULTIBUFF_PRIV_DEC 2
 # define RSA_MULTIBUFF_PUB_ENC  3

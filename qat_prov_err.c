@@ -20,6 +20,8 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_ADD_M2_FAILURE), "add m2 failure"},
     {ERR_PACK(0, 0, QAT_R_ADJUST_DELTA_M1_M2_FAILURE),
     "adjust delta m1 m2 failure"},
+    {ERR_PACK(0, 0, QAT_R_ALGO_TYPE_SUPPORTED), "algo type supported"},
+    {ERR_PACK(0, 0, QAT_R_ALGO_TYPE_UNSUPPORTED), "algo type unsupported"},
     {ERR_PACK(0, 0, QAT_R_ALLOC_E_CHECK_FAILURE), "alloc e check failure"},
     {ERR_PACK(0, 0, QAT_R_ALLOC_MULTIBUFF_RSA_METH_FAILURE),
     "alloc multibuff rsa meth failure"},

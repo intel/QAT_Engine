@@ -272,8 +272,7 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
         DEBUG("QAT HW AES_CBC_%d_HMAC_SHA registration succeeded\n", keylen*8);
 #endif
         return c;
-    }
-    else {
+    } else {
         qat_hw_aes_cbc_hmac_sha_offload = 0;
         DEBUG("QAT HW AES_CBC_%d_HMAC_SHA is disabled, using OpenSSL SW\n", keylen*8);
         return qat_chained_cipher_sw_impl(nid);
@@ -1625,6 +1624,9 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                qctx->inst_num,
                                qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
                                __func__);
+                qctx->fallback = 1;
+            } else if (sts == CPA_STATUS_UNSUPPORTED) {
+                WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
                 qctx->fallback = 1;
             }
             WARN("Failed to submit request to qat - status = %d\n", sts);

@@ -68,12 +68,6 @@
 /* Crypto_mb includes */
 #include "crypto_mb/sm3.h"
 
-#ifdef ENABLE_QAT_SW_SM3
-# ifdef DISABLE_QAT_SW_SM3
-#  undef DISABLE_QAT_SW_SM3
-# endif
-#endif
-
 /* SM3 nid */
 int sm3_nid[] = {
     NID_sm3,

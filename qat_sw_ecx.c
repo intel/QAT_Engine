@@ -73,12 +73,6 @@
 /* Crypto_mb includes */
 #include "crypto_mb/x25519.h"
 
-#ifdef ENABLE_QAT_SW_ECX
-# ifdef DISABLE_QAT_SW_ECX
-#  undef DISABLE_QAT_SW_ECX
-# endif
-#endif
-
 #define X25519_MULTIBUFF_BIT_DEPTH 2048
 #define X25519_MULTIBUFF_KEYGEN 1
 #define X25519_MULTIBUFF_DERIVE 2

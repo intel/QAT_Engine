@@ -928,8 +928,11 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
             CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                     cp_ctx->inst_num,
                     qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId);
+            QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm type unspported in QAT_HW\n");
+            QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, QAT_R_ALGO_TYPE_UNSUPPORTED);
         }
-        QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL)
             qat_clear_async_event_notification(op_done.job);
         qat_cleanup_op_done(&op_done);
@@ -1240,9 +1243,12 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                     CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                                     cp_ctx->inst_num,
                                     qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId);
+                    QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
+                           ERR_R_INTERNAL_ERROR);
+                } else if (status == CPA_STATUS_UNSUPPORTED) {
+                    WARN("Algorithm type unspported in QAT_HW\n");
+                    QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER, QAT_R_ALGO_TYPE_UNSUPPORTED);
                 }
-                QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
-                       ERR_R_INTERNAL_ERROR);
                 if (op_done.job != NULL)
                     qat_clear_async_event_notification(op_done.job);
                 qat_cleanup_op_done(&op_done);

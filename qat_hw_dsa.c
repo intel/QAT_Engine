@@ -74,21 +74,14 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef ENABLE_QAT_HW_DSA
-# ifdef DISABLE_QAT_HW_DSA
-#  undef DISABLE_QAT_HW_DSA
-# endif
-#endif
-
 /* Qat DSA method structure declaration. */
 static DSA_METHOD *qat_dsa_method = NULL;
 static DSA_METHOD *def_dsa_method = NULL;
 
 DSA_METHOD *qat_get_DSA_methods(void)
 {
-#ifndef DISABLE_QAT_HW_DSA
+#ifdef ENABLE_QAT_HW_DSA
     int res = 1;
-#endif
 
     if (qat_dsa_method != NULL && !qat_reload_algo)
         return qat_dsa_method;
@@ -100,7 +93,6 @@ DSA_METHOD *qat_get_DSA_methods(void)
         return NULL;
     }
 
-#ifndef DISABLE_QAT_HW_DSA
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_DSA)) {
         res &= DSA_meth_set_sign(qat_dsa_method, qat_dsa_do_sign);
         res &= DSA_meth_set_sign_setup(qat_dsa_method, qat_dsa_sign_setup);
@@ -112,23 +104,17 @@ DSA_METHOD *qat_get_DSA_methods(void)
         if (res == 0) {
             WARN("Failed to set DSA methods\n");
             QATerr(QAT_F_QAT_GET_DSA_METHODS, QAT_R_SET_QAT_DSA_METH_FAILURE);
+            qat_free_DSA_methods();
             return NULL;
         }
 
         DEBUG("QAT HW DSA registration succeeded\n");
+        return qat_dsa_method;
     }
-    else {
-        def_dsa_method = (DSA_METHOD *)DSA_get_default_method();
-        DEBUG("QAT HW DSA is disabled, using OpenSSL SW\n");
-        return def_dsa_method;
-    }
-#else
+#endif
     def_dsa_method = (DSA_METHOD *)DSA_get_default_method();
     DEBUG("QAT HW DSA is disabled, using OpenSSL SW\n");
     return def_dsa_method;
-#endif
-
-    return qat_dsa_method;
 }
 
 void qat_free_DSA_methods(void)
@@ -140,8 +126,7 @@ void qat_free_DSA_methods(void)
     }
 }
 
-
-#ifndef DISABLE_QAT_HW_DSA
+#ifdef ENABLE_QAT_HW_DSA
 /*
  * DSA range Supported in QAT {L,N} = {1024, 160}, {2048, 224} {2048, 256},
  * {3072, 256}
@@ -426,11 +411,11 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
 
     tlv = qat_check_create_local_variables();
     if (NULL == tlv) {
-            WARN("could not create local variables\n");
-            QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
-            DSA_SIG_free(sig);
-            sig = NULL;
-            goto err;
+        WARN("could not create local variables\n");
+        QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
+        DSA_SIG_free(sig);
+        sig = NULL;
+        goto err;
     }
 
     qat_init_op_done(&op_done);
@@ -506,6 +491,9 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
                            inst_num,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
+            fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
             fallback = 1;
         } else {
             QATerr(QAT_F_QAT_DSA_DO_SIGN, ERR_R_INTERNAL_ERROR);
@@ -871,6 +859,9 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
             fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
+            fallback = 1;
         } else {
             QATerr(QAT_F_QAT_DSA_DO_VERIFY, ERR_R_INTERNAL_ERROR);
         }
@@ -997,5 +988,5 @@ int qat_dsa_finish(DSA *dsa)
     return DSA_meth_get_finish(DSA_OpenSSL())(dsa);
 }
 
-#endif /* #ifndef DISABLE_QAT_HW_DSA */
+#endif /* ENABLE_QAT_HW_DSA */
 

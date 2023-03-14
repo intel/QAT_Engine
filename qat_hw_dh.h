@@ -54,7 +54,7 @@ DH_METHOD *qat_get_DH_methods(void);
 
 void qat_free_DH_methods(void);
 
-# ifndef DISABLE_QAT_HW_DH
+# ifdef ENABLE_QAT_HW_DH
 int qat_dh_compute_key(unsigned char *key, const BIGNUM *pub_key,
                               DH *dh);
 int qat_dh_generate_key(DH *dh);

@@ -7,6 +7,7 @@ AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
 AM_INIT_AUTOMAKE([foreign subdir-objects])
+AM_SILENT_RULES([yes])
 
 #Libtool for generating shared library
 LT_INIT
@@ -17,21 +18,11 @@ AC_CONFIG_MACRO_DIR([m4])
 AC_PROG_CXX
 AC_PROG_CC
 
-# Parameter parsing for disabling the feature
+# Parameter parsing for enable/disable algo
 AC_ARG_ENABLE(qat_hw_rsa,
               AS_HELP_STRING([--disable-qat_hw_rsa],
                              [Disable qat_hw RSA acceleration]))
 AC_SUBST(enable_qat_hw_rsa)
-
-AC_ARG_ENABLE(qat_hw_ciphers,
-              AS_HELP_STRING([--disable-qat_hw_ciphers],
-                             [Disable qat_hw CIPHERS acceleration]))
-AC_SUBST(enable_qat_hw_ciphers)
-
-AC_ARG_ENABLE(qat_hw_sm4_cbc,
-              AS_HELP_STRING([--enable-qat_hw_sm4_cbc],
-                             [Enable qat_hw SM4-CBC acceleration]))
-AC_SUBST(enable_qat_hw_sm4_cbc)
 
 AC_ARG_ENABLE(qat_hw_ecdh,
               AS_HELP_STRING([--disable-qat_hw_ecdh],
@@ -68,6 +59,11 @@ AC_ARG_ENABLE(qat_hw_ecx,
                              [Disable qat_hw X25519/X448 acceleration]))
 AC_SUBST(enable_qat_hw_ecx)
 
+AC_ARG_ENABLE(qat_hw_ciphers,
+              AS_HELP_STRING([--disable-qat_hw_ciphers],
+                             [Disable qat_hw CIPHERS acceleration]))
+AC_SUBST(enable_qat_hw_ciphers)
+
 AC_ARG_ENABLE(qat_hw_gcm,
               AS_HELP_STRING([--enable-qat_hw_gcm],
                              [Enable qat_hw AES-GCM acceleration (experimental)]))
@@ -82,6 +78,11 @@ AC_ARG_ENABLE(qat_hw_chachapoly,
               AS_HELP_STRING([--enable-qat_hw_chachapoly],
                              [Enable qat_hw CHACHA-POLY acceleration]))
 AC_SUBST(enable_qat_hw_chachapoly)
+
+AC_ARG_ENABLE(qat_hw_sm4_cbc,
+              AS_HELP_STRING([--enable-qat_hw_sm4_cbc],
+                             [Enable qat_hw SM4-CBC acceleration]))
+AC_SUBST(enable_qat_hw_sm4_cbc)
 
 AC_ARG_ENABLE(qat_sw_gcm,
               AS_HELP_STRING([--disable-qat_sw_gcm],
@@ -164,7 +165,7 @@ AC_ARG_ENABLE(qat_cycle_counts,
                              [Enable CPU Cycle Counts]))
 AC_SUBST(enable_qat_cycle_counts)
 
-# Parameter parsing for enabling debug/warnings
+# Parameter parsing for enable debug/warnings
 AC_ARG_ENABLE(qat_debug,
               AS_HELP_STRING([--enable-qat_debug],
                              [Enable Engine Debug Messages]))
@@ -185,7 +186,7 @@ AC_ARG_ENABLE(qat_mem_warnings,
                              [Enable Memory Driver Warning Messages]))
 AC_SUBST(enable_qat_mem_warnings)
 
-# Mandatory QAT driver source path if building against QAT HW Version 1.7 driver source package
+# Mandatory QAT driver source path if building against QAT_HW Version 1.7 driver source package
 AC_ARG_WITH(qat_hw_dir,
               AS_HELP_STRING([--with-qat_hw_dir],
                              [Path to the Intel Quickassist Technology Driver source code]),
@@ -266,7 +267,7 @@ AC_SUBST(enable_qat_hw_lenstra_protection)
 
 AC_ARG_ENABLE(qat_hw_lenstra_verify_hw,
               AS_HELP_STRING([--enable-qat_hw_lenstra_verify_hw],
-                             [Enable Lenstra Verify using QAT HW instead of OpenSSL SW]))
+                             [Enable Lenstra Verify using QAT_HW instead of OpenSSL SW]))
 AC_SUBST(enable_qat_hw_lenstra_verify_hw)
 
 AC_ARG_ENABLE(qat_auto_engine_init_on_fork,
@@ -276,13 +277,18 @@ AC_SUBST(enable_qat_auto_engine_init_on_fork)
 
 AC_ARG_ENABLE(qat_plock,
               AS_HELP_STRING([--enable-qat_plock],
-                             [Enable plock, an optimized read-write lock. replace pthread's read/write lock with plock.]))
+                             [Enable plock, an optimized read-write lock which replaces pthread read/write lock]))
 AC_SUBST(enable_qat_plock)
 
 AC_ARG_ENABLE(qat_ntls,
               AS_HELP_STRING([--enable-qat_ntls],
                              [Enable ntls in engine for handing NTLS requests]))
 AC_SUBST(enable_qat_ntls)
+
+AC_ARG_ENABLE(qat_insecure_algorithms,
+              AS_HELP_STRING([--enable-qat_insecure_algorithms],
+                             [Enable insecure algorithms (DSA, DH, SHA1, SHA3-224, EC <256 & RSA<2048]))
+AC_SUBST(enable_qat_insecure_algorithms)
 
 #Default library name is qatengine
 AC_SUBST([LIBQATNAME], "qatengine")
@@ -312,25 +318,21 @@ fi
 #OpenSSL 3.0 uses lib location based on ARCH
 AS_IF([test "$host_cpu" = "x86_64"], [AC_SUBST([openssl3_lib], "lib64")], [AC_SUBST([openssl3_lib], "lib")])
 
-# OpenSSL install dir or set system openssl install dir if not provided
+# OpenSSL/BabaSSL/BoringSSL install dir or set system default if not provided
 if test "x$with_openssl_install_dir" != "x"
 then
+  #BoringSSL from Source
   if test -f $with_openssl_install_dir/include/openssl/base.h
   then
     if test "`grep "define BORINGSSL_API_VERSION" $with_openssl_install_dir/include/openssl/base.h | wc -l`" = "1"
     then
-      AC_MSG_NOTICE([Build QAT engine against BoringSSL])
+      AC_MSG_NOTICE([Build QAT Engine against BoringSSL])
       AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL"])
-      if test ! -d "$with_openssl_install_dir/lib"
-      then
-        AC_MSG_ERROR([$with_openssl_install_dir/lib not exist])
-      else
-        if test "x`find $with_openssl_install_dir/lib -name '*.so' -o -name '*.a'`" == "x"
-        then
-          AC_MSG_ERROR([Not found any librares in $with_openssl_install_dir/lib])
-        fi
-      fi
-      AC_SUBST([QAT_BORINGSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -ldecrepit -lcrypto -lssl"])
+      AC_CHECK_FILE(${with_openssl_install_dir}/lib/libcrypto.so,
+                   [AC_SUBST([QAT_BORINGSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -ldecrepit -lcrypto -lssl"])],
+                   [AC_MSG_ERROR([BoringSSL libaries not found in the path $(with_openssl_install_dir)/lib !])])
+      AS_IF([test -d "$with_openssl_install_dir/crypto"], [AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL -DBSSL_SOURCE"])])
+      AC_SUBST([with_openssl_dir], [""]) #Err files are updated manually for BoringSSL
       AC_SUBST([LIBQATNAME], "libqatengine")
       CFLAGS_BACK="${CFLAGS}"
       CFLAGS="-I${with_openssl_install_dir}/include/ -I${with_openssl_install_dir}/include/openssl/ ${CFLAGS}"
@@ -341,14 +343,10 @@ then
                         struct evp_pkey_st.pkey.dsa, struct evp_pkey_st.pkey.dh, struct evp_pkey_st.pkey.ec, struct evp_pkey_st.ameth],
                         [], [need specified version for BoringSSL commit:15596efa5f], [#include <openssl/evp.h>])
       CFLAGS="${CFLAGS_BACK}"
-      if test -d "$with_openssl_install_dir/crypto"
-      then
-        AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL -DBSSL_SOURCE"])
-      fi
-      AC_SUBST([with_openssl_dir], [""])
     fi
   else
     ac_default_prefix=$with_openssl_install_dir
+    #OPENSSL 3.0
     if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
     then
       if test "x$enable_qat_provider" = "xyes"
@@ -365,6 +363,7 @@ then
         AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
       fi
     else
+      #OPENSSL 1.1.1
       AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.1])
       libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
       AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
@@ -372,6 +371,7 @@ then
   fi
   AC_SUBST([includes_openssl], ["-I\$(with_openssl_install_dir)/include"])
 else
+  # Default OPENSSL from the system
   AC_PATH_TOOL(PKGCONFIG, pkg-config)
   AS_IF([test "x$PKGCONFIG" = "x"], [AC_MSG_ERROR(pkg-config not found.)], )
   libdir="`pkg-config --variable=enginesdir libcrypto`"
@@ -405,25 +405,25 @@ then
   if test "x$enable_qat_hw" != "xno"
   then
     AC_SUBST([cflags_qat_hw], ["-DQAT_HW"])
-    AC_MSG_NOTICE([Enabling build for QAT HW acceleration])
+    AC_MSG_NOTICE([QAT_HW acceleration enabled])
   else
-    AC_MSG_NOTICE([Disabling build for QAT HW acceleration])
+    AC_MSG_NOTICE([QAT_HW acceleration disabled])
   fi
 fi
 AM_CONDITIONAL([QAT_HW], [test "x$cflags_qat_hw" != "x"])
 
-# QAT SW acceleration enabled
+# QAT_SW acceleration enabled
 if test "x$enable_qat_sw" = "xyes"
 then
 #Crypto_mb install path provided
   if test "x$with_qat_sw_crypto_mb_install_dir" != "x"
   then
-    AC_MSG_NOTICE([Enabling build for QAT SW for PKE with crypto_mb library from the path provided])
+    AC_MSG_NOTICE([QAT_SW enabled for PKE with crypto_mb from user provided path])
     AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
     AC_SUBST([includes_qat_sw_crypto_mb], ["-I\$(with_qat_sw_crypto_mb_install_dir)/include"])
     AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_crypto_mb_install_dir)/lib -L\$(with_qat_sw_crypto_mb_install_dir)/lib -lcrypto_mb"])
   else
-    AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([Enabling build for QAT SW for PKE with crypto_mb library from standard path])], [AC_MSG_NOTICE([crypto_mb Library not found, Disabling QAT SW for PKE algorithms])], [])
+    AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([QAT_SW enabled for PKE with crypto_mb from standard path])], [AC_MSG_NOTICE([crypto_mb Library not found, QAT_SW disabled for PKE algorithms])], [])
     if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
     then
       AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
@@ -437,12 +437,12 @@ then
 #IPSEC_MB install path provided
   if test "x$with_qat_sw_ipsec_mb_install_dir" != "x"
   then
-    AC_MSG_NOTICE([Enabling build for QAT SW for AES-GCM with IPsec_mb library from the path provided])
+    AC_MSG_NOTICE([QAT_SW for AES-GCM enabled with IPsec_mb library from the path provided])
     AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
     AC_SUBST([includes_qat_sw_ipsec_mb], ["-I\$(with_qat_sw_ipsec_mb_install_dir)/include"])
     AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_ipsec_mb_install_dir)/lib -L\$(with_qat_sw_ipsec_mb_install_dir)/lib -lIPSec_MB"])
   else
-    AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([Enabling build for QAT SW for AES-GCM with IPsec_mb library from standard path])], [AC_MSG_NOTICE([IPSec_MB Library not found, Disabling QAT_SW GCM])], [])
+    AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([QAT_SW for AES-GCM enabled with IPsec_mb library from standard path])], [AC_MSG_NOTICE([IPSec_MB Library not found, QAT_SW GCM disabled])], [])
     if test "x$ac_cv_lib_IPSec_MB_imb_get_version" = "xyes"
     then
       AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
@@ -463,502 +463,197 @@ if test "x$with_openssl_dir" = "x"
 then
   if test "x$cflags_boringssl" != "x"
   then
-       AC_MSG_NOTICE([Build with existing error files for BoringSSL])
+    AC_MSG_NOTICE([Build with existing error files for BoringSSL])
   else
-       AC_MSG_NOTICE([Build with existing error files without regenerating from OpenSSL source])
+    AC_MSG_NOTICE([Build with existing error files without regenerating from OpenSSL source])
   fi
 fi
 AM_CONDITIONAL([QAT_ERR_FILES_BUILD], [test "x$with_openssl_dir" != "x"])
 
-# Disabled unsupported algorithms with BoringSSl enabled
+# Disable unsupported algorithms with BoringSSl enabled
 if test "x$cflags_boringssl" != "x"
 then
-    # Disabled all HW methods that not supported
-    if test "x$cflags_qat_hw" != "x"
-    then
-        AC_SUBST([enable_qat_hw_ciphers], ["no"])
-        AC_SUBST([enable_qat_hw_sm4_cbc], ["no"])
-        AC_SUBST([enable_qat_hw_ecdh], ["no"])
-        AC_SUBST([enable_qat_hw_dsa], ["no"])
-        AC_SUBST([enable_qat_hw_dh], ["no"])
-        AC_SUBST([enable_qat_hw_prf], ["no"])
-        AC_SUBST([enable_qat_hw_hkdf], ["no"])
-        AC_SUBST([enable_qat_hw_ecx], ["no"])
-        AC_SUBST([enable_qat_hw_gcm], ["no"])
-    fi
-    # Show error when both QAT SW enabled and BoringSSl enabled
-    if test "x$cflags_qat_sw" != "x"
-    then
-        AC_SUBST([enable_qat_sw_ciphers], ["no"])
-        AC_SUBST([enable_qat_sw_ecdh], ["no"])
-        AC_SUBST([enable_qat_sw_dsa], ["no"])
-        AC_SUBST([enable_qat_sw_dh], ["no"])
-        AC_SUBST([enable_qat_sw_prf], ["no"])
-        AC_SUBST([enable_qat_sw_hkdf], ["no"])
-        AC_SUBST([enable_qat_sw_ecx], ["no"])
-        AC_SUBST([enable_qat_sw_gcm], ["no"])
-        AC_SUBST([enable_qat_sw_sm2], ["no"])
-        AC_SUBST([enable_qat_sw_sm4_cbc], ["no"])
-        AC_SUBST([enable_qat_sw_heuristic_timeout], ["no"])
-    fi
-fi
-
-# Checking the parameters given and parsing the relevant flags
-
-if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
-then
-  if test "x$enable_qat_hw_rsa" != "xno" -a "x$enable_qat_sw_rsa" != "xno"
+  if test "x$cflags_qat_hw" != "x"
   then
-    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA -DENABLE_QAT_SW_RSA"])
-    AC_MSG_NOTICE([Co-existence RSA Acceleration])
-  else if test "x$enable_qat_hw_rsa" = "xno" -a "x$enable_qat_sw_rsa" != "xno"
+    AC_SUBST([enable_qat_hw_ciphers], ["no"])
+    AC_SUBST([enable_qat_hw_sm4_cbc], ["no"])
+    AC_SUBST([enable_qat_hw_ecdh], ["no"])
+    AC_SUBST([enable_qat_hw_dsa], ["no"])
+    AC_SUBST([enable_qat_hw_dh], ["no"])
+    AC_SUBST([enable_qat_hw_prf], ["no"])
+    AC_SUBST([enable_qat_hw_hkdf], ["no"])
+    AC_SUBST([enable_qat_hw_ecx], ["no"])
+    AC_SUBST([enable_qat_hw_gcm], ["no"])
+  fi
+  if test "x$cflags_qat_sw" != "x"
   then
-    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_SW_RSA"])
-    AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
-  else if test "x$enable_qat_sw_rsa" = "xno" -a "x$enable_qat_hw_rsa" != "xno"
-  then
-    AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA"])
-    AC_MSG_NOTICE([Accelerating RSA to Hardware])
-  else
-    AC_MSG_NOTICE([No RSA Acceleration])
+    AC_SUBST([enable_qat_sw_ciphers], ["no"])
+    AC_SUBST([enable_qat_sw_ecdh], ["no"])
+    AC_SUBST([enable_qat_sw_ecx], ["no"])
+    AC_SUBST([enable_qat_sw_gcm], ["no"])
+    AC_SUBST([enable_qat_sw_sm2], ["no"])
+    AC_SUBST([enable_qat_sw_sm4_cbc], ["no"])
+    AC_SUBST([enable_qat_sw_heuristic_timeout], ["no"])
   fi
-  fi
-  fi
-else if test "x$enable_qat_sw_rsa" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-  AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_SW_RSA"])
-  AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])
-else if test "x$enable_qat_hw_rsa" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  AC_SUBST([cflags_qat_rsa], ["-DENABLE_QAT_HW_RSA"])
-  AC_MSG_NOTICE([Accelerating RSA to Hardware])
-else
-  AC_MSG_NOTICE([No RSA Acceleration])
-fi
-fi
-fi
-
-if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
-then
-  if test "x$enable_qat_hw_sm4_cbc" = "xyes" -a "x$enable_qat_sw_sm4_cbc" = "xyes"
-  then
-    AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_HW_SM4_CBC -DENABLE_QAT_SW_SM4_CBC"])
-    AC_MSG_NOTICE([Co-existence SM4_CBC Acceleration])
-  else if test "x$enable_qat_hw_sm4_cbc" != "xyes" -a "x$enable_qat_sw_sm4_cbc" = "xyes"
-  then
-    AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_SW_SM4_CBC"])
-    AC_MSG_NOTICE([Accelerating SM4_CBC to Software (Multi-buffer)])
-  else if test "x$enable_qat_sw_sm4_cbc" != "xyes" -a "x$enable_qat_hw_sm4_cbc" = "xyes"
-  then
-    AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_HW_SM4_CBC"])
-    AC_MSG_NOTICE([Accelerating SM4_CBC to Hardware])
-  else
-    AC_MSG_NOTICE([No SM4_CBC Acceleration])
-  fi
-  fi
-  fi
-else if test "x$enable_qat_sw_sm4_cbc" = "xyes" -a "x$cflags_qat_sw" != "x"
-then
-  AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_SW_SM4_CBC"])
-  AC_MSG_NOTICE([Accelerating SM4_CBC to Software (Multi-buffer)])
-else if test "x$enable_qat_hw_sm4_cbc" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-  AC_SUBST([cflags_qat_sm4_cbc], ["-DENABLE_QAT_HW_SM4_CBC"])
-  AC_MSG_NOTICE([Accelerating SM4_CBC to Hardware])
-else
-  AC_MSG_NOTICE([No SM4_CBC Acceleration])
-fi
-fi
-fi
-
-if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
-then
-  if test "x$enable_qat_hw_ecx" != "xno" -a "x$enable_qat_sw_ecx" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX -DENABLE_QAT_SW_ECX"])
-    AC_MSG_NOTICE([Co-existence X25519/X448 Acceleration])
-  else if test "x$enable_qat_hw_ecx" = "xno" -a "x$enable_qat_sw_ecx" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_SW_ECX"])
-    AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
-  else if test "x$enable_qat_sw_ecx" = "xno" -a "x$enable_qat_hw_ecx" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
-    AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
-  else
-    AC_MSG_NOTICE([No X25519/X448 Acceleration])
-  fi
-  fi
-  fi
-else if test "x$enable_qat_sw_ecx" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-  AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_SW_ECX"])
-  AC_MSG_NOTICE([Accelerating X25519 to Software (Multi-buffer)])
-else if test "x$enable_qat_hw_ecx" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  AC_SUBST([cflags_qat_ecx], ["-DENABLE_QAT_HW_ECX"])
-  AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])
-else 
-    AC_MSG_NOTICE([No X25519/X448 Acceleration])
-fi
-fi
-fi
-
-if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
-then
-  if test "x$enable_qat_hw_ecdh" != "xno" -a "x$enable_qat_sw_ecdh" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH -DENABLE_QAT_SW_ECDH"])
-    AC_MSG_NOTICE([Co-existence ECDH P256, P384 & SM2 Acceleration])
-  else if test "x$enable_qat_hw_ecdh" = "xno" -a "x$enable_qat_sw_ecdh" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
-    AC_MSG_NOTICE([Accelerating ECDH P256, P384 & SM2 to Software (Multi-buffer)])
-  else if test "x$enable_qat_sw_ecdh" = "xno" -a "x$enable_qat_hw_ecdh" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
-    AC_MSG_NOTICE([Accelerating ECDH to Hardware])
-  else
-    AC_MSG_NOTICE([No ECDH Accelerating])
-  fi
-  fi
-  fi
-else if test "x$enable_qat_sw_ecdh" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-  AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_SW_ECDH"])
-  AC_MSG_NOTICE([Accelerating ECDH P256, P384 & SM2 to Software (Multi-buffer)])
-else if test "x$enable_qat_hw_ecdh" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  AC_SUBST([cflags_qat_ecdh], ["-DENABLE_QAT_HW_ECDH"])
-  AC_MSG_NOTICE([Accelerating ECDH to Hardware])
-else
-    AC_MSG_NOTICE([No ECDH Accelerating])
-fi
-fi
-fi
-
-if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw" != "x"
-then
-  if test "x$enable_qat_hw_ecdsa" != "xno" -a "x$enable_qat_sw_ecdsa" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA -DENABLE_QAT_SW_ECDSA"])
-    AC_MSG_NOTICE([Co-existence ECDSA Acceleration])
-  else if test "x$enable_qat_hw_ecdsa" = "xno" -a "x$enable_qat_sw_ecdsa" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_SW_ECDSA"])
-    AC_MSG_NOTICE([Accelerating ECDSA P256 &P384 to Software (Multi-buffer)])
-  else if test "x$enable_qat_sw_ecdsa" = "xno" -a "x$enable_qat_hw_ecdsa" != "xno"
-  then
-    AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
-    AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
-  else
-    AC_MSG_NOTICE([No ECDSA Accelerating])
-  fi
-  fi
-  fi
-else if test "x$enable_qat_sw_ecdsa" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-  AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_SW_ECDSA"])
-  AC_MSG_NOTICE([Accelerating ECDSA P256 &P384 to Software (Multi-buffer)])
-else if test "x$enable_qat_hw_ecdsa" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  if test "x$cflags_boringssl" != "x" -a "x$enable_qat_hw_ecdsa" != "xyes"
-  then
-  AC_SUBST([cflags_qat_ecdsa], ["-DDISABLE_QAT_HW_ECDSA"])
-  AC_MSG_NOTICE([Not Accelerating ECDSA to QAT_HW])
-  else
-  AC_SUBST([cflags_qat_ecdsa], ["-DENABLE_QAT_HW_ECDSA"])
-  AC_MSG_NOTICE([Accelerating ECDSA to Hardware])
-  fi
-else
-    AC_MSG_NOTICE([No ECDSA Accelerating])
-fi
-fi
-fi
-
-if test "x$enable_qat_hw_dsa" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_dsa="-DENABLE_QAT_HW_DSA"
-  AC_MSG_NOTICE([Accelerating DSA to Hardware])
-else
-  enable_qat_hw_dsa="-DDISABLE_QAT_HW_DSA"
-  AC_MSG_NOTICE([Not Accelerating DSA to Hardware])
-fi
-
-if test "x$enable_qat_hw_dh" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_dh="-DENABLE_QAT_HW_DH"
-  AC_MSG_NOTICE([Accelerating DH to Hardware])
-else
-  enable_qat_hw_dh="-DDISABLE_QAT_HW_DH"
-  AC_MSG_NOTICE([Not Accelerating DH to Hardware])
-fi
-
-if test "x$enable_qat_hw_prf" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_prf="-DENABLE_QAT_HW_PRF"
-  AC_MSG_NOTICE([Accelerating PRF to Hardware])
-else
-  enable_qat_hw_prf="-DDISABLE_QAT_HW_PRF"
-  AC_MSG_NOTICE([Not Accelerating PRF to Hardware])
-fi
-
-if test "x$enable_qat_hw_hkdf" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_hkdf="-DENABLE_QAT_HW_HKDF"
-  AC_MSG_NOTICE([Accelerating HKDF to Hardware])
-else
-  enable_qat_hw_hkdf="-DDISABLE_QAT_HW_HKDF"
-  AC_MSG_NOTICE([Not Accelerating HKDF to Hardware])
-fi
-
-if test "x$enable_qat_hw_ciphers" != "xno" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_ciphers="-DENABLE_QAT_HW_CIPHERS"
-  AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])
-else
-  enable_qat_hw_ciphers="-DDISABLE_QAT_HW_CIPHERS"
-  AC_MSG_NOTICE([Not Accelerating CIPHERS to Hardware])
-fi
-
-if test "x$cflags_qat_hw" != "x" -a "x$cflags_qat_sw_ipsec" != "x"
-then
-  if test "x$enable_qat_sw_gcm" != "xno"
-  then
-    if test "x$enable_qat_hw_gcm" = "xyes"
-    then
-      AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM -DENABLE_QAT_HW_GCM"])
-      AC_MSG_NOTICE([Co-existence AES-GCM Acceleration])
-    else
-      AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
-      AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
-    fi
-  else if test "x$enable_qat_hw_gcm" = "xyes"
-  then
-    AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_HW_GCM"])
-    AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
-  else
-    AC_MSG_NOTICE([No AES-GCM Accelerating])
-  fi
-  fi
-else if test "x$enable_qat_sw_gcm" != "xno" -a "x$cflags_qat_sw_ipsec" != "x"
-then
-  AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_SW_GCM"])
-  AC_MSG_NOTICE([Accelerating AES-GCM to Software (IPSec_mb)])
-else if test "x$enable_qat_hw_gcm" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-  AC_SUBST([cflags_qat_gcm], ["-DENABLE_QAT_HW_GCM"])
-  AC_MSG_NOTICE([Accelerating AES-GCM to Hardware (experimental)])
-fi
-fi
-fi
-
-if test "x$enable_qat_sw_sm2" != "xno" -a "x$cflags_qat_sw" != "x"
-then
-  enable_qat_sw_sm2="-DENABLE_QAT_SW_SM2"
-  AC_MSG_NOTICE([Accelerating SM2 to Software (Multi-buffer)])
-else
-  enable_qat_sw_sm2=""
-  AC_MSG_NOTICE([Not Accelerating SM2 to Software])
-fi
-
-if test "x$enable_qat_sw_sm3" = "xyes" -a "x$cflags_qat_sw" != "x"
-then
-  enable_qat_sw_sm3="-DENABLE_QAT_SW_SM3"
-  AC_MSG_NOTICE([Accelerating SM3 to Software (experimental)])
-else
-  enable_qat_sw_sm3=""
-  AC_MSG_NOTICE([Not Accelerating SM3 to Software])
-fi
-
-if test "x$enable_qat_sw_sm4_gcm" = "xyes" -a "x$cflags_qat_sw" != "x"
-then
-  enable_qat_sw_sm4_gcm="-DENABLE_QAT_SW_SM4_GCM"
-  AC_MSG_NOTICE([Accelerating SM4 GCM to Software (Multi-buffer)])
-else
-  enable_qat_sw_sm4_gcm=""
-  AC_MSG_NOTICE([Not Accelerating SM4 GCM to Software])
-fi
-
-if test "x$enable_qat_sw_sm4_ccm" = "xyes" -a "x$cflags_qat_sw" != "x"
-then
-  enable_qat_sw_sm4_ccm="-DENABLE_QAT_SW_SM4_CCM"
-  AC_MSG_NOTICE([Accelerating SM4 CCM to Software (Multi-buffer)])
-else
-  enable_qat_sw_sm4_ccm=""
-  AC_MSG_NOTICE([Not Accelerating SM4 CCM to Software])
-fi
-
-if test "x$enable_qat_hw_sha3" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_sha3="-DENABLE_QAT_HW_SHA3"
-  AC_MSG_NOTICE([Accelerating SHA3 to Hardware])
-else
-  enable_qat_hw_sha3="-DDISABLE_QAT_HW_SHA3"
-  AC_MSG_NOTICE([Not Accelerating SHA3 to Hardware])
-fi
-
-if test "x$enable_qat_hw_chachapoly" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_chachapoly="-DENABLE_QAT_HW_CHACHAPOLY"
-  AC_MSG_NOTICE([Accelerating CHACHA-POLY to Hardware])
-else
-  enable_qat_hw_chachapoly="-DDISABLE_QAT_HW_CHACHAPOLY"
-  AC_MSG_NOTICE([Not Accelerating CHACHA-POLY to Hardware])
-fi
-
-if test "x$enable_qat_small_pkt_offload" = "xyes"
-then
-  enable_qat_small_pkt_offload="-DENABLE_QAT_SMALL_PKT_OFFLOAD"
-  AC_MSG_NOTICE([Accelerating small packet CIPHERS])
-else
-  enable_qat_small_pkt_offload=""
-  AC_MSG_NOTICE([Not Accelerating small packet CIPHERS])
-fi
-
-if test "x$enable_qat_hw_lenstra_protection" = "xno" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_lenstra_protection="-DDISABLE_QAT_HW_LENSTRA_PROTECTION"
-  AC_MSG_NOTICE([Lenstra attack protection disabled.])
-else
-  enable_qat_hw_lenstra_protection=""
-  AC_MSG_NOTICE([Lenstra attack protection enabled (default).])
-fi
-
-if test "x$enable_qat_hw_lenstra_verify_hw" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-    if test "x$enable_qat_hw_lenstra_protection" != "xno"
-    then
-      enable_qat_hw_lenstra_verify_hw="-DENABLE_QAT_HW_LENSTRA_VERIFY_HW"
-      AC_MSG_NOTICE([Lenstra check via QAT HW enabled.])
-    fi
-fi
-
-if test "x$enable_qat_debug" = "xyes"
-then
-  enable_qat_debug="-DQAT_DEBUG"
-  AC_MSG_NOTICE([Enabling Engine Debug Messages])
-else
-  enable_qat_debug=""
-  AC_MSG_NOTICE([Disabling Engine Debug Messages])
-fi
-
-if test "x$enable_qat_warnings" = "xyes"
-then
-  enable_qat_warnings="-DQAT_WARN"
-  AC_MSG_NOTICE([Enabling Engine Warning Messages])
-else
-  enable_qat_warnings=""
-  AC_MSG_NOTICE([Disabling Engine Warning Messages])
-fi
-
-if test "x$enable_qat_mem_debug" = "xyes"
-then
-  enable_qat_mem_debug="-DQAT_MEM_DEBUG"
-  AC_MSG_NOTICE([Enabling Memory Driver Debug Messages])
-else
-  enable_qat_mem_debug=""
-  AC_MSG_NOTICE([Disabling Memory Driver Debug Messages])
-fi
-
-if test "x$enable_qat_mem_warnings" = "xyes"
-then
-  enable_qat_mem_warnings="-DQAT_MEM_WARN"
-  AC_MSG_NOTICE([Enabling Memory Driver Warning Messages])
-else
-  enable_qat_mem_warnings=""
-  AC_MSG_NOTICE([Disabling Memory Driver Warning Messages])
-fi
-
-if test "x$enable_qat_auto_engine_init_on_fork" = "xno"
-then
-  enable_qat_auto_engine_init_on_fork="-DDISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK"
-  AC_MSG_NOTICE([Auto engine init on fork disabled.])
-else
-  enable_qat_auto_engine_init_on_fork=""
-  AC_MSG_NOTICE([Auto Engine init on fork enabled (default).])
-fi
-
-if test "x$enable_qat_sw_heuristic_timeout" = "xyes" -a "x$cflags_qat_sw" != "x"
-then
-  enable_qat_sw_heuristic_timeout="-DQAT_SW_HEURISTIC_TIMEOUT"
-  AC_MSG_NOTICE([Enabling QAT SW Heuristic Timeout])
-else
-  enable_qat_sw_heuristic_timeout=""
-  AC_MSG_NOTICE([Disabling QAT SW Heuristic Timeout (default)])
-fi
-
-if test "x$enable_qat_cycle_counts" = "xyes"
-then
-  enable_qat_cycle_counts="-DQAT_CPU_CYCLES_COUNT"
-  AC_MSG_NOTICE([Enabling CPU Cycle Counts])
-else
-  enable_qat_cycle_counts=""
-  AC_MSG_NOTICE([Disabling CPU Cycle Counts])
-fi
-
-if test "x$enable_qat_hw_set_inst_thread" = "xyes" -a "x$cflags_qat_hw" != "x"
-then
-  enable_qat_hw_set_inst_thread="-DQAT_HW_SET_INSTANCE_THREAD"
-  AC_MSG_NOTICE([Enabling QAT hardware set instance for thread])
-else
-  enable_qat_hw_set_inst_thread=""
-  AC_MSG_NOTICE([Disabling QAT hardware set instance for thread])
-fi
-
-if test "x$enable_qat_plock" = "xyes"
-then
-  enable_qat_plock="-DQAT_PLOCK"
-  AC_MSG_NOTICE([Enabling plock])
-else
-  enable_qat_plock=""
-  AC_MSG_NOTICE([Disabling plock])
-fi
-AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" != "x"])
-
-if test "x$enable_qat_ntls" = "xyes"
-then
-  enable_qat_ntls="-DQAT_NTLS"
-  AC_MSG_NOTICE([Enabling NTLS for Engine])
-else
-  enable_qat_ntls=""
-  AC_MSG_NOTICE([Disabling NTLS for Engine])
 fi
 
 # Compiler security flags
-case "$host_os" in
-*linux*)
-  if test "`cc --version | head -1 | awk '{print $3>=4.9}' 2>/dev/null`" = "1"
-  then
-    AC_SUBST([cflags], ["-fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong -fno-strict-overflow"])
-  else
-    AC_SUBST([cflags], ["-fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector -fno-strict-overflow"])
-  fi
-;;
-*freebsd*)
-    AC_SUBST([cflags], ["-fPIC -Wall -Wformat -Wformat-security -O2 -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong"])
-;;
-*) ;;
-esac
+AC_SUBST([cflags_common], ["-Wall -Wformat -Wformat-security -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong"])
 
+# Disable insecure algorithms by default
+if test "x$enable_qat_insecure_algorithms" = "xyes"
+then
+  AC_MSG_NOTICE([Insecure Algorithms enabled])
+  cflags_common="${cflags_common} -DQAT_INSECURE_ALGO"
+  AC_SUBST([enable_qat_hw_dsa], ["yes"])
+  AC_SUBST([enable_qat_hw_dh], ["yes"])
+else
+  AC_MSG_NOTICE([Insecure Algorithms disabled])
+  AC_SUBST([enable_qat_hw_dsa], ["no"])
+  AC_SUBST([enable_qat_hw_dh], ["no"])
+fi
+AM_CONDITIONAL([QAT_INSECURE_ALGO], [test "enable_qat_insecure_algorithms" = "xyes"])
+
+# Enable QAT_HW Algorithms based on enable/disable Flags
+if test "x$cflags_qat_hw" != "x"
+then
+  AS_IF([test "x$enable_qat_hw_rsa" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_RSA"; AC_MSG_NOTICE([Accelerating RSA to Hardware])])
+  AS_IF([test "x$enable_qat_hw_ecdsa" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_ECDSA"; AC_MSG_NOTICE([Accelerating ECDSA to Hardware])])
+  AS_IF([test "x$enable_qat_hw_ecdh" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_ECDH"; AC_MSG_NOTICE([Accelerating ECDH to Hardware])])
+  AS_IF([test "x$enable_qat_hw_ecx" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_ECX"; AC_MSG_NOTICE([Accelerating X25519/X448 to Hardware])])
+  AS_IF([test "x$enable_qat_hw_dsa" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_DSA"; AC_MSG_NOTICE([Accelerating DSA to Hardware])])
+  AS_IF([test "x$enable_qat_hw_dh" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_DH"; AC_MSG_NOTICE([Accelerating DH to Hardware])])
+  AS_IF([test "x$enable_qat_hw_prf" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_PRF"; AC_MSG_NOTICE([Accelerating PRF to Hardware])])
+  AS_IF([test "x$enable_qat_hw_hkdf" = "xyes"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_HKDF"; AC_MSG_NOTICE([Accelerating HKDF to Hardware])])
+  AS_IF([test "x$enable_qat_hw_sha3" = "xyes"], 
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SHA3"; AC_MSG_NOTICE([Accelerating SHA3 to Hardware])])
+  AS_IF([test "x$enable_qat_hw_ciphers" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CIPHERS"; AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])])
+  AS_IF([test "x$enable_qat_hw_gcm" = "xyes"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_GCM"; AC_MSG_NOTICE([Accelerating GCM to Hardware (experimental)])])
+  AS_IF([test "x$enable_qat_hw_chachapoly" = "xyes"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CHACHAPOLY"; AC_MSG_NOTICE([Accelerating CHACHA-POLY to Hardware])])
+  AS_IF([test "x$enable_qat_hw_sm4_cbc" = "xyes"], 
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SM4_CBC"; AC_MSG_NOTICE([Accelerating SM4-CBC to Hardware])])
+fi
+
+# Enable QAT_SW Algorithms based on enable/disable Flags
+if test "x$cflags_qat_sw" != "x"
+then
+  AS_IF([test "x$enable_qat_sw_rsa" != "xno"],
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_RSA"; AC_MSG_NOTICE([Accelerating RSA to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_ecdsa" != "xno"],
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_ECDSA"; AC_MSG_NOTICE([Accelerating ECDSA to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_ecdh" != "xno"],
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_ECDH"; AC_MSG_NOTICE([Accelerating ECDH to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_ecx" != "xno"],
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_ECX"; AC_MSG_NOTICE([Accelerating X25519/X448 to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_sm2" != "xno"], 
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM2"; AC_MSG_NOTICE([Accelerating SM2 to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_sm3" = "xyes"], 
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM3"; AC_MSG_NOTICE([Accelerating SM3 to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_sm4_cbc" = "xyes"], 
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM4_CBC"; AC_MSG_NOTICE([Accelerating SM4-CBC to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_sm4_gcm" = "xyes"], 
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM4_GCM"; AC_MSG_NOTICE([Accelerating SM4-GCM to Software (Multi-buffer)])])
+  AS_IF([test "x$enable_qat_sw_sm4_ccm" = "xyes"], 
+        [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM4_CCM"; AC_MSG_NOTICE([Accelerating SM4-CCM to Software (Multi-buffer)])])
+fi
+
+if test "x$cflags_qat_sw_ipsec" != "x"
+then
+  AS_IF([test "x$enable_qat_sw_gcm" != "xno"],
+        [cflags_qat_sw_ipsec+=" -DENABLE_QAT_SW_GCM"; AC_MSG_NOTICE([Accelerating GCM to Software (IPSec_mb)])])
+fi    
+
+if test "x$cflags_qat_hw" != "x" -a  "x$cflags_qat_sw" != "x"
+then
+    AC_MSG_NOTICE([QAT_HW & QAT_SW Co-existence])
+fi
+
+#Enable additional QAT_HW & QAT_SW flags
+AS_IF([test "x$enable_qat_debug" = "xyes"], 
+      [cflags_common="${cflags_common} -DQAT_DEBUG"; AC_MSG_NOTICE([Debug messages enabled])])
+
+AS_IF([test "x$enable_qat_warnings" = "xyes"],
+      [cflags_common="${cflags_common} -DQAT_WARN"; AC_MSG_NOTICE([Warning messages enabled])])
+
+AS_IF([test "x$enable_qat_mem_debug" = "xyes"], 
+      [cflags_common="${cflags_common} -DQAT_MEM_DEBUG"; AC_MSG_NOTICE([Memory driver debug messages enabled])])
+
+AS_IF([test "x$enable_qat_mem_warnings" = "xyes"],
+      [cflags_common="${cflags_common} -DQAT_MEM_WARN"; AC_MSG_NOTICE([Memory driver warning messages enabled])])
+
+AS_IF([test "x$enable_qat_cycle_counts" = "xyes"],
+      [cflags_common="${cflags_common} -DQAT_CPU_CYCLES_COUNT"; AC_MSG_NOTICE([CPU Cycle Counts enabled])])
+
+AS_IF([test "x$enable_qat_auto_engine_init_on_fork" = "xno"],
+      [cflags_common="${cflags_common} -DDISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK" ; AC_MSG_NOTICE([Auto engine init on fork disabled])])
+
+AS_IF([test "x$enable_qat_small_pkt_offload" = "xyes"],
+      [cflags_common="${cflags_common} -DENABLE_QAT_SMALL_PKT_OFFLOAD"; AC_MSG_NOTICE([Accelerating symmetric small packets enabled])])
+
+AS_IF([test "x$enable_qat_plock" = "xyes"],
+      [cflags_common="${cflags_common} -DQAT_PLOCK"; AC_MSG_NOTICE([plock enabled])])
+AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" != "x"])
+
+AS_IF([test "x$enable_qat_sw_heuristic_timeout" = "xyes" -a "x$cflags_qat_sw" != "x"],
+      [cflags_common="${cflags_common} -DQAT_SW_HEURISTIC_TIMEOUT"; AC_MSG_NOTICE([QAT_SW Heuristic Timeout enabled])])
+
+AS_IF([test "x$with_qat_debug_file" != "x"],
+      [cflags_common="${cflags_common} -DQAT_DEBUG_FILE_PATH=\$(with_qat_debug_file)"; AC_MSG_NOTICE([Debugs to file enabled])])
+
+AS_IF([test "x$with_qat_engine_id" != "x"],
+      [cflags_common="${cflags_common} -DQAT_ENGINE_ID=\$(with_qat_engine_id)"; AC_MSG_NOTICE([Using engine id other than default])])
+
+AS_IF([test "x$enable_qat_ntls" = "xyes"],
+      [cflags_common="${cflags_common} -DQAT_NTLS";  AC_MSG_NOTICE([Enabling NTLS for Engine])])
+
+# Enable Additional QAT_HW Flags
+if test "x$cflags_qat_hw" != "x"
+then
+  AS_IF([test "x$enable_qat_hw_lenstra_protection" = "xno"],
+        [cflags_common="${cflags_common} -DDISABLE_QAT_HW_LENSTRA_PROTECTION"; AC_MSG_NOTICE([Lenstra attack protection disabled])])
+  AS_IF([test "x$enable_qat_hw_lenstra_verify_hw" = "xyes" -a "x$enable_qat_hw_lenstra_protection" != "xno"],
+        [cflags_common="${cflags_common} -DENABLE_QAT_HW_LENSTRA_VERIFY_HW"; AC_MSG_NOTICE([Lenstra check via QAT_HW enabled])])
+  AS_IF([test "x$enable_qat_hw_set_inst_thread" = "xyes"],
+        [cflags_common="${cflags_common} -DQAT_HW_SET_INSTANCE_THREAD"; AC_MSG_NOTICE([QAT_HW set instance for thread enabled])])
+fi
+
+# Additional cflags if any to be passed
 if test "x$with_cc_opt" != "x"
 then
   AC_SUBST([cflags_cc_opt], ["\$(with_cc_opt)"])
 fi
 
+# Additional LD_flags if any to be passed
+if test "x$with_ld_opt" != "x"
+then
+  AC_SUBST([QAT_LD_LIB], ["\$(with_ld_opt)"])
+fi
+
+#QAT_HW Memory Driver
 if test "x$cflags_qat_hw" != "x"
 then
   if test "x$enable_qat_hw_contig_mem" = "xyes" -a "x$enable_qat_hw_multi_thread" != "xyes"
   then
     AC_SUBST([cflags_mem_driver], ["-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem"])
-    AC_MSG_NOTICE([Compiling for qat_contig_mem])
+    AC_MSG_NOTICE([qat_contig_mem enabled])
   else if test "x$enable_qat_hw_multi_thread" = "xyes"
   then
     AC_SUBST([cflags_mem_driver], ["-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem"])
-    AC_MSG_NOTICE([Compiling for multi_thread using qat_contig_mem])
+    AC_MSG_NOTICE([qat_contig_mem (multi-thread) enabled])
   else
     AC_SUBST([cflags_mem_driver], ["-DUSE_USDM_MEM"])
-    AC_MSG_NOTICE([Compiling for USDM])
+    AC_MSG_NOTICE([USDM enabled])
   fi
   fi
 fi
@@ -966,20 +661,7 @@ AM_CONDITIONAL([QAT_HW_CONTIG_MEM], [test "x$enable_qat_hw_contig_mem" = "xyes" 
 AM_CONDITIONAL([QAT_HW_MULTI_THREAD], [test "x$enable_qat_hw_multi_thread" = "xyes"])
 AM_CONDITIONAL([QAT_HW_USDM], [test "x$enable_qat_hw_contig_mem" != "xyes" -a "x$enable_qat_hw_multi_thread" != "xyes"])
 
-if test "x$with_qat_debug_file" != "x"
-then
-  AC_SUBST([cflags_qat_debug_file], ["-DQAT_DEBUG_FILE_PATH=\$(with_qat_debug_file)"])
-  AC_MSG_NOTICE([Enabling writing debug to file])
-fi
-
-if test "x$with_qat_engine_id" != "x"
-then
-  AC_SUBST([cflags_qat_engine_id], ["-DQAT_ENGINE_ID=\$(with_qat_engine_id)"])
-  AC_MSG_NOTICE([Using engine id other than default])
-else
-  AC_MSG_NOTICE([Using default engine id "qatengine"])
-fi
-
+#glibc detection for AVX512 memcpy optimization (not related to QAT_SW AVX512)
 case "$host_os" in
 linux*)
   AC_CHECK_PROG(USE_LDD, ldd, yes, no)
@@ -1002,13 +684,12 @@ linux*)
     AC_MSG_NOTICE([glibc AVX-512 memcpy optimisation supported only from glibc version 2.23])
     AC_ARG_WITH(LIBS, AS_HELP_STRING(), , LIBS+="-lrt")
     AC_SUBST(LIBS)
-
   fi
   ;;
   *)
 esac
 
-# Setting driver headers include path
+# Driver headers include path
 if test "x$cflags_qat_hw" != "x"
 then
   if test "x$cflags_qat_hw_intree" != "x"
@@ -1020,10 +701,10 @@ then
     AC_SUBST([with_ICP_LAC_API_DIR], ["\$(with_ICP_API_DIR)/lac"])
     AC_SUBST([with_ICP_DC_DIR], ["\$(with_qat_hw_dir)/quickassist/include/dc"])
     AC_SUBST([includes_qat_hw], ["-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR) -I\$(with_ICP_DC_DIR)"])
-
   fi
 fi
 
+# qatlib Intree uses different library name
 if test "x$cflags_qat_hw_intree" != "x"
 then
   AC_SUBST([DRIVER], ["qat"])
@@ -1031,11 +712,6 @@ then
 else
   AC_SUBST([DRIVER], ["qat_s"])
   AC_SUBST([USDM], ["usdm_drv_s"])
-fi
-
-if test "x$with_ld_opt" != "x"
-then
-  AC_SUBST([QAT_LD_LIB], ["\$(with_ld_opt)"])
 fi
 
 if test "x$cflags_qat_hw" != "x"
@@ -1073,3 +749,11 @@ fi
 # Output files from the configure
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
+
+echo "==========================================="
+echo "Enabled Algorithms and Additional Flags"
+echo "==========================================="
+echo "QAT_HW ALGORITHMS :" [$cflags_qat_hw]
+echo "QAT_SW ALGORITHMS :" [$cflags_qat_sw]
+echo "ADDITIONAL FLAGS  :" [$cflags_common $cflags_openssl_3 $cflags_boringssl]
+echo "==========================================="
