@@ -80,12 +80,6 @@
 #include "cpa_cy_key.h"
 #include "cpa_cy_ec.h"
 
-#ifdef ENABLE_QAT_HW_ECX
-# ifdef DISABLE_QAT_HW_ECX
-#  undef DISABLE_QAT_HW_ECX
-# endif
-#endif
-
 #define X25519_KEYLEN          32
 #define X448_KEYLEN            56
 #define QAT_X448_DATALEN       64
@@ -434,6 +428,9 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
                            inst_num,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
+            fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
             fallback = 1;
         } else {
             QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
@@ -812,6 +809,9 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
             fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
+            fallback = 1;
         } else {
             QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
         }
@@ -1124,6 +1124,9 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
                            inst_num,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
+            fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
             fallback = 1;
         } else {
             QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);

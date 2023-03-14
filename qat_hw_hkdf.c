@@ -76,12 +76,6 @@
 #include "cpa_types.h"
 #include "cpa_cy_key.h"
 
-#ifdef ENABLE_QAT_HW_HKDF
-# ifdef DISABLE_QAT_HW_HKDF
-#  undef DISABLE_QAT_HW_HKDF
-# endif
-#endif
-
 /* These limits are based on QuickAssist limits.
  * OpenSSL is more generous but better to restrict and fail
  * early on here if they are exceeded rather than later on
@@ -122,8 +116,7 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
         EVP_PKEY_meth_set_ctrl(_hidden_hkdf_pmeth, qat_hkdf_ctrl, NULL);
         qat_hw_hkdf_offload = 1;
         DEBUG("QAT HW HKDF Registration succeeded\n");
-    }
-    else {
+    } else {
         qat_hw_hkdf_offload = 0;
     }
 #endif
@@ -655,6 +648,9 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
                            inst_num,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
+            fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
             fallback = 1;
         } else {
             QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);

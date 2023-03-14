@@ -117,9 +117,11 @@ typedef struct _chained_info {
 
 static chained_info info[] = {
 #ifdef ENABLE_QAT_HW_CIPHERS
+# ifdef QAT_INSECURE_ALGO
     {NID_aes_128_cbc_hmac_sha1, NULL, AES_KEY_SIZE_128},
-    {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
+# endif
+    {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
 #endif
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
@@ -147,9 +149,11 @@ static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
 /* Qat Symmetric cipher function register */
 int qat_cipher_nids[] = {
 #ifdef ENABLE_QAT_HW_CIPHERS
+# ifdef QAT_INSECURE_ALGO
     NID_aes_128_cbc_hmac_sha1,
-    NID_aes_128_cbc_hmac_sha256,
     NID_aes_256_cbc_hmac_sha1,
+# endif
+    NID_aes_128_cbc_hmac_sha256,
     NID_aes_256_cbc_hmac_sha256,
 #endif
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
@@ -200,7 +204,9 @@ typedef struct _digest_data {
 
 static digest_data digest_info[] = {
 #ifdef ENABLE_QAT_HW_SHA3
+# ifdef QAT_INSECURE_ALGO
     { NID_sha3_224,  NULL, NID_RSA_SHA3_224},
+# endif
     { NID_sha3_256,  NULL, NID_RSA_SHA3_256},
     { NID_sha3_384,  NULL, NID_RSA_SHA3_384},
     { NID_sha3_512,  NULL, NID_RSA_SHA3_512},
@@ -213,7 +219,9 @@ static digest_data digest_info[] = {
 /* QAT Hash Algorithm register */
 int qat_digest_nids[] = {
 #ifdef ENABLE_QAT_HW_SHA3
+# ifdef QAT_INSECURE_ALGO
     NID_sha3_224,
+# endif
     NID_sha3_256,
     NID_sha3_384,
     NID_sha3_512,
@@ -232,15 +240,19 @@ typedef struct cipher_threshold_table_s {
 
 static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 # ifdef ENABLE_QAT_HW_CIPHERS
+#  ifdef QAT_INSECURE_ALGO
     {NID_aes_128_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_aes_256_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+#  endif
     {NID_aes_128_cbc_hmac_sha256,
      CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_aes_256_cbc_hmac_sha256,
      CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
 # ifdef ENABLE_QAT_HW_SHA3
+#  ifdef QAT_INSECURE_ALGO
     {NID_sha3_224, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+#  endif
     {NID_sha3_256, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_sha3_384, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_sha3_512, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
@@ -338,7 +350,9 @@ void qat_create_digest_meth(void)
         if (digest_info[i].md == NULL) {
             switch (digest_info[i].m_type) {
 #ifdef ENABLE_QAT_HW_SHA3
+#  ifdef QAT_INSECURE_ALGO
             case NID_sha3_224:
+#  endif
             case NID_sha3_256:
             case NID_sha3_384:
             case NID_sha3_512:
@@ -368,7 +382,9 @@ void qat_free_digest_meth(void)
         if (digest_info[i].md != NULL) {
             switch (digest_info[i].m_type) {
 #ifdef ENABLE_QAT_HW_SHA3
+#  ifdef QAT_INSECURE_ALGO
             case NID_sha3_224:
+#  endif
             case NID_sha3_256:
             case NID_sha3_384:
             case NID_sha3_512:
@@ -996,9 +1012,11 @@ void qat_create_ciphers(void)
 # endif
 
 # ifdef ENABLE_QAT_HW_CIPHERS
+#  ifdef QAT_INSECURE_ALGO
             case NID_aes_128_cbc_hmac_sha1:
-            case NID_aes_128_cbc_hmac_sha256:
             case NID_aes_256_cbc_hmac_sha1:
+#  endif
+            case NID_aes_128_cbc_hmac_sha256:
             case NID_aes_256_cbc_hmac_sha256:
                 info[i].cipher = (EVP_CIPHER *)
                     qat_create_cipher_meth(info[i].nid, info[i].keylen);
@@ -1051,16 +1069,18 @@ void qat_free_ciphers(void)
                     EVP_CIPHER_meth_free(info[i].cipher);
                 break;
 #endif
-#ifndef DISABLE_QAT_HW_CHACHAPOLY
+#ifdef ENABLE_QAT_HW_CHACHAPOLY
             case NID_chacha20_poly1305:
                 if (qat_hw_chacha_poly_offload)
                     EVP_CIPHER_meth_free(info[i].cipher);
                 break;
 #endif
-#ifndef DISABLE_QAT_HW_CIPHERS
+#ifdef ENABLE_QAT_HW_CIPHERS
+# ifdef QAT_INSECURE_ALGO
             case NID_aes_128_cbc_hmac_sha1:
-            case NID_aes_128_cbc_hmac_sha256:
             case NID_aes_256_cbc_hmac_sha1:
+# endif
+            case NID_aes_128_cbc_hmac_sha256:
             case NID_aes_256_cbc_hmac_sha256:
                 if (qat_hw_aes_cbc_hmac_sha_offload)
                     EVP_CIPHER_meth_free(info[i].cipher);

@@ -80,12 +80,6 @@
 #endif
 
 #ifdef ENABLE_QAT_HW_GCM
-# ifdef DISABLE_QAT_HW_GCM
-#  undef DISABLE_QAT_HW_GCM
-# endif
-#endif
-
-#ifdef ENABLE_QAT_HW_GCM
 /******************************************************************************
 * function:
 *         qat_session_data_init(EVP_CIPHER_CTX *ctx,
@@ -1213,7 +1207,11 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qctx->dstFlatBuffer.pData = NULL;
         qat_cleanup_op_done(&op_done);
         WARN("cpaCySymPerformOp failed sts=%d.\n",sts);
-        QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
+	if (sts == CPA_STATUS_UNSUPPORTED) {
+            QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, QAT_R_ALGO_TYPE_UNSUPPORTED);
+	} else {
+            QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
+	}
         goto err;
     }
 
@@ -1565,7 +1563,11 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 qctx->dstFlatBuffer.pData = NULL;
                 qat_cleanup_op_done(&op_done);
                 WARN("cpaCySymPerformOp failed sts=%d.\n",sts);
-                QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
+		if (sts == CPA_STATUS_UNSUPPORTED) {
+		    QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_ALGO_TYPE_SUPPORTED);
+		} else {
+                  QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
+		}
                 return RET_FAIL;
             }
 

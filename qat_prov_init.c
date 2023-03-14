@@ -76,29 +76,33 @@ extern const OSSL_DISPATCH qat_X448_keymgmt_functions[];
 extern const OSSL_DISPATCH qat_aes128gcm_functions[];
 extern const OSSL_DISPATCH qat_aes192gcm_functions[];
 extern const OSSL_DISPATCH qat_aes256gcm_functions[];
-#ifdef ENABLE_QAT_HW_DSA
+#if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
 extern const OSSL_DISPATCH qat_dsa_keymgmt_functions[];
 #endif
-#ifdef ENABLE_QAT_HW_DH
+#if defined(ENABLE_QAT_HW_DH) && defined(QAT_INSECURE_ALGO)
 extern const OSSL_DISPATCH qat_dh_keymgmt_functions[];
 #endif
-#ifdef ENABLE_QAT_HW_DSA
+#if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
 extern const OSSL_DISPATCH qat_dsa_signature_functions[];
 #endif
-#ifdef ENABLE_QAT_HW_DH
+#if defined(ENABLE_QAT_HW_DH) && defined(QAT_INSECURE_ALGO)
 extern const OSSL_DISPATCH qat_dh_keyexch_functions[];
 #endif
 #ifdef ENABLE_QAT_HW_CIPHERS
+# ifdef QAT_INSECURE_ALGO
 extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha1_functions[];
-extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha256_functions[];
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha1_functions[];
+# endif
+extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha256_functions[];
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha256_functions[];
 #endif /* ENABLE_QAT_HW_CIPHERS */
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
 extern const OSSL_DISPATCH qat_chacha20_poly1305_functions[];
 #endif /* ENABLE_QAT_HW_CHACHAPOLY */
 #ifdef ENABLE_QAT_HW_SHA3
+# ifdef QAT_INSECURE_ALGO
 extern const OSSL_DISPATCH qat_sha3_224_functions[];
+# endif
 extern const OSSL_DISPATCH qat_sha3_256_functions[];
 extern const OSSL_DISPATCH qat_sha3_384_functions[];
 extern const OSSL_DISPATCH qat_sha3_512_functions[];
@@ -252,9 +256,11 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
     ALG(QAT_NAMES_AES_192_GCM, qat_aes192gcm_functions),
 #endif
 #ifdef ENABLE_QAT_HW_CIPHERS
+# ifdef QAT_INSECURE_ALGO
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA1, qat_aes128cbc_hmac_sha1_functions),
-    ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA256, qat_aes128cbc_hmac_sha256_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA1, qat_aes256cbc_hmac_sha1_functions),
+# endif
+    ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA256, qat_aes128cbc_hmac_sha256_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA256, qat_aes256cbc_hmac_sha256_functions),
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     ALG(QAT_NAMES_CHACHA20_POLY1305, qat_chacha20_poly1305_functions),
@@ -274,7 +280,7 @@ static const OSSL_ALGORITHM qat_keyexch[] = {
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT SM2 keyexch implementation."},
 # endif
 #endif
-#ifdef ENABLE_QAT_HW_DH
+#if defined(ENABLE_QAT_HW_DH) && defined(QAT_INSECURE_ALGO)
     {"DH", QAT_DEFAULT_PROPERTIES, qat_dh_keyexch_functions, "QAT DH keyexch implementation"},
 #endif
 #ifdef ENABLE_QAT_HW_ECX
@@ -295,10 +301,10 @@ static const OSSL_ALGORITHM qat_keymgmt[] = {
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
     {"EC", QAT_DEFAULT_PROPERTIES, qat_ecdh_keymgmt_functions, "QAT EC Keymgmt implementation."},
 #endif
-#ifdef ENABLE_QAT_HW_DSA
+#if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_keymgmt_functions, "QAT DSA Keymgmt implementation."},
 # endif
-#ifdef ENABLE_QAT_HW_DH
+#if defined(ENABLE_QAT_HW_DH) && defined(QAT_INSECURE_ALGO)
     {"DH", QAT_DEFAULT_PROPERTIES, qat_dh_keymgmt_functions, "QAT DH Keymgmt implementation"},
 #endif
 #ifdef ENABLE_QAT_HW_ECX
@@ -316,7 +322,7 @@ static const OSSL_ALGORITHM qat_signature[] = {
 #if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
     {"ECDSA",QAT_DEFAULT_PROPERTIES, qat_ecdsa_signature_functions, "QAT ECDSA Signature implementation."},
 #endif
-#ifdef ENABLE_QAT_HW_DSA
+#if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_signature_functions, "QAT DSA Signature implementation."},
 #endif
 # ifdef ENABLE_QAT_SW_SM2
@@ -337,7 +343,9 @@ static const OSSL_ALGORITHM qat_kdfs[] = {
 
 #ifdef ENABLE_QAT_HW_SHA3
 static const OSSL_ALGORITHM qat_digests[] = {
+# ifdef QAT_INSECURE_ALGO
     { QAT_NAMES_SHA3_224, QAT_DEFAULT_PROPERTIES, qat_sha3_224_functions },
+# endif
     { QAT_NAMES_SHA3_256, QAT_DEFAULT_PROPERTIES, qat_sha3_256_functions },
     { QAT_NAMES_SHA3_384, QAT_DEFAULT_PROPERTIES, qat_sha3_384_functions },
     { QAT_NAMES_SHA3_512, QAT_DEFAULT_PROPERTIES, qat_sha3_512_functions },

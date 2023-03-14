@@ -71,12 +71,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#ifdef ENABLE_QAT_HW_DH
-# ifdef DISABLE_QAT_HW_DH
-#  undef DISABLE_QAT_HW_DH
-# endif
-#endif
-
 /* To specify the DH op sizes supported by QAT engine */
 #define DH_QAT_RANGE_MIN 768
 
@@ -86,7 +80,7 @@
 # define DH_QAT_RANGE_MAX 4096
 #endif
 
-#ifndef DISABLE_QAT_HW_DH
+#ifdef ENABLE_QAT_HW_DH
 static int qat_dh_mod_exp(const DH *dh, BIGNUM *r, const BIGNUM *a,
                           const BIGNUM *p, const BIGNUM *m, BN_CTX *ctx,
                           BN_MONT_CTX *m_ctx);
@@ -99,9 +93,8 @@ static DH_METHOD *def_dh_method = NULL;
 
 DH_METHOD *qat_get_DH_methods(void)
 {
-#ifndef DISABLE_QAT_HW_DH
+#ifdef ENABLE_QAT_HW_DH
     int res = 1;
-#endif
 
     if (qat_dh_method != NULL && !qat_reload_algo)
         return qat_dh_method;
@@ -113,7 +106,6 @@ DH_METHOD *qat_get_DH_methods(void)
         return NULL;
     }
 
-#ifndef DISABLE_QAT_HW_DH
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_DH)) {
         res &= DH_meth_set_generate_key(qat_dh_method, qat_dh_generate_key);
         res &= DH_meth_set_compute_key(qat_dh_method, qat_dh_compute_key);
@@ -124,23 +116,17 @@ DH_METHOD *qat_get_DH_methods(void)
         if (res == 0) {
             WARN("Failure setting DH methods\n");
             QATerr(QAT_F_QAT_GET_DH_METHODS, QAT_R_QAT_SET_DH_METH_FAILURE);
+            qat_free_DH_methods();
             return NULL;
         }
 
         DEBUG("QAT HW DH registration succeeded\n");
+        return qat_dh_method;
     }
-    else {
-        def_dh_method = (DH_METHOD *)DH_get_default_method();
-        DEBUG("QAT HW DH is disabled, using OpensSSL SW\n");
-        return def_dh_method;
-    }
-#else
+#endif
     def_dh_method = (DH_METHOD *)DH_get_default_method();
     DEBUG("QAT HW DH is disabled, using OpensSSL SW\n");
     return def_dh_method;
-#endif
-
-    return qat_dh_method;
 }
 
 void qat_free_DH_methods(void)
@@ -151,8 +137,7 @@ void qat_free_DH_methods(void)
     }
 }
 
-
-#ifndef DISABLE_QAT_HW_DH
+#ifdef ENABLE_QAT_HW_DH
 /*
  * The DH range check is performed so that if the op sizes are not in the
  * range supported by QAT engine then fall back to software
@@ -428,6 +413,9 @@ int qat_dh_generate_key(DH *dh)
                            inst_num,
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
+            fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
             fallback = 1;
         } else {
             QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
@@ -756,6 +744,9 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
                            qat_instance_details[inst_num].qat_instance_info.physInstId.packageId,
                            __func__);
             fallback = 1;
+        } else if (status == CPA_STATUS_UNSUPPORTED) {
+            WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
+            fallback = 1;
         } else {
             QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
         }
@@ -971,4 +962,4 @@ int qat_dh_finish(DH *dh)
     return DH_meth_get_finish(DH_OpenSSL())(dh);
 }
 
-#endif /* #ifndef DISABLE_QAT_HW_DH */
+#endif /* ENABLE_QAT_HW_DH */
