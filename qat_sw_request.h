@@ -61,9 +61,12 @@
 /* Crypto_mb includes */
 #include "crypto_mb/sm3.h"
 #include "crypto_mb/sm4.h"
-# include "crypto_mb/sm4_gcm.h"
-# include "crypto_mb/sm4_ccm.h"
-
+# ifdef ENABLE_QAT_SW_SM4_GCM
+#  include "crypto_mb/sm4_gcm.h"
+# endif
+# ifdef ENABLE_QAT_SW_SM4_CCM
+#  include "crypto_mb/sm4_ccm.h"
+# endif
 #define X25519_KEYLEN 32
 #define MAX_KEYLEN  57
 #define IV_LEN 16
@@ -292,6 +295,7 @@ typedef struct _sm4_cbc_cipher_op_data {
     int in_enc;
 } sm4_cbc_cipher_op_data;
 
+# ifdef ENABLE_QAT_SW_SM4_GCM
 typedef struct _sm4_gcm_encrypt_op_data {
     struct _sm4_gcm_encrypt_op_data *next;
     struct _sm4_gcm_encrypt_op_data *prev;
@@ -329,7 +333,9 @@ typedef struct _sm4_gcm_decrypt_op_data {
     int sm4_taglen;
     int *sts;
 } sm4_gcm_decrypt_op_data;
+# endif
 
+# ifdef ENABLE_QAT_SW_SM4_CCM
 typedef struct _sm4_ccm_encrypt_op_data {
     struct _sm4_ccm_encrypt_op_data *next;
     struct _sm4_ccm_encrypt_op_data *prev;
@@ -369,5 +375,5 @@ typedef struct _sm4_ccm_decrypt_op_data {
     int sm4_msglen;
     int *sts;
 } sm4_ccm_decrypt_op_data;
-
+# endif /* ENABLE_QAT_SW_SM4_CCM */
 #endif /* QAT_SW_REQUEST_H */

@@ -66,12 +66,12 @@
 #include "qat_sw_sm4_ccm.h"
 
 /* Crypto_mb includes */
-#include "crypto_mb/sm4.h"
-#include "crypto_mb/sm4_ccm.h"
+#ifdef ENABLE_QAT_SW_SM4_CCM
+ #include "crypto_mb/sm4_ccm.h"
+#endif
 #include "crypto_mb/cpu_features.h"
 
 #ifdef ENABLE_QAT_SW_SM4_CCM
- #if !defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 
 # define GET_SW_CIPHER(ctx) \
     sm4_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
@@ -1138,5 +1138,4 @@ int qat_sw_sm4_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     }
     return ret_val;
 }
- #endif
 #endif

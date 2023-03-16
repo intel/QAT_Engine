@@ -148,6 +148,7 @@ typedef struct _mb_flist_sm4_cbc_cipher
     sm4_cbc_cipher_op_data *head;
 } mb_flist_sm4_cbc_cipher;
 
+# ifdef ENABLE_QAT_SW_SM4_GCM
 typedef struct _mb_flist_sm4_gcm_encrypt
 {
     pthread_mutex_t mb_flist_mutex;
@@ -159,7 +160,9 @@ typedef struct _mb_flist_sm4_gcm_decrypt
     pthread_mutex_t mb_flist_mutex;
     sm4_gcm_decrypt_op_data *head;
 } mb_flist_sm4_gcm_decrypt;
+# endif
 
+# ifdef ENABLE_QAT_SW_SM4_CCM
 typedef struct _mb_flist_sm4_ccm_encrypt
 {
     pthread_mutex_t mb_flist_mutex;
@@ -171,6 +174,7 @@ typedef struct _mb_flist_sm4_ccm_decrypt
     pthread_mutex_t mb_flist_mutex;
     sm4_ccm_decrypt_op_data *head;
 } mb_flist_sm4_ccm_decrypt;
+# endif
 
 typedef struct _mb_thread_data{
     pthread_t polling_thread;
@@ -242,17 +246,20 @@ typedef struct _mb_thread_data{
     mb_queue_sm4_cbc_cipher *sm4_cbc_cipher_queue;
     mb_queue_sm4_cbc_cipher *sm4_cbc_cipher_dec_queue;
     /* SM4_GCM */
+# ifdef ENABLE_QAT_SW_SM4_GCM
     mb_flist_sm4_gcm_encrypt *sm4_gcm_encrypt_freelist;
     mb_flist_sm4_gcm_decrypt *sm4_gcm_decrypt_freelist;
     mb_queue_sm4_gcm_encrypt *sm4_gcm_encrypt_queue;
     mb_queue_sm4_gcm_decrypt *sm4_gcm_decrypt_queue;
+# endif
 
     /* SM4_CCM */
+# ifdef ENABLE_QAT_SW_SM4_CCM
     mb_flist_sm4_ccm_encrypt *sm4_ccm_encrypt_freelist;
     mb_flist_sm4_ccm_decrypt *sm4_ccm_decrypt_freelist;
     mb_queue_sm4_ccm_encrypt *sm4_ccm_encrypt_queue;
     mb_queue_sm4_ccm_decrypt *sm4_ccm_decrypt_queue;
-
+# endif
 } mb_thread_data;
 
 mb_flist_rsa_priv * mb_flist_rsa_priv_create();
@@ -356,6 +363,7 @@ int mb_flist_sm4_cbc_cipher_push(mb_flist_sm4_cbc_cipher *freelist,
 sm4_cbc_cipher_op_data
     *mb_flist_sm4_cbc_cipher_pop(mb_flist_sm4_cbc_cipher *flist);
 
+# ifdef ENABLE_QAT_SW_SM4_GCM
 mb_flist_sm4_gcm_encrypt * mb_flist_sm4_gcm_encrypt_create();
 int mb_flist_sm4_gcm_encrypt_cleanup(mb_flist_sm4_gcm_encrypt *freelist);
 int mb_flist_sm4_gcm_encrypt_push(mb_flist_sm4_gcm_encrypt *freelist,
@@ -369,7 +377,9 @@ int mb_flist_sm4_gcm_decrypt_push(mb_flist_sm4_gcm_decrypt *freelist,
                                sm4_gcm_decrypt_op_data *item);
 sm4_gcm_decrypt_op_data
     *mb_flist_sm4_gcm_decrypt_pop(mb_flist_sm4_gcm_decrypt *flist);
+# endif
 
+# ifdef ENABLE_QAT_SW_SM4_CCM
 mb_flist_sm4_ccm_encrypt * mb_flist_sm4_ccm_encrypt_create();
 int mb_flist_sm4_ccm_encrypt_cleanup(mb_flist_sm4_ccm_encrypt *freelist);
 int mb_flist_sm4_ccm_encrypt_push(mb_flist_sm4_ccm_encrypt *freelist,
@@ -383,5 +393,5 @@ int mb_flist_sm4_ccm_decrypt_push(mb_flist_sm4_ccm_decrypt *freelist,
                                sm4_ccm_decrypt_op_data *item);
 sm4_ccm_decrypt_op_data
     *mb_flist_sm4_ccm_decrypt_pop(mb_flist_sm4_ccm_decrypt *flist);
-
+# endif
 #endif /* QAT_SW_FREELIST_H */

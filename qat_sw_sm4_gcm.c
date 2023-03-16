@@ -65,12 +65,13 @@
 #include "qat_sw_sm4_gcm.h"
 
 /* Crypto_mb includes */
-#include "crypto_mb/sm4.h"
-#include "crypto_mb/sm4_gcm.h"
+
+#ifdef ENABLE_QAT_SW_SM4_GCM
+ #include "crypto_mb/sm4_gcm.h"
+#endif
 #include "crypto_mb/cpu_features.h"
 
 #ifdef ENABLE_QAT_SW_SM4_GCM
-# if !defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 
 # define GET_SW_CIPHER(ctx) \
     sm4_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
@@ -241,11 +242,9 @@ void process_mb_sm4_gcm_encrypt_reqs(mb_thread_data *tlv)
     STOP_RDTSC(&sm4_gcm_cycles_encrypt_execute, 1, "[SM4_GCM:encrypt_execute]");
     DEBUG("Processed SM4_GCM encrypt Request\n");
 }
-# endif
 #endif /* ENABLE_QAT_SW_SM4_GCM */
 
 #ifdef ENABLE_QAT_SW_SM4_GCM
-# if !defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 int qat_sw_sm4_gcm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         const unsigned char *iv, int enc)
 {
@@ -1234,5 +1233,4 @@ use_sw_method:
 err:
     return sts;
 }
-# endif
 #endif /* ENABLE_QAT_SW_SM4_GCM */
