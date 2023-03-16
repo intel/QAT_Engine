@@ -110,9 +110,12 @@
 # include "qat_sw_ec.h"
 # include "qat_sw_polling.h"
 # include "crypto_mb/cpu_features.h"
-# include "crypto_mb/sm4.h"
-# include "crypto_mb/sm4_gcm.h"
-# include "crypto_mb/sm4_ccm.h"
+# ifdef ENABLE_QAT_SW_SM4_GCM
+#  include "crypto_mb/sm4_gcm.h"
+# endif
+# ifdef ENABLE_QAT_SW_SM4_CCM
+#  include "crypto_mb/sm4_ccm.h"
+# endif
 #endif
 
 #ifdef QAT_SW_IPSEC

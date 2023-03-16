@@ -3752,6 +3752,7 @@ int mb_queue_sm4_cbc_cipher_get_size(mb_queue_sm4_cbc_cipher *queue)
     return queue->num_items;
 }
 
+#ifdef ENABLE_QAT_SW_SM4_GCM
 mb_queue_sm4_gcm_encrypt * mb_queue_sm4_gcm_encrypt_create()
 {
     mb_queue_sm4_gcm_encrypt *queue = NULL;
@@ -4011,7 +4012,9 @@ int mb_queue_sm4_gcm_decrypt_get_size(mb_queue_sm4_gcm_decrypt *queue)
 
     return queue->num_items;
 }
+#endif
 
+#ifdef ENABLE_QAT_SW_SM4_CCM
 mb_queue_sm4_ccm_encrypt * mb_queue_sm4_ccm_encrypt_create()
 {
     mb_queue_sm4_ccm_encrypt *queue = NULL;
@@ -4271,3 +4274,4 @@ int mb_queue_sm4_ccm_decrypt_get_size(mb_queue_sm4_ccm_decrypt *queue)
 
     return queue->num_items;
 }
+#endif

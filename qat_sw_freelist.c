@@ -1537,6 +1537,7 @@ sm4_cbc_cipher_op_data
     return item;
 }
 
+#ifdef ENABLE_QAT_SW_SM4_GCM
 mb_flist_sm4_gcm_encrypt *mb_flist_sm4_gcm_encrypt_create()
 {
     mb_flist_sm4_gcm_encrypt *freelist = NULL;
@@ -1722,7 +1723,9 @@ sm4_gcm_decrypt_op_data
 
     return item;
 }
+#endif
 
+#ifdef ENABLE_QAT_SW_SM4_CCM
 mb_flist_sm4_ccm_encrypt *mb_flist_sm4_ccm_encrypt_create()
 {
     mb_flist_sm4_ccm_encrypt *freelist = NULL;
@@ -1908,3 +1911,4 @@ sm4_ccm_decrypt_op_data
 
     return item;
 }
+#endif

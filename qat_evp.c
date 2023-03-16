@@ -88,14 +88,17 @@
 # include "qat_sw_sm3.h"
 # ifndef QAT_BORINGSSL
 # include "qat_sw_sm4_cbc.h"
-# include "qat_sw_sm4_gcm.h"
-# include "qat_sw_sm4_ccm.h"
-# include "crypto_mb/sm4.h"
 # endif /* QAT_BORINGSSL */
 # include "crypto_mb/cpu_features.h"
 # ifndef QAT_BORINGSSL
-# include "crypto_mb/sm4_gcm.h"
-# include "crypto_mb/sm4_ccm.h"
+#  ifdef ENABLE_QAT_SW_SM4_GCM
+#   include "qat_sw_sm4_gcm.h"
+#   include "crypto_mb/sm4_gcm.h"
+#  endif
+#  ifdef ENABLE_QAT_SW_SM4_CCM
+#   include "qat_sw_sm4_ccm.h"
+#   include "crypto_mb/sm4_ccm.h"
+#  endif
 # endif /* QAT_BORINGSSL */
 #endif
 
@@ -856,7 +859,6 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
  *   Create a new EVP_CIPHER based on requested nid for qat_sw
  ******************************************************************************/
 #ifdef ENABLE_QAT_SW_SM4_GCM
-# if !defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 const EVP_CIPHER *qat_create_sm4_gcm_cipher_meth(int nid, int keylen)
 {
     EVP_CIPHER *c = NULL;
@@ -899,7 +901,6 @@ const EVP_CIPHER *qat_create_sm4_gcm_cipher_meth(int nid, int keylen)
     }
     return c;
 }
-# endif
 #endif /* ENABLE_QAT_SW_SM4_GCM */
 
 /******************************************************************************
@@ -914,13 +915,10 @@ const EVP_CIPHER *qat_create_sm4_gcm_cipher_meth(int nid, int keylen)
  *   Create a new EVP_CIPHER based on requested nid for qat_sw
  ******************************************************************************/
 #ifdef ENABLE_QAT_SW_SM4_CCM
-# if !defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 const EVP_CIPHER *qat_create_sm4_ccm_cipher_meth(int nid, int keylen)
 {
     EVP_CIPHER *c = NULL;
-#ifdef ENABLE_QAT_SW_SM4_CCM
     int res = 1;
-#endif
 
     if ((c = EVP_CIPHER_meth_new(nid, SM4_BLOCK_SIZE, keylen)) == NULL) {
         QATerr(QAT_F_QAT_CREATE_SM4_CCM_CIPHER_METH, QAT_R_SM4_MALLOC_FAILED);
@@ -960,7 +958,6 @@ const EVP_CIPHER *qat_create_sm4_ccm_cipher_meth(int nid, int keylen)
     }
     return c;
 }
-# endif
 #endif /* ENABLE_QAT_SW_SM4_CCM */
 
 void qat_create_ciphers(void)

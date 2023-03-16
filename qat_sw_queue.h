@@ -302,6 +302,7 @@ typedef struct _mb_queue_sm4_cbc_cipher
     int disabled;
 } mb_queue_sm4_cbc_cipher;
 
+# ifdef ENABLE_QAT_SW_SM4_GCM
 typedef struct _mb_queue_sm4_gcm_encrypt
 {
     pthread_mutex_t mb_queue_mutex;
@@ -319,7 +320,9 @@ typedef struct _mb_queue_sm4_gcm_decrypt
     int num_items;
     int disabled;
 } mb_queue_sm4_gcm_decrypt;
+# endif
 
+# ifdef ENABLE_QAT_SW_SM4_CCM
 typedef struct _mb_queue_sm4_ccm_encrypt
 {
     pthread_mutex_t mb_queue_mutex;
@@ -337,6 +340,7 @@ typedef struct _mb_queue_sm4_ccm_decrypt
     int num_items;
     int disabled;
 } mb_queue_sm4_ccm_decrypt;
+# endif
 
 mb_queue_rsa2k_priv * mb_queue_rsa2k_priv_create();
 int mb_queue_rsa2k_priv_disable(mb_queue_rsa2k_priv * queue);
@@ -592,6 +596,7 @@ sm4_cbc_cipher_op_data
     *mb_queue_sm4_cbc_cipher_dec_dequeue(mb_queue_sm4_cbc_cipher *queue);
 
 /* SM4_GCM encrypt */
+# ifdef ENABLE_QAT_SW_SM4_GCM
 mb_queue_sm4_gcm_encrypt * mb_queue_sm4_gcm_encrypt_create();
 int mb_queue_sm4_gcm_encrypt_disable(mb_queue_sm4_gcm_encrypt * queue);
 int mb_queue_sm4_gcm_encrypt_cleanup(mb_queue_sm4_gcm_encrypt * queue);
@@ -610,8 +615,10 @@ int mb_queue_sm4_gcm_decrypt_enqueue(mb_queue_sm4_gcm_decrypt *queue,
 sm4_gcm_decrypt_op_data
     *mb_queue_sm4_gcm_decrypt_dequeue(mb_queue_sm4_gcm_decrypt *queue);
 int mb_queue_sm4_gcm_decrypt_get_size(mb_queue_sm4_gcm_decrypt *queue);
+# endif /*  ENABLE_QAT_SW_SM4_GCM */
 
 /* SM4_CCM */
+# ifdef ENABLE_QAT_SW_SM4_CCM
 mb_queue_sm4_ccm_encrypt * mb_queue_sm4_ccm_encrypt_create();
 int mb_queue_sm4_ccm_encrypt_disable(mb_queue_sm4_ccm_encrypt * queue);
 int mb_queue_sm4_ccm_encrypt_cleanup(mb_queue_sm4_ccm_encrypt * queue);
@@ -629,5 +636,5 @@ int mb_queue_sm4_ccm_decrypt_enqueue(mb_queue_sm4_ccm_decrypt *queue,
 sm4_ccm_decrypt_op_data
     *mb_queue_sm4_ccm_decrypt_dequeue(mb_queue_sm4_ccm_decrypt *queue);
 int mb_queue_sm4_ccm_decrypt_get_size(mb_queue_sm4_ccm_decrypt *queue);
-
+# endif /* ENABLE_QAT_SW_SM4_CCM */
 #endif /* QAT_SW_QUEUE_H */
