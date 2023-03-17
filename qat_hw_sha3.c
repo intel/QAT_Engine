@@ -163,6 +163,7 @@ const EVP_MD *qat_create_sha3_meth(int nid , int key_type)
     } else {
         qat_hw_sha_offload = 0;
         DEBUG("QAT HW SHA3 is disabled, using OpenSSL SW\n");
+        EVP_MD_meth_free(c);
         return qat_sha3_sw_impl(nid);
     }
 #else
@@ -983,15 +984,14 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
 
     /* Copy digest result into "md" buffer. */
     memcpy(md, sha3_ctx->digest_data, sha3_ctx->md_size);
+    memset(sha3_ctx->digest_data, 0x00, sha3_ctx->md_size);
 
+#ifndef QAT_OPENSSL_PROVIDER
     if (!qat_sha3_cleanup(ctx)) {
         WARN("qat_sha3_cleanup failed\n");
         QATerr(QAT_F_QAT_SHA3_FINAL, ERR_R_INTERNAL_ERROR);
         return 0;
     }
-
-#ifdef QAT_OPENSSL_PROVIDER
-    OPENSSL_clear_free(sha3_ctx, sizeof(qat_sha3_ctx));
 #endif
     return 1;
 }

@@ -71,7 +71,7 @@
  * down in the driver.
  */
 # ifdef ENABLE_QAT_HW_PRF
-#  if CPA_CY_API_VERSION_NUM_MAJOR > 2
+#  if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
 #   define QAT_TLS1_PRF_SECRET_MAXBUF 1024
 #  else
 #   define QAT_TLS1_PRF_SECRET_MAXBUF 512

@@ -164,6 +164,7 @@ const EVP_CIPHER *chachapoly_cipher_meth(int nid, int keylen)
     } else {
         qat_hw_chacha_poly_offload = 0;
         DEBUG("QAT HW CHACHA POLY is disabled, using OpenSSL SW\n");
+        EVP_CIPHER_meth_free(c);
         return EVP_chacha20_poly1305();
     }
 # else

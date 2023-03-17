@@ -150,6 +150,13 @@ static void qat_keccak_freectx(void *vctx)
     if (!qat_sha3_cleanup(ctx)){
         WARN("qat sha3 ctx cleanup failed.\n");
     }
+#ifndef ENABLE_QAT_HW_SMALL_PKT_OFFLOAD
+    EVP_MD_CTX_free(ctx->sw_md_ctx);
+    EVP_MD_free(ctx->sw_md);
+    ctx->sw_md_ctx = NULL;
+    ctx->sw_md = NULL;
+#endif
+    OPENSSL_clear_free(ctx->qctx, sizeof(qat_sha3_ctx));
     OPENSSL_clear_free(ctx,  sizeof(*ctx));
 }
 
@@ -261,9 +268,9 @@ static void *qat_##name##_newctx(void *provctx)                                 
         ctx->pad = pad_val;                                                        \
     }                                                                              \
     set_ctx_md_type(ctx, bitlen);                                                  \
-    ctx->qctx = OPENSSL_malloc(sizeof(qat_sha3_ctx));                              \
+    ctx->qctx = OPENSSL_zalloc(sizeof(qat_sha3_ctx));                              \
     if (ctx->qctx == NULL)                                                         \
-        WARN("malloc failed.\n");                                                  \
+        WARN("zalloc failed.\n");                                                  \
     ctx->meth = sha3_generic_md;                                                   \
     ctx->sw_md_ctx = EVP_MD_CTX_new();                                             \
     if (ctx->sw_md_ctx == NULL)                                                    \
@@ -294,9 +301,9 @@ static void *qat_##name##_newctx(void *provctx)                                 
         ctx->pad = pad_val;                                                        \
     }                                                                              \
     set_ctx_md_type(ctx, bitlen);                                                  \
-    ctx->qctx = OPENSSL_malloc(sizeof(qat_sha3_ctx));                              \
+    ctx->qctx = OPENSSL_zalloc(sizeof(qat_sha3_ctx));                              \
     if (ctx->qctx == NULL)                                                         \
-        WARN("malloc failed.\n");                                                  \
+        WARN("zalloc failed.\n");                                                  \
     ctx->meth = sha3_generic_md;                                                   \
     return ctx;                                                                    \
 }

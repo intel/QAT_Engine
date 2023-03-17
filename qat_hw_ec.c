@@ -101,7 +101,7 @@ CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
         return CPA_CY_EC_FIELD_TYPE_BINARY;
 }
 
-#if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+#if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
 int qat_get_curve(CpaCyEcFieldType fieldType)
 {
     if (fieldType == CPA_CY_EC_FIELD_TYPE_PRIME)
@@ -140,7 +140,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     int inst_num = QAT_INVALID_INSTANCE;
     BIGNUM *xP = NULL, *yP = NULL;
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
     CpaCyEcGenericPointMultiplyOpData *pOpData = NULL;
 # else
     CpaCyEcPointMultiplyOpData *opData = NULL;
@@ -184,7 +184,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         return ret;
     }
 
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
     pOpData = (CpaCyEcGenericPointMultiplyOpData *)
                OPENSSL_zalloc(sizeof(CpaCyEcGenericPointMultiplyOpData));
     if (pOpData == NULL) {
@@ -300,7 +300,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         goto err;
     }
 
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
     pOpData->pCurve->parameters.weierstrassParameters.fieldType = qat_get_field_type(group);
     pOpData->pCurve->curveType = qat_get_curve(pOpData->pCurve->parameters.weierstrassParameters.fieldType);
 
@@ -423,7 +423,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         }
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
         DUMP_EC_GENERIC_POINT_MULTIPLY(qat_instance_handles[inst_num], pOpData, pResultX, pResultY);
         status = cpaCyEcGenericPointMultiply(qat_instance_handles[inst_num],
                                              qat_ecCallbackFn,
@@ -595,7 +595,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         OPENSSL_free(pResultY);
     }
 
-# if CPA_CY_API_VERSION_NUM_MAJOR >= 3
+# if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
     if (pOpData) {
         QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(pOpData->k);
         QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);

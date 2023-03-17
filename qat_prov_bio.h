@@ -21,3 +21,4 @@ int ossl_prov_bio_printf(OSSL_CORE_BIO *bio, const char *format, ...);
 
 BIO_METHOD *ossl_bio_prov_init_bio_method(void);
 BIO *ossl_bio_new_from_core_bio(QAT_PROV_CTX *provctx, OSSL_CORE_BIO *corebio);
+BIO_METHOD *ossl_prov_ctx_get0_core_bio_method(QAT_PROV_CTX *ctx);

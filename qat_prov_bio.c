@@ -186,7 +186,7 @@ static int bio_core_new(BIO *bio)
     return 1;
 }
 
-static BIO_METHOD *ossl_prov_ctx_get0_core_bio_method(QAT_PROV_CTX *ctx)
+BIO_METHOD *ossl_prov_ctx_get0_core_bio_method(QAT_PROV_CTX *ctx)
 {
     if (ctx == NULL)
         return NULL;

@@ -748,6 +748,7 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 
     if (!qat_sw_gcm_offload && !qat_hw_gcm_offload) {
         DEBUG("OpenSSL SW AES_GCM_%d registration succeeded\n", keylen*8);
+        EVP_CIPHER_meth_free(c);
         return qat_gcm_cipher_sw_impl(nid);
     }
 
