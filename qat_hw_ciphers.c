@@ -275,6 +275,7 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
     } else {
         qat_hw_aes_cbc_hmac_sha_offload = 0;
         DEBUG("QAT HW AES_CBC_%d_HMAC_SHA is disabled, using OpenSSL SW\n", keylen*8);
+        EVP_CIPHER_meth_free(c);
         return qat_chained_cipher_sw_impl(nid);
     }
 }

@@ -405,6 +405,8 @@ then
   if test "x$enable_qat_hw" != "xno"
   then
     AC_SUBST([cflags_qat_hw], ["-DQAT_HW"])
+    AC_CHECK_FILE(${with_qat_hw_dir}/quickassist/lookaside/access_layer/src/common/crypto/kpt/crypto/lac_kpt_crypto_qat_comms.c,
+                  [cflags_qat_hw="${cflags_qat_hw} -DQAT20_OOT"], [])
     AC_MSG_NOTICE([QAT_HW acceleration enabled])
   else
     AC_MSG_NOTICE([QAT_HW acceleration disabled])
@@ -608,9 +610,6 @@ AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" != "x"])
 AS_IF([test "x$enable_qat_sw_heuristic_timeout" = "xyes" -a "x$cflags_qat_sw" != "x"],
       [cflags_common="${cflags_common} -DQAT_SW_HEURISTIC_TIMEOUT"; AC_MSG_NOTICE([QAT_SW Heuristic Timeout enabled])])
 
-AS_IF([test "x$with_qat_debug_file" != "x"],
-      [cflags_common="${cflags_common} -DQAT_DEBUG_FILE_PATH=\$(with_qat_debug_file)"; AC_MSG_NOTICE([Debugs to file enabled])])
-
 AS_IF([test "x$with_qat_engine_id" != "x"],
       [cflags_common="${cflags_common} -DQAT_ENGINE_ID=\$(with_qat_engine_id)"; AC_MSG_NOTICE([Using engine id other than default])])
 
@@ -638,6 +637,13 @@ fi
 if test "x$with_ld_opt" != "x"
 then
   AC_SUBST([QAT_LD_LIB], ["\$(with_ld_opt)"])
+fi
+
+# Write logs to a debug file
+if test "x$with_qat_debug_file" != "x"
+then
+  AC_SUBST([cflags_qat_debug], ["-DQAT_DEBUG_FILE_PATH=\$(with_qat_debug_file)"])
+  AC_MSG_NOTICE([Debugs to file enabled])
 fi
 
 #QAT_HW Memory Driver

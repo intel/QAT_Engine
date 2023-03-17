@@ -24,6 +24,7 @@
 # include "qat_sw_gcm.h"
 #endif
 
+OSSL_PROVIDER *prov = NULL;
 /* By default, qat provider always in a happy state */
 int qat_prov_is_running(void)
 {
@@ -73,9 +74,13 @@ extern const OSSL_DISPATCH qat_X25519_keymgmt_functions[];
 #ifdef ENABLE_QAT_HW_ECX
 extern const OSSL_DISPATCH qat_X448_keymgmt_functions[];
 #endif
+#if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
 extern const OSSL_DISPATCH qat_aes128gcm_functions[];
+# ifdef ENABLE_QAT_SW_GCM
 extern const OSSL_DISPATCH qat_aes192gcm_functions[];
+# endif
 extern const OSSL_DISPATCH qat_aes256gcm_functions[];
+#endif
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
 extern const OSSL_DISPATCH qat_dsa_keymgmt_functions[];
 #endif
@@ -211,7 +216,9 @@ static void qat_teardown(void *provctx)
 
     if (provctx) {
         QAT_PROV_CTX *qat_ctx = (QAT_PROV_CTX *)provctx;
+        BIO_meth_free(ossl_prov_ctx_get0_core_bio_method(qat_ctx));
         OPENSSL_free(qat_ctx);
+        OSSL_PROVIDER_unload(prov);
     }
 }
 
@@ -262,10 +269,10 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 # endif
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA256, qat_aes128cbc_hmac_sha256_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA256, qat_aes256cbc_hmac_sha256_functions),
+#endif
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     ALG(QAT_NAMES_CHACHA20_POLY1305, qat_chacha20_poly1305_functions),
 # endif /* ENABLE_QAT_HW_CHACHAPOLY */
-#endif
     { { NULL, NULL, NULL }, NULL }};
 
 static OSSL_ALGORITHM qat_exported_ciphers[OSSL_NELEM(qat_deflt_ciphers)];
@@ -355,7 +362,6 @@ static const OSSL_ALGORITHM qat_digests[] = {
 static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_cache)
 {
     static int prov_init = 0;
-    OSSL_PROVIDER *prov = NULL;
     prov = OSSL_PROVIDER_load(NULL, "default");
     if (!prov_init) {
         prov_init = 1;

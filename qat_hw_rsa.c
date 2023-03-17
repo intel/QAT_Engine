@@ -88,7 +88,7 @@
 #else
 # define RSA_QAT_RANGE_MIN 2048
 #endif
-#if CPA_CY_API_VERSION_NUM_MAJOR > 2
+#if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
 # define RSA_QAT_RANGE_MAX 8192
 #else
 # define RSA_QAT_RANGE_MAX 4096

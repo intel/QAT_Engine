@@ -149,7 +149,7 @@ AM_CFLAGS = $(cflags_cc_opt) $(cflags_qat_hw_intree) \
             $(cflags_mem_driver) $(cflags_openssl_3) \
             $(cflags_boringssl) $(cflags_qat_hw)     \
             $(cflags_qat_sw) $(cflags_qat_sw_ipsec)  \
-            $(cflags_common)
+            $(cflags_common) $(cflags_qat_debug)
 
 if QAT_BORINGSSL
 bin_PROGRAMS = qatengine_test
