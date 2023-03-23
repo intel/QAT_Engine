@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [0.6.19], [])
+AC_INIT([qatengine], [1.0.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -507,8 +507,6 @@ if test "x$enable_qat_insecure_algorithms" = "xyes"
 then
   AC_MSG_NOTICE([Insecure Algorithms enabled])
   cflags_common="${cflags_common} -DQAT_INSECURE_ALGO"
-  AC_SUBST([enable_qat_hw_dsa], ["yes"])
-  AC_SUBST([enable_qat_hw_dh], ["yes"])
 else
   AC_MSG_NOTICE([Insecure Algorithms disabled])
   AC_SUBST([enable_qat_hw_dsa], ["no"])

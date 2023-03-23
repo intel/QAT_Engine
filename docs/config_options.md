@@ -6,11 +6,11 @@ The following is a list of the options that can be used with the
 ### qat_hw options:
 ```
 --with-qat_hw_dir=/path/to/qat_driver
-    Specify the path to the source code directory of the Intel(R) QAT Driver. This path
-    is needed for compilation in order to locate the Intel(R) QAT header files.
-    For example if using Intel(R) QAT Driver HW version 1.7 package that was
+    Specify the path to the source code directory of the Intel(R) QAT Driver.
+    This path is needed for compilation in order to locate the Intel(R) QAT
+    header files. For example if using Intel(R) QAT Driver package that was
     unpacked to `/QAT` you would use the following setting:
-         --with-qat_dir=/QAT
+         --with-qat_hw_dir=/QAT
 
     This option is not required when building against the in-tree driver
     installed via qatlib RPM.
@@ -100,10 +100,10 @@ The following is a list of the options that can be used with the
     You only need to specify this parameter if the Intel(R) IPSec_MB
     library files have been built somewhere other than the default.
 
---enable-qat_hw_contig_mem/--disable-qat_hw_contig_mem
-    Enable/Disable compiling against the qat_contig_mem driver supplied within
+--enable-qat_hw_contig_mem
+    Enables build against the qat_contig_mem driver supplied within
     QAT Engine instead of the USDM component distributed with the Intel(R) QAT
-    Driver HW Version 1.7 (disabled by default).
+    Driver (disabled by default).
 
 --with-qat_hw_usdm_dir=/path/to/usdm/directory
     Specify the path to the location of the USDM component. The default if not
@@ -133,9 +133,6 @@ The following is a list of the options that can be used with the
 --disable-qat_hw_ecdsa/--enable-qat_hw_ecdsa
     Disable/Enable Intel(R) QAT Hardware ECDSA acceleration (enabled by default).
 
---disable-qat_hw_gcm/--enable-qat_hw_gcm
-    Disable/Enable Intel(R) QAT Hardware AES-GCM acceleration (disabled by default).
-
 --disable-qat_hw_ciphers/--enable-qat_hw_ciphers
     Disable/Enable Intel(R) QAT Hardware Chained Cipher acceleration
     (enabled by default).
@@ -143,14 +140,20 @@ The following is a list of the options that can be used with the
 --disable-qat_hw_prf/--enable-qat_hw_prf
     Disable/Enable Intel(R) QAT Hardware PRF acceleration (enabled by default).
 
---disable-qat_hw_hkdf/--enable-qat_hw_hkdf
-    Disable/Enable Intel(R) QAT Hardware HKDF acceleration (disabled by default).
-
 --disable-qat_hw_ecx/--enable-qat_hw_ecx
     Disable/Enable Intel(R) QAT Hardware X25519/X448 acceleration (enabled by default).
 
+--disable-qat_hw_hkdf/--enable-qat_hw_hkdf
+    Disable/Enable Intel(R) QAT Hardware HKDF acceleration (disabled by default).
+
+--disable-qat_hw_gcm/--enable-qat_hw_gcm
+    Disable/Enable Intel(R) QAT Hardware AES-GCM acceleration (disabled by default).
+
 --disable-qat_hw_sm4_cbc/--enable-qat_hw_sm4_cbc
-    Disable/Enable Intel(R) QAT Hardware SM4-CBC acceleration (disabled by default).
+    Disable/Enable Intel(R) QAT Hardware SM4-CBC acceleration.(disabled by default)
+    This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
+    for earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.) and QAT Engine
+    is built with BabaSSL only
 
 --disable-qat_hw_sha3/--enable-qat_hw_sha3
     Disable/Enable Intel(R) QAT Hardware SHA-3 acceleration (disabled by default).
@@ -193,51 +196,54 @@ The following is a list of the options that can be used with the
     This flag is valid only when QAT SW acceleration is enabled using the flag
     '--enable-qat_sw' (enabled by default if qat_sw is enabled).
 
---disable-qat_sw_sm4_cbc/--enable-qat_sw_sm4_cbc
-    Disable/Enable Intel(R) QAT Software SM4-CBC acceleration.
-    This flag is valid only when QAT SW acceleration is enabled using the flag
-    '--enable-qat_sw' (disabled by default if qat_sw is enabled).
-
 --disable-qat_sw_sm3/--enable-qat_sw_sm3
     Disable/Enable Intel(R) QAT Software SM3 acceleration.
     This flag is valid only when QAT SW acceleration is enabled using the flag
     '--enable-qat_sw' (disabled by default).
 
+--disable-qat_sw_sm4_cbc/--enable-qat_sw_sm4_cbc
+    Disable/Enable Intel(R) QAT Software SM4-CBC acceleration.
+    This flag is valid only when QAT SW acceleration is enabled using the
+    flag '--enable-qat_sw' and QAT Engine is built with BabaSSL only
+    (disabled by default if qat_sw is enabled).
+
 --disable-qat_sw_sm4_gcm/--enable-qat_sw_sm4_gcm
     Disable/Enable Intel(R) QAT Software SM4-GCM acceleration.
-    This flag is valid only when QAT SW acceleration is enabled using the flag
-    '--enable-qat_sw' (disabled by default if qat_sw is enabled).
+    This flag is valid only when QAT SW acceleration is enabled using the
+    flag '--enable-qat_sw' and QAT Engine is built with BabaSSL only
+    (disabled by default if qat_sw is enabled).
 
 --disable-qat_sw_sm4_ccm/--enable-qat_sw_sm4_ccm
     Disable/Enable Intel(R) QAT Software SM4-CCM acceleration.
-    This flag is valid only when QAT SW acceleration is enabled using the flag
-    '--enable-qat_sw' (disabled by default if qat_sw is enabled).
+    This flag is valid only when QAT SW acceleration is enabled using the
+    flag '--enable-qat_sw' and QAT Engine is built with BabaSSL only
+    (disabled by default if qat_sw is enabled).
 
---disable-qat_small_pkt_offload/--enable-qat_small_pkt_offload
+--enable-qat_small_pkt_offload
     Enable the acceleration of small packet cipher operations to Intel(R) QAT
     Hardware. When disabled, these operations are performed using the CPU
     (disabled by default).
 
---disable-qat_warnings/--enable-qat_warnings
-    Disable/Enable warnings to aid debugging. Warning: This option should never
+--enable-qat_warnings
+    Enable warnings to aid debugging. Warning: This option should never
     be left on in a production environment as it may introduce side channel
     timing attack vulnerabilities (disabled by default).
 
---disable-qat_debug/--enable-qat_debug
-    Disable/Enable debug output to aid debugging. This will also enable the
+--enable-qat_debug
+    Enable debug output to aid debugging. This will also enable the
     warning messages above. Warning: This option should never be enabled in a
     production environment as it may output private key information to the
     console/logs and may also introduce side channel timing attack
     vulnerabilities (disabled by default).
 
---disable-qat_mem_warnings/--enable-qat_mem_warnings
-    Disable/Enable warnings from the userspace memory management code to aid
+--enable-qat_mem_warnings
+    Enable warnings from the userspace memory management code to aid
     debugging. Warning: This option should never be left on in a production
     environment as it may introduce side channel timing attack vulnerabilities
     (disabled by default).
 
---disable-qat_mem_debug/--enable-qat_mem_debug
-    Disable/Enable debug output from the userspace memory management code to
+--enable-qat_mem_debug
+    Enable debug output from the userspace memory management code to
     aid debugging. This will also enable the warning messages above. This
     option produces quite verbose output hence why it is separate to the
     standard debug. Warning: This option should never be enabled in a
@@ -268,8 +274,8 @@ The following is a list of the options that can be used with the
    can be used to set engine id as "qat" for application that still uses older
    engine id within the application(disabled by default).
 
---disable-qat_hw_multi_thread/--enable-qat_hw_multi_thread
-    Disable/Enable an alternative way of managing within userspace the pinned
+--enable-qat_hw_multi_thread
+    Enable an alternative way of managing within userspace the pinned
     contiguous memory allocated by the qat_contig_mem driver. This alternative
     method will give improved performance in a multi-threaded environment by
     making the slab pools thread local to avoid locking between threads.
@@ -287,13 +293,25 @@ The following is a list of the options that can be used with the
     performance benefit (disabled by default).
 
 --enable-qat_plock
-   Enables Plock optimization within QAT Engine which is an alternative to
-   pthread's rwlock for multithread application. This flag when enabled uses
-   plock using preload as mentioned in QAT Engine install instructions and
-   improves performance for higher number of thread (disabled by default).
+    Enables Plock optimization within QAT Engine which is an alternative to
+    pthread's rwlock for multithread application. This flag when enabled uses
+    plock using preload as mentioned in QAT Engine install instructions and
+    improves performance for higher number of threads (disabled by default).
 
---disable-qat_hw_lenstra_protection/--enable-qat_hw_lenstra_protection
-    Disable/Enable protection against Lenstra attack (CVE-2017-5681)
+--enable-qat_ntls
+    Enable ntls in engine for handing NTLS requests which is needed for SMx
+    with BabaSSL (disabled by default).
+
+--enable-qat_insecure_algorithms
+    Enables insecure algorithms RSA < 2048, DH, DSA, ECDH curves with bitlen
+    < 256, ECDSA Curves with bitlen < 256, AES128-CBC-HMAC-SHA1,
+    AES256-CBC-HMAC-SHA1 & SHA3-224. These insecure algorithms are disabled
+    by default. QAT HW driver version v1.7 needs to be built with the flag
+    `./configure --enable-legacy-algorithms` to enable these algorithms
+    (disabled by default).
+
+--disable-qat_hw_lenstra_protection
+    Disable protection against Lenstra attack (CVE-2017-5681)
     (protection is enabled by default). The RSA-CRT implementation in the
     Intel(R) QAT OpenSSL* Engine, for OpenSSL* versions prior to v0.5.19,
     may allow remote attackers to obtain private RSA keys by conducting a
@@ -313,8 +331,8 @@ The following is a list of the options that can be used with the
     Enable Lenstra Verify using QAT HW instead of OpenSSL Software method.
     (disabled by default).
 
---disable-qat_auto_engine_init_on_fork/--enable-qat_auto_engine_init_on_fork
-    Disable/Enable the engine from being initialized automatically following a
+--disable-qat_auto_engine_init_on_fork
+    Disable the engine from being initialized automatically following a
     fork operation. This is useful in a situation where you want to tightly
     control how many instances are being used for processes. For instance if an
     application forks to start a process that does not utilize QAT currently
@@ -324,13 +342,13 @@ The following is a list of the options that can be used with the
     INIT_ENGINE or will automatically get initialized on the first QAT crypto
     operation. The initialization on fork is enabled by default.
 
---enable-qat_sw_heuristic_timeout/--disable-qat_sw_heuristic_timeout
-    Disable/Enable self tuning of the timeout in the polling thread in the
+--enable-qat_sw_heuristic_timeout
+    Enable self tuning of the timeout in the polling thread in the
     Intel(R) QAT SW. This flag is valid only incase of QAT SW
     (disabled by default).
 
---disable-qat_cycle_counts/--enable-qat_cycle_counts
-    Disable/Enable cycle count measurement in the qat_sw acceleration.
+--enable-qat_cycle_counts
+    Enable cycle count measurement in the qat_sw acceleration.
     This support is only extended to qat_sw acceleration code path
     (disabled by default).
 

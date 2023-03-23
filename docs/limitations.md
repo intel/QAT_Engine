@@ -59,8 +59,6 @@
   the system using the QAT engine in versions of the ssh application before OpenSSH 8.7.
   The issue has been fixed with this commit [c9f7bba][4] . This update can be applied to
   sshd to work-around the issue.
-* Failures with QAT_HW SHA3 for 0 bytes file, Big file with multiple SHA3 update and
-  HMAC with SHA3.
 * Known issue with QAT_SW SM2 in ntls mode since QAT_SW SM2 doesn't have plain sign and
   verify operation support in engine. Disable QAT_SW SM2 to workaround the issue with ntls.
   No issues with TLS mode since it uses digestsign and digestverify which is supported.

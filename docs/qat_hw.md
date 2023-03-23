@@ -69,8 +69,8 @@ qatlib RPM.
 
 ### Additional Information
 Additional information on this Heartbeat feature can be found in:
-Intel&reg; QuickAssist Technology Software for Linux\* - Programmer's Guide - HW
-version 1.7 (336210) - Section 3.17 Heartbeat.
+Intel&reg; QAT Software for Linux\* - Programmer's Guide: Hardware
+v1.x CE  Release - Section 3.17 Heartbeat.
 
 This document can be found on the 01.org website at the following hyperlink:
 * [Intel&reg; QuickAssist Technology Programmer's Guide][2]
