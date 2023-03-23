@@ -49,11 +49,12 @@ Installation consists of the following:
 
 | Platform   |    Getting Started Guide |
 |----|   -|
-|Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset<br>Intel&reg; Atom&trade; Processor <br> Intel&reg; Communications Chipset 8925 to 8955 Series:|Intel&reg; QuickAssist Technology Software for Linux\* - [Getting Started Guide - HW version 1.7 (336212)](https://01.org/sites/default/files/downloads/336212007qatswgsg.pdf) |
+|Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset<br>Intel&reg; Atom&trade; Processor with Intel&reg C3xx series <br> Intel&reg; Communications Chipset 8925 to 8955 Series|Intel&reg; QAT Software for Linux\* - [Getting Started Guide Hardware v1.x CE Release](https://cdrdv2.intel.com/v1/dl/getContent/710059) |
+|Intel® Xeon® Scalable Processor family with Intel® QAT Gen4/Gen4m| Intel&reg; QAT Software for Linux\* - [Getting Started Guide Hardware v2.0](https://cdrdv2.intel.com/v1/dl/getContent/632506) |
 
 Other technical collaterals of the Intel&reg; QuickAssist Technology driver
 can be found in the below page.
-- [Intel&reg; QuickAssist Technology](https://developer.intel.com/quickassist)
+* [Intel&reg; QuickAssist Technology](https://developer.intel.com/quickassist)
 
 ## Contiguous memory driver
 
@@ -65,28 +66,36 @@ drivers:
 
 ### User Space DMA-able Memory (USDM) Component
 
-The Intel&reg; QAT Driver HW Version 1.7 comes with its own
+The Intel&reg; QAT Driver for QAT_HW comes with its own
 contiguous pinned memory driver that is compatible with the Intel&reg; QAT
 OpenSSL\* Engine. The USDM component is of a higher quality than the
 qat\_contig\_mem driver provided within the Intel&reg; QAT OpenSSL\* Engine,
 and is the preferred option. The USDM component is used by the Intel&reg; QAT
-Driver HW Version 1.7 itself, and also has the following additional features:
+Driver itself, and also has the following additional features:
 
 * Support for virtualization
 * Support for configurable slab sizes
 * Support for configurable secure freeing of memory (overwrite with zeros)
 * Support for configurable slab caching
 * Support for newer kernels
+* Support for thread specific memory to avoid locks (QAT_HW Version 1.7 & 1.8 only)
 
-The USDM component is located within the Intel&reg; QAT Driver HW Version 1.7
+The USDM component is located within the Intel&reg; QAT Driver for QAT_HW
 source code in the following subdirectory: `quickassist/utilities/libusdm_drv`.
-As the USDM component is also used by the 1.7 driver itself it will have
+As the USDM component is also used by the QAT_HW driver itself it will have
 already been built when the driver was built. It may also already be loaded as
 well, and you can check by running `lsmod` and looking for usdm_drv in the list.
 If not present it can be loaded as follows:
 
 ```bash
 modprobe usdm_drv.ko
+```
+The USDM thread specific memory can be enabled in QAT_HW driver using the below
+configure flags in driver build which is only needed for multithreaded
+application for performance improvement.
+
+```bash
+./configure --enable-icp-thread-specific-usdm --enable-128k-slab
 ```
 
 #### Example contiguous memory driver - qat\_contig\_mem
@@ -131,12 +140,12 @@ following:
 </details>
 </details>
 <details>
-<summary>Install OpenSSL*    (Note this step is not required if OpenSSL* 1.1.1 is already installed)</summary>
+<summary>Install OpenSSL*    (Note this step is not required if OpenSSL* 1.1.1 or 3.0 is already installed)</summary>
 
 ## Build OpenSSL\*
 
 This step is not required if building the Intel&reg; QAT OpenSSL\* Engine
-against system prebuilt OpenSSL\* 1.1.1. When using the prebuild system OpenSSL library
+against system prebuilt OpenSSL\* 1.1.1 or 3.0. When using the prebuild system OpenSSL library
 the engine library is installed in the system OpenSSL engines directory.
 
 Clone OpenSSL\* from Github\* at the following location:
@@ -149,10 +158,6 @@ and 3.0 are only supported.
 
 Due to the nature of the Intel&reg; QAT OpenSSL\* Engine being a dynamic engine
 it can only be used with shared library builds of OpenSSL\*.
-
-Note: The OpenSSL\* 1.1.0 and 1.1.1 baselines build as a shared library by
-default now so there is no longer any need to specify the `shared` option when
-running `./config`.
 
 Note: It is not recommended to install the accelerated version of OpenSSL\* as
 your default system library. If you do, you may find that acceleration is used
@@ -208,10 +213,12 @@ important to tell OpenSSL\* where to find the dynamic engines at runtime. This
 is achieved by exporting the following environment variable (assuming the
 example paths above):
 
-    export OPENSSL_ENGINES=/usr/local/ssl/lib/engines-1.1
+    OpenSSL 1.1.1: export OPENSSL_ENGINES=/usr/local/ssl/lib/engines-1.1
+
+    OpenSSL 3.0: export OPENSSL_ENGINES=/usr/local/ssl/lib64/engines-3
 
 Note: This variable will need to be present in the environment whenever the
-engine is used.
+engine is used and not needed when provider is used.
 
 Load/Initialize Engine using the OpenSSL\* config file is located
 [here](docs/openssl_config.md)
@@ -251,16 +258,16 @@ Here are a few example builds that demonstrate how the Intel&reg; QAT OpenSSL\*
 Engine can be configured to use qat_hw and/or qat_sw.
 
 <details>
-<summary>Example 1: qat_hw target with OpenSSL\* 1.1.1 built from source</summary>
+<summary>Example 1: qat_hw target with OpenSSL\* 1.1.1 or 3.0 built from source</summary>
 <br>
 
 The following example is assuming:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the root
   of the drive: `/`.
-* The Intel&reg; QAT Driver was unpacked within `/QAT` and using
+* The Intel&reg; QAT Driver version 1.7 or 2.0 was unpacked within `/QAT` and using
   the USDM component.
-* OpenSSL\* 1.1.1 built from source is being used and installed to `/usr/local/ssl`.
+* OpenSSL\* 1.1.1 or 3.0 built from source is being used and installed to `/usr/local/ssl`.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -275,11 +282,20 @@ make install
 
 In the above example this will create the file `qatengine.so` and copy it to
 `/usr/local/ssl/lib/engines-1.1`.
+
+For building QAT Engine against qatlib(intree driver) from source which is
+installed to default location "/usr/local" use `--with-qat_hw_dir=/usr/local`
+or provide the path that is used in the prefix to build qatlib.
+
+If qatlib is installed via RPM then `-with-qat_hw_dir` is not needed as
+qatengine automatically picks qatlib libraries and header from default
+location `/usr/lib64`.
+
 <br>
 </details>
 
 <details>
-<summary>Example 2: qat_hw target with Prebuilt OpenSSL\* 1.1.1</summary>
+<summary>Example 2: qat_hw target with Prebuilt OpenSSL\* 1.1.1 or 3.0</summary>
 <br>
 
 The following example is assuming:
@@ -288,7 +304,7 @@ The following example is assuming:
 * The Intel&reg; QAT Driver was unpacked within `/QAT` and using
   the USDM component.
 * Prebuilt OpenSSL\* (both library and devel RPM packages) are installed in
-  the system and the OpenSSL\* version is in the `1.1.1` series.
+  the system and the OpenSSL\* version is in the `1.1.1 or 3.0` series.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -302,17 +318,11 @@ In the above example this will create the file `qatengine.so` and copy it to
 the engines dir of the system which can be checked using
 `pkg-config --variable=enginesdir libcrypto`.
 
-If OpenSSL\* version in the system can not be updated to 1.1.1 series, then
-the engine needs to be built from source using the option
-`--with-openssl_install_dir`. An additional option `--with-openssl_dir` pointing
-to the top directory of the OpenSSL\* source needs to be provided for regenerating
-err files if there are any new error messages added/deleted in the source code.
-
 <br>
 </details>
 
 <details>
-<summary>Example 3: qat_hw + qat_sw target with Prebuilt OpenSSL\* 1.1.1</summary>
+<summary>Example 3: qat_hw + qat_sw target with Prebuilt OpenSSL\* 1.1.1 or 3.0</summary>
 <br>
 
 The following example is assuming:
@@ -322,7 +332,7 @@ The following example is assuming:
 * The Intel&reg; QAT Driver was unpacked within `/QAT` and using
   the USDM component.
 * Intel&reg; Multi-Buffer Crypto for IPsec Library was installed to the default path
-* OpenSSL\* 1.1.1 built from source is being used and installed to `/usr/local/ssl`.
+* OpenSSL\* 1.1.1 or 3.0 built from source is being used and installed to `/usr/local/ssl`.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -345,7 +355,7 @@ make install
 </details>
 
 <details>
-<summary>Example 4: qat_sw target with Prebuilt OpenSSL\* 1.1.1 </summary>
+<summary>Example 4: qat_sw target with Prebuilt OpenSSL\* 1.1.1 or 3.0 </summary>
 <br>
 
 The following example is assuming:
@@ -356,7 +366,7 @@ The following example is assuming:
   (/usr/local).
 * The Intel&reg; Multi-Buffer crypto for IPsec Library was installed to its
   default path (/usr/). (Optional if QAT SW AES-GCM support is not needed).
-* Prebuilt OpenSSL\* 1.1.1 from the system is used.
+* Prebuilt OpenSSL\* 1.1.1 or 3.0 from the system is used.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine with QAT Software support:
 

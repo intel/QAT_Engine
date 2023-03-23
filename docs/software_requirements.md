@@ -7,10 +7,11 @@ Technology Driver for Linux or Intel&reg;  QuickAssist Technology
 Driver for FreeBSD. This release was validated on the following:
 
 * Operating system: CentOS* 8.4, Ubuntu\* 20.04.2 LTS & FreeBSD\* 12.3
-* Intel&reg; Communications Chipset C62X Series Software for Linux\*, version **4.20**
-* Intel&reg; Communications Chipset C62X Series Software for FreeBSD\*, version **3.12**
-* OpenSSL\* 1.1.1s & 3.0.7
-* BoringSSL\* commit - [15596efa5f][1]
+* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 2.0 - **QAT20.L.1.0.10-00005**
+* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 1.7 & 1.8 - **QAT.L.4.20.0-00001**
+* Intel&reg; QuickAssist Technology Driver for FreeBSD\* HW Version 1.7 - **QAT.B.3.12.0-00004**
+* OpenSSL\* 1.1.1t & 3.0.8
+* BoringSSL\* commit - [987dff1][1]
 * BabaSSL - 8.3.2
 
 ## qat_sw Requirements
@@ -31,11 +32,19 @@ This release was validated on the following:
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][2] release
   version **IPP Crypto 2021.7**
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.3**
-* OpenSSL\* 1.1.1s & 3.0.7
-* BoringSSL\* commit - [15596efa5f][1]
+* OpenSSL\* 1.1.1t & 3.0.8
+* BoringSSL\* commit - [987dff1][1]
 * BabaSSL - 8.3.2
 
-[1]:https://github.com/google/boringssl/tree/15596efa5fe18e43bdc0ecd32d4ef93437f51d49
+--------------------------------------------------------------------------------
+
+Note : OpenSSL\* Version 1.1.1 will be EOL from Sep'23 for general use hence
+QAT Engine(qat_hw & qat_sw) is also planning to drop the support for OpenSSL\*
+1.1.1 after the OpenSSL\* 1.1.1 EOL.
+
+--------------------------------------------------------------------------------
+
+[1]:https://github.com/google/boringssl/commit/987dff1a9fa953a8c7dffa369d78caae02b8d9ab
 [2]:https://github.com/intel/ipp-crypto
 [3]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
 [4]:https://github.com/intel/intel-ipsec-mb

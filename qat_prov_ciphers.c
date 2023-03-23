@@ -293,12 +293,12 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
                           size_t *outl, size_t outsize,
                           const unsigned char *in, size_t inl)
 {
-   int ret = 0;
 #if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
+    int ret = 0;
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
 #endif
 
-if (inl == 0) {
+    if (inl == 0) {
         *outl = 0;
         return 1;
     }
@@ -315,9 +315,9 @@ if (inl == 0) {
 #endif
 
 #ifdef ENABLE_QAT_SW_GCM
-    if (vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl) <= 0) {
+    if ((ret = vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl)) <= 0) {
         QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
-        return 0;
+        return ret;
     }
 #endif
     return 1;
