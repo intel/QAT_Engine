@@ -1,26 +1,35 @@
 # SPDX-License-Identifier: MIT
 
-%global githubname QAT_Engine
+# Define the directory where the OpenSSL engines are installed
 %global enginesdir %(pkg-config --variable=enginesdir libcrypto)
 
 Name:           qatengine
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
+
 # Most of the source code is BSD, with the following exceptions:
 #  - e_qat.txt, e_qat_err.c, and e_qat_err.h are OpenSSL
 #  - qat/config/* are (BSD or GPLv2), but are not used during compilation
 #  - qat_contig_mem/* are GPLv2, but are not used during compilation
-License:        BSD and OpenSSL
-URL:            https://github.com/intel/%{githubname}
-Source0:        https://github.com/intel/%{githubname}/archive/v%{version}/%{name}-%{version}.tar.gz
+License:        BSD-3-Clause AND OpenSSL
+URL:            https://github.com/intel/QAT_Engine
+Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
-BuildRequires:  gcc make pkg-config
-BuildRequires:  autoconf automake libtool
-BuildRequires:  openssl-devel >= 1.1.1
-BuildRequires:  qatlib-devel >= 21.08.0
 # https://bugzilla.redhat.com/show_bug.cgi?id=1909065
-ExcludeArch:    %{arm} aarch64 %{power64} s390x i686
+ExclusiveArch:  x86_64
+
+BuildRequires:  autoconf
+BuildRequires:  automake
+BuildRequires:  gcc
+BuildRequires:  libtool
+BuildRequires:  openssl-devel >= 1.1.1
+BuildRequires:  qatlib-devel >= 23.02.0
+%if !0%{?rhel}
+BuildRequires:  intel-ipp-crypto-mb-devel >= 1.0.6
+BuildRequires:  intel-ipsec-mb-devel >= 1.3.0
+BuildRequires:  openssl
+%endif
 
 %description
 This package provides the Intel QuickAssist Technology OpenSSL Engine
@@ -29,23 +38,41 @@ for both hardware and optimized software using Intel QuickAssist Technology
 enabled Intel platforms.
 
 %prep
-%autosetup -n %{githubname}-%{version}
+%autosetup -n QAT_Engine-%{version}
 
 %build
 autoreconf -ivf
+%if !0%{?rhel}
+# Enable QAT_HW & QAT_SW Co-existence acceleration
+%configure --enable-qat_sw
+%else
+# QAT_HW only acceleration for RHEL
 %configure
+%endif
 %make_build
 
 %install
 %make_install
 
+%if 0%{?rhel}
+find %{buildroot} -name "*.la" -delete
+%endif
+
+%if !0%{?rhel}
+%check
+export OPENSSL_ENGINES=%{buildroot}%{enginesdir}
+openssl engine -v %{name}
+%endif
+
 %files
 %license LICENSE*
 %doc README.md docs*
-%{enginesdir}/qatengine.so
-%exclude %{enginesdir}/qatengine.la
+%{enginesdir}/%{name}.so
 
 %changelog
+* Thu Apr 13 2023 Ali Erdinc Koroglu <aekoroglu@linux.intel.com> - 1.0.0-2
+- Enable QAT_HW & QAT SW Co-ex Acceleration for non RHEL distros
+
 * Wed Mar 22 2023 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 1.0.0-1
 - Update to qatengine v1.0.0
 
