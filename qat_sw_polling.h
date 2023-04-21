@@ -62,6 +62,6 @@
  ******************************************************************************/
 void *multibuff_timer_poll_func(void *ih);
 
-int multibuff_poll();
+int qat_sw_poll();
 
 #endif   /* QAT_SW_POLLING_H */

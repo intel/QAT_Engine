@@ -4,7 +4,7 @@
 | :---: | :---: | :---: | :---: | :---: |
 | RSA Key size < 2048 | ** | ** | ** | ** |
 | RSA Key size >= 2048 <= 4096 | * | * | * | * |
-| RSA Key size 8192 |  |  |  | * |
+| RSA Key size 8192 |  |  | * | * |
 | ECDSA Curves with bitlen < 256 | ** | ** | ** | ** |
 | ECDSA Curves with bitlen >= 256 | * | * | * | * |
 | ECDH Curves with bitlen  < 256| ** | ** | ** | ** |
@@ -12,7 +12,7 @@
 | ECDH X25519 & X448(ECX)| * | * | * | * |
 | DSA | ** | ** | ** | ** |
 | DH key size < 8192 | ** | ** | ** | ** |
-| DH key size >=8192 |  |  |  | ** |
+| DH key size >=8192 |  |  | ** | ** |
 | HKDF | *** | *** | *** | *** |
 | PRF | * | * | * | * |
 | AES-128-GCM | *** | *** | *** | *** |

@@ -1207,11 +1207,11 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qctx->dstFlatBuffer.pData = NULL;
         qat_cleanup_op_done(&op_done);
         WARN("cpaCySymPerformOp failed sts=%d.\n",sts);
-	if (sts == CPA_STATUS_UNSUPPORTED) {
+        if (sts == CPA_STATUS_UNSUPPORTED) {
             QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, QAT_R_ALGO_TYPE_UNSUPPORTED);
-	} else {
+        } else {
             QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
-	}
+        }
         goto err;
     }
 
@@ -1504,18 +1504,6 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
              * function to decrypt AND verify
             */
             if (!enc) {
-                /* Check that a tag has been set */
-#ifdef QAT_OPENSSL_PROVIDER
-                if (NULL == qctx->buf) {
-#else
-                if (NULL == EVP_CIPHER_CTX_buf_noconst(ctx)) {
-#endif
-                    WARN("Tag not set\n");
-                    qaeCryptoMemFreeNonZero(qctx->srcFlatBuffer.pData);
-                    qctx->srcFlatBuffer.pData = NULL;
-                    qctx->dstFlatBuffer.pData = NULL;
-                    return RET_FAIL;
-                }
                 /* Copy EVP_GCM_TLS_TAG_LEN bytes from tag buffer
                    as the maximum tag length can only be
                    EVP_GCM_TLS_TAG_LEN */
@@ -1523,8 +1511,16 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 memcpy(qctx->OpData.pDigestResult, qctx->buf,
                        EVP_GCM_TLS_TAG_LEN);
 #else
-                memcpy(qctx->OpData.pDigestResult, EVP_CIPHER_CTX_buf_noconst(ctx),
-                        EVP_GCM_TLS_TAG_LEN);
+                if (NULL == EVP_CIPHER_CTX_buf_noconst(ctx)) {
+                    WARN("Tag not set\n");
+                    qaeCryptoMemFreeNonZero(qctx->srcFlatBuffer.pData);
+                    qctx->srcFlatBuffer.pData = NULL;
+                    qctx->dstFlatBuffer.pData = NULL;
+                    return RET_FAIL;
+                } else {
+                    memcpy(qctx->OpData.pDigestResult, EVP_CIPHER_CTX_buf_noconst(ctx),
+                           EVP_GCM_TLS_TAG_LEN);
+                }
 #endif
             }
 
@@ -1563,11 +1559,11 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 qctx->dstFlatBuffer.pData = NULL;
                 qat_cleanup_op_done(&op_done);
                 WARN("cpaCySymPerformOp failed sts=%d.\n",sts);
-		if (sts == CPA_STATUS_UNSUPPORTED) {
-		    QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_ALGO_TYPE_SUPPORTED);
-		} else {
-                  QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
-		}
+                if (sts == CPA_STATUS_UNSUPPORTED) {
+                    QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_ALGO_TYPE_UNSUPPORTED);
+                } else {
+                    QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
+                }
                 return RET_FAIL;
             }
 
@@ -1612,21 +1608,19 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 if (CPA_TRUE == op_done.verifyResult){
                     ret_val = len;
                     DEBUG("Encryption succeeded\n");
-		} else {
+                } else {
                     DEBUG("Encryption failed\n");
                 }
 
             } else {
-                /*
-                 qctx->tag_len < 0 condition is added to workarround
-                 OpenSSL Speed tests as tag will not be set
-                 */
-		    if (CPA_TRUE == op_done.verifyResult || qctx->tag_len < 0) {
-                        ret_val = len;
-                        DEBUG("Decryption succeeded\n");
-                   } else {
-                        DEBUG("Decryption failed\n");
-		   }
+                /* qctx->tag_len < 0 condition is added to workarround
+                   OpenSSL Speed tests as tag will not be set */
+                if (CPA_TRUE == op_done.verifyResult || qctx->tag_len < 0) {
+                    ret_val = len;
+                    DEBUG("Decryption succeeded\n");
+                } else {
+                    DEBUG("Decryption failed\n");
+                }
             }
 
             QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);

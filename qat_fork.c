@@ -164,8 +164,8 @@ void engine_finish_before_fork_handler(void)
     OPENSSL_free(ctx);
     OSSL_PROVIDER_unload(prov);
 #endif
-    qat_keep_polling = 1;
-    multibuff_keep_polling = 1;
+    qat_hw_keep_polling = 1;
+    qat_sw_keep_polling = 1;
 }
 
 int qat_create_thread(pthread_t *pThreadId, const pthread_attr_t *attr,

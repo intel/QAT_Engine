@@ -145,17 +145,6 @@ typedef struct {
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
 # define QAT_INVALID_INSTANCE -1
 
-# define QAT_DEV "/dev/qat_dev_processes"
-# if defined(USE_QAT_CONTIG_MEM) && !defined(USE_USDM_MEM)
-#  define QAT_MEM_DEV "/dev/qat_contig_mem"
-# elif defined(USE_USDM_MEM) && !defined(USE_QAT_CONTIG_MEM)
-#  define QAT_MEM_DEV "/dev/usdm_drv"
-# elif defined(USE_USDM_MEM) && defined(USE_QAT_CONFIG_MEM)
-#  error "USE_QAT_CONTIG_MEM and USE_USDM_MEM both defined"
-# else
-#  error "No memory driver type defined"
-# endif
-
 # define QAT_INC_IN_FLIGHT_REQS(qat_int, tlv) \
             do {                              \
                 if (qat_use_signals()) {      \
@@ -413,8 +402,8 @@ extern int qat_sw_sm3_offload;
 extern int qat_sw_sm4_cbc_offload;
 extern int qat_sw_sm4_gcm_offload;
 extern int qat_sw_sm4_ccm_offload;
-extern int qat_keep_polling;
-extern int multibuff_keep_polling;
+extern int qat_hw_keep_polling;
+extern int qat_sw_keep_polling;
 extern int enable_external_polling;
 extern int enable_heuristic_polling;
 extern pthread_mutex_t qat_engine_mutex;
@@ -432,7 +421,6 @@ extern int num_cipher_mb_items_in_queue;
 extern sigset_t set;
 extern pthread_t qat_timer_poll_func_thread;
 extern int cleared_to_start;
-extern int qat_sw_ipsec;
 extern pthread_mutex_t qat_poll_mutex;
 extern pthread_cond_t qat_poll_condition;
 
@@ -559,6 +547,7 @@ extern mb_req_rates mb_sm3_final_req_rates;
 #endif /* QAT_BORINGSSL */
 
 # ifdef QAT_HW
+extern CpaStatus icp_adf_get_numDevices(Cpa32U *);
 /******************************************************************************
  * function:
  *         qat_get_qat_offload_disabled(void)
@@ -656,17 +645,31 @@ thread_local_variables_t * qat_check_create_local_variables(void);
 
 /*****************************************************************************
  *  * function:
- *         qat_init(ENGINE *e)
+ *         qat_hw_init(ENGINE *e)
  *
  * @param e [IN] - OpenSSL engine pointer
  *
  * description:
- *   qat init function, associated with
+ *   qat_hw init function, associated with
  *   Crypto memory setup and cpaStartInstance setups.
  ******************************************************************************/
-int qat_init(ENGINE *e);
-
+int qat_hw_init(ENGINE *e);
 # endif
+
+/*****************************************************************************
+ *  * function:
+ *        bind_qat(ENGINE *e, const char *id)
+ *
+ * @param e [IN]  - OpenSSL engine pointer
+ * @param id [IN] - engine id pointer
+ *
+ * description:
+ *   bind function for registering algorithms that are supported in qatngine
+ *   and other qat_hw and qat_sw intializaton.
+ *
+ *****************************************************************************/
+int bind_qat(ENGINE *e, const char *id);
+
 /******************************************************************************
  * function:
  *         qat_engine_init(ENGINE *e)
@@ -703,7 +706,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void));
 
 /******************************************************************************
  * function:
- *         qat_finish_int(ENGINE *e)
+ *         qat_hw_finish_int(ENGINE *e)
  *
  * @param e [IN] - OpenSSL engine pointer
  *
@@ -711,7 +714,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void));
  *   Qat finish function associated with qat crypto memory free
  ******************************************************************************/
 
-int qat_finish_int(ENGINE *e, int reset_globals);
+int qat_hw_finish_int(ENGINE *e, int reset_globals);
 
 /******************************************************************************
  * function:
@@ -763,32 +766,32 @@ int qat_pthread_mutex_unlock(void);
 # ifdef QAT_SW
 /*****************************************************************************
  *  * function:
- *         multibuff_init(ENGINE *e)
+ *         qat_sw_init(ENGINE *e)
  *
  * @param e [IN] - OpenSSL engine pointer
  *
  * description:
- *   Multibuff init function, associated with memory setup.
+ *   QAT_SW init function, associated with memory setup.
  ******************************************************************************/
-int multibuff_init(ENGINE *e);
+int qat_sw_init(ENGINE *e);
 
 /******************************************************************************
  * function:
- *         multibuff_engine_finish_int(ENGINE *e, int reset_globals)
+ *         qat_sw_finish_int(ENGINE *e, int reset_globals)
  *
  * @param e [IN] - OpenSSL engine pointer
  * @param reset_globals [IN] - Whether reset the global configuration variables
  *
  * description:
- *   Internal Multibuff engine finish function.
+ *   Internal QAT_SW finish function.
  *   The value of reset_globals should be either QAT_RESET_GLOBALS or
  *   QAT_RETAIN_GLOBALS
  ******************************************************************************/
-int multibuff_finish_int(ENGINE *e, int reset_globals);
+int qat_sw_finish_int(ENGINE *e, int reset_globals);
 
 /******************************************************************************
  * function:
- *         mb_check_thread_local(ENGINE *e, int reset_globals)
+ *         mb_check_thread_local(void)
  *
  * description:
  *   Check if the thread has thread local pointer created using the key
@@ -799,11 +802,17 @@ mb_thread_data *mb_check_thread_local(void);
 
 # endif
 
-#ifndef QAT_BORINGSSL
-# ifdef QAT_SW_IPSEC
-int hw_support(void);
+/******************************************************************************
+ * function:
+ *     qat_sw_cpu_support(void)
+ *
+ * description:
+ *   Checks if we are running on Intel CPU and has the instruction set needed
+ *   for crypto_mb and ipsec_mb (QAT_SW) offload.
+ ******************************************************************************/
+# if defined(QAT_SW) || defined(QAT_SW_IPSEC)
+int qat_sw_cpu_support(void);
 # endif
-#endif /* QAT_BORINGSSL */
 
 # ifdef QAT_OPENSSL_PROVIDER
 static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)

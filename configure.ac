@@ -452,7 +452,7 @@ then
       AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-lIPSec_MB"])
     fi
   fi
-  if test "x$cflags_qat_sw" = "x" -a "x$cflags_qat_sw_ipsec" != "x"
+  if test "x$cflags_qat_sw" = "x" -a "x$cflags_qat_sw_ipsec" = "x"
   then
     AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependant libraries or provide path via --with-qat_sw_crypto_mb_install_dir & --with-qat_sw_ipsec_mb_install_dir if installed other than the default location])
   fi
