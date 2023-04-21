@@ -162,7 +162,7 @@ void *qat_timer_poll_func(void *ih)
     if (qat_get_sw_fallback_enabled()) {
         clock_gettime(clock_id, &previous_time);
     }
-    while (qat_keep_polling) {
+    while (qat_hw_keep_polling) {
         if (num_requests_in_flight == 0) {
             if (qat_get_sw_fallback_enabled()) {
                 qat_poll_heartbeat_timer_expiry(&previous_time);
@@ -204,7 +204,7 @@ void *qat_timer_poll_func(void *ih)
                 WARN("icp_sal_CyPollInstance returned status %d\n", status);
             }
 
-            if (unlikely(!qat_keep_polling))
+            if (unlikely(!qat_hw_keep_polling))
                 break;
         }
 
@@ -250,7 +250,7 @@ void *event_poll_func(void *ih)
         clock_gettime(clock_id, &previous_time);
     }
 
-    while (qat_keep_polling) {
+    while (qat_hw_keep_polling) {
         int n = 0;
         int i = 0;
 

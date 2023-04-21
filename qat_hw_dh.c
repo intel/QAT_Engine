@@ -74,7 +74,7 @@
 /* To specify the DH op sizes supported by QAT engine */
 #define DH_QAT_RANGE_MIN 768
 
-#ifdef QAT_HW_DH8K
+#if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
 # define DH_QAT_RANGE_MAX 8192
 #else
 # define DH_QAT_RANGE_MAX 4096

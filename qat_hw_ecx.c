@@ -572,16 +572,12 @@ static int qat_validate_ecx_derive(EVP_PKEY_CTX *ctx,
 #ifdef QAT_OPENSSL_PROVIDER
     QAT_ECX_CTX *ecxctx = (QAT_ECX_CTX *)ctx;
 
-    if (ecxctx == NULL || ecxctx->key->privkey == NULL) {
+    if (ecxctx == NULL ||  ecxctx->key->privkey == NULL) {
         WARN("ecxctx or ecxctx->key->privkey is NULL\n");
         QATerr(QAT_F_QAT_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PRIVATE_KEY);
         return 0;
     }
-    if (ecxctx->peerkey->pubkey == NULL) {
-        WARN("ecxctx->peerkey->pubkey is NULL\n");
-        QATerr(QAT_F_QAT_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PEER_KEY);
-        return 0;
-    }
+
     *privkey = ecxctx->key->privkey;
     *pubkey = ecxctx->peerkey->pubkey;
 
@@ -633,7 +629,7 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
     CpaStatus status = CPA_STATUS_FAIL;
     CpaBoolean multiplyStatus = CPA_TRUE;
     CpaFlatBuffer *pXk = NULL;
-    const unsigned char *privkey, *pubkey;
+    const unsigned char *privkey = NULL, *pubkey = NULL;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
     int iMsgRetry = getQatMsgRetryCount();
@@ -949,7 +945,7 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
     CpaStatus status = CPA_STATUS_FAIL;
     CpaBoolean multiplyStatus = CPA_TRUE;
     CpaFlatBuffer *pXk = NULL;
-    const unsigned char *privkey, *pubkey;
+    const unsigned char *privkey = NULL, *pubkey = NULL;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
     int iMsgRetry = getQatMsgRetryCount();

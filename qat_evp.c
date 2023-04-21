@@ -72,10 +72,10 @@
 # endif /* QAT_BORINGSSL */
 #endif
 
-#ifdef QAT_SW_IPSEC
+#ifdef ENABLE_QAT_SW_GCM
 # ifndef QAT_BORINGSSL
-# include "qat_sw_gcm.h"
-#endif /* QAT_BORINGSSL */
+#  include "qat_sw_gcm.h"
+# endif /* QAT_BORINGSSL */
 #endif
 
 #ifdef QAT_SW
@@ -680,7 +680,7 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
     }
 
 #ifdef ENABLE_QAT_SW_GCM
-    if (qat_sw_ipsec && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_AES_GCM)) {
+    if (qat_sw_offload && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_AES_GCM)) {
         res &= EVP_CIPHER_meth_set_iv_length(c, GCM_IV_DATA_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, VAESGCM_FLAG);
 #ifndef QAT_OPENSSL_PROVIDER
@@ -927,7 +927,7 @@ const EVP_CIPHER *qat_create_sm4_ccm_cipher_meth(int nid, int keylen)
         return NULL;
     }
 
-    if ( qat_sw_offload && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM4_CCM) &&
+    if (qat_sw_offload && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM4_CCM) &&
         mbx_get_algo_info(MBX_ALGO_SM4)) {
 
         res &= EVP_CIPHER_meth_set_flags(c, CUSTOM_CCM_FLAGS);

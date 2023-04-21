@@ -118,7 +118,7 @@
 # endif
 #endif
 
-#ifdef QAT_SW_IPSEC
+#ifdef ENABLE_QAT_SW_GCM
 #ifndef QAT_BORINGSSL
 # include "qat_sw_gcm.h"
 #endif /* QAT_BORINGSSL */
@@ -132,7 +132,7 @@
 #include <openssl/objects.h>
 #include <openssl/crypto.h>
 
-#ifdef QAT_SW_IPSEC
+#if defined(QAT_SW) || defined(QAT_SW_IPSEC)
 /* __cpuid(unsinged int info[4], unsigned int leaf, unsigned int subleaf); */
 # define __cpuid(x, y, z) \
 	        asm volatile("cpuid" : "=a"(x[0]), "=b"(x[1]), "=c"(x[2]), "=d"(x[3]) : "a"(y), "c"(z))
@@ -189,8 +189,8 @@ int qat_sw_sm3_offload = 0;
 int qat_sw_sm4_cbc_offload = 0;
 int qat_sw_sm4_gcm_offload = 0;
 int qat_sw_sm4_ccm_offload = 0;
-int qat_keep_polling = 1;
-int multibuff_keep_polling = 1;
+int qat_hw_keep_polling = 1;
+int qat_sw_keep_polling = 1;
 int enable_external_polling = 0;
 int enable_heuristic_polling = 0;
 pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -210,7 +210,6 @@ int num_cipher_mb_items_in_queue = 0;
 sigset_t set = {{0}};
 pthread_t qat_timer_poll_func_thread = 0;
 int cleared_to_start = 0;
-int qat_sw_ipsec = 0;
 pthread_mutex_t qat_poll_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t qat_poll_condition = PTHREAD_COND_INITIALIZER;
 
@@ -258,13 +257,12 @@ uint64_t qat_hw_algo_enable_mask = 0xFFFFF;
 uint64_t qat_hw_algo_enable_mask = 0;
 #endif
 
-#ifdef QAT_SW
+#if defined(QAT_SW) || defined(QAT_SW_IPSEC)
 uint64_t qat_sw_algo_enable_mask = 0xFFFFF;
 #else
 uint64_t qat_sw_algo_enable_mask = 0;
 #endif
 
-static int bind_qat(ENGINE *e, const char *id);
 /* Algorithm reload needs to free the previous method and reallocate it to
    exclude the impact of different offload modes, like QAT_HW -> QAT_SW.
    Use this flag to distinguish it from the other cases. */
@@ -416,36 +414,29 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
 *   Cleanup all the method structures here.
 *
 ******************************************************************************/
+#if !defined(QAT_OPENSSL_PROVIDER)
 static int qat_engine_destroy(ENGINE *e)
 {
     DEBUG("---- Destroying Engine...\n\n");
-#ifdef QAT_HW
-#ifndef QAT_BORINGSSL
+# ifdef QAT_HW
+#  ifndef QAT_BORINGSSL
     qat_free_DH_methods();
     qat_free_DSA_methods();
-#endif /* QAT_BORINGSSL */
-#endif
+#  endif /* QAT_BORINGSSL */
+# endif
 
-#if defined(QAT_SW) || defined(QAT_HW)
+# if defined(QAT_SW) || defined(QAT_HW)
     qat_free_EC_methods();
     qat_free_RSA_methods();
-#ifndef QAT_BORINGSSL
+#  ifndef QAT_BORINGSSL
     qat_free_digest_meth();
-#endif /* QAT_BORINGSSL */
-#endif
-
-#if defined(QAT_SW_IPSEC) || defined(QAT_HW) \
-    || defined(ENABLE_QAT_SW_SM4_CBC)
-#ifndef QAT_BORINGSSL
     qat_free_ciphers();
-#endif
-#endif
+#  endif /* QAT_BORINGSSL */
+# endif
 
-#ifdef QAT_SW_IPSEC
 # ifdef ENABLE_QAT_SW_GCM
     vaesgcm_free_ipsec_mb_mgr();
 # endif
-#endif
 
     qat_hw_ecx_offload = 0;
     qat_hw_prf_offload = 0;
@@ -460,11 +451,11 @@ static int qat_engine_destroy(ENGINE *e)
     ERR_unload_QAT_strings();
     return 1;
 }
+#endif
 
-#ifndef QAT_BORINGSSL
-# ifdef QAT_SW_IPSEC
-int hw_support(void) {
-
+#if defined(QAT_SW) || defined(QAT_SW_IPSEC)
+int qat_sw_cpu_support(void)
+{
     unsigned int  info[4] = {0, 0, 0, 0};
     unsigned int *ebx, *ecx, *edx;
 
@@ -492,20 +483,18 @@ int hw_support(void) {
     if (*ecx & (0x1 << VPCLMULQDQ_BIT))
         vpclmulqdq = 1;
 
-    DEBUG("Processor Support - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
+    DEBUG("QAT_SW - Processor supported: AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
            avx512f, vaes, vpclmulqdq);
 
     if (avx512f && vaes && vpclmulqdq) {
-        qat_sw_ipsec = 1;
         return 1;
     } else {
-        fprintf(stderr, "Processor unsupported for QAT_SW - AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
+        fprintf(stderr, "QAT_SW - Processor unsupported: AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
                 avx512f, vaes, vpclmulqdq);
         return 0;
     }
 }
-# endif
-#endif /* QAT_BORINGSSL */
+#endif
 
 int qat_pthread_mutex_lock(void)
 {
@@ -540,7 +529,7 @@ int qat_engine_init(ENGINE *e)
 
 #ifdef QAT_HW
     if (qat_hw_offload) {
-        if (!qat_init(e)) {
+        if (!qat_hw_init(e)) {
             fprintf(stderr, "QAT_HW initialization Failed\n");
             return 0;
         }
@@ -549,7 +538,7 @@ int qat_engine_init(ENGINE *e)
 
 #ifdef QAT_SW
     if (qat_sw_offload) {
-        if (!multibuff_init(e)) {
+        if (!qat_sw_init(e)) {
             fprintf(stderr, "QAT_SW initialization Failed\n");
             return 0;
         }
@@ -570,15 +559,13 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     qat_pthread_mutex_lock();
 
 #ifdef QAT_HW
-    if (qat_hw_offload) {
-        ret = qat_finish_int(e, reset_globals);
-    }
+    if (qat_hw_offload)
+        ret = qat_hw_finish_int(e, reset_globals);
 #endif
 
 #ifdef QAT_SW
-    if (qat_sw_offload) {
-       ret = multibuff_finish_int(e, reset_globals);
-    }
+    if (qat_sw_offload)
+       ret = qat_sw_finish_int(e, reset_globals);
 #endif
 
     engine_inited = 0;
@@ -658,7 +645,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 #endif
 
 #ifdef QAT_SW
-            *(int *)p = multibuff_poll();
+            *(int *)p = qat_sw_poll();
 #endif
         break;
 
@@ -915,7 +902,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         break;
 #endif
 
-#ifdef QAT_SW
+#if defined(QAT_SW) || defined(QAT_SW_IPSEC)
         case QAT_CMD_SW_ALGO_BITMAP:
         BREAK_IF(NULL == p, "The CMD SW_ALGO_BITMAP needs a string input.\n");
         val = strtoul(p, &temp, 0);
@@ -954,12 +941,14 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
  * description:
  *    Connect Qat engine to OpenSSL engine library
  ******************************************************************************/
-static int bind_qat(ENGINE *e, const char *id)
+int bind_qat(ENGINE *e, const char *id)
 {
-    int ret = 0;
-
+   int ret = 0;
 #ifdef QAT_HW
     char *config_section = NULL;
+# if defined(QAT20_OOT) || defined(__FreeBSD__)
+    Cpa32U dev_count = 0;
+# endif
 #endif
     QAT_DEBUG_LOG_INIT();
 
@@ -967,141 +956,110 @@ static int bind_qat(ENGINE *e, const char *id)
     DEBUG("QAT Debug enabled.\n");
     WARN("%s - %s \n", id, engine_qat_name);
 
+    /* Ensure the QAT error handling is set up */
+    ERR_load_QAT_strings();
+
+    /* For QAT_HW, Check if the QAT_HW device is available */
 #ifdef QAT_HW
-# ifdef QAT_HW_INTREE
-    if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
-        qat_hw_offload = 1;
-    } else {
-#  ifndef QAT_SW
-        fprintf(stderr, "Qat Intree device not available\n");
-        goto end;
-#  endif
+# if defined(QAT20_OOT) || defined(__FreeBSD__)
+    if (icp_adf_get_numDevices(&dev_count) == CPA_STATUS_SUCCESS) {
+        if (dev_count > 0) {
+            qat_hw_offload = 1;
+            DEBUG("%d QAT HW device available\n", dev_count);
+        }
     }
 # else
-    if (access(QAT_DEV, F_OK) == 0) {
+    if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
         qat_hw_offload = 1;
-        if (access(QAT_MEM_DEV, F_OK) != 0) {
-            fprintf(stderr, "Qat memory driver not present\n");
-            goto end;
-        }
-    } else {
-#  ifndef QAT_SW
-        fprintf(stderr, "Qat device not available\n");
-        goto end;
-#  endif
+        DEBUG("QAT HW device available\n");
     }
+#endif
+    if (!qat_hw_offload) {
+# ifndef QAT_SW
+        fprintf(stderr, "QAT_HW device not available & QAT_SW not enabled. Using OpenSSL_SW!\n");
 # endif
+    }
 #endif
 
+#if defined(QAT_SW) || defined(QAT_SW_IPSEC)
+    /* For QAT_SW, check if we are running only on Intel CPU &
+     * has the instruction set needed */
+    qat_sw_offload = qat_sw_cpu_support();
+#endif
+
+#ifdef ENABLE_QAT_SW_GCM
+    if (qat_sw_offload && !vaesgcm_init_ipsec_mb_mgr()) {
+        fprintf(stderr, "QAT_SW IPSec_mb manager iInitialization failed\n");
+        return ret;
+    }
+#endif
+
+#ifndef QAT_OPENSSL_PROVIDER
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already! %s - %s\n", id, engine_qat_id);
-        goto end;
+        return ret;
     }
 
     if (!ENGINE_set_id(e, engine_qat_id)) {
         fprintf(stderr, "ENGINE_set_id failed\n");
-        goto end;
+        return ret;
     }
 
     if (!ENGINE_set_name(e, engine_qat_name)) {
         fprintf(stderr, "ENGINE_set_name failed\n");
-        goto end;
+        return ret;
     }
 
-    /* Ensure the QAT error handling is set up */
-    ERR_load_QAT_strings();
-
     if (qat_hw_offload) {
-#ifdef QAT_HW
-        DEBUG("Registering QAT HW supported algorithms\n");
-
 # ifdef ENABLE_QAT_HW_DSA
         if (!ENGINE_set_DSA(e, qat_get_DSA_methods())) {
             WARN("ENGINE_set_DSA QAT HW failed\n");
-            goto end;
+            return ret;
         }
 # endif
 
 # ifdef ENABLE_QAT_HW_DH
         if (!ENGINE_set_DH(e, qat_get_DH_methods())) {
             WARN("ENGINE_set_DH QAT HW failed\n");
-            goto end;
+            return ret;
         }
 # endif
-
-#endif
     }
 
-#ifdef QAT_SW
-# if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)    \
-  || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA) \
-  || defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_SW_SM3) \
-  || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM) \
-  || defined(ENABLE_QAT_SW_SM4_CCM)
-        DEBUG("Registering QAT SW supported algorithms\n");
-        qat_sw_offload = 1;
-# endif
-#endif
-
-#if defined(QAT_HW) || defined(QAT_SW)
+# if defined(QAT_HW) || defined(QAT_SW)
     if (!ENGINE_set_RSA(e, qat_get_RSA_methods())) {
         WARN("ENGINE_set_RSA QAT HW failed\n");
-        goto end;
+        return ret;
     }
 
      if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
           WARN("ENGINE_set_EC failed\n");
-          goto end;
+          return ret;
      }
 
-# ifndef QAT_OPENSSL_3
+#  ifndef QAT_OPENSSL_3
      if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
           WARN("ENGINE_set_pkey_meths failed\n");
-          goto end;
+          return ret;
      }
-# endif
+#  endif
 
-#ifndef QAT_BORINGSSL
+#  ifndef QAT_BORINGSSL
     qat_create_digest_meth();
     if (!ENGINE_set_digests(e, qat_digest_methods)) {
         WARN("ENGINE_set_digests failed\n");
-        goto end;
+        return ret;
     }
-#endif /* QAT_BORINGSSL */
 
-#endif
+    /* Create static structures for ciphers now
+     * as this function will be called by a single thread. */
+    qat_create_ciphers();
 
-#ifndef QAT_BORINGSSL
-#ifdef QAT_SW_IPSEC
-    if (hw_support()) {
-# ifdef ENABLE_QAT_SW_GCM
-        if (!vaesgcm_init_ipsec_mb_mgr()) {
-            fprintf(stderr, "IPSec Multi-Buffer Manager Initialization failed\n");
-            goto end;
-        }
-# endif
-    }
-#endif
-
-     /* Create static structures for ciphers now
-      * as this function will be called by a single thread. */
-     qat_create_ciphers();
-
-#if defined(QAT_HW) || defined(QAT_SW_IPSEC) \
-    || defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_GCM) \
-    || defined(ENABLE_QAT_SW_SM4_CCM)
     if (!ENGINE_set_ciphers(e, qat_ciphers)) {
         WARN("ENGINE_set_ciphers failed\n");
-        goto end;
+        return ret;
     }
-#endif
-
-    pthread_atfork(engine_finish_before_fork_handler, NULL,
-                   engine_init_child_at_fork_handler);
-#else /* QAT_BORINGSSL */
-    /* Set handler to ENGINE_unload_qat and ENGINE_load_qat */
-    pthread_atfork(ENGINE_unload_qat, NULL, ENGINE_load_qat);
-#endif /* QAT_BORINGSSL */
+#  endif /* QAT_BORINGSSL */
 
     ret = 1;
     ret &= ENGINE_set_destroy_function(e, qat_engine_destroy);
@@ -1111,7 +1069,18 @@ static int bind_qat(ENGINE *e, const char *id)
     ret &= ENGINE_set_cmd_defns(e, qat_cmd_defns);
     if (ret == 0) {
         fprintf(stderr, "Engine failed to register init, finish or destroy functions\n");
+        return ret;
     }
+# endif
+#endif /* QAT_OPENSSL_PROVIDER */
+
+#ifndef QAT_BORINGSSL
+    pthread_atfork(engine_finish_before_fork_handler, NULL,
+                   engine_init_child_at_fork_handler);
+#else /* QAT_BORINGSSL */
+    /* Set handler to ENGINE_unload_qat and ENGINE_load_qat */
+    pthread_atfork(ENGINE_unload_qat, NULL, ENGINE_load_qat);
+#endif /* QAT_BORINGSSL */
 
     /*
      * If the QAT_SECTION_NAME environment variable is set, use that.
@@ -1136,10 +1105,8 @@ static int bind_qat(ENGINE *e, const char *id)
         qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE - 1]   = '\0';
     }
 #endif
-
- end:
+    ret = 1;
     return ret;
-
 }
 
 #ifndef OPENSSL_NO_DYNAMIC_ENGINE

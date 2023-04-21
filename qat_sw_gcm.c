@@ -1249,7 +1249,7 @@ int vaesgcm_init_gcm(EVP_CIPHER_CTX *ctx)
 
 /******************************************************************************
  * function:
- *    vaesgcm_init_ipsec_mb_mgr(void)
+ *   vaesgcm_init_ipsec_mb_mgr(void)
  *
  * @retval 0      function failed
  * @retval 1      function succeeded
@@ -1261,8 +1261,7 @@ int vaesgcm_init_gcm(EVP_CIPHER_CTX *ctx)
  ******************************************************************************/
 int vaesgcm_init_ipsec_mb_mgr()
 {
-    if (ipsec_mgr == NULL)
-    {
+    if (ipsec_mgr == NULL) {
         ipsec_mgr = alloc_mb_mgr(0);
 
         if (ipsec_mgr == NULL) {
@@ -1298,5 +1297,4 @@ void vaesgcm_free_ipsec_mb_mgr()
         ipsec_mgr = NULL;
     }
 }
-
 #endif

@@ -386,11 +386,7 @@ static int multibuff_validate_ecx_derive(EVP_PKEY_CTX *ctx,
         QATerr(QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PRIVATE_KEY);
         return 0;
     }
-    if (ecxctx->peerkey->pubkey == NULL) {
-        WARN("ecxctx->peerkey->pubkey is NULL\n");
-        QATerr(QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PEER_KEY);
-        return 0;
-    }
+
     *privkey = ecxctx->key->privkey;
     *pubkey = ecxctx->peerkey->pubkey;
 #else
@@ -440,7 +436,7 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
 #else
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
 #endif
-    const unsigned char *privkey, *pubkey;
+    const unsigned char *privkey = NULL, *pubkey = NULL;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 

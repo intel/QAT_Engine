@@ -457,7 +457,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 
     DEBUG("Polling Timeout %ld tlv %p\n", mb_poll_timeout_time.tv_nsec, tlv);
 
-    while (tlv->keep_polling && multibuff_keep_polling) {
+    while (tlv->keep_polling && qat_sw_keep_polling) {
         get_sem_wait_abs_time(&mb_polling_abs_timeout, mb_poll_timeout_time);
         while ((sig = sem_timedwait(&tlv->mb_polling_thread_sem,
                 &mb_polling_abs_timeout)) == -1 && errno == EINTR &&
@@ -1390,7 +1390,7 @@ void *multibuff_timer_poll_func(void *thread_ptr)
     return NULL;
 }
 
-int multibuff_poll()
+int qat_sw_poll()
 {
     struct timespec current_time = { 0 };
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \

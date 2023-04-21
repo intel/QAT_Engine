@@ -20,4 +20,4 @@ The [qat_sw features](features.md#qat_sw-features) are only supported in the pla
 [3]:https://www.intel.com/content/www/us/en/products/sku/125199/intel-quickassist-adapter-8960/downloads.html
 [4]:https://www.intel.com/content/www/us/en/products/sku/80371/intel-communications-chipset-8950/specifications.html
 [5]:https://www.intel.com/content/www/us/en/design/products-and-solutions/processors-and-chipsets/denverton/ns/atom-processor-c3000-series.html
-[5]:https://www.intel.com/content/www/us/en/products/docs/processors/xeon/3rd-gen-xeon-scalable-processors-brief.html
+[6]:https://www.intel.com/content/www/us/en/products/docs/processors/xeon/3rd-gen-xeon-scalable-processors-brief.html

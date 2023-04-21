@@ -20,7 +20,7 @@
 # include "crypto_mb/cpu_features.h"
 #endif
 
-#ifdef QAT_SW_IPSEC
+#ifdef ENABLE_QAT_SW_GCM
 # include "qat_sw_gcm.h"
 #endif
 
@@ -125,89 +125,6 @@ extern const OSSL_DISPATCH qat_sm2_keymgmt_functions[];
 #endif
 
 QAT_PROV_PARAMS qat_params;
-
-static int qat_provider_bind()
-{
-#ifdef QAT_HW
-    char *config_section = NULL;
-#endif
-
-    WARN("QAT Warnings enabled.\n");
-    DEBUG("QAT Debug enabled.\n");
-
-    /* Ensure the QAT error handling is set up */
-    ERR_load_QAT_strings();
-
-#ifdef QAT_HW
-# ifdef QAT_HW_INTREE
-    if (icp_sal_userIsQatAvailable() == CPA_TRUE) {
-        qat_hw_offload = 1;
-    } else {
-        WARN("Qat Intree device not available\n");
-#  ifndef QAT_SW
-        return 0;
-#  endif
-    }
-# else
-    if (access(QAT_DEV, F_OK) == 0) {
-        qat_hw_offload = 1;
-        if (access(QAT_MEM_DEV, F_OK) != 0) {
-            WARN("Qat memory driver not present\n");
-            return 0;
-        }
-    } else {
-        WARN("Qat device not available\n");
-#  ifndef QAT_SW
-        return 0;
-#  endif
-    }
-# endif
-#endif
-
-#ifdef QAT_SW
-# if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX)    \
-  || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
-    DEBUG("Registering QAT SW supported algorithms\n");
-    qat_sw_offload = 1;
-# endif
-
-    if (mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
-        mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
-        mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
-        DEBUG("QAT_SW RSA Supported\n");
-    }
-#endif
-
-#ifdef QAT_SW_IPSEC
-    if (hw_support()) {
-# ifdef ENABLE_QAT_SW_GCM
-        if (!vaesgcm_init_ipsec_mb_mgr()) {
-            WARN("IPSec Multi-Buffer Manager Initialization failed\n");
-            return 0;
-        }
-# endif
-    }
-#endif
-
-#ifdef QAT_HW
-# ifdef __GLIBC_PREREQ
-#  if __GLIBC_PREREQ(2, 17)
-    config_section = secure_getenv("QAT_SECTION_NAME");
-#  else
-    config_section = getenv("QAT_SECTION_NAME");
-#  endif
-# else
-    config_section = getenv("QAT_SECTION_NAME");
-# endif
-    if (validate_configuration_section_name(config_section)) {
-        strncpy(qat_config_section_name, config_section, QAT_CONFIG_SECTION_NAME_SIZE - 1);
-        qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE - 1] = '\0';
-    }
-#endif
-    pthread_atfork(engine_finish_before_fork_handler, NULL,
-                   engine_init_child_at_fork_handler);
-    return 1;
-}
 
 static void qat_teardown(void *provctx)
 {
@@ -529,7 +446,7 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
         return 0;
     }
 
-    if (!qat_provider_bind() || !qat_engine_init(NULL)) {
+    if (!bind_qat(NULL, NULL) || !qat_engine_init(NULL)) {
         goto err;
     }
 
