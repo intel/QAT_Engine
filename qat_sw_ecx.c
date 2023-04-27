@@ -107,6 +107,7 @@ void process_x25519_keygen_reqs(mb_thread_data *tlv)
     }
     local_request_no = req_num;
     DEBUG("Submitting %d keygen requests\n", local_request_no);
+    num_ecx_sw_keygen_reqs += local_request_no;
 
     x25519_sts = mbx_x25519_public_key_mb8(x25519_keygen_pubkey,
                                            x25519_keygen_privkey);
@@ -163,6 +164,7 @@ void process_x25519_derive_reqs(mb_thread_data *tlv)
     }
     local_request_no = req_num;
     DEBUG("Submitting %d derive requests\n", local_request_no);
+    num_ecx_sw_derive_reqs += local_request_no;
 
     x25519_sts = mbx_x25519_mb8(x25519_derive_sharedkey,
                                 x25519_derive_privkey,

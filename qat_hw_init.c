@@ -789,6 +789,25 @@ int qat_hw_init(ENGINE *e)
                           qat_map_sym_inst, qat_sym_num_instance);
 #endif
 
+#ifdef QAT_CPU_CYCLES_COUNT
+    rdtsc_prof_init(&qat_hw_rsa_dec_req_prepare, 0);
+    rdtsc_prof_init(&qat_hw_rsa_dec_req_submit, 0);
+    rdtsc_prof_init(&qat_hw_rsa_dec_req_retry, 0);
+    rdtsc_prof_init(&qat_hw_rsa_dec_req_cleanup, 0);
+    rdtsc_prof_init(&qat_hw_ecdsa_sign_req_prepare, 0);
+    rdtsc_prof_init(&qat_hw_ecdsa_sign_req_submit, 0);
+    rdtsc_prof_init(&qat_hw_ecdsa_sign_req_retry, 0);
+    rdtsc_prof_init(&qat_hw_ecdsa_sign_req_cleanup, 0);
+    rdtsc_prof_init(&qat_hw_ecdh_derive_req_prepare, 0);
+    rdtsc_prof_init(&qat_hw_ecdh_derive_req_submit, 0);
+    rdtsc_prof_init(&qat_hw_ecdh_derive_req_retry, 0);
+    rdtsc_prof_init(&qat_hw_ecdh_derive_req_cleanup, 0);
+    rdtsc_prof_init(&qat_hw_ecx_derive_req_prepare, 0);
+    rdtsc_prof_init(&qat_hw_ecx_derive_req_submit, 0);
+    rdtsc_prof_init(&qat_hw_ecx_derive_req_retry, 0);
+    rdtsc_prof_init(&qat_hw_ecx_derive_req_cleanup, 0);
+#endif
+
     if (!enable_external_polling && !enable_inline_polling) {
         if (!qat_is_event_driven()) {
             sigemptyset(&set);

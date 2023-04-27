@@ -68,6 +68,9 @@
 # include "qat_evp.h"
 #endif
 
+#ifdef ENABLE_QAT_SW_ECX
+# include "qat_sw_ecx.h"
+#endif
 #ifdef USE_QAT_CONTIG_MEM
 # include "qae_mem_utils.h"
 #endif
@@ -247,6 +250,11 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         OPENSSL_free(key);
         return 0;
     }
+
+    if (qat_sw_ecx_keygen_req > 0 || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto err;
+    }
 #else
     key->references = 1;
     key->lock = CRYPTO_THREAD_lock_new();
@@ -269,11 +277,11 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         OPENSSL_free(key);
         return 0;
     }
-#endif
+
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
         OPENSSL_free(key);
-#ifdef QAT_OPENSSL_PROVIDER
+
         if (!is_ecx_448) {
             typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
             sw_prov_fun_ptr sw_fn_ptr = get_default_x25519_keymgmt().gen;
@@ -283,21 +291,12 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
             sw_prov_fun_ptr sw_fn_ptr = get_default_x448_keymgmt().gen;
             return sw_fn_ptr(ctx, osslcb, cbarg);
         }
-#else
-        EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)
-                                 (is_ecx_448 ? sw_x448_pmeth : sw_x25519_pmeth),
-                                 NULL, &sw_fn_ptr);
-        ret = (*sw_fn_ptr)(ctx, pkey);
-        if (ret != 1) {
-            WARN("s/w pkey_ecx_keygen fn failed.\n");
-            QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
-        }
-        return ret;
+    }
 #endif
-      }
+
     qat_ecx_op_data = (CpaCyEcMontEdwdsPointMultiplyOpData *)
-                       qaeCryptoMemAlloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
-                                         __FILE__, __LINE__);
+                        qaeCryptoMemAlloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
+                                            __FILE__, __LINE__);
     if (NULL == qat_ecx_op_data) {
         WARN("Failed to allocate memory for qat_ecx_op_data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
@@ -399,22 +398,33 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
                                                pXk,
                                                NULL);
         if (status == CPA_STATUS_RETRY) {
-            if (op_done.job == NULL) {
-                usleep(ulPollInterval +
-                       (qatPerformOpRetries %
-                        QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                qatPerformOpRetries++;
-                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                    if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                        break;
-                    }
+            if (qat_ecx_coexist && !is_ecx_448) {
+                if (op_done.job) {
+                    DEBUG("cpaCyEcMontEdwdsPointMultiply Retry \n");
+                    ++num_ecx_keygen_retry;
+                    qat_sw_ecx_keygen_req += QAT_RETRY_COUNT;
+                    fallback = 1;
+                    qat_cleanup_op_done(&op_done);
+                    goto err;
                 }
             } else {
-                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                    WARN("qat_wake_job or qat_pause_job failed\n");
-                    break;
+                if (op_done.job == NULL) {
+                    usleep(ulPollInterval +
+                        (qatPerformOpRetries %
+                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                    qatPerformOpRetries++;
+                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                        if (qatPerformOpRetries >= iMsgRetry) {
+                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                            break;
+                        }
+                    }
+                } else {
+                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                        WARN("qat_wake_job or qat_pause_job failed\n");
+                        break;
+                    }
                 }
             }
         }
@@ -464,6 +474,10 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     if (enable_heuristic_polling) {
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
+    }
+
+    if (qat_ecx_coexist) {
+        ++num_ecx_hw_keygen_reqs;
     }
 
     do {
@@ -533,7 +547,6 @@ err:
     }
 
     if (fallback) {
-        WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
 #ifdef QAT_OPENSSL_PROVIDER
         if (is_ecx_448 == 0) {
@@ -546,9 +559,17 @@ err:
                 return sw_fun_ptr(ctx, osslcb, cbarg);
         }
 #else
+#ifdef ENABLE_QAT_SW_ECX
+        if (qat_ecx_coexist && !is_ecx_448) {
+            DEBUG("- Switched to QAT_SW mode\n");
+            --qat_sw_ecx_keygen_req;
+            return multibuff_x25519_keygen(ctx, pkey);
+        }
+#endif
+        WARN("- Fallback to software mode.\n");
         EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)
-                                 (is_ecx_448 ? sw_x448_pmeth : sw_x25519_pmeth),
-                                 NULL, &sw_fn_ptr);
+                                (is_ecx_448 ? sw_x448_pmeth : sw_x25519_pmeth),
+                                NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, pkey);
 #endif
     }
@@ -639,6 +660,7 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
     int fallback = 0;
 
     DEBUG("QAT HW ECX Started\n");
+    START_RDTSC(&qat_hw_ecx_derive_req_prepare);
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
@@ -646,22 +668,19 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
         return 0;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
-#ifdef QAT_OPENSSL_PROVIDER
         typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
         sw_prov_fun_ptr sw_fun_ptr = get_default_x25519_keyexch().derive;
         return sw_fun_ptr(ctx, key, keylen, outlen);
-#else
-        EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
-        ret = (*sw_fn_ptr)(ctx, key, keylen);
-        if (ret != 1) {
-            WARN("s/w pkey_ecx_derive25519 fn failed.\n");
-            QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
-        }
-        return ret;
-#endif
     }
+#else
+    if (qat_sw_ecx_derive_req > 0 || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto err;
+    }
+#endif
 
     if (!qat_validate_ecx_derive(ctx, &privkey, &pubkey))
         return 0;
@@ -745,8 +764,10 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
             goto err;
         }
     }
+    STOP_RDTSC(&qat_hw_ecx_derive_req_prepare, 1, "[QAT HW ECX: prepare]");
 
     do {
+        START_RDTSC(&qat_hw_ecx_derive_req_submit);
         if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
              == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
@@ -774,23 +795,37 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
                                                &multiplyStatus,
                                                pXk,
                                                NULL);
+        STOP_RDTSC(&qat_hw_ecx_derive_req_submit, 1, "[QAT HW ECX: submit]");
         if (status == CPA_STATUS_RETRY) {
-            if (op_done.job == NULL) {
-                usleep(ulPollInterval +
-                       (qatPerformOpRetries %
-                        QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                qatPerformOpRetries++;
-                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                    if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                        break;
-                    }
+            if (qat_ecx_coexist) {
+                if (op_done.job) {
+                    START_RDTSC(&qat_hw_ecx_derive_req_retry);
+                    DEBUG("cpaCyEcMontEdwdsPointMultiply Retry \n");
+                    ++num_ecx_derive_retry;
+                    qat_sw_ecx_derive_req += QAT_RETRY_COUNT;
+                    fallback = 1;
+                    qat_cleanup_op_done(&op_done);
+                    STOP_RDTSC(&qat_hw_ecx_derive_req_retry, 1, "[QAT HW ECX: retry]");
+                    goto err;
                 }
             } else {
-                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                    WARN("qat_wake_job or qat_pause_job failed\n");
-                    break;
+                if (op_done.job == NULL) {
+                    usleep(ulPollInterval +
+                        (qatPerformOpRetries %
+                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                    qatPerformOpRetries++;
+                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                        if (qatPerformOpRetries >= iMsgRetry) {
+                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                            break;
+                        }
+                    }
+                } else {
+                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                        WARN("qat_wake_job or qat_pause_job failed\n");
+                        break;
+                    }
                 }
             }
         }
@@ -842,6 +877,10 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
+    if (qat_ecx_coexist) {
+        ++num_ecx_hw_derive_reqs;
+    }
+
     do {
         if (op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
@@ -891,6 +930,7 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
     ret = 1;
 
 err:
+    START_RDTSC(&qat_hw_ecx_derive_req_cleanup);
     /* Clean the memory. */
     if (pXk != NULL) {
         if (pXk->pData != NULL) {
@@ -912,15 +952,23 @@ err:
         qaeCryptoMemFreeNonZero(qat_ecx_op_data);
         qat_ecx_op_data = NULL;
     }
+    STOP_RDTSC(&qat_hw_ecx_derive_req_cleanup, 1, "[QAT HW ECX: cleanup]");
 
     if (fallback) {
-        WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
 #ifdef QAT_OPENSSL_PROVIDER
         typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
         sw_prov_fun_ptr sw_fun_ptr = get_default_x25519_keyexch().derive;
         return sw_fun_ptr(ctx, key, keylen, outlen);
 #else
+#ifdef ENABLE_QAT_SW_ECX
+        if (qat_ecx_coexist) {
+            DEBUG("- Switched to QAT_SW mode\n");
+            --qat_sw_ecx_derive_req;
+            return multibuff_x25519_derive(ctx, key, keylen);
+        }
+#endif
+        WARN("- Fallback to software mode.\n");
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
 #endif

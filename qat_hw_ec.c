@@ -86,6 +86,9 @@
 #include "qat_utils.h"
 #include "qat_hw_ec.h"
 #include "qat_evp.h"
+#if defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_SW_ECDSA)
+# include "qat_sw_ec.h"
+#endif
 
 # define QAT_EC_MIN_RANGE 256
 
@@ -154,8 +157,10 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     CpaStatus status = CPA_STATUS_FAIL;
     op_done_t op_done;
     thread_local_variables_t *tlv = NULL;
+    int curve_name;
 
     DEBUG("QAT HW ECDH Started\n");
+    START_RDTSC(&qat_hw_ecdh_derive_req_prepare);
 
     if (unlikely(ecdh == NULL ||
                  ((priv_key = EC_KEY_get0_private_key(ecdh)) == NULL)
@@ -184,6 +189,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         return ret;
     }
 
+    curve_name = EC_GROUP_get_curve_name(group);
 # if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
     pOpData = (CpaCyEcGenericPointMultiplyOpData *)
                OPENSSL_zalloc(sizeof(CpaCyEcGenericPointMultiplyOpData));
@@ -403,9 +409,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         }
     }
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
+    STOP_RDTSC(&qat_hw_ecdh_derive_req_prepare, 1, "[QAT HW ECDH: prepare]");
 
     /* Invoke the crypto engine API for EC Point Multiply */
     do {
+        START_RDTSC(&qat_hw_ecdh_derive_req_submit);
         if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
              == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
@@ -438,24 +446,44 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                                       opData,
                                       &bEcStatus, pResultX, pResultY);
 # endif
-
+        STOP_RDTSC(&qat_hw_ecdh_derive_req_submit, 1, "[QAT HW ECDH: submit]");
         if (status == CPA_STATUS_RETRY) {
-            if (op_done.job == NULL) {
-                usleep(ulPollInterval +
-                       (qatPerformOpRetries %
-                        QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                qatPerformOpRetries++;
-                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                    if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                        break;
+            if (qat_ecdh_coexist &&
+                ((curve_name == NID_X9_62_prime256v1) ||
+                (curve_name == NID_secp384r1))) {
+                START_RDTSC(&qat_hw_ecdh_derive_req_retry);
+                if (op_done.job) {
+                    DEBUG("cpaCyEcPointMultiply Retry \n");
+                    if (outY) { /* key generation */
+                        ++num_ecdh_keygen_retry;
+                        qat_sw_ecdh_keygen_req += QAT_RETRY_COUNT;
+                    } else { /* compute key */
+                        ++num_ecdh_derive_retry;
+                        qat_sw_ecdh_derive_req += QAT_RETRY_COUNT;
                     }
+                    *fallback = 1;
+                    qat_cleanup_op_done(&op_done);
+                    STOP_RDTSC(&qat_hw_ecdh_derive_req_retry, 1, "[QAT HW ECDH: retry]");
+                    goto err;
                 }
             } else {
-                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                    WARN("qat_wake_job or qat_pause_job failed\n");
-                    break;
+                if (op_done.job == NULL) {
+                    usleep(ulPollInterval +
+                           (qatPerformOpRetries %
+                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                    qatPerformOpRetries++;
+                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                        if (qatPerformOpRetries >= iMsgRetry) {
+                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                            break;
+                        }
+                    }
+                } else {
+                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                        WARN("qat_wake_job or qat_pause_job failed\n");
+                        break;
+                    }
                 }
             }
         }
@@ -506,6 +534,15 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     if (enable_heuristic_polling) {
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
+    }
+
+    if (qat_ecdh_coexist) {
+        if (outY) {
+            ++num_ecdh_hw_keygen_reqs;
+        }
+        else {
+            ++num_ecdh_hw_derive_reqs;
+        }
     }
 
     do {
@@ -586,6 +623,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     ret = *outlenX;
 
  err:
+    START_RDTSC(&qat_hw_ecdh_derive_req_cleanup);
     if (pResultX) {
         QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(*pResultX);
         OPENSSL_free(pResultX);
@@ -624,6 +662,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         BN_CTX_free(ctx);
     }
 
+    STOP_RDTSC(&qat_hw_ecdh_derive_req_cleanup, 1, "[QAT HW ECDH: cleanup]");
     DEBUG("- Finished\n");
     return ret;
 }
@@ -651,11 +690,6 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
         return ret;
     }
 
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode\n");
-        return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
-    }
-
     if (ecdh == NULL || (priv_key = EC_KEY_get0_private_key(ecdh)) == NULL) {
         WARN("Either ecdh or priv_key is NULL\n");
         QATerr(QAT_F_QAT_ENGINE_ECDH_COMPUTE_KEY, QAT_R_ECDH_PRIVATE_KEY_NULL);
@@ -668,19 +702,37 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
         return ret;
     }
 
+    if (qat_sw_ecdh_derive_req > 0 || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto exit;
+    }
+
 #ifndef QAT_INSECURE_ALGO
     /* Bits < 256 is not supported in QAT_HW */
     bitlen = EC_GROUP_order_bits(group);
     if (bitlen < QAT_EC_MIN_RANGE) {
         DEBUG("Curve-Bitlen %d not supported! Using OPENSSL_SW\n", bitlen);
-        return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
+        fallback = 1;
+        goto exit;
     }
 #endif
 
     ret = qat_ecdh_compute_key(out, outlen, NULL, NULL, pub_key, ecdh, &fallback);
+
+exit:
     if (fallback == 1) {
-        WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef ENABLE_QAT_SW_ECDH
+        int curve_name = EC_GROUP_get_curve_name(group);
+        if (qat_ecdh_coexist && 
+            ((curve_name == NID_X9_62_prime256v1) || 
+             (curve_name == NID_secp384r1))) {
+            DEBUG("- Switched to QAT_SW mode\n");
+            --qat_sw_ecdh_derive_req;
+            return mb_ecdh_compute_key(out, outlen, pub_key, ecdh);
+        }
+#endif
+        WARN("- Fallback to software mode.\n");
         return (*comp_key_pfunc)(out, outlen, pub_key, ecdh);
     }
     DEBUG("- Finished\n");
@@ -697,7 +749,7 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
            *y_bn = NULL, *tx_bn = NULL, *ty_bn = NULL;
     EC_POINT *pub_key = NULL;
     const EC_POINT *gen;
-    const EC_GROUP *group;
+    const EC_GROUP *group = NULL;
     unsigned char *temp_xbuf = NULL;
     unsigned char *temp_ybuf = NULL;
     size_t temp_xfield_size = 0;
@@ -716,15 +768,15 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         return 0;
     }
 
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode\n");
-        return (*gen_key_pfunc)(ecdh);
-    }
-
     if (unlikely(ecdh == NULL || ((group = EC_KEY_get0_group(ecdh)) == NULL))) {
         WARN("Either ecdh or group are NULL\n");
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, QAT_R_ECDH_GROUP_NULL);
         return 0;
+    }
+
+    if (qat_sw_ecdh_keygen_req > 0 || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto exit;
     }
 
 #ifndef QAT_INSECURE_ALGO
@@ -732,7 +784,8 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
     bitlen = EC_GROUP_order_bits(group);
     if (bitlen < QAT_EC_MIN_RANGE) {
         DEBUG("Curve-Bitlen %d not supported! Using OPENSSL_SW\n", bitlen);
-        return (*gen_key_pfunc)(ecdh);
+        fallback = 1;
+        goto exit;
     }
 #endif
 
@@ -871,7 +924,18 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
 
     DEBUG("- Finished\n");
 
+exit:
     if (fallback == 1) {
+#ifdef ENABLE_QAT_SW_ECDH
+        int curve_name = EC_GROUP_get_curve_name(group);
+        if (qat_ecdh_coexist && 
+            ((curve_name == NID_X9_62_prime256v1) || 
+             (curve_name == NID_secp384r1))) {
+            DEBUG("- Switched to QAT_SW mode\n");
+            --qat_sw_ecdh_keygen_req;
+            return mb_ecdh_generate_key(ecdh);
+        }
+#endif
         DEBUG("- Switched to software mode\n");
         return (*gen_key_pfunc)(ecdh);
     }
@@ -1008,8 +1072,13 @@ int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                    const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
 {
     ECDSA_SIG *s;
+#ifdef ENABLE_QAT_SW_ECDSA
+    const EC_GROUP *group = NULL;
+    int curve_name;
+#endif
 
     if (unlikely(dgst == NULL ||
+                 eckey == NULL ||
                  dlen <= 0)) { /* Check these input params before passing to
                                 * RAND_seed(). Rest of the input params. are
                                 * checked by qat_ecdsa_do_sign().
@@ -1020,8 +1089,37 @@ int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         QATerr(QAT_F_QAT_ECDSA_SIGN, QAT_R_INPUT_PARAM_INVALID);
         return 0;
     }
+
+#ifdef ENABLE_QAT_SW_ECDSA
+    group = EC_KEY_get0_group(eckey);
+    if(!group) {
+        WARN("Failed to get the group from eckey.\n");
+        QATerr(QAT_F_QAT_ECDSA_SIGN, QAT_R_GROUP_NULL);
+        return 0;
+    }
+
+    curve_name = EC_GROUP_get_curve_name(group);
+    if (qat_ecdsa_coexist) {
+        /* Use QAT_SW if the curve is P256 */
+        if (curve_name == NID_X9_62_prime256v1)
+            return mb_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+
+        if ((qat_sw_ecdsa_sign_req > 0) && (curve_name == NID_secp384r1)) {
+            --qat_sw_ecdsa_sign_req;
+            return mb_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+        }
+    }
+#endif
+
     s = qat_ecdsa_do_sign(dgst, dlen, kinv, r, eckey);
     if (s == NULL) {
+#ifdef ENABLE_QAT_SW_ECDSA
+        /* Switch to QAT_SW only for P384 curve. */
+        if (qat_ecdsa_coexist && (curve_name == NID_secp384r1)) {
+            --qat_sw_ecdsa_sign_req;
+            return mb_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+        }
+#endif
         WARN("Error ECDSA Sign Operation Failed\n");
         if (siglen != NULL)
             *siglen = 0;
@@ -1068,11 +1166,13 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     int iMsgRetry = getQatMsgRetryCount();
     const EC_POINT *ec_point = NULL;
     thread_local_variables_t *tlv = NULL;
+    int curve_name;
 #ifndef QAT_INSECURE_ALGO
     int bitlen = 0;
 #endif
 
     DEBUG("QAT HW ECDSA Started\n");
+    START_RDTSC(&qat_hw_ecdsa_sign_req_prepare);
 
     if (unlikely(dgst == NULL ||
                  dgst_len <= 0 ||
@@ -1091,8 +1191,8 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
 
     if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode\n");
-        return (*sign_sig_pfunc)(dgst, dgst_len, in_kinv, in_r, eckey);
+        fallback = 1;
+        goto err;
     }
 
     group = EC_KEY_get0_group(eckey);
@@ -1114,6 +1214,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
 #endif
 
+    curve_name = EC_GROUP_get_curve_name(group);
     if ((ec_point = EC_GROUP_get0_generator(group)) == NULL) {
         WARN("Failure to retrieve ec_point\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_EC_POINT_RETRIEVE_FAILURE);
@@ -1342,8 +1443,12 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     }
 #endif /* QAT_BORINGSSL */
 
+    STOP_RDTSC(&qat_hw_ecdsa_sign_req_prepare, 1, "[QAT HW ECDSA: prepare]");
+
     CRYPTO_QAT_LOG("AU - %s\n", __func__);
+
     do {
+        START_RDTSC(&qat_hw_ecdsa_sign_req_submit);
         if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
              == QAT_INVALID_INSTANCE) {
             WARN("Failure to get another instance\n");
@@ -1388,26 +1493,39 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                                     &bEcdsaSignStatus, pResultR, pResultS);
         }
 #endif /* QAT_BORINGSSL */
+        STOP_RDTSC(&qat_hw_ecdsa_sign_req_submit, 1, "[QAT HW ECDSA: submit]");
         if (status == CPA_STATUS_RETRY) {
-            if (op_done.job == NULL) {
-                usleep(ulPollInterval +
-                        (qatPerformOpRetries %
-                         QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                qatPerformOpRetries++;
-                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                    if (qatPerformOpRetries >= iMsgRetry) {
-                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+            DEBUG("cpaCyEcdsaSignRS Retry \n");
+            if (qat_ecdsa_coexist && (curve_name == NID_secp384r1)) {
+                START_RDTSC(&qat_hw_ecdsa_sign_req_retry);
+                ++num_ecdsa_sign_retry;
+                qat_sw_ecdsa_sign_req += QAT_RETRY_COUNT;
+
+                fallback = 1;
+                qat_cleanup_op_done(&op_done);
+                STOP_RDTSC(&qat_hw_ecdsa_sign_req_retry, 1, "[QAT HW ECDSA: retry]");
+                goto err;
+            } else {
+                if (op_done.job == NULL) {
+                    usleep(ulPollInterval +
+                            (qatPerformOpRetries %
+                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                    qatPerformOpRetries++;
+                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                        if (qatPerformOpRetries >= iMsgRetry) {
+                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                            break;
+                        }
+                    }
+                } else {
+    #ifndef QAT_BORINGSSL
+                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                        WARN("qat_wake_job or qat_pause_job failed\n");
                         break;
                     }
+    #endif
                 }
-            } else {
-#ifndef QAT_BORINGSSL
-                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                    WARN("qat_wake_job or qat_pause_job failed\n");
-                    break;
-                }
-#endif
             }
         }
     }
@@ -1475,6 +1593,10 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
+    if (qat_ecdsa_coexist) {
+        ++num_ecdsa_hw_sign_reqs;
+    }
+
     do {
         if(op_done.job != NULL) {
             /* If we get a failure on qat_pause_job then we will
@@ -1531,6 +1653,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     ok = 1;
 
  err:
+    START_RDTSC(&qat_hw_ecdsa_sign_req_cleanup);
     if (!ok) {
         ECDSA_SIG_free(ret);
         ret = NULL;
@@ -1569,11 +1692,17 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
+    STOP_RDTSC(&qat_hw_ecdsa_sign_req_cleanup, 1, "[QAT HW ECDSA: cleanup]");
 
     if (fallback) {
-        WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
-        return (*sign_sig_pfunc)(dgst, dgst_len, in_kinv, in_r, eckey);
+        if (qat_ecdsa_coexist) {
+            DEBUG("- Switch to QAT_SW mode.\n");
+            return NULL;
+        } else {
+            WARN("- Fallback to software mode.\n");
+            return (*sign_sig_pfunc)(dgst, dgst_len, in_kinv, in_r, eckey);
+        }
     }
     DEBUG("- Finished\n");
     return ret;

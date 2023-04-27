@@ -45,6 +45,18 @@ and the bit map of each algorithm is defined below:
 | SM4-GCM | 0x10000 | SW |
 | SM4-CCM | 0x20000 | SW |
 
+## QAT_HW & QAT_SW Co-existence recommended settings and working mechanism
+
+1. For those algorithms that can achieve stronger performance with QAT_SW, we
+   only use QAT_SW by default. These algorithms include:`AES-GCM, ECDSA-P256`.
+2. For those algorithms that can achieve stronger performance with QAT_HW, the
+   request will be offloaded to QAT_HW first, and after QAT_HW capacity is
+   reached, it will be processed through QAT_SW. These algorithms include:
+   `RSA-2K/3K/4K`, `ECDSA-P384`, `ECDH-P256/P384/X25519`.
+3. It is recomended to set "LimitDevAccess" to 0 in QAT_HW driver config file to
+   utilize all the available device per process for Co-existence mode to fully
+   utilize QAT_HW first and then utilize QAT_SW.
+
 **Note: ECDH-SM2 is included in ECDH SW group.**
 
 If one algorithm is expected to be enabled, the preconditions are:

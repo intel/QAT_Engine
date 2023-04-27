@@ -125,6 +125,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_GET_ORDER_FAILURE), "get order failure"},
     {ERR_PACK(0, 0, QAT_R_GET_PQG_FAILURE), "get pqg failure"},
     {ERR_PACK(0, 0, QAT_R_GET_PRIV_KEY_FAILURE), "get priv key failure"},
+    {ERR_PACK(0, 0, QAT_R_GROUP_NULL), "group null"},
     {ERR_PACK(0, 0, QAT_R_GROUP_PRIV_KEY_PUB_KEY_NULL),
     "group priv key pub key null"},
     {ERR_PACK(0, 0, QAT_R_GROUP_PUB_KEY_NULL), "group pub key null"},

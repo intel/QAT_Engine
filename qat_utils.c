@@ -131,6 +131,22 @@ rdtsc_prof_t sm4_ccm_cycles_ctrl_setup;
 rdtsc_prof_t sm4_ccm_cycles_ctrl_execute;
 rdtsc_prof_t sm4_ccm_cycles_cleanup_setup;
 rdtsc_prof_t sm4_ccm_cycles_cleanup_execute;
+rdtsc_prof_t qat_hw_rsa_dec_req_prepare;
+rdtsc_prof_t qat_hw_rsa_dec_req_submit;
+rdtsc_prof_t qat_hw_rsa_dec_req_retry;
+rdtsc_prof_t qat_hw_rsa_dec_req_cleanup;
+rdtsc_prof_t qat_hw_ecdsa_sign_req_prepare;
+rdtsc_prof_t qat_hw_ecdsa_sign_req_submit;
+rdtsc_prof_t qat_hw_ecdsa_sign_req_retry;
+rdtsc_prof_t qat_hw_ecdsa_sign_req_cleanup;
+rdtsc_prof_t qat_hw_ecdh_derive_req_prepare;
+rdtsc_prof_t qat_hw_ecdh_derive_req_submit;
+rdtsc_prof_t qat_hw_ecdh_derive_req_retry;
+rdtsc_prof_t qat_hw_ecdh_derive_req_cleanup;
+rdtsc_prof_t qat_hw_ecx_derive_req_prepare;
+rdtsc_prof_t qat_hw_ecx_derive_req_submit;
+rdtsc_prof_t qat_hw_ecx_derive_req_retry;
+rdtsc_prof_t qat_hw_ecx_derive_req_cleanup;
 
 volatile static double rdtsc_prof_cost = 0.0; /* cost of measurement */
 int print_cycle_count = 1;

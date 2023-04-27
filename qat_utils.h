@@ -945,6 +945,23 @@ extern rdtsc_prof_t sm4_ccm_cycles_get_tag_setup;
 extern rdtsc_prof_t sm4_ccm_cycles_get_tag_execute;
 extern rdtsc_prof_t sm4_ccm_cycles_update_aad_setup;
 extern rdtsc_prof_t sm4_ccm_cycles_update_aad_execute;
+extern rdtsc_prof_t qat_hw_rsa_dec_req_prepare;
+extern rdtsc_prof_t qat_hw_rsa_dec_req_submit;
+extern rdtsc_prof_t qat_hw_rsa_dec_req_retry;
+extern rdtsc_prof_t qat_hw_rsa_dec_req_cleanup;
+extern rdtsc_prof_t qat_hw_ecdsa_sign_req_prepare;
+extern rdtsc_prof_t qat_hw_ecdsa_sign_req_submit;
+extern rdtsc_prof_t qat_hw_ecdsa_sign_req_retry;
+extern rdtsc_prof_t qat_hw_ecdsa_sign_req_cleanup;
+extern rdtsc_prof_t qat_hw_ecdh_derive_req_prepare;
+extern rdtsc_prof_t qat_hw_ecdh_derive_req_submit;
+extern rdtsc_prof_t qat_hw_ecdh_derive_req_retry;
+extern rdtsc_prof_t qat_hw_ecdh_derive_req_cleanup;
+extern rdtsc_prof_t qat_hw_ecx_derive_req_prepare;
+extern rdtsc_prof_t qat_hw_ecx_derive_req_submit;
+extern rdtsc_prof_t qat_hw_ecx_derive_req_retry;
+extern rdtsc_prof_t qat_hw_ecx_derive_req_cleanup;
+
 extern int print_cycle_count;
 
 /**
@@ -1146,6 +1163,22 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_print(&sm4_ccm_cycles_get_tag_execute, "[SM4_CCM:get_tag_execute]");   \
         rdtsc_prof_print(&sm4_ccm_cycles_update_aad_setup, "[SM4_CCM:update_aad_setup]");   \
         rdtsc_prof_print(&sm4_ccm_cycles_update_aad_execute, "[SM4_CCM:update_aad_execute]");  \
+        rdtsc_prof_print(&qat_hw_rsa_dec_req_prepare, "[QAT HW RSA: prepare]");   \
+        rdtsc_prof_print(&qat_hw_rsa_dec_req_submit, "[QAT HW RSA: submit]");   \
+        rdtsc_prof_print(&qat_hw_rsa_dec_req_retry, "[QAT HW RSA: retry]");   \
+        rdtsc_prof_print(&qat_hw_rsa_dec_req_cleanup, "[QAT HW RSA: cleanup]");   \
+        rdtsc_prof_print(&qat_hw_ecdsa_sign_req_prepare, "[QAT HW ECDSA: prepare]");   \
+        rdtsc_prof_print(&qat_hw_ecdsa_sign_req_submit, "[QAT HW ECDSA: submit]");   \
+        rdtsc_prof_print(&qat_hw_ecdsa_sign_req_retry, "[QAT HW ECDSA: retry]");   \
+        rdtsc_prof_print(&qat_hw_ecdsa_sign_req_cleanup, "[QAT HW ECDSA: cleanup]");   \
+        rdtsc_prof_print(&qat_hw_ecdh_derive_req_prepare, "[QAT HW ECDH: prepare]");   \
+        rdtsc_prof_print(&qat_hw_ecdh_derive_req_submit, "[QAT HW ECDH: submit]");   \
+        rdtsc_prof_print(&qat_hw_ecdh_derive_req_retry, "[QAT HW ECDH: retry]");   \
+        rdtsc_prof_print(&qat_hw_ecdh_derive_req_cleanup, "[QAT HW ECDH: cleanup]");   \
+        rdtsc_prof_print(&qat_hw_ecx_derive_req_prepare, "[QAT HW ECX: prepare]");   \
+        rdtsc_prof_print(&qat_hw_ecx_derive_req_submit, "[QAT HW ECX: submit]");   \
+        rdtsc_prof_print(&qat_hw_ecx_derive_req_retry, "[QAT HW ECX: retry]");   \
+        rdtsc_prof_print(&qat_hw_ecx_derive_req_cleanup, "[QAT HW ECX: cleanup]");   \
     } while (0)
 
 #  define START_RDTSC(ptr_clock)     \
