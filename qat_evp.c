@@ -482,6 +482,14 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 # endif
         qat_hw_ecx_offload = 1;
         DEBUG("QAT HW X25519 registration succeeded\n");
+# ifdef ENABLE_QAT_SW_ECX
+        if (qat_sw_offload &&
+            (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519) &&
+            mbx_get_algo_info(MBX_ALGO_X25519)) {
+            qat_ecx_coexist = 1;
+            DEBUG("QAT ECX25519 HW&SW Coexistence is enabled \n");
+        }
+# endif
     } else {
         qat_hw_ecx_offload = 0;
         DEBUG("QAT HW X25519 is disabled\n");
@@ -1189,6 +1197,17 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
                                  qat_ecdsa_do_verify);
         qat_hw_ecdsa_offload = 1;
         DEBUG("QAT HW ECDSA Registration succeeded\n");
+# ifdef ENABLE_QAT_SW_ECDSA
+        if (qat_sw_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA) &&
+        (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
+            qat_ecdsa_coexist = 1;
+            DEBUG("QAT ECDSA HW&SW Coexistence is enabled \n");
+        }
+# endif
     } else {
         qat_hw_ecdsa_offload = 0;
         DEBUG("QAT HW ECDSA is disabled\n");
@@ -1259,6 +1278,17 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
         EC_KEY_METHOD_set_compute_key(qat_ec_method, qat_engine_ecdh_compute_key);
         qat_hw_ecdh_offload = 1;
         DEBUG("QAT HW ECDH Registration succeeded\n");
+# ifdef ENABLE_QAT_SW_ECDH
+        if (qat_sw_offload &&
+            (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDH) &&
+            (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
+            qat_ecdh_coexist = 1;
+            DEBUG("QAT ECDH HW&SW Coexistence is enabled \n");
+        }
+# endif
     } else {
         qat_hw_ecdh_offload = 0;
         DEBUG("QAT HW ECDH disabled\n");
@@ -1304,6 +1334,8 @@ void qat_free_EC_methods(void)
         qat_hw_ecdsa_offload = 0;
         qat_sw_ecdh_offload = 0;
         qat_sw_ecdsa_offload = 0;
+        qat_ecdsa_coexist = 0;
+        qat_ecdh_coexist = 0;
     }
 }
 
@@ -1349,6 +1381,16 @@ RSA_METHOD *qat_get_RSA_methods(void)
         }
         qat_hw_rsa_offload = 1;
         DEBUG("QAT HW RSA Registration succeeded\n");
+# ifdef ENABLE_QAT_SW_RSA
+        if (qat_sw_offload &&
+            (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_RSA) &&
+            mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
+            mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
+            mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
+            qat_rsa_coexist = 1;
+            DEBUG("QAT RSA HW&SW Coexistence is enabled \n");
+        }
+# endif
     } else {
         qat_hw_rsa_offload = 0;
         DEBUG("QAT HW RSA is disabled\n");
@@ -1406,6 +1448,7 @@ void qat_free_RSA_methods(void)
         qat_rsa_method = NULL;
         qat_hw_rsa_offload = 0;
         qat_sw_rsa_offload = 0;
+        qat_rsa_coexist = 0;
     }
 }
 

@@ -82,6 +82,10 @@
 #include "qat_hw_rsa_crt.h"
 #include "qat_evp.h"
 
+#ifdef ENABLE_QAT_SW_RSA
+# include "qat_sw_rsa.h"
+#endif
+
 /* To specify the RSA op sizes supported by QAT engine */
 #ifdef QAT_INSECURE_ALGO
 # define RSA_QAT_RANGE_MIN 512
@@ -234,7 +238,8 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 # ifdef QAT_BORINGSSL
     op_done_bssl = (op_done_t*)op_done.job->copy_op_done(&op_done,
        sizeof(op_done), (void (*)(void *, void *))rsa_decrypt_op_buf_free);
-# endif
+#endif
+    STOP_RDTSC(&qat_hw_rsa_dec_req_prepare, 1, "[QAT HW RSA: prepare]");
     /*
      * cpaCyRsaDecrypt() is the function called for RSA Sign in the API.
      * For that particular case the dec_op_data [IN] contains both the
@@ -245,6 +250,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
      */
     CRYPTO_QAT_LOG("- RSA\n");
     do {
+        START_RDTSC(&qat_hw_rsa_dec_req_submit);
         if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM)) == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
@@ -270,11 +276,23 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn,
                               &op_done,
                               dec_op_data, output_buf);
+        STOP_RDTSC(&qat_hw_rsa_dec_req_submit, 1, "[QAT HW RSA: submit]");
         if (sts == CPA_STATUS_RETRY) {
-            if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                WARN("qat_wake_job or qat_pause_job failed\n");
-                break;
+            DEBUG("cpaCyRsaDecrypt Retry \n");
+            if (qat_rsa_coexist) {
+                START_RDTSC(&qat_hw_rsa_dec_req_retry);
+                ++num_rsa_priv_retry;
+                qat_sw_rsa_priv_req += QAT_RETRY_COUNT;
+                *fallback = 1;
+                qat_cleanup_op_done(&op_done);
+                STOP_RDTSC(&qat_hw_rsa_dec_req_retry, 1, "[QAT HW RSA: retry]");
+                return 0;
+            } else {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    break;
+                }
             }
         }
 # endif /* QAT_BORINGSSL */
@@ -334,6 +352,10 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     if (enable_heuristic_polling) {
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
+    }
+
+    if (qat_rsa_coexist) {
+        ++num_rsa_hw_priv_reqs;
     }
 
     do {
@@ -624,6 +646,7 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         sts = cpaCyRsaEncrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn, &op_done,
                               enc_op_data, output_buf);
         if (sts == CPA_STATUS_RETRY) {
+            DEBUG("cpaCyRsaDecrypt Retry \n");
             if (op_done.job == NULL) {
                 usleep(ulPollInterval +
                        (qatPerformOpRetries % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
@@ -635,10 +658,18 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                     }
                 }
             } else {
-                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                    WARN("qat_wake_job or qat_pause_job failed\n");
-                    break;
+                if (qat_rsa_coexist) {
+                    ++num_rsa_pub_retry;
+                    qat_sw_rsa_pub_req += QAT_RETRY_COUNT;
+                    *fallback = 1;
+                    qat_cleanup_op_done(&op_done);
+                    return 0;
+                } else {
+                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                        WARN("qat_wake_job or qat_pause_job failed\n");
+                        break;
+                    }
                 }
             }
         }
@@ -688,6 +719,10 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
 
     if (enable_heuristic_polling) {
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
+    }
+
+    if (qat_rsa_coexist) {
+        ++num_rsa_hw_pub_reqs;
     }
 
     do {
@@ -918,11 +953,12 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
     DEBUG("QAT HW RSA Started.\n");
 
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode\n");
-        return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
-                                     (flen, from, to, rsa, padding);
+    if ((qat_sw_rsa_priv_req > 0) || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto exit_lenstra;
     }
+
+    START_RDTSC(&qat_hw_rsa_dec_req_prepare);
 
     /* Parameter Checking */
     /*
@@ -1022,18 +1058,28 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     return rsa_len;
 
 exit:
+    START_RDTSC(&qat_hw_rsa_dec_req_cleanup);
     /* Free all the memory allocated in this function */
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
+    STOP_RDTSC(&qat_hw_rsa_dec_req_cleanup, 1, "[QAT HW RSA: cleanup]");
 
 # ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
 exit_lenstra:
 # endif
 
     if (fallback) {
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef ENABLE_QAT_SW_RSA
+        if (qat_rsa_coexist) {
+            DEBUG("- Switch to QAT SW mode.\n");
+            --qat_sw_rsa_priv_req;
+            return multibuff_rsa_priv_enc(flen, from, to, rsa, padding);
+        }
+#endif
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
         return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
-                                     (flen, from, to, rsa, padding);
+                                    (flen, from, to, rsa, padding);
     }
 
     if (!sts)
@@ -1078,12 +1124,12 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
 
     DEBUG("QAT HW RSA Started.\n");
 
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode\n");
-        return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())
-                                     (flen, from, to, rsa, padding);
+    if ((qat_sw_rsa_priv_req > 0) || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto exit;
     }
 
+    START_RDTSC(&qat_hw_rsa_dec_req_prepare);
     /* parameter checks */
     if (unlikely(rsa == NULL || from == NULL || to == NULL ||
                  (flen != (rsa_len = RSA_size(rsa))))) {
@@ -1223,14 +1269,24 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     return output_len;
 
  exit:
+    START_RDTSC(&qat_hw_rsa_dec_req_cleanup);
     /* Free all the memory allocated in this function */
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
+    STOP_RDTSC(&qat_hw_rsa_dec_req_cleanup, 1, "[QAT HW RSA: cleanup]");
 
     if (fallback) {
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef ENABLE_QAT_SW_RSA
+        if (qat_rsa_coexist) {
+            DEBUG("- Switch to QAT_SW mode.\n");
+            --qat_sw_rsa_priv_req;
+            return multibuff_rsa_priv_dec(flen, from, to, rsa, padding);
+        }
+#endif
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
         return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())
-                                     (flen, from, to, rsa, padding);
+                                    (flen, from, to, rsa, padding);
     }
 
     if (!sts)
@@ -1270,10 +1326,9 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
 
     DEBUG("QAT HW RSA Started.\n");
 
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode\n");
-        return RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
-                                    (flen, from, to, rsa, padding);
+    if ((qat_sw_rsa_pub_req > 0) || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto exit;
     }
 
     /* parameter checks */
@@ -1327,6 +1382,14 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
 
     if (fallback) {
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef ENABLE_QAT_SW_RSA
+        if (qat_rsa_coexist) {
+            DEBUG("- Switch to QAT_SW mode.\n");
+            --qat_sw_rsa_pub_req;
+            return multibuff_rsa_pub_enc(flen, from, to, rsa, padding);
+        }
+#endif
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
         return RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
@@ -1370,10 +1433,9 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
 
     DEBUG("QAT HW RSA Started.\n");
 
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode\n");
-        return RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
-                                    (flen, from, to, rsa, padding);
+    if ((qat_sw_rsa_pub_req > 0) || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto exit;
     }
 
     /* parameter checking */
@@ -1454,6 +1516,14 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
 
     if (fallback) {
+        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef ENABLE_QAT_SW_RSA
+        if (qat_rsa_coexist) {
+            DEBUG("- Switch to QAT_SW mode.\n");
+            --qat_sw_rsa_pub_req;
+            return multibuff_rsa_pub_dec(flen, from, to, rsa, padding);
+        }
+#endif
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
         return RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())

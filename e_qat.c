@@ -268,6 +268,40 @@ uint64_t qat_sw_algo_enable_mask = 0;
    Use this flag to distinguish it from the other cases. */
 int qat_reload_algo = 0;
 
+/* For QAT_HW & QAT_SW co-existence submission. */
+int qat_rsa_coexist = 0;
+int qat_ecdh_coexist = 0;
+int qat_ecdsa_coexist = 0;
+int qat_ecx_coexist = 0;
+__thread unsigned int qat_sw_rsa_priv_req = 0;
+__thread unsigned int qat_sw_rsa_pub_req = 0;
+__thread unsigned int qat_sw_ecdsa_sign_req = 0;
+__thread unsigned int qat_sw_ecdh_keygen_req = 0;
+__thread unsigned int qat_sw_ecdh_derive_req = 0;
+__thread unsigned int qat_sw_ecx_keygen_req = 0;
+__thread unsigned int qat_sw_ecx_derive_req = 0;
+__thread int num_rsa_priv_retry = 0;
+__thread int num_rsa_pub_retry = 0;
+__thread int num_ecdsa_sign_retry = 0;
+__thread int num_ecdh_keygen_retry = 0;
+__thread int num_ecdh_derive_retry = 0;
+__thread int num_ecx_keygen_retry = 0;
+__thread int num_ecx_derive_retry = 0;
+__thread unsigned long long num_rsa_hw_priv_reqs = 0;
+__thread unsigned long long num_rsa_sw_priv_reqs = 0;
+__thread unsigned long long num_rsa_hw_pub_reqs = 0;
+__thread unsigned long long num_rsa_sw_pub_reqs = 0;
+__thread unsigned long long num_ecdsa_hw_sign_reqs = 0;
+__thread unsigned long long num_ecdsa_sw_sign_reqs = 0;
+__thread unsigned long long num_ecdh_hw_keygen_reqs = 0;
+__thread unsigned long long num_ecdh_sw_keygen_reqs = 0;
+__thread unsigned long long num_ecdh_hw_derive_reqs = 0;
+__thread unsigned long long num_ecdh_sw_derive_reqs = 0;
+__thread unsigned long long num_ecx_hw_keygen_reqs = 0;
+__thread unsigned long long num_ecx_sw_keygen_reqs = 0;
+__thread unsigned long long num_ecx_hw_derive_reqs = 0;
+__thread unsigned long long num_ecx_sw_derive_reqs = 0;
+
 #ifndef QAT_BORINGSSL
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -439,6 +473,7 @@ static int qat_engine_destroy(ENGINE *e)
 # endif
 
     qat_hw_ecx_offload = 0;
+    qat_ecx_coexist = 0;
     qat_hw_prf_offload = 0;
     qat_hw_hkdf_offload = 0;
     qat_sw_ecx_offload = 0;
@@ -556,6 +591,23 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     int ret = 1;
 
     DEBUG("---- QAT Engine Finishing...\n\n");
+    DEBUG("RSA Priv retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_rsa_priv_retry, num_rsa_hw_priv_reqs, num_rsa_sw_priv_reqs);
+    DEBUG("RSA Pub retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_rsa_pub_retry, num_rsa_hw_pub_reqs, num_rsa_sw_pub_reqs);
+    DEBUG("ECDH keygen retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_ecdh_keygen_retry, num_ecdh_hw_keygen_reqs,
+          num_ecdh_sw_keygen_reqs);
+    DEBUG("ECDH derive retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_ecdh_derive_retry, num_ecdh_hw_derive_reqs,
+          num_ecdh_sw_derive_reqs);
+    DEBUG("ECX keygen retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_ecx_keygen_retry, num_ecx_hw_keygen_reqs, num_ecx_sw_keygen_reqs);
+    DEBUG("ECX derive retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_ecx_derive_retry, num_ecx_hw_derive_reqs, num_ecx_sw_derive_reqs);
+    DEBUG("ECDSA sign retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_ecdsa_sign_retry, num_ecdsa_hw_sign_reqs, num_ecdsa_sw_sign_reqs);
+
     qat_pthread_mutex_lock();
 
 #ifdef QAT_HW

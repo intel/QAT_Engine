@@ -156,6 +156,7 @@ void process_ecdsa_sign_reqs(mb_thread_data *tlv, int bit_len)
         break;
     case EC_P384:
         DEBUG("Submitting %d ECDSA p384 sign requests\n", local_request_no);
+        num_ecdsa_sw_sign_reqs += local_request_no;
         sts = mbx_nistp384_ecdsa_sign_ssl_mb8(sign_r,
                                               sign_s,
                                               digest,
@@ -575,10 +576,10 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int curve)
 
     local_request_no = req_num;
 
-
     switch (curve) {
     case EC_P256:
-       DEBUG("Submitting %d ECDH p256 Keygen requests\n", local_request_no);
+        DEBUG("Submitting %d ECDH p256 Keygen requests\n", local_request_no);
+        num_ecdh_sw_keygen_reqs += local_request_no;
         ecdh_sts = mbx_nistp256_ecpublic_key_ssl_mb8(ecdh_keygen_x,
                                                      ecdh_keygen_y,
                                                      ecdh_keygen_z,
@@ -587,6 +588,7 @@ void process_ecdh_keygen_reqs(mb_thread_data *tlv, int curve)
         break;
     case EC_P384:
         DEBUG("Submitting %d ECDH p384 Keygen requests\n", local_request_no);
+        num_ecdh_sw_keygen_reqs += local_request_no;
         ecdh_sts = mbx_nistp384_ecpublic_key_ssl_mb8(ecdh_keygen_x,
                                                      ecdh_keygen_y,
                                                      ecdh_keygen_z,
@@ -713,6 +715,7 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int curve)
     switch (curve) {
 	case EC_P256:
         DEBUG("Submitting %d ECDH p256 Compute requests\n", local_request_no);
+        num_ecdh_sw_derive_reqs += local_request_no;
         ecdh_sts = mbx_nistp256_ecdh_ssl_mb8(ecdh_compute_shared_key,
                                              ecdh_compute_privkey,
                                              ecdh_compute_x,
@@ -722,6 +725,7 @@ void process_ecdh_compute_reqs(mb_thread_data *tlv, int curve)
         break;
 	case EC_P384:
         DEBUG("Submitting %d ECDH p384 Compute requests\n", local_request_no);
+        num_ecdh_sw_derive_reqs += local_request_no;
         ecdh_sts = mbx_nistp384_ecdh_ssl_mb8(ecdh_compute_shared_key,
                                              ecdh_compute_privkey,
                                              ecdh_compute_x,

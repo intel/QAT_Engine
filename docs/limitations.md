@@ -71,6 +71,8 @@
 * SM3 is disabled by default due to performance drop observed in **mulithread scenario**
   for all ciphers suites due to the additional locks at engine_table_select introduced by
   engine digest registration in OpenSSL - [OpenSSL#18509][5]
+* In Co-Existence mode, performance will drop for PKE algorithms compared with
+  QAT_SW when process number >= 64.
 
 [1]:https://github.com/openssl/openssl/pull/17112
 [2]:https://github.com/openssl/openssl/issues/18298

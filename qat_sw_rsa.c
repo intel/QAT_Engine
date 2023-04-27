@@ -364,6 +364,7 @@ void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits)
     }
     local_request_no = req_num;
     DEBUG("Submitting %d priv requests\n", local_request_no);
+    num_rsa_sw_priv_reqs += local_request_no;
 
     rsa_sts = mbx_rsa_private_crt_ssl_mb8(rsa_priv_from,
                                           rsa_priv_to,
@@ -539,6 +540,7 @@ void process_RSA_pub_reqs(mb_thread_data *tlv, int rsa_bits)
     }
     local_request_no = req_num;
     DEBUG("Submitting %d pub requests\n", local_request_no);
+    num_rsa_sw_pub_reqs += local_request_no;
 
     rsa_sts = mbx_rsa_public_ssl_mb8(rsa_pub_from,
                                      rsa_pub_to,

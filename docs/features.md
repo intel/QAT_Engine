@@ -55,4 +55,3 @@ Please refer [here](qat_hw_algo.md) for supported platforms list and default beh
 
 Note: RSA Padding schemes are handled by OpenSSL\* or BoringSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL\* or BoringSSL\* does natively.
-
