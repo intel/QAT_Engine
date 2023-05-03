@@ -578,9 +578,7 @@ err:
 static int runTlsPrfOps(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
-    struct async_additional_args_kdf *temp_add_args =
-         (struct async_additional_args_kdf *) temp_args->additional_args;
-    int operation = temp_add_args->operation;
+    int operation = temp_args->prf_op;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
     char *tls_version = temp_args->tls_version;
@@ -732,15 +730,11 @@ static int runTlsPrfOps(void *args)
 
 void tests_run_prf(TEST_PARAMS *args)
 {
-    struct async_additional_args_kdf extra_args;
     int operation = 0;
-
-    args->additional_args =  &extra_args;
-    extra_args.operation = 0; /* Operation if not specified for performance tests */
 
     if (args->performance || args->prf_op != -1 ) {
         if (args->prf_op != -1)
-            extra_args.operation = args->prf_op;
+            args->prf_op = 0; /* Operation if not specified for performance tests */
         if (!args->enable_async) {
             runTlsPrfOps(args);
         } else {
@@ -750,12 +744,12 @@ void tests_run_prf(TEST_PARAMS *args)
     }
     if (!args->enable_async) {
         for (operation = 0; operation < 5; operation++) {
-            extra_args.operation = operation;
+            args->prf_op = operation;
             runTlsPrfOps(args);
         }
     } else {
         for (operation = 0; operation < 5; operation++) {
-            extra_args.operation = operation;
+            args->prf_op = operation;
             start_async_job(args, runTlsPrfOps);
         }
     }

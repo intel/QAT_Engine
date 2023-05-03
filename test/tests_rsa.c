@@ -2154,20 +2154,18 @@ static int run_rsa(void *args)
     int status = 0;
 
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
-    struct async_additional_args_rsa *extra_args =
-        (struct async_additional_args_rsa *)temp_args->additional_args;
     int count = *(temp_args->count);
     int size = temp_args->size;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
-    int sign_only = extra_args->sign_only;
-    int verify_only = extra_args->verify_only;
-    int encrypt_only = extra_args->encrypt_only;
-    int decrypt_only = extra_args->decrypt_only;
+    int sign_only = temp_args->sign_only;
+    int verify_only = temp_args->verify_only;
+    int encrypt_only = temp_args->encrypt_only;
+    int decrypt_only = temp_args->decrypt_only;
 #ifndef QAT_OPENSSL_PROVIDER
-    int rsa_all = extra_args->rsa_all;
+    int rsa_all = temp_args->rsa_all;
 #endif
-    int pad = extra_args->padding;
+    int pad = temp_args->padding;
 
 #ifdef QAT_OPENSSL_PROVIDER
     int enable_negative = temp_args->enable_negative;
@@ -2617,7 +2615,10 @@ static int run_rsa(void *args)
     RAND_bytes(expectedPtext, 36);
 
     for (i = 0; i < count; i++) {
-        testnum = i;
+        for (testnum = 0; testnum < 5; testnum++) {
+             if (size == rsa_keys[testnum].bits)
+                 break;
+        }
         const unsigned char *R = rsa_keys[testnum].data;
         rsa_key = d2i_PrivateKey(EVP_PKEY_RSA, NULL, &R, rsa_keys[testnum].length);
 
@@ -2796,37 +2797,6 @@ err:
     return ret;
 }
 
-
-static void rsa_tests_triage(TEST_PARAMS *args, int sign_only,
-                             int verify_only, int encrypt_only,
-                             int decrypt_only)
-{
-    int i;
-    struct async_additional_args_rsa extra_args;
-    args->additional_args = &extra_args;
-    extra_args.sign_only = sign_only;
-    extra_args.verify_only = verify_only;
-    extra_args.encrypt_only = encrypt_only;
-    extra_args.decrypt_only = decrypt_only;
-
-    if (!sign_only && !verify_only && !encrypt_only && !decrypt_only) {
-        extra_args.rsa_all = 1;
-    }
-    for (i = 0; i < sizeof(padding) / sizeof(padding[0]); i++) {
-        extra_args.padding = padding[i];
-        if (((padding[i] == RSA_PKCS1_OAEP_PADDING) &&
-            (sign_only || verify_only || extra_args.rsa_all)) ||
-            ((padding[i] == RSA_X931_PADDING) &&
-            (encrypt_only || decrypt_only || extra_args.rsa_all)))
-            continue;
-        if (!args->enable_async)
-            run_rsa(args);
-        else {
-            start_async_job(args, run_rsa);
-        }
-    }
-}
-
 /******************************************************************************
 * function:
 *      tests_run_rsa (TEST_PARAMS *args)
@@ -2840,6 +2810,22 @@ static void rsa_tests_triage(TEST_PARAMS *args, int sign_only,
 
 void tests_run_rsa(TEST_PARAMS *args)
 {
-    rsa_tests_triage(args, args->sign_only, args->verify_only,
-                     args->encrypt_only, args->decrypt_only);
+    int i;
+
+    if (!args->sign_only && !args->verify_only
+        && !args->encrypt_only && !args->decrypt_only) {
+        args->rsa_all = 1;
+    }
+    for (i = 0; i < sizeof(padding) / sizeof(padding[0]); i++) {
+        args->padding = padding[i];
+        if (((padding[i] == RSA_PKCS1_OAEP_PADDING) &&
+            (args->sign_only ||  args->verify_only || args->rsa_all)) ||
+            ((padding[i] == RSA_X931_PADDING) &&
+            (args->encrypt_only || args->decrypt_only || args->rsa_all)))
+            continue;
+        if (!args->enable_async)
+            run_rsa(args);
+        else
+            start_async_job(args, run_rsa);
+    }
 }

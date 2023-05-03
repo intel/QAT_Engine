@@ -590,7 +590,6 @@ builtin_err:
 ******************************************************************************/
 static int run_ecdsa(void *args)
 {
-    int i = 0;
     int ret = 1;
 
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
@@ -615,16 +614,9 @@ static int run_ecdsa(void *args)
 
     RAND_seed(rnd_seed, sizeof(rnd_seed));
 
-    if (!curve) {
-        for (i = 1; i < CURVE_TYPE_MAX; i++) {
-            if (test_ecdsa(count, size, e, print, verify, i,
-                           ne) < 0)
-                ret = 0;
-        }
-    } else if (test_ecdsa(count, size, e, print, verify, curve,
-                          ne) < 0) {
-            ret = 0;
-    }
+    if (test_ecdsa(count, size, e, print, verify, curve, ne) < 0)
+        ret = 0;
+
     return ret;
 }
 

@@ -121,7 +121,6 @@ static char *tls_version = NULL;
 static char *digest_kdf = NULL;
 static int prf_op = -1;
 static int hkdf_op = -1;
-static int ecx_op = -1;
 static int explicit_engine = 0;
 static int async_jobs = 1;
 static int sw_fallback = 0;
@@ -236,8 +235,8 @@ static const option_data ecdh_choices[] = {
     {"ecdhb283", 0, TEST_ECDH, B_CURVE_283, 0},
     {"ecdhb409", 0, TEST_ECDH, B_CURVE_409, 0},
     {"ecdhb571", 0, TEST_ECDH, B_CURVE_571, 0},
-    {"ecdhx25519", 0, TEST_ECX, 0, 0},
-    {"ecdhx448", 0, TEST_ECX, 0, 1},
+    {"ecdhx25519", 0, TEST_ECX, X_CURVE_25519, 0},
+    {"ecdhx448", 0, TEST_ECX, X_CURVE_448, 0},
     {"ecdhsm2", 0, TEST_ECDH, P_CURVE_SM2, 0},
 };
 
@@ -915,7 +914,6 @@ static void handle_option(int argc, char *argv[], int *index)
                 printf ("name %s\n", ecdh_choices[i].name);
                 curve = ecdh_choices[i].curve_name;
                 test_alg = ecdh_choices[i].test_alg;
-                ecx_op = ecdh_choices[i].op;
                 break;
             }
     } else if (!strncmp(option, "ecdsa", strlen("ecdsa"))) {
@@ -1114,7 +1112,6 @@ static void performance_test(void)
         info->test_params->async_jobs = async_jobs;
         info->test_params->prf_op = prf_op;
         info->test_params->hkdf_op = hkdf_op;
-        info->test_params->ecx_op = ecx_op;
         info->test_params->jobs = OPENSSL_malloc(sizeof(ASYNC_JOB*)*async_jobs);
         if (info->test_params->jobs == NULL) {
             WARN("# FAIL: Unable to allocate info->test_params->jobs\n");
@@ -1337,7 +1334,6 @@ static void functional_test(void)
     args.async_jobs = async_jobs;
     args.prf_op = prf_op;
     args.hkdf_op = hkdf_op;
-    args.ecx_op = ecx_op;
     args.jobs = OPENSSL_malloc(sizeof(ASYNC_JOB*)*async_jobs);
     if (args.jobs == NULL) {
         WARN("# FAIL: Unable to allocate args.jobs\n");
@@ -1377,8 +1373,9 @@ static void functional_test(void)
     } else if (test_alg == TEST_TYPE_MAX - 1) {
         args.count = &test_count;
         tests_run(&args, 0);
-    } else
+    } else {
         tests_run(&args, 0);
+    }
 
     for (i =0; i < async_jobs; i++)
         ASYNC_WAIT_CTX_free(args.awcs[i]);
@@ -1508,12 +1505,10 @@ int main(int argc, char *argv[])
         printf("\tPRF Operation:        %d\n", prf_op);
     if (hkdf_op != -1)
         printf("\tHKDF Operation:       %d\n", hkdf_op);
-    if (ecx_op != -1)
-        printf("\tECX Operation:        %s\n", ecx_op ? "X448" : "X25519");
     printf("\tSW Fallback:          %s\n", sw_fallback ? "Yes" : "No");
     printf("\n");
 
-    if (enable_perf == 0)
+    if (!enable_perf)
         functional_test();
     else
         performance_test();
@@ -1523,7 +1518,7 @@ int main(int argc, char *argv[])
                              enable_external_polling,
                              enable_event_driven_polling, sw_fallback);
 #ifdef QAT_OPENSSL_PROVIDER
-    else if (provider)
+    if (provider)
         tests_cleanup_provider(provider);
 #endif
 
