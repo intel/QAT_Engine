@@ -371,9 +371,9 @@ static int test_ecdh_curve(ENGINE * e,
         }
     }
     if (!ret) {
-        if (!ecdh_negative_testcount )
+        if (!ecdh_negative_testcount ) {
             INFO("# PASS verify for ECDH.\n");
-        else {
+        } else {
             INFO("# FAIL verify for ECDH.\n");
             BIO_printf(out,"Negative scenario %d: verify Passed unexpectedly ",
                        ecdh_negative_testcount );
@@ -387,7 +387,7 @@ static int test_ecdh_curve(ENGINE * e,
         BIO_puts(out,"\nTesting key generation with ");
         BIO_puts(out,text);
         BIO_puts(out,"\n");
-       }
+    }
 
     key1 = get_ec_key(nid);
     key2 = get_ec_key(nid);
@@ -574,7 +574,7 @@ EVP_PKEY *get_ec_key(const int nid)
 static int run_ecdh(void *args)
 {
     BN_CTX *ctx = NULL;
-    int i = 0, j = 0;
+    int i = 0;
     BIO *out = NULL;
     int ret = 1;
 
@@ -610,24 +610,11 @@ static int run_ecdh(void *args)
     if(enable_negative > 0)
        ecdh_negative_testcount = ECDH_NEGATIVE_TESTCOUNT;
 
-    if (curve) {
-            for (i = 0; i <= ecdh_negative_testcount; i++) {
-                  if (test_ecdh_curve(e, get_nid(curve), ecdh_curve_name(curve),
-                          ctx, count, print_output, verify, out, kdf, i) < 0) {
-                          ret = 0;
-                     }
-            }
-     }
-     else {
-          for (i = 0; i <= ecdh_negative_testcount; i++) {
-               for (j = 1; j < CURVE_TYPE_MAX; j++) {
-                    if (test_ecdh_curve(e, get_nid(j), ecdh_curve_name(j), ctx,
-                           count, print_output, verify, out, kdf, i) < 0) {
-                    ret = 0;
-                    }
-               }
-         }
-     }
+    for (i = 0; i <= ecdh_negative_testcount; i++) {
+        if (test_ecdh_curve(e, get_nid(curve), ecdh_curve_name(curve),
+                    ctx, count, print_output, verify, out, kdf, i) < 0)
+            ret = 0;
+    }
 err:
     if (ret != 1)
         ERR_print_errors_fp(stderr);

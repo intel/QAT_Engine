@@ -239,9 +239,9 @@ static int test_ecx_curve(int nid,
         }
     }
     if (ret == 0)
-        INFO("# PASS verify for ECX.\n");
+        INFO("# PASS verify for ECDH%s.\n", text);
     else
-        INFO("# FAIL verify for ECX.\n");
+        INFO("# FAIL verify for ECDH%s.\n", text);
 
 err:
     if (ret != 0)
@@ -286,20 +286,12 @@ err:
 ******************************************************************************/
 static int run_ecx(void *args)
 {
-    int nid = 0;
-    BIO *out = NULL;
-    int ret = 1;
-
     TEST_PARAMS *local_args = (TEST_PARAMS *)args;
-    struct async_additional_args_kdf *extra_args =
-        (struct async_additional_args_kdf *)local_args->additional_args;
-    int operation = extra_args->operation;
-
     int count = *(local_args->count);
     int print_output = local_args->print_output;
     int verify = local_args->verify;
-
-    const char *curve_name;
+    BIO *out = NULL;
+    int ret = 1;
 
     out = BIO_new(BIO_s_file());
     if (out == NULL) {
@@ -308,27 +300,15 @@ static int run_ecx(void *args)
     }
     BIO_set_fp(out, stdout, BIO_NOCLOSE);
 
-    switch (operation) {
-    case 0:
-        nid = EVP_PKEY_X25519;
-        curve_name = "X25519";
-        break;
-    case 1:
-        nid = EVP_PKEY_X448;
-        curve_name = "X448";
-        break;
-    default:
-        WARN("# FAIL ECX: operation incorrect.\n");
-        ret = 0;
-        goto err;
-    }
+    if (local_args->curve == X_CURVE_448)
+        ret = test_ecx_curve(EVP_PKEY_X448, "X448", count, print_output, verify, out);
+    else
+        ret = test_ecx_curve(EVP_PKEY_X25519, "X25519", count, print_output, verify, out);
 
-    if (test_ecx_curve(nid, curve_name, count, print_output, verify, out) < 0)
-        ret = 0;
-
-err:
-    if (ret != 1)
+    if (ret < 0)
         ERR_print_errors_fp(stderr);
+    else
+        ret = 1;
     BIO_free(out);
 
     return ret;
@@ -346,29 +326,8 @@ err:
 ******************************************************************************/
 void tests_run_ecx(TEST_PARAMS *args)
 {
-    struct async_additional_args_kdf extra_args;
-    int op = 0;
-
-    args->additional_args =  &extra_args;
-
-    if (args->performance || args->ecx_op != -1) {
-        extra_args.operation = args->ecx_op;
-        if (!args->enable_async)
-            run_ecx(args);
-        else
-            start_async_job(args, run_ecx);
-        return;
-    }
-
-    if (!args->enable_async) {
-        for (op = 0; op < NUM_OF_ECX_OPERATIONS; op++) {
-            extra_args.operation = op;
-            run_ecx(args);
-        }
-    } else {
-        for (op = 0; op < NUM_OF_ECX_OPERATIONS; op++) {
-            extra_args.operation = op;
-            start_async_job(args, run_ecx);
-        }
-    }
+    if (!args->enable_async)
+        run_ecx(args);
+    else
+        start_async_job(args, run_ecx);
 }

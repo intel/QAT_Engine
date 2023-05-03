@@ -79,13 +79,13 @@ struct test_params_t {
     char *digest_kdf;
     int prf_op;
     int hkdf_op;
-    int ecx_op;
     int explicit_engine;
     int sign_only;
     int verify_only;
     int encrypt_only;
     int decrypt_only;
     int rsa_all;
+    int padding;
     int async_jobs;
     ASYNC_JOB **jobs;
     ASYNC_WAIT_CTX **awcs;
@@ -95,19 +95,6 @@ typedef struct test_params_t TEST_PARAMS;
 
 struct async_additional_args_dsa {
     int local_verify;
-};
-
-struct async_additional_args_rsa {
-    int sign_only;
-    int verify_only;
-    int encrypt_only;
-    int decrypt_only;
-    int rsa_all;
-    int padding;
-};
-
-struct async_additional_args_kdf {
-    int operation;
 };
 
 #ifdef QAT_OPENSSL_3
@@ -201,7 +188,9 @@ enum curve_name {
     B_CURVE_409,
     B_CURVE_571,
     P_CURVE_SM2,
-    CURVE_TYPE_MAX
+    X_CURVE_25519,
+    X_CURVE_448,
+    CURVE_TYPE_MAX,
 };
 
 #define SSL_MAX_DIGEST 6

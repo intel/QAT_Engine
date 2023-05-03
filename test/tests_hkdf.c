@@ -182,10 +182,7 @@ err:
 static int runHkdfOps(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
-    struct async_additional_args_kdf *temp_add_args =
-           (struct async_additional_args_kdf *) temp_args->additional_args;
-    int operation = temp_add_args->operation;
-
+    int operation = temp_args->hkdf_op;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
     char *digest_kdf = temp_args->digest_kdf;
@@ -258,16 +255,12 @@ static int runHkdfOps(void *args)
 
 void tests_run_hkdf(TEST_PARAMS *args)
 {
-    struct async_additional_args_kdf extra_args;
     int op = 0;
 
-    args->additional_args =  &extra_args;
-    /* Operation if not specified for performance tests */
-    extra_args.operation = 0;
-
     if (args->performance || args->hkdf_op != -1 ) {
+        /* Operation if not specified for performance tests */
         if (args->hkdf_op != -1)
-            extra_args.operation = args->hkdf_op;
+            args->hkdf_op = 0;
         if (!args->enable_async)
             runHkdfOps(args);
         else
@@ -276,12 +269,12 @@ void tests_run_hkdf(TEST_PARAMS *args)
     }
     if (!args->enable_async) {
         for (op = 0; op <= EVP_PKEY_HKDEF_MODE_EXPAND_ONLY ; op++) {
-             extra_args.operation = op;
+             args->hkdf_op = op;
              runHkdfOps(args);
         }
     } else {
         for (op = 0; op <= EVP_PKEY_HKDEF_MODE_EXPAND_ONLY ; op++) {
-             extra_args.operation = op;
+             args->hkdf_op = op;
              start_async_job(args, runHkdfOps);
         }
     }
