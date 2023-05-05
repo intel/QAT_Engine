@@ -30,7 +30,7 @@ This release was validated on the following:
 
 * Operating system: Ubuntu\* 20.04.2 LTS
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][2] release
-  version **IPP Crypto 2021.7**
+  version **IPP Crypto 2021.7.1**
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.3**
 * OpenSSL\* 1.1.1t & 3.0.8
 * BoringSSL\* commit - [987dff1][1]

@@ -51,8 +51,8 @@
 # include <openssl/bio.h>
 # include <openssl/core_dispatch.h>
 
-# define QAT_PROVIDER_VERSION_STR "v1.0.0"
-# define QAT_PROVIDER_FULL_VERSION_STR "QAT Provider v1.0.0"
+# define QAT_PROVIDER_VERSION_STR "v1.1.0"
+# define QAT_PROVIDER_FULL_VERSION_STR "QAT Provider v1.1.0"
 
 # if defined(QAT_HW) && defined(QAT_SW)
 #  define QAT_PROVIDER_NAME_STR "QAT Provider for QAT_HW and QAT_SW"
