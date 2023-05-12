@@ -53,7 +53,6 @@
 #include <stdarg.h>
 
 #include "openssl/ossl_typ.h"
-#include "openssl/async.h"
 #include <openssl/evp.h>
 #include "e_qat.h"
 #include "qat_hw_callback.h"

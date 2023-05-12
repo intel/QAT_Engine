@@ -72,7 +72,6 @@
 #include <openssl/err.h>
 #include <openssl/sha.h>
 #include <openssl/tls1.h>
-#include <openssl/async.h>
 #include <openssl/ssl.h>
 
 #ifdef QAT_HW_INTREE

@@ -53,9 +53,7 @@
 #include <signal.h>
 
 #include <openssl/ecdh.h>
-#ifndef QAT_BORINGSSL
-#include <openssl/async.h>
-#else
+#ifdef QAT_BORINGSSL
 #include <openssl/ecdsa.h>
 #include <openssl/bytestring.h>
 #endif /* QAT_BORINGSSL */

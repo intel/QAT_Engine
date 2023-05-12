@@ -56,7 +56,6 @@
 #ifdef USE_USDM_MEM
 # include "qat_hw_usdm_inf.h"
 #endif
-#include <openssl/async.h>
 #include <openssl/err.h>
 #include <openssl/bn.h>
 #include "qat_hw_asym_common.h"
