@@ -53,6 +53,10 @@
 # include <semaphore.h>
 # include <sched.h>
 
+#ifndef QAT_BORINGSSL
+# include <openssl/async.h>
+#endif
+
 #ifdef QAT_BORINGSSL
 # include "qat_bssl.h"
 #endif /* QAT_BORINGSSL */

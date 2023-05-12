@@ -5,7 +5,6 @@
 #ifdef ENABLE_QAT_HW_HKDF
 
 # include "openssl/ossl_typ.h"
-# include "openssl/async.h"
 # include "openssl/kdf.h"
 # include "openssl/evp.h"
 # include "openssl/ssl.h"

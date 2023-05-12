@@ -52,10 +52,7 @@
 # include "cpa.h"
 # include "cpa_types.h"
 # include "cpa_cy_sym.h"
-
-# if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined QAT_BORINGSSL
-# include <openssl/async.h>
-# endif
+# include "e_qat.h"
 
 /* Struct for tracking threaded QAT operation completion. */
 typedef struct {

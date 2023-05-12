@@ -49,9 +49,6 @@
 # include <sys/types.h>
 # include <unistd.h>
 
-# if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined QAT_BORINGSSL
-# include <openssl/async.h>
-# endif
 
 /* This value is defined as one possible return value
  * of qat_pause_job() which means paused async job is

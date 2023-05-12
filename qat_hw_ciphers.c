@@ -88,7 +88,6 @@
 #include <openssl/err.h>
 #include <openssl/sha.h>
 #include <openssl/tls1.h>
-#include <openssl/async.h>
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>
 #include <string.h>

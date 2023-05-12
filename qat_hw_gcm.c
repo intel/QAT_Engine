@@ -73,7 +73,6 @@
 #include <openssl/err.h>
 #include <openssl/sha.h>
 #include <openssl/tls1.h>
-#include <openssl/async.h>
 #include <openssl/ssl.h>
 #ifdef QAT_OPENSSL_PROVIDER
 #include "qat_prov_ciphers.h"

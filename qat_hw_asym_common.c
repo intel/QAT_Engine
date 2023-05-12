@@ -55,9 +55,6 @@
 #include <pthread.h>
 #include <signal.h>
 
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
-#include <openssl/async.h>
-#endif
 #include <openssl/ossl_typ.h>
 #include <openssl/bn.h>
 

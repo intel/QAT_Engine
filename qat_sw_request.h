@@ -55,9 +55,6 @@
 # include <openssl/kdf.h>
 # endif /* QAT_BORINGSSL */
 # include <openssl/evp.h>
-#  ifndef QAT_BORINGSSL
-#   include <openssl/async.h>
-#  endif /* QAT_BORINGSSL */
 /* Crypto_mb includes */
 #include "crypto_mb/sm3.h"
 #include "crypto_mb/sm4.h"

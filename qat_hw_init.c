@@ -81,9 +81,6 @@
 
 /* OpenSSL Includes */
 #include <openssl/err.h>
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L && !defined QAT_BORINGSSL
-#include <openssl/async.h>
-#endif
 #include <openssl/objects.h>
 #include <openssl/crypto.h>
 
