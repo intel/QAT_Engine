@@ -278,6 +278,8 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
 
 #ifdef QAT_OPENSSL_PROVIDER
     qctx = (QAT_GCM_CTX *)ctx;
+    qctx->iv = (Cpa8U *)qctx->iv;
+    qctx->next_iv = (Cpa8U *)qctx->next_iv;
     qctx->enc = enc;
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
@@ -304,6 +306,11 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
             goto err;
         }
     }
+
+#ifdef QAT_OPENSSL_PROVIDER
+    if (!qctx->next_iv)
+        qctx->next_iv = OPENSSL_zalloc(EVP_MAX_IV_LENGTH);
+#endif
 
     if (iv) {
         /* Set the value of the IV */
@@ -420,6 +427,8 @@ int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     }
 #ifdef QAT_OPENSSL_PROVIDER
     qctx = (QAT_GCM_CTX *)ctx;
+    qctx->iv = (Cpa8U *)qctx->iv;
+    qctx->next_iv = (Cpa8U *)qctx->next_iv;
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
 #endif

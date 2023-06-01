@@ -74,6 +74,7 @@ QAT_EVP_KEYEXCH get_default_x25519_keyexch()
     return s_keyexch;
 }
 
+#ifdef ENABLE_QAT_HW_ECX
 QAT_EVP_KEYEXCH get_default_x448_keyexch()
 {
     static QAT_EVP_KEYEXCH s_keyexch;
@@ -90,19 +91,24 @@ QAT_EVP_KEYEXCH get_default_x448_keyexch()
     }
     return s_keyexch;
 }
+#endif
 
 static int qat_ecx_derive25519(void *vecxctx, unsigned char *secret,
                                size_t *secretlen, size_t outlen)
 {
-#ifdef QAT_HW
-    return qat_pkey_ecx_derive25519(vecxctx,secret,secretlen,outlen);
+    int ret = 0;
+#ifdef ENABLE_QAT_HW_ECX
+    if (qat_hw_ecx_offload)
+        ret = qat_pkey_ecx_derive25519(vecxctx,secret,secretlen,outlen);
 #endif
-#ifdef QAT_SW
-    return multibuff_x25519_derive(vecxctx,secret,secretlen,outlen);
+#ifdef ENABLE_QAT_SW_ECX
+    if (qat_sw_ecx_offload)
+        ret = multibuff_x25519_derive(vecxctx,secret,secretlen,outlen);
 #endif
+    return ret;
 }
 
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECX
 static int qat_ecx_derive448(void *vecxctx, unsigned char *secret,
                              size_t *secretlen, size_t outlen)
 {
@@ -132,7 +138,7 @@ static void *qat_x25519_newctx(void *provctx)
     return qat_ecx_newctx(provctx, X25519_KEYLEN);
 }
 
-#ifdef QAT_HW
+#ifdef ENABLE_QAT_HW_ECX
 static void *qat_x448_newctx(void *provctx)
 {
     return qat_ecx_newctx(provctx, X448_KEYLEN);

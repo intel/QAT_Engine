@@ -742,7 +742,7 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
 
         if (qctx->tag) {
 #ifdef QAT_OPENSSL_PROVIDER
-            DEBUG("qctx->tag_len = %lu\n", qctx->tag_len);
+            DEBUG("qctx->tag_len = %d\n", qctx->tag_len);
 #else
             DEBUG("qctx->tag_len = %u\n", qctx->tag_len);
 #endif

@@ -87,12 +87,13 @@
 #define QAT_X448_DATALEN       64
 #define X448_DATA_KEY_DIFF      8
 
-#ifndef QAT_OPENSSL_PROVIDER
+#ifdef ENABLE_QAT_HW_ECX
+# ifndef QAT_OPENSSL_PROVIDER
 typedef struct {
     unsigned char pubkey[QAT_X448_DATALEN];
     unsigned char *privkey;
 } ECX_KEY;
-#endif
+# endif
 
 int reverse_bytes(unsigned char *tobuffer, unsigned char *frombuffer,
                   unsigned int tosize, unsigned int fromsize)
@@ -178,9 +179,9 @@ static void qat_pkey_ecx_keygen_op_data_free(CpaFlatBuffer *pXk,
 # ifdef QAT_OPENSSL_PROVIDER
 void *qat_pkey_ecx_keygen(void *ctx, OSSL_CALLBACK *osslcb,
                           void *cbarg)
-#else
+# else
 int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
-#endif
+# endif
 {
     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data = NULL;
 
@@ -204,14 +205,14 @@ int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     unsigned char *pubkey = NULL;
     int is_ecx_448 = 0;
 
-#ifndef QAT_OPENSSL_PROVIDER
+# ifndef QAT_OPENSSL_PROVIDER
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
     int type = 0;
     const EVP_PKEY_METHOD **pmeth_from_ctx;
     void *void_ptr_ctx = (void *)ctx;
-#else
+# else
     QAT_GEN_CTX *gctx = ctx;
-#endif
+# endif
 
     DEBUG("QAT HW ECX Started\n");
     if (unlikely(ctx == NULL)) {
@@ -1291,7 +1292,7 @@ err:
     return ret;
 }
 
-#ifndef QAT_OPENSSL_PROVIDER
+# ifndef QAT_OPENSSL_PROVIDER
 int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     DEBUG("Started\n");
@@ -1301,4 +1302,5 @@ int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
     return -2;
 }
-#endif
+# endif
+#endif /* ENABLE_QAT_HW_ECX */

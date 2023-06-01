@@ -178,7 +178,7 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 {
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
     const OSSL_PARAM *p;
-    size_t sz;
+    size_t sz = 0;
     void *vp;
 
     if (params == NULL)
@@ -218,9 +218,12 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             return 0;
         }
 #ifdef ENABLE_QAT_HW_GCM
-        sz = qat_aes_gcm_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size, p->data);
-#else
-        sz = vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size, p->data);
+       if (qat_hw_gcm_offload)
+           sz = qat_aes_gcm_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size, p->data);
+#endif
+#ifdef ENABLE_QAT_SW_GCM
+        if (qat_sw_gcm_offload)
+            sz = vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size, p->data);
 #endif
         if (sz == 0) {
             ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_AAD);
@@ -266,10 +269,12 @@ int qat_gcm_einit(void *ctx, const unsigned char* inkey,
 {
     int sts = 0;
 #ifdef ENABLE_QAT_HW_GCM
-    sts = qat_aes_gcm_init(ctx, inkey, keylen, iv, ivlen, 1);
+    if (qat_hw_gcm_offload)
+        sts = qat_aes_gcm_init(ctx, inkey, keylen, iv, ivlen, 1);
 #endif
 #ifdef ENABLE_QAT_SW_GCM
-    sts = vaesgcm_ciphers_init(ctx, inkey, iv, 1);
+    if (qat_sw_gcm_offload)
+        sts = vaesgcm_ciphers_init(ctx, inkey, iv, 1);
 #endif
     return sts;
 }
@@ -280,10 +285,12 @@ int qat_gcm_dinit(void *ctx, const unsigned char* inkey,
 {
     int sts = 0;
 #ifdef ENABLE_QAT_HW_GCM
-    sts = qat_aes_gcm_init(ctx, inkey, keylen, iv, ivlen, 0);
+    if (qat_hw_gcm_offload)
+        sts = qat_aes_gcm_init(ctx, inkey, keylen, iv, ivlen, 0);
 #endif
 #ifdef ENABLE_QAT_SW_GCM
-    sts = vaesgcm_ciphers_init(ctx, inkey, iv, 0);
+    if (qat_sw_gcm_offload)
+        sts = vaesgcm_ciphers_init(ctx, inkey, iv, 0);
 #endif
    return sts;
 }
@@ -308,16 +315,20 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
         return 0;
     }
 #ifdef ENABLE_QAT_HW_GCM
-    if ((ret = qat_aes_gcm_cipher(ctx, out, outl, in, inl)) <= 0) {
-        QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
-        return ret;
+    if (qat_hw_gcm_offload) {
+        if ((ret = qat_aes_gcm_cipher(ctx, out, outl, in, inl)) <= 0) {
+            QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
+            return ret;
+        }
     }
 #endif
 
 #ifdef ENABLE_QAT_SW_GCM
-    if ((ret = vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl)) <= 0) {
-        QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
-        return ret;
+    if (qat_sw_gcm_offload) {
+        if ((ret = vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl)) <= 0) {
+            QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
+            return ret;
+	}
     }
 #endif
     return 1;
@@ -334,11 +345,13 @@ int qat_gcm_stream_final(void *vctx, unsigned char *out,
     if (!qat_prov_is_running())
         return 0;
 #ifdef ENABLE_QAT_HW_GCM
-    i = qat_aes_gcm_cipher(ctx, out, outl, NULL, 0);
+    if (qat_hw_gcm_offload)
+        i = qat_aes_gcm_cipher(ctx, out, outl, NULL, 0);
 #endif
 
 #ifdef ENABLE_QAT_SW_GCM
-    i = vaesgcm_ciphers_do_cipher(ctx, out, outl, NULL, 0);
+    if (qat_sw_gcm_offload)
+        i = vaesgcm_ciphers_do_cipher(ctx, out, outl, NULL, 0);
 #endif
 
     if (i <= 0)
@@ -364,13 +377,17 @@ int qat_gcm_cipher(void *vctx, unsigned char *out,
         return 0;
     }
 #ifdef ENABLE_QAT_HW_GCM
-    if (qat_aes_gcm_cipher(ctx, out, outl, in, inl) <= 0)
-        return 0;
+    if (qat_hw_gcm_offload) {
+        if (qat_aes_gcm_cipher(ctx, out, outl, in, inl) <= 0)
+            return 0;
+    }
 #endif
 
 #ifdef ENABLE_QAT_SW_GCM
-    if (vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl) <= 0)
-        return 0;
+    if (qat_sw_gcm_offload) {
+        if (vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl) <= 0)
+            return 0;
+    }
 #endif
     *outl = inl;
     return 1;
@@ -384,10 +401,12 @@ static void qat_aes_gcm_freectx(void *vctx)
         ctx->cipher = NULL;
     }
 #ifdef ENABLE_QAT_HW_GCM
-    qat_aes_gcm_cleanup((QAT_GCM_CTX *)ctx);
+    if (qat_hw_gcm_offload)
+        qat_aes_gcm_cleanup((QAT_GCM_CTX *)ctx);
 #endif
 #ifdef ENABLE_QAT_SW_GCM
-    vaesgcm_ciphers_cleanup((QAT_GCM_CTX *)ctx);
+    if (qat_sw_gcm_offload)
+        vaesgcm_ciphers_cleanup((QAT_GCM_CTX *)ctx);
 #endif
     OPENSSL_free(ctx);
 }
