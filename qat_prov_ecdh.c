@@ -58,7 +58,8 @@
 
 #ifdef ENABLE_QAT_HW_ECDH
 # include "qat_hw_ec.h"
-#elif ENABLE_QAT_SW_ECDH
+#endif
+#ifdef ENABLE_QAT_SW_ECDH
 # include "qat_sw_ec.h"
 #endif
 
@@ -573,11 +574,16 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
         return 0;
     }
 #ifdef ENABLE_QAT_HW_ECDH
-    if(!qat_engine_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
-        return 0;
-#elif ENABLE_QAT_SW_ECDH
-    if(!mb_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
-        return 0;
+    if (qat_hw_ecdh_offload) {
+        if(!qat_engine_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
+            return 0;
+    }
+#endif
+#ifdef ENABLE_QAT_SW_ECDH
+    if (qat_sw_ecdh_offload) {
+        if(!mb_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
+            return 0;
+    }
 #endif
     if (KDF != NULL) {
         KDF(sec, seclen, out, &outlen);

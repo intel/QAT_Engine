@@ -144,18 +144,11 @@ typedef struct qat_gcm_ctx_st {
     int init_flags;
     unsigned int ckey_set;
     unsigned char* tls_aad;
-    int            tls_aad_len;
     unsigned int   tls_aad_set;
     unsigned char* tag;
     unsigned char* calculated_tag;
-    size_t         tag_len;
     unsigned int   tag_set;
     unsigned int   tag_calculated;
-    unsigned char* iv;
-    unsigned char* next_iv;
-    int            iv_len;
-    unsigned int   iv_set;
-    int            iv_gen;
 #endif
 #ifdef ENABLE_QAT_HW_GCM
     int inst_num;
@@ -180,45 +173,9 @@ typedef struct qat_gcm_ctx_st {
     CpaFlatBuffer dstFlatBuffer;
     /* -- Crypto -- */
 
-    /* Pointer to the IV that is used in the current operation:
-     * - In Sync case this points to the contiguos memory buffer that is
-     *   sent to the HW
-     * - In asynch this point to the static memory in evp_ctx->iv hence it
-     *   must not be alloc or free
-     */
-    Cpa8U *iv;
-
-    /* IV that will be used in the next operation:
-     * In the SW engine the IV in the context and the IV used by the cipher
-     * are stored in different variables.
-     * This is a separate value and can be modified without affecting
-     * the current operation.
-     * For example: TLS case increment the IV before doing the encryption,
-     *  but the current operation still used the not-incremented IV
-     */
-    Cpa8U next_iv[EVP_MAX_IV_LENGTH];
-    /* Length of the IV (it is always 12 Byte for GCM in TLS case */
-    unsigned int iv_len;
-
-    /* Flag that indicates whether the IV has been set
-     * TODO The value is set correctly but never read and actually used...
-     */
-    unsigned char iv_set;
-    /* This flag is used to control the generation of the IV */
-    unsigned char iv_gen;
-
-    /* The tag is saved in evp_ctx->buf */
-    int tag_len;
-
     /* Pointer to AAD.
      * In the TLS case this will contain the TLS header */
     Cpa8U *aad;
-
-    /* -- TLS data -- */
-
-    /* Length of the AAD in the TLS case.
-     * This is used like a flag: when Update case this is set to -1*/
-    int tls_aad_len;
 
     /* Size of the meta data for the driver
      * It cannot allocate memory so this must be done by the user application */
@@ -230,6 +187,13 @@ typedef struct qat_gcm_ctx_st {
     /* Flag to keep track of key passed */
     int key_set;
 #endif
+    int            tls_aad_len;
+    int            tag_len;
+    int            iv_len;
+    unsigned int   iv_set;
+    int            iv_gen;
+    unsigned char* next_iv;
+    unsigned char* iv;
     unsigned int mode;                     /* The mode that we are using */
     size_t keylen;
     size_t ivlen_min;

@@ -187,25 +187,33 @@ static const OSSL_PARAM settable_ctx_params_no_digest[] = {
 static int QAT_RSA_private_encrypt(int flen, const unsigned char *from,
                         unsigned char *to, RSA *rsa, int padding)
 {
-#ifdef QAT_HW
-    return qat_rsa_priv_enc(flen, from, to, rsa, padding);
+    int ret = 0;
+#ifdef ENABLE_QAT_HW_RSA
+    if (qat_hw_rsa_offload)
+        ret = qat_rsa_priv_enc(flen, from, to, rsa, padding);
 #endif
 
-#ifdef QAT_SW
-    return multibuff_rsa_priv_enc(flen, from, to, rsa, padding);
+#ifdef ENABLE_QAT_SW_RSA
+    if (qat_sw_rsa_offload)
+        ret = multibuff_rsa_priv_enc(flen, from, to, rsa, padding);
 #endif
+    return ret;
 }
 
 static int QAT_RSA_public_decrypt(int flen, const unsigned char *from, unsigned char *to,
                        RSA *rsa, int padding)
 {
-#ifdef QAT_HW
-    return qat_rsa_pub_dec(flen, from, to, rsa, padding);
+    int ret = 0;
+#ifdef ENABLE_QAT_HW_RSA
+    if (qat_hw_rsa_offload)
+        ret = qat_rsa_pub_dec(flen, from, to, rsa, padding);
 #endif
 
-#ifdef QAT_SW
-    return multibuff_rsa_pub_dec(flen, from, to, rsa, padding);
+#ifdef ENABLE_QAT_SW_RSA
+    if (qat_sw_rsa_offload)
+        ret = multibuff_rsa_pub_dec(flen, from, to, rsa, padding);
 #endif
+    return ret;
 }
 
 static int setup_tbuf(QAT_PROV_RSA_CTX *ctx)

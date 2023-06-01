@@ -451,14 +451,18 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
     if (ctx->mdsize != 0 && tbslen != ctx->mdsize)
         return 0;
 #ifdef ENABLE_QAT_HW_ECDSA
-    ret = qat_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
-    if (ret <= 0)
-        return 0;
+    if (qat_hw_ecdsa_offload) {
+        ret = qat_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
+        if (ret <= 0)
+            return 0;
+    }
 #endif
 #ifdef ENABLE_QAT_SW_ECDSA
-    ret = mb_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
-    if (ret <= 0)
-        return 0;
+    if (qat_sw_ecdsa_offload) {
+        ret = mb_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
+        if (ret <= 0)
+            return 0;
+    }
 #endif
     *siglen = sltmp;
     return 1;
@@ -468,15 +472,19 @@ static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size
                         const unsigned char *tbs, size_t tbslen)
 {
     QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+    int ret = 0;
 
     if (!qat_prov_is_running() || (ctx->mdsize != 0 && tbslen != ctx->mdsize))
         return 0;
 #ifdef ENABLE_QAT_HW_ECDSA
-    return qat_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
+    if (qat_hw_ecdsa_offload)
+        ret = qat_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
 #endif
 #ifdef ENABLE_QAT_SW_ECDSA
-    return mb_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
+    if (qat_sw_ecdsa_offload)
+        ret = mb_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
 #endif
+    return ret;
 }
 
 static void qat_signature_ecdsa_freectx(void *vctx)

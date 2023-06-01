@@ -478,7 +478,6 @@ static int mb_sm2_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
          return -2;
     }
 }
-#endif
 
 /* OpenSSL Softare implementation for synchronous requests,
  * Since OpenSSL doesn't support single shot operation
@@ -613,7 +612,6 @@ int ossl_sm2_compute_z_digest(uint8_t *out,
     return rc;
 }
 
-# ifndef QAT_OPENSSL_PROVIDER
 static BIGNUM *sm2_compute_msg_hash(const EVP_MD *digest,
                                     const EC_KEY *key,
                                     const uint8_t *id,

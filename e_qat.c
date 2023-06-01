@@ -1123,6 +1123,92 @@ int bind_qat(ENGINE *e, const char *id)
 # endif
 #endif /* QAT_OPENSSL_PROVIDER */
 
+#ifdef QAT_OPENSSL_PROVIDER
+   /* Set the corresponding algorithms offload for provider */
+    if (qat_hw_offload) {
+# ifdef ENABLE_QAT_HW_RSA
+        qat_hw_rsa_offload = 1;
+        DEBUG("QAT_HW RSA for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_ECDSA
+        qat_hw_ecdsa_offload = 1;
+        DEBUG("QAT_HW ECDSA for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_ECDH
+        qat_hw_ecdh_offload = 1;
+        DEBUG("QAT_HW ECDH for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_ECX
+        qat_hw_ecx_offload = 1;
+        DEBUG("QAT_HW ECX for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_PRF
+        qat_hw_prf_offload = 1;
+        DEBUG("QAT_HW PRF for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_HKDF
+        qat_hw_hkdf_offload = 1;
+        DEBUG("QAT_HW HKDF for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_SHA3
+        qat_hw_sha_offload = 1;
+        DEBUG("QAT_HW SHA3 for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_GCM
+        if (!qat_sw_gcm_offload) {
+            qat_hw_gcm_offload = 1;
+            DEBUG("QAT_HW GCM for Provider Enabled\n");
+        }
+# endif
+    }
+
+    if (qat_sw_offload) {
+# ifdef ENABLE_QAT_SW_RSA
+        if (!qat_hw_rsa_offload &&
+            mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
+            mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
+            mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
+            qat_sw_rsa_offload = 1;
+            DEBUG("QAT_SW RSA for Provider Enabled\n");
+        }
+# endif
+
+# ifdef ENABLE_QAT_SW_ECDSA
+        if (!qat_hw_ecdsa_offload &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
+            qat_sw_ecdsa_offload = 1;
+            DEBUG("QAT_SW ECDSA for Provider Enabled\n");
+        }
+# endif
+
+# ifdef ENABLE_QAT_SW_ECDH
+        if (!qat_hw_ecdh_offload &&
+            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
+            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384)) {
+            qat_sw_ecdh_offload = 1;
+            DEBUG("QAT_SW ECDH for Provider Enabled\n");
+        }
+# endif
+
+# ifdef ENABLE_QAT_SW_ECX
+        if (!qat_hw_ecx_offload &&
+            mbx_get_algo_info(MBX_ALGO_X25519)) {
+            qat_sw_ecx_offload = 1;
+            DEBUG("QAT_SW X25519 for Provider Enabled\n");
+        }
+# endif
+
+# ifdef ENABLE_QAT_SW_GCM
+        qat_sw_gcm_offload = 1;
+        DEBUG("QAT_SW GCM for Provider Enabled\n");
+# endif
+    }
+    /* Create static structures for ciphers now
+     * as this function will be called by a single thread. */
+    qat_create_ciphers();
+#endif
+
 #ifndef QAT_BORINGSSL
     pthread_atfork(engine_finish_before_fork_handler, NULL,
                    engine_init_child_at_fork_handler);
