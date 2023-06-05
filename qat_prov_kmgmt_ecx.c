@@ -176,7 +176,7 @@ static void *qat_x25519_gen(void *genctx, OSSL_CALLBACK *osslcb,
 {
 #ifdef ENABLE_QAT_HW_ECX
     if (qat_hw_ecx_offload)
-        return qat_pkey_ecx_keygen(genctx,osslcb,cbarg);
+        return qat_pkey_ecx25519_keygen(genctx,osslcb,cbarg);
 #endif
 #ifdef ENABLE_QAT_SW_ECX
     if (qat_sw_ecx_offload)
@@ -195,7 +195,7 @@ static void *qat_x448_gen_init(void *provctx, int selection,
 static void *qat_x448_gen(void *genctx, OSSL_CALLBACK *osslcb,
                           void *cbarg)
 {
-    return qat_pkey_ecx_keygen(genctx,osslcb,cbarg);
+    return qat_pkey_ecx448_keygen(genctx,osslcb,cbarg);
 }
 #endif
 

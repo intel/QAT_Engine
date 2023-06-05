@@ -108,7 +108,8 @@ extern const EVP_PKEY_METHOD *sw_x25519_pmeth;
 extern const EVP_PKEY_METHOD *sw_x448_pmeth;
 
 # ifdef ENABLE_QAT_HW_ECX
-int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
+int qat_pkey_ecx25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
+int qat_pkey_ecx448_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
 int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
 int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
 #  ifndef QAT_OPENSSL_PROVIDER

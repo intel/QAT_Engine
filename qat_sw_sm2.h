@@ -71,7 +71,7 @@
 
 
 # ifdef ENABLE_QAT_SW_SM2
-#  ifdef QAT_OPENSSL_PROVIDER
+#  ifdef QAT_OPENSSL_3
 
 # define OSSL_MAX_NAME_SIZE           50 /* Algorithm name */
 # define OSSL_MAX_PROPQUERY_SIZE     256 /* Property query strings */
@@ -114,7 +114,8 @@ typedef struct {
     const unsigned char *tbs;
     size_t tbs_len;
 } QAT_PROV_SM2_CTX;
-
+#  endif
+#  ifdef QAT_OPENSSL_PROVIDER
 int mb_ecdsa_sm2_sign(QAT_PROV_SM2_CTX *ctx,
                              unsigned char *sig, size_t *siglen,
                              size_t sigsize, const unsigned char *tbs,
@@ -129,7 +130,6 @@ int ossl_sm2_compute_z_digest(uint8_t *out,
                               const uint8_t *id,
                               const size_t id_len,
                               const EC_KEY *key);
-                              
 int mb_ecdsa_sm2_sign(EVP_MD_CTX *ctx,
                              unsigned char *sig, size_t *siglen,
                              const unsigned char *tbs,

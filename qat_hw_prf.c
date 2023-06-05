@@ -46,6 +46,14 @@
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
+
+#ifdef QAT_OPENSSL_3
+# include <openssl/core_names.h>
+# include <openssl/crypto.h>
+# include <openssl/obj_mac.h>
+# include <openssl/params.h>
+#endif
+
 #include <pthread.h>
 #include <string.h>
 #include <signal.h>
@@ -66,8 +74,12 @@
 
 static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 
-/* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
+#ifndef QAT_OPENSSL_3
+/* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes.
+ * This is only used for OpenSSL 1.1.1. For OpenSSL 3, we will use the
+ * default provider for SW fallback purposes. */
 static const EVP_PKEY_METHOD *sw_prf_pmeth = NULL;
+#endif
 
 EVP_PKEY_METHOD *qat_prf_pmeth(void)
 {
@@ -85,10 +97,12 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
 
     /* Now save the current (non-offloaded) prf pmeth to sw_prf_pmeth */
     /* for software fallback purposes */
+#ifndef QAT_OPENSSL_3
     if ((sw_prf_pmeth = EVP_PKEY_meth_find(EVP_PKEY_TLS1_PRF)) == NULL) {
         QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
+#endif
 
 #ifdef ENABLE_QAT_HW_PRF
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_PRF)) {
@@ -103,9 +117,23 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
         qat_hw_prf_offload = 0;
     }
 #endif
+
     if (!qat_hw_prf_offload) {
+#ifndef QAT_OPENSSL_3
         EVP_PKEY_meth_copy(_hidden_prf_pmeth, sw_prf_pmeth);
         DEBUG("QAT HW PRF is disabled, using OpenSSL SW\n");
+#else
+        /* Although QAEngine supports software fallback to the default provider when
+        * using the OpenSSL 3 legacy engine API, if it fails during the registration
+        * phase, the pkey method cannot be set correctly because the OpenSSL3 legacy
+        * engine framework no longer provides a standard method for HKDF, PRF and SM2.
+        * So it will just return NULL.
+        * https://github.com/openssl/openssl/issues/19047
+        */
+        WARN("PRF methods registration failed with OpenSSL 3.\n");
+        EVP_PKEY_meth_free(_hidden_prf_pmeth);
+        return NULL;
+#endif
     }
 
     return _hidden_prf_pmeth;
@@ -126,14 +154,17 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
 int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 {
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
+#ifndef QAT_OPENSSL_3
     int (*sw_init_fn_ptr)(EVP_PKEY_CTX *) = NULL;
     int ret = 0;
+#endif
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
         return 0;
     }
 
+#ifndef QAT_OPENSSL_3
     if (qat_get_qat_offload_disabled() || qat_get_sw_fallback_enabled()) {
         DEBUG("- Switched to software mode or fallback mode enabled.\n");
         EVP_PKEY_meth_get_init((EVP_PKEY_METHOD *)sw_prf_pmeth, &sw_init_fn_ptr);
@@ -143,6 +174,7 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
             return 0;
         }
     }
+#endif
 
     qat_prf_ctx = OPENSSL_zalloc(sizeof(*qat_prf_ctx));
     if (qat_prf_ctx == NULL) {
@@ -169,7 +201,9 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
 {
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
+#ifndef QAT_OPENSSL_3
     void (*sw_cleanup_fn_ptr)(EVP_PKEY_CTX *) = NULL;
+#endif
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
@@ -182,6 +216,7 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
         return;
     }
 
+#ifndef QAT_OPENSSL_3
     if (qat_get_qat_offload_disabled() || qat_get_sw_fallback_enabled()) {
         DEBUG("- Switched to software mode or fallback mode enabled.\n");
         /* Clean up the sw_prf_ctx_data created by the init function */
@@ -189,6 +224,7 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
         EVP_PKEY_CTX_set_data(ctx, qat_prf_ctx->sw_prf_ctx_data);
         (*sw_cleanup_fn_ptr)(ctx);
     }
+#endif
 
     if (qat_prf_ctx->qat_sec != NULL) {
         OPENSSL_cleanse(qat_prf_ctx->qat_sec, qat_prf_ctx->qat_seclen);
@@ -229,15 +265,17 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
     }
 
     QAT_TLS1_PRF_CTX *qat_prf_ctx = (QAT_TLS1_PRF_CTX *)EVP_PKEY_CTX_get_data(ctx);
+#ifndef QAT_OPENSSL_3
     int (*sw_ctrl_fn_ptr)(EVP_PKEY_CTX *, int, int, void *) = NULL;
     int ret = 0;
-
+#endif
 
     if (unlikely(qat_prf_ctx == NULL)) {
          WARN("qat_prf_ctx cannot be NULL\n");
          return 0;
     }
 
+#ifndef QAT_OPENSSL_3
     if (qat_get_qat_offload_disabled() || qat_get_sw_fallback_enabled()) {
         DEBUG("- Switched to software mode or fallback mode enabled.\n");
         EVP_PKEY_meth_get_ctrl((EVP_PKEY_METHOD *)sw_prf_pmeth, &sw_ctrl_fn_ptr, NULL);
@@ -249,6 +287,7 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             return 0;
         }
     }
+#endif
 
     switch (type) {
         case EVP_PKEY_CTRL_TLS_MD:
@@ -486,6 +525,74 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
     return 1;
 }
 
+#ifdef QAT_OPENSSL_3
+/******************************************************************************
+* function:
+*         default_provider_PRF_derive(QAT_TLS1_PRF_CTX *qat_prf_ctx,
+*                                      unsigned char *out,
+*                                      size_t olen)
+*
+* @param qat_prf_ctx     [IN]  - PRF context
+* @param out             [OUT] - Ptr to the key that will be generated
+* @param olen            [IN]  - Length of the key
+*
+* description:
+*   PRF SW fallback function. Using default provider of OpenSSL 3
+******************************************************************************/
+int default_provider_PRF_derive(QAT_TLS1_PRF_CTX *qat_prf_ctx, unsigned char *out, size_t olen) {
+    int rv = 1;
+    EVP_KDF *kdf = NULL;
+    EVP_KDF_CTX *kctx = NULL;
+    OSSL_PARAM params[5], *p = params;
+    OSSL_LIB_CTX *library_context = NULL;
+    const char *mdname;
+
+    library_context = OSSL_LIB_CTX_new();
+    if (library_context == NULL) {
+        fprintf(stderr, "OSSL_LIB_CTX_new() returned NULL\n");
+        goto end;
+    }
+
+    /* Fetch the key derivation function implementation */
+    kdf = EVP_KDF_fetch(library_context, "TLS1-PRF", "provider=default");
+    if (kdf == NULL) {
+        fprintf(stderr, "EVP_KDF_fetch() returned NULL\n");
+        goto end;
+    }
+
+    /* Create a context for the key derivation operation */
+    kctx = EVP_KDF_CTX_new(kdf);
+    if (kctx == NULL) {
+        fprintf(stderr, "EVP_KDF_CTX_new() returned NULL\n");
+        goto end;
+    }
+
+    mdname = EVP_MD_get0_name(qat_prf_ctx->qat_md);
+
+    *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST, (char *)mdname, 0);
+    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SECRET, qat_prf_ctx->qat_sec,
+                                             qat_prf_ctx->qat_seclen);
+    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SEED, qat_prf_ctx->qat_userLabel,
+                                                qat_prf_ctx->qat_userLabel_len);
+    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SEED, qat_prf_ctx->qat_seed,
+                                                qat_prf_ctx->qat_seedlen);
+    *p = OSSL_PARAM_construct_end();
+
+    /* Derive the key */
+    if (EVP_KDF_derive(kctx, out, olen, params) != 1) {
+        fprintf(stderr, "EVP_KDF_derive() failed\n");
+        goto end;
+    }
+
+    rv = 0;
+end:
+    EVP_KDF_CTX_free(kctx);
+    EVP_KDF_free(kdf);
+    OSSL_LIB_CTX_free(library_context);
+    return rv;
+}
+#endif
+
 /******************************************************************************
 * function:
 *         qat_prf_tls_derive(
@@ -518,7 +625,9 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     int inst_num = QAT_INVALID_INSTANCE;
     thread_local_variables_t *tlv = NULL;
     int fallback = 0;
+#ifndef QAT_OPENSSL_3
     int (*sw_derive_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
+#endif
 
     if (unlikely(NULL == ctx || NULL == key || NULL == olen)) {
         WARN("Either ctx %p, key %p or olen %p is NULL\n", ctx, key, olen);
@@ -793,10 +902,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifndef QAT_OPENSSL_3
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_prf_pmeth, NULL, &sw_derive_fn_ptr);
         EVP_PKEY_CTX_set_data(ctx, qat_prf_ctx->sw_prf_ctx_data);
         ret = (*sw_derive_fn_ptr)(ctx, key, olen);
         EVP_PKEY_CTX_set_data(ctx, qat_prf_ctx);
+#else
+        ret = default_provider_PRF_derive(qat_prf_ctx, key, *olen);
+#endif
     }
     return ret;
 }

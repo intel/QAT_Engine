@@ -51,8 +51,6 @@
 
 #include "qat_sw_sm2.h"
 
-
-
 typedef struct {
     /* Key and paramgen group */
     EC_GROUP *gen_group;
@@ -70,7 +68,7 @@ static EVP_PKEY_METHOD *_hidden_sm2_pmeth = NULL;
 static const EVP_PKEY_METHOD *sw_sm2_pmeth = NULL;
 #endif
 
-#ifdef QAT_OPENSSL_PROVIDER
+#ifdef QAT_OPENSSL_3
 typedef struct evp_signature_st {
     int name_id;
     char *type_name;
@@ -143,6 +141,23 @@ static int mb_digest_custom(EVP_PKEY_CTX *ctx, EVP_MD_CTX *mctx);
 # endif
 #endif
 
+/* Only used for OpenSSL 3 legacy engine API */
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+static int pkey_ec_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
+{
+    int (*pkeygen) (EVP_PKEY_CTX *ctx, EVP_PKEY *pkey) = NULL;
+    if ((sw_sm2_pmeth = EVP_PKEY_meth_find(EVP_PKEY_EC)) == NULL) {
+        WARN("Failed to generate sw_pmeth\n");
+        return -1;
+    }
+
+    EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &pkeygen);
+    pkeygen(ctx, pkey);
+    *(int *)pkey = EVP_PKEY_SM2;
+    return 1;
+}
+#endif
+
 EVP_PKEY_METHOD *mb_sm2_pmeth(void)
 {
     if (_hidden_sm2_pmeth && qat_sw_sm2_offload) {
@@ -161,16 +176,21 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
         WARN("Failed to generate pmeth\n");
         return NULL;
     }
+# ifndef QAT_OPENSSL_3 /* Only used for OpenSSL 1.1.1 engine API */
     if ((sw_sm2_pmeth = EVP_PKEY_meth_find(EVP_PKEY_SM2)) == NULL) {
         WARN("Failed to generate sw_pmeth\n");
         return NULL;
     }
+# endif
 
 # ifdef ENABLE_QAT_SW_SM2
     if (qat_sw_offload &&
         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
         mbx_get_algo_info(MBX_ALGO_X25519)) {
         EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
+# ifdef QAT_OPENSSL_3 /* Only used for OpenSSL 3 legacy engine API */
+        EVP_PKEY_meth_set_keygen(_hidden_sm2_pmeth, NULL, pkey_ec_keygen);
+# endif
         EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
         EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
         EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth, mb_digest_custom);
@@ -188,7 +208,19 @@ EVP_PKEY_METHOD *mb_sm2_pmeth(void)
     if (!qat_sw_sm2_offload) {
         DEBUG("OpenSSL SW ECDSA SM2\n");
         EVP_PKEY_meth_free(_hidden_sm2_pmeth);
+# ifndef QAT_OPENSSL_3
         return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
+# else
+        /* Although QAEngine supports software fallback to the default provider when
+        * using the OpenSSL 3 legacy engine API, if it fails during the registration
+        * phase, the pkey method cannot be set correctly because the OpenSSL3 legacy
+        * engine framework no longer provides a standard method for HKDF, PRF and SM2.
+        * So it will just return NULL.
+        * https://github.com/openssl/openssl/issues/19047
+        */
+        WARN("SM2 PKEY methods registration failed with OpenSSL 3.\n");
+        return NULL;
+#endif
     }
 #endif /* QAT_OPENSSL_PROVIDER */
     return _hidden_sm2_pmeth;
@@ -696,13 +728,21 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
     int sig_sz;
 
-#ifdef QAT_OPENSSL_PROVIDER
-    QAT_EVP_SIGNATURE sw_sm2_signature;
-#else
+/* Only used for OpenSSL 3 legacy engine API */
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    QAT_PROV_SM2_CTX *sw_ctx;
+#endif
+
+#ifndef QAT_OPENSSL_PROVIDER
     unsigned char *dgst = NULL;
     BIGNUM *e = NULL;
     EVP_MD *md = NULL;
     int dlen = 0;
+#endif
+
+#ifdef QAT_OPENSSL_3
+    QAT_EVP_SIGNATURE sw_sm2_signature;
+#else
     int (*psign) (EVP_PKEY_CTX *ctx,
                   unsigned char *sig, size_t *siglen,
                   const unsigned char *tbs,
@@ -926,6 +966,7 @@ err:
 
 use_sw_method:
 #ifdef QAT_OPENSSL_PROVIDER
+    /* When using OpenSSL 3 provider API */
     sw_sm2_signature = get_default_signature_sm2();
     if (sw_sm2_signature.digest_sign) {
         return sw_sm2_signature.digest_sign((void*)smctx, sig, siglen, sigsize, tbs, tbslen);
@@ -942,6 +983,32 @@ use_sw_method:
         return sw_sm2_signature.digest_sign_final((void*)smctx, sig, siglen, sigsize);
     }
 #else
+# ifdef QAT_OPENSSL_3
+    /* When using OpenSSL 3 legacy engine API */
+    sw_sm2_signature = get_default_signature_sm2();
+
+    sw_ctx = OPENSSL_malloc(sizeof(QAT_PROV_SM2_CTX));
+    sw_ctx->mdsize = 0;
+    sw_ctx->ec = (EC_KEY *)eckey;
+
+    md = (EVP_MD *)EVP_sm3();
+    e = sm2_compute_msg_hash(md, eckey, smctx->id, smctx->id_len, tbs, tbslen);
+    dgst = OPENSSL_zalloc(SM3_DIGEST_LENGTH);
+    dlen = BN_bn2bin(e, dgst);
+
+    if (sw_sm2_signature.sign) {
+        sts = sw_sm2_signature.sign(sw_ctx, sig, siglen, ECDSA_size(eckey), dgst, dlen);
+    } else {
+        WARN("Failed to obtain sm2 sign func from default provider.\n");
+        sts = 0;
+    }
+
+    OPENSSL_free(dgst);
+    BN_free(e);
+    OPENSSL_free(sw_ctx);
+    return sts;
+# else
+    /* When using OpenSSL 1.1.1 */
     EVP_PKEY_meth_get_sign((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &psign);
     md = (EVP_MD *)EVP_sm3();
     e = sm2_compute_msg_hash(md, eckey, smctx->id, smctx->id_len, tbs, tbslen);
@@ -953,6 +1020,7 @@ use_sw_method:
     BN_free(e);
     DEBUG("SW Finished\n");
     return sts;
+# endif
 #endif
 }
 
@@ -982,14 +1050,22 @@ int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     const unsigned char *p = sig;
     unsigned char *der = NULL;
     int derlen = -1;
-    
-#ifdef QAT_OPENSSL_PROVIDER
-    QAT_EVP_SIGNATURE sw_sm2_signature;
-#else
+
+/* Only used for OpenSSL 3 legacy engine API */
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    QAT_PROV_SM2_CTX *sw_ctx;
+#endif
+
+#ifndef QAT_OPENSSL_PROVIDER
     unsigned char *dgst = NULL;
     BIGNUM *e = NULL;
     EVP_MD *md = NULL;
     int dlen = 0;
+#endif
+
+#ifdef QAT_OPENSSL_3
+    QAT_EVP_SIGNATURE sw_sm2_signature;
+#else
     int (*pverify) (EVP_PKEY_CTX *pctx,
                     const unsigned char *sig, size_t siglen,
                     const unsigned char *dgst, size_t tbslen) = NULL;
@@ -1174,6 +1250,7 @@ err:
 
 use_sw_method:
 #ifdef QAT_OPENSSL_PROVIDER
+    /* When using OpenSSL 3 provider API */
     sw_sm2_signature = get_default_signature_sm2();
     if (sw_sm2_signature.digest_verify) {
         return sw_sm2_signature.digest_verify((void*)smctx, sig, siglen, tbs, tbslen);
@@ -1190,6 +1267,32 @@ use_sw_method:
         return sw_sm2_signature.digest_verify_final((void*)smctx, sig, siglen);
     }
 #else
+# ifdef QAT_OPENSSL_3
+    /* When using OpenSSL 3 legacy engine API */
+
+    sw_sm2_signature = get_default_signature_sm2();
+
+    sw_ctx = OPENSSL_malloc(sizeof(QAT_PROV_SM2_CTX));
+    sw_ctx->mdsize = 0;
+    sw_ctx->ec = (EC_KEY *)eckey;
+
+    md = (EVP_MD *)EVP_sm3();
+    e = sm2_compute_msg_hash(md, eckey, smctx->id, smctx->id_len, tbs, tbslen);
+    dgst = OPENSSL_zalloc(SM3_DIGEST_LENGTH);
+    dlen = BN_bn2bin(e, dgst);
+
+    if (sw_sm2_signature.sign) {
+        sts = sw_sm2_signature.verify(sw_ctx, sig, siglen, dgst, dlen);
+    } else {
+        WARN("Failed to obtain sm2 verify func from default provider.\n");
+        sts = 0;
+    }
+    OPENSSL_free(dgst);
+    BN_free(e);
+    OPENSSL_free(sw_ctx);
+    return sts;
+# else
+    /* When using OpenSSL 1.1.1 */
     EVP_PKEY_meth_get_verify((EVP_PKEY_METHOD *)sw_sm2_pmeth,
                               NULL, &pverify);
     md = (EVP_MD *)EVP_sm3();
@@ -1200,8 +1303,9 @@ use_sw_method:
     sts = (*pverify)(pctx, sig, siglen, dgst, dlen);
     OPENSSL_free(dgst);
     BN_free(e);
-    DEBUG("SW Finished\n");
+    DEBUG("SW Finished, ret: %d\n", sts);
     return sts;
+# endif
 #endif /* QAT_OPENSSL_PROVIDER */
 }
 #endif
