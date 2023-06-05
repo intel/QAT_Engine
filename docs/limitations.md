@@ -49,10 +49,6 @@
   works fine with Nginx. The issue is due to failure at EVP_PKEY_copy_parameter() in OpenSSL.
 * AES-CBC-HMAC-SHA chained ciphers does not support **pipeline feature** when built with
   OpenSSL 3.0 as the corresponding support is not available in OpenSSL 3.0 - [OpenSSL#18298][2]
-* Support for **QAT HW ECX, QAT SW ECX, QAT SW SM2 ECDSA, QAT HW PRF and QAT HW HKDF** is disabled
-  when built against OpenSSL 3.0 engine interface since OpenSSL doesn't have default implementation
-  methods accessible from OpenSSL3.0 engine interface, instead it uses non-accelerated
-  implementation from OpenSSL default provider - [OpenSSL#19047][3]
 * There is an issue in **sshd** daemon application when using the QAT for default openssl.
   sshd looks to be closing the file descriptors associated with QAT engine and driver after
   initialising openssl. Similar issue was present which prevents the ability to ssh out of
@@ -76,6 +72,5 @@
 
 [1]:https://github.com/openssl/openssl/pull/17112
 [2]:https://github.com/openssl/openssl/issues/18298
-[3]:https://github.com/openssl/openssl/issues/19047
-[4]:https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127
-[5]:https://github.com/openssl/openssl/issues/18509
+[3]:https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127
+[4]:https://github.com/openssl/openssl/issues/18509

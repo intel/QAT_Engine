@@ -149,7 +149,8 @@ int qat_pkey_ecx_derive25519(void *ctx, unsigned char *key, size_t *keylen,
                              size_t outlen);
 int qat_pkey_ecx_derive448(void *ctx, unsigned char *key, size_t *keylen,
                            size_t outlen);
-void *qat_pkey_ecx_keygen(void *ctx, OSSL_CALLBACK *osslcb, void *cbarg);
+void *qat_pkey_ecx25519_keygen(void *ctx, OSSL_CALLBACK *osslcb, void *cbarg);
+void *qat_pkey_ecx448_keygen(void *ctx, OSSL_CALLBACK *osslcb, void *cbarg);
 void* multibuff_x25519_keygen(void *ctx, OSSL_CALLBACK *osslcb,
                               void *cbarg);
 int multibuff_x25519_derive(void *ctx, unsigned char *key,

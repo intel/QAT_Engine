@@ -211,7 +211,7 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     ECX_KEY *key = NULL;
 #else
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
-    MB_ECX_KEY *key = NULL;
+    QAT_SW_ECX_KEY *key = NULL;
 #endif
     unsigned char *privkey = NULL, *pubkey = NULL;
     mb_thread_data *tlv = NULL;
@@ -267,7 +267,7 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
         return sts;
 #endif
     }
-#ifdef QAT_OPENSSL_PROVIDER
+#ifdef QAT_OPENSSL_3
     key->keylen = X25519_KEYLEN;
     key->references = 1;
 #endif
@@ -392,7 +392,7 @@ static int multibuff_validate_ecx_derive(EVP_PKEY_CTX *ctx,
     *privkey = ecxctx->key->privkey;
     *pubkey = ecxctx->peerkey->pubkey;
 #else
-    const MB_ECX_KEY *ecxkey, *peerecxkey;
+    const QAT_SW_ECX_KEY *ecxkey, *peerecxkey;
     EVP_PKEY *pkey = NULL;
     EVP_PKEY *peerkey = NULL;
 
@@ -402,8 +402,8 @@ static int multibuff_validate_ecx_derive(EVP_PKEY_CTX *ctx,
         QATerr(QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE, QAT_R_KEYS_NOT_SET);
         return 0;
     }
-    ecxkey = (const MB_ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)pkey);
-    peerecxkey = (const MB_ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)peerkey);
+    ecxkey = (const QAT_SW_ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)pkey);
+    peerecxkey = (const QAT_SW_ECX_KEY *)EVP_PKEY_get0((const EVP_PKEY *)peerkey);
     if (ecxkey == NULL || ecxkey->privkey == NULL) {
         DEBUG("ecxkey or ecxkey->privkey is NULL\n");
         QATerr(QAT_F_MULTIBUFF_VALIDATE_ECX_DERIVE, QAT_R_INVALID_PRIVATE_KEY);

@@ -55,6 +55,8 @@
 # include <openssl/kdf.h>
 # endif /* QAT_BORINGSSL */
 # include <openssl/evp.h>
+
+# include "qat_common.h"
 /* Crypto_mb includes */
 #include "crypto_mb/sm3.h"
 #include "crypto_mb/sm4.h"
@@ -64,9 +66,8 @@
 # ifdef ENABLE_QAT_SW_SM4_CCM
 #  include "crypto_mb/sm4_ccm.h"
 # endif
-#define X25519_KEYLEN 32
-#define MAX_KEYLEN  57
-#define IV_LEN 16
+
+# define IV_LEN 16
 
 # pragma pack(push, 1)
 typedef struct _sm3_context{
@@ -76,11 +77,6 @@ typedef struct _sm3_context{
     unsigned int msg_hash[SM3_SIZE_IN_WORDS];
 } SM3_CTX_mb;
 # pragma pack(pop)
-
-typedef struct {
-    unsigned char pubkey[MAX_KEYLEN];
-    unsigned char *privkey;
-} MB_ECX_KEY;
 
 typedef struct _rsa_priv_op_data {
     struct _rsa_priv_op_data *next;
@@ -128,7 +124,7 @@ typedef struct _x25519_keygen_op_data {
     EVP_PKEY *pkey;
     const unsigned char *privkey;
     unsigned char *pubkey;
-    MB_ECX_KEY *key;
+    QAT_SW_ECX_KEY *key;
     ASYNC_JOB *job;
     int *sts;
 } x25519_keygen_op_data;

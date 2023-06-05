@@ -1086,12 +1086,10 @@ int bind_qat(ENGINE *e, const char *id)
           return ret;
      }
 
-#  ifndef QAT_OPENSSL_3
      if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
           WARN("ENGINE_set_pkey_meths failed\n");
           return ret;
      }
-#  endif
 
 #  ifndef QAT_BORINGSSL
     qat_create_digest_meth();

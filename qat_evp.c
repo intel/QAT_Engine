@@ -180,22 +180,23 @@ int qat_cipher_nids[] = {
 
 /* Supported EVP nids */
 int qat_evp_nids[] = {
-#ifdef ENABLE_QAT_HW_PRF
+# ifdef ENABLE_QAT_HW_PRF
     EVP_PKEY_TLS1_PRF,
-#endif
-#ifdef ENABLE_QAT_HW_HKDF
+# endif
+# ifdef ENABLE_QAT_HW_HKDF
     EVP_PKEY_HKDF,
-#endif
-#if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
+# endif
+# if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     EVP_PKEY_X25519,
-#endif
-#ifdef ENABLE_QAT_HW_ECX
+# endif
+# ifdef ENABLE_QAT_HW_ECX
     EVP_PKEY_X448,
-#endif
-#ifdef ENABLE_QAT_SW_SM2
+# endif
+# ifdef ENABLE_QAT_SW_SM2
     EVP_PKEY_SM2
-#endif
+# endif
 };
+
 const int num_evp_nids = sizeof(qat_evp_nids) / sizeof(qat_evp_nids[0]);
 
 typedef struct _digest_data {
@@ -451,6 +452,40 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
     return 0;
 }
 
+#ifdef QAT_OPENSSL_3
+/* The following 3 functions are only used for
+ * TLSv1.3 with OpenSSL 3 Engine API.
+ */
+int qat_ecx_paramgen_init(EVP_PKEY_CTX *ctx)
+{
+    return 1;
+}
+
+int qat_ecx25519_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
+{
+    if (pkey == NULL) {
+        pkey = EVP_PKEY_new();
+        if (pkey == NULL) {
+            WARN("Couldn't allocate pkey.\n");
+            return -1;
+        }
+    }
+    return EVP_PKEY_set_type(pkey, NID_X25519);
+}
+
+int qat_ecx448_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
+{
+    if (pkey == NULL) {
+        pkey = EVP_PKEY_new();
+        if (pkey == NULL) {
+            WARN("Couldn't allocate pkey.\n");
+            return -1;
+        }
+    }
+    return EVP_PKEY_set_type(pkey, NID_X448);
+}
+#endif
+
 EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 {
     if (_hidden_x25519_pmeth) {
@@ -475,8 +510,12 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 
 #ifdef ENABLE_QAT_HW_ECX
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519)) {
-        EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_keygen);
+        EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx25519_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_derive25519);
+# ifdef QAT_OPENSSL_3
+        EVP_PKEY_meth_set_paramgen(_hidden_x25519_pmeth, qat_ecx_paramgen_init,
+                                   qat_ecx25519_paramgen);
+# endif /* QAT_OPENSSL_3 */
 # ifndef QAT_OPENSSL_PROVIDER
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, qat_pkey_ecx_ctrl, NULL);
 # endif
@@ -502,6 +541,10 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
         mbx_get_algo_info(MBX_ALGO_X25519)) {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
+# ifdef QAT_OPENSSL_3
+        EVP_PKEY_meth_set_paramgen(_hidden_x25519_pmeth, qat_ecx_paramgen_init,
+                                   qat_ecx25519_paramgen);
+# endif /* QAT_OPENSSL_3 */
 # ifndef QAT_OPENSSL_PROVIDER
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
 # endif
@@ -543,8 +586,11 @@ EVP_PKEY_METHOD *qat_x448_pmeth(void)
 
 #ifdef ENABLE_QAT_HW_ECX
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX448)) {
-        EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx_keygen);
+        EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx448_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
+# ifdef QAT_OPENSSL_3
+        EVP_PKEY_meth_set_paramgen(_hidden_x448_pmeth, qat_ecx_paramgen_init, qat_ecx448_paramgen);
+# endif /* QAT_OPENSSL_3 */
 # ifndef QAT_OPENSSL_PROVIDER
         EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);
 # endif
@@ -626,7 +672,7 @@ static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid)
 {
-    int i;
+    int i = 0;
     if (pmeth == NULL) {
         if (unlikely(nids == NULL)) {
             WARN("Invalid input params.\n");
