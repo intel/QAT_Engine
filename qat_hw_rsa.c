@@ -1069,7 +1069,8 @@ exit_lenstra:
 #ifdef ENABLE_QAT_SW_RSA
         if (qat_rsa_coexist) {
             DEBUG("- Switch to QAT SW mode.\n");
-            --qat_sw_rsa_priv_req;
+            if (qat_sw_rsa_priv_req > 0)
+                --qat_sw_rsa_priv_req;
             return multibuff_rsa_priv_enc(flen, from, to, rsa, padding);
         }
 #endif
@@ -1276,7 +1277,8 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
 #ifdef ENABLE_QAT_SW_RSA
         if (qat_rsa_coexist) {
             DEBUG("- Switch to QAT_SW mode.\n");
-            --qat_sw_rsa_priv_req;
+            if (qat_sw_rsa_priv_req > 0)
+                --qat_sw_rsa_priv_req;
             return multibuff_rsa_priv_dec(flen, from, to, rsa, padding);
         }
 #endif
@@ -1383,7 +1385,8 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
 #ifdef ENABLE_QAT_SW_RSA
         if (qat_rsa_coexist) {
             DEBUG("- Switch to QAT_SW mode.\n");
-            --qat_sw_rsa_pub_req;
+            if (qat_sw_rsa_pub_req > 0)
+                --qat_sw_rsa_pub_req;
             return multibuff_rsa_pub_enc(flen, from, to, rsa, padding);
         }
 #endif
@@ -1517,7 +1520,8 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
 #ifdef ENABLE_QAT_SW_RSA
         if (qat_rsa_coexist) {
             DEBUG("- Switch to QAT_SW mode.\n");
-            --qat_sw_rsa_pub_req;
+            if (qat_sw_rsa_pub_req > 0)
+                --qat_sw_rsa_pub_req;
             return multibuff_rsa_pub_dec(flen, from, to, rsa, padding);
         }
 #endif

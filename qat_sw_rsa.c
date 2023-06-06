@@ -628,6 +628,10 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
         return sts;
     }
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     rsa_len = RSA_size(rsa);
 
     /* Check the length passed in is not longer than the rsa key length.
@@ -884,6 +888,10 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
         return sts;
     }
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     /* Check the length passed in is not longer than the rsa key length.
        If it is then use the sw method synchronously. */
     if (flen > rsa_len) {
@@ -1109,6 +1117,10 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         return sts;
     }
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     rsa_len = RSA_size(rsa);
 
     /* Check if we are running asynchronously. If not use the SW method */
@@ -1268,6 +1280,10 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         }
         return sts;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {

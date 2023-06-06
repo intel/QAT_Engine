@@ -869,6 +869,10 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         return ret;
     }
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     group = EC_KEY_get0_group(eckey);
     priv_key = EC_KEY_get0_private_key(eckey);
     pub_key = EC_KEY_get0_public_key(eckey);
@@ -1187,6 +1191,10 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
         return 0;
     }
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     /* Check if curve is p256 or p384 */
     if ((bit_len = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
         DEBUG("Curve type not supported, using SW Method %d\n",
@@ -1343,6 +1351,10 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
         QATerr(QAT_F_MB_ECDSA_SIGN_SIG, QAT_R_INPUT_PARAM_INVALID);
         return NULL;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     group = EC_KEY_get0_group(eckey);
     priv_key = EC_KEY_get0_private_key(eckey);
@@ -1580,6 +1592,10 @@ int mb_ecdsa_verify(int type, const unsigned char *dgst,
     ASYNC_JOB *job;
     PFUNC_VERIFY verify_pfunc = NULL;
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
         DEBUG("Running synchronously using sw method\n");
@@ -1661,6 +1677,10 @@ int mb_ecdsa_do_verify(const unsigned char *dgst,
         QATerr(QAT_F_MB_ECDSA_DO_VERIFY, QAT_R_GROUP_PUB_KEY_NULL);
         return ret;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     /* Check if curve is p256 or p384 */
     if ((bit_len = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
@@ -1852,6 +1872,10 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
         QATerr(QAT_F_MB_ECDH_GENERATE_KEY, QAT_R_ECDH_GROUP_NULL);
         return ret;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     /* Check if curve is p256 or p384 or sm2*/
     if ((curve = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
@@ -2065,6 +2089,10 @@ int mb_ecdh_compute_key(unsigned char **out,
         QATerr(QAT_F_MB_ECDH_COMPUTE_KEY, QAT_R_ECDH_PRIV_KEY_PUB_KEY_NULL);
         return ret;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     /* Check if curve is p256 or p384 or sm2 */
     if ((curve = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {

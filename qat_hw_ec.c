@@ -726,7 +726,8 @@ exit:
             ((curve_name == NID_X9_62_prime256v1) || 
              (curve_name == NID_secp384r1))) {
             DEBUG("- Switched to QAT_SW mode\n");
-            --qat_sw_ecdh_derive_req;
+            if (qat_sw_ecdh_derive_req > 0)
+                --qat_sw_ecdh_derive_req;
             return mb_ecdh_compute_key(out, outlen, pub_key, ecdh);
         }
 #endif
@@ -930,7 +931,8 @@ exit:
             ((curve_name == NID_X9_62_prime256v1) || 
              (curve_name == NID_secp384r1))) {
             DEBUG("- Switched to QAT_SW mode\n");
-            --qat_sw_ecdh_keygen_req;
+            if (qat_sw_ecdh_keygen_req > 0)
+                --qat_sw_ecdh_keygen_req;
             return mb_ecdh_generate_key(ecdh);
         }
 #endif
@@ -1098,9 +1100,10 @@ int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 
     curve_name = EC_GROUP_get_curve_name(group);
     if (qat_ecdsa_coexist) {
-        /* Use QAT_SW if the curve is P256 */
-        if (curve_name == NID_X9_62_prime256v1)
+        /* Use QAT SW if the curve is P256 or QAT device not enough.*/
+        if (curve_name == NID_X9_62_prime256v1 || qat_get_qat_offload_disabled()) {
             return mb_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
+        }
 
         if ((qat_sw_ecdsa_sign_req > 0) && (curve_name == NID_secp384r1)) {
             --qat_sw_ecdsa_sign_req;
@@ -1186,6 +1189,12 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         WARN("sign_sig_pfunc is NULL\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL);
         return ret;
+    }
+
+    /* For the scenario of QAT HW initialization fail. */
+    if (fallback_to_qat_sw || fallback_to_openssl) {
+        WARN("- Fallback to software mode.\n");
+        return (*sign_sig_pfunc)(dgst, dgst_len, in_kinv, in_r, eckey);
     }
 
     if (qat_get_qat_offload_disabled()) {

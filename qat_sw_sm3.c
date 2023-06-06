@@ -277,6 +277,11 @@ int qat_sw_sm3_init(EVP_MD_CTX *ctx)
         QATerr(QAT_F_QAT_SW_SM3_INIT, QAT_R_CTX_NULL);
         return sts;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
         DEBUG("Running synchronously using sw method\n");
@@ -374,6 +379,10 @@ int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         QATerr(QAT_F_QAT_SW_SM3_UPDATE, QAT_R_CTX_NULL);
         return sts;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
@@ -475,6 +484,10 @@ int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
         QATerr(QAT_F_QAT_SW_SM3_FINAL, QAT_R_CTX_NULL);
         return sts;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {

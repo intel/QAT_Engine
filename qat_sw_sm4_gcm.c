@@ -1160,6 +1160,9 @@ int qat_sw_sm4_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return sts;
     }
 
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     if (ASYNC_get_current_job() == NULL) {
         DEBUG("SW Cipher Offload Started\n");
         goto use_sw_method;

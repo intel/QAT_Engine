@@ -228,6 +228,10 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 #endif
     }
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
         DEBUG("Running synchronously using sw method\n");
@@ -452,6 +456,10 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
         *keylen = X25519_KEYLEN;
         return 1;
     }
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+       goto use_sw_method;
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {

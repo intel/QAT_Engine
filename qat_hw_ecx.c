@@ -562,7 +562,8 @@ err:
 #ifdef ENABLE_QAT_SW_ECX
         if (qat_ecx_coexist && !is_ecx_448) {
             DEBUG("- Switched to QAT_SW mode\n");
-            --qat_sw_ecx_keygen_req;
+            if (qat_sw_ecx_keygen_req > 0)
+                --qat_sw_ecx_keygen_req;
             return multibuff_x25519_keygen(ctx, pkey);
         }
 #endif
@@ -984,7 +985,8 @@ err:
 #ifdef ENABLE_QAT_SW_ECX
         if (qat_ecx_coexist) {
             DEBUG("- Switched to QAT_SW mode\n");
-            --qat_sw_ecx_derive_req;
+            if (qat_sw_ecx_derive_req > 0)
+                --qat_sw_ecx_derive_req;
             return multibuff_x25519_derive(ctx, key, keylen);
         }
 #endif

@@ -332,6 +332,9 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         goto use_sw_method;
 #endif
 
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
         DEBUG("Running synchronously using sw method\n");
