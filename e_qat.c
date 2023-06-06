@@ -162,7 +162,8 @@ const char *engine_qat_name =
     "Reference implementation of QAT crypto engine(qat_sw) v1.1.0";
 #endif
 unsigned int engine_inited = 0;
-
+int fallback_to_openssl = 0;
+int fallback_to_qat_sw = 0; /* QAT HW initialize fail, offload to QAT SW. */
 int qat_hw_offload = 0;
 int qat_sw_offload = 0;
 int qat_hw_rsa_offload = 0;
@@ -562,8 +563,14 @@ int qat_engine_init(ENGINE *e)
 #ifdef QAT_HW
     if (qat_hw_offload) {
         if (!qat_hw_init(e)) {
-            fprintf(stderr, "QAT_HW initialization Failed\n");
+# ifdef QAT_SW /* Co-Existence mode: Don't return failure when QAT HW initialization Failed. */
+            fallback_to_qat_sw = 1;
+            WARN("QAT HW initialization Failed, switching to QAT SW.\n");
+# else
+            fprintf(stderr, "QAT HW initialization Failed.\n");
+            qat_pthread_mutex_unlock();
             return 0;
+# endif
         }
     }
 #endif
@@ -571,8 +578,8 @@ int qat_engine_init(ENGINE *e)
 #ifdef QAT_SW
     if (qat_sw_offload) {
         if (!qat_sw_init(e)) {
-            fprintf(stderr, "QAT_SW initialization Failed\n");
-            return 0;
+            WARN("QAT SW initialization Failed, switching to OpenSSL.\n");
+            fallback_to_openssl = 1;
         }
     }
 #endif
@@ -624,6 +631,8 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         enable_heuristic_polling = 0;
         qat_hw_offload = 0;
         qat_sw_offload = 0;
+        fallback_to_openssl = 0;
+        fallback_to_qat_sw = 0;
     }
     qat_pthread_mutex_unlock();
     CRYPTO_CLOSE_QAT_LOG();

@@ -382,7 +382,8 @@ typedef struct {
 extern const char *engine_qat_id;
 extern const char *engine_qat_name;
 extern unsigned int engine_inited;
-
+extern int fallback_to_openssl;
+extern int fallback_to_qat_sw; /* QAT HW initialization fail, offload to QAT SW. */
 extern int qat_hw_offload;
 extern int qat_sw_offload;
 extern int qat_hw_rsa_offload;

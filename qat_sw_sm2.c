@@ -796,6 +796,10 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     }
 # endif
 
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
+
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
         DEBUG("Running synchronously using sw method\n");
@@ -1102,6 +1106,10 @@ int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
         smctx->id_len = SM2_DEFAULT_USERID_LEN;
     }
 # endif
+
+    /* QAT SW initialization fail, switching to OpenSSL. */
+    if (fallback_to_openssl)
+        goto use_sw_method;
 
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
