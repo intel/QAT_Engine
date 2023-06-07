@@ -169,6 +169,7 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen);
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4_CBC 64
+#  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_SM3 1024
 int qat_pkt_threshold_table_set_threshold(const char *cn , int threshold);
 int qat_pkt_threshold_table_get_threshold(int nid);
 # endif

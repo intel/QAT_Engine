@@ -160,6 +160,11 @@ The following is a list of the options that can be used with the
     This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
     for earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.)
 
+--disable-qat_hw_sm3/--enable-qat_hw_sm3
+    Disable/Enable Intel(R) QAT Hardware SM3 acceleration (disabled by default).
+    This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
+    for earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.)
+
 --disable-qat_hw_chachapoly/--enable-qat_hw_chachapoly
     Disable/Enable Intel(R) QAT Hardware CHACHA20-POLY1305 acceleration (disabled by default).
     This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
