@@ -264,44 +264,45 @@ QAT_R_SET_TAG_INVALID_OP:344:set tag invalid op
 QAT_R_SHA3_CTX_NULL:345:sha3 ctx null
 QAT_R_SIG_GET_R_S_FAILURE:346:sig get r s failure
 QAT_R_SIG_MALLOC_FAILURE:347:sig malloc failure
-QAT_R_SM3_FINAL_FAILURE:348:sm3 final failure
-QAT_R_SM3_INIT_FAILURE:349:sm3 init failure
-QAT_R_SM3_UPDATE_FAILURE:350:sm3 update failure
-QAT_R_SM4_CCM_DECRYPT_FAILURE:351:sm4 ccm decrypt failure
-QAT_R_SM4_GCM_DECRYPT_FAILURE:352:sm4 gcm decrypt failure
-QAT_R_SM4_GCM_ENCRYPT_FAILURE:353:sm4 gcm encrypt failure
-QAT_R_SM4_GET_INSTANCE_FAILED:354:sm4 get instance failed
-QAT_R_SM4_GET_SESSIONCTX_SIZE_FAILED:355:sm4 get sessionctx size failed
-QAT_R_SM4_MALLOC_FAILED:356:sm4 malloc failed
-QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE:357:sm4 no qat instance available
-QAT_R_SM4_NULL_CKEY:358:sm4 null ckey
-QAT_R_SM4_NULL_CTX_OR_KEY:359:sm4 null ctx or key
-QAT_R_SM4_NULL_POINTER:360:sm4 null pointer
-QAT_R_SM4_NULL_QCTX:361:sm4 null qctx
-QAT_R_SM4_QAT_CONTEXT_NOT_INITIALISED:362:sm4 qat context not initialised
-QAT_R_SM4_QAT_INITSESSION_FAILED:363:sm4 qat initsession failed
-QAT_R_SM4_QAT_SUBMIT_REQUEST_FAILED:364:sm4 qat submit request failed
-QAT_R_SM4_REMOVE_SESSION_FAILED:365:sm4 remove session failed
-QAT_R_SM4_SETUP_META_DATA_FAILED:366:sm4 setup meta data failed
-QAT_R_SM4_SET_METHODS_FAILED:367:sm4 set methods failed
-QAT_R_SSD_MALLOC_FAILURE:368:ssd malloc failure
-QAT_R_SSD_NULL:369:ssd null
-QAT_R_START_INSTANCE_FAILURE:370:start instance failure
-QAT_R_STOP_INSTANCE_FAILURE:371:stop instance failure
-QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:372:sw get compute key pfunc null
-QAT_R_SW_GET_KEYGEN_PFUNC_NULL:373:sw get keygen pfunc null
-QAT_R_SW_GET_SIGN_PFUNC_NULL:374:sw get sign pfunc null
-QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:375:sw get sign setup pfunc null
-QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:376:sw get sign sig pfunc null
-QAT_R_SW_GET_VERIFY_PFUNC_NULL:377:sw get verify pfunc null
-QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:378:sw get verify sig pfunc null
-QAT_R_SW_METHOD_NULL:379:sw method null
-QAT_R_S_NULL:380:s null
-QAT_R_S_Q_COMPARE_FAILURE:381:s q compare failure
-QAT_R_TAG_NOTSET:382:tag notset
-QAT_R_UNKNOWN_PADDING:383:unknown padding
-QAT_R_UNKNOWN_PADDING_TYPE:384:unknown padding type
-QAT_R_WAKE_PAUSE_JOB_FAILURE:385:wake pause job failure
-QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:386:x y tx ty bn malloc failure
-QAT_R_X_Y_Z_MALLOC_FAILURE:387:x y z malloc failure
-QAT_R_Z_ALLOCATE_FAILURE:388:z allocate failure
+QAT_R_SM3_CTX_NULL:348:sm3 ctx null
+QAT_R_SM3_FINAL_FAILURE:349:sm3 final failure
+QAT_R_SM3_INIT_FAILURE:350:sm3 init failure
+QAT_R_SM3_UPDATE_FAILURE:351:sm3 update failure
+QAT_R_SM4_CCM_DECRYPT_FAILURE:352:sm4 ccm decrypt failure
+QAT_R_SM4_GCM_DECRYPT_FAILURE:353:sm4 gcm decrypt failure
+QAT_R_SM4_GCM_ENCRYPT_FAILURE:354:sm4 gcm encrypt failure
+QAT_R_SM4_GET_INSTANCE_FAILED:355:sm4 get instance failed
+QAT_R_SM4_GET_SESSIONCTX_SIZE_FAILED:356:sm4 get sessionctx size failed
+QAT_R_SM4_MALLOC_FAILED:357:sm4 malloc failed
+QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE:358:sm4 no qat instance available
+QAT_R_SM4_NULL_CKEY:359:sm4 null ckey
+QAT_R_SM4_NULL_CTX_OR_KEY:360:sm4 null ctx or key
+QAT_R_SM4_NULL_POINTER:361:sm4 null pointer
+QAT_R_SM4_NULL_QCTX:362:sm4 null qctx
+QAT_R_SM4_QAT_CONTEXT_NOT_INITIALISED:363:sm4 qat context not initialised
+QAT_R_SM4_QAT_INITSESSION_FAILED:364:sm4 qat initsession failed
+QAT_R_SM4_QAT_SUBMIT_REQUEST_FAILED:365:sm4 qat submit request failed
+QAT_R_SM4_REMOVE_SESSION_FAILED:366:sm4 remove session failed
+QAT_R_SM4_SETUP_META_DATA_FAILED:367:sm4 setup meta data failed
+QAT_R_SM4_SET_METHODS_FAILED:368:sm4 set methods failed
+QAT_R_SSD_MALLOC_FAILURE:369:ssd malloc failure
+QAT_R_SSD_NULL:370:ssd null
+QAT_R_START_INSTANCE_FAILURE:371:start instance failure
+QAT_R_STOP_INSTANCE_FAILURE:372:stop instance failure
+QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:373:sw get compute key pfunc null
+QAT_R_SW_GET_KEYGEN_PFUNC_NULL:374:sw get keygen pfunc null
+QAT_R_SW_GET_SIGN_PFUNC_NULL:375:sw get sign pfunc null
+QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:376:sw get sign setup pfunc null
+QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:377:sw get sign sig pfunc null
+QAT_R_SW_GET_VERIFY_PFUNC_NULL:378:sw get verify pfunc null
+QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:379:sw get verify sig pfunc null
+QAT_R_SW_METHOD_NULL:380:sw method null
+QAT_R_S_NULL:381:s null
+QAT_R_S_Q_COMPARE_FAILURE:382:s q compare failure
+QAT_R_TAG_NOTSET:383:tag notset
+QAT_R_UNKNOWN_PADDING:384:unknown padding
+QAT_R_UNKNOWN_PADDING_TYPE:385:unknown padding type
+QAT_R_WAKE_PAUSE_JOB_FAILURE:386:wake pause job failure
+QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:387:x y tx ty bn malloc failure
+QAT_R_X_Y_Z_MALLOC_FAILURE:388:x y z malloc failure
+QAT_R_Z_ALLOCATE_FAILURE:389:z allocate failure

@@ -472,6 +472,13 @@ static int qat_get_cipher_suite(QAT_HKDF_CTX * qat_hkdf_ctx,
         case NID_sha384:
             *cipher_suite = CPA_CY_HKDF_TLS_AES_256_GCM_SHA384;
             break;
+
+#if defined(QAT20_OOT)
+        case NID_sm3:
+            WARN("HKDF based on SM3 not supported\n");
+            return 0;
+#endif
+
         default:
             WARN("Unsupported HKDF hash type\n");
             return 0;
@@ -667,8 +674,8 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     if (!qat_get_cipher_suite(qat_hkdf_ctx, &cipher_suite)) {
-        WARN("Failed to get cipher suite\n");
-        QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
+        DEBUG("Failed to get cipher suite, fallback to SW\n");
+        fallback = 1;
         goto err;
     }
 

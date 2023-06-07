@@ -434,6 +434,13 @@ static int qat_get_hash_algorithm(QAT_TLS1_PRF_CTX * qat_prf_ctx,
         case NID_md5:
             *hash_algorithm = CPA_CY_SYM_HASH_MD5;
             break;
+
+#if defined(QAT20_OOT)
+        case NID_sm3:
+            *hash_algorithm = CPA_CY_SYM_HASH_SM3;
+            break;
+#endif
+
         default:
             WARN("unsupported PRF hash type\n");
             return 0;

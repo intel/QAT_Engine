@@ -77,68 +77,75 @@ QAT_F_QAT_GET_RSA_METHODS:167:qat_get_RSA_methods
 QAT_F_QAT_HKDF_DERIVE:168:qat_hkdf_derive
 QAT_F_QAT_HKDF_INIT:169:qat_hkdf_init
 QAT_F_QAT_HKDF_PMETH:170:qat_hkdf_pmeth
-QAT_F_QAT_HW_FINISH_INT:171:qat_hw_finish_int
-QAT_F_QAT_HW_INIT:172:qat_hw_init
-QAT_F_QAT_HW_SHA3_OFFLOAD:173:qat_hw_sha3_offload
-QAT_F_QAT_INIT_OP_DONE:174:qat_init_op_done
-QAT_F_QAT_INIT_OP_DONE_PIPE:175:qat_init_op_done_pipe
-QAT_F_QAT_INIT_OP_DONE_RSA_CRT:176:qat_init_op_done_rsa_crt
-QAT_F_QAT_MOD_EXP:177:qat_mod_exp
-QAT_F_QAT_PKEY_ECX_DERIVE25519:178:qat_pkey_ecx_derive25519
-QAT_F_QAT_PKEY_ECX_DERIVE448:179:qat_pkey_ecx_derive448
-QAT_F_QAT_PKEY_ECX_KEYGEN:180:qat_pkey_ecx_keygen
-QAT_F_QAT_PRF_PMETH:181:qat_prf_pmeth
-QAT_F_QAT_PRF_TLS_DERIVE:182:qat_prf_tls_derive
-QAT_F_QAT_REMAP_INSTANCES:183:qat_remap_instances
-QAT_F_QAT_RSA_DECRYPT:184:qat_rsa_decrypt
-QAT_F_QAT_RSA_DECRYPT_CRT:185:qat_rsa_decrypt_CRT
-QAT_F_QAT_RSA_ENCRYPT:186:qat_rsa_encrypt
-QAT_F_QAT_RSA_PRIV_DEC:187:qat_rsa_priv_dec
-QAT_F_QAT_RSA_PRIV_ENC:188:qat_rsa_priv_enc
-QAT_F_QAT_RSA_PUB_DEC:189:qat_rsa_pub_dec
-QAT_F_QAT_RSA_PUB_ENC:190:qat_rsa_pub_enc
-QAT_F_QAT_SESSION_DATA_INIT:191:qat_session_data_init
-QAT_F_QAT_SETUP_OP_PARAMS:192:qat_setup_op_params
-QAT_F_QAT_SET_INSTANCE_FOR_THREAD:193:qat_set_instance_for_thread
-QAT_F_QAT_SHA3_CLEANUP:194:qat_sha3_cleanup
-QAT_F_QAT_SHA3_CTRL:195:qat_sha3_ctrl
-QAT_F_QAT_SHA3_FINAL:196:qat_sha3_final
-QAT_F_QAT_SHA3_SESSION_DATA_INIT:197:qat_sha3_session_data_init
-QAT_F_QAT_SHA3_SETUP_PARAM:198:qat_sha3_setup_param
-QAT_F_QAT_SHA3_UPDATE:199:qat_sha3_update
-QAT_F_QAT_SM4_CBC_CLEANUP:200:qat_sm4_cbc_cleanup
-QAT_F_QAT_SM4_CBC_DO_CIPHER:201:qat_sm4_cbc_do_cipher
-QAT_F_QAT_SM4_CBC_INIT:202:qat_sm4_cbc_init
-QAT_F_QAT_SW_INIT:203:qat_sw_init
-QAT_F_QAT_SW_SM3_FINAL:204:qat_sw_sm3_final
-QAT_F_QAT_SW_SM3_INIT:205:qat_sw_sm3_init
-QAT_F_QAT_SW_SM3_UPDATE:206:qat_sw_sm3_update
-QAT_F_QAT_SW_SM4_CBC_CIPHER:207:qat_sw_sm4_cbc_cipher
-QAT_F_QAT_SW_SM4_CBC_CLEANUP:208:qat_sw_sm4_cbc_cleanup
-QAT_F_QAT_SW_SM4_CBC_KEY_INIT:209:qat_sw_sm4_cbc_key_init
-QAT_F_QAT_SW_SM4_CCM_CLEANUP:210:qat_sw_sm4_ccm_cleanup
-QAT_F_QAT_SW_SM4_CCM_CTRL:211:qat_sw_sm4_ccm_ctrl
-QAT_F_QAT_SW_SM4_CCM_DECRYPT:212:qat_sw_sm4_ccm_decrypt
-QAT_F_QAT_SW_SM4_CCM_DO_CIPHER:213:qat_sw_sm4_ccm_do_cipher
-QAT_F_QAT_SW_SM4_CCM_ENCRYPT:214:qat_sw_sm4_ccm_encrypt
-QAT_F_QAT_SW_SM4_CCM_INIT:215:qat_sw_sm4_ccm_init
-QAT_F_QAT_SW_SM4_GCM_CIPHER:216:qat_sw_sm4_gcm_cipher
-QAT_F_QAT_SW_SM4_GCM_CLEANUP:217:qat_sw_sm4_gcm_cleanup
-QAT_F_QAT_SW_SM4_GCM_CTRL:218:qat_sw_sm4_gcm_ctrl
-QAT_F_QAT_SW_SM4_GCM_DECRYPT:219:qat_sw_sm4_gcm_decrypt
-QAT_F_QAT_SW_SM4_GCM_ENCRYPT:220:qat_sw_sm4_gcm_encrypt
-QAT_F_QAT_SW_SM4_GCM_INIT:221:qat_sw_sm4_gcm_init
-QAT_F_QAT_SW_SM4_GCM_TLS_CIPHER:222:qat_sw_sm4_gcm_tls_cipher
-QAT_F_QAT_SYM_PERFORM_OP:223:qat_sym_perform_op
-QAT_F_QAT_VALIDATE_ECX_DERIVE:224:qat_validate_ecx_derive
-QAT_F_QAT_X25519_PMETH:225:qat_x25519_pmeth
-QAT_F_QAT_X448_PMETH:226:qat_x448_pmeth
-QAT_F_VAESGCM_CIPHERS_CTRL:227:vaesgcm_ciphers_ctrl
-QAT_F_VAESGCM_CIPHERS_DO_CIPHER:228:vaesgcm_ciphers_do_cipher
-QAT_F_VAESGCM_CIPHERS_INIT:229:vaesgcm_ciphers_init
-QAT_F_VAESGCM_INIT_GCM:230:vaesgcm_init_gcm
-QAT_F_VAESGCM_INIT_IPSEC_MB_MGR:231:vaesgcm_init_ipsec_mb_mgr
-QAT_F_VAESGCM_INIT_KEY:232:vaesgcm_init_key
+QAT_F_QAT_HW_CREATE_SM3_METH:171:qat_hw_create_sm3_meth
+QAT_F_QAT_HW_FINISH_INT:172:qat_hw_finish_int
+QAT_F_QAT_HW_INIT:173:qat_hw_init
+QAT_F_QAT_HW_SHA3_OFFLOAD:174:qat_hw_sha3_offload
+QAT_F_QAT_HW_SM3_CLEANUP:175:qat_hw_sm3_cleanup
+QAT_F_QAT_HW_SM3_COPY:176:qat_hw_sm3_copy
+QAT_F_QAT_HW_SM3_DO_OFFLOAD:177:qat_hw_sm3_do_offload
+QAT_F_QAT_HW_SM3_FINAL:178:qat_hw_sm3_final
+QAT_F_QAT_HW_SM3_SETUP_PARAM:179:qat_hw_sm3_setup_param
+QAT_F_QAT_HW_SM3_UPDATE:180:qat_hw_sm3_update
+QAT_F_QAT_INIT_OP_DONE:181:qat_init_op_done
+QAT_F_QAT_INIT_OP_DONE_PIPE:182:qat_init_op_done_pipe
+QAT_F_QAT_INIT_OP_DONE_RSA_CRT:183:qat_init_op_done_rsa_crt
+QAT_F_QAT_MOD_EXP:184:qat_mod_exp
+QAT_F_QAT_PKEY_ECX_DERIVE25519:185:qat_pkey_ecx_derive25519
+QAT_F_QAT_PKEY_ECX_DERIVE448:186:qat_pkey_ecx_derive448
+QAT_F_QAT_PKEY_ECX_KEYGEN:187:qat_pkey_ecx_keygen
+QAT_F_QAT_PRF_PMETH:188:qat_prf_pmeth
+QAT_F_QAT_PRF_TLS_DERIVE:189:qat_prf_tls_derive
+QAT_F_QAT_REMAP_INSTANCES:190:qat_remap_instances
+QAT_F_QAT_RSA_DECRYPT:191:qat_rsa_decrypt
+QAT_F_QAT_RSA_DECRYPT_CRT:192:qat_rsa_decrypt_CRT
+QAT_F_QAT_RSA_ENCRYPT:193:qat_rsa_encrypt
+QAT_F_QAT_RSA_PRIV_DEC:194:qat_rsa_priv_dec
+QAT_F_QAT_RSA_PRIV_ENC:195:qat_rsa_priv_enc
+QAT_F_QAT_RSA_PUB_DEC:196:qat_rsa_pub_dec
+QAT_F_QAT_RSA_PUB_ENC:197:qat_rsa_pub_enc
+QAT_F_QAT_SESSION_DATA_INIT:198:qat_session_data_init
+QAT_F_QAT_SETUP_OP_PARAMS:199:qat_setup_op_params
+QAT_F_QAT_SET_INSTANCE_FOR_THREAD:200:qat_set_instance_for_thread
+QAT_F_QAT_SHA3_CLEANUP:201:qat_sha3_cleanup
+QAT_F_QAT_SHA3_CTRL:202:qat_sha3_ctrl
+QAT_F_QAT_SHA3_FINAL:203:qat_sha3_final
+QAT_F_QAT_SHA3_SESSION_DATA_INIT:204:qat_sha3_session_data_init
+QAT_F_QAT_SHA3_SETUP_PARAM:205:qat_sha3_setup_param
+QAT_F_QAT_SHA3_UPDATE:206:qat_sha3_update
+QAT_F_QAT_SM4_CBC_CLEANUP:207:qat_sm4_cbc_cleanup
+QAT_F_QAT_SM4_CBC_DO_CIPHER:208:qat_sm4_cbc_do_cipher
+QAT_F_QAT_SM4_CBC_INIT:209:qat_sm4_cbc_init
+QAT_F_QAT_SW_INIT:210:qat_sw_init
+QAT_F_QAT_SW_SM3_FINAL:211:qat_sw_sm3_final
+QAT_F_QAT_SW_SM3_INIT:212:qat_sw_sm3_init
+QAT_F_QAT_SW_SM3_UPDATE:213:qat_sw_sm3_update
+QAT_F_QAT_SW_SM4_CBC_CIPHER:214:qat_sw_sm4_cbc_cipher
+QAT_F_QAT_SW_SM4_CBC_CLEANUP:215:qat_sw_sm4_cbc_cleanup
+QAT_F_QAT_SW_SM4_CBC_KEY_INIT:216:qat_sw_sm4_cbc_key_init
+QAT_F_QAT_SW_SM4_CCM_CLEANUP:217:qat_sw_sm4_ccm_cleanup
+QAT_F_QAT_SW_SM4_CCM_CTRL:218:qat_sw_sm4_ccm_ctrl
+QAT_F_QAT_SW_SM4_CCM_DECRYPT:219:qat_sw_sm4_ccm_decrypt
+QAT_F_QAT_SW_SM4_CCM_DO_CIPHER:220:qat_sw_sm4_ccm_do_cipher
+QAT_F_QAT_SW_SM4_CCM_ENCRYPT:221:qat_sw_sm4_ccm_encrypt
+QAT_F_QAT_SW_SM4_CCM_INIT:222:qat_sw_sm4_ccm_init
+QAT_F_QAT_SW_SM4_GCM_CIPHER:223:qat_sw_sm4_gcm_cipher
+QAT_F_QAT_SW_SM4_GCM_CLEANUP:224:qat_sw_sm4_gcm_cleanup
+QAT_F_QAT_SW_SM4_GCM_CTRL:225:qat_sw_sm4_gcm_ctrl
+QAT_F_QAT_SW_SM4_GCM_DECRYPT:226:qat_sw_sm4_gcm_decrypt
+QAT_F_QAT_SW_SM4_GCM_ENCRYPT:227:qat_sw_sm4_gcm_encrypt
+QAT_F_QAT_SW_SM4_GCM_INIT:228:qat_sw_sm4_gcm_init
+QAT_F_QAT_SW_SM4_GCM_TLS_CIPHER:229:qat_sw_sm4_gcm_tls_cipher
+QAT_F_QAT_SYM_PERFORM_OP:230:qat_sym_perform_op
+QAT_F_QAT_VALIDATE_ECX_DERIVE:231:qat_validate_ecx_derive
+QAT_F_QAT_X25519_PMETH:232:qat_x25519_pmeth
+QAT_F_QAT_X448_PMETH:233:qat_x448_pmeth
+QAT_F_VAESGCM_CIPHERS_CTRL:234:vaesgcm_ciphers_ctrl
+QAT_F_VAESGCM_CIPHERS_DO_CIPHER:235:vaesgcm_ciphers_do_cipher
+QAT_F_VAESGCM_CIPHERS_INIT:236:vaesgcm_ciphers_init
+QAT_F_VAESGCM_INIT_GCM:237:vaesgcm_init_gcm
+QAT_F_VAESGCM_INIT_IPSEC_MB_MGR:238:vaesgcm_init_ipsec_mb_mgr
+QAT_F_VAESGCM_INIT_KEY:239:vaesgcm_init_key
 
 #Reason codes
 QAT_R_AAD_INVALID_PTR:100:aad invalid ptr
@@ -399,44 +406,45 @@ QAT_R_SET_TAG_INVALID_OP:344:set tag invalid op
 QAT_R_SHA3_CTX_NULL:345:sha3 ctx null
 QAT_R_SIG_GET_R_S_FAILURE:346:sig get r s failure
 QAT_R_SIG_MALLOC_FAILURE:347:sig malloc failure
-QAT_R_SM3_FINAL_FAILURE:348:sm3 final failure
-QAT_R_SM3_INIT_FAILURE:349:sm3 init failure
-QAT_R_SM3_UPDATE_FAILURE:350:sm3 update failure
-QAT_R_SM4_CCM_DECRYPT_FAILURE:351:sm4 ccm decrypt failure
-QAT_R_SM4_GCM_DECRYPT_FAILURE:352:sm4 gcm decrypt failure
-QAT_R_SM4_GCM_ENCRYPT_FAILURE:353:sm4 gcm encrypt failure
-QAT_R_SM4_GET_INSTANCE_FAILED:354:sm4 get instance failed
-QAT_R_SM4_GET_SESSIONCTX_SIZE_FAILED:355:sm4 get sessionctx size failed
-QAT_R_SM4_MALLOC_FAILED:356:sm4 malloc failed
-QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE:357:sm4 no qat instance available
-QAT_R_SM4_NULL_CKEY:358:sm4 null ckey
-QAT_R_SM4_NULL_CTX_OR_KEY:359:sm4 null ctx or key
-QAT_R_SM4_NULL_POINTER:360:sm4 null pointer
-QAT_R_SM4_NULL_QCTX:361:sm4 null qctx
-QAT_R_SM4_QAT_CONTEXT_NOT_INITIALISED:362:sm4 qat context not initialised
-QAT_R_SM4_QAT_INITSESSION_FAILED:363:sm4 qat initsession failed
-QAT_R_SM4_QAT_SUBMIT_REQUEST_FAILED:364:sm4 qat submit request failed
-QAT_R_SM4_REMOVE_SESSION_FAILED:365:sm4 remove session failed
-QAT_R_SM4_SETUP_META_DATA_FAILED:366:sm4 setup meta data failed
-QAT_R_SM4_SET_METHODS_FAILED:367:sm4 set methods failed
-QAT_R_SSD_MALLOC_FAILURE:368:ssd malloc failure
-QAT_R_SSD_NULL:369:ssd null
-QAT_R_START_INSTANCE_FAILURE:370:start instance failure
-QAT_R_STOP_INSTANCE_FAILURE:371:stop instance failure
-QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:372:sw get compute key pfunc null
-QAT_R_SW_GET_KEYGEN_PFUNC_NULL:373:sw get keygen pfunc null
-QAT_R_SW_GET_SIGN_PFUNC_NULL:374:sw get sign pfunc null
-QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:375:sw get sign setup pfunc null
-QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:376:sw get sign sig pfunc null
-QAT_R_SW_GET_VERIFY_PFUNC_NULL:377:sw get verify pfunc null
-QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:378:sw get verify sig pfunc null
-QAT_R_SW_METHOD_NULL:379:sw method null
-QAT_R_S_NULL:380:s null
-QAT_R_S_Q_COMPARE_FAILURE:381:s q compare failure
-QAT_R_TAG_NOTSET:382:tag notset
-QAT_R_UNKNOWN_PADDING:383:unknown padding
-QAT_R_UNKNOWN_PADDING_TYPE:384:unknown padding type
-QAT_R_WAKE_PAUSE_JOB_FAILURE:385:wake pause job failure
-QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:386:x y tx ty bn malloc failure
-QAT_R_X_Y_Z_MALLOC_FAILURE:387:x y z malloc failure
-QAT_R_Z_ALLOCATE_FAILURE:388:z allocate failure
+QAT_R_SM3_CTX_NULL:348:sm3 ctx null
+QAT_R_SM3_FINAL_FAILURE:349:sm3 final failure
+QAT_R_SM3_INIT_FAILURE:350:sm3 init failure
+QAT_R_SM3_UPDATE_FAILURE:351:sm3 update failure
+QAT_R_SM4_CCM_DECRYPT_FAILURE:352:sm4 ccm decrypt failure
+QAT_R_SM4_GCM_DECRYPT_FAILURE:353:sm4 gcm decrypt failure
+QAT_R_SM4_GCM_ENCRYPT_FAILURE:354:sm4 gcm encrypt failure
+QAT_R_SM4_GET_INSTANCE_FAILED:355:sm4 get instance failed
+QAT_R_SM4_GET_SESSIONCTX_SIZE_FAILED:356:sm4 get sessionctx size failed
+QAT_R_SM4_MALLOC_FAILED:357:sm4 malloc failed
+QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE:358:sm4 no qat instance available
+QAT_R_SM4_NULL_CKEY:359:sm4 null ckey
+QAT_R_SM4_NULL_CTX_OR_KEY:360:sm4 null ctx or key
+QAT_R_SM4_NULL_POINTER:361:sm4 null pointer
+QAT_R_SM4_NULL_QCTX:362:sm4 null qctx
+QAT_R_SM4_QAT_CONTEXT_NOT_INITIALISED:363:sm4 qat context not initialised
+QAT_R_SM4_QAT_INITSESSION_FAILED:364:sm4 qat initsession failed
+QAT_R_SM4_QAT_SUBMIT_REQUEST_FAILED:365:sm4 qat submit request failed
+QAT_R_SM4_REMOVE_SESSION_FAILED:366:sm4 remove session failed
+QAT_R_SM4_SETUP_META_DATA_FAILED:367:sm4 setup meta data failed
+QAT_R_SM4_SET_METHODS_FAILED:368:sm4 set methods failed
+QAT_R_SSD_MALLOC_FAILURE:369:ssd malloc failure
+QAT_R_SSD_NULL:370:ssd null
+QAT_R_START_INSTANCE_FAILURE:371:start instance failure
+QAT_R_STOP_INSTANCE_FAILURE:372:stop instance failure
+QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL:373:sw get compute key pfunc null
+QAT_R_SW_GET_KEYGEN_PFUNC_NULL:374:sw get keygen pfunc null
+QAT_R_SW_GET_SIGN_PFUNC_NULL:375:sw get sign pfunc null
+QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL:376:sw get sign setup pfunc null
+QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL:377:sw get sign sig pfunc null
+QAT_R_SW_GET_VERIFY_PFUNC_NULL:378:sw get verify pfunc null
+QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL:379:sw get verify sig pfunc null
+QAT_R_SW_METHOD_NULL:380:sw method null
+QAT_R_S_NULL:381:s null
+QAT_R_S_Q_COMPARE_FAILURE:382:s q compare failure
+QAT_R_TAG_NOTSET:383:tag notset
+QAT_R_UNKNOWN_PADDING:384:unknown padding
+QAT_R_UNKNOWN_PADDING_TYPE:385:unknown padding type
+QAT_R_WAKE_PAUSE_JOB_FAILURE:386:wake pause job failure
+QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE:387:x y tx ty bn malloc failure
+QAT_R_X_Y_Z_MALLOC_FAILURE:388:x y z malloc failure
+QAT_R_Z_ALLOCATE_FAILURE:389:z allocate failure

@@ -41,6 +41,8 @@
 * SM4-GCM and SM4-CCM are only supported with BabaSSL versions based on OpenSSL 1.1.1.
   They are not supported with OpenSSL 1.1.1, OpenSSL 3.0 and BabaSSL versions based
   on OpenSSL 3.0.
+* HKDF based on SM3 is not supported in QAT_HW, The request will fallback to OpenSSL software if
+  fallback been enabled otherwise failures are observed.
 
 ## Known Issues
 

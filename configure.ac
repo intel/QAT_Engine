@@ -84,6 +84,11 @@ AC_ARG_ENABLE(qat_hw_sm4_cbc,
                              [Enable qat_hw SM4-CBC acceleration]))
 AC_SUBST(enable_qat_hw_sm4_cbc)
 
+AC_ARG_ENABLE(qat_hw_sm3,
+              AS_HELP_STRING([--enable-qat_hw_sm3],
+                             [Enable qat_hw SM3 acceleration]))
+AC_SUBST(enable_qat_hw_sm3)
+
 AC_ARG_ENABLE(qat_sw_gcm,
               AS_HELP_STRING([--disable-qat_sw_gcm],
                              [Disable qat_sw AES-GCM acceleration]))
@@ -535,6 +540,8 @@ then
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_HKDF"; AC_MSG_NOTICE([Accelerating HKDF to Hardware])])
   AS_IF([test "x$enable_qat_hw_sha3" = "xyes"], 
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SHA3"; AC_MSG_NOTICE([Accelerating SHA3 to Hardware])])
+  AS_IF([test "x$enable_qat_hw_sm3" = "xyes"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SM3"; AC_MSG_NOTICE([Accelerating SM3 to Hardware])])
   AS_IF([test "x$enable_qat_hw_ciphers" != "xno"],
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CIPHERS"; AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])])
   AS_IF([test "x$enable_qat_hw_gcm" = "xyes"],
@@ -558,7 +565,7 @@ then
         [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_ECX"; AC_MSG_NOTICE([Accelerating X25519/X448 to Software (Multi-buffer)])])
   AS_IF([test "x$enable_qat_sw_sm2" != "xno"], 
         [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM2"; AC_MSG_NOTICE([Accelerating SM2 to Software (Multi-buffer)])])
-  AS_IF([test "x$enable_qat_sw_sm3" = "xyes"], 
+  AS_IF([test "x$enable_qat_sw_sm3" = "xyes"],
         [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM3"; AC_MSG_NOTICE([Accelerating SM3 to Software (Multi-buffer)])])
   AS_IF([test "x$enable_qat_sw_sm4_cbc" = "xyes"], 
         [cflags_qat_sw="${cflags_qat_sw} -DENABLE_QAT_SW_SM4_CBC"; AC_MSG_NOTICE([Accelerating SM4-CBC to Software (Multi-buffer)])])
@@ -577,6 +584,11 @@ fi
 if test "x$cflags_qat_hw" != "x" -a  "x$cflags_qat_sw" != "x"
 then
     AC_MSG_NOTICE([QAT_HW & QAT_SW Co-existence])
+
+    if test "x$enable_qat_hw_sm3" != "x" -a "x$enable_qat_sw_sm3" != "x"
+    then
+      AC_MSG_ERROR(Co-existence not supported by SM3)
+    fi
 fi
 
 #Enable additional QAT_HW & QAT_SW flags

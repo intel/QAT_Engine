@@ -355,6 +355,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_SHA3_CTX_NULL), "sha3 ctx null"},
     {ERR_PACK(0, 0, QAT_R_SIG_GET_R_S_FAILURE), "sig get r s failure"},
     {ERR_PACK(0, 0, QAT_R_SIG_MALLOC_FAILURE), "sig malloc failure"},
+    {ERR_PACK(0, 0, QAT_R_SM3_CTX_NULL), "sm3 ctx null"},
     {ERR_PACK(0, 0, QAT_R_SM3_FINAL_FAILURE), "sm3 final failure"},
     {ERR_PACK(0, 0, QAT_R_SM3_INIT_FAILURE), "sm3 init failure"},
     {ERR_PACK(0, 0, QAT_R_SM3_UPDATE_FAILURE), "sm3 update failure"},

@@ -25,6 +25,7 @@
 | SHA3-256/384/512 |  | *** | *** | *** |
 | ChachaPoly | | *** | *** | *** |
 | SM4-CBC |  | # | # |  |
+| SM3 | | *** | *** | |
 
 \* Enabled in the default build of qatengine for the specified platforms when `--with-qat_hw_dir` is provided in qatengine/qatprovider build configure.<br>
 \** Insecure algorithms which are disabled by default in QAT_HW driver version 1.7 & 1.8 and qatengine/qatprovider. Can be enabled using configure flag `--enable-qat_insecure_algorithms`. Driver will also needs to be built with the flag `./configure --enable-legacy-algorithms` to enable these algortihms at driver.<br>

@@ -69,6 +69,7 @@
 # include "qat_hw_gcm.h"
 # include "qat_hw_sha3.h"
 # include "qat_hw_chachapoly.h"
+# include "qat_hw_sm3.h"
 # endif /* QAT_BORINGSSL */
 #endif
 
@@ -215,7 +216,7 @@ static digest_data digest_info[] = {
     { NID_sha3_384,  NULL, NID_RSA_SHA3_384},
     { NID_sha3_512,  NULL, NID_RSA_SHA3_512},
 #endif
-#ifdef ENABLE_QAT_SW_SM3
+#if defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_HW_SM3)
     { NID_sm3,  NULL, NID_sm3WithRSAEncryption},
 #endif
 };
@@ -230,7 +231,7 @@ int qat_digest_nids[] = {
     NID_sha3_384,
     NID_sha3_512,
 # endif
-#ifdef ENABLE_QAT_SW_SM3
+#if defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_HW_SM3)
     NID_sm3,
 #endif
 };
@@ -266,6 +267,9 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 # endif
 #if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
     {NID_sm4_cbc, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4_CBC},
+# endif
+# ifdef ENABLE_QAT_HW_SM3
+    {NID_sm3, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_SM3},
 # endif
 };
 
@@ -370,6 +374,14 @@ void qat_create_digest_meth(void)
                     qat_sw_create_sm3_meth(digest_info[i].m_type , digest_info[i].pkey_type);
                 break;
 #endif
+
+#ifdef ENABLE_QAT_HW_SM3
+            case NID_sm3:
+                digest_info[i].md = (EVP_MD *)
+                    qat_hw_create_sm3_meth(digest_info[i].m_type , digest_info[i].pkey_type);
+                break;
+#endif
+
             default:
                 break;
             }
@@ -402,12 +414,20 @@ void qat_free_digest_meth(void)
                     EVP_MD_meth_free(digest_info[i].md);
                 break;
 #endif
+
+#ifdef ENABLE_QAT_HW_SM3
+            case NID_sm3:
+                if (qat_hw_sm3_offload)
+                    EVP_MD_meth_free(digest_info[i].md);
+                break;
+#endif
             }
             digest_info[i].md = NULL;
         }
     }
     qat_hw_sha_offload = 0;
     qat_sw_sm3_offload = 0;
+    qat_hw_sm3_offload = 0;
 }
 
 /******************************************************************************

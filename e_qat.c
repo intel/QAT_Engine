@@ -183,6 +183,7 @@ int qat_hw_aes_cbc_hmac_sha_offload = 0;
 int qat_hw_sm4_cbc_offload = 0;
 int qat_sw_sm2_offload = 0;
 int qat_hw_sha_offload = 0;
+int qat_hw_sm3_offload = 0;
 int qat_sw_sm3_offload = 0;
 int qat_sw_sm4_cbc_offload = 0;
 int qat_sw_sm4_gcm_offload = 0;
@@ -480,6 +481,7 @@ static int qat_engine_destroy(ENGINE *e)
     qat_sw_sm4_cbc_offload = 0;
     qat_sw_sm4_gcm_offload = 0;
     qat_sw_sm4_ccm_offload = 0;
+    qat_hw_sm3_offload = 0;
     QAT_DEBUG_LOG_CLOSE();
     ERR_unload_QAT_strings();
     return 1;
