@@ -147,7 +147,9 @@ int parse_user_option(int argc, char *argv[])
                         return 1;
                     }
 
-                    if (NULL == (key_path = (char *)OPENSSL_zalloc(slen + 1))) {
+                    if (NULL == key_path)
+                        key_path = (char *)OPENSSL_zalloc(slen + 1);
+                    if (NULL == key_path) {
                         T_ERROR("Error: allocated memory failed\n");
                         return 1;
                     }

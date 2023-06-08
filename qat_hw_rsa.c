@@ -184,11 +184,12 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     op_done_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
     int inst_num = QAT_INVALID_INSTANCE;
-    int job_ret = 0;
     int sync_mode_ret = 0;
     thread_local_variables_t *tlv = NULL;
 # ifdef QAT_BORINGSSL
     op_done_t *op_done_bssl = NULL;
+# else
+    int job_ret = 0;
 # endif
 
     DEBUG("- Started\n");
@@ -338,7 +339,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 # ifdef QAT_BORINGSSL
     qat_cleanup_op_done(&op_done);
     return -1; /* Async mode for BoringSSL */
-# endif /* QAT_BORINGSSL */
+# else
 
     if (qat_get_sw_fallback_enabled()) {
         CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
@@ -392,6 +393,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     DEBUG("- Finished\n");
     return 1;
+# endif /* QAT_BORINGSSL */
 }
 
 static int

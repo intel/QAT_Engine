@@ -968,13 +968,14 @@ static void qat_ecdsaSignCallbackFn(void *pCallbackTag, CpaStatus status,
     ECDSA_SIG *s = NULL;
     size_t bytes_len = 0;
     pBuffer.pBuffers = NULL;
+    op_done_t *opDone = NULL;
 
     if (!bEcdsaSignStatus) {
         WARN("ECDSA sign failed, status %d verifyResult %d\n", status, bEcdsaSignStatus);
         goto err;
     }
 
-    op_done_t *opDone = (op_done_t *)pCallbackTag;
+    opDone = (op_done_t *)pCallbackTag;
     if (unlikely(opDone == NULL)) {
         WARN("opDone is empty in ECDSA callback\n");
         goto err;
