@@ -67,7 +67,7 @@
 static pthread_t    async_poll_thread;
 static uint8_t     *sig_data = NULL;
 static size_t       max_len = 0;
-static unsigned int sig_len = 0;
+static size_t       sig_len = 0;
 static const char   in_data[] = "Intel® QuickAssist Technology (Intel® QAT)";
 
 static void qat_ecdsa_handle_async_ctx(async_ctx *ctx)
@@ -194,7 +194,7 @@ int qat_ecdsa_test(const EVP_PKEY *pkey, int flag)
     }
 
     T_DUMP_ECDSA_SIGN_INPUT(in_data, strlen(in_data));
-    if (!ECDSA_sign(type, md, mdlen, sig_data, &sig_len, eckey)) {
+    if (!ECDSA_sign(type, md, mdlen, sig_data, (unsigned int *) &sig_len, eckey)) {
          T_ERROR("ECDSA Sign: Failed\n");
         goto err;
     } else {
@@ -202,11 +202,11 @@ int qat_ecdsa_test(const EVP_PKEY *pkey, int flag)
             qat_ecdsa_wait_async_ctx();
         }
         T_DEBUG("ECDSA Sign: OK\n");
-        T_DUMP_ECDSA_SIGN_OUTPUT(sig_data, sig_len);
+        T_DUMP_ECDSA_SIGN_OUTPUT(sig_data, (unsigned int) sig_len);
     }
 
     /* Verify */
-    signature = ECDSA_SIG_from_bytes(sig_data, sig_len);
+    signature = ECDSA_SIG_from_bytes(sig_data, (unsigned int) sig_len);
     if (ECDSA_do_verify(md, mdlen, signature, eckey) != 1) {\
         T_ERROR("ECDSA Verify: Failed\n");
         goto err;

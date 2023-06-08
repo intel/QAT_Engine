@@ -328,6 +328,7 @@ int qat_rsa_decrypt_test(RSA_METHOD *meth, RSA *rsa, const uint8_t *in_data,
      /* Decrypting */
     if (NULL == (out_data = (unsigned char *)OPENSSL_zalloc(in_len))) {
         T_ERROR("Failed to allocate buffer\n");
+        OPENSSL_free(enc_data);
         return 1; /* error */
     }
     T_DUMP_RSA_DECRYPT_INPUT(enc_data, out_len);
@@ -341,6 +342,8 @@ int qat_rsa_decrypt_test(RSA_METHOD *meth, RSA *rsa, const uint8_t *in_data,
     T_DUMP_RSA_DECRYPT_OUTPUT(out_data, out_len);
     if (in_len != out_len) {
         T_ERROR("RSA Decrypt: wrong length\n");
+        OPENSSL_free(enc_data);
+        OPENSSL_free(out_data);
         return 1; /* fail */
     } else {
         T_DEBUG("RSA Decrypt(%s mode): OK\n", async_mode?"Async":"Sync");

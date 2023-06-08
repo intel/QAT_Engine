@@ -533,12 +533,18 @@ int bssl_qat_async_ctx_copy_result(const async_ctx *ctx, unsigned char *buffer,
     unsigned long bytes_len = 0;
 #ifdef QAT_HW
     CpaFlatBuffer *from;
+    thread_local_variables_t *tlv = NULL;
 
     /* Decrease num_requests_in_flight by 1 to
      * avoid high cpu load from polling thread
      */
-    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight,
-                           qat_check_create_local_variables());
+    tlv = qat_check_create_local_variables();
+    if (NULL == tlv) {
+        WARN("could not create local variables\n");
+        return 0;
+    }
+
+    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
  #endif /* QAT_HW */
 
     /* Change fds state from add to del */
