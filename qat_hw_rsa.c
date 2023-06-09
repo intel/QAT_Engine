@@ -67,6 +67,9 @@
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
 
 #include "cpa.h"
 #include "cpa_types.h"
@@ -515,7 +518,6 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
             RSA_padding_add_none((*dec_op_data)->inputData.pData,
                                  rsa_len, from, flen);
     }
-
     if (padding_result <= 0) {
         WARN("Failed to add padding\n");
         /* Error is raised within the padding function. */
@@ -836,6 +838,7 @@ build_encrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
+
     (*enc_op_data)->inputData.pData = (Cpa8U *) qaeCryptoMemAlloc(
         ((padding != RSA_NO_PADDING) && alloc_pad) ? rsa_len : flen,
          __FILE__,
@@ -951,6 +954,9 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 # endif
 
     DEBUG("QAT HW RSA Started.\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
     if ((qat_sw_rsa_priv_req > 0) || qat_get_qat_offload_disabled()) {
         fallback = 1;
@@ -1434,6 +1440,9 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     int sts = 1, fallback = 0;
 
     DEBUG("QAT HW RSA Started.\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
     if ((qat_sw_rsa_pub_req > 0) || qat_get_qat_offload_disabled()) {
         fallback = 1;

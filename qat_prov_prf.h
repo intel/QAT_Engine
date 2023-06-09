@@ -59,6 +59,7 @@
 # include <openssl/provider.h>
 # include "qat_hw_prf.h"
 # include "qat_provider.h"
+# include "e_qat.h"
 
 # define TLS1_PRF_MAXBUF 1024
 

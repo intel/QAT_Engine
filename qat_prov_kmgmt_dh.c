@@ -58,6 +58,7 @@
 #include "qat_utils.h"
 #include "qat_evp.h"
 #include "e_qat.h"
+#include "qat_prov_cmvp.h"
 
 #ifdef ENABLE_QAT_HW_DH
 typedef struct
@@ -157,11 +158,15 @@ static void *qat_dh_newdata(void *provctx)
 
 static void qat_dh_freedata(void *keydata)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_DH_free(keydata);
+#else
     typedef void (*fun_ptr)(void *);
     fun_ptr fun = get_default_keymgmt().free;
     if (!fun)
         return;
     fun(keydata);
+#endif
 }
 
 static int qat_dh_has(const void *keydata, int selection)

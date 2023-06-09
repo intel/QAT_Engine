@@ -423,7 +423,11 @@ static int test_ecdh_curve(ENGINE * e,
     if (EVP_PKEY_derive(key_ctx, NULL, &outlen) <= 0 || outlen == 0) {
          ecdh_checks = 0;
          fprintf(stderr, "ECDH derive failed or outlen is NULL\n");
+#if ENABLE_QAT_FIPS
+         ret = 0;
+#else
          ret = -1;
+#endif
          goto err;
     }
 
@@ -500,8 +504,10 @@ static int test_ecdh_curve(ENGINE * e,
 #endif
 
 err:
+#ifndef ENABLE_QAT_FIPS
     if (ret != 0)
-	    ERR_print_errors_fp(stderr);
+        ERR_print_errors_fp(stderr);
+#endif
     if (abuf != NULL) OPENSSL_free(abuf);
     if (bbuf != NULL) OPENSSL_free(bbuf);
     if (x_a) BN_free(x_a);

@@ -116,6 +116,21 @@ typedef struct{
 
 } QAT_EC_KEYMGMT;
 
+typedef struct {
+    OSSL_LIB_CTX *libctx;
+    char *group_name;
+    char *encoding;
+    char *pt_format;
+    char *group_check;
+    char *field_type;
+    BIGNUM *p, *a, *b, *order, *cofactor;
+    unsigned char *gen, *seed;
+    size_t gen_len, seed_len;
+    int selection;
+    int ecdh_mode;
+    EC_GROUP *gen_group;
+}QAT_EC_GEN_CTX;
+
 static QAT_EC_KEYMGMT get_default_keymgmt()
 {
     static QAT_EC_KEYMGMT s_keymgmt;
@@ -192,10 +207,15 @@ static const OSSL_PARAM *qat_keymgmt_ec_gen_settable_params(ossl_unused void *ge
 static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
 {
     typedef void* (*fun_ptr)(void *, OSSL_CALLBACK *, void *);
+    EC_KEY* eckey = NULL;
     fun_ptr fun = get_default_keymgmt().gen;
     if (!fun)
-        return NULL;
-    return fun(genctx,osslcb,cbarg);
+        goto end;
+
+    eckey = fun(genctx,osslcb,cbarg);
+
+end:
+    return eckey;
 }
 
 static int qat_keymgmt_ec_get_params(void *key, OSSL_PARAM params[])
@@ -236,11 +256,15 @@ static int qat_keymgmt_ec_set_params(void *key, const OSSL_PARAM params[])
 
 static void qat_keymgmt_ec_freedata(void *keydata)
 {
+#ifdef ENABLE_QAT_FIPS
+    QAT_EC_KEY_free(keydata);
+#else
     typedef void (*fun_ptr)(void *);
     fun_ptr fun = get_default_keymgmt().free;
     if (!fun)
         return;
     fun(keydata);
+#endif
 }
 
 static int qat_keymgmt_ec_has(const void *keydata, int selection)
@@ -308,6 +332,36 @@ static void *qat_keymgmt_ec_load(const void *reference, size_t reference_sz)
 
 }
 
+static void *qat_keymgmt_ec_dup(const void *keydata_from, int selection)
+{
+    typedef void* (*fun_ptr)(const void *, int);
+    fun_ptr fun = get_default_keymgmt().dup;
+    if (!fun)
+        return NULL;
+    return fun(keydata_from, selection);
+
+}
+
+static int qat_keymgmt_ec_validate(const void *keydata, int selection, int checktype)
+{
+    typedef int (*fun_ptr)(const void *, int, int);
+    fun_ptr fun = get_default_keymgmt().validate;
+    if (!fun)
+	return 0;
+    return fun(keydata, selection, checktype);
+
+}
+
+static int qat_keymgmt_ec_match(const void *keydata1, const void *keydata2, int selection)
+{
+    typedef int (*fun_ptr)(const void *, const void *, int);
+    fun_ptr fun = get_default_keymgmt().match;
+    if (!fun)
+        return 0;
+    return fun(keydata1, keydata2, selection);
+
+}
+
 #endif
 
 #if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
@@ -328,10 +382,13 @@ const OSSL_DISPATCH qat_ecdsa_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_keymgmt_ec_set_params },
     { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_keymgmt_ec_settable_params },
     { OSSL_FUNC_KEYMGMT_HAS, (void (*)(void))qat_keymgmt_ec_has },
+    { OSSL_FUNC_KEYMGMT_MATCH, (void (*)(void))qat_keymgmt_ec_match },
+    { OSSL_FUNC_KEYMGMT_VALIDATE, (void (*)(void))qat_keymgmt_ec_validate },
     { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_keymgmt_ec_import },
     { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_keymgmt_ec_import_types },
     { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_keymgmt_ec_export },
     { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_keymgmt_ec_export_types },
+    { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_keymgmt_ec_dup },
     { OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
       (void (*)(void))qat_keymgmt_ec_query_operation_name },
     {0, NULL }
@@ -356,10 +413,13 @@ const OSSL_DISPATCH qat_ecdh_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_keymgmt_ec_set_params },
     { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_keymgmt_ec_settable_params },
     { OSSL_FUNC_KEYMGMT_HAS, (void (*)(void))qat_keymgmt_ec_has },
+    { OSSL_FUNC_KEYMGMT_MATCH, (void (*)(void))qat_keymgmt_ec_match },
+    { OSSL_FUNC_KEYMGMT_VALIDATE, (void (*)(void))qat_keymgmt_ec_validate },
     { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_keymgmt_ec_import },
     { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_keymgmt_ec_import_types },
     { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_keymgmt_ec_export },
     { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_keymgmt_ec_export_types },
+    { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_keymgmt_ec_dup },
     { OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
       (void (*)(void))qat_keymgmt_ec_query_operation_name },
     {0, NULL }

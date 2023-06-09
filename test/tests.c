@@ -811,6 +811,15 @@ void tests_run(TEST_PARAMS *args, int id)
         tests_run_chacha20_poly1305(args);
         break; /* ENABLE_QAT_HW_SM4_CBC */
 #endif
+#ifdef QAT_SW
+    /* SHA2 tests */
+    case TEST_SHA2_224:
+    case TEST_SHA2_256:
+    case TEST_SHA2_384:
+    case TEST_SHA2_512:
+        tests_run_sha2(args);
+        break;
+#endif
     default:
         printf("# FAIL: Test type %d not supported\n", args->type);
         exit(EXIT_FAILURE);

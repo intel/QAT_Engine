@@ -90,6 +90,19 @@
 
 # define QAT_EC_MIN_RANGE 256
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+
+# ifdef ENABLE_QAT_HW_ECDSA
+extern int qat_fips_kat_test;
+static const unsigned char kvalue[] = {
+    0x23, 0xAF, 0x40, 0x74, 0xC9, 0x0A, 0x02, 0xB3,
+    0xE6, 0x1D, 0x28, 0x6D, 0x5C, 0x87, 0xF4, 0x25,
+    0xE6, 0xBD, 0xD8, 0x1B
+};
+# endif
+#endif
+
 CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
 {
     /* For BoringSSL,EC_METHOD_get_field_type only support NID_X9_62_prime_field
@@ -158,6 +171,9 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     int curve_name;
 
     DEBUG("QAT HW ECDH Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
     START_RDTSC(&qat_hw_ecdh_derive_req_prepare);
 
     if (unlikely(ecdh == NULL ||
@@ -196,6 +212,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_MALLOC_FAILURE);
         return ret;
     }
+
     pOpData->pCurve = (CpaCyEcCurve *) qaeCryptoMemAlloc(sizeof(CpaCyEcCurve),
                                          __FILE__, __LINE__);
     if (pOpData->pCurve == NULL) {
@@ -319,6 +336,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
         goto err;
      }
 
+#ifndef QAT_OPENSSL_PROVIDER
      /* Pass Co-factor to Opdata */
      if (pOpData->pCurve->parameters.weierstrassParameters.fieldType
          == CPA_CY_EC_FIELD_TYPE_PRIME) {
@@ -328,6 +346,13 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
              goto err;
          }
      }
+#else
+     if (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.h), h) != 1) {
+	 WARN("Failure to convert h to flatbuffer\n");
+	 QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
+	 goto err;
+     }
+#endif
 
     /*
      * This is a special handling required for curves with 'a' co-efficient
@@ -1174,6 +1199,9 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 #endif
 
     DEBUG("QAT HW ECDSA Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
     START_RDTSC(&qat_hw_ecdsa_sign_req_prepare);
 
     if (unlikely(dgst == NULL ||
@@ -1347,6 +1375,23 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         opData->a.pData[0] = 0;
     }
 
+#ifdef ENABLE_QAT_FIPS
+    if (in_kinv == NULL || in_r == NULL) {
+        if (qat_fips_kat_test == 0) {
+            do
+                if (!BN_rand_range(k, order)) {
+                    WARN("Failure to get random number k\n");
+                    QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_K_RAND_GENERATE_FAILURE);
+                    goto err;
+                }
+            while (BN_is_zero(k));
+        } else {
+            if (!BN_bin2bn(kvalue, sizeof(kvalue), k)) {
+                WARN("Failure to get k value\n");
+                goto err;
+            }
+        }
+#else
     if (in_kinv == NULL || in_r == NULL) {
         do
             if (!BN_rand_range(k, order)) {
@@ -1355,6 +1400,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                 goto err;
             }
         while (BN_is_zero(k));
+#endif
 
         if ((qat_BN_to_FB(&(opData->k), k)) != 1) {
             WARN("Failed to convert k to a flatbuffer\n");
@@ -1738,6 +1784,7 @@ int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
         QATerr(QAT_F_QAT_ECDSA_VERIFY, QAT_R_S_NULL);
         return ret;
     }
+
     if (d2i_ECDSA_SIG(&s, &p, sig_len) == NULL) {
         WARN("Failure to convert sig_buf and sig_len to s\n");
         QATerr(QAT_F_QAT_ECDSA_VERIFY, ERR_R_INTERNAL_ERROR);
@@ -1785,6 +1832,9 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
 #endif
 
     DEBUG("QAT HW ECDSA Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
     if (unlikely(dgst == NULL || dgst_len <= 0)) {
         WARN("Invalid input param.\n");
         QATerr(QAT_F_QAT_ECDSA_DO_VERIFY, QAT_R_INPUT_PARAM_INVALID);

@@ -66,11 +66,46 @@
 #include "qat_evp.h"
 #include "qat_sw_ec.h"
 #include "qat_sw_request.h"
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
 
 /* Crypto_mb includes */
 #include "crypto_mb/ec_nistp256.h"
 #include "crypto_mb/ec_nistp384.h"
 #include "crypto_mb/ec_sm2.h"
+
+#ifdef ENABLE_QAT_FIPS
+extern int qat_fips_kat_test;
+static const unsigned char KINV_256[] = {
+        0x62, 0x15, 0x9E, 0x5B, 0xA9, 0xE7, 0x12, 0xFB,
+        0x09, 0x8C, 0xCE, 0x8F, 0xE2, 0x0F, 0x1B, 0xED,
+        0x83, 0x46, 0x55, 0x4E, 0x98, 0xEF, 0x3C, 0x7C,
+        0x1F, 0xC3, 0x33, 0x2B, 0xA6, 0x7D, 0x87, 0xEF
+};
+static const unsigned char R_256[] = {
+        0x2B, 0x42, 0xF5, 0x76, 0xD0, 0x7F, 0x41, 0x65,
+        0xFF, 0x65, 0xD1, 0xF3, 0xB1, 0x50, 0x0F, 0x81,
+        0xE4, 0x4C, 0x31, 0x6F, 0x1F, 0x0B, 0x3E, 0xF5,
+        0x73, 0x25, 0xB6, 0x9A, 0xCA, 0x46, 0x10, 0x4F
+};
+static const unsigned char KINV_384[] = {
+        0xAC, 0x22, 0x7D, 0xA5, 0x19, 0x29, 0x53, 0x3D,
+        0xFC, 0x2E, 0x9E, 0xEF, 0xB4, 0xE0, 0xF7, 0xBD,
+        0x22, 0x39, 0x2C, 0xA7, 0x32, 0x89, 0xED, 0x1C,
+        0x6C, 0x00, 0xB2, 0x14, 0xE8, 0x87, 0x4D, 0x80,
+        0x07, 0xC8, 0xAC, 0x46, 0xB2, 0x5D, 0x67, 0x7D,
+        0xFE, 0x9B, 0x1C, 0x6C, 0x10, 0xA4, 0x7E, 0x4A
+};
+static const unsigned char R_384[] = {
+        0x30, 0xEA, 0x51, 0x4F, 0xC0, 0xD3, 0x8D, 0x82,
+        0x08, 0x75, 0x6F, 0x06, 0x81, 0x13, 0xC7, 0xCA,
+        0xDA, 0x9F, 0x66, 0xA3, 0xB4, 0x0E, 0xA3, 0xB3,
+        0x13, 0xD0, 0x40, 0xD9, 0xB5, 0x7D, 0xD4, 0x1A,
+        0x33, 0x27, 0x95, 0xD0, 0x2C, 0xC7, 0xD5, 0x07,
+        0xFC, 0xEF, 0x9F, 0xAF, 0x01, 0xA2, 0x70, 0x88
+};
+#endif
 
 static inline int mb_ec_check_curve(int curve_type)
 {
@@ -861,6 +896,9 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 #endif /* QAT_BORINGSSL */
 
     DEBUG("Entering \n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
     if (unlikely(dgst == NULL || dlen <= 0 ||
                  eckey == NULL)) {
         *siglen = 0;
@@ -887,20 +925,49 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     if ((bit_len = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
+#ifdef ENABLE_QAT_FIPS
+        return ret;
+#else
         goto use_sw_method;
+#endif
     }
+
+#ifdef ENABLE_QAT_FIPS
+    if (qat_fips_kat_test == 1) {
+        if (bit_len == EC_P256) {
+            if ((kinv = BN_bin2bn(KINV_256, sizeof(KINV_256), NULL)) == 0)
+                 return ret;
+            if ((r = BN_bin2bn(R_256, sizeof(R_256), NULL)) == 0)
+                 return ret;
+        } else {
+            if ((kinv = BN_bin2bn(KINV_384, sizeof(KINV_384), NULL)) == 0)
+                 return ret;
+            if ((r = BN_bin2bn(R_384, sizeof(R_384), NULL)) == 0)
+                 return ret;
+        }
+    }
+#endif
 
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return ret;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     if (!EC_KEY_can_sign(eckey)) {
         WARN("Curve doesn't support Signing\n");
@@ -911,14 +978,25 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifdef ENABLE_QAT_FIPS
+        return ret;
+#else
         goto use_sw_method;
+#endif
     }
 
     while ((ecdsa_sign_req =
             mb_flist_ecdsa_sign_pop(tlv->ecdsa_sign_freelist)) == NULL) {
 #ifndef QAT_BORINGSSL
+# ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+# else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+# endif
 #else /* QAT_BORINGSSL */
         goto use_sw_method;
 #endif /* QAT_BORINGSSL */
@@ -1070,6 +1148,11 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     }
     STOP_RDTSC(&ecdsa_cycles_sign_setup, 1, "[ECDSA:sign_setup]");
 
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_ecdsa_sign_reqs(tlv, bit_len);
+#endif
+
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
         if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
@@ -1086,20 +1169,26 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
     }
 #endif
     DEBUG("Pausing: %p status = %d\n", ecdsa_sign_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-         * not flag an error here and quit because we have
-         * an asynchronous request in flight.
-         * We don't want to start cleaning up data
-         * structures that are still being used. If
-         * qat_pause_job fails we will just yield and
-         * loop around and try again until the request
-         * completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+             * not flag an error here and quit because we have
+             * an asynchronous request in flight.
+             * We don't want to start cleaning up data
+             * structures that are still being used. If
+             * qat_pause_job fails we will just yield and
+             * loop around and try again until the request
+             * completes and we can continue. */
+             if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                 sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", ecdsa_sign_req, sts);
+        DEBUG("Finished: %p status = %d\n", ecdsa_sign_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts) {
         /* Convert the buffers to BN */
@@ -1141,7 +1230,7 @@ err:
     return ret;
 
 use_sw_method:
-#ifndef QAT_BORINGSSL
+# ifndef QAT_BORINGSSL
     EC_KEY_METHOD_get_sign((EC_KEY_METHOD *) EC_KEY_OpenSSL(),
                             &sign_pfunc, NULL, NULL);
     if (sign_pfunc == NULL) {
@@ -1151,7 +1240,7 @@ use_sw_method:
     }
 
     return (*sign_pfunc)(type, dgst, dlen, sig, siglen, kinv, r, eckey);
-#else /* QAT_BORINGSSL */
+# else /* QAT_BORINGSSL */
     ret = bssl_ecdsa_sign(dgst, dlen, sig, siglen, eckey);
     if ((job = ASYNC_get_current_job())) {
         job->tlv_destructor(NULL);
@@ -1166,7 +1255,7 @@ use_sw_method:
         }
     }
     return ret;
-#endif /* QAT_BORINGSSL */
+# endif /* QAT_BORINGSSL */
 }
 
 #ifndef QAT_BORINGSSL
@@ -1598,15 +1687,24 @@ int mb_ecdsa_verify(int type, const unsigned char *dgst,
 
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return ret;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     if ((s = ECDSA_SIG_new()) == NULL) {
         WARN("Failure to allocate ECDSA_SIG\n");
@@ -1662,6 +1760,9 @@ int mb_ecdsa_do_verify(const unsigned char *dgst,
     BIGNUM *x = NULL, *y = NULL, *z = NULL;
 
     DEBUG("Entering \n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
     if (unlikely(dgst == NULL || dlen <= 0 ||
                  eckey == NULL)) {
         WARN("Invalid Input param\n");
@@ -1686,20 +1787,33 @@ int mb_ecdsa_do_verify(const unsigned char *dgst,
     if ((bit_len = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
+#ifdef ENABLE_QAT_FIPS
+        return ret;
+#else
         goto use_sw_method;
+#endif
     }
 
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return sts;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     if (!EC_KEY_can_sign(eckey)) {
         WARN("Curve doesn't support Signing\n");
@@ -1710,13 +1824,24 @@ int mb_ecdsa_do_verify(const unsigned char *dgst,
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifdef ENABLE_QAT_FIPS
+        return ret;
+#else
         goto use_sw_method;
+#endif
     }
 
     while ((ecdsa_verify_req =
             mb_flist_ecdsa_verify_pop(tlv->ecdsa_verify_freelist)) == NULL) {
+# ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+# else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+# endif
     }
 
     DEBUG("QAT SW ECDSA Verify Started %p\n", ecdsa_verify_req);
@@ -1791,6 +1916,10 @@ int mb_ecdsa_do_verify(const unsigned char *dgst,
         break;
     }
     STOP_RDTSC(&ecdsa_cycles_verify_setup, 1, "[ECDSA:verify_setup]");
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_ecdsa_verify_reqs(tlv, bit_len);
+#endif
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
@@ -1802,20 +1931,27 @@ int mb_ecdsa_do_verify(const unsigned char *dgst,
         }
     }
     DEBUG("Pausing: %p status = %d\n", ecdsa_verify_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-         * not flag an error here and quit because we have
-         * an asynchronous request in flight.
-         * We don't want to start cleaning up data
-         * structures that are still being used. If
-         * qat_pause_job fails we will just yield and
-         * loop around and try again until the request
-         * completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", ecdsa_verify_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+             * not flag an error here and quit because we have
+             * an asynchronous request in flight.
+             * We don't want to start cleaning up data
+             * structures that are still being used. If
+             * qat_pause_job fails we will just yield and
+             * loop around and try again until the request
+             * completes and we can continue. */
+           if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+
+        DEBUG("Finished: %p status = %d\n", ecdsa_verify_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts) {
         ret = 1;
@@ -2082,6 +2218,10 @@ int mb_ecdh_compute_key(unsigned char **out,
     static __thread int req_num = 0;
     mb_thread_data *tlv = NULL;
 
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
+
     if (unlikely(ecdh == NULL || pub_key == NULL ||
                 ((priv_key = EC_KEY_get0_private_key(ecdh)) == NULL) ||
                 ((group = EC_KEY_get0_group(ecdh)) == NULL))) {
@@ -2098,31 +2238,55 @@ int mb_ecdh_compute_key(unsigned char **out,
     if ((curve = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
+#ifdef ENABLE_QAT_FIPS
+        return ret;
+#else
         goto use_sw_method;
+#endif
     }
 
     /* Check if we are running asynchronously */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return sts;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifdef ENABLE_QAT_FIPS
+        return ret;
+#else
         goto use_sw_method;
+#endif
     }
 
     while ((ecdh_compute_req =
             mb_flist_ecdh_compute_pop(tlv->ecdh_compute_freelist)) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+#endif
     }
 
     DEBUG("QAT SW ECDH Started %p\n", ecdh_compute_req);
@@ -2184,6 +2348,11 @@ int mb_ecdh_compute_key(unsigned char **out,
     }
     STOP_RDTSC(&ecdh_cycles_compute_setup, 1, "[ECDH:compute_setup]");
 
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_ecdh_compute_reqs(tlv, curve);
+#endif
+
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
         if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
@@ -2195,20 +2364,26 @@ int mb_ecdh_compute_key(unsigned char **out,
     }
 
     DEBUG("Pausing: %p status = %d\n", ecdh_compute_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-         * not flag an error here and quit because we have
-         * an asynchronous request in flight.
-         * We don't want to start cleaning up data
-         * structures that are still being used. If
-         * qat_pause_job fails we will just yield and
-         * loop around and try again until the request
-         * completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+             * not flag an error here and quit because we have
+             * an asynchronous request in flight.
+             * We don't want to start cleaning up data
+             * structures that are still being used. If
+             * qat_pause_job fails we will just yield and
+             * loop around and try again until the request
+             * completes and we can continue. */
+            if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", ecdh_compute_req, sts);
+        DEBUG("Finished: %p status = %d\n", ecdh_compute_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts) {
         *out = buf;

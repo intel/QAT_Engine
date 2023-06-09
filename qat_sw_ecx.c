@@ -234,26 +234,46 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return NULL;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifdef ENABLE_QAT_FIPS
+        return NULL;
+#else
         goto use_sw_method;
+#endif
     }
 
     while ((x25519_keygen_req =
             mb_flist_x25519_keygen_pop(tlv->x25519_keygen_freelist)) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+#endif
     }
 
     DEBUG("QAT SW ECX Started %p\n", x25519_keygen_req);
@@ -305,6 +325,11 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     mb_queue_x25519_keygen_enqueue(tlv->x25519_keygen_queue, x25519_keygen_req);
     STOP_RDTSC(&x25519_cycles_keygen_setup, 1, "[X25519:keygen_setup]");
 
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_x25519_keygen_reqs(tlv);
+#endif
+
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
         if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
@@ -316,20 +341,26 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
      }
 
     DEBUG("Pausing: %p status = %d\n", x25519_keygen_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-           not flag an error here and quit because we have
-           an asynchronous request in flight.
-           We don't want to start cleaning up data
-           structures that are still being used. If
-           qat_pause_job fails we will just yield and
-           loop around and try again until the request
-           completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", x25519_keygen_req, sts);
+        DEBUG("Finished: %p status = %d\n", x25519_keygen_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts) {
 #ifdef QAT_OPENSSL_PROVIDER
@@ -362,16 +393,16 @@ err:
 #endif
 
 use_sw_method:
-#ifdef QAT_OPENSSL_PROVIDER
+# ifdef QAT_OPENSSL_PROVIDER
     DEBUG("SW Finished\n");
     return sw_fn_ptr(ctx, osslcb, cbarg);
-#else
+# else
     EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)sw_x25519_pmeth,
                              NULL, &sw_fn_ptr);
     sts = (*sw_fn_ptr)(ctx, pkey);
     DEBUG("SW Finished\n");
     return sts;
-#endif
+# endif
 }
 
 #ifdef QAT_OPENSSL_PROVIDER
@@ -463,26 +494,46 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return sts;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     while ((x25519_derive_req =
             mb_flist_x25519_derive_pop(tlv->x25519_derive_freelist)) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+#endif
     }
 
     DEBUG("QAT SW ECX Started %p\n", x25519_derive_req);
@@ -502,6 +553,11 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     mb_queue_x25519_derive_enqueue(tlv->x25519_derive_queue, x25519_derive_req);
     STOP_RDTSC(&x25519_cycles_derive_setup, 1, "[X25519:derive_setup]");
 
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_x25519_derive_reqs(tlv);
+#endif
+
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
         if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
@@ -513,20 +569,26 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
      }
 
     DEBUG("Pausing: %p status = %d\n", x25519_derive_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-           not flag an error here and quit because we have
-           an asynchronous request in flight.
-           We don't want to start cleaning up data
-           structures that are still being used. If
-           qat_pause_job fails we will just yield and
-           loop around and try again until the request
-           completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", x25519_derive_req, sts);
+        DEBUG("Finished: %p status = %d\n", x25519_derive_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts) {
        *keylen = X25519_KEYLEN;
@@ -538,18 +600,18 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     }
 
 use_sw_method:
-#ifdef QAT_OPENSSL_PROVIDER
+# ifdef QAT_OPENSSL_PROVIDER
     DEBUG("SW Finished\n");
     return sw_fn_ptr(ctx, key, keylen, outlen);
-#else
+# else
     EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
     sts = (*sw_fn_ptr)(ctx, key, keylen);
     DEBUG("SW Finished\n");
     return sts;
-#endif
+# endif
 }
 
-#ifndef QAT_OPENSSL_PROVIDER
+# ifndef QAT_OPENSSL_PROVIDER
 int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     /* Only need to handle peer key for derivation */
@@ -557,4 +619,4 @@ int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
         return 1;
     return -2;
 }
-#endif
+# endif

@@ -53,6 +53,14 @@ if QAT_PROVIDER
                 qat_prov_capabilities.c   \
                 qat_prov_chachapoly.c     \
                 qat_prov_sign_sm2.c
+if QAT_FIPS
+ QAT_FIPS_SRC = qat_fips.c                \
+                qat_self_test_kats.c      \
+                qat_self_test_tls_prf.c   \
+                qat_prov_cmvp.c           \
+                qat_prov_sha2.c           \
+                qat_sw_sha2.c
+endif
 endif
 
 if QAT_OPENSSL_3
@@ -136,6 +144,7 @@ endif
 
 @LIBQATNAME@_la_SOURCES = ${QAT_COMMON_SRC}   \
                           ${QAT_PROV_SRC}     \
+                          ${QAT_FIPS_SRC}     \
                           ${QAT_ERR_SRC}      \
                           ${QAT_HW_SRC}       \
                           ${QAT_HW_MEM_SRC}   \
@@ -204,4 +213,9 @@ else
          -rebuild -reindex `ls *.c | sed "s/qat_bssl_err.c//"`
 endif
 
+if QAT_FIPS
+intkat:
+	$(shell ./intkat.sh)
+endif
 include test.am
+

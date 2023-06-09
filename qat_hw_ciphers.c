@@ -83,6 +83,10 @@
 #include "qat_hw_ciphers.h"
 #include "qat_constant_time.h"
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
 #include <openssl/evp.h>
 #include <openssl/aes.h>
 #include <openssl/err.h>
@@ -91,6 +95,10 @@
 #include <openssl/lhash.h>
 #include <openssl/ssl.h>
 #include <string.h>
+
+#ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
+#endif
 
 #define GET_TLS_HDR(qctx, i)     ((qctx)->aad[(i)])
 #define GET_TLS_VERSION(hdr)     (((hdr)[9]) << QAT_BYTE_SHIFT | (hdr)[10])
@@ -1078,6 +1086,9 @@ int qat_chained_ciphers_cleanup(PROV_CIPHER_CTX *ctx)
 int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
 #endif
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     qat_chained_ctx *qctx = NULL;
     CpaStatus sts = 0;
     CpaCySymSessionSetupData *ssd = NULL;
@@ -1143,6 +1154,11 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
     qctx->fallback = 0;
     INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
     DEBUG_PPL("[%p] EVP CTX cleaned up\n", ctx);
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+	qat_fips_get_key_zeroize_status();
+#endif
     return retVal;
 }
 

@@ -165,12 +165,12 @@ typedef struct {
                 }                              \
             } while(0)
 
-# define QAT_QMEMFREE_BUFF(b)            \
-            do {                         \
-                if (b != NULL) {         \
-                    qaeCryptoMemFree(b); \
-                    b = NULL;            \
-                }                        \
+# define QAT_QMEMFREE_BUFF(b)                 \
+            do {                              \
+                if (b != NULL) {              \
+                    qaeCryptoMemFree(b);      \
+                    b = NULL;                 \
+                }                             \
             } while(0)
 
 # define QAT_CLEANSE_FREE_BUFF(b,len)        \
@@ -404,6 +404,14 @@ extern int qat_sw_gcm_offload;
 extern int qat_sw_sm2_offload;
 extern int qat_hw_sha_offload;
 extern int qat_hw_sm3_offload;
+# ifdef ENABLE_QAT_FIPS
+extern int qat_sw_sha_offload;
+# endif
+# ifdef QAT_OPENSSL_PROVIDER
+extern int qat_hw_dsa_offload;
+extern int qat_hw_dh_offload;
+extern int qat_hw_ecx_448_offload;
+# endif
 extern int qat_sw_sm3_offload;
 extern int qat_sw_sm4_cbc_offload;
 extern int qat_sw_sm4_gcm_offload;
@@ -429,6 +437,10 @@ extern pthread_t qat_timer_poll_func_thread;
 extern int cleared_to_start;
 extern pthread_mutex_t qat_poll_mutex;
 extern pthread_cond_t qat_poll_condition;
+#ifdef ENABLE_QAT_FIPS
+extern int integrity_status;
+extern int qat_fips_service_indicator;
+#endif
 
 #define ALGO_ENABLE_MASK_RSA                0x00001
 #define ALGO_ENABLE_MASK_DSA                0x00002

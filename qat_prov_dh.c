@@ -49,7 +49,17 @@
 #include "qat_provider.h"
 #include "qat_prov_dh.h"
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
+#define QAT_FIPS_DH_MIN_RANGE 2048
+
 #ifdef ENABLE_QAT_HW_DH
+# ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
+# endif
+
 static OSSL_FUNC_keyexch_newctx_fn qat_dh_newctx;
 static OSSL_FUNC_keyexch_init_fn qat_dh_init;
 static OSSL_FUNC_keyexch_set_peer_fn qat_dh_set_peer;
@@ -94,8 +104,11 @@ static void qat_ffc_params_cleanup(FFC_PARAMS *params)
     qat_ffc_params_init(params);
 }
 
-static void qat_DH_free(DH *r)
+void qat_DH_free(DH *r)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     int i;
 
     if (r == NULL)
@@ -120,6 +133,11 @@ static void qat_DH_free(DH *r)
     BN_clear_free(r->pub_key);
     BN_clear_free(r->priv_key);
     OPENSSL_free(r);
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+	qat_fips_get_key_zeroize_status();
+#endif
 }
 
 static int qat_DH_size(const DH *dh)
@@ -154,8 +172,15 @@ int qat_ffc_params_cmp(const FFC_PARAMS *a, const FFC_PARAMS *b, int ignore_q)
 
 int qat_dh_check_key(OSSL_LIB_CTX *ctx, const DH *dh)
 {
+#ifdef ENABLE_QAT_FIPS
+    if (!qat_fips_dh_safe_group(dh)) {
+        WARN("Invalid DH group.\n");
+        return 0;
+    }
+#endif
+
 #if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
-    if (ossl_securitycheck_enabled(ctx))
+    if (qat_securitycheck_enabled(ctx))
     {
         size_t L, N;
         const BIGNUM *p, *q;
@@ -360,21 +385,39 @@ err:
 static int qat_dh_derive(void *vpdhctx, unsigned char *secret,
                          size_t *psecretlen, size_t outlen)
 {
+    int ret = 0;
     QAT_PROV_DH_CTX *pdhctx = (QAT_PROV_DH_CTX *)vpdhctx;
+#ifdef ENABLE_QAT_FIPS
+    const BIGNUM *p = DH_get0_p(pdhctx->dh);
+    int plen = BN_num_bits(p);
+    if(plen < QAT_FIPS_DH_MIN_RANGE)
+    {
+       INFO("%d is FIPS non approved key size\n", plen);
+       goto end;
+    }
+    qat_fips_service_indicator = 1;
+#endif
 
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
 
     switch (pdhctx->kdf_type)
     {
     case PROV_DH_KDF_NONE:
-        return qat_dh_plain_derive(pdhctx, secret, psecretlen, outlen);
+        ret = qat_dh_plain_derive(pdhctx, secret, psecretlen, outlen);
+        goto end;
     case PROV_DH_KDF_X9_42_ASN1:
-        return qat_dh_X9_42_kdf_derive(pdhctx, secret, psecretlen, outlen);
+        ret = qat_dh_X9_42_kdf_derive(pdhctx, secret, psecretlen, outlen);
+        goto end;
     default:
         break;
     }
-    return 0;
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 static void qat_dh_freectx(void *vpdhctx)

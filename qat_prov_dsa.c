@@ -51,6 +51,14 @@
 #include "qat_prov_dsa.h"
 
 #ifdef ENABLE_QAT_HW_DSA
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
+# ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
+# endif
+
 static OSSL_FUNC_signature_newctx_fn qat_dsa_newctx;
 static OSSL_FUNC_signature_sign_init_fn qat_dsa_sign_init;
 static OSSL_FUNC_signature_verify_init_fn qat_dsa_verify_init;
@@ -147,8 +155,11 @@ static int qat_DSA_up_ref(DSA *r)
     return ((i > 1) ? 1 : 0);
 }
 
-static void qat_DSA_free(DSA *r)
+void qat_DSA_free(DSA *r)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     int i;
 
     if (r == NULL)
@@ -173,6 +184,10 @@ static void qat_DSA_free(DSA *r)
     BN_clear_free(r->pub_key);
     BN_clear_free(r->priv_key);
     OPENSSL_free(r);
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+	qat_fips_get_key_zeroize_status();
+#endif
 }
 
 static int qat_DSA_size(const DSA *dsa)
@@ -194,7 +209,7 @@ static int qat_DSA_size(const DSA *dsa)
 static int qat_dsa_check_key(OSSL_LIB_CTX *ctx, const DSA *dsa, int sign)
 {
 #if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
-    if (ossl_securitycheck_enabled(ctx))
+    if (qat_securitycheck_enabled(ctx))
     {
         size_t L, N;
         const BIGNUM *p, *q;
@@ -402,13 +417,8 @@ static int qat_dsa_sign_int(int type, const unsigned char *dgst, int dlen,
     DSA_SIG *s;
     /* We use the dsa methods provided by qat */
     dsa->meth = qat_get_DSA_methods();
-    if (dsa->libctx == NULL)
-        s = qat_dsa_do_sign(dgst, dlen, dsa);
-    else
-    {
-        WARN("qat_dsa_sign_int failed, dsa->libctx is not NULL\n");
-        s = NULL;
-    }
+
+    s = qat_dsa_do_sign(dgst, dlen, dsa);
     if (s == NULL)
     {
         *siglen = 0;
@@ -433,32 +443,54 @@ static int qat_dsa_sign(void *vpdsactx, unsigned char *sig, size_t *siglen,
                         size_t sigsize, const unsigned char *tbs, size_t tbslen)
 {
     QAT_PROV_DSA_CTX *pdsactx = (QAT_PROV_DSA_CTX *)vpdsactx;
-    int ret;
+    int ret = 0;
     unsigned int sltmp;
     size_t dsasize = qat_DSA_size(pdsactx->dsa);
     size_t mdsize = dsa_get_md_size(pdsactx);
 
+#ifdef ENABLE_QAT_FIPS
+    int range_status = 0;
+    const BIGNUM *p = DSA_get0_p(pdsactx->dsa);
+    const BIGNUM *q = DSA_get0_q(pdsactx->dsa);
+    int plen = BN_num_bits(p);
+    int qlen = BN_num_bits(q);
+    range_status = dsa_fips_range_check(plen, qlen);
+    if (!range_status) {
+        INFO("Given Key P&Q len {%d, %d} is not in FIPS approved range.\n",
+                                                                    plen, qlen);
+        INFO("FIPS approved P&Q len {2048, 224}, {2048, 256} & {3072, 256}.\n");
+        goto end;
+    }
+    qat_fips_service_indicator = 1;
+#endif
+
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
 
     if (sig == NULL)
     {
         *siglen = dsasize;
-        return 1;
+        ret = 1;
+        goto end;
     }
 
     if (sigsize < (size_t)dsasize)
-        return 0;
+        goto end;
 
     if (mdsize != 0 && tbslen != mdsize)
-        return 0;
+        goto end;
 
     ret = qat_dsa_sign_int(0, tbs, tbslen, sig, &sltmp, pdsactx->dsa);
     if (ret <= 0)
-        return 0;
+        goto end;
 
     *siglen = sltmp;
-    return 1;
+    ret = 1;
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 static int qat_DSA_verify(int type, const unsigned char *dgst, int dgst_len,
@@ -470,9 +502,31 @@ static int qat_DSA_verify(int type, const unsigned char *dgst, int dgst_len,
     int derlen = -1;
     int ret = -1;
 
+#ifdef ENABLE_QAT_FIPS
+    int range_status = 0;
+    const BIGNUM *pdata = DSA_get0_p(dsa);
+    const BIGNUM *qdata = DSA_get0_q(dsa);
+    int plen = BN_num_bits(pdata);
+    int qlen = BN_num_bits(qdata);
+    range_status = dsa_fips_range_check(plen, qlen);
+    if (plen != FIPS_DSA_VER_MIN_SIZE) {
+        if (!range_status) {
+            INFO("Given Key P&Q len {%d, %d} is not in FIPS approved range.\n",
+                                                                   plen, qlen);
+            INFO("FIPS approved P&Q len {2048, 224}, {2048, 256} & {3072, 256}.\n");
+            goto err;
+        }
+        qat_fips_service_indicator = 1;
+    }
+    else {
+      INFO("Given Key size %d is Allowed. But, FIPS non-approved size\n",
+                                                       FIPS_DSA_VER_MIN_SIZE);
+    }
+#endif
+
     s = DSA_SIG_new();
     if (s == NULL)
-        return ret;
+        goto err;
     if (d2i_DSA_SIG(&s, &p, siglen) == NULL)
         goto err;
     /* Ensure signature uses DER and doesn't have trailing garbage */
@@ -482,7 +536,12 @@ static int qat_DSA_verify(int type, const unsigned char *dgst, int dgst_len,
     ret = qat_dsa_do_verify(dgst, dgst_len, s, dsa);
 err:
     OPENSSL_clear_free(der, derlen);
-    DSA_SIG_free(s);
+    if (s != NULL)
+        DSA_SIG_free(s);
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
     return ret;
 }
 

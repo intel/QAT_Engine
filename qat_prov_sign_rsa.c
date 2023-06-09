@@ -13,6 +13,10 @@
 #include "qat_prov_rsa.h"
 #include "qat_utils.h"
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
 #ifdef QAT_HW
 #include "qat_hw_rsa.h"
 #endif
@@ -53,6 +57,8 @@ static const unsigned char digestinfo_##name##_der[] = {                       \
         ASN1_NULL, 0x00,                                                       \
       ASN1_OCTET_STRING_, sz                                                   \
 };
+
+#define RSA_KEY_SIZE 8
 
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 typedef int CRYPTO_REF_COUNT;
@@ -1377,24 +1383,35 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
     size_t rsasize = QAT_RSA_size(prsactx->rsa);
     size_t mdsize = rsa_get_md_size(prsactx);
 
+#ifdef ENABLE_QAT_FIPS
+    int key_size = rsasize * RSA_KEY_SIZE;
+    if (key_size < FIPS_RSA_SIGN_MIN_SIZE
+            || key_size > FIPS_RSA_MAX_SIZE) {
+        INFO("%d is FIPS non approved size\n", key_size);
+        goto end;
+    }
+    qat_fips_service_indicator = 1;
+#endif
+
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
 
     if (sig == NULL) {
         *siglen = rsasize;
-        return 1;
+        ret = 1;
+        goto end;
     }
 
     if (sigsize < rsasize) {
         ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_SIGNATURE_SIZE,
                        "is %zu, should be at least %zu", sigsize, rsasize);
-        return 0;
+        goto end;
     }
 
     if (mdsize != 0) {
         if (tbslen != mdsize) {
             QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST_LENGTH);
-            return 0;
+            goto end;
         }
 
         if (EVP_MD_is_a(prsactx->md, OSSL_DIGEST_NAME_MDC2)) {
@@ -1403,7 +1420,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
             if (prsactx->pad_mode != RSA_PKCS1_PADDING) {
                 ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE,
                                "only PKCS#1 padding supported with MDC2");
-                return 0;
+                goto end;
             }
 
             ret = QAT_RSA_sign_ASN1_OCTET_STRING(0, tbs, tbslen, sig, &sltmp,
@@ -1411,7 +1428,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
 
             if (ret <= 0) {
                 QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-                return 0;
+                goto end;
             }
             ret = sltmp;
             goto end;
@@ -1423,11 +1440,11 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                 ERR_raise_data(ERR_LIB_PROV, PROV_R_KEY_SIZE_TOO_SMALL,
                                "RSA key size = %d, expected minimum = %d",
                                QAT_RSA_size(prsactx->rsa), tbslen + 1);
-                return 0;
+                goto end;
             }
             if (!setup_tbuf(prsactx)) {
                 QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
-                return 0;
+                goto end;
             }
             memcpy(prsactx->tbuf, tbs, tbslen);
             prsactx->tbuf[tbslen] = RSA_X931_hash_id(prsactx->mdnid);
@@ -1443,7 +1460,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                                prsactx->rsa);
                 if (ret <= 0) {
                     QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-                    return 0;
+                    goto end;
                 }
                 ret = sltmp;
             }
@@ -1461,7 +1478,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                                        "but the digest only gives %d",
                                        prsactx->min_saltlen,
                                        EVP_MD_size(prsactx->md));
-                        return 0;
+                        goto end;
                     }
                     /* FALLTHRU */
                 default:
@@ -1473,19 +1490,19 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                                        "actual salt length is only set to %d",
                                        prsactx->min_saltlen,
                                        prsactx->saltlen);
-                        return 0;
+                        goto end;
                     }
                     break;
                 }
             }
             if (!setup_tbuf(prsactx))
-                return 0;
+                goto end;
             if (!QAT_RSA_padding_add_PKCS1_PSS_mgf1(prsactx->rsa,
                                                 prsactx->tbuf, tbs,
                                                 prsactx->md, prsactx->mgf1_md,
                                                 prsactx->saltlen)) {
                 QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-                return 0;
+                goto end;
             }
             ret = QAT_RSA_private_encrypt(QAT_RSA_size(prsactx->rsa), prsactx->tbuf,
                                           sig, prsactx->rsa, RSA_NO_PADDING);
@@ -1495,7 +1512,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
         default:
             ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE,
                            "Only X.931, PKCS#1 v1.5 or PSS padding allowed");
-            return 0;
+            goto end;
         }
     } else {
         ret = QAT_RSA_private_encrypt(tbslen, tbs, sig, prsactx->rsa,
@@ -1503,12 +1520,16 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
     }
 
 end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
     if (ret <= 0) {
         QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
         return 0;
     }
 
-    *siglen = ret;
+    if (sig != NULL)
+        *siglen = ret;
     return 1;
 }
 
@@ -1622,28 +1643,46 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
 {
     QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
     size_t rslen = 0;
+    int ret = 0;
+
+#ifdef ENABLE_QAT_FIPS
+    size_t rsasize = QAT_RSA_size(prsactx->rsa);
+    int key_size = rsasize * RSA_KEY_SIZE;
+    if (key_size != FIPS_RSA_VER_MIN_SIZE) {
+        if (key_size < FIPS_RSA_SIGN_MIN_SIZE
+                     || key_size > FIPS_RSA_MAX_SIZE) {
+            INFO("%d is FIPS non approved size\n", key_size);
+            goto end;
+        }
+        qat_fips_service_indicator = 1;
+    }
+    else {
+      INFO("Given Key size %d is Allowed. But, FIPS non-approved size\n",
+                                                       FIPS_RSA_VER_MIN_SIZE);
+    }
+#endif
 
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
     if (prsactx->md != NULL) {
         switch (prsactx->pad_mode) {
         case RSA_PKCS1_PADDING:
             if (!QAT_RSA_verify(prsactx->mdnid, tbs, tbslen, NULL, NULL, sig, siglen,
                             prsactx->rsa)) {
                 QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-                return 0;
+                goto end;
             }
-            return 1;
+            ret = 1;
+            goto end;
         case RSA_X931_PADDING:
             if (!setup_tbuf(prsactx))
-                return 0;
+                goto end;
             if (qat_signature_rsa_verify_recover(prsactx, prsactx->tbuf, &rslen, 0,
                                    sig, siglen) <= 0)
-                return 0;
+                goto end;
             break;
         case RSA_PKCS1_PSS_PADDING:
             {
-                int ret;
                 size_t mdsize;
 
                 /*
@@ -1655,16 +1694,16 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
                     ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_DIGEST_LENGTH,
                                    "Should be %d, but got %d",
                                    mdsize, tbslen);
-                    return 0;
+                    goto end;
                 }
 
                 if (!setup_tbuf(prsactx))
-                    return 0;
+                    goto end;
                 ret = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf,
                                          prsactx->rsa, RSA_NO_PADDING);
                 if (ret <= 0) {
                     QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-                    return 0;
+                    goto end;
                 }
                 ret = QAT_RSA_verify_PKCS1_PSS_mgf1(prsactx->rsa, tbs,
                                                 prsactx->md, prsactx->mgf1_md,
@@ -1672,30 +1711,37 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
                                                 prsactx->saltlen);
                 if (ret <= 0) {
                     QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-                    return 0;
+                    goto end;
                 }
-                return 1;
+                ret = 1;
+                goto end;
             }
         default:
             ERR_raise_data(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE,
                            "Only X.931, PKCS#1 v1.5 or PSS padding allowed");
-            return 0;
+            goto end;
         }
     } else {
         if (!setup_tbuf(prsactx))
-            return 0;
+            goto end;
         rslen = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf, prsactx->rsa,
                                    prsactx->pad_mode);
         if (rslen == 0) {
             QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-            return 0;
+            goto end;
         }
     }
 
     if ((rslen != tbslen) || memcmp(tbs, prsactx->tbuf, rslen))
-        return 0;
+        goto end;
 
-    return 1;
+    ret = 1;
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 static const OSSL_PARAM *qat_signature_rsa_settable_ctx_params(void *vprsactx,

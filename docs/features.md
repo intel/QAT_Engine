@@ -53,6 +53,7 @@ Please refer [here](qat_hw_algo.md) for supported platforms list and default beh
 ## Common Features to qat_hw & qat_sw
 * [QAT_HW & QAT_SW Co-existence with runtime configuration](qat_common.md#qat-hw-and-qat-sw-co-existence)
 * [OpenSSL 3.0 Provider Support](qat_common.md#openssl-30-provider-support)
+* [FIPS Support](qat_common.md#fips-support)
 
 Note: RSA Padding schemes are handled by OpenSSL\* or BoringSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL\* or BoringSSL\* does natively.

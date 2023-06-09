@@ -45,6 +45,7 @@
 
 #include "qat_prov_prf.h"
 #include "e_qat.h"
+#include "qat_prov_cmvp.h"
 
 #ifdef ENABLE_QAT_HW_PRF
 
@@ -177,46 +178,56 @@ static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
     QAT_TLS1_PRF_CTX *qat_prf_ctx = (QAT_TLS1_PRF_CTX *)EVP_PKEY_CTX_get_data(
                                                             ctx->pctx);
     const EVP_MD *md;
+    int ret = 0;
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
 
     if (!qat_prov_is_running() || !qat_tls_prf_set_ctx_params(ctx, params))
-        return 0;
+        goto end;
 
     md = qat_prov_digest_md(&ctx->digest);
     if (md == NULL) {
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
-        return 0;
+        goto end;
     }
 
     if (ctx->P_hash == NULL) {
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
-        return 0;
+        goto end;
     }
     if (ctx->sec == NULL) {
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_SECRET);
-        return 0;
+        goto end;
     }
     if (ctx->seedlen == 0) {
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_SEED);
-        return 0;
+        goto end;
     }
     if (keylen == 0) {
         QATerr(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
-        return 0;
+        goto end;
     }
 
     qat_prf_ctx->qat_md = md;
     if (!qat_tls1_prf_ctrl(ctx->pctx, EVP_PKEY_CTRL_TLS_SEED,
                                ctx->qat_userLabel_len, ctx->qat_userLabel)){
         WARN("Failed in setting prf userLabel.\n");
-        return 0;
+        goto end;
     }
     if (!qat_tls1_prf_ctrl(ctx->pctx, EVP_PKEY_CTRL_TLS_SEED,
                             ctx->seedlen, ctx->seed)) {
         WARN("Failed in setting prf seed.\n");
-        return 0;
+        goto end;
     }
 
-    return qat_prf_tls_derive(ctx->pctx, key, &keylen);
+    ret = qat_prf_tls_derive(ctx->pctx, key, &keylen);
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 static int qat_prf_common_set_ctx_params(QAT_TLS_PRF *ctx, const OSSL_PARAM params[])

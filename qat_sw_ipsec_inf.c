@@ -49,7 +49,10 @@
 
 /* Local Includes */
 #include "qat_sw_gcm.h"
-
+#if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
+int qat_imb_sha2(int nid, IMB_MGR *ipsec_mgr, unsigned char hash_type,
+                 const void *data, size_t len, unsigned char *out);
+#endif
 void qat_imb_aes_gcm_precomp(int nid, IMB_MGR *ipsec_mgr,
                              const void *key,
                              struct gcm_key_data *key_data_ptr)
@@ -229,3 +232,25 @@ void qat_imb_aes_gcm_dec_finalize(int nid, IMB_MGR *ipsec_mgr,
             break;
     }
 }
+
+#if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
+int qat_imb_sha2(int nid, IMB_MGR *ipsec_mgr, unsigned char hash_type,
+                 const void *data, size_t len, unsigned char *out)
+{
+    switch (nid) {
+    case NID_sha224:
+        IMB_SHA224(ipsec_mgr, data, len, out);
+        break;
+    case NID_sha256:
+        IMB_SHA256(ipsec_mgr, data, len, out);
+        break;
+    case NID_sha384:
+        IMB_SHA384(ipsec_mgr, data, len, out);
+        break;
+    case NID_sha512:
+        IMB_SHA512(ipsec_mgr, data, len, out);
+        break;
+    }
+    return 0;
+}
+#endif

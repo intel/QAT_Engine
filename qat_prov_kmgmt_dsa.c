@@ -58,6 +58,7 @@
 #include "qat_utils.h"
 #include "qat_evp.h"
 #include "e_qat.h"
+#include "qat_prov_cmvp.h"
 
 #ifdef QAT_HW
 #include "qat_hw_dsa.h"
@@ -139,11 +140,15 @@ static void *qat_dsa_newdata(void *provctx)
 
 static void qat_dsa_freedata(void *keydata)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_DSA_free(keydata);
+#else
     typedef void (*fun_ptr)(void *);
     fun_ptr fun = get_default_keymgmt().free;
     if (!fun)
         return;
     fun(keydata);
+#endif
 }
 
 static int qat_dsa_has(const void *keydata, int selection)
@@ -269,10 +274,15 @@ static const OSSL_PARAM *qat_dsa_gen_settable_params(ossl_unused void *genctx,
 static void *qat_dsa_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
 {
     typedef void *(*fun_ptr)(void *, OSSL_CALLBACK *, void *);
+    DSA* dsa = NULL;
     fun_ptr fun = get_default_keymgmt().gen;
     if (!fun)
-        return NULL;
-    return fun(genctx, osslcb, cbarg);
+        goto end;
+
+    dsa = fun(genctx, osslcb, cbarg);
+
+end:
+    return dsa;
 }
 
 static void qat_dsa_gen_cleanup(void *genctx)

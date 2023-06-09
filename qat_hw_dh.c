@@ -69,6 +69,9 @@
 #include "qat_events.h"
 #include <unistd.h>
 #include <string.h>
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
 
 /* To specify the DH op sizes supported by QAT engine */
 #define DH_QAT_RANGE_MIN 768
@@ -564,6 +567,9 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     int prime_bytes = 0;
 # endif
     DEBUG("QAT HW DH Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
     if (unlikely(key == NULL)) {
         WARN("Invalid variable key is NULL.\n");

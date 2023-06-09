@@ -55,6 +55,10 @@
 #include "qat_evp.h"
 #include "e_qat.h"
 
+#ifdef ENABLE_QAT_FIPS
+#include "qat_prov_cmvp.h"
+#endif
+
 #ifdef ENABLE_QAT_HW_ECDSA
 # include "qat_hw_ec.h"
 #endif
@@ -63,6 +67,10 @@
 #endif
 
 #if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
+#ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
+#endif
+
 typedef struct evp_signature_st {
     int name_id;
     char *type_name;
@@ -145,6 +153,9 @@ int QAT_EC_KEY_up_ref(EC_KEY *r)
 
 void QAT_EC_KEY_free(EC_KEY *r)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     int i;
 
     if (r == NULL)
@@ -176,6 +187,11 @@ void QAT_EC_KEY_free(EC_KEY *r)
     OPENSSL_free(r->propq);
 
     OPENSSL_clear_free((void *)r, sizeof(EC_KEY));
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+    qat_fips_get_key_zeroize_status();
+#endif
+
 }
 
 /* Disable the security checks in the default provider and qat provider */
@@ -201,6 +217,16 @@ int qat_securitycheck_enabled(OSSL_LIB_CTX *libctx)
  */
 int qat_ec_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect)
 {
+#ifdef ENABLE_QAT_FIPS
+    if (!qat_fips_ec_check_approved_curve(ec)) {
+        return 0;
+    }
+    if (!qat_fips_ec_key_simple_check_key(ec)) {
+        INFO("Invalid pub_key\n");
+        return 0;
+    }
+#endif
+
 # if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
     if (qat_securitycheck_enabled(ctx)) {
         int nid, strength;
@@ -434,48 +460,67 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
                       size_t sigsize, const unsigned char *tbs, size_t tbslen)
 {
     QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
-    int ret;
+    int ret = 0;
     unsigned int sltmp;
     size_t ecsize = ECDSA_size(ctx->ec);
+#ifdef ENABLE_QAT_FIPS
+    if (!qat_fips_ec_check_approved_curve(ctx->ec))
+        goto end;
+
+    qat_fips_service_indicator = 1;
+#endif
 
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
 
     if (sig == NULL) {
         *siglen = ecsize;
-        return 1;
+        ret = 1;
+        goto end;
     }
     if (sigsize < (size_t)ecsize)
-        return 0;
+        goto end;
 
     if (ctx->mdsize != 0 && tbslen != ctx->mdsize)
-        return 0;
+        goto end;
 #ifdef ENABLE_QAT_HW_ECDSA
     if (qat_hw_ecdsa_offload) {
         ret = qat_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
         if (ret <= 0)
-            return 0;
+            goto end;
     }
 #endif
 #ifdef ENABLE_QAT_SW_ECDSA
     if (qat_sw_ecdsa_offload) {
         ret = mb_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
         if (ret <= 0)
-            return 0;
+            goto end;
     }
 #endif
     *siglen = sltmp;
-    return 1;
+    ret = 1;
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size_t siglen,
                         const unsigned char *tbs, size_t tbslen)
 {
-    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
     int ret = 0;
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
 
+#ifdef ENABLE_QAT_FIPS
+    if (!qat_fips_ec_check_approved_curve(ctx->ec))
+        goto end;
+
+    qat_fips_service_indicator = 1;
+#endif
     if (!qat_prov_is_running() || (ctx->mdsize != 0 && tbslen != ctx->mdsize))
-        return 0;
+        goto end;
+
 #ifdef ENABLE_QAT_HW_ECDSA
     if (qat_hw_ecdsa_offload)
         ret = qat_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
@@ -484,6 +529,12 @@ static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size
     if (qat_sw_ecdsa_offload)
         ret = mb_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
 #endif
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+
     return ret;
 }
 

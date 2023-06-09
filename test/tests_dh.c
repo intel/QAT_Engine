@@ -322,6 +322,7 @@ static const unsigned char BNg[] = {0x05};
 #ifdef QAT_OPENSSL_PROVIDER
 
 #define NID_dh2048 1126
+#define NID_dh3072 1127
 #define NID_dh4096 1128
 #define NID_dh8192 1130
 
@@ -333,12 +334,14 @@ static unsigned int get_dh_nid(int size)
     {
     case 2048:
         return NID_dh2048;
+    case 3072:
+        return NID_dh3072;
     case 4096:
         return NID_dh4096;
     case 8192:
         return NID_dh8192;
     default:
-        WARN("Not support dh size!\n");
+        INFO("dh %d size is not supported!\n", size);
     }
     return 0;
 }
@@ -674,8 +677,10 @@ static int run_dh(void *args)
 #endif
 
 err:
+#ifndef ENABLE_QAT_FIPS
     if (ret != 1)
         ERR_print_errors_fp(stderr);
+#endif
 #ifdef QAT_OPENSSL_PROVIDER
     EVP_PKEY_free(pkey_A);
     pkey_A = NULL;

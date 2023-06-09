@@ -49,6 +49,11 @@
 #include "e_qat.h"
 
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+extern int qat_fips_key_zeroize;
+#endif
+
 void qat_rsa_multip_info_free_ex(RSA_PRIME_INFO *pinfo)
 {
     /* free pp and pinfo only */
@@ -109,6 +114,9 @@ int QAT_RSA_up_ref(RSA *r)
 
 void QAT_RSA_free(RSA *r)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     int i;
 
     if (r == NULL)
@@ -146,6 +154,11 @@ void QAT_RSA_free(RSA *r)
     BN_BLINDING_free(r->blinding);
     BN_BLINDING_free(r->mt_blinding);
     OPENSSL_free(r);
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+	qat_fips_get_key_zeroize_status();
+#endif
 }
 
 int QAT_RSA_test_flags(const RSA *r, int flags)
