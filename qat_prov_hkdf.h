@@ -62,6 +62,7 @@
 
 # include "qat_provider.h"
 # include "qat_hw_hkdf.h"
+# include "e_qat.h"
 
 # define HKDF_MAXBUF 1024
 

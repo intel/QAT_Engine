@@ -413,15 +413,6 @@ struct ec_key_st {
 };
 typedef struct ec_key_st EC_KEY;
 
-typedef struct rsa_prime_info_st {
-    BIGNUM *r;
-    BIGNUM *d;
-    BIGNUM *t;
-    /* save product of primes prior to this one */
-    BIGNUM *pp;
-    BN_MONT_CTX *m;
-} EC_PRIME_INFO;
-
 typedef struct {
     OSSL_LIB_CTX *libctx;
     char *propq;
@@ -476,7 +467,6 @@ int qat_digest_ecdsa_md_to_nid(const EVP_MD *md, const OSSL_ITEM *it,
                                                           size_t it_len);
 int qat_digest_ecdsa_get_approved_nid(const EVP_MD *md);
 int qat_ec_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect);
-int qat_securitycheck_enabled(OSSL_LIB_CTX *libctx);
 
 OSSL_LIB_CTX *qat_ec_key_get_libctx(const EC_KEY *key);
 #endif  /* QAT_PROV_EC_H */

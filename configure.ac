@@ -94,6 +94,12 @@ AC_ARG_ENABLE(qat_sw_gcm,
                              [Disable qat_sw AES-GCM acceleration]))
 AC_SUBST(enable_qat_sw_gcm)
 
+AC_ARG_ENABLE(qat_sw_sha2,
+              AS_HELP_STRING([--disable-qat_sw_sha2],
+                             [Disable qat_sw SHA2 acceleration]))
+
+AC_SUBST(enable_qat_sw_sha2)
+
 AC_ARG_ENABLE(qat_sw_rsa,
               AS_HELP_STRING([--disable-qat_sw_rsa],
                              [Disable qat_sw RSA acceleration]))
@@ -284,6 +290,10 @@ AC_ARG_ENABLE(qat_plock,
               AS_HELP_STRING([--enable-qat_plock],
                              [Enable plock, an optimized read-write lock which replaces pthread read/write lock]))
 AC_SUBST(enable_qat_plock)
+AC_ARG_ENABLE(qat_fips,
+              AS_HELP_STRING([--enable-qat_fips],
+                             [Enables FIPS support]))
+AC_SUBST(enable_qat_fips)
 
 AC_ARG_ENABLE(qat_ntls,
               AS_HELP_STRING([--enable-qat_ntls],
@@ -501,6 +511,7 @@ then
     AC_SUBST([enable_qat_sw_sm2], ["no"])
     AC_SUBST([enable_qat_sw_sm4_cbc], ["no"])
     AC_SUBST([enable_qat_sw_heuristic_timeout], ["no"])
+    AC_SUBST([enable_qat_sw_sha2], ["no"])
   fi
 fi
 
@@ -579,6 +590,8 @@ if test "x$cflags_qat_sw_ipsec" != "x"
 then
   AS_IF([test "x$enable_qat_sw_gcm" != "xno"],
         [cflags_qat_sw_ipsec+=" -DENABLE_QAT_SW_GCM"; AC_MSG_NOTICE([Accelerating GCM to Software (IPSec_mb)])])
+  AS_IF([test "x$enable_qat_sw_sha2" != "xno"],
+        [cflags_qat_sw_ipsec+=" -DENABLE_QAT_SW_SHA2"; AC_MSG_NOTICE([Accelerating SHA2 to Software (IPSec_mb)])])
 fi    
 
 if test "x$cflags_qat_hw" != "x" -a  "x$cflags_qat_sw" != "x"
@@ -616,6 +629,10 @@ AS_IF([test "x$enable_qat_small_pkt_offload" = "xyes"],
 AS_IF([test "x$enable_qat_plock" = "xyes"],
       [cflags_common="${cflags_common} -DQAT_PLOCK"; AC_MSG_NOTICE([plock enabled])])
 AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" != "x"])
+
+AS_IF([test "x$enable_qat_fips" = "xyes"],
+      [cflags_common="${cflags_common} -DENABLE_QAT_FIPS"; AC_MSG_NOTICE([FIPS Support enabled])])
+AM_CONDITIONAL([QAT_FIPS], [test "x$enable_qat_fips" != "x"])
 
 AS_IF([test "x$enable_qat_sw_heuristic_timeout" = "xyes" -a "x$cflags_qat_sw" != "x"],
       [cflags_common="${cflags_common} -DQAT_SW_HEURISTIC_TIMEOUT"; AC_MSG_NOTICE([QAT_SW Heuristic Timeout enabled])])

@@ -45,8 +45,8 @@
 #endif
 
 enum {
-    R_RSA_512, R_RSA_1024, R_RSA_2048, R_RSA_3072, R_RSA_4096, R_RSA_7680,
-    R_RSA_15360, RSA_NUM
+    R_RSA_512, R_RSA_1024, R_RSA_2048, R_RSA_3072, R_RSA_4096, R_RSA_8192,
+    R_RSA_7680, R_RSA_15360, RSA_NUM
 };
 
 struct test_params_t {
@@ -90,6 +90,7 @@ struct test_params_t {
     ASYNC_JOB **jobs;
     ASYNC_WAIT_CTX **awcs;
     void *additional_args;
+    int q_size;
 };
 typedef struct test_params_t TEST_PARAMS;
 
@@ -137,6 +138,7 @@ void tests_run_chacha20_poly1305(TEST_PARAMS *args);
 void tests_run_sm4_cbc(TEST_PARAMS *args);
 void tests_run_sm4_gcm(TEST_PARAMS *args);
 void tests_run_sm4_ccm(TEST_PARAMS *args);
+void tests_run_sha2(TEST_PARAMS *args);
 
 char *ecdh_curve_name(int type);
 char *test_name(int test);
@@ -169,6 +171,10 @@ enum test_algorithms {
     TEST_SM4_GCM,
     TEST_SM4_CCM,
     TEST_TYPE_MAX,
+    TEST_SHA2_224,
+    TEST_SHA2_256,
+    TEST_SHA2_384,
+    TEST_SHA2_512,
 };
 
 enum curve_name {
@@ -191,6 +197,12 @@ enum curve_name {
     X_CURVE_25519,
     X_CURVE_448,
     CURVE_TYPE_MAX,
+};
+
+enum key_name {
+	KEY_2048_224 = 1,
+	KEY_2048_256,
+	KEY_TYPE_MAX
 };
 
 #define SSL_MAX_DIGEST 6

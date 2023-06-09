@@ -68,9 +68,17 @@
 # include "qat_hw_usdm_inf.h"
 #endif
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
 #include "cpa.h"
 #include "cpa_types.h"
 #include "cpa_cy_key.h"
+
+#ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
+#endif
 
 static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 
@@ -200,6 +208,9 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
 ******************************************************************************/
 void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
 #ifndef QAT_OPENSSL_3
     void (*sw_cleanup_fn_ptr)(EVP_PKEY_CTX *) = NULL;
@@ -237,6 +248,11 @@ void qat_prf_cleanup(EVP_PKEY_CTX *ctx)
     OPENSSL_free(qat_prf_ctx);
 
     EVP_PKEY_CTX_set_data(ctx, NULL);
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+    qat_fips_get_key_zeroize_status();
+#endif
 }
 
 
@@ -338,11 +354,11 @@ int qat_tls1_prf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                         qaeCryptoMemFreeNonZero(qat_prf_ctx->qat_userLabel);
                     }
                     qat_prf_ctx->qat_userLabel = copyAllocPinnedMemory(p2, p1,
-                                                                       __FILE__, __LINE__);
-                    if (qat_prf_ctx->qat_userLabel == NULL) {
-                        WARN("userLabel malloc failed\n");
-                        return 0;
-                    }
+                            __FILE__, __LINE__);
+                if (qat_prf_ctx->qat_userLabel == NULL) {
+                    WARN("userLabel malloc failed\n");
+                    return 0;
+                }
                     qat_prf_ctx->qat_userLabel_len = p1;
                 }
             } else {
@@ -517,18 +533,17 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
      * Derive. This is not be a problem because OpenSSL calls the function
      * with the variables in the correct order
      */
+
     if (qat_prf_ctx->qat_seedlen) {
         prf_op_data->seed.pData = copyAllocPinnedMemory(qat_prf_ctx->qat_seed,
                                                         qat_prf_ctx->qat_seedlen,
-                                                        __FILE__, __LINE__);
+                                                       __FILE__, __LINE__);
         if (prf_op_data->seed.pData == NULL) {
             /* On failure WARN and Error are flagged at the next level up.*/
             return 0;
         }
-
         prf_op_data->seed.dataLenInBytes = qat_prf_ctx->qat_seedlen;
     }
-
     return 1;
 }
 
@@ -643,6 +658,9 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     DEBUG("QAT HW PRF Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
     qat_prf_ctx = (QAT_TLS1_PRF_CTX *)EVP_PKEY_CTX_get_data(ctx);
     if (qat_prf_ctx == NULL) {
         WARN("qat_prf_ctx is NULL\n");
@@ -703,9 +721,8 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     /* ---- Generated Key ---- */
     prf_op_data.generatedKeyLenInBytes = key_length;
 
-    generated_key =
-        (CpaFlatBuffer *) qaeCryptoMemAlloc(sizeof(CpaFlatBuffer), __FILE__,
-                                            __LINE__);
+    generated_key = (CpaFlatBuffer *) qaeCryptoMemAlloc(sizeof(CpaFlatBuffer),
+                                      __FILE__, __LINE__);
     if (NULL == generated_key) {
         WARN("Failed to allocate memory for generated_key\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_MALLOC_FAILURE);
@@ -714,6 +731,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 
     generated_key->pData =
         (Cpa8U *) qaeCryptoMemAlloc(key_length, __FILE__, __LINE__);
+
     if (NULL == generated_key->pData) {
         WARN("Failed to allocate memory for generated_key data\n");
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_MALLOC_FAILURE);
@@ -726,9 +744,9 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 
     tlv = qat_check_create_local_variables();
     if (NULL == tlv) {
-            WARN("could not create local variables\n");
-            QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-            goto err;
+        WARN("could not create local variables\n");
+        QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
+        goto err;
     }
 
     qat_init_op_done(&op_done);
@@ -896,14 +914,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
  err:
     /* Free the memory  */
     if (prf_op_data.seed.pData) {
-         OPENSSL_cleanse(prf_op_data.seed.pData, prf_op_data.seed.dataLenInBytes);
-         qaeCryptoMemFreeNonZero(prf_op_data.seed.pData);
+        OPENSSL_cleanse(prf_op_data.seed.pData, prf_op_data.seed.dataLenInBytes);
+        qaeCryptoMemFreeNonZero(prf_op_data.seed.pData);
     }
     if (NULL != generated_key) {
-        if (NULL != generated_key->pData) {
+	if (NULL != generated_key->pData) {
             OPENSSL_cleanse(generated_key->pData, key_length);
-            qaeCryptoMemFreeNonZero(generated_key->pData);
-        }
+	    qaeCryptoMemFreeNonZero(generated_key->pData);
+	}
         qaeCryptoMemFreeNonZero(generated_key);
     }
     if (fallback) {

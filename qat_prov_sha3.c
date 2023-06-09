@@ -83,6 +83,11 @@ static int qat_keccak_init(void *vctx, ossl_unused const OSSL_PARAM params[])
 
     if (!qat_prov_is_running())
         return 0;
+
+#ifdef ENABLE_QAT_FIPS
+    memset(ctx->qctx, 0, sizeof(qat_sha3_ctx));
+#endif
+
     /* The newctx() handles most of the ctx fixed setup. */
     memset(ctx->A, 0, sizeof(ctx->A));
     ctx->bufsz = 0;
@@ -99,28 +104,47 @@ static int qat_keccak_init(void *vctx, ossl_unused const OSSL_PARAM params[])
 
 static int qat_keccak_update(void *vctx, const unsigned char *inp, size_t len)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
+    int ret = 0;
     QAT_KECCAK1600_CTX *ctx = vctx;
 
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
 
-    return qat_sha3_update(ctx, inp, len);
+    ret = qat_sha3_update(ctx, inp, len);
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 static int qat_keccak_final(void *vctx, unsigned char *out, size_t *outl,
                         size_t outsz)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
     int ret = 1;
     QAT_KECCAK1600_CTX *ctx = vctx;
 
-    if (!qat_prov_is_running())
-        return 0;
+    if (!qat_prov_is_running()) {
+        ret = 0;
+        goto end;
+    }
 
     *outl = ctx->md_size;
     if (outsz > 0){
         ret = qat_sha3_final(ctx, out);
     }
 
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
     return ret;
 }
 
@@ -268,9 +292,9 @@ static void *qat_##name##_newctx(void *provctx)                                 
         ctx->pad = pad_val;                                                        \
     }                                                                              \
     set_ctx_md_type(ctx, bitlen);                                                  \
-    ctx->qctx = OPENSSL_zalloc(sizeof(qat_sha3_ctx));                              \
+    ctx->qctx = OPENSSL_malloc(sizeof(qat_sha3_ctx));                              \
     if (ctx->qctx == NULL)                                                         \
-        WARN("zalloc failed.\n");                                                  \
+        WARN("malloc failed.\n");                                                  \
     ctx->meth = sha3_generic_md;                                                   \
     ctx->sw_md_ctx = EVP_MD_CTX_new();                                             \
     if (ctx->sw_md_ctx == NULL)                                                    \
@@ -301,9 +325,9 @@ static void *qat_##name##_newctx(void *provctx)                                 
         ctx->pad = pad_val;                                                        \
     }                                                                              \
     set_ctx_md_type(ctx, bitlen);                                                  \
-    ctx->qctx = OPENSSL_zalloc(sizeof(qat_sha3_ctx));                              \
+    ctx->qctx = OPENSSL_malloc(sizeof(qat_sha3_ctx));                              \
     if (ctx->qctx == NULL)                                                         \
-        WARN("zalloc failed.\n");                                                  \
+        WARN("malloc failed.\n");                                                  \
     ctx->meth = sha3_generic_md;                                                   \
     return ctx;                                                                    \
 }

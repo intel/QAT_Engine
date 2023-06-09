@@ -65,6 +65,9 @@
 #include "qat_fork.h"
 #include "qat_utils.h"
 #include "qat_evp.h"
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
 
 # define RSA_MULTIBUFF_PRIV_ENC 1
 # define RSA_MULTIBUFF_PRIV_DEC 2
@@ -616,6 +619,10 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     mb_bssl_rsa_async_ctx *bssl_rsa_async_ctx = NULL;
 #endif /* QAT_BORINGSSL */
 
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
+
     /* Check input parameters */
     if (unlikely(NULL == rsa || NULL == from || NULL == to || flen <= 0)) {
         WARN("RSA key, input or output is NULL or invalid length, \
@@ -638,41 +645,69 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
        If it is then use the sw method synchronously. */
     if (flen > rsa_len) {
         DEBUG("The length is longer than the RSA key length, using sw method\n");
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return sts;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
     if (!multibuff_rsa_range_check(rsa_bits)) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     while ((rsa_priv_req = mb_flist_rsa_priv_pop(tlv->rsa_priv_freelist)) == NULL) {
 #ifdef QAT_BORINGSSL
         goto use_sw_method;
 #else /* OpenSSL */
+# ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+# else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+# endif
 #endif /* QAT_BORINGSSL */
     }
 
@@ -790,6 +825,11 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     }
     STOP_RDTSC(&rsa_cycles_priv_enc_setup, 1, "[RSA:priv_enc_setup]");
 
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_RSA_priv_reqs(tlv, rsa_bits);
+#endif
+
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
         if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
@@ -808,20 +848,26 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 #endif /* QAT_BORINGSSL */
 
     DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-           not flag an error here and quit because we have
-           an asynchronous request in flight.
-           We don't want to start cleaning up data
-           structures that are still being used. If
-           qat_pause_job fails we will just yield and
-           loop around and try again until the request
-           completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
+        DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts > 0) {
         return rsa_len;
@@ -834,7 +880,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
 
 use_sw_method:
     sts = RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
-#ifdef QAT_BORINGSSL
+# ifdef QAT_BORINGSSL
     if ((job = ASYNC_get_current_job())) {
         job->tlv_destructor(NULL);
         waitctx = ASYNC_get_wait_ctx(job);
@@ -847,7 +893,7 @@ use_sw_method:
                 ASYNC_STATUS_OK);
         }
     }
-#endif /* QAT_BORINGSSL */
+# endif /* QAT_BORINGSSL */
     DEBUG("SW Finished\n");
     return sts;
 }
@@ -875,6 +921,10 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     mb_bssl_rsa_async_ctx *bssl_rsa_async_ctx = NULL;
 #endif /* QAT_BORINGSSL */
 
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
+
     /* Check input parameters */
     if (unlikely(rsa == NULL || from == NULL || to == NULL ||
         (flen != (rsa_len = RSA_size(rsa))))) {
@@ -896,41 +946,69 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
        If it is then use the sw method synchronously. */
     if (flen > rsa_len) {
         DEBUG("The length is longer than the RSA key length, using sw method\n");
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return sts;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
     if (!multibuff_rsa_range_check(rsa_bits)) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifdef ENABLE_QAT_FIPS
+        return sts;
+#else
         goto use_sw_method;
+#endif
     }
 
     while ((rsa_priv_req = mb_flist_rsa_priv_pop(tlv->rsa_priv_freelist)) == NULL) {
 #ifdef QAT_BORINGSSL
         goto use_sw_method;
 #else /* QAT_BORINGSSL */
+# ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+# else
+          if (job != NULL) {
+              qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+              qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+          }
+# endif
 #endif /* QAT_BORINGSSL */
     }
 
@@ -1030,6 +1108,11 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     }
     STOP_RDTSC(&rsa_cycles_priv_dec_setup, 1, "[RSA:priv_dec_setup]");
 
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_RSA_priv_reqs(tlv, rsa_bits);
+#endif
+
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
         if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
@@ -1048,20 +1131,26 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 #endif /* QAT_BORINGSSL */
 
     DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-           not flag an error here and quit because we have
-           an asynchronous request in flight.
-           We don't want to start cleaning up data
-           structures that are still being used. If
-           qat_pause_job fails we will just yield and
-           loop around and try again until the request
-           completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
+        DEBUG("Finished: %p status = %d\n", rsa_priv_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts < 1 ) {
         WARN("Failure in Private Decrypt\n");
@@ -1072,7 +1161,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 
 use_sw_method:
     sts = RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
-#ifdef QAT_BORINGSSL
+# ifdef QAT_BORINGSSL
     if ((job = ASYNC_get_current_job())) {
         job->tlv_destructor(NULL);
         waitctx = ASYNC_get_wait_ctx(job);
@@ -1085,7 +1174,7 @@ use_sw_method:
                 ASYNC_STATUS_OK);
         }
     }
-#endif /* QAT_BORINGSSL */
+# endif /* QAT_BORINGSSL */
     DEBUG("SW Finished\n");
     return sts;
 }
@@ -1104,6 +1193,10 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     int job_ret = 0;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
     /* Check Parameters */
     if (rsa == NULL || from == NULL || to == NULL || flen < 0) {
@@ -1125,33 +1218,57 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return sts;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
     if (!multibuff_rsa_range_check(rsa_bits)) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifdef ENABLE_QAT_FIPS
+        return sts;
+#else
         goto use_sw_method;
+#endif
     }
 
     while ((rsa_pub_req = mb_flist_rsa_pub_pop(tlv->rsa_pub_freelist)) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+#endif
     }
 
     DEBUG("QAT SW RSA Started %p\n", rsa_pub_req);
@@ -1168,7 +1285,11 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
         mb_flist_rsa_pub_push(tlv->rsa_pub_freelist, rsa_pub_req);
         STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
         DEBUG("Request is using a public exp not equal to 65537\n");
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     /* padding processing */
@@ -1213,6 +1334,11 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     }
     STOP_RDTSC(&rsa_cycles_pub_enc_setup, 1, "[RSA:pub_enc_setup]");
 
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_RSA_pub_reqs(tlv, rsa_bits);
+#endif
+
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
         if (sem_post(&tlv->mb_polling_thread_sem) != 0) {
@@ -1224,20 +1350,26 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     }
 
     DEBUG("Pausing: %p status = %d\n", rsa_pub_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-           not flag an error here and quit because we have
-           an asynchronous request in flight.
-           We don't want to start cleaning up data
-           structures that are still being used. If
-           qat_pause_job fails we will just yield and
-           loop around and try again until the request
-           completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);
+        DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts > 0) {
         return rsa_len;
@@ -1268,6 +1400,10 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
+
     /* Check Parameters */
     if (rsa == NULL || from == NULL || to == NULL ||
         (flen != (rsa_len = RSA_size(rsa)))) {
@@ -1287,33 +1423,57 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
 
     /* Check if we are running asynchronously. If not use the SW method */
     if ((job = ASYNC_get_current_job()) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         DEBUG("Running synchronously using sw method\n");
         goto use_sw_method;
+#endif
     }
 
     /* Setup asynchronous notifications */
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL && !qat_setup_async_event_notification(job)) {
+        DEBUG("Failed to setup async notifications.\n");
+        return sts;
+    }
+#else
     if (!qat_setup_async_event_notification(job)) {
         DEBUG("Failed to setup async notifications, using sw method\n");
         goto use_sw_method;
     }
+#endif
 
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
     if (!multibuff_rsa_range_check(rsa_bits)) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     tlv = mb_check_thread_local();
     if (NULL == tlv) {
         WARN("Could not create thread local variables\n");
+#ifdef ENABLE_QAT_FIPS
+        return sts;
+#else
         goto use_sw_method;
+#endif
     }
 
     while ((rsa_pub_req = mb_flist_rsa_pub_pop(tlv->rsa_pub_freelist)) == NULL) {
+#ifndef ENABLE_QAT_FIPS
         qat_wake_job(job, ASYNC_STATUS_EAGAIN);
         qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+#else
+        if (job != NULL) {
+            qat_wake_job(job, ASYNC_STATUS_EAGAIN);
+            qat_pause_job(job, ASYNC_STATUS_EAGAIN);
+        }
+#endif
     }
 
     DEBUG("QAT SW RSA Started %p\n", rsa_pub_req);
@@ -1330,7 +1490,11 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         mb_flist_rsa_pub_push(tlv->rsa_pub_freelist, rsa_pub_req);
         STOP_RDTSC(&rsa_cycles_pub_dec_setup, 1, "[RSA:pub_dec_setup]");
         DEBUG("Request is using a public exp not equal to 65537\n");
+#ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
+#else
+        return sts;
+#endif
     }
 
     rsa_pub_req->type = RSA_MULTIBUFF_PUB_DEC;
@@ -1356,6 +1520,10 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
         break;
     }
     STOP_RDTSC(&rsa_cycles_pub_dec_setup, 1, "[RSA:pub_dec_setup]");
+#ifdef ENABLE_QAT_FIPS
+    if (job == NULL)
+        process_RSA_pub_reqs(tlv, rsa_bits);
+#endif
 
     if (!enable_external_polling && (++req_num % MULTIBUFF_MAX_BATCH) == 0) {
         DEBUG("Signal Polling thread, req_num %d\n", req_num);
@@ -1368,20 +1536,26 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     }
 
     DEBUG("Pausing: %p status = %d\n", rsa_pub_req, sts);
-    do {
-        /* If we get a failure on qat_pause_job then we will
-           not flag an error here and quit because we have
-           an asynchronous request in flight.
-           We don't want to start cleaning up data
-           structures that are still being used. If
-           qat_pause_job fails we will just yield and
-           loop around and try again until the request
-           completes and we can continue. */
-        if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
-            sched_yield();
-    } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
+#ifdef ENABLE_QAT_FIPS
+    if (job != NULL) {
+#endif
+        do {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-    DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);
+        DEBUG("Finished: %p status = %d\n", rsa_pub_req, sts);
+#ifdef ENABLE_QAT_FIPS
+    }
+#endif
 
     if (sts < 1) {
         WARN("Failure in Public Decrypt\n");

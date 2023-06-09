@@ -52,6 +52,7 @@
 #include "qat_provider.h"
 #include "qat_prov_rsa.h"
 #include "qat_utils.h"
+#include "qat_prov_cmvp.h"
 
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 typedef struct{
@@ -96,6 +97,31 @@ typedef struct{
 
 } QAT_RSA_KEYMGMT;
 
+typedef struct {
+    OSSL_LIB_CTX *libctx;
+    const char *propq;
+
+    int rsa_type;
+
+    size_t nbits;
+    BIGNUM *pub_exp;
+    size_t primes;
+#if 0
+    /* For PSS */
+    RSA_PSS_PARAMS_30 pss_params;
+    int pss_defaults_set;
+
+    /* For generation callback */
+    OSSL_CALLBACK *cb;
+    void *cbarg;
+
+#if defined(FIPS_MODULE) && !defined(OPENSSL_NO_ACVP_TESTS)
+    /* ACVP test parameters */
+    OSSL_PARAM *acvp_test_params;
+#endif
+#endif
+}QAT_RSA_GEN_CTX;
+
 
 QAT_RSA_KEYMGMT get_default_keymgmt()
 {
@@ -125,11 +151,15 @@ static void *qat_keymgmt_rsa_newdata(void *provctx)
 
 static void qat_keymgmt_rsa_freedata(void *keydata)
 {
+#ifdef ENABLE_QAT_FIPS
+    QAT_RSA_free(keydata);
+#else
     typedef void (*fun_ptr)(void *);
     fun_ptr fun = get_default_keymgmt().free;
     if (!fun)
         return;
     fun(keydata);
+#endif
 }
 
 static int qat_keymgmt_rsa_has(const void *keydata, int selection)
@@ -192,10 +222,14 @@ static const OSSL_PARAM *qat_keymgmt_rsa_gen_settable_params(ossl_unused void *g
 static void *qat_keymgmt_rsa_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
 {
     typedef void * (*fun_ptr)(void *, OSSL_CALLBACK *, void *);
+    RSA *rsa = NULL;
     fun_ptr fun = get_default_keymgmt().gen;
     if (!fun)
-        return NULL;
-    return fun(genctx, osslcb, cbarg);
+        goto end;
+
+    rsa = fun(genctx, osslcb, cbarg);
+end:
+    return rsa;
 }
 
 static void qat_keymgmt_rsa_gen_cleanup(void *genctx)

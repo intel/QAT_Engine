@@ -70,6 +70,9 @@
 #ifdef USE_USDM_MEM
 # include "qat_hw_usdm_inf.h"
 #endif
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
 
 #include <string.h>
 #include <unistd.h>
@@ -77,6 +80,17 @@
 /* Qat DSA method structure declaration. */
 static DSA_METHOD *qat_dsa_method = NULL;
 static DSA_METHOD *def_dsa_method = NULL;
+
+#ifdef ENABLE_QAT_FIPS
+# ifdef ENABLE_QAT_HW_DSA
+extern int qat_fips_kat_test;
+static const unsigned char kvalue[] = {
+    0x09, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00
+};
+# endif
+#endif
 
 DSA_METHOD *qat_get_DSA_methods(void)
 {
@@ -255,6 +269,9 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
     thread_local_variables_t *tlv = NULL;
 
     DEBUG("QAT HW DSA Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
     if (unlikely(dlen <= 0)) {
         WARN("Invalid input param.\n");
@@ -329,6 +346,23 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
          * 4.2
          */
         dlen = buflen;
+#ifdef ENABLE_QAT_FIPS
+    if (qat_fips_kat_test == 0) {
+        do {
+            if (!BN_rand_range(k, q)) {
+                WARN("Failed to generate random number for the range %d\n", dlen);
+                QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_K_RAND_GENERATE_FAILURE);
+                goto err;
+            }
+        }
+        while (BN_is_zero(k));
+    } else {
+        if (!BN_bin2bn(kvalue, sizeof(kvalue), k)) {
+            WARN("Failure to get k value\n");
+            goto err;
+        }
+    }
+#else
     do {
         if (!BN_rand_range(k, q)) {
             WARN("Failed to generate random number for the range %d\n", dlen);
@@ -337,6 +371,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         }
     }
     while (BN_is_zero(k));
+#endif
 
     pResultR = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (!pResultR) {
@@ -609,7 +644,6 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
         return DSA_meth_get_sign(default_dsa_method)(dgst, dlen, dsa);
     }
-
     return sig;
 }
 
@@ -666,6 +700,9 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
     thread_local_variables_t *tlv = NULL;
 
     DEBUG("QAT HW DSA Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
     if (unlikely(dgst_len <= 0)) {
         WARN("Invalid input param.\n");
@@ -947,7 +984,6 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         BN_CTX_end(ctx);
         BN_CTX_free(ctx);
     }
-
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);

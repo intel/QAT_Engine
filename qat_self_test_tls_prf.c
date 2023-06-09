@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2021-2023 Intel Corporation.
+ *   Copyright(c) 2021-2022 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -40,14 +40,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include <openssl/evp.h>
 #include <openssl/engine.h>
 #include <openssl/ssl.h>
 #include <openssl/tls1.h>
 #include <openssl/kdf.h>
-#include "tests.h"
-#include "../qat_utils.h"
+#include "test/tests.h"
+#include "qat_utils.h"
 
 #define MD_SERVER_FINISHED_SEED2_LEN      32
 #define MD_SERVER_FINISHED_SEC_LEN        48
@@ -342,7 +341,7 @@ static const unsigned char prf_ems_resMasSec_TLS1_TLS1_1_MD5SHA1[] = {
     0xD6, 0x5D, 0xB9, 0x96, 0x7A, 0xA9, 0xC8, 0xF8
 };
 
-static int qat_PRF(const EVP_MD **md,int md_count,
+static int qat_prf(const EVP_MD **md, int md_count,
                    const void *seed1, int seed1_len,
                    const void *seed2, int seed2_len,
                    const void *seed3, int seed3_len,
@@ -356,10 +355,9 @@ void populateMdServerFinished(void **seed2, int *seed2_len,
                               void **seed4, int *seed4_len,
                               void **seed5, int *seed5_len,
                               unsigned char **sec, int *sec_len,
-                              int *buff_size,  size_t *masterSecLen,
+                              int *buff_size, size_t *masterSecLen,
                               unsigned char **expectedMasterSecret,
-                              int tls_version,
-                              char *digest_kdf)
+                              int tls_version, char *digest_kdf)
 {
     *seed2_len = MD_SERVER_FINISHED_SEED2_LEN;
     *seed2 = (void *)&prf_sf_lseed2;
@@ -389,10 +387,9 @@ void populateMdClientFinished(void **seed2, int *seed2_len,
                               void **seed4, int *seed4_len,
                               void **seed5, int *seed5_len,
                               unsigned char **sec, int *sec_len,
-                              int *buff_size,  size_t *masterSecLen,
+                              int *buff_size, size_t *masterSecLen,
                               unsigned char **expectedMasterSecret,
-                              int tls_version,
-                              char *digest_kdf)
+                              int tls_version, char *digest_kdf)
 {
     *seed2_len = MD_CLIENT_FINISHED_SEED2_LEN;
     *seed2 = (void *)&prf_cf_lseed2;
@@ -407,11 +404,11 @@ void populateMdClientFinished(void **seed2, int *seed2_len,
     *masterSecLen = MD_CLIENT_FINISHED_MASTER_SEC_LEN;
 
     if (TLS1_2_VERSION == tls_version) {
-        if(!strcmp(digest_kdf, "SHA256") ){
+        if (!strcmp(digest_kdf, "SHA256")) {
             *expectedMasterSecret = (void *)&prf_cf_resMasSec_TLS1_2_SHA256;
-        } else if(!strcmp(digest_kdf, "SHA384")){
+        } else if (!strcmp(digest_kdf, "SHA384")) {
             *expectedMasterSecret = (void *)&prf_cf_resMasSec_TLS1_2_SHA384;
-        } else if(!strcmp(digest_kdf, "SHA512")){
+        } else if (!strcmp(digest_kdf, "SHA512")) {
             *expectedMasterSecret = (void *)&prf_cf_resMasSec_TLS1_2_SHA512;
         }
     } else {
@@ -424,10 +421,9 @@ void populateMdKeyExpansion(void **seed2, int *seed2_len,
                             void **seed4, int *seed4_len,
                             void **seed5, int *seed5_len,
                             unsigned char **sec, int *sec_len,
-                            int *buff_size,  size_t *masterSecLen,
+                            int *buff_size, size_t *masterSecLen,
                             unsigned char **expectedMasterSecret,
-                            int tls_version,
-                            char *digest_kdf)
+                            int tls_version, char *digest_kdf)
 {
     *seed2_len = MD_KEY_EXPANSION_SEED2_LEN;
     *seed2 = (void *)&prf_ke_lseed2;
@@ -443,11 +439,11 @@ void populateMdKeyExpansion(void **seed2, int *seed2_len,
     *masterSecLen = MD_KEY_EXPANSION_MASTER_SEC_LEN;
 
     if (TLS1_2_VERSION == tls_version) {
-        if(!strcmp(digest_kdf, "SHA256") ){
+        if (!strcmp(digest_kdf, "SHA256")) {
             *expectedMasterSecret = (void *)&prf_ke_resMasSec_TLS1_2_SHA256;
-        } else if(!strcmp(digest_kdf, "SHA384")){
+        } else if (!strcmp(digest_kdf, "SHA384")) {
             *expectedMasterSecret = (void *)&prf_ke_resMasSec_TLS1_2_SHA384;
-        } else if(!strcmp(digest_kdf, "SHA512")){
+        } else if (!strcmp(digest_kdf, "SHA512")) {
             *expectedMasterSecret = (void *)&prf_ke_resMasSec_TLS1_2_SHA512;
         }
     } else {
@@ -455,15 +451,14 @@ void populateMdKeyExpansion(void **seed2, int *seed2_len,
     }
 }
 
-void populateMasterSecret(void **seed2, int *seed2_len,
+void populatemasterSecret(void **seed2, int *seed2_len,
                           void **seed3, int *seed3_len,
                           void **seed4, int *seed4_len,
                           void **seed5, int *seed5_len,
                           unsigned char **sec, int *sec_len,
-                          int *buff_size,  size_t *masterSecLen,
+                          int *buff_size, size_t *masterSecLen,
                           unsigned char **expectedMasterSecret,
-                          int tls_version,
-                          char *digest_kdf)
+                          int tls_version, char *digest_kdf)
 {
     *seed2_len = MASTER_SECRET_SEED2_LEN;
     *seed2 = (void *)&prf_ms_lseed2;
@@ -479,11 +474,11 @@ void populateMasterSecret(void **seed2, int *seed2_len,
     *masterSecLen = SSL_MAX_MASTER_KEY_LENGTH;
 
     if (TLS1_2_VERSION == tls_version) {
-        if(!strcmp(digest_kdf, "SHA256") ){
+        if (!strcmp(digest_kdf, "SHA256")) {
             *expectedMasterSecret = (void *)&prf_ms_resMasSec_TLS1_2_SHA256;
-        } else if(!strcmp(digest_kdf, "SHA384")){
+        } else if (!strcmp(digest_kdf, "SHA384")) {
             *expectedMasterSecret = (void *)&prf_ms_resMasSec_TLS1_2_SHA384;
-        } else if(!strcmp(digest_kdf, "SHA512")){
+        } else if (!strcmp(digest_kdf, "SHA512")) {
             *expectedMasterSecret = (void *)&prf_ms_resMasSec_TLS1_2_SHA512;
         }
     } else {
@@ -496,10 +491,9 @@ void populateExtendedMasterSecret(void **seed2, int *seed2_len,
                                   void **seed4, int *seed4_len,
                                   void **seed5, int *seed5_len,
                                   unsigned char **sec, int *sec_len,
-                                  int *buff_size,  size_t *masterSecLen,
+                                  int *buff_size, size_t *masterSecLen,
                                   unsigned char **expectedMasterSecret,
-                                  int tls_version,
-                                  char *digest_kdf)
+                                  int tls_version, char *digest_kdf)
 {
     *seed2_len = EXTENDED_MASTER_SECRET_SEED2_LEN;
     *seed2 = (void *)&prf_ems_lseed2;
@@ -514,11 +508,11 @@ void populateExtendedMasterSecret(void **seed2, int *seed2_len,
     *masterSecLen = SSL_MAX_MASTER_KEY_LENGTH;
 
     if (TLS1_2_VERSION == tls_version) {
-        if(!strcmp(digest_kdf, "SHA256") ){
+        if (!strcmp(digest_kdf, "SHA256")) {
             *expectedMasterSecret = (void *)&prf_ems_resMasSec_TLS1_2_SHA256;
-        } else if(!strcmp(digest_kdf, "SHA384")){
+        } else if (!strcmp(digest_kdf, "SHA384")) {
             *expectedMasterSecret = (void *)&prf_ems_resMasSec_TLS1_2_SHA384;
-        } else if(!strcmp(digest_kdf, "SHA512")){
+        } else if (!strcmp(digest_kdf, "SHA512")) {
             *expectedMasterSecret = (void *)&prf_ems_resMasSec_TLS1_2_SHA512;
         }
     } else {
@@ -526,7 +520,7 @@ void populateExtendedMasterSecret(void **seed2, int *seed2_len,
     }
 }
 
-static int qat_PRF(const EVP_MD **md,int md_count,
+static int qat_prf(const EVP_MD **md, int md_count,
                    const void *seed1, int seed1_len,
                    const void *seed2, int seed2_len,
                    const void *seed3, int seed3_len,
@@ -536,7 +530,6 @@ static int qat_PRF(const EVP_MD **md,int md_count,
                    unsigned char *out, int olen)
 {
     EVP_PKEY_CTX *pctx = NULL;
-
     int ret = 0;
     size_t outlen = olen;
 
@@ -545,6 +538,7 @@ static int qat_PRF(const EVP_MD **md,int md_count,
         WARN("# FAIL: md has not been set\n");
         return 0;
     }
+
     pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_TLS1_PRF, NULL);
     if (pctx == NULL || EVP_PKEY_derive_init(pctx) <= 0)
         goto err;
@@ -565,192 +559,122 @@ static int qat_PRF(const EVP_MD **md,int md_count,
 
     if (EVP_PKEY_derive(pctx, out, &outlen) <= 0)
         goto err;
+
     ret = 1;
 
-err:
+ err:
     if (ret == 0)
-        WARN("# FAIL: performing qat_PRF operations\n");
+        WARN("# FAIL: performing qat_prf operations\n");
     EVP_PKEY_CTX_free(pctx);
     return ret;
 }
 
-
-static int runTlsPrfOps(void *args)
+static int TlsPrf_Ops(void *args, unsigned char *out, size_t outlen,
+                      const char *desc)
 {
-    TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
-    int operation = temp_args->prf_op;
-    int print_output = temp_args->print_output;
-    int verify = temp_args->verify;
-    char *tls_version = temp_args->tls_version;
-    char *digest_kdf = temp_args->digest_kdf;
-    const EVP_MD *md[SSL_MAX_DIGEST] = {0};
+    int operation = 4;
+    char *digest_kdf = "NULL";
+    const EVP_MD *md[SSL_MAX_DIGEST] = { 0 };
     int md_count = 0, version = 0;
     void *seed1 = NULL, *seed2 = NULL, *seed3 = NULL, *seed4 = NULL,
         *seed5 = NULL;
-    int seed1_len = 0, seed2_len = 0, seed3_len = 0, seed4_len = 0,
-        seed5_len = 0;
+    int seed1_len = 0, seed2_len = 0, seed3_len = 0, seed4_len = 0, seed5_len =
+        0;
     int secSize = 0, buff_len = 0;
     unsigned char *secret = NULL, *expectedMasterSecret = NULL;
-    unsigned char *masterSecret = NULL;
-    int res = 0;
     size_t masterSecretSize = 0;
     int count = 0;
 
     OpenSSL_add_all_digests();
 
-    for (count = 0; count < *(temp_args->count); count++) {
-        if(!strcmp(tls_version, "TLSv1_2")) {
-            md_count=1;
-            version = TLS1_2_VERSION;
-            if(!strcmp(digest_kdf, "SHA256") ){
-                md[0] = EVP_get_digestbyname(SN_sha256);
-            } else if(!strcmp(digest_kdf, "SHA384")){
-                md[0] = EVP_get_digestbyname(SN_sha384);
-            } else if(!strcmp(digest_kdf, "SHA512")){
-                md[0] = EVP_get_digestbyname(SN_sha512);
-            }
-        } else if(!strcmp(tls_version, "TLSv1") ||
-                  !strcmp(tls_version, "TLSv1_1")) {
-            md_count = 1;
+    if (!strcmp(desc, "TLS12_PRF_256")) {
+        digest_kdf = "SN_sha_256";
+        md[0] = EVP_get_digestbyname(SN_sha256);
+    } else if (!strcmp(desc, "TLS12_PRF_384")) {
+        digest_kdf = "SN_sha_384";
+        md[0] = EVP_get_digestbyname(SN_sha384);
+    }
 
-            /* This does not need to be done when using the QAT Engine
-             * but we will do it anyway as otherwise if prf is disabled
-             *in the build we will crash when we drop to software. */
-            md[0] = EVP_get_digestbyname(SN_md5_sha1);
-            if (!strcmp(tls_version, "TLSv1"))
-                version = TLS1_VERSION;
-            else
-                version = TLS1_1_VERSION;
-        } else if(!strcmp(tls_version, "SSLv3")) {
-            WARN("# FAIL: SSL3 version is currently not supported!!\n");
-            return res;
-        }
+    for (; count < operation; count++) {
+        md_count = 1;
+        version = TLS1_2_VERSION;
 
-        switch(operation) {
-            case 0: /*TLS_MD_MASTER_SECRET_CONST*/
-                if (count == 0)
-                    DEBUG("Validating: TLS_MD_MASTER_SECRET_CONST\n");
-                seed1 = TLS_MD_MASTER_SECRET_CONST;
-                seed1_len = TLS_MD_MASTER_SECRET_CONST_SIZE;
-                populateMasterSecret(&seed2, &seed2_len, &seed3, &seed3_len,
+        switch (operation) {
+        case 0:                /*TLS_MD_MASTER_SECRET_CONST */
+            if (count == 0)
+                DEBUG("Validating: TLS_MD_MASTER_SECRET_CONST\n");
+            seed1 = TLS_MD_MASTER_SECRET_CONST;
+            seed1_len = TLS_MD_MASTER_SECRET_CONST_SIZE;
+            populatemasterSecret(&seed2, &seed2_len, &seed3, &seed3_len,
+                                 &seed4, &seed4_len, &seed5, &seed5_len,
+                                 &secret, &secSize, &buff_len,
+                                 &masterSecretSize, &expectedMasterSecret,
+                                 version, digest_kdf);
+            break;
+        case 1:                /*TLS_MD_KEY_EXPANSION_CONST */
+            if (count == 0)
+                DEBUG("Validating: TLS_MD_KEY_EXPANSION_CONST\n");
+            seed1 = TLS_MD_KEY_EXPANSION_CONST;
+            seed1_len = TLS_MD_KEY_EXPANSION_CONST_SIZE;
+            populateMdKeyExpansion(&seed2, &seed2_len, &seed3, &seed3_len,
+                                   &seed4, &seed4_len, &seed5, &seed5_len,
+                                   &secret, &secSize, &buff_len,
+                                   &masterSecretSize, &expectedMasterSecret,
+                                   version, digest_kdf);
+            break;
+        case 2:                /*TLS_MD_CLIENT_FINISH_CONST */
+            if (count == 0)
+                DEBUG("Validating: TLS_MD_CLIENT_FINISH_CONST\n");
+            seed1 = TLS_MD_CLIENT_FINISH_CONST;
+            seed1_len = TLS_MD_CLIENT_FINISH_CONST_SIZE;
+            populateMdClientFinished(&seed2, &seed2_len, &seed3, &seed3_len,
                                      &seed4, &seed4_len, &seed5, &seed5_len,
                                      &secret, &secSize, &buff_len,
                                      &masterSecretSize, &expectedMasterSecret,
                                      version, digest_kdf);
-                break;
-            case 1: /*TLS_MD_KEY_EXPANSION_CONST*/
-                if (count == 0)
-                    DEBUG("Validating: TLS_MD_KEY_EXPANSION_CONST\n");
-                seed1 = TLS_MD_KEY_EXPANSION_CONST;
-                seed1_len = TLS_MD_KEY_EXPANSION_CONST_SIZE;
-                populateMdKeyExpansion(&seed2, &seed2_len, &seed3, &seed3_len,
-                                       &seed4, &seed4_len, &seed5, &seed5_len,
-                                       &secret, &secSize, &buff_len,
-                                       &masterSecretSize, &expectedMasterSecret,
-                                       version, digest_kdf);
-                break;
-            case 2: /*TLS_MD_CLIENT_FINISH_CONST*/
-                if (count == 0)
-                    DEBUG("Validating: TLS_MD_CLIENT_FINISH_CONST\n");
-                seed1 = TLS_MD_CLIENT_FINISH_CONST;
-                seed1_len = TLS_MD_CLIENT_FINISH_CONST_SIZE;
-                populateMdClientFinished(&seed2, &seed2_len, &seed3, &seed3_len,
+            break;
+        case 3:                /*TLS_MD_SERVER_FINISH_CONST */
+            if (count == 0)
+                DEBUG("Validating: TLS_MD_SERVER_FINISH_CONST\n");
+            seed1 = TLS_MD_SERVER_FINISH_CONST;
+            seed1_len = TLS_MD_SERVER_FINISH_CONST_SIZE;
+            populateMdServerFinished(&seed2, &seed2_len, &seed3, &seed3_len,
+                                     &seed4, &seed4_len, &seed5, &seed5_len,
+                                     &secret, &secSize, &buff_len,
+                                     &masterSecretSize, &expectedMasterSecret,
+                                     version, digest_kdf);
+            break;
+        case 4:                /*TLS_MD_EXTENDED_MASTER_SECRET_CONST */
+            if (count == 0)
+                DEBUG("Validating: TLS_MD_EXTENDED_MASTER_SECRET_CONST\n");
+            seed1 = TLS_MD_EXTENDED_MASTER_SECRET_CONST;
+            seed1_len = TLS_MD_EXTENDED_MASTER_SECRET_CONST_SIZE;
+            populateExtendedMasterSecret(&seed2, &seed2_len, &seed3, &seed3_len,
                                          &seed4, &seed4_len, &seed5, &seed5_len,
                                          &secret, &secSize, &buff_len,
-                                         &masterSecretSize, &expectedMasterSecret,
-                                         version, digest_kdf);
-                break;
-            case 3: /*TLS_MD_SERVER_FINISH_CONST*/
-                if (count == 0)
-                    DEBUG("Validating: TLS_MD_SERVER_FINISH_CONST\n");
-                seed1 = TLS_MD_SERVER_FINISH_CONST;
-                seed1_len = TLS_MD_SERVER_FINISH_CONST_SIZE;
-                populateMdServerFinished(&seed2, &seed2_len, &seed3, &seed3_len,
-                                         &seed4, &seed4_len, &seed5, &seed5_len,
-                                         &secret, &secSize, &buff_len,
-                                         &masterSecretSize, &expectedMasterSecret,
-                                         version, digest_kdf);
-                break;
-            case 4: /*TLS_MD_EXTENDED_MASTER_SECRET_CONST*/
-                if (count == 0)
-                    DEBUG("Validating: TLS_MD_EXTENDED_MASTER_SECRET_CONST\n");
-                seed1 = TLS_MD_EXTENDED_MASTER_SECRET_CONST;
-                seed1_len = TLS_MD_EXTENDED_MASTER_SECRET_CONST_SIZE;
-                populateExtendedMasterSecret(&seed2, &seed2_len, &seed3, &seed3_len,
-                                             &seed4, &seed4_len, &seed5, &seed5_len,
-                                             &secret, &secSize, &buff_len,
-                                             &masterSecretSize, &expectedMasterSecret,
-                                             version, digest_kdf);
-                break;
+                                         &masterSecretSize,
+                                         &expectedMasterSecret, version,
+                                         digest_kdf);
+            break;
         }
 
-        masterSecret = OPENSSL_malloc(sizeof (unsigned char) * masterSecretSize);
-
-        res = qat_PRF(md,
-                      md_count,
-                      seed1, seed1_len,
-                      seed2, seed2_len,
-                      seed3, seed3_len,
-                      seed4, seed4_len,
-                      seed5, seed5_len,
-                      secret, secSize,
-                      masterSecret, masterSecretSize);
-
-        if ((verify && count == 0) || res == 0) {
-            if (memcmp(masterSecret,expectedMasterSecret,masterSecretSize)) {
-                INFO("# FAIL verify for PRF.\n");
-                tests_hexdump("PRF actual  :", masterSecret, masterSecretSize);
-                tests_hexdump("PRF expected:", expectedMasterSecret, masterSecretSize);
-                res = 0;
-            }
-            else {
-                INFO("# PASS verify for PRF.\n");
-            }
-        }
-        if (print_output)
-            tests_hexdump("PRF master secret:", masterSecret, masterSecretSize);
-
-        if (masterSecret)
-            OPENSSL_free(masterSecret);
+        qat_prf(md,
+                md_count,
+                seed1, seed1_len,
+                seed2, seed2_len,
+                seed3, seed3_len,
+                seed4, seed4_len,
+                seed5, seed5_len, secret, secSize, out, outlen);
     }
-    return res;
+
+    return 1;
 }
 
-
-/******************************************************************************
-* function:
-*   tests_run_prf     (TEST_PARAMS *args)
-*
-*
-* @param args         [IN] - the test parameters
-*
-* Description:
-*  This is a function to test the PRF (Pseudo Random Function) used in TLS1.2
-******************************************************************************/
-
-void tests_run_prf(TEST_PARAMS *args)
+int QAT_TlsPrf_Ops(void *args, unsigned char *out, size_t outlen,
+                   const char *desc)
 {
-    int operation = 0;
+    if (!(TlsPrf_Ops(args, out, outlen, desc)))
+        DEBUG("error in TlsPrf_Ops\n");
 
-    if (args->performance || args->prf_op != -1 ) {
-        if (args->prf_op != -1)
-            args->prf_op = 0; /* Operation if not specified for performance tests */
-        if (!args->enable_async) {
-            runTlsPrfOps(args);
-        } else {
-            start_async_job(args, runTlsPrfOps);
-        }
-        return;
-    }
-    if (!args->enable_async) {
-        for (operation = 0; operation < 5; operation++) {
-            args->prf_op = operation;
-            runTlsPrfOps(args);
-        }
-    } else {
-        for (operation = 0; operation < 5; operation++) {
-            args->prf_op = operation;
-            start_async_job(args, runTlsPrfOps);
-        }
-    }
+    return 1;
 }

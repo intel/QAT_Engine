@@ -57,6 +57,11 @@
 #include "e_qat.h"
 
 #if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+extern int qat_fips_key_zeroize;
+#endif
+
 QAT_EVP_KEYEXCH get_default_x25519_keyexch()
 {
     static QAT_EVP_KEYEXCH s_keyexch;
@@ -162,6 +167,9 @@ int qat_ecx_key_up_ref(ECX_KEY *key)
 
 void qat_ecx_key_free(ECX_KEY *key)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     int i;
 
     if (key == NULL)
@@ -181,6 +189,10 @@ void qat_ecx_key_free(ECX_KEY *key)
     OPENSSL_secure_clear_free(key->privkey, key->keylen);
     CRYPTO_THREAD_lock_free(key->lock);
     OPENSSL_free(key);
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+	qat_fips_get_key_zeroize_status();
+#endif
 }
 
 static int qat_ecx_init(void *vecxctx, void *vkey,

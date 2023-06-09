@@ -113,7 +113,11 @@ int qat_get_qat_offload_disabled(void)
 
 int qat_get_sw_fallback_enabled(void)
 {
+#ifdef ENABLE_QAT_FIPS
+	return 0;
+#else
     return enable_sw_fallback;
+#endif
 }
 
 static inline int qat_use_signals_no_engine_start(void)
@@ -213,7 +217,6 @@ int get_next_inst_num(int inst_type)
 #endif
     unsigned int inst_count = 0;
     thread_local_variables_t * tlv = NULL;
-
     /* See qat_use_signals() above for more info on why it is safe to
        check engine_inited outside of a mutex in this case. */
     if (unlikely(!engine_inited)) {
@@ -296,9 +299,9 @@ int get_next_inst_num(int inst_type)
                     inst_num = inst_map[*inst_idx];
                 }
             }
-#ifdef QAT_HW_SET_INSTANCE_THREAD
+# ifdef QAT_HW_SET_INSTANCE_THREAD
        }
-#endif
+# endif
     } else {
         if (inst_type == INSTANCE_TYPE_CRYPTO_ASYM) { /* Asym Instance */
             if (tlv->qatAsymInstanceNumForThread != QAT_INVALID_INSTANCE) {
@@ -616,8 +619,7 @@ int qat_hw_init(ENGINE *e)
         return 0;
     }
 
-    /* Get the number of available instances */
-    status = cpaCyGetNumInstances(&qat_num_instances);
+	status = cpaCyGetNumInstances(&qat_num_instances);
     if (CPA_STATUS_SUCCESS != status) {
         WARN("cpaCyGetNumInstances failed, status=%d\n", status);
         QATerr(QAT_F_QAT_HW_INIT, QAT_R_GET_NUM_INSTANCE_FAILURE);
@@ -902,14 +904,12 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
             ret = 0;
         }
     }
-
     qat_polling_thread = pthread_self();
 
     if (qat_instance_handles) {
         OPENSSL_free(qat_instance_handles);
         qat_instance_handles = NULL;
     }
-
     if (!enable_external_polling && !enable_inline_polling) {
 #ifndef __FreeBSD__
         if (qat_is_event_driven()) {
@@ -929,7 +929,6 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
         }
 #endif
     }
-
     CRYPTO_QAT_LOG("Number of remaining in-flight requests = %d - %s\n",
                    num_requests_in_flight, __func__);
 
@@ -963,7 +962,7 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
      * forking
      */
     if (reset_globals == 1) {
-        enable_inline_polling = 0;
+	enable_inline_polling = 0;
         enable_event_driven_polling = 0;
         enable_instance_for_thread = 0;
         enable_sw_fallback = 0;
@@ -971,6 +970,5 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
         qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
         qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
     }
-
     return ret;
 }

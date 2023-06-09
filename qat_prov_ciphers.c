@@ -300,25 +300,32 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
                           size_t *outl, size_t outsize,
                           const unsigned char *in, size_t inl)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
+
 #if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     int ret = 0;
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
 #endif
 
+#ifndef ENABLE_QAT_FIPS
     if (inl == 0) {
         *outl = 0;
-        return 1;
+        ret = 1;
+        goto end;
     }
+#endif
 
     if (outsize < inl) {
         QATerr(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
-        return 0;
+        goto end;
     }
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload) {
         if ((ret = qat_aes_gcm_cipher(ctx, out, outl, in, inl)) <= 0) {
             QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
-            return ret;
+            goto end;
         }
     }
 #endif
@@ -327,23 +334,34 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
     if (qat_sw_gcm_offload) {
         if ((ret = vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl)) <= 0) {
             QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
-            return ret;
-	}
+            goto end;
+        }
     }
 #endif
-    return 1;
+    ret = 1;
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 int qat_gcm_stream_final(void *vctx, unsigned char *out,
                          size_t *outl, size_t outsize)
 {
+int ret = 0;
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
+
 #if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
 #endif
     int i = 0;
 
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload)
         i = qat_aes_gcm_cipher(ctx, out, outl, NULL, 0);
@@ -355,42 +373,58 @@ int qat_gcm_stream_final(void *vctx, unsigned char *out,
 #endif
 
     if (i <= 0)
-        return 0;
+        goto end;
 
     *outl = 0;
-    return 1;
+    ret = 1;
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 int qat_gcm_cipher(void *vctx, unsigned char *out,
                    size_t *outl, size_t outsize,
                    const unsigned char *in, size_t inl)
 {
+    int ret = 0;
 #if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
 #endif
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
 
     if (!qat_prov_is_running())
-        return 0;
+        goto end;
 
     if (outsize < inl) {
         QATerr(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
-        return 0;
+        goto end;
     }
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload) {
         if (qat_aes_gcm_cipher(ctx, out, outl, in, inl) <= 0)
-            return 0;
+            goto end;
     }
 #endif
 
 #ifdef ENABLE_QAT_SW_GCM
     if (qat_sw_gcm_offload) {
         if (vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl) <= 0)
-            return 0;
+            goto end;
     }
 #endif
     *outl = inl;
-    return 1;
+    ret = 1;
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
 
 static void qat_aes_gcm_freectx(void *vctx)
@@ -408,7 +442,7 @@ static void qat_aes_gcm_freectx(void *vctx)
     if (qat_sw_gcm_offload)
         vaesgcm_ciphers_cleanup((QAT_GCM_CTX *)ctx);
 #endif
-    OPENSSL_free(ctx);
+    OPENSSL_clear_free(ctx, sizeof(*ctx));
 }
 
 static const OSSL_PARAM qat_cipher_known_gettable_params[] = {

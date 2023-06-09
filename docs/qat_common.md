@@ -136,3 +136,19 @@ Example OpenSSL Speed command to test using qatprovider:
      ./openssl speed -provider qatprovider -elapsed -async_jobs 72 rsa2048
 * QAT_SW
      ./openssl speed -provider qatprovider -elapsed -async_jobs 8 rsa2048
+
+# FIPS 140-3 Certification requirements Support
+
+Intel&reg; QAT OpenSSL\* Engine contains changes to fulfill FIPS 140-3 Level 1 Certification requirements
+using QAT Provider against OpenSSL 3.0
+The FIPS support can be enabled using the configure flag `--enable-qat_fips`
+only with OpenSSL 3.0 using provider interface which needs to be enabled using `--enable-qat_provider`.
+
+When FIPS flag is enabled along with provider for OpenSSL3.0, it will run self tests, integrity tests
+and will satisfy other FIPS 140-3 CMVP & CAVP requirements.
+The FIPS is build as RPM using the spec file fips/qatengine_fips.spec with QAT_HW & QAT_SW Coexistence
+enabled along with other flags enabled.
+
+## Support Algorithms in FIPS mode
+QAT_HW target: RSA, ECDSA, ECDH, ECDHX25519, ECDHX448, AES_GCM, DSA, DH, PRF, HKDF & SHA3 algorithms.
+QAT_SW target: RSA, ECDSA, ECDH, ECDHX25519, AES_GCM & SHA2 algorithms.

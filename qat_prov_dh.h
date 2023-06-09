@@ -198,4 +198,5 @@ typedef struct
     char *kdf_cekalg;
 } QAT_PROV_DH_CTX;
 
+void qat_DH_free(DH *r);
 #endif /* QAT_PROVIDER_DH_H */

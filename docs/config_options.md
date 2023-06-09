@@ -118,6 +118,11 @@ The following is a list of the options that can be used with the
     interface. Currently RSA, ECDSA, ECDH, ECX and AES-GCM algorithms are
     only supported (disabled by default).
 
+--enable-qat_fips
+    Enables FIPS support when provider is enabled. Valid only
+    when built against OpenSSL 3.0 along with the flag `--enable-qat_provider`,
+    (disabled by default).
+
 --disable-qat_hw_rsa/--enable-qat_hw_rsa
     Disable/Enable Intel(R) QAT Hardware RSA acceleration (enabled by default).
 

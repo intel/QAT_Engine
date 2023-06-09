@@ -124,6 +124,12 @@
 #endif /* QAT_BORINGSSL */
 #endif
 
+#ifdef QAT_SW_IPSEC
+# if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
+#  include "qat_sw_sha2.h"
+# endif
+#endif
+
 /* OpenSSL Includes */
 #include <openssl/err.h>
 #include <openssl/objects.h>
@@ -137,7 +143,6 @@
 # define Genu 0x756e6547
 # define ineI 0x49656e69
 # define ntel 0x6c65746e
-
 # define VAES_BIT 9
 # define VPCLMULQDQ_BIT 10
 # define AVX512F_BIT 16
@@ -147,6 +152,11 @@
 
 #ifndef QAT_ENGINE_ID
 # define QAT_ENGINE_ID qatengine
+#endif
+
+#ifdef ENABLE_QAT_FIPS
+int qat_fips_key_zeroize;
+int qat_fips_kat_test;
 #endif
 
 /* Qat engine id declaration */
@@ -184,6 +194,14 @@ int qat_hw_sm4_cbc_offload = 0;
 int qat_sw_sm2_offload = 0;
 int qat_hw_sha_offload = 0;
 int qat_hw_sm3_offload = 0;
+# ifdef ENABLE_QAT_FIPS
+int qat_sw_sha_offload = 0;
+# endif
+# ifdef QAT_OPENSSL_PROVIDER
+int qat_hw_dsa_offload = 0;
+int qat_hw_dh_offload = 0;
+int qat_hw_ecx_448_offload = 0;
+# endif
 int qat_sw_sm3_offload = 0;
 int qat_sw_sm4_cbc_offload = 0;
 int qat_sw_sm4_gcm_offload = 0;
@@ -216,11 +234,13 @@ pthread_cond_t qat_poll_condition = PTHREAD_COND_INITIALIZER;
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
 char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE] = "SHIM";
 char *ICPConfigSectionName_libcrypto = qat_config_section_name;
-
 int enable_inline_polling = 0;
 int enable_event_driven_polling = 0;
 int enable_instance_for_thread = 0;
 int disable_qat_offload = 0;
+/* By default Software fallback disabled in QAT FIPs mode.
+ * Always enable_sw_fallback is zero in QAT FIPs mode.
+ */
 int enable_sw_fallback = 0;
 CpaInstanceHandle *qat_instance_handles = NULL;
 Cpa16U qat_num_instances = 0;
@@ -565,13 +585,18 @@ int qat_engine_init(ENGINE *e)
 #ifdef QAT_HW
     if (qat_hw_offload) {
         if (!qat_hw_init(e)) {
-# ifdef QAT_SW /* Co-Existence mode: Don't return failure when QAT HW initialization Failed. */
+# ifdef ENABLE_QAT_FIPS
+            fprintf(stderr, "QAT_HW initialization Failed\n");
+            return 0;
+# else
+#  ifdef QAT_SW /* Co-Existence mode: Don't return failure when QAT HW initialization Failed. */
             fallback_to_qat_sw = 1;
             WARN("QAT HW initialization Failed, switching to QAT SW.\n");
-# else
+#  else
             fprintf(stderr, "QAT HW initialization Failed.\n");
             qat_pthread_mutex_unlock();
             return 0;
+#  endif
 # endif
         }
     }
@@ -580,8 +605,13 @@ int qat_engine_init(ENGINE *e)
 #ifdef QAT_SW
     if (qat_sw_offload) {
         if (!qat_sw_init(e)) {
+# ifdef ENABLE_QAT_FIPS
+            fprintf(stderr, "QAT_SW initialization Failed\n");
+            return 0;
+# else
             WARN("QAT SW initialization Failed, switching to OpenSSL.\n");
             fallback_to_openssl = 1;
+# endif
         }
     }
 #endif
@@ -625,7 +655,6 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
     if (qat_sw_offload)
        ret = qat_sw_finish_int(e, reset_globals);
 #endif
-
     engine_inited = 0;
 
     if (reset_globals == QAT_RESET_GLOBALS) {
@@ -1092,10 +1121,10 @@ int bind_qat(ENGINE *e, const char *id)
         return ret;
     }
 
-     if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
-          WARN("ENGINE_set_EC failed\n");
-          return ret;
-     }
+    if (!ENGINE_set_EC(e, qat_get_EC_methods())) {
+        WARN("ENGINE_set_EC failed\n");
+        return ret;
+    }
 
      if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
           WARN("ENGINE_set_pkey_meths failed\n");
@@ -1137,31 +1166,43 @@ int bind_qat(ENGINE *e, const char *id)
     if (qat_hw_offload) {
 # ifdef ENABLE_QAT_HW_RSA
         qat_hw_rsa_offload = 1;
-        DEBUG("QAT_HW RSA for Provider Enabled\n");
+        INFO("QAT_HW RSA for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_ECDSA
         qat_hw_ecdsa_offload = 1;
-        DEBUG("QAT_HW ECDSA for Provider Enabled\n");
+        INFO("QAT_HW ECDSA for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_ECDH
         qat_hw_ecdh_offload = 1;
-        DEBUG("QAT_HW ECDH for Provider Enabled\n");
+        INFO("QAT_HW ECDH for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_DSA
+        qat_hw_dsa_offload = 1;
+        INFO("QAT_HW DSA for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_DH
+        qat_hw_dh_offload = 1;
+        INFO("QAT_HW DH for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_ECX
         qat_hw_ecx_offload = 1;
-        DEBUG("QAT_HW ECX for Provider Enabled\n");
+        INFO("QAT_HW ECX25519 for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_ECX
+        qat_hw_ecx_448_offload = 1;
+        INFO("QAT_HW ECX448 for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_PRF
         qat_hw_prf_offload = 1;
-        DEBUG("QAT_HW PRF for Provider Enabled\n");
+        INFO("QAT_HW PRF for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_HKDF
         qat_hw_hkdf_offload = 1;
-        DEBUG("QAT_HW HKDF for Provider Enabled\n");
+        INFO("QAT_HW HKDF for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_SHA3
         qat_hw_sha_offload = 1;
-        DEBUG("QAT_HW SHA3 for Provider Enabled\n");
+        INFO("QAT_HW SHA3 for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_GCM
         if (!qat_sw_gcm_offload) {
@@ -1178,7 +1219,7 @@ int bind_qat(ENGINE *e, const char *id)
             mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
             mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
             qat_sw_rsa_offload = 1;
-            DEBUG("QAT_SW RSA for Provider Enabled\n");
+            INFO("QAT_SW RSA for Provider Enabled\n");
         }
 # endif
 
@@ -1187,7 +1228,7 @@ int bind_qat(ENGINE *e, const char *id)
             mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
             mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
             qat_sw_ecdsa_offload = 1;
-            DEBUG("QAT_SW ECDSA for Provider Enabled\n");
+            INFO("QAT_SW ECDSA for Provider Enabled\n");
         }
 # endif
 
@@ -1196,7 +1237,7 @@ int bind_qat(ENGINE *e, const char *id)
             mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
             mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384)) {
             qat_sw_ecdh_offload = 1;
-            DEBUG("QAT_SW ECDH for Provider Enabled\n");
+            INFO("QAT_SW ECDH for Provider Enabled\n");
         }
 # endif
 
@@ -1204,7 +1245,7 @@ int bind_qat(ENGINE *e, const char *id)
         if (!qat_hw_ecx_offload &&
             mbx_get_algo_info(MBX_ALGO_X25519)) {
             qat_sw_ecx_offload = 1;
-            DEBUG("QAT_SW X25519 for Provider Enabled\n");
+            INFO("QAT_SW X25519 for Provider Enabled\n");
         }
 # endif
 
@@ -1212,10 +1253,26 @@ int bind_qat(ENGINE *e, const char *id)
         qat_sw_gcm_offload = 1;
         DEBUG("QAT_SW GCM for Provider Enabled\n");
 # endif
+# if defined(ENABLE_QAT_FIPS) && defined (ENABLE_QAT_SW_SHA2)
+        qat_sw_sha_offload = 1;
+        INFO("QAT_SW SHA2 for Provider Enabled\n");
+
+        if(!sha_init_ipsec_mb_mgr()) {
+            WARN("SHA IPSec_Mb Manager Initialization failed\n");
+            return 0;
+        }
+# endif
     }
     /* Create static structures for ciphers now
      * as this function will be called by a single thread. */
     qat_create_ciphers();
+# ifndef QAT_DEBUG
+    if (qat_sw_gcm_offload && !qat_hw_gcm_offload)
+        INFO("QAT_SW GCM for Provider Enabled\n");
+
+    if (qat_hw_gcm_offload && !qat_sw_gcm_offload)
+        INFO("QAT_HW GCM for Provider Enabled\n");
+# endif
 #endif
 
 #ifndef QAT_BORINGSSL
@@ -1255,7 +1312,7 @@ int bind_qat(ENGINE *e, const char *id)
 
 #ifndef OPENSSL_NO_DYNAMIC_ENGINE
 IMPLEMENT_DYNAMIC_BIND_FN(bind_qat)
-    IMPLEMENT_DYNAMIC_CHECK_FN()
+IMPLEMENT_DYNAMIC_CHECK_FN()
 #endif                          /* ndef OPENSSL_NO_DYNAMIC_ENGINE */
 /* initialize Qat Engine if OPENSSL_NO_DYNAMIC_ENGINE*/
 #ifdef OPENSSL_NO_DYNAMIC_ENGINE

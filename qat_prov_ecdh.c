@@ -63,6 +63,10 @@
 # include "qat_sw_ec.h"
 #endif
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
 enum kdf_type {
     PROV_ECDH_KDF_NONE = 0,
@@ -185,7 +189,7 @@ static void QAT_ECDH_KEY_free(EC_KEY *r)
 static int qat_ecdh_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect)
 {
 # if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
-    if (qat_securitycheck_ecdh_enabled(ctx)) {
+    if (qat_securitycheck_enabled(ctx)) {
         int nid, strength;
         const char *curve_name;
         const EC_GROUP *group = EC_KEY_get0_group(ec);
@@ -746,17 +750,31 @@ static ossl_inline int qat_keyexch_ecdh_X9_63_kdf_derive(void *vpecdhctx,
 static int qat_keyexch_ecdh_derive(void *vpecdhctx, unsigned char *secret,
                 size_t *psecretlen, size_t outlen)
 {
+    int ret = 0;
     QAT_PROV_ECDH_CTX *pecdhctx = (QAT_PROV_ECDH_CTX *)vpecdhctx;
+#ifdef ENABLE_QAT_FIPS
+    if (!qat_fips_ec_check_approved_curve(pecdhctx->k))
+        goto end;
 
+    qat_fips_service_indicator = 1;
+#endif
     switch (pecdhctx->kdf_type) {
     case PROV_ECDH_KDF_NONE:
-        return qat_keyexch_ecdh_plain_derive(vpecdhctx, secret, psecretlen, outlen);
+        ret = qat_keyexch_ecdh_plain_derive(vpecdhctx, secret, psecretlen, outlen);
+        goto end;
     case PROV_ECDH_KDF_X9_63:
-        return qat_keyexch_ecdh_X9_63_kdf_derive(vpecdhctx, secret, psecretlen, outlen);
+        ret = qat_keyexch_ecdh_X9_63_kdf_derive(vpecdhctx, secret, psecretlen, outlen);
+        goto end;
     default:
         break;
     }
-    return 0;
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+
+    return ret;
 }
 
 const OSSL_DISPATCH qat_ecdh_keyexch_functions[] = {

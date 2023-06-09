@@ -199,4 +199,5 @@ struct dsa_method
     int (*dsa_keygen)(DSA *dsa);
 };
 
+void qat_DSA_free(DSA *r);
 #endif /* QAT_PROVIDER_DSA_H */

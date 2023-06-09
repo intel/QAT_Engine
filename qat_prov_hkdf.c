@@ -218,27 +218,67 @@ static int qat_kdf_hkdf_derive(void *vctx, unsigned char *key, size_t keylen,
     QAT_HKDF_CTX *qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(
                                                     ctx->evp_pkey_ctx);
     const EVP_MD *md;
+    int ret = 0;
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
 
     if (!qat_prov_is_running() || !qat_kdf_hkdf_set_ctx_params(ctx, params))
-        return 0;
+        goto end;
 
     md = qat_prov_digest_md(&ctx->digest);
     if (md == NULL) {
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
-        return 0;
+        goto end;
     }
     if (ctx->key == NULL) {
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_KEY);
-        return 0;
+        goto end;
     }
     if (keylen == 0) {
         QATerr(ERR_LIB_PROV, PROV_R_INVALID_KEY_LENGTH);
-        return 0;
+        goto end;
     }
     qat_hkdf_ctx->qat_md = md;
 
-    return qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
+    ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
+
+end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
+    return ret;
 }
+
+#ifdef ENABLE_QAT_FIPS
+static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
+                           const OSSL_PARAM params[])
+{
+    QAT_KDF_HKDF *ctx = (QAT_KDF_HKDF *)vctx;
+    QAT_HKDF_CTX *qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(
+                                                    ctx->evp_pkey_ctx);
+    const EVP_MD *md;
+    int ret = 0;
+
+    qat_fips_service_indicator = 1;
+
+    if (!qat_prov_is_running() || !qat_kdf_hkdf_set_ctx_params(ctx, params))
+        goto end;
+
+    md = qat_prov_digest_md(&ctx->digest);
+    if (md == NULL) {
+        QATerr(ERR_LIB_PROV, PROV_R_MISSING_MESSAGE_DIGEST);
+        goto end;
+    }
+    qat_hkdf_ctx->qat_md = md;
+
+    ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
+
+end:
+    qat_fips_service_indicator = 0;
+    return ret;
+}
+#endif
 
 static int qat_hkdf_common_set_ctx_params(QAT_KDF_HKDF *ctx, const OSSL_PARAM params[])
 {
@@ -400,5 +440,21 @@ const OSSL_DISPATCH qat_kdf_hkdf_functions[] = {
     { OSSL_FUNC_KDF_GET_CTX_PARAMS, (void(*)(void))qat_kdf_hkdf_get_ctx_params },
     { 0, NULL }
 };
+
+# ifdef ENABLE_QAT_FIPS
+const OSSL_DISPATCH qat_kdf_tls1_3_functions[] = {
+    { OSSL_FUNC_KDF_NEWCTX, (void(*)(void))qat_kdf_hkdf_new },
+    { OSSL_FUNC_KDF_FREECTX, (void(*)(void))qat_kdf_hkdf_free },
+    { OSSL_FUNC_KDF_RESET, (void(*)(void))qat_kdf_hkdf_reset },
+    { OSSL_FUNC_KDF_DERIVE, (void(*)(void))qat_kdf_tls1_3_derive },
+    { OSSL_FUNC_KDF_SETTABLE_CTX_PARAMS,
+      (void(*)(void))qat_kdf_hkdf_settable_ctx_params },
+    { OSSL_FUNC_KDF_SET_CTX_PARAMS, (void(*)(void))qat_kdf_hkdf_set_ctx_params },
+    { OSSL_FUNC_KDF_GETTABLE_CTX_PARAMS,
+      (void(*)(void))qat_kdf_hkdf_gettable_ctx_params },
+    { OSSL_FUNC_KDF_GET_CTX_PARAMS, (void(*)(void))qat_kdf_hkdf_get_ctx_params },
+    { 0, NULL }
+};
+# endif
 
 #endif /* ENABLE_QAT_HW_HKDF */

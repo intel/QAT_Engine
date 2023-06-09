@@ -68,6 +68,10 @@
 #include "qat_hw_sha3.h"
 #include "qat_hw_ciphers.h"
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
 #include <openssl/evp.h>
 #include <openssl/err.h>
 #include <openssl/sha.h>
@@ -92,6 +96,10 @@ static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1,void *p2);
 static int qat_get_sha3_block_size(int nid);
 static int qat_get_sha3_state_size(int nid);
 # endif
+#endif
+
+#ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
 #endif
 
 static inline const EVP_MD *qat_sha3_sw_impl(int nid)
@@ -464,6 +472,9 @@ int qat_sha3_cleanup(QAT_KECCAK1600_CTX *ctx)
 static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
 #endif
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     qat_sha3_ctx* sha3_ctx = NULL;
     CpaStatus status = 0;
     int ret_val = 1;
@@ -520,6 +531,13 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
         OPENSSL_clear_free(sha3_ctx->session_data, sizeof(CpaCySymSessionSetupData));
         sha3_ctx->context_params_set = 0;
     }
+
+    DEBUG("cleanup done\n");
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+    qat_fips_get_key_zeroize_status();
+#endif
 
     DEBUG("cleanup done\n");
     return ret_val;
@@ -949,6 +967,10 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
 {
     qat_sha3_ctx *sha3_ctx = NULL;
 
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
+
     if (unlikely(ctx == NULL)) {
         WARN("ctx parameter is NULL.\n");
         QATerr(QAT_F_QAT_SHA3_FINAL, QAT_R_CTX_NULL);
@@ -1023,6 +1045,10 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     unsigned char *p;
     size_t n;
     unsigned int data_size = 0;
+
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx parameter is NULL.\n");

@@ -66,6 +66,10 @@
 # include "qat_prov_ciphers.h"
 #endif
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
 #define QAT_GCM_TLS_TOTAL_IV_LEN (EVP_GCM_TLS_FIXED_IV_LEN + EVP_GCM_TLS_EXPLICIT_IV_LEN)
 #define QAT_GCM_TLS_PAYLOADLENGTH_MSB_OFFSET 2
 #define QAT_GCM_TLS_PAYLOADLENGTH_LSB_OFFSET 1
@@ -97,6 +101,11 @@
 
 
 #ifdef ENABLE_QAT_SW_GCM
+
+# ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
+# endif
+
 IMB_MGR *ipsec_mgr = NULL;
 #ifdef QAT_OPENSSL_PROVIDER
 int vaesgcm_init_key(void *ctx, const unsigned char* inkey);
@@ -708,35 +717,40 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
 #endif
 {
 #ifdef QAT_OPENSSL_PROVIDER
+# ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+# endif
     QAT_GCM_CTX *qctx = (QAT_GCM_CTX *)ctx;
 #else
     vaesgcm_ctx* qctx = vaesgcm_data(ctx);
 #endif
     if (qctx) {
+        OPENSSL_cleanse(&qctx->key_data, sizeof(qctx->key_data));
+
         if (qctx->iv) {
             DEBUG("qctx->iv_len = %d\n", qctx->iv_len);
-            OPENSSL_free(qctx->iv);
-            qctx->iv     = NULL;
-            qctx->iv_len = 0;
+            OPENSSL_cleanse(qctx->iv, qctx->iv_len);
+            qctx->iv = NULL;
             qctx->iv_set = 0;
         }
 
         if (qctx->next_iv) {
-            OPENSSL_free(qctx->next_iv);
-            qctx->next_iv     = NULL;
+            OPENSSL_cleanse(qctx->next_iv, qctx->iv_len);
+            qctx->next_iv = NULL;
+	    qctx->iv_len = 0;
         }
 
         if (qctx->tls_aad) {
             DEBUG("qctx->tls_aad_len = %d\n", qctx->tls_aad_len);
-            OPENSSL_free(qctx->tls_aad);
-            qctx->tls_aad     = NULL;
+            OPENSSL_cleanse(qctx->tls_aad, EVP_AEAD_TLS1_AAD_LEN);
+            qctx->tls_aad = NULL;
             qctx->tls_aad_len = -1;
             qctx->tls_aad_set = 0;
         }
 
         if (qctx->calculated_tag) {
-            OPENSSL_free(qctx->calculated_tag);
-            qctx->calculated_tag     = NULL;
+            OPENSSL_cleanse(qctx->calculated_tag, qctx->tag_len);
+            qctx->calculated_tag = NULL;
             qctx->tag_calculated = 0;
         }
 
@@ -746,13 +760,17 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
 #else
             DEBUG("qctx->tag_len = %u\n", qctx->tag_len);
 #endif
-            OPENSSL_free(qctx->tag);
-            qctx->tag     = NULL;
+            OPENSSL_cleanse(qctx->tag, qctx->tag_len);
+            qctx->tag = NULL;
             qctx->tag_len = 0;
             qctx->tag_set = 0;
         }
 
     }
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+    qat_fips_get_key_zeroize_status();
+#endif
     return 1;
 }
 
@@ -962,6 +980,10 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
     struct gcm_key_data* key_data_ptr = NULL;
     struct gcm_context_data* gcm_ctx_ptr = NULL;
 
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
+
     if (ctx == NULL) {
         WARN("ctx == NULL\n");
         QATerr(QAT_F_VAESGCM_CIPHERS_DO_CIPHER, QAT_R_CTX_NULL);
@@ -1068,6 +1090,10 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
                 qctx->tag_calculated = 1;
             }
 
+#ifdef ENABLE_QAT_FIPS
+            memcpy(qctx->tag, qctx->buf, qctx->tag_len);
+            qctx->tag_set = 1;
+#endif
             DUMPL("Decrypt - Set Tag", (const unsigned char*)qctx->tag,
                   qctx->tag_len);
 
@@ -1080,7 +1106,11 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
             if (qctx->tag_set) {
                 DEBUG("Decrypt - GCM Tag Set so calling memcmp\n");
                 if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0) {
+#ifdef ENABLE_QAT_FIPS
+                    return 1;
+#else
                     return 0;
+#endif
                 } else {
                     WARN("AES-GCM calculated tag comparison failed\n");
                     DUMPL("Expected   Tag:", (const unsigned char *)qctx->tag, qctx->tag_len);

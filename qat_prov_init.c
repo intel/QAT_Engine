@@ -7,10 +7,17 @@
 # define __USE_GNU
 #endif
 
+#ifdef ENABLE_QAT_FIPS
+# include <sys/ipc.h>
+# include <sys/shm.h>
+# include <sys/types.h>
+#endif
+
 #include <openssl/core_names.h>
 #include <openssl/params.h>
 #include "qat_provider.h"
 #include "e_qat.h"
+#include "qat_evp.h"
 #include "qat_fork.h"
 #include "qat_utils.h"
 #include "qat_prov_bio.h"
@@ -22,9 +29,22 @@
 
 #ifdef ENABLE_QAT_SW_GCM
 # include "qat_sw_gcm.h"
+# if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
+#  include "qat_sw_sha2.h"
+# endif
 #endif
 
+#include "qat_fips.h"
+#include "qat_prov_cmvp.h"
+
 OSSL_PROVIDER *prov = NULL;
+#ifdef ENABLE_QAT_FIPS
+# define SM_KEY 0x00102F
+
+void *sm_ptr;
+int sm_id;
+#endif
+
 /* By default, qat provider always in a happy state */
 int qat_prov_is_running(void)
 {
@@ -104,6 +124,14 @@ extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha256_functions[];
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
 extern const OSSL_DISPATCH qat_chacha20_poly1305_functions[];
 #endif /* ENABLE_QAT_HW_CHACHAPOLY */
+#if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
+# ifdef QAT_INSECURE_ALGO
+extern const OSSL_DISPATCH qat_sha224_functions[];
+# endif /* QAT_INSECURE_ALGO */
+extern const OSSL_DISPATCH qat_sha256_functions[];
+extern const OSSL_DISPATCH qat_sha384_functions[];
+extern const OSSL_DISPATCH qat_sha512_functions[];
+#endif
 #ifdef ENABLE_QAT_HW_SHA3
 # ifdef QAT_INSECURE_ALGO
 extern const OSSL_DISPATCH qat_sha3_224_functions[];
@@ -114,6 +142,9 @@ extern const OSSL_DISPATCH qat_sha3_512_functions[];
 #endif /* ENABLE_QAT_HW_SHA3 */
 #ifdef ENABLE_QAT_HW_HKDF
 extern const OSSL_DISPATCH qat_kdf_hkdf_functions[];
+# ifdef ENABLE_QAT_FIPS
+extern const OSSL_DISPATCH qat_kdf_tls1_3_functions[];
+# endif
 #endif
 #ifdef ENABLE_QAT_HW_PRF
 extern const OSSL_DISPATCH qat_tls_prf_functions[];
@@ -131,6 +162,12 @@ static void qat_teardown(void *provctx)
     DEBUG("qatprovider teardown\n");
     qat_engine_finish_int(NULL, QAT_RESET_GLOBALS);
 
+#if defined(ENABLE_QAT_FIPS) && defined (ENABLE_QAT_SW_SHA2)
+    sha_free_ipsec_mb_mgr();
+#endif
+#ifdef ENABLE_QAT_FIPS
+    shmctl(sm_id, IPC_RMID, 0);
+#endif
     if (provctx) {
         QAT_PROV_CTX *qat_ctx = (QAT_PROV_CTX *)provctx;
         BIO_meth_free(ossl_prov_ctx_get0_core_bio_method(qat_ctx));
@@ -258,6 +295,9 @@ static const OSSL_ALGORITHM qat_signature[] = {
 static const OSSL_ALGORITHM qat_kdfs[] = {
 # ifdef ENABLE_QAT_HW_HKDF
     {"HKDF", QAT_DEFAULT_PROPERTIES, qat_kdf_hkdf_functions, "QAT HKDF implementation"},
+#  ifdef ENABLE_QAT_FIPS
+    {"TLS13-KDF", QAT_DEFAULT_PROPERTIES, qat_kdf_tls1_3_functions, "QAT HKDF implementation"},
+#  endif
 # endif
 # ifdef ENABLE_QAT_HW_PRF
     {"TLS1-PRF", QAT_DEFAULT_PROPERTIES, qat_tls_prf_functions, "QAT PRF implementation"},
@@ -265,48 +305,152 @@ static const OSSL_ALGORITHM qat_kdfs[] = {
     {NULL, NULL, NULL}};
 #endif
 
-#ifdef ENABLE_QAT_HW_SHA3
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2)
 static const OSSL_ALGORITHM qat_digests[] = {
+#if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
+# ifdef QAT_INSECURE_ALGO
+    { QAT_NAMES_SHA2_224, QAT_DEFAULT_PROPERTIES, qat_sha224_functions },
+# endif
+    { QAT_NAMES_SHA2_256, QAT_DEFAULT_PROPERTIES, qat_sha256_functions },
+    { QAT_NAMES_SHA2_384, QAT_DEFAULT_PROPERTIES, qat_sha384_functions },
+    { QAT_NAMES_SHA2_512, QAT_DEFAULT_PROPERTIES, qat_sha512_functions },
+#endif
+#ifdef ENABLE_QAT_HW_SHA3
 # ifdef QAT_INSECURE_ALGO
     { QAT_NAMES_SHA3_224, QAT_DEFAULT_PROPERTIES, qat_sha3_224_functions },
 # endif
     { QAT_NAMES_SHA3_256, QAT_DEFAULT_PROPERTIES, qat_sha3_256_functions },
     { QAT_NAMES_SHA3_384, QAT_DEFAULT_PROPERTIES, qat_sha3_384_functions },
     { QAT_NAMES_SHA3_512, QAT_DEFAULT_PROPERTIES, qat_sha3_512_functions },
+#endif
     { NULL, NULL, NULL }};
+#endif
+
+#ifdef ENABLE_QAT_FIPS
+int qat_operations(int operation_id)
+{
+    switch (operation_id) {
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2)
+    case OSSL_OP_DIGEST:
+#endif
+    case OSSL_OP_CIPHER:
+    case OSSL_OP_SIGNATURE:
+    case OSSL_OP_KEYMGMT:
+    case OSSL_OP_KEYEXCH:
+#if defined(ENABLE_QAT_HW_HKDF) || defined(ENABLE_QAT_HW_PRF)
+    case OSSL_OP_KDF:
+#endif
+        return 1;
+    default:
+        return 0;							     }
+}
 #endif
 
 static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_cache)
 {
     static int prov_init = 0;
     prov = OSSL_PROVIDER_load(NULL, "default");
+
+#ifdef ENABLE_QAT_FIPS
+    /*
+     * By using this variable can set FIPs on-demand test internally
+     * 1 - ondemand test set
+     * 0 - ondemand test unset
+     */
+    int ondemand = 0;
+    static int self_test_init = 0;
+    static int count = 1;
+    sm_id = shmget((key_t)SM_KEY, 16, 0666);
+    sm_ptr = shmat(sm_id, NULL, 0);
+    static pid_t init_pid = 0;
+
+    if (prov_init == 2 && self_test_init == 0) {
+        prov_init++;
+        self_test_init++;
+        if (!strcmp((char *)sm_ptr, "KAT_RSET")) {
+            strcpy(sm_ptr, "KAT_DONE");
+            init_pid = getpid();
+            if (qat_hw_offload && qat_sw_offload)
+                qat_fips_self_test(provctx, ondemand, 1);
+            else
+              qat_fips_self_test(provctx, ondemand, 0);
+        }
+    }
+
+    if (prov_init == 1 && self_test_init == 0) {
+        prov_init++;
+        if (operation_id != OSSL_OP_RAND) {
+            prov_init++;
+            self_test_init++;
+            if (!strcmp((char *)sm_ptr, "KAT_RSET")) {
+                strcpy(sm_ptr, "KAT_DONE");
+                init_pid = getpid();
+                if (qat_hw_offload && qat_sw_offload)
+                    qat_fips_self_test(provctx, ondemand, 1);
+                else
+                  qat_fips_self_test(provctx, ondemand, 0);
+            }
+        }
+    }
+#endif
     if (!prov_init) {
         prov_init = 1;
         /* qat provider takes the highest priority
          * and overwrite the openssl.cnf property. */
         EVP_set_default_properties(NULL, "?provider=qatprovider");
+#ifdef ENABLE_QAT_FIPS
+        if (qat_operations(operation_id)) {
+            prov_init++;
+            self_test_init++;
+            if (!strcmp((char *)sm_ptr, "KAT_RSET")) {
+                strcpy(sm_ptr, "KAT_DONE");
+                init_pid = getpid();
+                if (qat_hw_offload && qat_sw_offload)
+                    qat_fips_self_test(provctx, ondemand, 1);
+                else
+                  qat_fips_self_test(provctx, ondemand, 0);
+            }
+        }
+#endif
     }
 
     *no_cache = 0;
-    switch (operation_id) {
-#ifdef ENABLE_QAT_HW_SHA3
-    case OSSL_OP_DIGEST:
-        return qat_digests;
-#endif
-    case OSSL_OP_CIPHER:
-        return qat_exported_ciphers;
-    case OSSL_OP_SIGNATURE:
-        return qat_signature;
-    case OSSL_OP_KEYMGMT:
-        return qat_keymgmt;
-    case OSSL_OP_KEYEXCH:
-        return qat_keyexch;
-#if defined(ENABLE_QAT_HW_HKDF) || defined(ENABLE_QAT_HW_PRF)
-    case OSSL_OP_KDF:
-        return qat_kdfs;
-#endif
+#ifdef ENABLE_QAT_FIPS
+    while (count && sm_ptr != NULL) {
+          if (strcmp((char *)sm_ptr, "KAT_DONE") != 0 || init_pid == getpid()) {
+              count = 1;
+              break;
+          }
+          count++;
     }
-    return OSSL_PROVIDER_query_operation(prov, operation_id, no_cache);
+    if (integrity_status && strcmp((char *)sm_ptr, "KAT_FAIL") != 0) {
+#endif
+        switch (operation_id) {
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2)
+        case OSSL_OP_DIGEST:
+            return qat_digests;
+#endif
+        case OSSL_OP_CIPHER:
+            return qat_exported_ciphers;
+        case OSSL_OP_SIGNATURE:
+            return qat_signature;
+        case OSSL_OP_KEYMGMT:
+            return qat_keymgmt;
+        case OSSL_OP_KEYEXCH:
+            return qat_keyexch;
+#if defined(ENABLE_QAT_HW_HKDF) || defined(ENABLE_QAT_HW_PRF)
+        case OSSL_OP_KDF:
+            return qat_kdfs;
+#endif
+        }
+        return OSSL_PROVIDER_query_operation(prov, operation_id, no_cache);
+#ifdef ENABLE_QAT_FIPS
+    }
+    else {
+      qat_teardown(provctx);
+      exit(EXIT_FAILURE);
+    }
+#endif
 }
 
 static const OSSL_DISPATCH qat_dispatch_table[] = {
@@ -440,7 +584,12 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
             break;
         }
     }
-
+#ifdef ENABLE_QAT_FIPS
+    /*displaying module_name, ID & version of FIPs module*/
+    if(qat_provider_info()) {
+        goto err;
+    }
+#endif
     /* get parameters from qat_provider.cnf */
     if (!qat_get_params_from_core(handle)) {
         return 0;
@@ -456,13 +605,23 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
     }
 
     qat_ctx->handle = handle;
+#ifndef ENABLE_QAT_FIPS
     qat_ctx->libctx = (OSSL_LIB_CTX *)c_get_libctx(handle);
+#else
+    qat_ctx->libctx = (OSSL_LIB_CTX *)OSSL_LIB_CTX_new_from_dispatch(handle, in);
+#endif
 
     *provctx = (void *)qat_ctx;
     corebiometh = ossl_bio_prov_init_bio_method();
     qat_prov_ctx_set_core_bio_method(*provctx, corebiometh);
     *out = qat_dispatch_table;
     qat_prov_cache_exported_algorithms(qat_deflt_ciphers, qat_exported_ciphers);
+#ifdef ENABLE_QAT_FIPS
+    sm_id = shmget((key_t)SM_KEY, 16, IPC_CREAT|0666);
+    sm_ptr = shmat(sm_id, NULL, 0);
+    strcpy(sm_ptr, "KAT_RSET");
+#endif
+
     return 1;
 
 err:

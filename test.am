@@ -46,7 +46,8 @@ QAT_TEST_SRC = test/main.c                    \
                test/tests_sm3.c               \
                test/tests_sm4_cbc.c           \
                test/tests_sm4_gcm.c           \
-               test/tests_sm4_ccm.c
+               test/tests_sm4_ccm.c           \
+               test/tests_sha2.c
 
 if QAT_PROVIDER
 QAT_HW_TEST_SRC = test/tests_dsa.c               \

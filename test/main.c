@@ -208,6 +208,7 @@ static const option_data rsa_choices[] = {
 static const option_data dsa_choices[] = {
     {"dsa1024", 1024, TEST_DSA, 0, 0},
     {"dsa2048", 2048, TEST_DSA, 0, 0},
+    {"dsa3072", 3072, TEST_DSA, 0, 0},
     {"dsa4096", 4096, TEST_DSA, 0, 0},
 };
 
@@ -215,6 +216,7 @@ static const option_data dh_choices[] = {
     {"dh512", 512, TEST_DH, 0, 0},
     {"dh1024", 1024, TEST_DH, 0, 0},
     {"dh2048", 2048, TEST_DH, 0, 0},
+    {"dh3072", 3072, TEST_DH, 0, 0},
     {"dh4096", 4096, TEST_DH, 0, 0},
     {"dh8192", 8192, TEST_DH, 0, 0},
 };
@@ -273,6 +275,13 @@ static const option_data sha3_choices[] = {
     {"sha3-256", 0, TEST_SHA3_256, 0, 0},
     {"sha3-384", 0, TEST_SHA3_384, 0, 0},
     {"sha3-512", 0, TEST_SHA3_512, 0, 0},
+};
+
+static const option_data sha2_choices[] = {
+    {"sha2-224", 0, TEST_SHA2_224, 0, 0},
+    {"sha2-256", 0, TEST_SHA2_256, 0, 0},
+    {"sha2-384", 0, TEST_SHA2_384, 0, 0},
+    {"sha2-512", 0, TEST_SHA2_512, 0, 0},
 };
 
 /******************************************************************************
@@ -553,6 +562,14 @@ char *test_name(int test)
         return "SM4-GCM";
     case TEST_SM4_CCM:
         return "SM4-CCM";
+    case TEST_SHA2_224:
+        return "SHA2-224";
+    case TEST_SHA2_256:
+        return "SHA2-256";
+    case TEST_SHA2_384:
+        return "SHA2-384";
+    case TEST_SHA2_512:
+        return "SHA2-512";
     case 0:
         return "all tests";
     default:
@@ -604,6 +621,21 @@ char *ecdh_curve_name(int type)
         return "NIST Binary-Curve B-571";
     case P_CURVE_SM2:
         return "SM2 Curve";
+    case 0:
+        return "all curves";
+    default:
+        return "*unknown*";
+    }
+}
+
+
+char *size(int type)
+{
+    switch (type) {
+    case KEY_2048_224:
+        return "DSA key 2048-224";
+    case KEY_2048_256:
+        return "DSA key 2048-256";
     case 0:
         return "all curves";
     default:
@@ -678,10 +710,12 @@ static void usage(char *program)
     printf("\trsa8192 RSA 8192 test\n");
     printf("\tdsa1024 DSA 1024 test\n");
     printf("\tdsa2048 DSA 2048 test\n");
+    printf("\tdsa3072 DSA 3072 test\n");
     printf("\tdsa4096 DSA 4096 test\n");
     printf("\tdh512 DH 1024 test\n");
     printf("\tdh1024 DH 1024 test\n");
     printf("\tdh2048 DH 2048 test\n");
+    printf("\tdh3072 DH 3072 test\n");
     printf("\tdh4096 DH 4096 test\n");
     printf("\tdh8192 DH 8192 test\n");
     printf("\taes128_cbc_hmac_sha1 AES128 CBC HMAC SHA1 test\n");
@@ -738,6 +772,10 @@ static void usage(char *program)
     printf("\tsm4-gcm     SM4 GCM test\n");
     printf("\tsm4-ccm     SM4 CCM test\n");
     printf("\tchachapoly  CHACHAPOLY test\n\n");
+    printf("\tsha2-224    SHA2 224 test\n");
+    printf("\tsha2-256    SHA2 256 test\n");
+    printf("\tsha2-384    SHA2 384 test\n");
+    printf("\tsha2-512    SHA2 512 test\n");
 
     printf("\nIf test algo is not specified, default tests"
            "(RSA, ECDH, ECDSA) will be executed.\n");
@@ -936,6 +974,14 @@ static void handle_option(int argc, char *argv[], int *index)
            for (i = 0; i < size; i++)
                 if (!strcmp(option, sha3_choices[i].name)) {
                     test_alg = sha3_choices[i].test_alg;
+                    test_size = 4096;
+                    break;
+                }
+    } else if (!strncmp(option, "sha2", strlen("sha2"))) {
+           size = sizeof(sha2_choices) / sizeof(option_data);
+           for (i = 0; i < size; i++)
+                if (!strcmp(option, sha2_choices[i].name)) {
+                    test_alg = sha2_choices[i].test_alg;
                     test_size = 4096;
                     break;
                 }
