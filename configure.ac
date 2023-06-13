@@ -336,12 +336,6 @@ then
       AC_SUBST([LIBQATNAME], "libqatengine")
       CFLAGS_BACK="${CFLAGS}"
       CFLAGS="-I${with_openssl_install_dir}/include/ -I${with_openssl_install_dir}/include/openssl/ ${CFLAGS}"
-      AC_CHECK_TYPE([struct evp_pkey_st], [], [AC_MSG_ERROR([need specified version for BoringSSL commit:15596efa5f])], [
-                     AC_INCLUDES_DEFAULT
-                     #include <openssl/evp.h>])
-      AC_CHECK_MEMBERS([struct evp_pkey_st.references, struct evp_pkey_st.type, struct evp_pkey_st.pkey.ptr, struct evp_pkey_st.pkey.rsa,
-                        struct evp_pkey_st.pkey.dsa, struct evp_pkey_st.pkey.dh, struct evp_pkey_st.pkey.ec, struct evp_pkey_st.ameth],
-                        [], [need specified version for BoringSSL commit:15596efa5f], [#include <openssl/evp.h>])
       CFLAGS="${CFLAGS_BACK}"
     fi
   else
