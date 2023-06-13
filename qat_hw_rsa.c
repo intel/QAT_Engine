@@ -955,7 +955,7 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
     if ((qat_sw_rsa_priv_req > 0) || qat_get_qat_offload_disabled()) {
         fallback = 1;
-        goto exit_lenstra;
+        goto exit;
     }
 
     START_RDTSC(&qat_hw_rsa_dec_req_prepare);
