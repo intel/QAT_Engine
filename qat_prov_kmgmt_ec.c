@@ -72,8 +72,6 @@
 # include "qat_sw_ec.h"
 #endif
 
-#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_HW_ECDH) \
- || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
 typedef struct{
     int id; /* libcrypto internal */
     int name_id;
@@ -131,6 +129,8 @@ typedef struct {
     EC_GROUP *gen_group;
 }QAT_EC_GEN_CTX;
 
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_HW_ECDH) \
+ || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
 static QAT_EC_KEYMGMT get_default_keymgmt()
 {
     static QAT_EC_KEYMGMT s_keymgmt;
@@ -424,6 +424,7 @@ const OSSL_DISPATCH qat_ecdh_keymgmt_functions[] = {
       (void (*)(void))qat_keymgmt_ec_query_operation_name },
     {0, NULL }
 };
+#endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) */
 
 # ifdef ENABLE_QAT_SW_SM2
 static QAT_EC_KEYMGMT sm2_get_default_keymgmt()
@@ -673,4 +674,3 @@ const OSSL_DISPATCH qat_sm2_keymgmt_functions[] = {
     {0, NULL }
 };
 # endif /* ENABLE_QAT_SW_SM2 */
-#endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) */
