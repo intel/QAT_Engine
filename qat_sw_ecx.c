@@ -83,7 +83,7 @@ int x25519_nid[] = {
     EVP_PKEY_X25519
 };
 
-
+#ifdef ENABLE_QAT_SW_ECX
 void process_x25519_keygen_reqs(mb_thread_data *tlv)
 {
     x25519_keygen_op_data *x25519_keygen_req_array[MULTIBUFF_BATCH] = {0};
@@ -620,3 +620,4 @@ int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
     return -2;
 }
 # endif
+#endif /*ENABLE_QAT_HW_ECX*/

@@ -741,6 +741,7 @@ int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
 #endif
     CpaStatus sts = 0;
     CpaCySymSessionSetupData* session_data = NULL;
+    CpaBoolean sessionInUse = CPA_FALSE;
     int ret_val = 1;
 
     DEBUG("- Entering\n");
@@ -764,48 +765,53 @@ int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
+    /* Wait for in-flight requests before removing session */
+    do {
+        cpaCySymSessionInUse(qctx->qat_ctx, &sessionInUse);
+    } while (sessionInUse);
+
     session_data = qctx->session_data;
     if (session_data) {
         /* Remove the session */
         if (qctx->qat_ctx) {
             if ((sts = cpaCySymRemoveSession(qat_instance_handles[qctx->inst_num], qctx->qat_ctx))
-               != CPA_STATUS_SUCCESS) {
+                    != CPA_STATUS_SUCCESS) {
                 WARN("cpaCySymRemoveSession FAILED, sts = %d.!\n", sts);
                 ret_val = 0;
                 /* Lets not return yet and instead make a best effort to
                  * cleanup the rest to avoid memory leaks
                  */
             }
-	    qaeCryptoMemFreeNonZero(qctx->qat_ctx);
+            qaeCryptoMemFreeNonZero(qctx->qat_ctx);
             qctx->qat_ctx = NULL;
         }
-            /* Cleanup the memory */
-            if (qctx->aad) {
-                qaeCryptoMemFreeNonZero(qctx->aad);
-                qctx->aad = NULL;
-            }
-            if (qctx->srcBufferList.pPrivateMetaData) {
-                qaeCryptoMemFreeNonZero(qctx->srcBufferList.pPrivateMetaData);
-                qctx->srcBufferList.pPrivateMetaData = NULL;
-            }
-            if (qctx->dstBufferList.pPrivateMetaData) {
-                qaeCryptoMemFreeNonZero(qctx->dstBufferList.pPrivateMetaData);
-                qctx->dstBufferList.pPrivateMetaData = NULL;
-            }
-            if (qctx->iv) {
-                qaeCryptoMemFree(qctx->iv);
-                qctx->iv = NULL;
-            }
-            if (qctx->cipher_key) {
-                qaeCryptoMemFree(qctx->cipher_key);
-                qctx->cipher_key = NULL;
-            }
-            if (qctx->OpData.pDigestResult) {
-                qaeCryptoMemFree(qctx->OpData.pDigestResult);
-                qctx->OpData.pDigestResult = NULL;
-            }
-            session_data->cipherSetupData.pCipherKey = NULL;
-            OPENSSL_clear_free(session_data, sizeof(CpaCySymSessionSetupData));
+        /* Cleanup the memory */
+        if (qctx->aad) {
+            qaeCryptoMemFreeNonZero(qctx->aad);
+            qctx->aad = NULL;
+        }
+        if (qctx->srcBufferList.pPrivateMetaData) {
+            qaeCryptoMemFreeNonZero(qctx->srcBufferList.pPrivateMetaData);
+            qctx->srcBufferList.pPrivateMetaData = NULL;
+        }
+        if (qctx->dstBufferList.pPrivateMetaData) {
+            qaeCryptoMemFreeNonZero(qctx->dstBufferList.pPrivateMetaData);
+            qctx->dstBufferList.pPrivateMetaData = NULL;
+        }
+        if (qctx->iv) {
+            qaeCryptoMemFree(qctx->iv);
+            qctx->iv = NULL;
+        }
+        if (qctx->cipher_key) {
+            qaeCryptoMemFree(qctx->cipher_key);
+            qctx->cipher_key = NULL;
+        }
+        if (qctx->OpData.pDigestResult) {
+            qaeCryptoMemFree(qctx->OpData.pDigestResult);
+            qctx->OpData.pDigestResult = NULL;
+        }
+        session_data->cipherSetupData.pCipherKey = NULL;
+        OPENSSL_clear_free(session_data, sizeof(CpaCySymSessionSetupData));
     }
     qctx->is_session_init = 0;
 

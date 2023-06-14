@@ -75,7 +75,7 @@
 #include "crypto_mb/ec_nistp384.h"
 #include "crypto_mb/ec_sm2.h"
 
-#ifdef ENABLE_QAT_FIPS
+# if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_ECDSA)
 extern int qat_fips_kat_test;
 static const unsigned char KINV_256[] = {
         0x62, 0x15, 0x9E, 0x5B, 0xA9, 0xE7, 0x12, 0xFB,
