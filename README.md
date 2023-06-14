@@ -92,7 +92,8 @@ modprobe usdm_drv.ko
 ```
 The USDM thread specific memory can be enabled in QAT_HW driver using the below
 configure flags in driver build which is only needed for multithreaded
-application for performance improvement.
+application for performance improvement. This is supported from version 4.20
+of QAT_HW Version 1.7 driver only.
 
 ```bash
 ./configure --enable-icp-thread-specific-usdm --enable-128k-slab

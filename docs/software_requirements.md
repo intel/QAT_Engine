@@ -6,11 +6,10 @@ that supports OpenSSL\* 1.1.1 or OpenSSL\* 3.0 or BoringSSL\* and Intel&reg; Qui
 Technology Driver for Linux or Intel&reg;  QuickAssist Technology
 Driver for FreeBSD. This release was validated on the following:
 
-* Operating system: CentOS* 8.4, Ubuntu\* 20.04.2 LTS & FreeBSD\* 12.3
-* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 2.0 - **QAT20.L.1.0.10-00005**
-* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 1.7 & 1.8 - **QAT.L.4.20.0-00001**
-* Intel&reg; QuickAssist Technology Driver for FreeBSD\* HW Version 1.7 - **QAT.B.3.12.0-00004**
-* OpenSSL\* 1.1.1t & 3.0.8
+* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 2.0 (RHEL\* 8.6) - **QAT20.L.1.0.40-00004**
+* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 1.7 & 1.8 (CentOS\* 8.4 & Ubuntu\* 20.04.2) - **QAT.L.4.22.0-00001**
+* Intel&reg; QuickAssist Technology Driver for FreeBSD\* HW Version 1.7 (FreeBSD\* 12.4) - **QAT.B.3.12.0-00004**
+* OpenSSL\* 1.1.1u & 3.0.9
 * BoringSSL\* commit - [987dff1][1]
 * BabaSSL - 8.3.2
 
@@ -32,7 +31,7 @@ This release was validated on the following:
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][2] release
   version **IPP Crypto 2021.7.1**
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.3**
-* OpenSSL\* 1.1.1t & 3.0.8
+* OpenSSL\* 1.1.1u & 3.0.9
 * BoringSSL\* commit - [987dff1][1]
 * BabaSSL - 8.3.2
 

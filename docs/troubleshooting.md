@@ -21,12 +21,10 @@ If this occurs some of the things to check are:
    5. Has the environment variable `OPENSSL_ENGINES` been correctly defined and
       exported to the shell?
       Also check it is really pointing to the correct location.
-   6. If building for OpenSSL 1.1.0 was the configure option
-      `--with-openssl_dir` specified? (Linux Specific)
-   7. If building from OpenSSL prebuilt RPM Package, has the OpenSSL developement
+   6. If building from OpenSSL prebuilt RPM Package, has the OpenSSL developement
       packages (openssl-devel for Redhat* based distribution and libssl-devel
       for Debian* based distibution) been installed ?
-   8. Incase of qat_sw acceleration, has the dependant libraries are installed in
+   7. Incase of qat_sw acceleration, has the dependant libraries are installed in
       the default path or provide the path via `--with-qat_sw_crypto_mb_install_dir`
       (for crypto_mb) and `--with-qat_sw_ipsec_mb_install_dir` (for ipsec_mb) if
       installed in the path other than default.

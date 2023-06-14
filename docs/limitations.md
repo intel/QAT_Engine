@@ -47,15 +47,13 @@
 ## Known Issues
 
 ### Functional
-* Known issue with OpenSSL 3.0 s_server using qatengine with cipher **"DHE-RSA-CHACHA20-POLY1305"** which
-  works fine with Nginx. The issue is due to failure at EVP_PKEY_copy_parameter() in OpenSSL.
 * AES-CBC-HMAC-SHA chained ciphers does not support **pipeline feature** when built with
   OpenSSL 3.0 as the corresponding support is not available in OpenSSL 3.0 - [OpenSSL#18298][2]
 * There is an issue in **sshd** daemon application when using the QAT for default openssl.
   sshd looks to be closing the file descriptors associated with QAT engine and driver after
   initialising openssl. Similar issue was present which prevents the ability to ssh out of
   the system using the QAT engine in versions of the ssh application before OpenSSH 8.7.
-  The issue has been fixed with this commit [c9f7bba][4] . This update can be applied to
+  The issue has been fixed with this commit [c9f7bba][3] . This update can be applied to
   sshd to work-around the issue.
 * Known issue with QAT_SW SM2 in ntls mode since QAT_SW SM2 doesn't have plain sign and
   verify operation support in engine. Disable QAT_SW SM2 to workaround the issue with ntls.
@@ -68,7 +66,7 @@
   or in multi-process mode.
 * SM3 is disabled by default due to performance drop observed in **mulithread scenario**
   for all ciphers suites due to the additional locks at engine_table_select introduced by
-  engine digest registration in OpenSSL - [OpenSSL#18509][5]
+  engine digest registration in OpenSSL - [OpenSSL#18509][4]
 * In Co-Existence mode, performance will drop for PKE algorithms compared with
   QAT_SW when process number >= 64.
 
