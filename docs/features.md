@@ -24,7 +24,7 @@
 * [Pipelined Operations](qat_hw.md#using-the-openssl-pipelining-capability)
 * [Intel&reg; QAT OpenSSL\* Engine Software Fallback](qat_hw.md#intel-qat-openssl-engine-software-fallback-feature)
 * [BoringSSL Support](bssl_support.md)
-* Algorithms specific to Hardware driver v2.0 and qatlib(QAT gen4 devices)
+* Algorithms specific to QAT Hardware driver v2.0 and qatlib(QAT gen4 devices)
   *  RSA8K
   *  DH8K
   *  SM4-CBC (Not supported in qatlib)
@@ -53,7 +53,7 @@ Please refer [here](qat_hw_algo.md) for supported platforms list and default beh
 ## Common Features to qat_hw & qat_sw
 * [QAT_HW & QAT_SW Co-existence with runtime configuration](qat_common.md#qat-hw-and-qat-sw-co-existence)
 * [OpenSSL 3.0 Provider Support](qat_common.md#openssl-30-provider-support)
-* [FIPS Support](qat_common.md#fips-support)
+* [FIPS 140-3 Certification requirements Support using QAT Provider](qat_common.md#fips-140-3-certification-requirements-support-using-qat-provider)
 
 Note: RSA Padding schemes are handled by OpenSSL\* or BoringSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL\* or BoringSSL\* does natively.

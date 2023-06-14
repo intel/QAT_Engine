@@ -1,7 +1,7 @@
 %undefine __cmake_in_source_build
 %global _lto_cflags %{nil}
 %global debug_package %{nil}
-# Versions numbers
+# Dependant Library Versions
 %global major        1
 %global minor        3
 %global rev          0
@@ -10,36 +10,38 @@
 %global ipsecfull    %{ipsec}-%{ipsecver}
 %global fullversion  %{major}.%{minor}.%{rev}
 
-
-%global ippcp_major       11
+%global ippcp_major        11
 %global ippcp_minor        6
-%global ippcp		   ipp-crypto
-%global ippcpver	   ippcp_2021.7.1
-%global ippcpfull    	   %{ippcp}-%{ippcpver}
+%global ippcp              ipp-crypto
+%global ippcpver           ippcp_2021.7.1
+%global ippcpfull          %{ippcp}-%{ippcpver}
 %global ippcpfullversion   %{ippcp_major}.%{ippcp_minor}
 
-%global qatengine   QAT_Engine
-%global qatdriver   QAT20.l.1.0.40-00004
+%global qatdriver          QAT20.l.1.0.40-00004
 
-%global openssl_lib_path        /root/openssl_install
-%global openssl_src_path        /root/openssl
+%global openssl_lib_path   /root/openssl_install
+%global openssl_src_path   /root/openssl
 
-Name:		qatprovider-fips
+Name:       qatprovider-fips
 Version:    1.2.0
 Release:    1%{?dist}
-Summary:    Intel QuickAssist Technology (QAT) OpenSSL Provider
+Summary:    Intel QuickAssist Technology(QAT) OpenSSL Provider
 
-License: 	BSD-3-Clause AND OpenSSL
-Source0:	https://github.com/intel/%{qatengine}/archive/v%{version}/%{name}-%{version}.tar.gz 
-Source1:	https://github.com/intel/%{ippcp}/archive/refs/tags/%{ippcpver}.tar.gz#/%{ippcp}-%{ippcpver}.tar.gz
-Source2:	https://github.com/intel/%{ipsec}/archive/v%{ipsecver}.tar.gz#/%{ipsecfull}.tar.gz
-Source3:	https://downloadmirror.intel.com/777529/QAT20.L.1.0.20-00008.tar.gz
-Source4:	driver_install.tar.gz
+License:    BSD-3-Clause AND OpenSSL
+Source0:    https://github.com/intel/QAT_Engine/archive/v%{version}/%{name}-%{version}.tar.gz
+Source1:    https://github.com/intel/%{ippcp}/archive/refs/tags/%{ippcpver}.tar.gz#/%{ippcp}-%{ippcpver}.tar.gz
+Source2:    https://github.com/intel/%{ipsec}/archive/v%{ipsecver}.tar.gz#/%{ipsecfull}.tar.gz
+Source3:    https://downloadmirror.intel.com/781387/QAT20.L.1.0.40-00004.tar.gz
+Source4:    driver_install.tar.gz
 
-BuildRequires:      cmake >= 3.10
-BuildRequires:      gcc-c++ >= 8.2
-BuildRequires:      make
-BuildRequires:      nasm >= 2.14
+BuildRequires:  autoconf
+BuildRequires:  automake
+BuildRequires:  make
+BuildRequires:  gcc
+BuildRequires:  libtool
+BuildRequires:  cmake >= 3.10
+BuildRequires:  nasm >= 2.14
+BuildRequires:  gcc-c++ >= 8.2
 
 %description
 This package provides the Intel QuickAssist Technology OpenSSL Provider
@@ -106,13 +108,12 @@ ln -s libIPSec_MB.so.%{fullversion} libIPSec_MB.so
 export OPENSSL_ENGINES="/root/openssl_install/lib64/ossl-modules"
 export OPENSSL_ROOT="/root/openssl"
 export SYS_OPENSSL_PATH="/root/openssl_install"
-export LD_LIBRARY_PATH=/root/openssl_install/lib64
-export OPENSSL_LIB=/root/openssl_install
+export LD_LIBRARY_PATH="/root/openssl_install/lib64"
+export OPENSSL_LIB="/root/openssl_install"
 export QAT_HW_ENABLED="1"
 export QAT_SW_ENABLED="1"
 
 cd /root/rpmbuild/BUILD/%{name}-%{version}
-#git checkout dev_qat_fips_drop2_release
 
 autoreconf -ivf
 
@@ -200,4 +201,5 @@ rm -rf %{buildroot}
 %{_includedir}/crypto_mb/sm4_gcm.h
 
 %changelog
-* Mon May 29 2023 Ponnam Srinivas <ponnamsx.srinivas@intel.com>
+* Wed Jun 14 2023 Ponnam Srinivas <ponnamsx.srinivas@intel.com> - 1.2.0-1
+- Initial Version of RPM for QAT Provider with FIPS Support.
