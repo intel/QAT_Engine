@@ -155,9 +155,9 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
     DEBUG("- Started\n");
 
     if (dec_op_data) {
-        if (dec_op_data->inputData.pData) {
+        if (dec_op_data->inputData.pData)
             qaeCryptoMemFreeNonZero(dec_op_data->inputData.pData);
-        }
+
         if (dec_op_data->pRecipientPrivateKey) {
             key = &dec_op_data->pRecipientPrivateKey->privateKeyRep2;
             QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(key->prime1P);
@@ -171,9 +171,8 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
     }
 
     if (out_buf) {
-        if (out_buf->pData) {
+        if (out_buf->pData)
             qaeCryptoMemFreeNonZero(out_buf->pData);
-        }
         OPENSSL_free(out_buf);
     }
     DEBUG("- Finished\n");
@@ -355,9 +354,8 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
-    if (qat_rsa_coexist) {
+    if (qat_rsa_coexist)
         ++num_rsa_hw_priv_reqs;
-    }
 
     do {
         /* If we get a failure on qat_pause_job then we will
@@ -434,7 +432,7 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
     if ((padding != RSA_NO_PADDING) &&
         (padding != RSA_PKCS1_PADDING) &&
         (padding != RSA_PKCS1_OAEP_PADDING) &&
-#ifndef QAT_OPENSSL_3
+# ifndef QAT_OPENSSL_3
         (padding != RSA_SSLV23_PADDING) &&
 # endif
         (padding != RSA_X931_PADDING)) {
@@ -722,9 +720,8 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
-    if (qat_rsa_coexist) {
+    if (qat_rsa_coexist)
         ++num_rsa_hw_pub_reqs;
-    }
 
     do {
         if(op_done.job != NULL) {
@@ -739,11 +736,10 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
-            if(getEnableInlinePolling()) {
+            if(getEnableInlinePolling())
                 icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
-            } else {
+            else
                 sched_yield();
-            }
         }
     } while (!op_done.flag ||
              QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
@@ -960,7 +956,7 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
     if ((qat_sw_rsa_priv_req > 0) || qat_get_qat_offload_disabled()) {
         fallback = 1;
-        goto exit_lenstra;
+        goto exit;
     }
 
     START_RDTSC(&qat_hw_rsa_dec_req_prepare);
@@ -1025,6 +1021,8 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     memcpy(to, output_buffer->pData, rsa_len);
 
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
+    dec_op_data = NULL;
+    output_buffer = NULL;
 
 # ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
     /* Lenstra vulnerability protection: Now call the s/w impl'n of public decrypt in order to
@@ -1033,13 +1031,13 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
 
     /* Note: not checking 'd' as it is not used */
     if (e != NULL) { /* then a public key exists and we can effect Lenstra attack protection*/
-            ver_msg = OPENSSL_zalloc(flen);
-            if (ver_msg == NULL) {
-                WARN("ver_msg zalloc failed.\n");
-                QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_MALLOC_FAILURE);
-                sts = 0;
-                goto exit_lenstra;
-            }
+        ver_msg = OPENSSL_zalloc(flen);
+        if (ver_msg == NULL) {
+            WARN("ver_msg zalloc failed.\n");
+            QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_MALLOC_FAILURE);
+            sts = 0;
+            goto exit;
+        }
 #  ifdef ENABLE_QAT_HW_LENSTRA_VERIFY_HW
         lenstra_ret = qat_rsa_pub_dec(rsa_len, (const unsigned char *)to,
                                       ver_msg, rsa, padding);
@@ -1067,10 +1065,6 @@ exit:
     /* Free all the memory allocated in this function */
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
     STOP_RDTSC(&qat_hw_rsa_dec_req_cleanup, 1, "[QAT HW RSA: cleanup]");
-
-# ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
-exit_lenstra:
-# endif
 
     if (fallback) {
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
@@ -1270,6 +1264,8 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     }
 
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer);
+    dec_op_data = NULL;
+    output_buffer = NULL;
 
     DEBUG("- Finished\n");
     return output_len;
@@ -1381,6 +1377,8 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
         memcpy(to, output_buffer->pData, output_buffer->dataLenInBytes);
     }
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
+    enc_op_data = NULL;
+    output_buffer = NULL;
 
     DEBUG("- Finished\n");
     return rsa_len;
@@ -1519,6 +1517,8 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     }
 
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer);
+    enc_op_data = NULL;
+    output_buffer = NULL;
     DEBUG("- Finished\n");
     return output_len;
 
