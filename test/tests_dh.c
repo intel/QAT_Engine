@@ -454,8 +454,8 @@ static int run_dh(void *args)
     }
 
     /*
-     * Set dh_a to run with normal modexp and dh_b to use constant time The
-     * build-in DH implementation now uses constant time modular
+     * Set dh_a to run with normal modexp and dh_b to use constant time. The
+     * built-in DH implementation now uses constant time modular
      * exponentiation for secret exponents by default. DH_FLAG_NO_EXP_CONTTIME
      * flag causes the faster variable sliding window method to be used for
      * all exponents

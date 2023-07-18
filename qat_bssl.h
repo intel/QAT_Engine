@@ -148,7 +148,7 @@ typedef pthread_once_t bssl_once_t;
 #define bssl_memcpy(dst, src, n) (n == 0 ? dst : memcpy(dst, src, n))
 
 /* These all AYNC macros used to instead of the APIs that defined in OpenSSL but
- * no defination in BoringSSL
+ * no definition in BoringSSL
  */
 /* Status of Async Jobs */
 #define ASYNC_JOB_OPER_COMPLETE                 5  /* OPERATION has completed */
@@ -180,7 +180,7 @@ typedef pthread_once_t bssl_once_t;
     (*async_ctx->currjob_status == ASYNC_JOB_STOPPED)
 
 /* These all macros used to instead of the APIs that defined in OpenSSL but
- * no defination in BoringSSL
+ * no definition in BoringSSL
  */
 # define ENGINE_DEFAULT                         (1)
 # define ENGINE_set_id(e, id)                   ENGINE_DEFAULT
@@ -299,7 +299,7 @@ typedef pthread_once_t bssl_once_t;
     verify_pfunc, verify_sig_pfunc)         \
     EC_KEY_NULL_METHOD(meth, verify_pfunc, NULL, NULL)
 
-/* Ignored ECDH methods by redefining inalid methods */
+/* Ignored ECDH methods by redefining invalid methods */
 # define EC_KEY_METHOD_get_keygen(meth, pfunc)      \
     EC_KEY_NULL_METHOD(meth, pfunc, NULL, NULL)
 # define EC_KEY_METHOD_set_keygen(meth, pfunc)      \

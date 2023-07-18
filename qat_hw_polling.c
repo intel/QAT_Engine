@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_hw_polling.c
  *
- * This file provides an implemenation for polling in QAT engine
+ * This file provides an implementation for polling in QAT engine
  *
  *****************************************************************************/
 

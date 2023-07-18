@@ -202,7 +202,7 @@ void print_test_help(void)
     printf("Usage: ./%s [-h/-d/-a] <-k>\n", bin_name);
     printf("\t-a : \tEnable async mode\n");
     printf("\t-d : \tTest on rsa private decrypt \n");
-    printf("\t-h : \tPrint all avaliable options\n");
+    printf("\t-h : \tPrint all available options\n");
     printf("\t-k : \tSet private key file path for test purpose e.g. /opt/rsa_key.pmem\n");
     printf("Test command lines for reference:\n");
     printf("\t./%s -k /opt/rsa_private_2k.key\n", bin_name);

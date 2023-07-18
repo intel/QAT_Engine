@@ -1,7 +1,7 @@
 # QAT_HW and QAT_SW Co-existence
 
 Intel&reg; QAT OpenSSL\* Engine supports QAT_HW and QAT_SW Co-existence build
-with both QAT_HW and QAT_SW dependant libraries(QAT Driver, crypto_mb and
+with both QAT_HW and QAT_SW dependent libraries(QAT Driver, crypto_mb and
 ipsec_mb) linked in the qatengine.so library. This support can be enabled at
 build time when both QAT_HW flag `--with-qat_hw_dir=/path/to/QAT_Driver`
 and QAT_SW flag `--enable-qat_sw` configured together in the build configure
@@ -53,7 +53,7 @@ and the bit map of each algorithm is defined below:
    request will be offloaded to QAT_HW first, and after QAT_HW capacity is
    reached, it will be processed through QAT_SW. These algorithms include:
    `RSA-2K/3K/4K`, `ECDSA-P384`, `ECDH-P256/P384/X25519`.
-3. It is recomended to set "LimitDevAccess" to 0 in QAT_HW driver config file to
+3. It is recommended to set "LimitDevAccess" to 0 in QAT_HW driver config file to
    utilize all the available device per process for Co-existence mode to fully
    utilize QAT_HW first and then utilize QAT_SW.
 
@@ -68,7 +68,7 @@ Algorithms that are enabled in HW_ALGO_BITMAP will gets accelerated via QAT_HW m
 **Note:** 
 1. The default HW_ALGO_BITMAP and SW_ALGO_BITMAP value for each algorithm are set to 0xFFFF, which means all algorithms are enabled by default. If both HW&SW bitmap aren't set, QAT_Engine will offload the algorithm depending on the configuration and [default algorithm] setup.
 2. The XX_ALGO_BITMAP commands are only workable when the corresponding offload mode is enabled, e.g. SW_ALGO_BITMAP is supported only if the QAT_SW is enabled.
-3. In case the QAT_HW&QAT_SW are both enabled, it's recommanded to set both HW_ALGO_BITMAP and SW_ALGO_BITMAP in the meantime, disabling the unnessary and enabling the nessary offload mode for each algorithm.
+3. In case the QAT_HW&QAT_SW are both enabled, it's recommended to set both HW_ALGO_BITMAP and SW_ALGO_BITMAP in the meantime, disabling the unnecessary and enabling the necessary offload mode for each algorithm.
 4. The offload mode with higher priority must be disabled when you want to enable the lower priority one for each algorithm.
 
 **Example 1:**  

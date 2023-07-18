@@ -15,7 +15,7 @@ This document details the capabilities, interfaces and limitations of the Boring
 Some limitations specific for the current BoringSSL* Library:
 * NIST Binary Curves and NIST Koblitz Curves are not supported by BoringSSL.
 * Supports QAT_HW and QAT_SW on Linux. QAT_SW and QAT_HW FreeBSD is not supported.
-* `RSA_padding_add_PKCS1_OAEP` fucntion is exported by BoringSSL `libdecrepit.so`,
+* `RSA_padding_add_PKCS1_OAEP` function is exported by BoringSSL `libdecrepit.so`,
 so it needs to be linked in the BoringSSL* Library. It may cause linking error while
 building with the system lack of that library.
 
@@ -101,7 +101,7 @@ The test code is under `test_bssl/` directory and will be compiled along with th
     Usage: ./qatengine_test [-h/-d/-a] <-k>
     -a :    Enable async mode
     -d :    Test on rsa private decrypt
-    -h :    Print all avaliable options
+    -h :    Print all available options
     -k :    Set private key file path for test purpose e.g. /opt/rsa_key.pmem
     Test command lines for reference:
     ./qatengine_test -k /opt/rsa_private_2k.key

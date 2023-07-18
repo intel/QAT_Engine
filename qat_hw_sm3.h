@@ -88,7 +88,7 @@ typedef struct {
     int *data_refs;             /* The count of the resource reference */
     unsigned char *data;        /* The buffer */
     unsigned int num;           /* The data left in buffer */
-    unsigned int rcv_count;     /* The data recived */
+    unsigned int rcv_count;     /* The data received */
 
     CpaCySymSessionSetupData *session_data;
     CpaCySymSessionCtx session_ctx;

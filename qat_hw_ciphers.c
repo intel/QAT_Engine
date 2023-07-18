@@ -305,7 +305,7 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
 * description:
 *   Callback function used by chained ciphers with pipeline support. This
 *   function is called when operation is completed for each pipeline. However
-*   the paused job is woken up when all the pipelines have been proccessed.
+*   the paused job is woken up when all the pipelines have been processed.
 *
 ******************************************************************************/
 static void qat_chained_callbackFn(void *callbackTag, CpaStatus status,
@@ -578,7 +578,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
 
 /* iv has been initialized in qatprovider, we don't 
-   need to do any oprations if using qatprovider here. */
+   need to do any operations if using qatprovider here. */
 #ifdef QAT_OPENSSL_PROVIDER
     if (qat_get_sw_fallback_enabled()){
         if (iv != NULL)
@@ -793,15 +793,15 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 *
 * @retval x      The return value is dependent on the type of request being made
 *       EVP_CTRL_AEAD_SET_MAC_KEY return of 1 is success
-*       EVP_CTRL_AEAD_TLS1_AAD return value indicates the amount fo padding to
+*       EVP_CTRL_AEAD_TLS1_AAD return value indicates the amount of padding to
 *               be applied to the SSL/TLS record
 * @retval -1     function failed
 *
 * description:
 *    This function is a generic control interface provided by the EVP API. For
-*  chained requests this interface is used fro setting the hmac key value for
+*  chained requests this interface is used for setting the hmac key value for
 *  authentication of the SSL/TLS record. The second type is used to specify the
-*  TLS virtual header which is used in the authentication calculationa nd to
+*  TLS virtual header which is used in the authentication calculation and to
 *  identify record payload size.
 *
 ******************************************************************************/
@@ -1076,7 +1076,7 @@ sw_ctrl:
 * @retval 0      function failed
 *
 * description:
-*    This function will cleanup all allocated resources required to perfrom the
+*    This function will cleanup all allocated resources required to perform the
 *  cryptographic transform.
 *
 ******************************************************************************/
@@ -1514,7 +1514,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             /* Decrypt the last block of the buffer to get the pad_len.
              * Calculate payload len using total length and padlen.
              * NOTE: plen so calculated does not account for ivlen
-             *       if iv is appened for TLS Version >= 1.1
+             *       if iv is appended for TLS Version >= 1.1
              */
             unsigned int tmp_padlen = TLS_MAX_PADDING_LENGTH + 1;
             unsigned int maxpad, res = 0xff;

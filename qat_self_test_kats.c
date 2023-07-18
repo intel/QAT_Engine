@@ -140,7 +140,7 @@ int RSA_components_update(RSA *rsa, size_t size)
     BIGNUM *iqmp = NULL;
 
     if (size > 1024 && size <= 2048) {
-        /* bignumber format needed for RSA sturcture */
+        /* bignumber format needed for RSA structure */
         if (((n = BN_bin2bn(rsa_n, sizeof(rsa_n), NULL)) == NULL) ||
             ((e = BN_bin2bn(rsa_e, sizeof(rsa_e), NULL)) == NULL) ||
             ((d = BN_bin2bn(rsa_d, sizeof(rsa_d), NULL)) == NULL) ||

@@ -290,7 +290,7 @@ static const option_data sha2_choices[] = {
 *
 * @param t1 [IN] - cpu time
 * @param t2 [IN] - cpu time
-* @param substract [IN] - subtract flag
+* @param subtract [IN] - subtract flag
 *
 * description:
 *   CPU timing calculation functions.
@@ -492,7 +492,7 @@ static void read_stat_systemctl (int init)
  *   rdtsc (void)
 
  * description:
- *   Timetamp Counter for measuring clock cycles in performance testing.
+ *   Timestamp Counter for measuring clock cycles in performance testing.
  ******************************************************************************/
 static __inline__ unsigned long long rdtsc(void)
 {
@@ -829,7 +829,7 @@ static void parse_option(int *index, int argc, char *argv[], int *value)
 * @param index [IN] - index pointer
 * @param argc [IN] - input argument count
 * @param argv [IN] - argument buffer
-* @param str [IN] - char * pointer to strore the string
+* @param str [IN] - char * pointer to store the string
 *
 * description:
 *   user input arguments check

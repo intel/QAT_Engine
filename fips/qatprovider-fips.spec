@@ -1,7 +1,7 @@
 %undefine __cmake_in_source_build
 %global _lto_cflags %{nil}
 %global debug_package %{nil}
-# Dependant Library Versions
+# Dependent Library Versions
 %global major        1
 %global minor        3
 %global rev          0
