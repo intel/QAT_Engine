@@ -699,7 +699,6 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
     int fallback = 0, ret = 0;
     PFUNC_COMP_KEY comp_key_pfunc = NULL;
     const EC_GROUP *group = NULL;
-    const BIGNUM *priv_key = NULL;
 #ifndef QAT_INSECURE_ALGO
     int bitlen = 0;
 #endif
@@ -713,7 +712,7 @@ int qat_engine_ecdh_compute_key(unsigned char **out,
         return ret;
     }
 
-    if (ecdh == NULL || (priv_key = EC_KEY_get0_private_key(ecdh)) == NULL) {
+    if (ecdh == NULL || (EC_KEY_get0_private_key(ecdh) == NULL)) {
         WARN("Either ecdh or priv_key is NULL\n");
         QATerr(QAT_F_QAT_ENGINE_ECDH_COMPUTE_KEY, QAT_R_ECDH_PRIVATE_KEY_NULL);
         return ret;
