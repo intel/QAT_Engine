@@ -43,6 +43,13 @@
   on OpenSSL 3.0.
 * HKDF based on SM3 is not supported in QAT_HW, The request will fallback to OpenSSL software if
   fallback been enabled otherwise failures are observed.
+* There is a limitation with thread specific USDM: *memory allocated in one thread
+  should be freed only by the thread which allocates it*. When the QAT driver is configured 
+  with `--enable-icp-thread-specific-usdm`, and when QAT_engine is used as the default 
+  OpenSSL engine, it is required that OPENSSL_init_ssl() be called from the same thread that 
+  calls OPENSSL_cleanup(). Incorrect cleanup can lead to a segmentation fault (segfault). 
+  Also, memory allocated in a thread is freed automatically when the thread exits/terminates, 
+  even if the user does not explicitly free the memory.
 
 ## Known Issues
 
@@ -55,7 +62,7 @@
   the system using the QAT engine in versions of the ssh application before OpenSSH 8.7.
   The issue has been fixed with this commit [c9f7bba][3] . This update can be applied to
   sshd to work-around the issue.
-* Known issue with QAT_SW SM2 in ntls mode since QAT_SW SM2 doesn't have plain sign and
+* Known issue with QAT_SW SM2 in `ntls` mode since QAT_SW SM2 doesn't have plain sign and
   verify operation support in engine. Disable QAT_SW SM2 to workaround the issue with ntls.
   No issues with TLS mode since it uses digestsign and digestverify which is supported.
 
@@ -69,6 +76,18 @@
   engine digest registration in OpenSSL - [OpenSSL#18509][4]
 * In Co-Existence mode, performance will drop for PKE algorithms compared with
   QAT_SW when process number >= 64.
+* Note regarding multithreaded performance with OpenSSL:** In some cases, using QAT_Engine with 
+  OpenSSL at higher thread counts can produce *worse* performance, due to issues in the way OpenSSL
+  handles higher thread counts. Check for `native_queued_spin_lock_slowpath()` consuming CPU process 
+  idle time, and see the OpenSSL GitHub issues and web articles below.
+  
+  Articles:
+
+  - https://github.com/openssl/openssl/issues/18509 OpenSSL 1.1.* "Performance bottleneck with locks in engine_table_select() function #18509"
+  - https://github.com/openssl/openssl/issues/20286 OpenSSL 3.* "3.0 performance degraded due to locking #20286"
+  - https://serverfault.com/questions/919552/why-having-more-and-faster-cores-makes-my-multithreaded-software-slower
+  - https://superuser.com/questions/1737747/high-system-cpu-usage-on-linux
+
 
 [1]:https://github.com/openssl/openssl/pull/17112
 [2]:https://github.com/openssl/openssl/issues/18298

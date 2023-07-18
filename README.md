@@ -99,6 +99,8 @@ of QAT_HW Version 1.7 driver only.
 ./configure --enable-icp-thread-specific-usdm --enable-128k-slab
 ```
 
+**Note:** See [Limitations and Known Issues](docs/limitations.md) for multithreaded limitations, including performance with OpenSSL.
+
 #### Example contiguous memory driver - qat\_contig\_mem
 
 This step is not required if using the default USDM driver above. The Intel&reg;
