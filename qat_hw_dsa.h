@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_hw_dsa.h
  *
- * This file provides an interface for DSA opeartion
+ * This file provides an interface for DSA operation
  *
  *****************************************************************************/
 

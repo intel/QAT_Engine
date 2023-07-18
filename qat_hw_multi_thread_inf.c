@@ -97,7 +97,7 @@
 /* slot allocate signature */
 #define SIG_ALLOC          0xA1A2A3A4
 
-/* maxmium slot size */
+/* maximum slot size */
 #define MAX_ALLOC (SLAB_SIZE - sizeof(qat_contig_mem_config) - sizeof(qae_slab) - QAE_BYTE_ALIGNMENT)
 #define MAX_EMPTY_SLAB     128
 
@@ -448,7 +448,7 @@ static qae_slab *crypto_get_empty_slab(int size, int pool_index,
  *
  * @param[in] size, the size of the memory block required
  * @param[in] file, the C source filename of the call site
- * @param[in] line, the line number withing the C source file of the call site
+ * @param[in] line, the line number within the C source file of the call site
  *
  * @description
  *      allocate a slot of memory from some slab
@@ -890,7 +890,7 @@ static void crypto_init(void)
  *         qaeCryptoAtFork()
  *
  * @description
- *      allocate and remap momory following a fork
+ *      allocate and remap memory following a fork
  *
  *****************************************************************************/
 void qaeCryptoAtFork()
@@ -1020,7 +1020,7 @@ void qaeCryptoMemFreeNonZero(void *ptr)
 * @param[in] ptr,     address of start of usable memory for old allocation
 * @param[in] memsize, size of new block required
 * @param[in] file,    the C source filename of the call site
-* @param[in] line,    the line number withing the C source file of the call
+* @param[in] line,    the line number within the C source file of the call
 *                     site
 *
 * description:

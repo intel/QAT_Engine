@@ -110,7 +110,7 @@ option `--enable-qat_hw_contig_mem` that tells the build that the Intel&reg;
 QAT OpenSSL\* Engine should be compiled to use the qat_contig_mem component
 instead of the USDM memory driver above.
 
-Building and loading the qat_contig_mem driver assumming:
+Building and loading the qat_contig_mem driver assuming:
 
 * The Intel&reg; QAT OpenSSL\* Engine was cloned to its own location at the
   root of the drive: `/`.
@@ -136,7 +136,7 @@ following:
 <details>
 <summary markdown="span">qat_sw Prerequisites<br></summary>
 
-- Verify qat_sw components are installed as described in [Sofware requirements](docs/software_requirements.md#qat_sw-requirements)
+- Verify qat_sw components are installed as described in [Software requirements](docs/software_requirements.md#qat_sw-requirements)
 
 </details>
 </details>
@@ -410,7 +410,7 @@ QAT Engine generates dynamic libraries and currently enables Plock by preloading
        --with-openssl_install_dir=${OPENSSL_INSTALL_DIR}
 - Set the environment variable ‘LD_PRELOAD’ to use the plock optimization.
    eg: export LD_PRELOAD = ${OPENSSL_INSTALL_DIR}/lib/engine-1.1/libplock.so
-Note: The `LD_PRELOAD` must be set before launching the multithread Appliaction.
+Note: The `LD_PRELOAD` must be set before launching the multithread Application.
 
 <br>
 </details>
@@ -465,13 +465,13 @@ event driven polling support. Event driven config files are only supported in Li
 Once you have decided which config file you should use, or created your own you
 should follow the procedure below to install it:
 
-1. Stop the acceleration driver as decribed in the Section 3.4
+1. Stop the acceleration driver as described in the Section 3.4
    Starting/Stopping the Acceleration software from the
    Getting Started Guide available in [Intel&reg; QuickAssist Technology Driver](https://developer.intel.com/quickassist)
 
 2. Copy the appropriate `.conf` file to `/etc` for n number of QAT devices
 
-3. Start the acceleration driver as decribed in the Section 3.4
+3. Start the acceleration driver as described in the Section 3.4
    Starting/Stopping the Acceleration software from the
    Getting Started Guide available in [Intel&reg; QuickAssist Technology Driver](https://developer.intel.com/quickassist)
 </details>
@@ -515,7 +515,7 @@ qat_sw target output will be:
 ```
 
 Detailed information about the engine specific messages is available [here](docs/engine_specific_messages.md).
-Also `./openssl engine -t -c -vvvv qatengine` gives brief decription about each ctrl command.
+Also `./openssl engine -t -c -vvvv qatengine` gives brief description about each ctrl command.
 <br>
 </details>
 <details>

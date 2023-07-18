@@ -168,7 +168,7 @@ int vaesgcm_ciphers_init(EVP_CIPHER_CTX *ctx,
 #endif
     int          retval = 1;
 
-    /* Make sure we have an initalized ipsec mb manager before we start calling APIs */
+    /* Make sure we have an initialized ipsec mb manager before we start calling APIs */
     if (!ipsec_mgr) {
         WARN("Intel IPsec MB Manager not Initialized.\n");
         QATerr(QAT_F_VAESGCM_CIPHERS_INIT, QAT_R_INIT_FAILURE);
@@ -325,7 +325,7 @@ static inline void aes_gcm_increment_counter(unsigned char* ifc)
  * @param ptr    [IN]  - input buffer contain the necessary parameters
  *
  * @retval x         The return value is dependent on the type of request being made
- *                   EVP_CTRL_AEAD_TLS1_AAD return value indicates the amount fo
+ *                   EVP_CTRL_AEAD_TLS1_AAD return value indicates the amount of
  *                   padding to be applied to the SSL/TLS record
  * @retval 0, -1     function failed
  *
@@ -706,7 +706,7 @@ int vaesgcm_ciphers_ctrl(EVP_CIPHER_CTX* ctx, int type, int arg, void* ptr)
  * @retval 0      function failed
  *
  * description:
- *    This function will cleanup all allocated resources required to perfrom the
+ *    This function will cleanup all allocated resources required to perform the
  *  cryptographic transform.
  *
  ******************************************************************************/
@@ -1034,7 +1034,7 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
                                     gcm_ctx_ptr,
                                     qctx->iv, qctx->iv_len, in, len);
 
-        DEBUG("AAD passsed in\n");
+        DEBUG("AAD passed in\n");
 #ifdef QAT_OPENSSL_PROVIDER
         *padlen = len;
         return 1;

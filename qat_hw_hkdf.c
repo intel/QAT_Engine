@@ -715,7 +715,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     md_size = EVP_MD_size(qat_hkdf_ctx->qat_md);
 
     /* For Extract and Expand, PRK and OKM is sent back so datalen is
-       modified here to accomodate it */
+       modified here to accommodate it */
     if (qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp == CPA_CY_HKDF_KEY_EXTRACT_EXPAND) {
         offset = md_size;
         key_length = 2 * offset;

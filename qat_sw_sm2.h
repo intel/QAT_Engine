@@ -88,9 +88,9 @@ typedef struct {
     EC_KEY *ec;
 
     /*
-     * Flag to termine if the 'z' digest needs to be computed and fed to the
+     * Flag to determine if the 'z' digest needs to be computed and fed to the
      * hash function.
-     * This flag should be set on initialization and the compuation should
+     * This flag should be set on initialization and the computation should
      * be performed only once, on first update.
      */
     unsigned int flag_compute_z_digest : 1;

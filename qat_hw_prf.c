@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_prf.c
  *
- * This file provides an implementaion of the PRF operations for an
+ * This file provides an implementation of the PRF operations for an
  * OpenSSL engine
  *
  *****************************************************************************/

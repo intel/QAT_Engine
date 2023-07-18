@@ -1,6 +1,6 @@
 # Using the OpenSSL\* asynchronous mode 'ASYNC_JOB' infrastructure
 
-Asynchronous operation utilizes the OpenSSL\* asychronous mode (`ASYNC_JOB`
+Asynchronous operation utilizes the OpenSSL\* asynchronous mode (`ASYNC_JOB`
 infrastructure) introduced in OpenSSL\* version 1.1.0.  In the
 OpenSSL\* master branch this infrastructure was augmented to provide an
 additional `callback` method by which the OpenSSL\* Engine can be notified

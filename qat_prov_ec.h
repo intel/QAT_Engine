@@ -355,7 +355,7 @@ struct ec_group_st {
      * equation of the form y^2 + x*y = x^3 + a*x^2 + b.
      */
     BIGNUM *a, *b;
-    /* enable optimized point arithmetics for special case */
+    /* enable optimized point arithmetic for special case */
     int a_is_minus3;
     /* method-specific (e.g., Montgomery structure) */
     void *field_data1;

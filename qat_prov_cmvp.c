@@ -381,7 +381,7 @@ int qat_fips_ec_key_simple_check_key(const EC_KEY *eckey)
 int qat_fips_get_key_zeroize_status(void)
 {
     if (qat_fips_key_zeroize == 1)
-        DEBUG("zeroization done succesfully!!..\n");
+        DEBUG("zeroization done successfully!!..\n");
     else
         INFO("zeroization failure!!..\n");
     return qat_fips_key_zeroize;

@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file e_qat.h
  *
- * This file provides and interface for an OpenSSL QAT engine implemenation
+ * This file provides and interface for an OpenSSL QAT engine implementation
  *
  *****************************************************************************/
 
@@ -282,7 +282,7 @@ typedef struct {
 
 /*
  * The default timeout in seconds used when waiting for events that requests
- * are inflight.
+ * are in-flight.
  */
 # define QAT_EVENT_TIMEOUT_IN_SEC 1
 #endif
@@ -290,7 +290,7 @@ typedef struct {
 #ifdef QAT_SW
 /*
  * Used to size the freelist and queue as it represents how many
- * requests can be inflight at once.
+ * requests can be in-flight at once.
  */
 # ifndef MULTIBUFF_MAX_INFLIGHTS
 #  define MULTIBUFF_MAX_INFLIGHTS 128
@@ -327,8 +327,8 @@ typedef struct {
 # define MULTIBUFF_BATCH 8
 
 /*
- * SM3 can handle processing upto 16 requests while others can handle
- * upto 8 requests only */
+ * SM3 can handle processing up to 16 requests while others can handle
+ * up to 8 requests only */
 # ifndef MULTIBUFF_SM3_BATCH
 #  define MULTIBUFF_SM3_BATCH 16
 # endif
@@ -342,8 +342,8 @@ typedef struct {
 # endif
 
 /*
- * SM4 can handle processing upto 16 requests while others can handle
- * upto 8 requests only
+ * SM4 can handle processing up to 16 requests while others can handle
+ * up to 8 requests only
  */
 # ifndef MULTIBUFF_SM4_BATCH
 #  define MULTIBUFF_SM4_BATCH 16

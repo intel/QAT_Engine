@@ -2710,7 +2710,7 @@ static int run_rsa(void *args)
      * pass input size to support RSA module size
      */
     if (size <= 1024) {
-        /* bignumber format needed for RSA sturcture */
+        /* bignumber format needed for RSA structure */
         DEBUG("\n RSA module size 1024 \n");
 
         if (pad == RSA_NO_PADDING)
@@ -2766,7 +2766,7 @@ static int run_rsa(void *args)
     }
 
     if (size > 1024 && size <= 2048) {
-        /* bignumber format needed for RSA sturcture */
+        /* bignumber format needed for RSA structure */
         DEBUG("\n RSA module size 2048 \n");
 
         if (pad == RSA_NO_PADDING)
@@ -2822,7 +2822,7 @@ static int run_rsa(void *args)
     }
 
     if (size > 2048 && size <= 4096) {
-        /* bignumber format needed for RSA sturcture */
+        /* bignumber format needed for RSA structure */
         DEBUG("\n RSA module size 4096 \n");
 
         if (pad == RSA_NO_PADDING)
@@ -2878,7 +2878,7 @@ static int run_rsa(void *args)
     }
 
      if (size >4096) {
-        /* bignumber format needed for RSA sturcture */
+        /* bignumber format needed for RSA structure */
         DEBUG("\n RSA module size 8192 \n");
 
         if (pad == RSA_NO_PADDING)

@@ -117,7 +117,7 @@ static int qat_contig_mem_release(struct inode *inp, struct file *fp)
 *
 * @param mem [IN] - pointer to mem structure
 * @param cmd [IN] - ioctl number requested
-* @param arg [IN] - any arg needed by ioctl implementaion
+* @param arg [IN] - any arg needed by ioctl implementation
 *
 * description:
 *   Callback for ioctl operations on the device node. This is our control path.

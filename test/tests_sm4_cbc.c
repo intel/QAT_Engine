@@ -159,7 +159,7 @@ static inline int set_pkt_threshold(ENGINE *e, const char* cipher, int thr)
 /*
  *  setup_ctx:
  *      Setup cipher context ready to be used in a cipher operation.
- *      It also sets up additonal information required i.e. tls headers.
+ *      It also sets up additional information required i.e. tls headers.
  */
 static EVP_CIPHER_CTX *setup_ctx(const test_info *t, int enc, int e)
 {
@@ -379,7 +379,7 @@ static int encrypt_and_compare(const test_info *t, int *buflen)
  * test_crypto_op :
  *      test chained ciphers crypto operation.
  *      depending on the enc_imp/dec_imp, use either a engine or
- *      software implemention to perform encryption/decryption.
+ *      software implementation to perform encryption/decryption.
  *      if DEC_imp(ENC_imp(text)) = text, then report success else
  *      fail.
  */
@@ -570,7 +570,7 @@ static int test_small_pkt_offload(const test_info *t)
      * software will create byte identical encrypted buffers.
      */
     ret = encrypt_and_compare(t, &buflen);
-    /* check if SW and Engine implemantation byte identical */
+    /* check if SW and Engine implementation byte identical */
     if (ret != ENCRYPT_BUFF_IDENTICAL) {
         FAIL_MSG("%s Encrypted buffers not identical status:%d run:%d\n",
                  msgstr, ret, ++run);
@@ -653,7 +653,7 @@ static int run_sm4_cbc(void *pointer)
      */
     if (ti.e != NULL) {
         ret = set_pkt_threshold(ti.e, ti.c->name, 0);
-        /* Set engine to NULL as threshhold will fail if NID not supported*/
+        /* Set engine to NULL as threshold will fail if NID not supported*/
         if (ret != 1) {
             return 0;
         }

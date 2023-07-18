@@ -136,7 +136,7 @@
 #include <openssl/crypto.h>
 
 #if defined(QAT_SW) || defined(QAT_SW_IPSEC)
-/* __cpuid(unsinged int info[4], unsigned int leaf, unsigned int subleaf); */
+/* __cpuid(unsigned int info[4], unsigned int leaf, unsigned int subleaf); */
 # define __cpuid(x, y, z) \
 	        asm volatile("cpuid" : "=a"(x[0]), "=b"(x[1]), "=c"(x[2]), "=d"(x[3]) : "a"(y), "c"(z))
 
@@ -214,7 +214,7 @@ pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t qat_polling_thread;
 sem_t hw_polling_thread_sem;
 
-/* QAT number of inflight requests */
+/* QAT number of in-flight requests */
 int num_requests_in_flight = 0;
 int num_asym_requests_in_flight = 0;
 int num_kdf_requests_in_flight = 0;
@@ -1322,7 +1322,7 @@ static ENGINE *engine_qat(void)
     DEBUG("- Starting\n");
 
     /* For boringssl enabled, no API like ENGINE_add to add a new engine to
-     * engine list, so just return existing gobal engine pointer
+     * engine list, so just return existing global engine pointer
      */
     if (ENGINE_QAT_PTR_GET()) {
         return ENGINE_QAT_PTR_GET();

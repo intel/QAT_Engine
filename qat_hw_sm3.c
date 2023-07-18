@@ -623,7 +623,7 @@ static int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (qat_sm3_ctx->rcv_count <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_SM3) {
-        /* Software calculation can start from init, because SPO threashold will
+        /* Software calculation can start from init, because SPO threshold will
            always small than context buffer and all data are stored in context
            buffer */
         int (*sw_init_ptr)(EVP_MD_CTX *);
@@ -695,7 +695,7 @@ static int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
     if (qat_sm3_ctx->data_refs) {
         if (*qat_sm3_ctx->data_refs > 0) {
             (*qat_sm3_ctx->data_refs)--;
-            DEBUG("HW SM3 data refrence decrease to %d\n",
+            DEBUG("HW SM3 data reference decrease to %d\n",
                   *qat_sm3_ctx->data_refs);
         } else {
             OPENSSL_free(qat_sm3_ctx->data);
@@ -706,7 +706,7 @@ static int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
     if (qat_sm3_ctx->context_params_set) {
         if (*qat_sm3_ctx->rc_refs > 0) {
             (*qat_sm3_ctx->rc_refs)--;
-            DEBUG("HW SM3 resource refrence decrease to %d\n",
+            DEBUG("HW SM3 resource reference decrease to %d\n",
                   *qat_sm3_ctx->rc_refs);
             return 1;
         }

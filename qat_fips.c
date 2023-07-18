@@ -1048,7 +1048,7 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
     }
 
     if (co_ex_enabled) {
-        /* To make symetric algorithms run in HW Platform
+        /* To make symmetric algorithms run in HW Platform
          * when co-existence is enabled */
 # ifdef ENABLE_QAT_HW_GCM
         qat_hw_gcm_offload = 1;
@@ -1071,7 +1071,7 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
         DEBUG("\n=================== QAT HW self tests result ===========\n");
         fips_result();
 
-        /* Reset the values to make symetric algorithms run in SW Platform
+        /* Reset the values to make symmetric algorithms run in SW Platform
          * when co-existence is enabled */
 # ifdef ENABLE_QAT_SW_GCM
         qat_hw_gcm_offload = 0;
@@ -1080,7 +1080,7 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
 # ifdef ENABLE_QAT_SW_SHA2
         qat_sw_sha_offload = 1;
 # endif
-        /* To make asymetric algorithms run in SW Platform
+        /* To make asymmetric algorithms run in SW Platform
          * when co-existence is enabled */
 # ifdef ENABLE_QAT_SW_RSA
         qat_hw_rsa_offload = 0;
@@ -1122,7 +1122,7 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
         DEBUG("\n=================== QAT SW self tests result ===========\n");
         fips_result();
 
-        /* Reset the values to make asymetric algorithms run in HW Platform
+        /* Reset the values to make asymmetric algorithms run in HW Platform
          * when co-existence is enabled */
 # ifdef ENABLE_QAT_HW_RSA
         qat_hw_rsa_offload = 1;

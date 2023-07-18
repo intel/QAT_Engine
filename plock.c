@@ -47,7 +47,7 @@
  *
  * It is recommended to link this code statically into the target executable
  * to make sure that the redefined symbols have precedence over the ones
- * provided by an external shared pthread library. It has no other depenency
+ * provided by an external shared pthread library. It has no other dependency
  * beyond pthread and plock.h, so the build process is trivial:
  *
  *   $ cc -O2 -c pth_rwl.c -pthread
