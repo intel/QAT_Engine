@@ -3093,7 +3093,12 @@ static int run_rsa(void *args)
                  break;
         }
         const unsigned char *R = rsa_keys[testnum].data;
-        rsa_key = d2i_PrivateKey(EVP_PKEY_RSA, NULL, &R, rsa_keys[testnum].length);
+        if (size == 8192) {
+            rsa_key=EVP_PKEY_new();
+            EVP_PKEY_assign_RSA(rsa_key, key);
+        } else {
+            rsa_key = d2i_PrivateKey(EVP_PKEY_RSA, NULL, &R, rsa_keys[testnum].length);
+        }
 
         /*
          * For functional tests we need to run verify anyway,
@@ -3257,6 +3262,7 @@ err:
         OPENSSL_free(ptext);
     if (ctext)
         OPENSSL_free(ctext);
+    RSA_free(key);
 #endif
     if (sig)
         OPENSSL_free(sig);
@@ -3266,7 +3272,6 @@ err:
         OPENSSL_free(HashData);
     if (expectedPtext)
         OPENSSL_free(expectedPtext);
-    RSA_free(key);
     return ret;
 }
 
