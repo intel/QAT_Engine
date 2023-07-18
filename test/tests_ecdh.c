@@ -133,7 +133,7 @@ static void *KDF1_SHA1(const void *in, size_t inlen, void *out, size_t *outlen)
 *                        BIO *out,
 *                        int kdf)
 *
-* @param e [IN] - engine idetifier
+* @param e [IN] - engine identifier
 * @param nid [IN] - curve object identifier
 * @param text [IN] - curve names
 * @param ctx [IN] - BN context

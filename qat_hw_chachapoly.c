@@ -930,7 +930,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
                     qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId);
             QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
         } else if (status == CPA_STATUS_UNSUPPORTED) {
-            WARN("Algorithm type unspported in QAT_HW\n");
+            WARN("Algorithm type unsupported in QAT_HW\n");
             QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, QAT_R_ALGO_TYPE_UNSUPPORTED);
         }
         if (op_done.job != NULL)
@@ -1246,7 +1246,7 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                     QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
                            ERR_R_INTERNAL_ERROR);
                 } else if (status == CPA_STATUS_UNSUPPORTED) {
-                    WARN("Algorithm type unspported in QAT_HW\n");
+                    WARN("Algorithm type unsupported in QAT_HW\n");
                     QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER, QAT_R_ALGO_TYPE_UNSUPPORTED);
                 }
                 if (op_done.job != NULL)

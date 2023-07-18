@@ -299,7 +299,7 @@ int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
 #ifdef __FreeBSD__
     struct kevent event;
 #else
-    /* Arbitary value '1' to write down the pipe to trigger event */
+    /* Arbitrary value '1' to write down the pipe to trigger event */
     uint64_t buf = 1;
 #endif
 
@@ -315,7 +315,7 @@ int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
         {
             (*callback)(args);
         } else {
-            /* In this case, we assume that a possbile retry happened */
+            /* In this case, we assume that a possible retry happened */
             ASYNC_WAIT_CTX_set_status(waitctx, jobStatus);
         }
 

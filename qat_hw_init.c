@@ -436,7 +436,7 @@ static int qat_instance_sym_supported(CpaCyCapabilitiesInfo *pCapInfo)
 
 static int qat_instance_asym_supported(CpaCyCapabilitiesInfo *pCapInfo)
 {
-    /* For more detailed informations about these flags
+    /* For more detailed information about these flags
        go to check cpa_cy_im.h */
     if (pCapInfo->dhSupported ||
         pCapInfo->dsaSupported ||
@@ -518,7 +518,7 @@ static int qat_remap_instances()
  *         round_robin_per_device()
  *
  * description:
- *   The continous instances are always in a same device,
+ *   The continuous instances are always in a same device,
  *   remap the sequence to balance the load of device.
  *
  *****************************************************************************/

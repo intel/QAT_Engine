@@ -345,7 +345,7 @@ then
       AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL"])
       AC_CHECK_FILE(${with_openssl_install_dir}/lib/libcrypto.so,
                    [AC_SUBST([QAT_BORINGSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -ldecrepit -lcrypto -lssl"])],
-                   [AC_MSG_ERROR([BoringSSL libaries not found in the path $(with_openssl_install_dir)/lib !])])
+                   [AC_MSG_ERROR([BoringSSL libraries not found in the path $(with_openssl_install_dir)/lib !])])
       AS_IF([test -d "$with_openssl_install_dir/crypto"], [AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL -DBSSL_SOURCE"])])
       AC_SUBST([with_openssl_dir], [""]) #Err files are updated manually for BoringSSL
       AC_SUBST([LIBQATNAME], "libqatengine")
@@ -469,7 +469,7 @@ then
   fi
   if test "x$cflags_qat_sw" = "x" -a "x$cflags_qat_sw_ipsec" = "x"
   then
-    AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependant libraries or provide path via --with-qat_sw_crypto_mb_install_dir & --with-qat_sw_ipsec_mb_install_dir if installed other than the default location])
+    AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependent libraries or provide path via --with-qat_sw_crypto_mb_install_dir & --with-qat_sw_ipsec_mb_install_dir if installed other than the default location])
   fi
 fi
 AM_CONDITIONAL([QAT_SW], [test "x$cflags_qat_sw" != "x"])

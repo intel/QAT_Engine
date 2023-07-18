@@ -36,7 +36,7 @@
   disabled by default hence there will be algo unsupported failures in the relevant ciphers.
   Driver needs to be built with flag "--enable-legacy-algorithms" to enable those
   algorithm support.
-* QAT Engine built for OpenSSL3.0 is only compatible with dependant libraries also linked with OpenSSL3.0
+* QAT Engine built for OpenSSL3.0 is only compatible with dependent libraries also linked with OpenSSL3.0
   libraries due to [OpenSSL#17112][1]. Same applies for OpenSSL 1.1.1.
 * SM4-GCM and SM4-CCM are only supported with BabaSSL versions based on OpenSSL 1.1.1.
   They are not supported with OpenSSL 1.1.1, OpenSSL 3.0 and BabaSSL versions based
@@ -71,7 +71,7 @@
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode
   in the Haproxy application. This issue is not observed when using RSA ciphers
   or in multi-process mode.
-* SM3 is disabled by default due to performance drop observed in **mulithread scenario**
+* SM3 is disabled by default due to performance drop observed in **multithread scenario**
   for all ciphers suites due to the additional locks at engine_table_select introduced by
   engine digest registration in OpenSSL - [OpenSSL#18509][4]
 * In Co-Existence mode, performance will drop for PKE algorithms compared with

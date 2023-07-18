@@ -50,8 +50,8 @@ The following is a list of the options that can be used with the
     Disable Intel(R) QAT Hardware acceleration. This flag needs to be enabled if
     the system has both QAT Hardware and QAT Software Multi-buffer capabilities
     and the in-tree driver is installed in the system via `qatlib`
-    RPM where use of QAT SW acceleration over QAT HW is prefered. Incase of
-    the in-tree driver eventhough QAT SW acceleration is enabled via
+    RPM where use of QAT SW acceleration over QAT HW is preferred. In case of
+    the in-tree driver even though QAT SW acceleration is enabled via
     use of the '--enable-qat_sw' option, if both capabilities are
     available (both QAT HW or QAT SW) then QAT HW acceleration will
     be used by default. However, use of this --disable-qat_hw option will
@@ -354,7 +354,7 @@ The following is a list of the options that can be used with the
 
 --enable-qat_sw_heuristic_timeout
     Enable self tuning of the timeout in the polling thread in the
-    Intel(R) QAT SW. This flag is valid only incase of QAT SW
+    Intel(R) QAT SW. This flag is valid only in case of QAT SW
     (disabled by default).
 
 --enable-qat_cycle_counts

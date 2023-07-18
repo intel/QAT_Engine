@@ -81,7 +81,7 @@ typedef struct qat_aes_gcm_ctx_t
     CpaCySymSessionCtx qat_ctx;
     int init_params_set;
 
-    /* This flag is set to 1 when the session has been initilized */
+    /* This flag is set to 1 when the session has been initialized */
     int is_session_init;
 
     /* QAT Op Params */
@@ -100,7 +100,7 @@ typedef struct qat_aes_gcm_ctx_t
     /* -- Crypto -- */
 
     /* Pointer to the IV that is used in the current operation:
-     * - In Sync case this points to the contiguos memory buffer that is
+     * - In Sync case this points to the contiguous memory buffer that is
      *   sent to the HW
      * - In asynch this point to the static memory in evp_ctx->iv hence it
      *   must not be alloc or free

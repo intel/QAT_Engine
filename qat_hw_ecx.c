@@ -95,7 +95,7 @@ int reverse_bytes(unsigned char *tobuffer, unsigned char *frombuffer,
     }
 
     if (fromsize == X448_KEYLEN)
-        i = 8; /* Adds zeros at the begining for 64 byte alignment */
+        i = 8; /* Adds zeros at the beginning for 64 byte alignment */
 
     /* Reverse bytes and copy to dest buffer */
     for (; i < tosize; i++) {

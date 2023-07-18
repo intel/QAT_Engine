@@ -156,7 +156,7 @@ typedef struct qat_gcm_ctx_st {
     CpaCySymSessionCtx qat_ctx;
     int init_params_set;
 
-    /* This flag is set to 1 when the session has been initilized */
+    /* This flag is set to 1 when the session has been initialized */
     int is_session_init;
 
     /* QAT Op Params */

@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file e_qat.c
  *
- * This file provides an implementaion for fork in QAT engine
+ * This file provides an implementation for fork in QAT engine
  *
  *****************************************************************************/
 

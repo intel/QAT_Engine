@@ -20,7 +20,7 @@ Crypto Multi-buffer library(for Asymmetric PKE) cloned from the [ipp-crypto][2] 
 The crypto_mb library needs to be installed using the instructions from the
 [Crypto Multi-buffer Library][3] Readme.
 
-For QAT SW AES-GCM acceleration, prequisite is to have Intel&reg;
+For QAT SW AES-GCM acceleration, prerequisite is to have Intel&reg;
 Multi-Buffer crypto for IPsec Library cloned from the [intel-ipsec-mb][4]
 repo and installed using the instructions from the intel-ipsec-mb README.
 The Intel&reg; QAT Engine supports QAT SW AES-GCM from OpenSSL\* 1.1.1d.

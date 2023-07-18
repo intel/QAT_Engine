@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_sw_rsa.h
  *
- * This file provides an RSA interface for Multi-buffer implemention of an
+ * This file provides an RSA interface for Multi-buffer implementation of an
  * OpenSSL engine
  *
  *****************************************************************************/

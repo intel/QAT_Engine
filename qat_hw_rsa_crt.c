@@ -120,7 +120,7 @@ CRT_prepare(CpaFlatBuffer *crt_out1, CpaFlatBuffer *crt_out2,
 
     /*
      * reduce base (c mod p and c mod q) in advance
-     * make sure firmwre to use modulus of expected length
+     * make sure firmware to use modulus of expected length
      */
     c = BN_bin2bn(dec_op_data->inputData.pData,
                 dec_op_data->inputData.dataLenInBytes, c);

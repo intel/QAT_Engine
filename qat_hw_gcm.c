@@ -1648,7 +1648,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 }
 
             } else {
-                /* qctx->tag_len < 0 condition is added to workarround
+                /* qctx->tag_len < 0 condition is added to workaround
                    OpenSSL Speed tests as tag will not be set */
                 if (CPA_TRUE == op_done.verifyResult || qctx->tag_len < 0) {
                     ret_val = len;

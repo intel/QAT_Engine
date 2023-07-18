@@ -152,7 +152,7 @@ static void *qat_kdf_hkdf_new(void *provctx)
 
     ctx->evp_pkey_ctx = OPENSSL_zalloc(sizeof(EVP_PKEY_CTX));
     if (ctx->evp_pkey_ctx == NULL){
-        WARN("Not enough memory for hkdf contex.\n");
+        WARN("Not enough memory for hkdf context.\n");
         OPENSSL_free(ctx);
         ctx = NULL;
         return NULL;
