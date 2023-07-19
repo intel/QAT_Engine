@@ -845,6 +845,7 @@ int qat_hw_init(ENGINE *e)
                 while (!cleared_to_start){
                    if (pthread_cond_wait(&qat_poll_condition, &qat_poll_mutex) != 0)
                        WARN("Failed to get conditional wait\n");
+		   qat_cond_wait_started = 1;
                 }
                 if (pthread_mutex_unlock(&qat_poll_mutex) != 0)
                     WARN("Failed to unlock conditional wait mutex \n");
@@ -949,12 +950,16 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
     pthread_key_delete(thread_local_variables);
     sem_destroy(&hw_polling_thread_sem); /* destroy qat hw semaphore: hw_polling_thread_sem. */
 
-    int res =0;
-    if ((res = pthread_mutex_unlock(&qat_poll_mutex)) != 0){
-         WARN("Unlocking of qat_poll_mutex failed. %d\n", res);
-    }
-    if ((res = pthread_cond_destroy(&qat_poll_condition)) != 0){
-        WARN("Destroying of qat_poll_condition failed. %d\n", res);
+    if (!enable_external_polling && !enable_inline_polling) {
+        if (!qat_is_event_driven()) {
+            int res =0;
+            if ((res = pthread_mutex_unlock(&qat_poll_mutex)) != 0){
+                WARN("Unlocking of qat_poll_mutex failed. %d\n", res);
+            }
+            if ((qat_cond_wait_started && (res = pthread_cond_destroy(&qat_poll_condition))) != 0){
+                WARN("Destroying of qat_poll_condition failed. %d\n", res);
+            }
+	}
     }
 
     /* Reset the configuration global variables (to their default values) only
@@ -969,6 +974,7 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
         disable_qat_offload = 0;
         qat_poll_interval = QAT_POLL_PERIOD_IN_NS;
         qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
+	qat_cond_wait_started = 0;
     }
     return ret;
 }
