@@ -204,7 +204,10 @@ void fips_result(void)
             && !strcmp(st_kat_digest_tests[i].desc, "SHA3"))
             continue;
         if (qat_sw_sha_offload == 0
-            && !strcmp(st_kat_digest_tests[i].desc, "SHA2"))
+            && !strcmp(st_kat_digest_tests[i].desc, "SHA256"))
+            continue;
+        if (qat_sw_sha_offload == 0
+            && !strcmp(st_kat_digest_tests[i].desc, "SHA512"))
             continue;
 # ifdef QAT_DEBUG
         INFO("\t%s   : (%s)  :  %s\n", qat_digest_result->desc[i],
@@ -332,7 +335,10 @@ void fips_result(void)
                 && !strcmp(st_kat_digest_tests[i].desc, "SHA3"))
                 continue;
             if (qat_sw_sha_offload == 0
-                && !strcmp(st_kat_digest_tests[i].desc, "SHA2"))
+                && !strcmp(st_kat_digest_tests[i].desc, "SHA256"))
+                continue;
+            if (qat_sw_sha_offload == 0
+                && !strcmp(st_kat_digest_tests[i].desc, "SHA512"))
                 continue;
 # ifdef QAT_DEBUG
             INFO("\t%s   : (%s)  :  %s\n", qat_async_digest_result->desc[i],

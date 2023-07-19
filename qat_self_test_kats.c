@@ -657,7 +657,10 @@ static int qat_self_test_digests(TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
             && !strcmp(st_kat_digest_tests[i].desc, "SHA3"))
             continue;
         if (qat_sw_sha_offload == 0
-            && !strcmp(st_kat_digest_tests[i].desc, "SHA2"))
+            && !strcmp(st_kat_digest_tests[i].desc, "SHA256"))
+            continue;
+	if (qat_sw_sha_offload == 0
+            && !strcmp(st_kat_digest_tests[i].desc, "SHA512"))
             continue;
 
         if (!QAT_self_test_digest(&st_kat_digest_tests[i], args, libctx))
