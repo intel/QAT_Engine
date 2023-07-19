@@ -437,6 +437,7 @@ extern pthread_t qat_timer_poll_func_thread;
 extern int cleared_to_start;
 extern pthread_mutex_t qat_poll_mutex;
 extern pthread_cond_t qat_poll_condition;
+extern int qat_cond_wait_started;
 #ifdef ENABLE_QAT_FIPS
 extern int integrity_status;
 extern int qat_fips_service_indicator;
