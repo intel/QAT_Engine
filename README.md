@@ -290,9 +290,9 @@ For building QAT Engine against qatlib(intree driver) from source which is
 installed to default location "/usr/local" use `--with-qat_hw_dir=/usr/local`
 or provide the path that is used in the prefix to build qatlib.
 
-If qatlib is installed via RPM then `-with-qat_hw_dir` is not needed as
-qatengine automatically picks qatlib libraries and header from default
-location `/usr/lib64`.
+If qatlib is installed via RPM (both library and development headers) then
+`-with-qat_hw_dir` is not needed as qatengine automatically picks qatlib
+libraries and headers from the default location `/usr/lib64`.
 
 <br>
 </details>
@@ -320,6 +320,11 @@ make install
 In the above example this will create the file `qatengine.so` and copy it to
 the engines dir of the system which can be checked using
 `pkg-config --variable=enginesdir libcrypto`.
+
+If qatlib is installed via RPM (both library and development headers) then
+`-with-qat_hw_dir` is not needed as qatengine automatically picks qatlib
+libraries and headers from the default location `/usr/lib64`.
+
 
 <br>
 </details>
