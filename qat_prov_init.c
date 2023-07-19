@@ -29,9 +29,10 @@
 
 #ifdef ENABLE_QAT_SW_GCM
 # include "qat_sw_gcm.h"
-# if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
-#  include "qat_sw_sha2.h"
-# endif
+#endif
+
+#if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
+# include "qat_sw_sha2.h"
 #endif
 
 #include "qat_fips.h"
