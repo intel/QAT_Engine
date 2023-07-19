@@ -290,7 +290,7 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
     if (len == 0) {
         DEBUG("qat hw start offload: Length 0\n");
     } else {
-        DUMPL("qat hw start offload", in, (len > 128) ? len : 128);
+        DUMPL("qat hw start offload", in, (len < 128) ? len : 128);
         memcpy(src_buffer.pData, in, len);
     }
 
@@ -447,6 +447,7 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
 ******************************************************************************/
 static int qat_hw_sm3_init(EVP_MD_CTX *ctx)
 {
+    memset(QAT_SM3_GET_CTX(ctx), 0, sizeof(QAT_SM3_CTX));
     return 1;
 }
 
