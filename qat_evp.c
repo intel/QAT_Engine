@@ -755,7 +755,7 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 
 #ifdef ENABLE_QAT_SW_GCM
     if (qat_sw_offload && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_AES_GCM)) {
-        res &= EVP_CIPHER_meth_set_iv_length(c, GCM_IV_DATA_LEN);
+        res &= EVP_CIPHER_meth_set_iv_length(c, IMB_GCM_IV_DATA_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, VAESGCM_FLAG);
 #ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_init(c, vaesgcm_ciphers_init);
