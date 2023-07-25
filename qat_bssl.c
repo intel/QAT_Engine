@@ -976,8 +976,8 @@ int bssl_private_key_method_update(EVP_PKEY *pkey)
                 return 1;
             }
 
-            privkey->pkey.rsa->meth->sign_raw = rsa_method->sign_raw;
-            privkey->pkey.rsa->meth->decrypt = rsa_method->decrypt;
+            EVP_PKEY_get0_RSA(pkey)->meth->sign_raw = rsa_method->sign_raw;
+            EVP_PKEY_get0_RSA(pkey)->meth->decrypt = rsa_method->decrypt;
             break;
         case EVP_PKEY_EC:
             if (!(default_algorithm_conf_flags & BSSL_QAT_METHOD_ECDSA)) {
@@ -987,7 +987,7 @@ int bssl_private_key_method_update(EVP_PKEY *pkey)
             if (!ec_method || !ec_method->sign) {
                 return 1;
             }
-            privkey->pkey.ec->ecdsa_meth = ec_method;
+            EVP_PKEY_get0_EC_KEY(pkey)->ecdsa_meth = ec_method;
             break;
         default:
             return 1;
