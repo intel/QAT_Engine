@@ -60,6 +60,9 @@
 # include "cpa.h"
 # include "cpa_types.h"
 # include "cpa_cy_sym.h"
+#ifdef ENABLE_QAT_SW_SM4_CBC
+#  include "qat_sw_sm4_cbc.h"
+#endif
 
 #ifndef SM4_KEY_SIZE
 # define SM4_KEY_SIZE               16
@@ -69,6 +72,8 @@
 
 # define INIT_SM4_QAT_CTX_INIT      0x0001
 # define INIT_SM4_QAT_SESSION_INIT  0x0002
+# define SM4_CBC_COEXIST_QAT_SW_MIN_PKT_LEN 256
+# define SM4_CBC_COEXIST_QAT_SW_MAX_PKT_LEN 1024
 
 # define QAT_COMMON_CIPHER_FLAG     EVP_CIPH_FLAG_DEFAULT_ASN1
 # define QAT_CBC_FLAGS              (QAT_COMMON_CIPHER_FLAG | \
@@ -105,6 +110,13 @@ typedef struct qat_sm4_ctx_t {
     qat_sm4_op_params *op;
     unsigned int fallback;
 } qat_sm4_ctx;
+
+#ifdef ENABLE_QAT_SW_SM4_CBC
+typedef struct {
+    qat_sm4_ctx sm4cbc_qat_hw_ctx;
+    SM4_CBC_CTX sm4cbc_qat_sw_ctx;
+} sm4cbc_coexistence_ctx;
+#endif
 
 extern CpaStatus qat_sym_perform_op(int inst_num,
                              void *pCallbackTag,

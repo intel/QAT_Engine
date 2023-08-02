@@ -470,6 +470,7 @@ extern int qat_rsa_coexist;
 extern int qat_ecdh_coexist;
 extern int qat_ecdsa_coexist;
 extern int qat_ecx_coexist;
+extern int qat_sm4_cbc_coexist;
 extern __thread unsigned int qat_sw_rsa_priv_req;
 extern __thread unsigned int qat_sw_rsa_pub_req;
 extern __thread unsigned int qat_sw_ecdsa_sign_req;
@@ -477,6 +478,7 @@ extern __thread unsigned int qat_sw_ecdh_keygen_req;
 extern __thread unsigned int qat_sw_ecdh_derive_req;
 extern __thread unsigned int qat_sw_ecx_keygen_req;
 extern __thread unsigned int qat_sw_ecx_derive_req;
+extern __thread unsigned int qat_sw_sm4_cbc_cipher_req;
 extern __thread int num_rsa_priv_retry;
 extern __thread int num_rsa_pub_retry;
 extern __thread int num_ecdsa_sign_retry;
@@ -484,6 +486,7 @@ extern __thread int num_ecdh_keygen_retry;
 extern __thread int num_ecdh_derive_retry;
 extern __thread int num_ecx_keygen_retry;
 extern __thread int num_ecx_derive_retry;
+extern __thread int num_sm4_cbc_cipher_retry;
 extern __thread unsigned long long num_rsa_hw_priv_reqs;
 extern __thread unsigned long long num_rsa_sw_priv_reqs;
 extern __thread unsigned long long num_rsa_hw_pub_reqs;
@@ -498,7 +501,10 @@ extern __thread unsigned long long num_ecx_hw_keygen_reqs;
 extern __thread unsigned long long num_ecx_sw_keygen_reqs;
 extern __thread unsigned long long num_ecx_hw_derive_reqs;
 extern __thread unsigned long long num_ecx_sw_derive_reqs;
-#define QAT_RETRY_COUNT 8
+extern __thread unsigned long long num_sm4_cbc_hw_cipher_reqs;
+extern __thread unsigned long long num_sm4_cbc_sw_cipher_reqs;
+#define QAT_SW_SWITCH_MB8 8
+#define QAT_SW_SWITCH_MB16 16
 
 # ifdef QAT_HW
 extern char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE];

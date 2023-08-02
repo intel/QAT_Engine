@@ -282,7 +282,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             if (qat_rsa_coexist) {
                 START_RDTSC(&qat_hw_rsa_dec_req_retry);
                 ++num_rsa_priv_retry;
-                qat_sw_rsa_priv_req += QAT_RETRY_COUNT;
+                qat_sw_rsa_priv_req += QAT_SW_SWITCH_MB8;
                 *fallback = 1;
                 qat_cleanup_op_done(&op_done);
                 STOP_RDTSC(&qat_hw_rsa_dec_req_retry, 1, "[QAT HW RSA: retry]");
@@ -659,7 +659,7 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             } else {
                 if (qat_rsa_coexist) {
                     ++num_rsa_pub_retry;
-                    qat_sw_rsa_pub_req += QAT_RETRY_COUNT;
+                    qat_sw_rsa_pub_req += QAT_SW_SWITCH_MB8;
                     *fallback = 1;
                     qat_cleanup_op_done(&op_done);
                     return 0;

@@ -293,6 +293,7 @@ int qat_rsa_coexist = 0;
 int qat_ecdh_coexist = 0;
 int qat_ecdsa_coexist = 0;
 int qat_ecx_coexist = 0;
+int qat_sm4_cbc_coexist = 0;
 __thread unsigned int qat_sw_rsa_priv_req = 0;
 __thread unsigned int qat_sw_rsa_pub_req = 0;
 __thread unsigned int qat_sw_ecdsa_sign_req = 0;
@@ -300,6 +301,7 @@ __thread unsigned int qat_sw_ecdh_keygen_req = 0;
 __thread unsigned int qat_sw_ecdh_derive_req = 0;
 __thread unsigned int qat_sw_ecx_keygen_req = 0;
 __thread unsigned int qat_sw_ecx_derive_req = 0;
+__thread unsigned int qat_sw_sm4_cbc_cipher_req;
 __thread int num_rsa_priv_retry = 0;
 __thread int num_rsa_pub_retry = 0;
 __thread int num_ecdsa_sign_retry = 0;
@@ -307,6 +309,7 @@ __thread int num_ecdh_keygen_retry = 0;
 __thread int num_ecdh_derive_retry = 0;
 __thread int num_ecx_keygen_retry = 0;
 __thread int num_ecx_derive_retry = 0;
+__thread int num_sm4_cbc_cipher_retry = 0;
 __thread unsigned long long num_rsa_hw_priv_reqs = 0;
 __thread unsigned long long num_rsa_sw_priv_reqs = 0;
 __thread unsigned long long num_rsa_hw_pub_reqs = 0;
@@ -321,6 +324,8 @@ __thread unsigned long long num_ecx_hw_keygen_reqs = 0;
 __thread unsigned long long num_ecx_sw_keygen_reqs = 0;
 __thread unsigned long long num_ecx_hw_derive_reqs = 0;
 __thread unsigned long long num_ecx_sw_derive_reqs = 0;
+__thread unsigned long long num_sm4_cbc_hw_cipher_reqs = 0;
+__thread unsigned long long num_sm4_cbc_sw_cipher_reqs = 0;
 
 #ifndef QAT_BORINGSSL
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
@@ -644,6 +649,9 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
           num_ecx_derive_retry, num_ecx_hw_derive_reqs, num_ecx_sw_derive_reqs);
     DEBUG("ECDSA sign retries: %d, HW requests: %lld, SW requests: %lld\n",
           num_ecdsa_sign_retry, num_ecdsa_hw_sign_reqs, num_ecdsa_sw_sign_reqs);
+    DEBUG("SM4-CBC retries: %d, HW requests: %lld, SW requests: %lld\n",
+          num_sm4_cbc_cipher_retry, num_sm4_cbc_hw_cipher_reqs,
+          num_sm4_cbc_sw_cipher_reqs);
 
     qat_pthread_mutex_lock();
 
