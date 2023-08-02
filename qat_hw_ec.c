@@ -479,10 +479,10 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                     DEBUG("cpaCyEcPointMultiply Retry \n");
                     if (outY) { /* key generation */
                         ++num_ecdh_keygen_retry;
-                        qat_sw_ecdh_keygen_req += QAT_RETRY_COUNT;
+                        qat_sw_ecdh_keygen_req += QAT_SW_SWITCH_MB8;
                     } else { /* compute key */
                         ++num_ecdh_derive_retry;
-                        qat_sw_ecdh_derive_req += QAT_RETRY_COUNT;
+                        qat_sw_ecdh_derive_req += QAT_SW_SWITCH_MB8;
                     }
                     *fallback = 1;
                     qat_cleanup_op_done(&op_done);
@@ -1552,8 +1552,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
             if (qat_ecdsa_coexist && (curve_name == NID_secp384r1)) {
                 START_RDTSC(&qat_hw_ecdsa_sign_req_retry);
                 ++num_ecdsa_sign_retry;
-                qat_sw_ecdsa_sign_req += QAT_RETRY_COUNT;
-
+                qat_sw_ecdsa_sign_req += QAT_SW_SWITCH_MB8;
                 fallback = 1;
                 qat_cleanup_op_done(&op_done);
                 STOP_RDTSC(&qat_hw_ecdsa_sign_req_retry, 1, "[QAT HW ECDSA: retry]");

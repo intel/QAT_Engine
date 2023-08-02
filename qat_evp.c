@@ -871,20 +871,26 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
         /* SM4 CBC has no ctrl function. */
         res &= EVP_CIPHER_meth_set_ctrl(c, NULL);
 
+        qat_hw_sm4_cbc_offload = 1;
+        DEBUG("QAT HW SM4_CBC registration succeeded\n");
+
+#ifdef ENABLE_QAT_SW_SM4_CBC
+        if (qat_sw_offload && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM4_CBC) &&
+            mbx_get_algo_info(MBX_ALGO_SM4)) {
+            res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(sm4cbc_coexistence_ctx));
+            qat_sm4_cbc_coexist = 1;
+            DEBUG("QAT SM4_CBC HW&SW Coexistence is enabled \n");
+        }
+# endif
         if (res == 0) {
             WARN("Failed to set SM4 methods for nid %d\n", nid);
             QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_SET_METHODS_FAILED);
-            EVP_CIPHER_meth_free(c);
+            qat_hw_sm4_cbc_offload = 0;
             return NULL;
         }
-
-        qat_hw_sm4_cbc_offload = 1;
-        DEBUG("QAT HW SM4_CBC registration succeeded\n");
     } else {
         qat_hw_sm4_cbc_offload = 0;
         DEBUG("OpenSSL SW SM4 CBC registration\n");
-        EVP_CIPHER_meth_free(c);
-        return (const EVP_CIPHER *)EVP_sm4_cbc();
     }
 #endif
 
@@ -905,7 +911,7 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
         if (res == 0) {
             WARN("Failed to set SM4 methods for nid %d\n", nid);
             QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_SET_METHODS_FAILED);
-            EVP_CIPHER_meth_free(c);
+            qat_sw_sm4_cbc_offload = 0;
             return NULL;
         }
         
@@ -914,10 +920,14 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
     } else {
         qat_sw_sm4_cbc_offload = 0;
         DEBUG("OpenSSL SW SM4 CBC registration\n");
+    }
+#endif
+
+    if ((qat_hw_sm4_cbc_offload == 0) && (qat_sw_sm4_cbc_offload == 0)) {
+        DEBUG("QAT_HW and QAT_SW SM4-CBC not supported! Using OpenSSL SW method\n");
         EVP_CIPHER_meth_free(c);
         return (const EVP_CIPHER *)EVP_sm4_cbc();
     }
-#endif
 
     return c;
 }
@@ -1168,6 +1178,7 @@ void qat_free_ciphers(void)
     qat_hw_aes_cbc_hmac_sha_offload = 0;
     qat_hw_sm4_cbc_offload = 0;
     qat_sw_sm4_cbc_offload = 0;
+    qat_sm4_cbc_coexist = 0;
     qat_sw_sm4_gcm_offload = 0;
     qat_sw_sm4_ccm_offload = 0;
 }
@@ -1627,4 +1638,3 @@ int qat_pkt_threshold_table_get_threshold(int nid)
 }
 # endif /* QAT_BORINGSSL */
 #endif
-

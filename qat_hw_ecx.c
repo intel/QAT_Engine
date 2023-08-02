@@ -402,7 +402,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
                 if (op_done.job) {
                     DEBUG("cpaCyEcMontEdwdsPointMultiply Retry \n");
                     ++num_ecx_keygen_retry;
-                    qat_sw_ecx_keygen_req += QAT_RETRY_COUNT;
+                    qat_sw_ecx_keygen_req += QAT_SW_SWITCH_MB8;
                     fallback = 1;
                     qat_cleanup_op_done(&op_done);
                     goto err;
@@ -823,7 +823,7 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
                     START_RDTSC(&qat_hw_ecx_derive_req_retry);
                     DEBUG("cpaCyEcMontEdwdsPointMultiply Retry \n");
                     ++num_ecx_derive_retry;
-                    qat_sw_ecx_derive_req += QAT_RETRY_COUNT;
+                    qat_sw_ecx_derive_req += QAT_SW_SWITCH_MB8;
                     fallback = 1;
                     qat_cleanup_op_done(&op_done);
                     STOP_RDTSC(&qat_hw_ecx_derive_req_retry, 1, "[QAT HW ECX: retry]");

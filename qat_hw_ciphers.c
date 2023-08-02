@@ -1842,29 +1842,42 @@ CpaStatus qat_sym_perform_op(int inst_num,
                                    pDstBuffer,
                                    pVerifyResult);
         if (status == CPA_STATUS_RETRY) {
-            if (opDone->job) {
-                if ((qat_wake_job(opDone->job, ASYNC_STATUS_EAGAIN) == 0) ||
-                    (qat_pause_job(opDone->job, ASYNC_STATUS_EAGAIN) == 0)) {
-                    WARN("Failed to wake or pause job\n");
-                    QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_WAKE_PAUSE_JOB_FAILURE);
-                    status = CPA_STATUS_FAIL;
-                    break;
-                }
+            DEBUG("cpaCySymPerformOp Retry.\n");
+#ifdef ENABLE_QAT_SW_SM4_CBC
+            /* The request will switch to qat sw to process if a retry occurs. */
+            if (qat_sm4_cbc_coexist) {
+                ++num_sm4_cbc_cipher_retry;
+                qat_sw_sm4_cbc_cipher_req += QAT_SW_SWITCH_MB16;
+                qat_cleanup_op_done(opDone);
+                break;
             } else {
-                qatPerformOpRetries++;
-                if (uiRetry >= iMsgRetry
-                    && iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                    WARN("Maximum retries exceeded\n");
-                    QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_MAX_RETRIES_EXCEEDED);
-                    status = CPA_STATUS_FAIL;
-                    break;
+#endif
+                if (opDone->job) {
+                    if ((qat_wake_job(opDone->job, ASYNC_STATUS_EAGAIN) == 0) ||
+                        (qat_pause_job(opDone->job, ASYNC_STATUS_EAGAIN) == 0)) {
+                        WARN("Failed to wake or pause job\n");
+                        QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_WAKE_PAUSE_JOB_FAILURE);
+                        status = CPA_STATUS_FAIL;
+                        break;
+                    }
+                } else {
+                    qatPerformOpRetries++;
+                    if (uiRetry >= iMsgRetry
+                        && iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                        WARN("Maximum retries exceeded\n");
+                        QATerr(QAT_F_QAT_SYM_PERFORM_OP, QAT_R_MAX_RETRIES_EXCEEDED);
+                        status = CPA_STATUS_FAIL;
+                        break;
+                    }
+                    uiRetry++;
+                    usleep(ulPollInterval + (
+                           uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
                 }
-                uiRetry++;
-                usleep(ulPollInterval +
-                       (uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+#ifdef ENABLE_QAT_SW_SM4_CBC
             }
+#endif
         }
-    }
-    while (status == CPA_STATUS_RETRY);
+    } while (status == CPA_STATUS_RETRY);
+
     return status;
 }

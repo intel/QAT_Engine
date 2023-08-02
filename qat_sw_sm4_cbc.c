@@ -64,6 +64,9 @@
 #include "qat_sw_ec.h"
 #include "qat_sw_request.h"
 #include "qat_sw_sm4_cbc.h"
+#ifdef ENABLE_QAT_HW_SM4_CBC
+#include "qat_hw_sm4_cbc.h"
+#endif
 
 /* Crypto_mb includes */
 #include "crypto_mb/sm4.h"
@@ -233,6 +236,9 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
     SM4_CBC_CTX *sm4_cbc_ctx = NULL;
     void *sw_ctx_cipher_data = NULL;
     int sts = 0;
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
+#endif
 
     DEBUG("started: ctx=%p key=%p iv=%p enc=%d\n", ctx, key, iv, enc);
 
@@ -241,8 +247,16 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         QATerr(QAT_F_QAT_SW_SM4_CBC_KEY_INIT, QAT_R_CTX_NULL);
         return sts;
     }
-
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
+        sm4_cbc_ctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_sw_ctx);
+    } else {
+        sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+    }
+#else
     sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+#endif
     if (sm4_cbc_ctx == NULL) {
         WARN("SM4-CBC CTX is NULL\n");
         QATerr(QAT_F_QAT_SW_SM4_CBC_KEY_INIT, QAT_R_CIPHER_DATA_NULL);
@@ -281,11 +295,16 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         WARN("Failed to init the openssl sw cipher context.\n");
         return sts;
     }
-
     sm4_cbc_ctx->sw_ctx_cipher_data = sw_ctx_cipher_data;
-
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        EVP_CIPHER_CTX_set_cipher_data(ctx, sm4cbc_hw_sw_ctx);
+    } else {
+        EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
+    }
+#else
     EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
-
+#endif
     /* Save key in ctx and return, key_init will be done in cipher operation. */
     return sts;
 }
@@ -303,6 +322,9 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int8u *in_iv = NULL;
     sm4_key *in_key = NULL;
     int in_enc;
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
+#endif
 
     DEBUG("Started: ctx=%p out=%p in=%p len=%lu\n", ctx, out, in, len);
 
@@ -312,7 +334,17 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return sts;
     }
 
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
+        sm4_cbc_ctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_sw_ctx);
+    } else {
+        sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+    }
+#else
     sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+#endif
+
     if (sm4_cbc_ctx == NULL) {
         WARN("SM4-CBC CTX is NULL\n");
         QATerr(QAT_F_QAT_SW_SM4_CBC_CIPHER, QAT_R_CIPHER_DATA_NULL);
@@ -412,6 +444,7 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             sched_yield();
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
     DEBUG("Finished: cipher %p status = %d\n", sm4_cbc_cipher_req, sts);
+    num_sm4_cbc_sw_cipher_reqs++;
     return sts;
 
 use_sw_method:
@@ -421,8 +454,15 @@ use_sw_method:
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, sw_ctx_cipher_data);
     sts = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))(ctx, out, in, len);
-
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        EVP_CIPHER_CTX_set_cipher_data(ctx, sm4cbc_hw_sw_ctx);
+    } else {
+        EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
+    }
+#else
     EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
+#endif
 
 err:
     return sts;
@@ -433,6 +473,9 @@ int qat_sw_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
     int sts = 0;
     SM4_CBC_CTX *sm4_cbc_ctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
+#endif
 
     DEBUG("Started: ctx=%p\n", ctx);
 
@@ -442,7 +485,16 @@ int qat_sw_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
         return sts;
     }
 
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
+        sm4_cbc_ctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_sw_ctx);
+    } else {
+        sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+    }
+#else
     sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+#endif
     if (sm4_cbc_ctx == NULL) {
         WARN("SM4-CBC CTX is NULL\n");
         QATerr(QAT_F_QAT_SW_SM4_CBC_CLEANUP, QAT_R_CIPHER_DATA_NULL);

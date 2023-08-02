@@ -48,14 +48,29 @@ and the bit map of each algorithm is defined below:
 ## QAT_HW & QAT_SW Co-existence recommended settings and working mechanism
 
 1. For those algorithms that can achieve stronger performance with QAT_SW, we
-   only use QAT_SW by default. These algorithms include:`AES-GCM, ECDSA-P256`.
+   only use QAT_SW by default. These algorithms include:`AES-GCM`, `ECDSA-P256`,
+   `SM4-CBC(256-1024 bytes)`.
 2. For those algorithms that can achieve stronger performance with QAT_HW, the
    request will be offloaded to QAT_HW first, and after QAT_HW capacity is
    reached, it will be processed through QAT_SW. These algorithms include:
-   `RSA-2K/3K/4K`, `ECDSA-P384`, `ECDH-P256/P384/X25519`.
+   `RSA-2K/3K/4K`, `ECDSA-P384`, `ECDH-P256/P384/X25519`, `SM4-CBC(2048-16384 bytes)`.
 3. It is recommended to set "LimitDevAccess" to 0 in QAT_HW driver config file to
    utilize all the available device per process for Co-existence mode to fully
    utilize QAT_HW first and then utilize QAT_SW.
+4. For SM4-CBC, It is recommended to set "CyNumConcurrentSymRequests" to be
+   smaller to trigger QAT HW `RETRY`. And The number of async jobs should be
+   appropriate, Number of async requests has to be maintained properly to
+   achieve optimal performance. The following is a best known configuration(
+   tested with 1 QAT DEV using OpenSSL speed App on SPR and the
+   "CyNumConcurrentSymRequests" is set to 64):
+   | Packet Length | 1 Multi | 2 Multi | 4 Multi | 8-64 Multi |
+   | :---: | :---: | :---: | :---: | :---: |
+   | 16 bytes | 64 async jobs | 64 async jobs | 64 async jobs  | 64 async jobs  |
+   | 64 bytes | 64 async jobs  | 64 async jobs  | 64 async jobs  | 64 async jobs  |
+   | 256 bytes | 96 async jobs  | 96 async jobs  | 96 async jobs  | 96 async jobs  |
+   | 1024 bytes | 96 async jobs  | 96 async jobs  | 96 async jobs  | 96 async jobs  |
+   | 8192 bytes | 48 async jobs  | 88 async jobs  | 136 async jobs  | 176 async jobs  |
+   | 16384 bytes | 48 async jobs  | 88 async jobs  | 152 async jobs  | 176 async jobs  |
 
 **Note: ECDH-SM2 is included in ECDH SW group.**
 

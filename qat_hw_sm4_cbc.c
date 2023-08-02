@@ -65,6 +65,9 @@
 #include "qat_events.h"
 #include "qat_evp.h"
 #include "qat_hw_sm4_cbc.h"
+#ifdef ENABLE_QAT_SW_SM4_CBC
+# include "qat_sw_sm4_cbc.h"
+#endif
 
 /* Setup template for Session Setup Data as most of the fields
  * are constant. The constant values of some of the fields are
@@ -216,6 +219,9 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
     unsigned char *ckey = NULL;
     int ckeylen;
     int ret = 0;
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
+#endif
 
     if (ctx == NULL || inkey == NULL) {
         WARN("ctx or inkey is NULL.\n");
@@ -223,7 +229,17 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
         return 0;
     }
 
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        (void)qat_sw_sm4_cbc_key_init(ctx, inkey, iv, enc); /* Saving qat sw sm4cbc cipher data for coexistence. */
+        sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
+        qctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_hw_ctx);
+    } else {
+        qctx = qat_sm4_get_cipher_data(ctx);
+    }
+#else
     qctx = qat_sm4_get_cipher_data(ctx);
+#endif
 
     if (qctx == NULL) {
         WARN("qctx is NULL.\n");
@@ -267,7 +283,15 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
     /* Run the software init function */
     ret = EVP_CIPHER_meth_get_init(sw_cipher)(ctx, inkey, iv, enc);
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        EVP_CIPHER_CTX_set_cipher_data(ctx, sm4cbc_hw_sw_ctx);
+    } else {
+        EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+    }
+#else
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+#endif
     if (ret != 1)
         goto err;
 
@@ -377,6 +401,9 @@ int qat_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
     CpaStatus sts = 0;
     CpaCySymSessionSetupData *ssd = NULL;
     int retVal = 1;
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
+#endif
 
     if (ctx == NULL) {
         WARN("ctx parameter is NULL.\n");
@@ -384,7 +411,17 @@ int qat_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        (void)qat_sw_sm4_cbc_cleanup(ctx); /* Clean coexistence sm4cbc cipher data for qat sw. */
+        sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
+        qctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_hw_ctx);
+    } else {
+        qctx = qat_sm4_get_cipher_data(ctx);
+    }
+#else
     qctx = qat_sm4_get_cipher_data(ctx);
+#endif
     if (qctx == NULL) {
         WARN("qctx parameter is NULL.\n");
         QATerr(QAT_F_QAT_SM4_CBC_CLEANUP, QAT_R_SM4_NULL_POINTER);
@@ -446,6 +483,9 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int error = 0;
     int outlen = -1;
     thread_local_variables_t *tlv = NULL;
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
+#endif
 
     if (ctx == NULL) {
         WARN("CTX parameter is NULL.\n");
@@ -453,7 +493,16 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return -1;
     }
 
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
+        qctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_hw_ctx);
+    } else {
+        qctx = qat_sm4_get_cipher_data(ctx);
+    }
+#else
     qctx = qat_sm4_get_cipher_data(ctx);
+#endif
 
     if (qctx == NULL) {
         WARN("QAT CTX NULL\n");
@@ -461,8 +510,30 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return -1;
     }
 
-    if (qctx->fallback == 1)
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    if (qat_sm4_cbc_coexist) {
+        /* 1. Requests will fallback to QAT SW if QAT HW initialize fail.
+         *    SM4_CBC_COEXIST_QAT_SW_MAX_PKT_LEN, using QAT_SW, otherwise using
+         * 2. CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4_CBC < len <
+         *    SM4_CBC_COEXIST_QAT_SW_MAX_PKT_LEN, using QAT_SW, otherwise using
+         *    QAT_HW.
+         */
+        if (fallback_to_qat_sw || ((len >= SM4_CBC_COEXIST_QAT_SW_MIN_PKT_LEN) &&
+            (len <= SM4_CBC_COEXIST_QAT_SW_MAX_PKT_LEN))) {
+            return qat_sw_sm4_cbc_cipher(ctx, out, in, len);
+        }
+
+        /* 1. A retry occurs, 16 requests will switche to QAT SW to be processed. */
+        if (qat_sw_sm4_cbc_cipher_req > 0) {
+            qat_sw_sm4_cbc_cipher_req--;
+            return qat_sw_sm4_cbc_cipher(ctx, out, in, len);
+        }
+    }
+#endif
+
+    if (qctx->fallback == 1) {
         goto fallback;
+    }
 
     if (!(is_instance_available(qctx->inst_num))) {
         WARN("No QAT instance available.\n");
@@ -549,7 +620,15 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         retVal = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_cbc())(ctx, out, in, len);
         if (retVal)
             outlen = len;
+#ifdef ENABLE_QAT_SW_SM4_CBC
+        if (qat_sm4_cbc_coexist) {
+            EVP_CIPHER_CTX_set_cipher_data(ctx, sm4cbc_hw_sw_ctx);
+        } else {
+            EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+        }
+#else
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+#endif
         goto cleanup;
     }
 #endif
@@ -599,6 +678,18 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     sts = qat_sym_perform_op(qctx->inst_num, &op_done, opd, s_sgl, d_sgl, NULL);
 
+    /* QAT_HW return retry, 16 requests will switche to QAT SW to be processed. */
+#ifdef ENABLE_QAT_SW_SM4_CBC
+    if (qat_sm4_cbc_coexist && (sts == CPA_STATUS_RETRY)) {
+        DEBUG("Qat retry occurred.\n");
+        qaeCryptoMemFreeNonZero(qctx->op->src_fbuf.pData);
+        qctx->op->src_fbuf.pData = NULL;
+        qctx->op->dst_fbuf.pData = NULL;
+        qat_sw_sm4_cbc_cipher_req--;
+        return qat_sw_sm4_cbc_cipher(ctx, out, in, len);
+    }
+#endif
+
     if (sts != CPA_STATUS_SUCCESS) {
         if (qat_get_sw_fallback_enabled() &&
             ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL))) {
@@ -635,6 +726,10 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     if (enable_heuristic_polling) {
         QAT_ATOMIC_INC(num_cipher_pipeline_requests_in_flight);
+    }
+
+    if (qat_sm4_cbc_coexist) {
+        ++num_sm4_cbc_hw_cipher_reqs;
     }
 
     do {
@@ -694,14 +789,15 @@ cleanup:
 #endif
 fallback:
     if (qctx->fallback == 1) {
-        DEBUG("- Switched to software mode.\n");
-        CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+        DEBUG("- Switched to OpenSSL SW mode.\n");
+        CRYPTO_QAT_LOG("Resubmitting request to OpenSSL SW - %s\n", __func__);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         retVal = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_cbc())(ctx, out, in, len);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
         if (retVal)
             outlen = len;
     }
+
     return outlen;
 }
 
