@@ -70,17 +70,9 @@
 # include "qat_hw_usdm_inf.h"
 #endif
 
-#ifdef ENABLE_QAT_FIPS
-# include "qat_prov_cmvp.h"
-#endif
-
 #include "cpa.h"
 #include "cpa_types.h"
 #include "cpa_cy_key.h"
-
-#ifdef ENABLE_QAT_FIPS
-extern int qat_fips_key_zeroize;
-#endif
 
 /* These limits are based on QuickAssist limits.
  * OpenSSL is more generous but better to restrict and fail
@@ -225,9 +217,6 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
 ******************************************************************************/
 void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
 {
-#ifdef ENABLE_QAT_FIPS
-    qat_fips_key_zeroize = 0;
-#endif
     QAT_HKDF_CTX *qat_hkdf_ctx = NULL;
 #ifndef QAT_OPENSSL_3
     void (*sw_cleanup_fn_ptr)(EVP_PKEY_CTX *) = NULL;
@@ -271,15 +260,17 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
             OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->info,
                     qat_hkdf_ctx->hkdf_op_data->infoLen);
 
+	if (qat_hkdf_ctx->hkdf_op_data->label[0].labelLen) {
+            OPENSSL_cleanse(&qat_hkdf_ctx->hkdf_op_data->label[0],
+                    qat_hkdf_ctx->hkdf_op_data->label[0].labelLen);
+            qat_hkdf_ctx->hkdf_op_data->numLabels = 0;
+	}
+
         qaeCryptoMemFreeNonZero(qat_hkdf_ctx->hkdf_op_data);
     }
     OPENSSL_free(qat_hkdf_ctx);
     EVP_PKEY_CTX_set_data(ctx, NULL);
 
-#ifdef ENABLE_QAT_FIPS
-    qat_fips_key_zeroize = 1;
-	qat_fips_get_key_zeroize_status();
-#endif
 }
 
 
@@ -418,7 +409,63 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                    + qat_hkdf_ctx->hkdf_op_data->infoLen, p2, p1);
             qat_hkdf_ctx->hkdf_op_data->infoLen += p1;
             return 1;
+#ifdef QAT_OPENSSL_PROVIDER
+          case EVP_PKEY_CTRL_HKDF_PREFIX:
+            if (p1 == 0 || p2 == NULL)
+                return 1;
 
+            if (qat_hkdf_ctx->hkdf_op_data == NULL) {
+                WARN("hkdf_op_data is NULL\n");
+                return 0;
+            }
+
+            qat_hkdf_ctx->prefix = OPENSSL_zalloc(p1);
+            if (qat_hkdf_ctx->prefix == NULL) {
+                   WARN("Cannot allocate qat_hkdf_ctx\n");
+                   QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
+                   return 0;
+            }
+            memcpy(qat_hkdf_ctx->prefix, p2, p1);
+            qat_hkdf_ctx->prefix_len = p1;
+            return 1;
+
+        case EVP_PKEY_CTRL_HKDF_DATA:
+            if (p1 == 0 || p2 == NULL)
+                return 1;
+
+            if (qat_hkdf_ctx->hkdf_op_data == NULL) {
+                WARN("hkdf_op_data is NULL\n");
+                return 0;
+            }
+            qat_hkdf_ctx->data = OPENSSL_zalloc(p1);
+            if (qat_hkdf_ctx->data == NULL) {
+                WARN("Cannot allocate qat_hkdf_ctx\n");
+                QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
+                return 0;
+            }
+            memcpy(qat_hkdf_ctx->data, p2, p1);
+            qat_hkdf_ctx->data_len = p1;
+            return 1;
+        case EVP_PKEY_CTRL_HKDF_LABEL:
+            if (p1 == 0 || p2 == NULL)
+                return 1;
+
+            if (qat_hkdf_ctx->hkdf_op_data == NULL) {
+                WARN("hkdf_op_data is NULL\n");
+                return 0;
+            }
+            qat_hkdf_ctx->hkdf_op_data->numLabels = 1;
+            qat_hkdf_ctx->label = OPENSSL_zalloc(p1);
+            qat_hkdf_ctx->label_len = p1;
+            if (qat_hkdf_ctx->label == NULL) {
+                WARN("Cannot allocate qat_hkdf_ctx\n");
+                QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
+                return 0;
+            }
+            memcpy(qat_hkdf_ctx->label, p2, p1);
+
+            return 1;
+#endif
         default:
             WARN("Invalid type %d\n", type);
             return -2;
@@ -525,7 +572,14 @@ static int qat_set_hkdf_mode(QAT_HKDF_CTX * qat_hkdf_ctx)
             break;
 
         case EVP_PKEY_HKDEF_MODE_EXPAND_ONLY:
-            qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp = CPA_CY_HKDF_KEY_EXPAND;
+#ifdef QAT_OPENSSL_PROVIDER
+	    if (!strcmp((const char*)kdf_name, "HKDF"))
+	        qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp = CPA_CY_HKDF_KEY_EXPAND;
+	    if(!strcmp((const char*)kdf_name, "TLS13-KDF"))
+                qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp = CPA_CY_HKDF_KEY_EXPAND_LABEL;
+#else
+                qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp = CPA_CY_HKDF_KEY_EXPAND;
+#endif
             break;
 
         case EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND:
@@ -633,7 +687,6 @@ end:
     return rv;
 }
 #endif
-
 /******************************************************************************
 * function:
 *         qat_hkdf_derive(QAT_HKDF_CTX *qat_hkdf_ctx,
@@ -664,10 +717,17 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     int inst_num = QAT_INVALID_INSTANCE;
     thread_local_variables_t *tlv = NULL;
     int fallback = 0;
+#ifdef QAT_OPENSSL_PROVIDER
+    size_t hkdflabellen;
+    unsigned char hkdflabel[2048];
+    qat_WPACKET pkt;
+    const unsigned char *tls13_data;
+    size_t tls13_datalen;
+    unsigned char tls13_kdf_hash[EVP_MAX_MD_SIZE];
+#endif
 #ifndef QAT_OPENSSL_3
     int (*sw_derive_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
 #endif
-
     if (unlikely(NULL == ctx || NULL == key || NULL == olen)) {
         WARN("Either ctx %p, key %p or olen %p is NULL\n", ctx, key, olen);
         QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_PASSED_NULL_PARAMETER);
@@ -675,9 +735,6 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     DEBUG("QAT HW HKDF Started\n");
-#ifdef ENABLE_QAT_FIPS
-    qat_fips_get_approved_status();
-#endif
     qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(ctx);
     if (qat_hkdf_ctx == NULL) {
         WARN("qat_hkdf_ctx is NULL\n");
@@ -713,7 +770,52 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 
     key_length = *olen;
     md_size = EVP_MD_size(qat_hkdf_ctx->qat_md);
+#ifdef QAT_OPENSSL_PROVIDER
+    /*hkdf label creation and intialization for TLS13-KDF*/
+    if((qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp == CPA_CY_HKDF_KEY_EXPAND_LABEL)) {
+        if (qat_hkdf_ctx->hkdf_op_data->seedLen != 0) {
+            EVP_MD_CTX *mctx = EVP_MD_CTX_new();
 
+            /* The pre-extract derive step uses a hash of no messages */
+            if (mctx == NULL
+                    || EVP_DigestInit_ex(mctx, qat_hkdf_ctx->qat_md, NULL) <= 0
+                    || EVP_DigestFinal_ex(mctx, tls13_kdf_hash, NULL) <= 0) {
+                EVP_MD_CTX_free(mctx);
+                return 0;
+            }
+            EVP_MD_CTX_free(mctx);
+
+            memcpy(qat_hkdf_ctx->hkdf_op_data->secret, qat_hkdf_ctx->hkdf_op_data->seed,
+                   qat_hkdf_ctx->hkdf_op_data->seedLen);
+            qat_hkdf_ctx->hkdf_op_data->secretLen = qat_hkdf_ctx->hkdf_op_data->seedLen;
+
+            OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->seed,
+                            qat_hkdf_ctx->hkdf_op_data->seedLen);
+            qat_hkdf_ctx->hkdf_op_data->seedLen = 0;
+
+            tls13_data = tls13_kdf_hash;
+            tls13_datalen = md_size;
+
+        } else {
+            tls13_data = qat_hkdf_ctx->data;
+            tls13_datalen = qat_hkdf_ctx->data_len;
+        }
+        if (!QAT_WPACKET_init_static_len(&pkt, hkdflabel, sizeof(hkdflabel), 0)
+            || !QAT_WPACKET_put_bytes_u16(&pkt, key_length)
+            || !QAT_WPACKET_start_sub_packet_u8(&pkt)
+            || !QAT_WPACKET_memcpy(&pkt, qat_hkdf_ctx->prefix, qat_hkdf_ctx->prefix_len)
+            || !QAT_WPACKET_memcpy(&pkt, qat_hkdf_ctx->label, qat_hkdf_ctx->label_len)
+            || !QAT_WPACKET_close(&pkt)
+            || !QAT_WPACKET_sub_memcpy_u8(&pkt, tls13_data, (tls13_data == NULL) ? 0 : tls13_datalen)
+            || !QAT_WPACKET_get_total_written(&pkt, &hkdflabellen)
+            || !QAT_WPACKET_finish(&pkt)) {
+            QAT_WPACKET_cleanup(&pkt);}
+
+        memcpy(qat_hkdf_ctx->hkdf_op_data->label[0].label, hkdflabel, hkdflabellen);
+        qat_hkdf_ctx->hkdf_op_data->label[0].labelLen = hkdflabellen;
+        qat_hkdf_ctx->hkdf_op_data->label[0].sublabelFlag = 0x00;
+    }
+#endif
     /* For Extract and Expand, PRK and OKM is sent back so datalen is
        modified here to accommodate it */
     if (qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp == CPA_CY_HKDF_KEY_EXTRACT_EXPAND) {
@@ -773,7 +875,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         }
 
         DUMP_KEYGEN_TLS(qat_instance_handles[inst_num], generated_key);
-        DEBUG("Calling cpaCyKeyGenTls \n");
+        DEBUG("Calling cpaCyKeyGenTls3 \n");
         status = cpaCyKeyGenTls3(qat_instance_handles[inst_num],
                                  qat_hkdf_cb, &op_done,
                                  qat_hkdf_ctx->hkdf_op_data,

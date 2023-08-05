@@ -23,7 +23,7 @@
 %global openssl_src_path   /root/openssl
 
 Name:       qatprovider-fips
-Version:    1.2.0
+Version:    1.3.0
 Release:    1%{?dist}
 Summary:    Intel QuickAssist Technology(QAT) OpenSSL Provider
 
@@ -121,7 +121,7 @@ cp -rf %{buildroot}/%{_libdir}/libcrypto_mb.so.%{ippcpfullversion} %{openssl_lib
 cp -rf %{buildroot}/%{_libdir}/libcrypto_mb.so %{openssl_lib_path}/lib64/ossl-modules/
 cp -rf %{buildroot}/%{_libdir}/libIPSec_MB.so.%{fullversion}  %{openssl_lib_path}/lib64/ossl-modules/
 cp -rf %{buildroot}/%{_libdir}/libIPSec_MB.so  %{openssl_lib_path}/lib64/ossl-modules/
-./configure --with-openssl_install_dir=%{openssl_lib_path} --with-qat_hw_dir=/QAT --enable-qat_provider --enable-qat_hw_hkdf --enable-qat_hw_gcm --enable-qat_hw_sha3 --enable-qat_fips --enable-qat_sw --enable-qat_small_pkt_offload --enable-qat_insecure_algorithms  
+./configure --with-openssl_install_dir=%{openssl_lib_path} --with-qat_hw_dir=/QAT --enable-qat_provider --enable-qat_hw_gcm --enable-qat_hw_sha3 --enable-qat_fips --enable-qat_sw --enable-qat_small_pkt_offload --enable-qat_insecure_algorithms --disable-qat_sw_sm2 --disable-qat_hw_ciphers
 
 make clean
 %make_build

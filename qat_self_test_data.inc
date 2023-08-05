@@ -67,8 +67,6 @@
 #define QAT_SELF_TEST_DESC_SIGN_ECDSAP384 "ECDSAP384"
 #define QAT_SELF_TEST_DESC_KDF_TLS12_256_PRF "TLS12_PRF_256"
 #define QAT_SELF_TEST_DESC_KDF_TLS12_384_PRF "TLS12_PRF_384"
-#define QAT_SELF_TEST_DESC_KDF_HKDF_256 "HKDF_256"
-#define QAT_SELF_TEST_DESC_KDF_HKDF_384 "HKDF_384"
 #define QAT_SELF_TEST_DESC_MD_SHA_256 "SHA256"
 #define QAT_SELF_TEST_DESC_MD_SHA_512 "SHA512"
 
@@ -317,53 +315,6 @@ static const ST_KAT_CIPHER st_kat_cipher_tests[] = {
     },
 };
 
-static const char hkdf_256_digest[] = "SHA256";
-static const unsigned char hkdf_256_secret[] = { 's', 'e', 'c', 'r', 'e', 't' };
-static const unsigned char hkdf_256_salt[] = { 's', 'a', 'l', 't' };
-static const unsigned char hkdf_256_info[] = { 'l', 'a', 'b', 'e', 'l' };
-
-static const ST_KAT_PARAM hkdf_params[] = {
-    ST_KAT_PARAM_UTF8STRING(OSSL_KDF_PARAM_DIGEST, hkdf_256_digest),
-    ST_KAT_PARAM_OCTET(OSSL_KDF_PARAM_KEY, hkdf_256_secret),
-    ST_KAT_PARAM_OCTET(OSSL_KDF_PARAM_SALT, hkdf_256_salt),
-    ST_KAT_PARAM_OCTET(OSSL_KDF_PARAM_INFO, hkdf_256_info),
-    ST_KAT_PARAM_END()
-};
-static const unsigned char hkdf_expected[] = {
-    0x2a, 0xc4, 0x36, 0x9f, 0x52, 0x59, 0x96, 0xf8,
-    0xde, 0x13
-};
-
-static const char hkdf_384_digest[] = "SHA384";
-static const unsigned char hkdf_384_secret[] = {
-    0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
-    0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
-    0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b
-};
-static const unsigned char hkdf_384_salt[] = {
-    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-    0x08, 0x09, 0x0a, 0x0b, 0x0c
-};
-static const unsigned char hkdf_384_info[] = {
-    0xf0, 0xf1 ,0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
-    0xf8, 0xf9
-};
-
-static const ST_KAT_PARAM hkdf_384_params[] = {
-    ST_KAT_PARAM_UTF8STRING(OSSL_KDF_PARAM_DIGEST, hkdf_384_digest),
-    ST_KAT_PARAM_OCTET(OSSL_KDF_PARAM_KEY, hkdf_384_secret),
-    ST_KAT_PARAM_OCTET(OSSL_KDF_PARAM_SALT, hkdf_384_salt),
-    ST_KAT_PARAM_OCTET(OSSL_KDF_PARAM_INFO, hkdf_384_info),
-    ST_KAT_PARAM_END()
-
-};
-
-static const unsigned char hkdf_384_expected[] = {
-    0x9b, 0x50, 0x97, 0xa8, 0x60, 0x38, 0xb8, 0x05,
-    0x30, 0x90, 0x76, 0xa4, 0x4b, 0x3a, 0x9f, 0x38,
-    0x06, 0x3e, 0x25, 0xb5, 0x16, 0xdc, 0xbf, 0x36,
-    0x9f, 0x39, 0x4c, 0xfa, 0xb4, 0x36, 0x85, 0xf7,
-};
 
 static const char sskdf_digest[] = "SHA224";
 static const unsigned char sskdf_secret[] = {
@@ -604,20 +555,6 @@ static const ST_KAT_KDF st_kat_kdf_tests[] =
         OSSL_KDF_NAME_TLS1_PRF,
         tls12prf_384_params,
         ITM(tls12prf_384_expected)
-    },
-#endif
-#ifdef ENABLE_QAT_HW_HKDF
-    {
-        QAT_SELF_TEST_DESC_KDF_HKDF_256,
-        OSSL_KDF_NAME_HKDF,
-        hkdf_params,
-        ITM(hkdf_expected)
-    },
-    {
-        QAT_SELF_TEST_DESC_KDF_HKDF_384,
-        OSSL_KDF_NAME_HKDF,
-        hkdf_384_params,
-        ITM(hkdf_384_expected)
     },
 #endif
 };

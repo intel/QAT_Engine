@@ -45,7 +45,6 @@
 
 #include "qat_prov_hkdf.h"
 #include "e_qat.h"
-
 #ifdef ENABLE_QAT_HW_HKDF
 
 static OSSL_FUNC_kdf_newctx_fn qat_kdf_hkdf_new;
@@ -56,6 +55,11 @@ static OSSL_FUNC_kdf_settable_ctx_params_fn qat_kdf_hkdf_settable_ctx_params;
 static OSSL_FUNC_kdf_set_ctx_params_fn qat_kdf_hkdf_set_ctx_params;
 static OSSL_FUNC_kdf_gettable_ctx_params_fn qat_kdf_hkdf_gettable_ctx_params;
 static OSSL_FUNC_kdf_get_ctx_params_fn qat_kdf_hkdf_get_ctx_params;
+static OSSL_FUNC_kdf_derive_fn qat_kdf_tls1_3_derive;
+static OSSL_FUNC_kdf_settable_ctx_params_fn qat_kdf_tls1_3_settable_ctx_params;
+static OSSL_FUNC_kdf_set_ctx_params_fn qat_kdf_tls1_3_set_ctx_params;
+
+char *kdf_name = NULL;
 
 static void qat_prov_digest_reset(PROV_DIGEST *pd)
 {
@@ -219,9 +223,6 @@ static int qat_kdf_hkdf_derive(void *vctx, unsigned char *key, size_t keylen,
                                                     ctx->evp_pkey_ctx);
     const EVP_MD *md;
     int ret = 0;
-#ifdef ENABLE_QAT_FIPS
-    qat_fips_service_indicator = 1;
-#endif
 
     if (!qat_prov_is_running() || !qat_kdf_hkdf_set_ctx_params(ctx, params))
         goto end;
@@ -240,17 +241,12 @@ static int qat_kdf_hkdf_derive(void *vctx, unsigned char *key, size_t keylen,
         goto end;
     }
     qat_hkdf_ctx->qat_md = md;
-
     ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
 
 end:
-#ifdef ENABLE_QAT_FIPS
-    qat_fips_service_indicator = 0;
-#endif
     return ret;
 }
 
-#ifdef ENABLE_QAT_FIPS
 static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
                            const OSSL_PARAM params[])
 {
@@ -258,11 +254,9 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
     QAT_HKDF_CTX *qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(
                                                     ctx->evp_pkey_ctx);
     const EVP_MD *md;
+    size_t mdlen;
     int ret = 0;
-
-    qat_fips_service_indicator = 1;
-
-    if (!qat_prov_is_running() || !qat_kdf_hkdf_set_ctx_params(ctx, params))
+    if (!qat_prov_is_running() || !qat_kdf_tls1_3_set_ctx_params(ctx, params))
         goto end;
 
     md = qat_prov_digest_md(&ctx->digest);
@@ -272,15 +266,68 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
     }
     qat_hkdf_ctx->qat_md = md;
 
+    if (ctx->mode == EVP_KDF_HKDF_MODE_EXTRACT_ONLY) {
+
+        ret = EVP_MD_get_size(md);
+        /* Ensure cast to size_t is safe */
+        if (ret <= 0)
+            goto end;
+        mdlen = (size_t)ret;
+
+        if (ctx->key == NULL) {
+            ctx->key = OPENSSL_zalloc(EVP_MAX_MD_SIZE);
+            ctx->key_len = mdlen;
+
+            if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_KEY,
+                               ctx->key_len, ctx->key)){
+                WARN("Failed to setup tls13-kdf key.\n");
+                goto end;
+            }
+        }
+
+        if (ctx->salt != NULL) {
+            ctx->mode = EVP_KDF_HKDF_MODE_EXPAND_LABEL;
+            if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_MODE,
+                            ctx->mode, NULL)){
+                WARN("Failed to setup tls13-kdf mode.\n");
+                goto end;
+            }
+
+            ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
+            if (ret <= 0) {
+                WARN("Failed to generate the pre-extract secret.\n");
+                goto end;
+            }
+
+            ctx->mode = EVP_KDF_HKDF_MODE_EXTRACT_ONLY;
+            if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_MODE,
+                            ctx->mode, NULL)){
+                WARN("Failed to setup tls13-kdf extract mode.\n");
+                goto end;
+            }
+
+            if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_SALT,
+                            keylen, key)){
+                WARN("Failed to setup salt for tls13-kdf extract operation\n");
+                goto end;
+            }
+
+            if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_KEY,
+                            ctx->key_len, ctx->key)){
+                WARN("Failed to setup key for tls13-kdf extract operation.\n");
+                goto end;
+            }
+        }
+    }
+
     ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
 
 end:
-    qat_fips_service_indicator = 0;
     return ret;
 }
-#endif
 
-static int qat_hkdf_common_set_ctx_params(QAT_KDF_HKDF *ctx, const OSSL_PARAM params[])
+static int qat_hkdf_common_set_ctx_params(const char *kdf_name, 
+                            QAT_KDF_HKDF *ctx, const OSSL_PARAM params[])
 {
     OSSL_LIB_CTX *libctx = prov_libctx_of(ctx->provctx);
     const OSSL_PARAM *p;
@@ -299,7 +346,10 @@ static int qat_hkdf_common_set_ctx_params(QAT_KDF_HKDF *ctx, const OSSL_PARAM pa
             } else if (strcasecmp(p->data, "EXTRACT_ONLY") == 0) {
                 ctx->mode = EVP_KDF_HKDF_MODE_EXTRACT_ONLY;
             } else if (strcasecmp(p->data, "EXPAND_ONLY") == 0) {
-                ctx->mode = EVP_KDF_HKDF_MODE_EXPAND_ONLY;
+                if(!strcmp((const char*)kdf_name, "HKDF"))
+                    ctx->mode = EVP_KDF_HKDF_MODE_EXPAND_ONLY;
+                if(!strcmp((const char*)kdf_name, "TLS13-KDF"))
+                    ctx->mode = EVP_KDF_HKDF_MODE_EXPAND_LABEL;
             } else {
                 QATerr(ERR_LIB_PROV, PROV_R_INVALID_MODE);
                 return 0;
@@ -307,6 +357,7 @@ static int qat_hkdf_common_set_ctx_params(QAT_KDF_HKDF *ctx, const OSSL_PARAM pa
         } else if (OSSL_PARAM_get_int(p, &n)) {
             if (n != EVP_KDF_HKDF_MODE_EXTRACT_AND_EXPAND
                 && n != EVP_KDF_HKDF_MODE_EXTRACT_ONLY
+		&& n != EVP_KDF_HKDF_MODE_EXPAND_LABEL
                 && n != EVP_KDF_HKDF_MODE_EXPAND_ONLY) {
                 QATerr(ERR_LIB_PROV, PROV_R_INVALID_MODE);
                 return 0;
@@ -362,7 +413,11 @@ static int qat_kdf_hkdf_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     if (params == NULL)
         return 1;
 
-    if (!qat_hkdf_common_set_ctx_params(ctx, params))
+    EVP_KDF *kdf = (EVP_KDF *)EVP_KDF_fetch(NULL, "HKDF", "provider=qatprovider");
+    const char *name = EVP_KDF_get0_name(kdf);
+    kdf_name = (char *)name;
+
+    if (!qat_hkdf_common_set_ctx_params(kdf_name, ctx, params))
         return 0;
 
     /* The info fields concatenate, so process them all */
@@ -400,7 +455,71 @@ static const OSSL_PARAM *qat_kdf_hkdf_settable_ctx_params(ossl_unused void *ctx,
     };
     return known_settable_ctx_params;
 }
+static const OSSL_PARAM *qat_kdf_tls1_3_settable_ctx_params(ossl_unused void *ctx,
+                                                        ossl_unused void *provctx)
+{
+    static const OSSL_PARAM known_settable_ctx_params[] = {
+        HKDF_COMMON_SETTABLES,
+        OSSL_PARAM_octet_string(OSSL_KDF_PARAM_PREFIX, NULL, 0),
+        OSSL_PARAM_octet_string(OSSL_KDF_PARAM_LABEL, NULL, 0),
+        OSSL_PARAM_octet_string(OSSL_KDF_PARAM_DATA, NULL, 0),
+        OSSL_PARAM_END
+    };
+    return known_settable_ctx_params;
+}
 
+static int qat_kdf_tls1_3_set_ctx_params(void *vctx, const OSSL_PARAM params[])
+{
+    const OSSL_PARAM *p;
+    QAT_KDF_HKDF *ctx = vctx;
+
+    if (params == NULL)
+        return 1;
+
+    EVP_KDF *kdf = (EVP_KDF *)EVP_KDF_fetch(NULL, "TLS13-KDF", "provider=qatprovider");
+    const char *name = EVP_KDF_get0_name(kdf);
+    kdf_name = (char *)name;
+
+    if (!qat_hkdf_common_set_ctx_params(kdf_name, ctx, params))
+        return 0;
+    if ((p = OSSL_PARAM_locate_const(params, OSSL_KDF_PARAM_PREFIX)) != NULL) {
+        OPENSSL_free(ctx->prefix);
+        ctx->prefix = NULL;
+        if (!OSSL_PARAM_get_octet_string(p, (void **)&ctx->prefix, 0,
+                                         &ctx->prefix_len))
+            return 0;
+        if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_PREFIX,
+                           ctx->prefix_len, ctx->prefix)){
+            WARN("Failed in setting hkdf info.\n");
+            return 0;
+        }
+    }
+    if ((p = OSSL_PARAM_locate_const(params, OSSL_KDF_PARAM_LABEL)) != NULL) {
+        OPENSSL_free(ctx->label);
+        ctx->label = NULL;
+        if (!OSSL_PARAM_get_octet_string(p, (void **)&ctx->label, 0,
+                                         &ctx->label_len))
+            return 0;
+        if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_LABEL,
+                           ctx->label_len, ctx->label)){
+            WARN("Failed in setting hkdf info.\n");
+            return 0;
+        }
+    }
+
+    OPENSSL_clear_free(ctx->data, ctx->data_len);
+    ctx->data = NULL;
+    if ((p = OSSL_PARAM_locate_const(params, OSSL_KDF_PARAM_DATA)) != NULL
+            && !OSSL_PARAM_get_octet_string(p, (void **)&ctx->data, 0,
+                                            &ctx->data_len))
+        return 0;
+    if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_DATA,
+                       ctx->data_len, ctx->data)){
+        WARN("Failed in setting hkdf info.\n");
+        return 0;
+    }
+    return 1;
+}
 static int qat_kdf_hkdf_get_ctx_params(void *vctx, OSSL_PARAM params[])
 {
     QAT_KDF_HKDF *ctx = (QAT_KDF_HKDF *)vctx;
@@ -441,20 +560,18 @@ const OSSL_DISPATCH qat_kdf_hkdf_functions[] = {
     { 0, NULL }
 };
 
-# ifdef ENABLE_QAT_FIPS
 const OSSL_DISPATCH qat_kdf_tls1_3_functions[] = {
     { OSSL_FUNC_KDF_NEWCTX, (void(*)(void))qat_kdf_hkdf_new },
     { OSSL_FUNC_KDF_FREECTX, (void(*)(void))qat_kdf_hkdf_free },
     { OSSL_FUNC_KDF_RESET, (void(*)(void))qat_kdf_hkdf_reset },
     { OSSL_FUNC_KDF_DERIVE, (void(*)(void))qat_kdf_tls1_3_derive },
     { OSSL_FUNC_KDF_SETTABLE_CTX_PARAMS,
-      (void(*)(void))qat_kdf_hkdf_settable_ctx_params },
-    { OSSL_FUNC_KDF_SET_CTX_PARAMS, (void(*)(void))qat_kdf_hkdf_set_ctx_params },
+      (void(*)(void))qat_kdf_tls1_3_settable_ctx_params },
+    { OSSL_FUNC_KDF_SET_CTX_PARAMS, (void(*)(void))qat_kdf_tls1_3_set_ctx_params },
     { OSSL_FUNC_KDF_GETTABLE_CTX_PARAMS,
       (void(*)(void))qat_kdf_hkdf_gettable_ctx_params },
     { OSSL_FUNC_KDF_GET_CTX_PARAMS, (void(*)(void))qat_kdf_hkdf_get_ctx_params },
     { 0, NULL }
 };
-# endif
 
 #endif /* ENABLE_QAT_HW_HKDF */

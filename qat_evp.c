@@ -265,7 +265,7 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     {NID_chacha20_poly1305, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
-#if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
+# if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
     {NID_sm4_cbc, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4_CBC},
 # endif
 # ifdef ENABLE_QAT_HW_SM3
@@ -845,14 +845,14 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
 {
     EVP_CIPHER *c = NULL;
-#if (defined ENABLE_QAT_SW_SM4_CBC) || (defined ENABLE_QAT_HW_SM4_CBC)
+#if defined(ENABLE_QAT_SW_SM4_CBC) || defined(ENABLE_QAT_HW_SM4_CBC)
     int res = 1;
 #endif
 
     if ((c = EVP_CIPHER_meth_new(nid, SM4_BLOCK_SIZE, keylen)) == NULL) {
-            WARN("Failed to allocate cipher methods for nid %d\n", nid);
-            QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_MALLOC_FAILED);
-            return NULL;
+        WARN("Failed to allocate cipher methods for nid %d\n", nid);
+        QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_MALLOC_FAILED);
+        return NULL;
     }
 
 #ifdef ENABLE_QAT_HW_SM4_CBC
@@ -926,7 +926,9 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
     if ((qat_hw_sm4_cbc_offload == 0) && (qat_sw_sm4_cbc_offload == 0)) {
         DEBUG("QAT_HW and QAT_SW SM4-CBC not supported! Using OpenSSL SW method\n");
         EVP_CIPHER_meth_free(c);
+#if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
         return (const EVP_CIPHER *)EVP_sm4_cbc();
+#endif
     }
 
     return c;

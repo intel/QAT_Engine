@@ -50,7 +50,7 @@
 
 
 #include "qat_sw_sm2.h"
-
+#if defined(ENABLE_QAT_SW_SM2)
 typedef struct {
     /* Key and paramgen group */
     EC_GROUP *gen_group;
@@ -1317,3 +1317,4 @@ use_sw_method:
 #endif /* QAT_OPENSSL_PROVIDER */
 }
 #endif
+#endif /*ENABLE_QAT_SW_SM2*/

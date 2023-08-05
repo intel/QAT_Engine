@@ -143,9 +143,7 @@ extern const OSSL_DISPATCH qat_sha3_512_functions[];
 #endif /* ENABLE_QAT_HW_SHA3 */
 #ifdef ENABLE_QAT_HW_HKDF
 extern const OSSL_DISPATCH qat_kdf_hkdf_functions[];
-# ifdef ENABLE_QAT_FIPS
 extern const OSSL_DISPATCH qat_kdf_tls1_3_functions[];
-# endif
 #endif
 #ifdef ENABLE_QAT_HW_PRF
 extern const OSSL_DISPATCH qat_tls_prf_functions[];
@@ -217,7 +215,7 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 #ifdef ENABLE_QAT_SW_GCM
     ALG(QAT_NAMES_AES_192_GCM, qat_aes192gcm_functions),
 #endif
-#ifdef ENABLE_QAT_HW_CIPHERS
+#if defined(ENABLE_QAT_HW_CIPHERS) && !defined(ENABLE_QAT_FIPS)
 # ifdef QAT_INSECURE_ALGO
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA1, qat_aes128cbc_hmac_sha1_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA1, qat_aes256cbc_hmac_sha1_functions),
@@ -238,7 +236,7 @@ static const OSSL_ALGORITHM qat_keyexch[] = {
 #endif
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
     {"ECDH", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT ECDH keyexch implementation."},
-# ifdef ENABLE_QAT_SW_SM2
+#if defined(ENABLE_QAT_SW_SM2) && !defined(ENABLE_QAT_FIPS)
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT SM2 keyexch implementation."},
 # endif
 #endif
@@ -287,7 +285,7 @@ static const OSSL_ALGORITHM qat_signature[] = {
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_signature_functions, "QAT DSA Signature implementation."},
 #endif
-# ifdef ENABLE_QAT_SW_SM2
+# if defined(ENABLE_QAT_SW_SM2) && !defined(ENABLE_QAT_FIPS)
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_sm2_signature_functions, "QAT SM2 Signature implementation." },
 # endif
     {NULL, NULL, NULL}};
@@ -296,9 +294,7 @@ static const OSSL_ALGORITHM qat_signature[] = {
 static const OSSL_ALGORITHM qat_kdfs[] = {
 # ifdef ENABLE_QAT_HW_HKDF
     {"HKDF", QAT_DEFAULT_PROPERTIES, qat_kdf_hkdf_functions, "QAT HKDF implementation"},
-#  ifdef ENABLE_QAT_FIPS
     {"TLS13-KDF", QAT_DEFAULT_PROPERTIES, qat_kdf_tls1_3_functions, "QAT HKDF implementation"},
-#  endif
 # endif
 # ifdef ENABLE_QAT_HW_PRF
     {"TLS1-PRF", QAT_DEFAULT_PROPERTIES, qat_tls_prf_functions, "QAT PRF implementation"},
@@ -331,16 +327,12 @@ static const OSSL_ALGORITHM qat_digests[] = {
 int qat_operations(int operation_id)
 {
     switch (operation_id) {
-#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2)
     case OSSL_OP_DIGEST:
-#endif
     case OSSL_OP_CIPHER:
     case OSSL_OP_SIGNATURE:
     case OSSL_OP_KEYMGMT:
     case OSSL_OP_KEYEXCH:
-#if defined(ENABLE_QAT_HW_HKDF) || defined(ENABLE_QAT_HW_PRF)
     case OSSL_OP_KDF:
-#endif
         return 1;
     default:
         return 0;							     }
