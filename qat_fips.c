@@ -181,11 +181,7 @@ void fips_result(void)
     }
 
     for (i = 0; i < (int)OSSL_NELEM(st_kat_kdf_tests); ++i) {
-        if ((qat_hw_hkdf_offload == 0
-             && !strcmp(st_kat_kdf_tests[i].desc, "HKDF_256"))
-            || (qat_hw_hkdf_offload == 0
-                && !strcmp(st_kat_kdf_tests[i].desc, "HKDF_384"))
-            || (qat_hw_prf_offload == 0
+        if ((qat_hw_prf_offload == 0
                 && !strcmp(st_kat_kdf_tests[i].desc, "TLS12_PRF_256"))
             || (qat_hw_prf_offload == 0
                 && !strcmp(st_kat_kdf_tests[i].desc, "TLS12_PRF_384")))
@@ -312,11 +308,7 @@ void fips_result(void)
         }
 
         for (i = 0; i < (int)OSSL_NELEM(st_kat_kdf_tests); ++i) {
-            if ((qat_hw_hkdf_offload == 0
-                 && !strcmp(st_kat_kdf_tests[i].desc, "HKDF_256"))
-                || (qat_hw_hkdf_offload == 0
-                    && !strcmp(st_kat_kdf_tests[i].desc, "HKDF_384"))
-                || (qat_hw_prf_offload == 0
+            if ((qat_hw_prf_offload == 0
                     && !strcmp(st_kat_kdf_tests[i].desc, "TLS12_PRF_256"))
                 || (qat_hw_prf_offload == 0
                     && !strcmp(st_kat_kdf_tests[i].desc, "TLS12_PRF_384")))
@@ -1107,7 +1099,6 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
         qat_hw_dsa_offload = 0;
         qat_hw_dh_offload = 0;
         qat_hw_ecx_448_offload = 0;
-        qat_hw_hkdf_offload = 0;
         qat_hw_prf_offload = 0;
 # ifdef ENABLE_QAT_SW_SHA2
         qat_hw_sha_offload = 0;
@@ -1154,9 +1145,6 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
 # endif
 # ifdef ENABLE_QAT_HW_ECX
         qat_hw_ecx_448_offload = 1;
-# endif
-# ifdef ENABLE_QAT_HW_HKDF
-        qat_hw_hkdf_offload = 1;
 # endif
 # ifdef ENABLE_QAT_HW_PRF
         qat_hw_prf_offload = 1;

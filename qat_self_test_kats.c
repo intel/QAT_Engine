@@ -418,52 +418,6 @@ static int QAT_self_test_kdf(const ST_KAT_KDF *t, TEST_PARAMS *args,
 
     OSSL_SELF_TEST_onbegin(st, OSSL_SELF_TEST_TYPE_KAT_KDF, t->desc);
 
-    if (!strcmp(t->desc, "HKDF_256") || !strcmp(t->desc, "HKDF_384")) {
-        bld = OSSL_PARAM_BLD_new();
-        if (bld == NULL) {
-            printf("Error in memory creation for OSSL_PARAM_BLD\n");
-            ret = 0;
-            goto err;
-        }
-
-        kdf = EVP_KDF_fetch(libctx, t->algorithm, "");
-        if (kdf == NULL) {
-            printf("Error in kdf fetch..\n");
-            ret = 0;
-            goto err;
-        }
-
-        ctx = EVP_KDF_CTX_new(kdf);
-        if (ctx == NULL) {
-            printf("Error in kctx creation..\n");
-            ret = 0;
-            goto err;
-        }
-
-        bnctx = BN_CTX_new_ex(libctx);
-        if (bnctx == NULL) {
-            printf("Error in memory creation for BN_CTX\n");
-            ret = 0;
-            goto err;
-        }
-
-        if (!add_params(bld, t->params, bnctx)) {
-            printf("Error in add_params API\n");
-            ret = 0;
-            goto err;
-        }
-
-        params = OSSL_PARAM_BLD_to_param(bld);
-        if (params == NULL)
-            goto err;
-
-        if (t->expected_len > sizeof(out))
-            goto err;
-
-        if (EVP_KDF_derive(ctx, out, t->expected_len, params) <= 0)
-            goto err;
-    }                           /* HKDF if */
-
     if (!strcmp(t->desc, "TLS12_PRF_256") || !strcmp(t->desc, "TLS12_PRF_384")) {
         *prf_out = out;
         if (QAT_TlsPrf_Ops(args, *prf_out, t->expected_len, t->desc) <= 0) {
@@ -476,11 +430,6 @@ static int QAT_self_test_kdf(const ST_KAT_KDF *t, TEST_PARAMS *args,
 
     if (!strcmp(t->desc, "TLS12_PRF_256") || !strcmp(t->desc, "TLS12_PRF_384")) {
         if (memcmp(*prf_out, t->expected, t->expected_len) != 0)
-            goto err;
-    }
-
-    if (!strcmp(t->desc, "HKDF_256") || !strcmp(t->desc, "HKDF_384")) {
-        if (memcmp(out, t->expected, t->expected_len) != 0)
             goto err;
     }
 
@@ -610,11 +559,7 @@ static int qat_self_test_kdfs(TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
     }
 
     for (i = 0; i < (int)OSSL_NELEM(st_kat_kdf_tests); ++i) {
-        if ((qat_hw_hkdf_offload == 0
-             && !strcmp(st_kat_kdf_tests[i].desc, "HKDF_256"))
-            || (qat_hw_hkdf_offload == 0
-                && !strcmp(st_kat_kdf_tests[i].desc, "HKDF_384"))
-            || (qat_hw_prf_offload == 0
+        if ((qat_hw_prf_offload == 0
                 && !strcmp(st_kat_kdf_tests[i].desc, "TLS12_PRF_256"))
             || (qat_hw_prf_offload == 0
                 && !strcmp(st_kat_kdf_tests[i].desc, "TLS12_PRF_384")))

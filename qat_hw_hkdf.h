@@ -9,6 +9,7 @@
 #  include <openssl/crypto.h>
 #  include <openssl/obj_mac.h>
 #  include <openssl/params.h>
+#  include "qat_prov_hkdf_packet.h"
 # endif
 
 # include "openssl/ossl_typ.h"
@@ -35,6 +36,15 @@
 # define QAT_KDF_MAX_SEED_SZ  48
 # define QAT_KDF_MAX_KEY_SZ   80
 #endif
+
+# define EVP_KDF_HKDF_MODE_EXPAND_LABEL         2
+#define EVP_PKEY_ALG_CTRL    0x1000
+#define EVP_PKEY_CTRL_HKDF_PREFIX    (EVP_PKEY_ALG_CTRL + 14)
+#define EVP_PKEY_CTRL_HKDF_LABEL      (EVP_PKEY_ALG_CTRL + 15)
+#define EVP_PKEY_CTRL_HKDF_DATA       (EVP_PKEY_ALG_CTRL + 16)
+
+extern char *kdf_name;
+
 /* QAT TLS  pkey context structure */
 typedef struct {
     /* Mode: Extract, Expand or both */
@@ -58,6 +68,14 @@ typedef struct {
     /* salt */
     unsigned char sw_salt[QAT_KDF_MAX_SEED_SZ];
     size_t sw_salt_size;
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+    unsigned char *prefix;
+    size_t prefix_len;
+    unsigned char *label;
+    size_t label_len;
+    unsigned char *data;
+    size_t data_len;
 #endif
 } QAT_HKDF_CTX;
 

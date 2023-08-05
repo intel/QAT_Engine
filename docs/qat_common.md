@@ -171,5 +171,5 @@ The FIPS 140-3 certification is under process.
 ## Support Algorithms in FIPS mode
 | Mode | Algorithms |
 | :---: | :---: |
-| QAT_HW | RSA, ECDSA, ECDH, ECDHX25519, ECDHX448, DSA, DH, TLS1.2-KDF(PRF), TLS1.3-KDF(HKDF), SHA3 & AES-GCM |
+| QAT_HW | RSA, ECDSA, ECDH, ECDHX25519, ECDHX448, DSA, DH, TLS1.2-KDF(PRF), SHA3 & AES-GCM |
 | QAT_SW | RSA, ECDSA, ECDH, ECDHX25519, SHA2 & AES-GCM |
