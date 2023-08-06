@@ -84,6 +84,11 @@ AC_ARG_ENABLE(qat_hw_sm4_cbc,
                              [Enable qat_hw SM4-CBC acceleration]))
 AC_SUBST(enable_qat_hw_sm4_cbc)
 
+AC_ARG_ENABLE(qat_hw_sm2,
+              AS_HELP_STRING([--enable-qat_hw_sm2],
+                             [Enable qat_hw SM2 acceleration]))
+AC_SUBST(enable_qat_hw_sm2)
+
 AC_ARG_ENABLE(qat_hw_sm3,
               AS_HELP_STRING([--enable-qat_hw_sm3],
                              [Enable qat_hw SM3 acceleration]))
@@ -492,6 +497,7 @@ then
     AC_SUBST([enable_qat_hw_hkdf], ["no"])
     AC_SUBST([enable_qat_hw_ecx], ["no"])
     AC_SUBST([enable_qat_hw_gcm], ["no"])
+    AC_SUBST([enable_qat_hw_sm2], ["no"])
   fi
   if test "x$cflags_qat_sw" != "x"
   then
@@ -552,6 +558,8 @@ then
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CHACHAPOLY"; AC_MSG_NOTICE([Accelerating CHACHA-POLY to Hardware])])
   AS_IF([test "x$enable_qat_hw_sm4_cbc" = "xyes"], 
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SM4_CBC"; AC_MSG_NOTICE([Accelerating SM4-CBC to Hardware])])
+  AS_IF([test "x$enable_qat_hw_sm2" = "xyes"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SM2"; AC_MSG_NOTICE([Accelerating SM2 to Hardware])])
 fi
 
 # Enable QAT_SW Algorithms based on enable/disable Flags

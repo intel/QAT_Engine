@@ -148,8 +148,7 @@ extern const OSSL_DISPATCH qat_kdf_tls1_3_functions[];
 #ifdef ENABLE_QAT_HW_PRF
 extern const OSSL_DISPATCH qat_tls_prf_functions[];
 #endif
-
-#ifdef QAT_SW
+# if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
 extern const OSSL_DISPATCH qat_sm2_signature_functions[];
 extern const OSSL_DISPATCH qat_sm2_keymgmt_functions[];
 #endif
@@ -236,8 +235,10 @@ static const OSSL_ALGORITHM qat_keyexch[] = {
 #endif
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
     {"ECDH", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT ECDH keyexch implementation."},
-#if defined(ENABLE_QAT_SW_SM2) && !defined(ENABLE_QAT_FIPS)
+# if !defined(ENABLE_QAT_FIPS)
+#  if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT SM2 keyexch implementation."},
+#  endif
 # endif
 #endif
 #if defined(ENABLE_QAT_HW_DH) && defined(QAT_INSECURE_ALGO)
@@ -270,7 +271,7 @@ static const OSSL_ALGORITHM qat_keymgmt[] = {
 #ifdef ENABLE_QAT_HW_ECX
     {"X448", QAT_DEFAULT_PROPERTIES, qat_X448_keymgmt_functions, "QAT X448 Keymgmt implementation."},
 #endif
-#ifdef ENABLE_QAT_SW_SM2
+#if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_sm2_keymgmt_functions, "QAT SM2 Keymgmt implementation."},
 #endif
     {NULL, NULL, NULL}};
@@ -285,8 +286,10 @@ static const OSSL_ALGORITHM qat_signature[] = {
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_signature_functions, "QAT DSA Signature implementation."},
 #endif
-# if defined(ENABLE_QAT_SW_SM2) && !defined(ENABLE_QAT_FIPS)
-    {"SM2", QAT_DEFAULT_PROPERTIES, qat_sm2_signature_functions, "QAT SM2 Signature implementation." },
+# if !defined(ENABLE_QAT_FIPS)
+#  if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
+    {"SM2", QAT_DEFAULT_PROPERTIES, qat_sm2_signature_functions, "QAT SM2 Signature implementation."},
+#  endif
 # endif
     {NULL, NULL, NULL}};
 

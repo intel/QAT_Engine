@@ -52,11 +52,19 @@
 #include <openssl/err.h>
 #include <openssl/proverr.h>
 
-#ifdef ENABLE_QAT_SW_SM2
-#include "qat_sw_sm2.h"
-#include "qat_prov_ec.h"
 #include "qat_provider.h"
 #include "e_qat.h"
+
+#ifdef ENABLE_QAT_HW_SM2
+# include "qat_hw_sm2.h"
+#endif
+
+#ifdef ENABLE_QAT_SW_SM2
+#include "qat_prov_ec.h"
+# include "qat_sw_sm2.h"
+#endif
+
+#if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
 
 static OSSL_FUNC_signature_newctx_fn qat_sm2sig_newctx;
 static OSSL_FUNC_signature_sign_init_fn qat_sm2sig_signature_init;
@@ -226,8 +234,14 @@ static int qat_sm2sig_digest_sign(void *vpsm2ctx, unsigned char *sig, size_t *si
 
     if (sigsize < (size_t)ecsize)
         return 0;
-
+#ifdef ENABLE_QAT_SW_SM2
     ret = mb_ecdsa_sm2_sign(ctx, sig, siglen, sigsize, tbs, tbslen);
+#endif
+
+#ifdef ENABLE_QAT_HW_SM2
+    ret = qat_sm2_sign(ctx, sig, siglen, sigsize, tbs, tbslen);
+#endif
+
     if (ret <= 0)
         return 0;
 
@@ -238,12 +252,25 @@ static int qat_sm2sig_digest_sign(void *vpsm2ctx, unsigned char *sig, size_t *si
 static int qat_sm2sig_digest_verify(void *vpsm2ctx, const unsigned char *sig, size_t siglen,
                              const unsigned char *tbs, size_t tbslen)
 {
+    int ret = 0;
     QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
 
     if (vpsm2ctx == NULL) {
         return 0;
     }
-    return mb_ecdsa_sm2_verify(ctx, sig, siglen, tbs, tbslen);
+#ifdef ENABLE_QAT_SW_SM2
+    ret = mb_ecdsa_sm2_verify(ctx, sig, siglen, tbs, tbslen);
+#endif
+
+#ifdef ENABLE_QAT_HW_SM2
+    ret = qat_sm2_verify(ctx, sig, siglen, tbs, tbslen);
+#endif
+
+    if (ret <= 0)
+        return 0;
+
+    return ret;
+
 }
 
 static void qat_sm2sig_freectx(void *vpsm2ctx)

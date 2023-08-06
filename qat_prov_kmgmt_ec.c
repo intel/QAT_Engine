@@ -426,7 +426,7 @@ const OSSL_DISPATCH qat_ecdh_keymgmt_functions[] = {
 };
 #endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) */
 
-# ifdef ENABLE_QAT_SW_SM2
+#if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
 static QAT_EC_KEYMGMT sm2_get_default_keymgmt()
 {
     static QAT_EC_KEYMGMT s_keymgmt;

@@ -139,6 +139,7 @@ void tests_run_sm4_cbc(TEST_PARAMS *args);
 void tests_run_sm4_gcm(TEST_PARAMS *args);
 void tests_run_sm4_ccm(TEST_PARAMS *args);
 void tests_run_sha2(TEST_PARAMS *args);
+void tests_run_sm2(TEST_PARAMS *args);
 
 char *ecdh_curve_name(int type);
 char *test_name(int test);

@@ -192,6 +192,7 @@ int qat_hw_chacha_poly_offload = 0;
 int qat_hw_aes_cbc_hmac_sha_offload = 0;
 int qat_hw_sm4_cbc_offload = 0;
 int qat_sw_sm2_offload = 0;
+int qat_hw_sm2_offload = 0;
 int qat_hw_sha_offload = 0;
 int qat_hw_sm3_offload = 0;
 # ifdef ENABLE_QAT_FIPS
@@ -503,6 +504,7 @@ static int qat_engine_destroy(ENGINE *e)
     qat_hw_hkdf_offload = 0;
     qat_sw_ecx_offload = 0;
     qat_sw_sm2_offload = 0;
+    qat_hw_sm2_offload = 0;
     qat_sw_sm3_offload = 0;
     qat_sw_sm4_cbc_offload = 0;
     qat_sw_sm4_gcm_offload = 0;

@@ -422,7 +422,7 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             qat_hkdf_ctx->prefix = OPENSSL_zalloc(p1);
             if (qat_hkdf_ctx->prefix == NULL) {
                    WARN("Cannot allocate qat_hkdf_ctx\n");
-                   QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
+                   QATerr(QAT_F_QAT_HKDF_CTRL, ERR_R_MALLOC_FAILURE);
                    return 0;
             }
             memcpy(qat_hkdf_ctx->prefix, p2, p1);
@@ -440,7 +440,7 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             qat_hkdf_ctx->data = OPENSSL_zalloc(p1);
             if (qat_hkdf_ctx->data == NULL) {
                 WARN("Cannot allocate qat_hkdf_ctx\n");
-                QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
+                QATerr(QAT_F_QAT_HKDF_CTRL, ERR_R_MALLOC_FAILURE);
                 return 0;
             }
             memcpy(qat_hkdf_ctx->data, p2, p1);
@@ -459,7 +459,7 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             qat_hkdf_ctx->label_len = p1;
             if (qat_hkdf_ctx->label == NULL) {
                 WARN("Cannot allocate qat_hkdf_ctx\n");
-                QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
+                QATerr(QAT_F_QAT_HKDF_CTRL, ERR_R_MALLOC_FAILURE);
                 return 0;
             }
             memcpy(qat_hkdf_ctx->label, p2, p1);

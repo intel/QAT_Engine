@@ -89,7 +89,8 @@ if QAT_HW
               qat_hw_sha3.c        \
               qat_hw_chachapoly.c  \
               qat_hw_sm4_cbc.c     \
-              qat_hw_sm3.c
+              qat_hw_sm3.c         \
+              qat_hw_sm2.c
 endif
 
 if QAT_SW

@@ -750,6 +750,9 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_ECDSA:            /* ECDSA test application */
         tests_run_ecdsa(args);
         break;
+    case TEST_SM2:
+        tests_run_sm2(args);  /* SM2 test application */
+        break;
     case TEST_SM3:            /* SM3 test application */
         tests_run_sm3(args);
         break;
@@ -809,7 +812,7 @@ void tests_run(TEST_PARAMS *args, int id)
         break;
     case TEST_CHACHA20_POLY1305:
         tests_run_chacha20_poly1305(args);
-        break; /* ENABLE_QAT_HW_SM4_CBC */
+        break;
 #endif
 #ifdef QAT_SW
     /* SHA2 tests */

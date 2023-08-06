@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2016-2023 Intel Corporation.
+ *   Copyright(c) 2021-2023 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -37,49 +37,51 @@
  */
 
 /*****************************************************************************
- * @file qat_hw_ec.h
+ * @file qat_prov_sign_sm2.h
  *
- * This file provides an interface to ECDH & ECDSA operations
+ * This file is for structures and functions declarations for SM2 PROVIDER.
  *
  *****************************************************************************/
+#ifndef QAT_PROV_SIGN_SM2_H
+# define QAT_PROV_SIGN_SM2_H
 
-#ifndef QAT_HW_EC_H
-# define QAT_HW_EC_H
+# ifdef QAT_OPENSSL_3
 
-# include <openssl/ossl_typ.h>
+# define OSSL_MAX_NAME_SIZE           50 /* Algorithm name */
+# define OSSL_MAX_PROPQUERY_SIZE     256 /* Property query strings */
+# define OSSL_MAX_ALGORITHM_ID_SIZE  256 /* AlgorithmIdentifier DER */
 
-# ifdef ENABLE_QAT_HW_ECDSA
-#  ifndef QAT_BORINGSSL
-int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
-                   unsigned char *sig, unsigned int *siglen,
-                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey);
-#  else
-int qat_ecdsa_sign_bssl(const uint8_t *digest, size_t digest_len, uint8_t *sig,
-                        unsigned int *sig_len, EC_KEY *eckey);
-#  endif /* QAT_BORINGSSL */
+typedef struct {
+    OSSL_LIB_CTX *libctx;
+    char *propq;
+    EC_KEY *ec;
 
-ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dlen,
-                             const BIGNUM *in_kinv, const BIGNUM *in_r,
-                             EC_KEY *eckey);
-int qat_ecdsa_verify(int type, const unsigned char *dgst, int dgst_len,
-                     const unsigned char *sigbuf, int sig_len, EC_KEY *eckey);
-int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
-                        const ECDSA_SIG *sig, EC_KEY *eckey);
+    /*
+     * Flag to termine if the 'z' digest needs to be computed and fed to the
+     * hash function.
+     * This flag should be set on initialization and the compuation should
+     * be performed only once, on first update.
+     */
+    unsigned int flag_compute_z_digest : 1;
+
+    char mdname[OSSL_MAX_NAME_SIZE];
+
+    /* The Algorithm Identifier of the combined signature algorithm */
+    unsigned char aid_buf[OSSL_MAX_ALGORITHM_ID_SIZE];
+    unsigned char *aid;
+    size_t  aid_len;
+
+    /* main digest */
+    EVP_MD *md;
+    EVP_MD_CTX *mdctx;
+    size_t mdsize;
+
+    /* SM2 ID used for calculating the Z value */
+    unsigned char *id;
+    size_t id_len;
+
+    const unsigned char *tbs;
+    size_t tbs_len;
+} QAT_PROV_SM2_CTX;
 # endif
-
-# ifdef ENABLE_QAT_HW_ECDH
-/* Qat engine ECDH methods declaration */
-int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
-                         unsigned char **outY, size_t *outlenY,
-                         const EC_POINT *pub_key, const EC_KEY *ecdh,
-                         int *fallback);
-int qat_engine_ecdh_compute_key(unsigned char **out, size_t *outlen,
-                                const EC_POINT *pub_key, const EC_KEY *ecdh);
-int qat_ecdh_generate_key(EC_KEY *ecdh);
-# endif
-
-# ifdef ENABLE_QAT_HW_SM2
-EVP_PKEY_METHOD *qat_sm2_pmeth(void);
-# endif
-
-#endif /* QAT_HW_EC_H */
+#endif /* QAT_PROV_SIGN_SM2_H */
