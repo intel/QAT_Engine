@@ -278,6 +278,24 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                                    \
     } while (0)
 
+#  define DUMP_EC_SM2_POINT_MULTIPLY(instance_handle, pOpData, pResultX, pResultY) \
+    do {                                                                      \
+        fprintf(qatDebugLogFile,"=========================\n");               \
+        fprintf(qatDebugLogFile,"EC SM2 Point Multiply Request: %p\n", pOpData);  \
+        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);   \
+        DUMPL("k.pData",  pOpData->k.pData, pOpData->k.dataLenInBytes);       \
+        DUMPL("x.pData", pOpData->x.pData, pOpData->x.dataLenInBytes);     \
+        DUMPL("y.pData", pOpData->y.pData, pOpData->y.dataLenInBytes);     \
+        fprintf(qatDebugLogFile,"pResultX->dataLenInBytes = %u "                    \
+               "pResultX->pData = %p\n",                                            \
+                pResultX->dataLenInBytes, pResultX->pData);                         \
+        fprintf(qatDebugLogFile,"pResultY->dataLenInBytes = %u "                    \
+                "pResultY->pData = %p\n",                                           \
+                pResultY->dataLenInBytes, pResultY->pData);                         \
+        fprintf(qatDebugLogFile,"=========================\n");                     \
+        fflush(qatDebugLogFile);                                                    \
+    } while (0)
+
 
 #  define DUMP_EC_MONTEDWDS_POINT_MULTIPLY(instance_handle, opData, pXk, pYk)  \
     do {                                                                       \
@@ -831,6 +849,53 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
+#  define DUMP_SM2_SIGN(instance_handle, opData, pResultR, pResultS)           \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"SM2 Sign Request: %p\n", opData);             \
+        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
+        DUMPL("k.pData", opData->k.pData, opData->k.dataLenInBytes);           \
+        DUMPL("e.pData", opData->e.pData, opData->e.dataLenInBytes);           \
+        DUMPL("d.pData", opData->d.pData, opData->d.dataLenInBytes);           \
+        fprintf(qatDebugLogFile,"opData: fieldType = %d\n", opData->fieldType);\
+        fprintf(qatDebugLogFile,"pResultR->dataLenInBytes = %u "               \
+                "pResultR->pData = %p\n",                                      \
+                pResultR->dataLenInBytes, pResultR->pData);                    \
+        fprintf(qatDebugLogFile,"pResultS->dataLenInBytes = %u "               \
+                "pResultS->pData = %p\n",                                      \
+                pResultS->dataLenInBytes, pResultS->pData);                    \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
+#  define DUMP_SM2_SIGN_OUTPUT(bSM2SignStatus, pResultR, pResultS)             \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"SM2 Sign Output:"                             \
+                " pResultR %p, pResultS %p\n",                                 \
+                pResultR, pResultS);                                           \
+        fprintf(qatDebugLogFile, "bSM2SignStatus = %u\n", bSM2SignStatus);     \
+        DUMPL("pResultR->pData", pResultR->pData, pResultR->dataLenInBytes);   \
+        DUMPL("pResultS->pData", pResultS->pData, pResultS->dataLenInBytes);   \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
+#  define DUMP_SM2_VERIFY(instance_handle, opData)                             \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"SM2 Verify Request: %p\n", opData);           \
+        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
+        DUMPL("e.pData", opData->e.pData, opData->e.dataLenInBytes);           \
+        DUMPL("r.pData", opData->r.pData, opData->r.dataLenInBytes);           \
+        DUMPL("s.pData", opData->s.pData, opData->s.dataLenInBytes);           \
+        DUMPL("xP.pData", opData->xP.pData, opData->xP.dataLenInBytes);        \
+        DUMPL("yP.pData", opData->yP.pData, opData->yP.dataLenInBytes);        \
+        fprintf(qatDebugLogFile,"opData: fieldType = %d\n", opData->fieldType);\
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
 # else
 #  define DUMP_DH_GEN_PHASE1(...)
 #  define DUMP_DH_GEN_PHASE2(...)
@@ -841,6 +906,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_EC_MONTEDWDS_POINT_MULTIPLY(...)
 #  define DUMP_EC_POINT_MULTIPLY_OUTPUT(...)
 #  define DUMP_EC_GENERIC_POINT_MULTIPLY_OUTPUT(...)
+#  define DUMP_EC_SM2_POINT_MULTIPLY(...)
 #  define DUMP_ECDSA_SIGN(...)
 #  define DUMP_ECDSA_SIGN_OUTPUT(...)
 #  define DUMP_ECDSA_VERIFY(...)
@@ -865,6 +931,9 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_CP_PERFORM_OP(...)
 #  define DUMP_CP_PERFORM_OP_OUTPUT(...)
 #  define DUMP_INSTANCE_MAPPING(...)
+#  define DUMP_SM2_SIGN(...)
+#  define DUMP_SM2_SIGN_OUTPUT(...)
+#  define DUMP_SM2_VERIFY(...)
 # endif                         /* QAT_DEBUG */
 
 

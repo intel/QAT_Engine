@@ -258,7 +258,6 @@ static const option_data ecdsa_choices[] = {
     {"ecdsab283", 0, TEST_ECDSA, B_CURVE_283, 0},
     {"ecdsab409", 0, TEST_ECDSA, B_CURVE_409, 0},
     {"ecdsab571", 0, TEST_ECDSA, B_CURVE_571, 0},
-    {"ecdsasm2", 0, TEST_ECDSA, P_CURVE_SM2, 0},
 };
 
 static const option_data aes_choices[] = {
@@ -562,6 +561,8 @@ char *test_name(int test)
         return "SM4-GCM";
     case TEST_SM4_CCM:
         return "SM4-CCM";
+    case TEST_SM2:
+        return "SM2";
     case TEST_SHA2_224:
         return "SHA2-224";
     case TEST_SHA2_256:
@@ -758,7 +759,6 @@ static void usage(char *program)
     printf("\tecdsab283 ECDSA B283 test\n");
     printf("\tecdsab409 ECDSA B409 test\n");
     printf("\tecdsab571 ECDSA B571 test\n");
-    printf("\tecdsasm2 ECDSA SM2 test\n");
     printf("\tprf     PRF test\n");
     printf("\thkdf    HKDF test\n");
     printf("\taes128gcm   AES128 GCM test\n");
@@ -776,7 +776,7 @@ static void usage(char *program)
     printf("\tsha2-256    SHA2 256 test\n");
     printf("\tsha2-384    SHA2 384 test\n");
     printf("\tsha2-512    SHA2 512 test\n");
-
+    printf("\tsm2         SM2 test\n\n");
     printf("\nIf test algo is not specified, default tests"
            "(RSA, ECDH, ECDSA) will be executed.\n");
 
@@ -921,6 +921,9 @@ static void handle_option(int argc, char *argv[], int *index)
     else if (!strcmp(option, "chachapoly")) {
         test_alg = TEST_CHACHA20_POLY1305;
         test_size = 4096;
+    } else if (!strcmp(option, "sm2")){
+        test_alg = TEST_SM2;
+        curve = P_CURVE_SM2;
     } else if (!strncmp(option, "rsa", strlen("rsa"))) {
         size = sizeof(rsa_choices) / sizeof(option_data);
         for (i = 0; i < size; i++)

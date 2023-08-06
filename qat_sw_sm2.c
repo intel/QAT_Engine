@@ -63,12 +63,7 @@ typedef struct {
     int id_set;
 } QAT_SM2_PKEY_CTX;
 
-static EVP_PKEY_METHOD *_hidden_sm2_pmeth = NULL;
-#ifndef QAT_OPENSSL_PROVIDER
-static const EVP_PKEY_METHOD *sw_sm2_pmeth = NULL;
-#endif
-
-#ifdef QAT_OPENSSL_3
+#if defined(QAT_OPENSSL_3) && defined(ENABLE_QAT_SW_SM2)
 typedef struct evp_signature_st {
     int name_id;
     char *type_name;
@@ -131,100 +126,6 @@ static QAT_EVP_SIGNATURE get_default_signature_sm2()
     return s_signature;
 }
 #endif
-
-#ifndef QAT_OPENSSL_PROVIDER
-# ifdef ENABLE_QAT_SW_SM2
-static int mb_sm2_init(EVP_PKEY_CTX *ctx);
-static int mb_sm2_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
-static void mb_sm2_cleanup(EVP_PKEY_CTX *ctx);
-static int mb_digest_custom(EVP_PKEY_CTX *ctx, EVP_MD_CTX *mctx);
-# endif
-#endif
-
-/* Only used for OpenSSL 3 legacy engine API */
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-static int pkey_ec_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
-{
-    int (*pkeygen) (EVP_PKEY_CTX *ctx, EVP_PKEY *pkey) = NULL;
-    if ((sw_sm2_pmeth = EVP_PKEY_meth_find(EVP_PKEY_EC)) == NULL) {
-        WARN("Failed to generate sw_pmeth\n");
-        return -1;
-    }
-
-    EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &pkeygen);
-    pkeygen(ctx, pkey);
-    *(int *)pkey = EVP_PKEY_SM2;
-    return 1;
-}
-#endif
-
-EVP_PKEY_METHOD *mb_sm2_pmeth(void)
-{
-    if (_hidden_sm2_pmeth && qat_sw_sm2_offload) {
-        if (!qat_reload_algo)
-            return _hidden_sm2_pmeth;
-        EVP_PKEY_meth_free(_hidden_sm2_pmeth);
-    }
-#ifndef QAT_OPENSSL_PROVIDER
-    /* EVP_PKEY_meth_copy doesn't copy digest_custom from SW method
-     * so directly returning sw method separately here */
-    if (sw_sm2_pmeth && !qat_sw_sm2_offload && !qat_reload_algo)
-       return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
-
-    if ((_hidden_sm2_pmeth =
-                EVP_PKEY_meth_new(EVP_PKEY_SM2, 0)) == NULL) {
-        WARN("Failed to generate pmeth\n");
-        return NULL;
-    }
-# ifndef QAT_OPENSSL_3 /* Only used for OpenSSL 1.1.1 engine API */
-    if ((sw_sm2_pmeth = EVP_PKEY_meth_find(EVP_PKEY_SM2)) == NULL) {
-        WARN("Failed to generate sw_pmeth\n");
-        return NULL;
-    }
-# endif
-
-# ifdef ENABLE_QAT_SW_SM2
-    if (qat_sw_offload &&
-        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
-        mbx_get_algo_info(MBX_ALGO_X25519)) {
-        EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
-# ifdef QAT_OPENSSL_3 /* Only used for OpenSSL 3 legacy engine API */
-        EVP_PKEY_meth_set_keygen(_hidden_sm2_pmeth, NULL, pkey_ec_keygen);
-# endif
-        EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
-        EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
-        EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth, mb_digest_custom);
-        EVP_PKEY_meth_set_digestsign(_hidden_sm2_pmeth, mb_ecdsa_sm2_sign);
-        EVP_PKEY_meth_set_digestverify(_hidden_sm2_pmeth, mb_ecdsa_sm2_verify);
-        qat_sw_sm2_offload = 1;
-        DEBUG("QAT SW SM2 registration succeeded\n");
-    }
-    else {
-        qat_sw_sm2_offload = 0;
-        DEBUG("QAT SW SM2 disabled\n");
-    }
-# endif
-
-    if (!qat_sw_sm2_offload) {
-        DEBUG("OpenSSL SW ECDSA SM2\n");
-        EVP_PKEY_meth_free(_hidden_sm2_pmeth);
-# ifndef QAT_OPENSSL_3
-        return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
-# else
-        /* Although QAEngine supports software fallback to the default provider when
-        * using the OpenSSL 3 legacy engine API, if it fails during the registration
-        * phase, the pkey method cannot be set correctly because the OpenSSL3 legacy
-        * engine framework no longer provides a standard method for HKDF, PRF and SM2.
-        * So it will just return NULL.
-        * https://github.com/openssl/openssl/issues/19047
-        */
-        WARN("SM2 PKEY methods registration failed with OpenSSL 3.\n");
-        return NULL;
-#endif
-    }
-#endif /* QAT_OPENSSL_PROVIDER */
-    return _hidden_sm2_pmeth;
-}
 
 #ifdef ENABLE_QAT_SW_SM2
 void process_ecdsa_sm2_sign_reqs(mb_thread_data *tlv)
@@ -391,7 +292,7 @@ void process_ecdsa_sm2_verify_reqs(mb_thread_data *tlv)
 }
 
 # ifndef QAT_OPENSSL_PROVIDER
-static int mb_sm2_init(EVP_PKEY_CTX *ctx)
+int mb_sm2_init(EVP_PKEY_CTX *ctx)
 {
     QAT_SM2_PKEY_CTX *smctx = NULL;
 
@@ -410,7 +311,7 @@ static int mb_sm2_init(EVP_PKEY_CTX *ctx)
     return 1;
 }
 
-static void mb_sm2_cleanup(EVP_PKEY_CTX *ctx)
+void mb_sm2_cleanup(EVP_PKEY_CTX *ctx)
 {
     QAT_SM2_PKEY_CTX *smctx = NULL;
 
@@ -430,7 +331,7 @@ static void mb_sm2_cleanup(EVP_PKEY_CTX *ctx)
     OPENSSL_free(smctx);
 }
 
-static int mb_sm2_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
+int mb_sm2_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     QAT_SM2_PKEY_CTX *smctx = (QAT_SM2_PKEY_CTX *)EVP_PKEY_CTX_get_data(ctx);
     EC_GROUP *group;
@@ -691,7 +592,7 @@ static BIGNUM *sm2_compute_msg_hash(const EVP_MD *digest,
     return e;
 }
 
-static int mb_digest_custom(EVP_PKEY_CTX *ctx, EVP_MD_CTX *mctx)
+int mb_digest_custom(EVP_PKEY_CTX *ctx, EVP_MD_CTX *mctx)
 {
 
     /* Do nothing as this is taken care in use_sw_method within

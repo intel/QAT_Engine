@@ -70,6 +70,9 @@
 #endif
 #include "cpa_cy_ec.h"
 #include "cpa_cy_ecdsa.h"
+#ifdef ENABLE_QAT_HW_SM2
+# include "cpa_cy_ecsm2.h"
+#endif
 #include "e_qat.h"
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
@@ -154,11 +157,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
     int inst_num = QAT_INVALID_INSTANCE;
     BIGNUM *xP = NULL, *yP = NULL;
-# if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
-    CpaCyEcGenericPointMultiplyOpData *pOpData = NULL;
-# else
-    CpaCyEcPointMultiplyOpData *opData = NULL;
-# endif
+
     CpaBoolean bEcStatus = 0;
     CpaFlatBuffer *pResultX = NULL;
     CpaFlatBuffer *pResultY = NULL;
@@ -169,6 +168,8 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     op_done_t op_done;
     thread_local_variables_t *tlv = NULL;
     int curve_name;
+    int sm2_flag = 0;
+    ret = sm2_flag;
 
     DEBUG("QAT HW ECDH Started\n");
 #ifdef ENABLE_QAT_FIPS
@@ -204,37 +205,64 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
 
     curve_name = EC_GROUP_get_curve_name(group);
+
 # if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
-    pOpData = (CpaCyEcGenericPointMultiplyOpData *)
-               OPENSSL_zalloc(sizeof(CpaCyEcGenericPointMultiplyOpData));
-    if (pOpData == NULL) {
-        WARN("Failure to allocate pOpData\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_MALLOC_FAILURE);
-        return ret;
-    }
+#  ifdef ENABLE_QAT_HW_SM2
+    CpaCyEcsm2PointMultiplyOpData *psm2OpData = NULL;
+#  endif
+    CpaCyEcGenericPointMultiplyOpData *pOpData = NULL;
+# else
+    CpaCyEcPointMultiplyOpData *opData = NULL;
+# endif
 
-    pOpData->pCurve = (CpaCyEcCurve *) qaeCryptoMemAlloc(sizeof(CpaCyEcCurve),
+# if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
+#  ifdef ENABLE_QAT_HW_SM2
+    if (curve_name  == NID_sm2 || curve_name == NID_sm3) {
+        psm2OpData = (CpaCyEcsm2PointMultiplyOpData *)
+                   OPENSSL_zalloc(sizeof(CpaCyEcsm2PointMultiplyOpData));
+        if (psm2OpData == NULL) {
+            WARN("Failure to allocate psm2OpData\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_MALLOC_FAILURE);
+            return ret;
+        }
+        sm2_flag = 1;
+        psm2OpData->k.pData = NULL;
+        psm2OpData->x.pData = NULL;
+        psm2OpData->y.pData = NULL;
+    }
+#  endif
+    if (!sm2_flag) {
+        pOpData = (CpaCyEcGenericPointMultiplyOpData *)
+                   OPENSSL_zalloc(sizeof(CpaCyEcGenericPointMultiplyOpData));
+        if (pOpData == NULL) {
+            WARN("Failure to allocate pOpData\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_MALLOC_FAILURE);
+            return ret;
+        }
+
+        pOpData->pCurve = (CpaCyEcCurve *) qaeCryptoMemAlloc(sizeof(CpaCyEcCurve),
                                          __FILE__, __LINE__);
-    if (pOpData->pCurve == NULL) {
-        WARN("Failure to allocate pOpData->pCurve\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_PCURVE_MALLOC_FAILURE);
-        OPENSSL_free(pOpData);
-        return ret;
+        if (pOpData->pCurve == NULL) {
+            WARN("Failure to allocate pOpData->pCurve\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_PCURVE_MALLOC_FAILURE);
+            OPENSSL_free(pOpData);
+            return ret;
+        }
+
+        if (outY != NULL)
+            pOpData->generator = CPA_TRUE;
+        else
+            pOpData->generator = CPA_FALSE;
+
+        pOpData->k.pData = NULL;
+        pOpData->xP.pData = NULL;
+        pOpData->yP.pData = NULL;
+        pOpData->pCurve->parameters.weierstrassParameters.a.pData = NULL;
+        pOpData->pCurve->parameters.weierstrassParameters.b.pData = NULL;
+        pOpData->pCurve->parameters.weierstrassParameters.p.pData = NULL;
+        pOpData->pCurve->parameters.weierstrassParameters.h.pData = NULL;
+        pOpData->pCurve->parameters.weierstrassParameters.h.dataLenInBytes = 0;
     }
-
-    if (outY != NULL)
-        pOpData->generator = CPA_TRUE;
-    else
-        pOpData->generator = CPA_FALSE;
-
-    pOpData->k.pData = NULL;
-    pOpData->xP.pData = NULL;
-    pOpData->yP.pData = NULL;
-    pOpData->pCurve->parameters.weierstrassParameters.a.pData = NULL;
-    pOpData->pCurve->parameters.weierstrassParameters.b.pData = NULL;
-    pOpData->pCurve->parameters.weierstrassParameters.p.pData = NULL;
-    pOpData->pCurve->parameters.weierstrassParameters.h.pData = NULL;
-    pOpData->pCurve->parameters.weierstrassParameters.h.dataLenInBytes = 0;
 # else
     opData = (CpaCyEcPointMultiplyOpData *)
               OPENSSL_zalloc(sizeof(CpaCyEcPointMultiplyOpData));
@@ -322,36 +350,49 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
 
 # if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
-    pOpData->pCurve->parameters.weierstrassParameters.fieldType = qat_get_field_type(group);
-    pOpData->pCurve->curveType = qat_get_curve(pOpData->pCurve->parameters.weierstrassParameters.fieldType);
+#  ifdef ENABLE_QAT_HW_SM2
+    if (curve_name  == NID_sm2 || curve_name == NID_sm3) {
+        psm2OpData->fieldType = qat_get_field_type(group);
+        if ((qat_BN_to_FB(&(psm2OpData->k), (BIGNUM *)priv_key) != 1) ||
+            (qat_BN_to_FB(&(psm2OpData->x), xP) != 1) ||
+            (qat_BN_to_FB(&(psm2OpData->y), yP) != 1)) {
+            WARN("Failure to convert priv_key, x, y to flatbuffer\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE);
+            goto err;
+        }
+    }
+#  endif
+    if (!sm2_flag) {
+        pOpData->pCurve->parameters.weierstrassParameters.fieldType = qat_get_field_type(group);
+        pOpData->pCurve->curveType = qat_get_curve(pOpData->pCurve->parameters.weierstrassParameters.fieldType);
 
-    if ((qat_BN_to_FB(&(pOpData->k), (BIGNUM *)priv_key) != 1) ||
-        (qat_BN_to_FB(&(pOpData->xP), xP) != 1) ||
-        (qat_BN_to_FB(&(pOpData->yP), yP) != 1) ||
-        (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.a), a) != 1) ||
-        (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.b), b) != 1) ||
-        (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.p), p) != 1)) {
-        WARN("Failure to convert priv_key, xP, yP, a, b or p to flatbuffer\n");
-        QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_PRIV_KEY_XP_YP_A_B_P_CONVERT_TO_FB_FAILURE);
-        goto err;
-     }
+        if ((qat_BN_to_FB(&(pOpData->k), (BIGNUM *)priv_key) != 1) ||
+            (qat_BN_to_FB(&(pOpData->xP), xP) != 1) ||
+            (qat_BN_to_FB(&(pOpData->yP), yP) != 1) ||
+            (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.a), a) != 1) ||
+            (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.b), b) != 1) ||
+            (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.p), p) != 1)) {
+            WARN("Failure to convert priv_key, xP, yP, a, b or p to flatbuffer\n");
+            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_PRIV_KEY_XP_YP_A_B_P_CONVERT_TO_FB_FAILURE);
+            goto err;
+        }
 
 #ifndef QAT_OPENSSL_PROVIDER
      /* Pass Co-factor to Opdata */
-     if (pOpData->pCurve->parameters.weierstrassParameters.fieldType
-         == CPA_CY_EC_FIELD_TYPE_PRIME) {
+         if (pOpData->pCurve->parameters.weierstrassParameters.fieldType
+             == CPA_CY_EC_FIELD_TYPE_PRIME) {
+             if (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.h), h) != 1) {
+                 WARN("Failure to convert h to flatbuffer\n");
+                 QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
+                 goto err;
+             }
+         }
+#else
          if (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.h), h) != 1) {
              WARN("Failure to convert h to flatbuffer\n");
              QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
              goto err;
          }
-     }
-#else
-     if (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.h), h) != 1) {
-	 WARN("Failure to convert h to flatbuffer\n");
-	 QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
-	 goto err;
-     }
 #endif
 
     /*
@@ -361,17 +402,18 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
      * of zero. As a special case we will create that manually.
      */
 
-    if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL &&
-        pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes == 0) {
-        pOpData->pCurve->parameters.weierstrassParameters.a.pData =
-                qaeCryptoMemAlloc(1, __FILE__, __LINE__);
-        if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL) {
-            WARN("Failure to allocate pOpData->pCurve->parameters.weierstrassParameters.a.pData\n");
-            QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE);
-            goto err;
-        }
-        pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes = 1;
-        pOpData->pCurve->parameters.weierstrassParameters.a.pData[0] = 0;
+         if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL &&
+             pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes == 0) {
+             pOpData->pCurve->parameters.weierstrassParameters.a.pData =
+                      qaeCryptoMemAlloc(1, __FILE__, __LINE__);
+             if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL) {
+                 WARN("Failure to allocate pOpData->pCurve->parameters.weierstrassParameters.a.pData\n");
+                 QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE);
+                 goto err;
+             }
+             pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes = 1;
+             pOpData->pCurve->parameters.weierstrassParameters.a.pData[0] = 0;
+         }
     }
 # else
     opData->fieldType = qat_get_field_type(group);
@@ -455,12 +497,24 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
 # if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
+#  ifdef ENABLE_QAT_HW_SM2
+    if (curve_name  == NID_sm2 || curve_name == NID_sm3) {
+        DUMP_EC_SM2_POINT_MULTIPLY(qat_instance_handles[inst_num], psm2OpData, pResultX, pResultY);
+        status = cpaCyEcsm2PointMultiply(qat_instance_handles[inst_num],
+                                             qat_ecCallbackFn,
+                                             &op_done,
+                                             psm2OpData,
+                                             &bEcStatus, pResultX, pResultY);
+    }
+#  endif
+    if (!sm2_flag) {
         DUMP_EC_GENERIC_POINT_MULTIPLY(qat_instance_handles[inst_num], pOpData, pResultX, pResultY);
         status = cpaCyEcGenericPointMultiply(qat_instance_handles[inst_num],
                                              qat_ecCallbackFn,
                                              &op_done,
                                              pOpData,
                                              &bEcStatus, pResultX, pResultY);
+    }
 # else
         DUMP_EC_POINT_MULTIPLY(qat_instance_handles[inst_num], opData, pResultX, pResultY);
         status = cpaCyEcPointMultiply(qat_instance_handles[inst_num],
@@ -657,16 +711,28 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     }
 
 # if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
-    if (pOpData) {
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(pOpData->k);
-        QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);
-        QAT_CHK_QMFREE_FLATBUFF(pOpData->yP);
-        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.a);
-        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.b);
-        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.p);
-        QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.h);
-        QAT_QMEMFREE_BUFF(pOpData->pCurve);
-        OPENSSL_free(pOpData);
+#  ifdef ENABLE_QAT_HW_SM2
+    if (curve_name  == NID_sm2 || curve_name == NID_sm3) {
+        if (psm2OpData) {
+            QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(psm2OpData->k);
+            QAT_CHK_QMFREE_FLATBUFF(psm2OpData->x);
+            QAT_CHK_QMFREE_FLATBUFF(psm2OpData->y);
+            OPENSSL_free(psm2OpData);
+        }
+     }
+#  endif
+    if (!sm2_flag) {
+        if (pOpData) {
+            QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(pOpData->k);
+            QAT_CHK_QMFREE_FLATBUFF(pOpData->xP);
+            QAT_CHK_QMFREE_FLATBUFF(pOpData->yP);
+            QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.a);
+            QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.b);
+            QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.p);
+            QAT_CHK_QMFREE_FLATBUFF(pOpData->pCurve->parameters.weierstrassParameters.h);
+            QAT_QMEMFREE_BUFF(pOpData->pCurve);
+            OPENSSL_free(pOpData);
+        }
     }
 # else
     if (opData) {

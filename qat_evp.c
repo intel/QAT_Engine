@@ -70,6 +70,7 @@
 # include "qat_hw_sha3.h"
 # include "qat_hw_chachapoly.h"
 # include "qat_hw_sm3.h"
+# include "qat_hw_sm2.h"
 # endif /* QAT_BORINGSSL */
 #endif
 
@@ -87,6 +88,7 @@
 # include "qat_sw_ec.h"
 # include "qat_sw_rsa.h"
 # include "qat_sw_sm3.h"
+# include "qat_sw_sm2.h"
 # ifndef QAT_BORINGSSL
 # include "qat_sw_sm4_cbc.h"
 # endif /* QAT_BORINGSSL */
@@ -193,7 +195,7 @@ int qat_evp_nids[] = {
 # ifdef ENABLE_QAT_HW_ECX
     EVP_PKEY_X448,
 # endif
-# ifdef ENABLE_QAT_SW_SM2
+# if defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_HW_SM2)
     EVP_PKEY_SM2
 # endif
 };
@@ -293,6 +295,11 @@ const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
 static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
+
+#if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
+static EVP_PKEY_METHOD *_hidden_sm2_pmeth = NULL;
+const EVP_PKEY_METHOD *sw_sm2_pmeth = NULL;
+#endif
 
 const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 {
@@ -663,9 +670,9 @@ static EVP_PKEY_METHOD *qat_create_pkey_meth(int nid)
         return qat_x448_pmeth();
 #endif
 
-#ifdef ENABLE_QAT_SW_SM2
+#if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
     case EVP_PKEY_SM2:
-      return mb_sm2_pmeth();
+      return qat_create_sm2_pmeth();
 #endif
 
     default:
@@ -1046,6 +1053,127 @@ const EVP_CIPHER *qat_create_sm4_ccm_cipher_meth(int nid, int keylen)
     return c;
 }
 #endif /* ENABLE_QAT_SW_SM4_CCM */
+
+#if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
+
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+static int pkey_ec_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
+{
+    int (*pkeygen) (EVP_PKEY_CTX *ctx, EVP_PKEY *pkey) = NULL;
+    if ((sw_sm2_pmeth = EVP_PKEY_meth_find(EVP_PKEY_EC)) == NULL) {
+        WARN("Failed to generate hw_pmeth\n");
+        return -1;
+    }
+
+    EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &pkeygen);
+    pkeygen(ctx, pkey);
+    *(int *)pkey = EVP_PKEY_SM2;
+    return 1;
+}
+#endif
+
+EVP_PKEY_METHOD *qat_create_sm2_pmeth(void)
+{
+
+#if defined(ENABLE_QAT_HW_SM2) && defined(QAT_NTLS)
+    int (*pencrypt)(EVP_PKEY_CTX *ctx,
+                unsigned char *out, size_t *outlen,
+                const unsigned char *in, size_t inlen) = NULL;
+
+    int (*pdecrypt)(EVP_PKEY_CTX *ctx,
+                unsigned char *out, size_t *outlen,
+                const unsigned char *in, size_t inlen) = NULL;
+#endif
+
+    if (_hidden_sm2_pmeth && (qat_hw_sm2_offload || qat_sw_sm2_offload)) {
+        if (!qat_reload_algo)
+            return _hidden_sm2_pmeth;
+        EVP_PKEY_meth_free(_hidden_sm2_pmeth);
+    }
+
+#ifndef QAT_OPENSSL_PROVIDER
+    if (sw_sm2_pmeth && !qat_hw_sm2_offload && !qat_reload_algo)
+        return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
+
+    if ((_hidden_sm2_pmeth = EVP_PKEY_meth_new(EVP_PKEY_SM2, 0)) == NULL) {
+        WARN("Failed to generate pmeth\n");
+        return NULL;
+    }
+# ifndef QAT_OPENSSL_3
+    if ((sw_sm2_pmeth = EVP_PKEY_meth_find(EVP_PKEY_SM2)) == NULL) {
+        WARN("Failed to generate sw_pmeth\n");
+        return NULL;
+    }
+# endif
+# ifdef ENABLE_QAT_HW_SM2
+    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_SM2)) {
+        EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, qat_sm2_init);
+# ifdef QAT_OPENSSL_3 /* Only used for OpenSSL 3 legacy engine API */
+        EVP_PKEY_meth_set_keygen(_hidden_sm2_pmeth, NULL, pkey_ec_keygen);
+# endif
+        EVP_PKEY_meth_set_copy(_hidden_sm2_pmeth, qat_sm2_copy);
+        EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, qat_sm2_cleanup);
+        EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, qat_sm2_ctrl, NULL);
+        EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth,
+                                        qat_sm2_digest_custom);
+        EVP_PKEY_meth_set_sign(_hidden_sm2_pmeth, NULL, qat_sm2_sign);
+        EVP_PKEY_meth_set_verify(_hidden_sm2_pmeth, NULL, qat_sm2_verify);
+#  ifdef QAT_NTLS
+        EVP_PKEY_meth_get_encrypt((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &pencrypt);
+        EVP_PKEY_meth_get_decrypt((EVP_PKEY_METHOD *)sw_sm2_pmeth, NULL, &pdecrypt);
+
+        EVP_PKEY_meth_set_encrypt(_hidden_sm2_pmeth, NULL, pencrypt);
+        EVP_PKEY_meth_set_decrypt(_hidden_sm2_pmeth, NULL, pdecrypt);
+#  endif
+        qat_hw_sm2_offload = 1;
+        DEBUG("QAT HW SM2 registration succeeded\n");
+    } else {
+        qat_hw_sm2_offload = 0;
+        DEBUG("QAT HW SM2 disabled\n");
+    }
+# endif /* ENABLE_QAT_HW_SM2 */
+
+#ifdef ENABLE_QAT_SW_SM2
+    if (qat_sw_offload && !qat_hw_sm2_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
+        mbx_get_algo_info(MBX_ALGO_X25519)) {
+        EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
+# ifdef QAT_OPENSSL_3 /* Only used for OpenSSL 3 legacy engine API */
+        EVP_PKEY_meth_set_keygen(_hidden_sm2_pmeth, NULL, pkey_ec_keygen);
+# endif
+        EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
+        EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
+        EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth, mb_digest_custom);
+        EVP_PKEY_meth_set_digestsign(_hidden_sm2_pmeth, mb_ecdsa_sm2_sign);
+        EVP_PKEY_meth_set_digestverify(_hidden_sm2_pmeth, mb_ecdsa_sm2_verify);
+        qat_sw_sm2_offload = 1;
+        DEBUG("QAT SW SM2 registration succeeded\n");
+    } else {
+        qat_sw_sm2_offload = 0;
+        DEBUG("QAT SW SM2 disabled\n");
+    }
+
+    if (!qat_sw_sm2_offload && !qat_hw_sm2_offload) {
+        DEBUG("OpenSSL SW SM2\n");
+# ifndef QAT_OPENSSL_3
+        return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
+# else
+        /* Although QAT Engine supports software fallback to the default provider when
+        * using the OpenSSL 3 legacy engine API, if it fails during the registration
+        * phase, the pkey method cannot be set correctly because the OpenSSL3 legacy
+        * engine framework no longer provides a standard method for HKDF, PRF and SM2.
+        * So it will just return NULL.
+        * https://github.com/openssl/openssl/issues/19047
+        */
+        WARN("SM2 PKEY methods registration failed with OpenSSL 3.\n");
+        return NULL;
+# endif
+    }
+# endif /* ENABLE_QAT_SW_SM2 */
+#endif    /* QAT_OPENSSL_PROVIDER */
+    return _hidden_sm2_pmeth;
+}
+#endif
 
 void qat_create_ciphers(void)
 {

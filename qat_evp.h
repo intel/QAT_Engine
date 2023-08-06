@@ -149,6 +149,11 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 int qat_sw_sm4_ccm_cleanup(EVP_CIPHER_CTX *ctx);
 # endif
 
+# if defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_HW_SM2)
+extern const EVP_PKEY_METHOD *sw_sm2_pmeth;
+EVP_PKEY_METHOD *qat_create_sm2_pmeth(void);
+# endif
+
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
 EVP_PKEY_METHOD *qat_prf_pmeth(void);
