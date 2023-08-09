@@ -1061,7 +1061,7 @@ int bind_qat(ENGINE *e, const char *id)
 
     /* For QAT_HW, Check if the QAT_HW device is available */
 #ifdef QAT_HW
-# if defined(QAT20_OOT) || defined(__FreeBSD__)
+# if !defined(QAT_HW_INTREE) && (defined(QAT20_OOT) || defined(__FreeBSD__))
     if (icp_adf_get_numDevices(&dev_count) == CPA_STATUS_SUCCESS) {
         if (dev_count > 0) {
             qat_hw_offload = 1;

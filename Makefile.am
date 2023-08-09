@@ -222,3 +222,29 @@ intkat:
 endif
 include test.am
 
+if QAT_HW
+depend: OpenSSL qat_hw_driver
+endif
+if QAT_SW
+depend: OpenSSL ipsec_mb crypto_mb
+endif
+OpenSSL:
+	cd openssl && ./config -Wl,-rpath,$(with_openssl_install_dir)/lib64 --prefix=$(with_openssl_install_dir) && make clean && make -j$(nproc) && make install -j$(nproc)
+
+if QAT_HW
+qat_hw_driver:
+	bash ./driver_install.sh $(with_qat_hw_dir)
+if QAT_4XXX
+if !QAT_HW_INTREE
+cflags_qat_hw += "-DQAT20_OOT"
+endif
+endif
+endif
+
+if QAT_SW
+ipsec_mb:
+	cd intel-ipsec-mb && make uninstall && make clean && make -j$(nproc) && make install -j$(nproc)
+
+crypto_mb:
+	cd ipp-crypto/sources/ippcp/crypto_mb && rm -rf build && cmake . -B"build" -DOPENSSL_INCLUDE_DIR=$(with_openssl_install_dir)/include -DOPENSSL_LIBRARIES=$(with_openssl_install_dir) -DOPENSSL_ROOT_DIR=$(PWD)/openssl && cd build && make clean && make -j$(nproc) && make install -j$(nproc)
+endif
