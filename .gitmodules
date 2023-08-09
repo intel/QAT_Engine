@@ -1,0 +1,9 @@
+[submodule "openssl"]
+	path = openssl
+	url = https://github.com/openssl/openssl.git
+[submodule "intel-ipsec-mb"]
+	path = intel-ipsec-mb
+	url = https://github.com/intel/intel-ipsec-mb.git
+[submodule "ipp-crypto"]
+	path = ipp-crypto
+	url = https://github.com/intel/ipp-crypto

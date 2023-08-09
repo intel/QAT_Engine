@@ -325,6 +325,7 @@ then
     AC_MSG_NOTICE([QAT intree driver using QATlib in ${with_qat_hw_dir}])
   fi
 fi
+AM_CONDITIONAL([QAT_HW_INTREE], [test "x$cflags_qat_hw_intree" != "x"])
 
 # ERROR message if mandatory options are not provided
 if test "x$cflags_qat_hw_intree" = "x"
@@ -357,9 +358,14 @@ then
     fi
   else
     ac_default_prefix=$with_openssl_install_dir
-    #OPENSSL 3.0
-    if test "`grep "define OPENSSL_VERSION_MAJOR" $with_openssl_install_dir/include/openssl/opensslv.h | awk '{print $4}'`" = "3"
+    if test "`grep "define OPENSSL_VERSION_NUMBER  0x1010"  $with_openssl_install_dir/include/openssl/opensslv.h | wc -l`" = "1"
     then
+      #OPENSSL 1.1.1
+      AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.1])
+      libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
+      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
+    else
+      #OPENSSL 3.0
       if test "x$enable_qat_provider" = "xyes"
       then
         AC_MSG_NOTICE([Build QAT Provider against OpenSSL 3.0])
@@ -373,11 +379,6 @@ then
         AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
         AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
       fi
-    else
-      #OPENSSL 1.1.1
-      AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.1])
-      libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
-      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
     fi
   fi
   AC_SUBST([includes_openssl], ["-I\$(with_openssl_install_dir)/include"])
@@ -387,16 +388,18 @@ else
   AS_IF([test "x$PKGCONFIG" = "x"], [AC_MSG_ERROR(pkg-config not found.)], )
   libdir="`pkg-config --variable=enginesdir libcrypto`"
   includes_openssl="`pkg-config --variable=includedir libcrypto`"
-  if test "`grep "define OPENSSL_VERSION_MAJOR" $includes_openssl/openssl/opensslv.h | awk '{print $4}'`" = "3"
+  if test "`grep "define OPENSSL_VERSION_NUMBER  0x1010" $includes_openssl/openssl/opensslv.h | wc -l`" = "1"
   then
+      AC_MSG_NOTICE([Build QAT Engine against system OpenSSL 1.1.1])
+  else
     if test "x$enable_qat_provider" = "xyes"
     then
-      AC_MSG_NOTICE([Build QAT Provider against OpenSSL 3.0])
+      AC_MSG_NOTICE([Build QAT Provider against system OpenSSL 3.0])
       AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED -DQAT_OPENSSL_PROVIDER"])
       openssl3_lib="`pkg-config --variable=libdir libcrypto`"
       libdir="\$(openssl3_lib)/ossl-modules"
     else
-      AC_MSG_NOTICE([Build QAT Engine against OpenSSL 3.0])
+      AC_MSG_NOTICE([Build QAT Engine against system OpenSSL 3.0])
       AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
       libdir="`pkg-config --variable=enginesdir libcrypto`"
     fi
@@ -424,6 +427,11 @@ then
   fi
 fi
 AM_CONDITIONAL([QAT_HW], [test "x$cflags_qat_hw" != "x"])
+case "$host_os" in
+linux*)
+    AS_IF([test `lspci -vnd 8086: | grep -c 4940` != "0"], [AC_SUBST([enable_qat20_oot], ["-DQAT20_OOT"])])
+esac
+AM_CONDITIONAL([QAT_4XXX], [test "x$enable_qat20_oot" != "x"])
 
 # QAT_SW acceleration enabled
 if test "x$enable_qat_sw" = "xyes"
@@ -445,6 +453,7 @@ then
                    [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lcrypto_mb"])],
                    [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
     fi
+    AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
   fi
 
 #IPSEC_MB install path provided

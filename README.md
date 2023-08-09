@@ -42,6 +42,8 @@ Installation consists of the following:
 <details>
 <summary markdown="span">Install Prerequisites</summary>
 
+<br> Switch to Build the Intel® QuickAssist Technology OpenSSL* Engine - Example 5  and use the `make depend` target to clone and build the latest compatible versions of the dependant libraries automatically based on the target in the QAT Engine build configure.
+
 <details>
 <summary markdown="span">qat_hw Prerequisites </summary>
 
@@ -393,6 +395,42 @@ in the config flag `--with-qat_sw_crypto_mb_install_dir` (for crypto_mb) and
 is not installed then their corresponding algorithm support is disabled
 (crypto_mb library for PKE algorithms and IPSec_mb library for AES-GCM).
 <br><br>
+</details>
+
+<details>
+<summary>Example 5: Using `make depend` for building dependant libraries and build QAT Engine
+<br>
+
+This QAT Engine supports building and installing the dependant libraries automatically when
+the make option `make depend` is specified before make which clones the latest release of
+dependant libraries (OpenSSL, QAT_HW(QAT1.7, QAT1.8 & QAT2.0 OOT Linux driver),
+QAT_SW(ipp-crypto & ipsec_mb) based on the flags enabled in the QAT Engine build configure.
+
+```bash
+cd /QAT_Engine
+git submodule update --init
+./configure \
+--with-qat_hw_dir=/QAT \  #For QAT_HW supported platforms
+--enable-qat_sw \ #For QAT_SW supported platforms
+--with-openssl_install_dir=/usr/local/ssl # OpenSSL install path
+make depend
+make
+make install
+```
+
+In the above example this will clone and install QAT Engine(qat_hw + qat_sw)
+along with their dependant libraries installed in the path specifed for QAT_HW
+and default path for QAT_SW (`/usr/local` for ipp-crypto & `/usr` for ipsec_mb) with
+qatengine.so library installed in the path `/usr/local/ssl/lib64/engines-3`.
+The dependant libaries are built and installed based on the QAT Engine build configure
+flags provided for qat_hw, qat_sw or qat_hw + qat_sw target using OpenSSL3.0.
+
+Please note `make depend` target is not supported in FreeBSD OS, Virtualized environment,
+BoringSSL, BabaSSL and qatlib dependency build. The Dependant library versions used are updated in
+[Software Requirements section](https://github.com/intel/QAT_Engine/blob/master/docs/software_requirements.md)
+and OpenSSL version is latest of 3.0
+
+<br>
 </details>
 
 <details>

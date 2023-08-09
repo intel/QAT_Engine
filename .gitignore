@@ -17,6 +17,8 @@ TAGS
 cscope.out
 /.dir-locals.el
 testapp.log
+QAT_HW.tar.gz
+QAT_HW/
 
 # Top level and qat_contig_mem excludes
 *.mod*
