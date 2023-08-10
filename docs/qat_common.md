@@ -17,6 +17,16 @@ The default behavior can be changed using corresponding algorithm's enable
 flags (eg:--enable-qat_sw_rsa) in which case the individual algorithms enabled
 (either qat_hw or qat_sw) in the build configure will get accelerated.
 
+For the algorithms RSA2K/3K/4K, ECDHP256/P384/X25519 & ECDSAP384 to reach
+better performance, QAT Engine uses both QAT_HW and QAT_SW for acceleration
+when QAT_HW capacity is reached with co-existence build. The Control flow is
+mentioned in the Figure below.
+
+<p align=center>
+<img src="images/qat_coex.png" alt="drawing" width="300"/>
+</p>
+
+
 ## Run time Co-existence configuration using HW & SW algorithm bitmap
 Intel&reg; QAT OpenSSL\* Engine supports a runtime mechanism to dynamically choose
 the QAT_HW or QAT_SW or both for each algorithm, using QAT_HW and QAT_SW dependent
@@ -35,7 +45,7 @@ and the bit map of each algorithm is defined below:
 | ECX448 | 0x00040 | HW |
 | PRF | 0x00080 | HW |
 | HKDF | 0x00100 | HW |
-| SM2(ECDSA) | 0x00200 | SW |
+| SM2(ECDSA) | 0x00200 | HW > SW |
 | AES_GCM | 0x00400 | Both (SW > HW) |
 | AES_CBC_HMAC_SHA | 0x00800 | HW |
 | SM4_CBC | 0x01000 | Both (HW > SW) |
@@ -164,7 +174,7 @@ self tests, integrity tests and will satisfy other FIPS 140-3 CMVP & CAVP
 requirements. The FIPS is build as RPM using the specfile fips/qatengine_fips.spec
 with QAT_HW & QAT_SW Coexistence enabled along with other flags enabled.
 
-Please note that the version v1.2.0 is only satisfying FIPS 140-3 Level-1
+Please note that the version v1.3.0 is only satisfying FIPS 140-3 Level-1
 certification requirements and not FIPS certified yet.
 The FIPS 140-3 certification is under process.
 

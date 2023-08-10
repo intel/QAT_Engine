@@ -527,7 +527,8 @@ should follow the procedure below to install it:
 ## Test the Intel&reg; QuickAssist Technology OpenSSL\* Engine
 
 Run this command to verify the Intel&reg; QAT OpenSSL\* Engine is loaded
-correctly:
+correctly: This should not be used to determine QAT Engine capabilities as
+it will not display all the algorithms that are supported in QAT Engine.
 
 ```text
 cd /path/to/openssl_install/bin

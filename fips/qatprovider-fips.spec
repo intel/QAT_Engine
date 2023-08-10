@@ -201,5 +201,8 @@ rm -rf %{buildroot}
 %{_includedir}/crypto_mb/sm4_gcm.h
 
 %changelog
+* Wed Aug 09 2023 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 1.3.0-1
+- Update to v1.3.0
+
 * Wed Jun 14 2023 Ponnam Srinivas <ponnamsx.srinivas@intel.com> - 1.2.0-1
 - Initial Version of RPM for QAT Provider with FIPS Support.
