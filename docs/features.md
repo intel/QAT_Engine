@@ -30,6 +30,7 @@
   *  SM4-CBC (Not supported in qatlib)
   *  SHA3-224/256/384/512
   *  ChaCha20-Poly1305
+  *  SM2 (Not supported in qatlib)
   *  SM3 (Not supported in qatlib)
 
 Please refer [here](qat_hw_algo.md) for supported platforms list and default behaviour.

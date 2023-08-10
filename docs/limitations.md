@@ -80,6 +80,10 @@
   OpenSSL at higher thread counts can produce *worse* performance, due to issues in the way OpenSSL
   handles higher thread counts. Check for `native_queued_spin_lock_slowpath()` consuming CPU process 
   idle time, and see the OpenSSL GitHub issues and web articles below.
+* Nginx Handshake Performance in OpenSSL3.0 is slightly slower compared to OpenSSL 1.1.1. The same
+  behaviour is observed in OpenSSL_SW as well. PRF and HKDF are not offloaded via QAT Engine due to
+  the issue [OpenSSL#21622][5]
+* Performance scaling is not linear in QAT2.0 supported platforms in ECDSA and chacha-poly algorithms.
   
   Articles:
 
@@ -93,3 +97,4 @@
 [2]:https://github.com/openssl/openssl/issues/18298
 [3]:https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127
 [4]:https://github.com/openssl/openssl/issues/18509
+[5]:https://github.com/openssl/openssl/issues/21622
