@@ -256,6 +256,9 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
     const EVP_MD *md;
     size_t mdlen;
     int ret = 0;
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
     if (!qat_prov_is_running() || !qat_kdf_tls1_3_set_ctx_params(ctx, params))
         goto end;
 
@@ -323,6 +326,9 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
     ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
 
 end:
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 0;
+#endif
     return ret;
 }
 

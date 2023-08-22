@@ -163,13 +163,13 @@ int qat_fips_kat_test;
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.3.0";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.3.1";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v1.3.0";
+    "Reference implementation of QAT crypto engine(qat_hw) v1.3.1";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v1.3.0";
+    "Reference implementation of QAT crypto engine(qat_sw) v1.3.1";
 #endif
 unsigned int engine_inited = 0;
 int fallback_to_openssl = 0;
