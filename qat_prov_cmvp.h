@@ -59,7 +59,7 @@
 
 #define QAT_FIPS_PROVIDER_NAME "QAT Provider FIPS"
 #define QAT_FIPS_PROVIDER_ID "qatprovider"
-#define QAT_FIPS_PROVIDER_VERSION "QAT Engine v1.3.0"
+#define QAT_FIPS_PROVIDER_VERSION "QAT Engine v1.3.1"
 #ifdef QAT_HW
 #define QAT_HW_DRIVER_version "QAT20.l.1.0.40-00004"
 #endif

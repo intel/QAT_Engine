@@ -1085,10 +1085,6 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     CRYPTO_QAT_LOG("CIPHER - %s\n", __func__);
 
-#ifdef ENABLE_QAT_FIPS
-    qat_fips_get_approved_status();
-#endif
-
     /* Encrypt/decrypt must be performed in place */
     if (NULL == in ||
         out != in ||
@@ -1425,6 +1421,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_QCTX_NULL);
         return RET_FAIL;
     }
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
 
 #ifdef QAT_OPENSSL_PROVIDER
     enc = QAT_GCM_GET_ENC(qctx);

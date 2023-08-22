@@ -174,12 +174,12 @@ self tests, integrity tests and will satisfy other FIPS 140-3 CMVP & CAVP
 requirements. The FIPS is build as RPM using the specfile fips/qatengine_fips.spec
 with QAT_HW & QAT_SW Coexistence enabled along with other flags enabled.
 
-Please note that the version v1.3.0 is only satisfying FIPS 140-3 Level-1
+Please note that the version v1.3.1 is only satisfying FIPS 140-3 Level-1
 certification requirements and not FIPS certified yet.
 The FIPS 140-3 certification is under process.
 
 ## Support Algorithms in FIPS mode
 | Mode | Algorithms |
 | :---: | :---: |
-| QAT_HW | RSA, ECDSA, ECDH, ECDHX25519, ECDHX448, DSA, DH, TLS1.2-KDF(PRF), SHA3 & AES-GCM |
+| QAT_HW | RSA, ECDSA, ECDH, ECDHX25519, ECDHX448, DSA, DH, TLS1.2-KDF(PRF), TLS1.3-KDF(HKDF), SHA3 & AES-GCM |
 | QAT_SW | RSA, ECDSA, ECDH, ECDHX25519, SHA2 & AES-GCM |

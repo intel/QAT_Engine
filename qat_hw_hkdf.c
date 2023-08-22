@@ -70,9 +70,17 @@
 # include "qat_hw_usdm_inf.h"
 #endif
 
+#ifdef ENABLE_QAT_FIPS
+# include "qat_prov_cmvp.h"
+#endif
+
 #include "cpa.h"
 #include "cpa_types.h"
 #include "cpa_cy_key.h"
+
+#ifdef ENABLE_QAT_FIPS
+extern int qat_fips_key_zeroize;
+#endif
 
 /* These limits are based on QuickAssist limits.
  * OpenSSL is more generous but better to restrict and fail
@@ -217,6 +225,9 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
 ******************************************************************************/
 void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
 {
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 0;
+#endif
     QAT_HKDF_CTX *qat_hkdf_ctx = NULL;
 #ifndef QAT_OPENSSL_3
     void (*sw_cleanup_fn_ptr)(EVP_PKEY_CTX *) = NULL;
@@ -271,8 +282,11 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
     OPENSSL_free(qat_hkdf_ctx);
     EVP_PKEY_CTX_set_data(ctx, NULL);
 
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_key_zeroize = 1;
+    qat_fips_get_key_zeroize_status();
+#endif
 }
-
 
 /******************************************************************************
 * function:
@@ -735,6 +749,9 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     DEBUG("QAT HW HKDF Started\n");
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_get_approved_status();
+#endif
     qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(ctx);
     if (qat_hkdf_ctx == NULL) {
         WARN("qat_hkdf_ctx is NULL\n");

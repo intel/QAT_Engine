@@ -11,7 +11,7 @@ cp -f /lib/firmware/qat_4xxx.bin $OPENSSL_ENGINES/
 cp -f /lib/firmware/qat_4xxx_mmp.bin $OPENSSL_ENGINES/
 cp -f /usr/lib64/libIPSec_MB.so $OPENSSL_ENGINES/
 cp -f /usr/lib64/libcrypto_mb.so $OPENSSL_ENGINES/
-./configure --with-qat_hw_dir=$ICP_ROOT --with-openssl_install_dir=$OPENSSL_LIB --enable-qat_sw --enable-qat_provider --enable-qat_hw_sha3 --enable-qat_hw_gcm --enable-qat_fips --enable-qat_insecure_algorithms --disable-qat_sw_sm2 --disable-qat_hw_ciphers
+./configure --with-qat_hw_dir=$ICP_ROOT --with-openssl_install_dir=$OPENSSL_LIB --enable-qat_sw --enable-qat_provider --enable-qat_hw_sha3 --enable-qat_hw_gcm --enable-qat_hw_hkdf --enable-qat_fips --enable-qat_insecure_algorithms --disable-qat_sw_sm2 --disable-qat_hw_ciphers
 make clean
 make -j 30
 make install
@@ -36,7 +36,7 @@ cp -f /usr/lib64/libusdm_drv_s.so $OPENSSL_ENGINES/
 cp -f /usr/lib64/libqat_s.so $OPENSSL_ENGINES/
 cp -f /lib/firmware/qat_4xxx.bin $OPENSSL_ENGINES/
 cp -f /lib/firmware/qat_4xxx_mmp.bin $OPENSSL_ENGINES/
-./configure --with-qat_hw_dir=$ICP_ROOT --with-openssl_install_dir=$OPENSSL_LIB --enable-qat_provider --enable-qat_hw_sha3 --enable-qat_hw_gcm --enable-qat_fips --enable-qat_insecure_algorithms --disable-qat_hw_ciphers
+./configure --with-qat_hw_dir=$ICP_ROOT --with-openssl_install_dir=$OPENSSL_LIB --enable-qat_provider --enable-qat_hw_sha3 --enable-qat_hw_gcm --enable-qat_hw_hkdf --enable-qat_fips --enable-qat_insecure_algorithms --disable-qat_hw_ciphers
 else
 cp -f /usr/lib64/libIPSec_MB.so $OPENSSL_ENGINES/
 cp -f /usr/lib64/libcrypto_mb.so $OPENSSL_ENGINES/
