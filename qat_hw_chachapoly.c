@@ -612,10 +612,11 @@ static int qat_chacha20_poly1305_init(EVP_CIPHER_CTX *ctx,
     return ret;
 
 init_err:
-    if (cp_ctx->opd->pIv)
-        qaeCryptoMemFreeNonZero(cp_ctx->opd->pIv);
-    if (cp_ctx->opd)
+    if (cp_ctx->opd) {
+        if (cp_ctx->opd->pIv)
+            qaeCryptoMemFreeNonZero(cp_ctx->opd->pIv);
         OPENSSL_clear_free(cp_ctx->opd, sizeof(template_opData));
+    }
     if (cp_ctx->session_data != NULL) {
         OPENSSL_free(cp_ctx->session_data);
         cp_ctx->session_data = NULL;

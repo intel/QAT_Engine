@@ -1495,6 +1495,12 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             if (vtls >= TLS1_VERSION)
                 plen = GET_TLS_PAYLOAD_LEN(tls_hdr) - plen_adj;
 
+            if (plen  > buflen) {
+                WARN("plen %d > buflen %d\n", plen, buflen);
+                error = 1;
+                break;
+            }
+
             /* Compute the padding length using total buffer length, payload
              * length, digest length and a byte to encode padding len.
              */
@@ -1611,8 +1617,14 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         memcpy(d_fbuf[1].pData, inb, buflen - discardlen);
 
         if (enc) {
+            i = plen + dlen;
+            if (i > buflen) {
+                WARN("plen %d or dlen %d out of range, buflen %d\n", plen, dlen, buflen);
+                error = 1;
+                break;
+            }
             /* Add padding to input buffer at end of digest */
-            for (i = plen + dlen; i < buflen; i++)
+            for (; i < buflen; i++)
                 d_fbuf[1].pData[i] = pad_len;
         } else {
             /* store IV for next cbc operation */
