@@ -36,24 +36,26 @@
  * ====================================================================
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+# include <stdio.h>
+# include <stdlib.h>
+# include <string.h>
 
-#include <openssl/evp.h>
-#include <openssl/engine.h>
-#include <openssl/ssl.h>
-#include <openssl/kdf.h>
-#include "tests.h"
-#include "../qat_utils.h"
+# include <openssl/evp.h>
+# include <openssl/engine.h>
+# include <openssl/ssl.h>
+# include <openssl/kdf.h>
+# include <openssl/core_names.h>
+# include "tests.h"
+# include "../qat_utils.h"
 
-#define OUTPUT_LEN 32
-#define SEED_LEN 13
-#define SECRET_LEN 22
-#define INFO_LEN 10
-#define HASH_SIZE_SHA256 32
-#define HASH_SIZE_SHA384 48
+# define OUTPUT_LEN 32
+# define SEED_LEN 13
+# define SECRET_LEN 22
+# define INFO_LEN 10
+# define HASH_SIZE_SHA256 32
+# define HASH_SIZE_SHA384 48
 
+/* HKDF data */
 static const unsigned char hkdf_salt[] = {
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
     0x08, 0x09, 0x0a, 0x0b, 0x0c
@@ -66,7 +68,7 @@ static const unsigned char hkdf_secret[] = {
 };
 
 unsigned char info[] = {
-    0xf0, 0xf1 ,0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
     0xf8, 0xf9
 };
 
@@ -100,6 +102,177 @@ static const unsigned char hkdf_extract_sha384[] = {
     0xEF, 0x68, 0xEC, 0xEB, 0x07, 0x2A, 0x5A, 0xDE
 };
 
+/* TLS13_KDF data */
+static const unsigned char tls13_kdf_key[] = {
+    0xF8, 0xAF, 0x6A, 0xEA, 0x2D, 0x39, 0x7B, 0xAF,
+    0x29, 0x48, 0xA2, 0x5B, 0x28, 0x34, 0x20, 0x06,
+    0x92, 0xCF, 0xF1, 0x7E, 0xEE, 0x91, 0x65, 0xE4,
+    0xE2, 0x7B, 0xAB, 0xEE, 0x9E, 0xDE, 0xFD, 0x05
+};
+
+static const unsigned char tls13_kdf_extract_out[] = {
+    0x15, 0x3B, 0x63, 0x94, 0xA9, 0xC0, 0x3C, 0xF3,
+    0xF5, 0xAC, 0xCC, 0x6E, 0x45, 0x5A, 0x76, 0x93,
+    0x28, 0x11, 0x38, 0xA1, 0xBC, 0xFA, 0x38, 0x03,
+    0xC2, 0x67, 0x35, 0xDD, 0x11, 0x94, 0xD2, 0x16
+};
+
+static const unsigned char tls13_kdf_prefix[] = {
+    0x74, 0x6C, 0x73, 0x31, 0x33, 0x20 /* "tls13 " */
+};
+
+/* client_hello_hash tls13_kdf_data*/
+static const unsigned char tls13_kdf_data[] = {
+    0x7c, 0x92, 0xf6, 0x8b, 0xd5, 0xbf, 0x36, 0x38,
+    0xea, 0x33, 0x8a, 0x64, 0x94, 0x72, 0x2e, 0x1b,
+    0x44, 0x12, 0x7e, 0x1b, 0x7e, 0x8a, 0xad, 0x53,
+    0x5f, 0x23, 0x22, 0xa6, 0x44, 0xff, 0x22, 0xb3
+};
+
+static const unsigned char tls13_kdf_label[] = {
+    0x63, 0x20, 0x65, 0x20, 0x74, 0x72, 0x61, 0x66,
+    0x66, 0x69, 0x63            /* "c e traffic" */
+};
+
+/* tls13_kdf_client_early_traffic_secret */
+static const unsigned char tls13_kdf_expand_secret[] = {
+    0xC8, 0x05, 0x83, 0xA9, 0x0E, 0x99, 0x5C, 0x48,
+    0x96, 0x00, 0x49, 0x2A, 0x5D, 0xA6, 0x42, 0xE6,
+    0xB1, 0xF6, 0x79, 0xBA, 0x67, 0x48, 0x28, 0x79,
+    0x2D, 0xF0, 0x87, 0xB9, 0x39, 0x63, 0x61, 0x71
+};
+
+static int qat_extract_expand(const EVP_MD *md, int mode,
+                              unsigned char *key, size_t key_len,
+                              unsigned char *out, size_t out_len)
+{
+    EVP_KDF *kdf;
+    EVP_KDF_CTX *kctx;
+    int ret = 0;
+    OSSL_PARAM params[8], *p = params;
+    kdf = EVP_KDF_fetch(NULL, "TLS13-KDF", NULL);
+    kctx = EVP_KDF_CTX_new(kdf);
+    if (kctx == NULL)
+        return 0;
+    EVP_KDF_free(kdf);
+    size_t mdlen = (size_t)EVP_MD_get_size(md);
+    const char *mdname = EVP_MD_get0_name(md);
+
+    if (mode == EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY) {
+        *p++ = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_MODE, &mode);
+        *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST,
+                                                (char *)mdname, 0);
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_KEY,
+                                                 (unsigned char *)key, key_len);
+        *p++ = OSSL_PARAM_construct_end();
+
+        ret = EVP_KDF_derive(kctx, out, mdlen, params);
+
+        if (ret != 0)
+            EVP_KDF_CTX_free(kctx);
+    }
+
+    if (mode == EVP_PKEY_HKDEF_MODE_EXPAND_ONLY) {
+        *p++ = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_MODE, &mode);
+        *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST,
+                                                (char *)mdname, 0);
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_KEY,
+                                                 (unsigned char *)key, key_len);
+
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_DATA,
+                                                 (unsigned char *)
+                                                 tls13_kdf_data,
+                                                 (size_t)
+                                                 sizeof(tls13_kdf_data));
+
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_PREFIX,
+                                                 (unsigned char *)
+                                                 tls13_kdf_prefix,
+                                                 (size_t)
+                                                 sizeof(tls13_kdf_prefix));
+
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_LABEL,
+                                                 (unsigned char *)
+                                                 tls13_kdf_label,
+                                                 (size_t)
+                                                 sizeof(tls13_kdf_label));
+        *p++ = OSSL_PARAM_construct_end();
+
+        ret = EVP_KDF_derive(kctx, out, mdlen, params);
+
+        if (ret != 0)
+            EVP_KDF_CTX_free(kctx);
+    }
+    return ret;
+}
+
+static int runTls13KdfOps(void *args)
+{
+    TEST_PARAMS *temp_args = (TEST_PARAMS *) args;
+    int print_output = temp_args->print_output;
+    char *digest_kdf = temp_args->digest_kdf;
+    const EVP_MD *md = NULL;
+    size_t mdlen;
+    int res = 0;
+
+    if (!strcmp(digest_kdf, "SHA256"))
+        md = EVP_sha256();
+    else if (!strcmp(digest_kdf, "SHA384"))
+        md = EVP_sha384();
+    else {
+        WARN("# FAIL: message digest is not supported!!\n");
+        return res;
+    }
+
+    mdlen = (size_t)EVP_MD_get_size(md);
+
+    /*extract output will store in tls13_kdf_early_secret */
+    unsigned char *tls13_kdf_early_secret = OPENSSL_zalloc(mdlen);
+
+    /*expand output will store in tls13_kdf_master_secret */
+    unsigned char *tls13_kdf_master_secret = OPENSSL_zalloc(mdlen);
+
+    res = qat_extract_expand(md, EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY,
+                             (unsigned char *)tls13_kdf_key,
+                             (size_t)sizeof(tls13_kdf_key),
+                             tls13_kdf_early_secret, mdlen);
+
+    if (!memcmp(tls13_kdf_early_secret, tls13_kdf_extract_out, mdlen)) {
+        res = qat_extract_expand(md, EVP_PKEY_HKDEF_MODE_EXPAND_ONLY,
+                                 tls13_kdf_early_secret, mdlen,
+                                 tls13_kdf_master_secret, mdlen);
+    }
+
+    if (memcmp(tls13_kdf_master_secret, tls13_kdf_expand_secret,
+               sizeof(tls13_kdf_expand_secret))) {
+        INFO("# FAIL verify for TLS13-KDF extract & expand.\n");
+        tests_hexdump("TLS13-KDF expand actual  :",
+                      tls13_kdf_master_secret, mdlen);
+        tests_hexdump("TLS13-KDF expand expected:",
+                      tls13_kdf_expand_secret, sizeof(tls13_kdf_expand_secret));
+
+        res = 0;
+    } else {
+        INFO("# PASS verify for TLS13-KDF extract & expand.\n");
+    }
+
+    if (print_output) {
+        tests_hexdump("TLS13-KDF extract key:", tls13_kdf_early_secret, mdlen);
+        tests_hexdump("TLS13-KDF expand key:", tls13_kdf_master_secret, mdlen);
+    }
+
+    if (tls13_kdf_master_secret) {
+        OPENSSL_free(tls13_kdf_master_secret);
+        tls13_kdf_master_secret = NULL;
+    }
+
+    if (tls13_kdf_early_secret) {
+        OPENSSL_free(tls13_kdf_early_secret);
+        tls13_kdf_early_secret = NULL;
+    }
+    return res;
+}
+
 static void populate_HKDF(char *digest_kdf, int operation,
                           unsigned char **salt, int *salt_len,
                           unsigned char **secret, int *secret_len,
@@ -112,7 +285,7 @@ static void populate_HKDF(char *digest_kdf, int operation,
     *salt_len = SEED_LEN;
     *masterSecretSize = OUTPUT_LEN;
 
-    switch(operation) {
+    switch (operation) {
     case EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND:
         WARN("# HKDF mode EXTRACT_AND_EXPAND.\n");
         if (!strcmp(digest_kdf, "SHA256"))
@@ -172,7 +345,7 @@ static int qat_HKDF(const EVP_MD *md, int mode,
         goto err;
     ret = 1;
 
-err:
+ err:
     if (ret == 0)
         WARN("# FAIL: performing qat_HKDF operations\n");
     EVP_PKEY_CTX_free(pctx);
@@ -181,7 +354,7 @@ err:
 
 static int runHkdfOps(void *args)
 {
-    TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
+    TEST_PARAMS *temp_args = (TEST_PARAMS *) args;
     int operation = temp_args->hkdf_op;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
@@ -211,13 +384,11 @@ static int runHkdfOps(void *args)
         populate_HKDF(digest_kdf, operation,
                       &salt, &salt_len,
                       &secret, &secret_len,
-                      &expectedMasterSecret,
-                      &masterSecretSize);
+                      &expectedMasterSecret, &masterSecretSize);
 
         res = qat_HKDF(md, operation,
                        salt, &salt_len,
-                       secret, &secret_len,
-                       masterSecret, masterSecretSize);
+                       secret, &secret_len, masterSecret, masterSecretSize);
 
         if ((verify && count == 0) || res == 0) {
             if (memcmp(masterSecret, expectedMasterSecret, masterSecretSize)) {
@@ -226,14 +397,15 @@ static int runHkdfOps(void *args)
                 tests_hexdump("HKDF expected:", expectedMasterSecret,
                               masterSecretSize);
                 res = 0;
-            }
-            else
+            } else {
                 INFO("# PASS verify for HKDF.\n");
+            }
 
             if (print_output)
                 tests_hexdump("HKDF master secret:", masterSecret,
                               masterSecretSize);
         }
+
         if (masterSecret) {
             OPENSSL_free(masterSecret);
             masterSecret = NULL;
@@ -257,25 +429,34 @@ void tests_run_hkdf(TEST_PARAMS *args)
 {
     int op = 0;
 
-    if (args->performance || args->hkdf_op != -1 ) {
+    if (args->performance || args->hkdf_op != -1) {
         /* Operation if not specified for performance tests */
         if (args->hkdf_op != -1)
             args->hkdf_op = 0;
-        if (!args->enable_async)
+        if (!args->enable_async) {
             runHkdfOps(args);
-        else
+            if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
+                runTls13KdfOps(args);
+        } else {
             start_async_job(args, runHkdfOps);
+            if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
+                start_async_job(args, runTls13KdfOps);
+        }
         return;
     }
     if (!args->enable_async) {
-        for (op = 0; op <= EVP_PKEY_HKDEF_MODE_EXPAND_ONLY ; op++) {
-             args->hkdf_op = op;
-             runHkdfOps(args);
+        for (op = 0; op <= EVP_PKEY_HKDEF_MODE_EXPAND_ONLY; op++) {
+            args->hkdf_op = op;
+            runHkdfOps(args);
         }
+        if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
+            runTls13KdfOps(args);
     } else {
-        for (op = 0; op <= EVP_PKEY_HKDEF_MODE_EXPAND_ONLY ; op++) {
-             args->hkdf_op = op;
-             start_async_job(args, runHkdfOps);
+        for (op = 0; op <= EVP_PKEY_HKDEF_MODE_EXPAND_ONLY; op++) {
+            args->hkdf_op = op;
+            start_async_job(args, runHkdfOps);
         }
+        if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
+            start_async_job(args, runTls13KdfOps);
     }
 }
