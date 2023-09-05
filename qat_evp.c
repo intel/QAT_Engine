@@ -972,14 +972,17 @@ const EVP_CIPHER *qat_create_sm4_gcm_cipher_meth(int nid, int keylen)
         }
         res &= EVP_CIPHER_meth_set_iv_length(c, QAT_SM4_TLS_TOTAL_IV_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, CUSTOM_FLAGS);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_init(c, qat_sw_sm4_gcm_init);
         res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sw_sm4_gcm_cipher);
         res &= EVP_CIPHER_meth_set_cleanup(c, qat_sw_sm4_gcm_cleanup);
+#endif
         res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(QAT_SM4_GCM_CTX));
         res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
         res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_ctrl(c, qat_sw_sm4_gcm_ctrl);
-
+#endif
         if (0 == res) {
             WARN("Failed to set cipher methods for nid %d\n", NID_sm4_gcm);
             EVP_CIPHER_meth_free(c);

@@ -152,6 +152,9 @@ extern const OSSL_DISPATCH qat_tls_prf_functions[];
 extern const OSSL_DISPATCH qat_sm2_signature_functions[];
 extern const OSSL_DISPATCH qat_sm2_keymgmt_functions[];
 #endif
+#ifdef ENABLE_QAT_SW_SM4_GCM
+extern const OSSL_DISPATCH qat_sm4_gcm_functions[];
+#endif
 
 QAT_PROV_PARAMS qat_params;
 
@@ -225,6 +228,9 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
     ALG(QAT_NAMES_CHACHA20_POLY1305, qat_chacha20_poly1305_functions),
 # endif /* ENABLE_QAT_HW_CHACHAPOLY */
+# ifdef ENABLE_QAT_SW_SM4_GCM
+    ALG(QAT_NAMES_SM4_GCM, qat_sm4_gcm_functions),
+# endif
     { { NULL, NULL, NULL }, NULL }};
 
 static OSSL_ALGORITHM qat_exported_ciphers[OSSL_NELEM(qat_deflt_ciphers)];

@@ -151,6 +151,7 @@ and the default if not specified will use engine interface.
 | SHA3-384 | QAT_HW |
 | SHA3-512 | QAT_HW |
 | ChachaPoly | QAT_HW |
+| SM4-GCM (BabaSSL only) | QAT_SW |
 
 This support is added as an experimental feature and tested with
 OpenSSL Speed and testapp only and not tested with any application.

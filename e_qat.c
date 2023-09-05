@@ -1284,6 +1284,11 @@ int bind_qat(ENGINE *e, const char *id)
     if (qat_hw_gcm_offload && !qat_sw_gcm_offload)
         INFO("QAT_HW GCM for Provider Enabled\n");
 # endif
+
+# ifdef ENABLE_QAT_SW_SM4_GCM
+    if (qat_sw_sm4_gcm_offload)
+        INFO("QAT_SW SM4-GCM for Provider Enabled\n");
+# endif
 #endif
 
 #ifndef QAT_BORINGSSL
