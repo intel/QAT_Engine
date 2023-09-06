@@ -94,10 +94,6 @@ struct test_params_t {
 };
 typedef struct test_params_t TEST_PARAMS;
 
-struct async_additional_args_dsa {
-    int local_verify;
-};
-
 #ifdef QAT_OPENSSL_3
 struct async_args_callback {
     int job_ready;

@@ -102,6 +102,7 @@ static const unsigned char hkdf_extract_sha384[] = {
     0xEF, 0x68, 0xEC, 0xEB, 0x07, 0x2A, 0x5A, 0xDE
 };
 
+#ifdef QAT_OPENSSL_3
 /* TLS13_KDF data */
 static const unsigned char tls13_kdf_key[] = {
     0xF8, 0xAF, 0x6A, 0xEA, 0x2D, 0x39, 0x7B, 0xAF,
@@ -272,6 +273,7 @@ static int runTls13KdfOps(void *args)
     }
     return res;
 }
+#endif
 
 static void populate_HKDF(char *digest_kdf, int operation,
                           unsigned char **salt, int *salt_len,
@@ -398,7 +400,17 @@ static int runHkdfOps(void *args)
                               masterSecretSize);
                 res = 0;
             } else {
-                INFO("# PASS verify for HKDF.\n");
+                switch(operation) {
+                case EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND:
+                    INFO("# PASS verify for HKDF extract & expand.\n");
+                    break;
+                case EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY:
+                    INFO("# PASS verify for HKDF extract.\n");
+                    break;
+                case EVP_PKEY_HKDEF_MODE_EXPAND_ONLY:
+                    INFO("# PASS verify for HKDF expand.\n");
+                    break;
+                }
             }
 
             if (print_output)
@@ -431,16 +443,20 @@ void tests_run_hkdf(TEST_PARAMS *args)
 
     if (args->performance || args->hkdf_op != -1) {
         /* Operation if not specified for performance tests */
-        if (args->hkdf_op != -1)
+        if (args->hkdf_op == -1)
             args->hkdf_op = 0;
         if (!args->enable_async) {
             runHkdfOps(args);
+#ifdef QAT_OPENSSL_3
             if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
                 runTls13KdfOps(args);
+#endif
         } else {
             start_async_job(args, runHkdfOps);
+#ifdef QAT_OPENSSL_3
             if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
                 start_async_job(args, runTls13KdfOps);
+#endif
         }
         return;
     }
@@ -449,14 +465,18 @@ void tests_run_hkdf(TEST_PARAMS *args)
             args->hkdf_op = op;
             runHkdfOps(args);
         }
+#ifdef QAT_OPENSSL_3
         if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
             runTls13KdfOps(args);
+#endif
     } else {
         for (op = 0; op <= EVP_PKEY_HKDEF_MODE_EXPAND_ONLY; op++) {
             args->hkdf_op = op;
             start_async_job(args, runHkdfOps);
         }
+#ifdef QAT_OPENSSL_3
         if (args->hkdf_op != EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND)
             start_async_job(args, runTls13KdfOps);
+#endif
     }
 }

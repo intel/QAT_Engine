@@ -700,12 +700,9 @@ static int run_dsa(void *args)
     int size = temp_args->size;
     int ret = 0;
 #ifndef QAT_OPENSSL_PROVIDER
-    struct async_additional_args_dsa *extra_args =
-        (struct async_additional_args_dsa *)temp_args->additional_args;
     int count = *(temp_args->count);
     int print_output = temp_args->print_output;
-    int print_verify = temp_args->verify;
-    int local_verify = extra_args->local_verify;
+    int verify = temp_args->verify;
 
     DSA *dsa = NULL;
     BIGNUM *q = NULL;
@@ -753,7 +750,7 @@ static int run_dsa(void *args)
     DSA_set0_key(dsa, pub_key, priv_key);
 
     for (i = 0; i < count; i++) {
-        if (i == 0 || !local_verify) {
+        if (i == 0) {
             /*
              * DSA_sign() computes a digital signature on the size byte message
              * digest dgst using the private key dsa and places its ASN.1 DER
@@ -773,7 +770,7 @@ static int run_dsa(void *args)
                 tests_hexdump(" DSA Signature:", sig, siglen);
         }
 
-        if ((i == 0 && print_verify) || local_verify) {
+        if (i == 0 || verify) {
             /*
              * DSA_verify() verifies that the signature sig of size siglen
              * matches a given message digest dgst of length 'size'. dsa is the
@@ -785,11 +782,11 @@ static int run_dsa(void *args)
             ret = DSA_verify(0, DgstData, size, sig, siglen, dsa);
 
             if (ret <= 0) {
-                INFO("# FAIL %s for DSA.\n", local_verify ? "verify" : "sign");
+                INFO("# FAIL %s for DSA.\n", verify ? "verify" : "sign");
                 goto end;
-            } else if (i == 0 && print_verify)
+            } else if (i == 0)
                     INFO("# PASS %s for DSA.\n",
-                         local_verify ? "verify" : "sign");
+                         verify ? "verify" : "sign");
         }
     }
 #endif
@@ -867,88 +864,26 @@ end:
     return ret;
 }
 
-static void dsa_tests_triage(TEST_PARAMS *args, int local_verify)
+void tests_run_dsa(TEST_PARAMS *args)
 {
     int i = 1;
-    struct async_additional_args_dsa extra_args;
-    args->additional_args = &extra_args;
-    extra_args.local_verify = local_verify;
 
     if (!args->enable_async) {
-	if (args->size == 2048) {
-	    for (i = 1; i < KEY_TYPE_MAX; i++) {
-	         if (i == 1) {
-	             run_dsa(args);
-	             INFO("DSA 2048-224 test finished\n");
-		 } else {
-		     args->q_size = 256;
-	             run_dsa(args);
-	             INFO("DSA 2048-256 test finished\n");
-		 }
-	    }
-	} else {
-	    run_dsa(args);
-	}
+        if (args->size == 2048) {
+            for (i = 1; i < KEY_TYPE_MAX; i++) {
+                if (i == 1) {
+                    run_dsa(args);
+                    INFO("DSA 2048-224 test finished\n");
+                } else {
+                    args->q_size = 256;
+                    run_dsa(args);
+                    INFO("DSA 2048-256 test finished\n");
+                }
+            }
+        } else {
+            run_dsa(args);
+        }
     } else {
         start_async_job(args, run_dsa);
     }
-}
-
-/******************************************************************************
-* function:
-*     tests_run_dsa_sign(TEST_PARAMS *args)
-*
-* @param args [IN] - the test parameters
-*
-* description:
-*   dsa sign only plus 1 verify if verify flag is set
-*
-******************************************************************************/
-
-void tests_run_dsa_sign(TEST_PARAMS *args)
-{
-    dsa_tests_triage(args, 0);
-}
-
-
-/******************************************************************************
-* function:
-*     tests_run_dsa_verify(TEST_PARAMS *args)
-*
-* @param args [IN] - the test parameters
-*
-* description:
-*   dsa verify only plus 1 sign to setup.
-*   If verify flag is set then it will only print pass on the first verify
-*   operation.
-*
-******************************************************************************/
-
-void tests_run_dsa_verify(TEST_PARAMS *args)
-{
-    dsa_tests_triage(args, 1);
-}
-
-/******************************************************************************
-* function:
-*     tests_run_dsa_verify(TEST_PARAMS *args)
-*
-* @param args [IN] - the test parameters
-*
-* description:
-*   dsa verify only plus 1 sign to setup.
-*   If verify flag is set then it will only print pass on the first verify
-*   operation.
-*
-******************************************************************************/
-
-void tests_run_dsa(TEST_PARAMS *args)
-{
-    int local_verify = 0;
-
-    if (args->sign_only)
-        local_verify = 0;
-    else if (args->verify_only)
-        local_verify = 1;
-    dsa_tests_triage(args, local_verify);
 }
