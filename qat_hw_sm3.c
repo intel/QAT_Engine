@@ -714,9 +714,11 @@ static int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
 
         if (is_instance_available(qat_sm3_ctx->inst_num)) {
             /* Wait for in-flight requests before removing session */
-            do {
-                cpaCySymSessionInUse(qat_sm3_ctx->session_ctx, &sessionInUse);
-            } while (sessionInUse);
+            if (qat_sm3_ctx->session_ctx != NULL) {
+                do {
+                    cpaCySymSessionInUse(qat_sm3_ctx->session_ctx, &sessionInUse);
+                } while (sessionInUse);
+            }
 
             if ((status =
                  cpaCySymRemoveSession(qat_instance_handles

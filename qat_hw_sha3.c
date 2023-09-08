@@ -505,9 +505,11 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
         if (is_instance_available(sha3_ctx->inst_num)) {
             /* Wait for in-flight requests before removing session */
             CpaBoolean sessionInUse = CPA_FALSE;
-            do {
-                cpaCySymSessionInUse(sha3_ctx->session_ctx, &sessionInUse);
-            } while (sessionInUse);
+            if (sha3_ctx->session_ctx != NULL) {
+                do {
+                    cpaCySymSessionInUse(sha3_ctx->session_ctx, &sessionInUse);
+                } while (sessionInUse);
+            }
 
             if ((status = cpaCySymRemoveSession(qat_instance_handles[sha3_ctx->inst_num], sha3_ctx->session_ctx))
                                                 != CPA_STATUS_SUCCESS) {

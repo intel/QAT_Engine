@@ -766,9 +766,11 @@ int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
     }
 
     /* Wait for in-flight requests before removing session */
-    do {
-        cpaCySymSessionInUse(qctx->qat_ctx, &sessionInUse);
-    } while (sessionInUse);
+    if (qctx->qat_ctx != NULL) {
+        do {
+            cpaCySymSessionInUse(qctx->qat_ctx, &sessionInUse);
+        } while (sessionInUse);
+    }
 
     session_data = qctx->session_data;
     if (session_data) {
