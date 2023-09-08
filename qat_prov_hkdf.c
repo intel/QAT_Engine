@@ -247,6 +247,24 @@ end:
     return ret;
 }
 
+static EVP_KDF get_default_tls13_kdf()
+{
+    static EVP_KDF s_kdf;
+    static int initialized = 0;
+    if (!initialized) {
+        EVP_KDF *kdf = (EVP_KDF *)EVP_KDF_fetch(NULL, "TLS13-KDF",
+                                                  "provider=default");
+        if (kdf) {
+            s_kdf = *kdf;
+            EVP_KDF_free((EVP_KDF *) kdf);
+	    initialized = 1;
+        } else {
+          WARN("EVP_KDF_fetch from default provider failed");
+        }
+    }
+    return s_kdf;
+}
+
 static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
                            const OSSL_PARAM params[])
 {
@@ -255,7 +273,8 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
                                                     ctx->evp_pkey_ctx);
     const EVP_MD *md;
     size_t mdlen;
-    int ret = 0;
+    int ret = 0, fallback = 0;
+
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 1;
 #endif
@@ -268,6 +287,12 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
         goto end;
     }
     qat_hkdf_ctx->qat_md = md;
+
+    if (qat_get_qat_offload_disabled()) {
+        DEBUG("- Switched to software mode\n");
+        fallback = 1;
+        goto end;
+    }
 
     if (ctx->mode == EVP_KDF_HKDF_MODE_EXTRACT_ONLY) {
 
@@ -329,6 +354,11 @@ end:
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 0;
 #endif
+    if (fallback) {
+        typedef int(*sw_fun_ptr)(void *, unsigned char *, size_t , const OSSL_PARAM *);
+        sw_fun_ptr default_prov_tls13_kdf_fun = get_default_tls13_kdf().derive;
+        ret = default_prov_tls13_kdf_fun(vctx, key, keylen, params);
+    }
     return ret;
 }
 
