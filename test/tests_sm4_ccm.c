@@ -89,7 +89,9 @@ static const unsigned char iv[] = {
 static int run_sm4ccm_update(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *)args;
+#ifndef QAT_OPENSSL_PROVIDER
     ENGINE *e = temp_args->e;
+#endif
     int size = temp_args->size;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
@@ -122,14 +124,15 @@ static int run_sm4ccm_update(void *args)
     int tmpout_len = 0;
     int enc_cipher_len = 0;
     int dec_cipher_len = 0;
-    int ivlen = 0;
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
 
+#ifndef QAT_OPENSSL_PROVIDER
     if (!temp_args->enable_async) {
         e = NULL;
     }
+#endif
 
     if (plaintext == NULL || ciphertext == NULL || dec_cipher == NULL) {
         INFO("# FAIL: [%s] --- Initial parameters malloc failed ! \n",
@@ -151,7 +154,11 @@ static int run_sm4ccm_update(void *args)
     }
 
     /* Initialize encryption context for sm4-ccm */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit(ctx, EVP_sm4_ccm(), NULL, NULL);
+#else
     ret = EVP_EncryptInit_ex(ctx, EVP_sm4_ccm() , e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() encryption failed while setting context: ret %d\n",
              __func__, ret);
@@ -181,16 +188,13 @@ static int run_sm4ccm_update(void *args)
      *  Initialise the sm4-ccm encryption context with 16-byte key and
      * 12-byte IV.
      */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit(ctx, NULL, key, iv);
+#else
     ret = EVP_EncryptInit_ex(ctx, NULL, NULL, key, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed while setting key: ret %d\n",
-             __func__, ret);
-        goto err;
-    }
-
-    ret = EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GET_IVLEN, 0, &ivlen);
-    if (ret != 1) {
-        INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl() failed while getting ivlen: ret %d\n",
              __func__, ret);
         goto err;
     }
@@ -262,7 +266,11 @@ static int run_sm4ccm_update(void *args)
     }
 
     /* Initialize decryption context for sm4-ccm */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit(dec_ctx, EVP_sm4_ccm(), NULL, NULL);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, EVP_sm4_ccm(), e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -293,7 +301,11 @@ static int run_sm4ccm_update(void *args)
      *  Initialise the sm4-ccm decryption context with 16-byte key and
      *  12-byte IV.
      */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit(dec_ctx, NULL, key, iv);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, NULL, NULL, key, iv);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);

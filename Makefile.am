@@ -54,7 +54,9 @@ if QAT_PROVIDER
                 qat_prov_chachapoly.c     \
                 qat_prov_sign_sm2.c       \
                 qat_prov_hkdf_packet.c    \
-                qat_prov_sm4_gcm.c
+                qat_prov_sm4_gcm.c        \
+                qat_prov_sm4_ccm.c
+
 if QAT_FIPS
  QAT_FIPS_SRC = qat_fips.c                \
                 qat_self_test_kats.c      \

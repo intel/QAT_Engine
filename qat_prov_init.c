@@ -155,6 +155,9 @@ extern const OSSL_DISPATCH qat_sm2_keymgmt_functions[];
 #ifdef ENABLE_QAT_SW_SM4_GCM
 extern const OSSL_DISPATCH qat_sm4_gcm_functions[];
 #endif
+#ifdef ENABLE_QAT_SW_SM4_CCM
+extern const OSSL_DISPATCH qat_sm4_ccm_functions[];
+# endif
 
 QAT_PROV_PARAMS qat_params;
 
@@ -230,6 +233,9 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 # endif /* ENABLE_QAT_HW_CHACHAPOLY */
 # ifdef ENABLE_QAT_SW_SM4_GCM
     ALG(QAT_NAMES_SM4_GCM, qat_sm4_gcm_functions),
+# endif
+# ifdef ENABLE_QAT_SW_SM4_CCM
+    ALG(QAT_NAMES_SM4_CCM, qat_sm4_ccm_functions),
 # endif
     { { NULL, NULL, NULL }, NULL }};
 

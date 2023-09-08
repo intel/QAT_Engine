@@ -64,6 +64,9 @@
 #include "qat_evp.h"
 #include "qat_sw_request.h"
 #include "qat_sw_sm4_ccm.h"
+#ifdef QAT_OPENSSL_PROVIDER
+# include "qat_prov_sm4_ccm.h"
+#endif
 
 /* Crypto_mb includes */
 #ifdef ENABLE_QAT_SW_SM4_CCM
@@ -73,6 +76,7 @@
 
 #ifdef ENABLE_QAT_SW_SM4_CCM
 
+#ifndef QAT_OPENSSL_PROVIDER
 # define GET_SW_CIPHER(ctx) \
     sm4_cipher_sw_impl(EVP_CIPHER_CTX_nid((ctx)))
 
@@ -86,12 +90,55 @@ static inline const EVP_CIPHER *sm4_cipher_sw_impl(int nid)
         return NULL;
     }
 }
+#endif /* QAT_OPENSSL_PROVIDER */
 
+#ifdef QAT_OPENSSL_PROVIDER
+static QAT_EVP_CIPHER qat_get_default_cipher_sm4_ccm()
+{
+    static QAT_EVP_CIPHER sm4_cipher;
+    static int initilazed = 0;
+    if (!initilazed) {
+        QAT_EVP_CIPHER *cipher = (QAT_EVP_CIPHER *)
+                        EVP_CIPHER_fetch(NULL, "SM4-CCM", "provider=default");
+        if (cipher) {
+            sm4_cipher = *cipher;
+            EVP_CIPHER_free((EVP_CIPHER *)cipher);
+            initilazed = 1;
+        } else {
+            WARN("EVP_CIPHER_fetch from default provider failed");
+        }
+    }
+    return sm4_cipher;
+}
+
+void qat_sm4_ccm_dupctx(void *in, void *out)
+{
+    QAT_PROV_CCM_CTX *inctx = (QAT_PROV_CCM_CTX *)in;
+    PROV_CCM_CTX *outctx = (PROV_CCM_CTX *)out;
+    outctx->tag_set = inctx->tag_set;
+    outctx->l = inctx->L;
+    outctx->m = inctx->M;
+    memcpy(outctx->buf, inctx->buf, inctx->tag_len);
+}
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sw_sm4_ccm_init(void *ctx, const unsigned char *key,
+                        int keylen, const unsigned char *iv,
+                        int ivlen, int enc)
+{
+#else
 int qat_sw_sm4_ccm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         const unsigned char *iv, int enc)
 {
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_EVP_CIPHER sw_sm4_ccm_cipher;
+    QAT_PROV_CCM_CTX* qctx = (QAT_PROV_CCM_CTX*)ctx;
+#else
     QAT_SM4_CCM_CTX *qctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#endif
     int sts = 0;
 
     DEBUG("started: ctx=%p key=%p iv=%p enc=%d \n", ctx, key, iv, enc);
@@ -102,12 +149,16 @@ int qat_sw_sm4_ccm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         return sts;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qctx->enc = enc;
+#else
     qctx = (QAT_SM4_CCM_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     if (qctx == NULL) {
         WARN("qctx is NULL \n");
         QATerr(QAT_F_QAT_SW_SM4_CCM_INIT, QAT_R_QCTX_NULL);
         return sts;
     }
+#endif
 
     if (iv == NULL && key == NULL) {
         DEBUG("iv is NULL and key is NULL \n");
@@ -158,8 +209,9 @@ int qat_sw_sm4_ccm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
            qctx->next_iv, qctx->iv_len);
 
     if (key != NULL) {
+#ifndef QAT_OPENSSL_PROVIDER
         qctx->key_len = EVP_CIPHER_CTX_key_length(ctx);
-
+#endif
         if (!qctx->key)
             qctx->key = OPENSSL_zalloc(qctx->key_len);
         DEBUG("key=%p parameter for later use key_len=%lu \n",
@@ -187,6 +239,24 @@ int qat_sw_sm4_ccm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
     if (ASYNC_get_current_job() != NULL) {
        qctx->init_flag = 1;
     } else {
+#ifdef QAT_OPENSSL_PROVIDER
+        OSSL_PARAM params[4] = {OSSL_PARAM_END, OSSL_PARAM_END, OSSL_PARAM_END, OSSL_PARAM_END};
+        sw_sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+
+        if (enc) {
+            if (!qctx->sw_ctx) {
+                qctx->sw_ctx = sw_sm4_ccm_cipher.newctx(ctx);
+                qat_sm4_ccm_dupctx(qctx, qctx->sw_ctx);
+            }
+            return sw_sm4_ccm_cipher.einit(qctx->sw_ctx, key, keylen, iv, ivlen, params);
+        } else {
+            if (!qctx->sw_ctx) {
+                qctx->sw_ctx = sw_sm4_ccm_cipher.newctx(ctx);
+                qat_sm4_ccm_dupctx(qctx, qctx->sw_ctx);
+            }
+            return sw_sm4_ccm_cipher.dinit(qctx->sw_ctx, key, keylen, iv, ivlen, params);
+        }
+#else
         if (!qctx->sw_ctx_cipher_data) {
             /* cipher context init, used by sw_fallback */
             sw_ctx_cipher_data = OPENSSL_zalloc(sizeof(EVP_SM4_CCM_CTX));
@@ -206,16 +276,29 @@ int qat_sw_sm4_ccm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
             WARN("Failed to init the openssl sw cipher context.\n");
         }
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
+#endif
     }
 
     return 1;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_sw_sm4_ccm_encrypt(void *ctx, unsigned char *out,
+                                           size_t *padlen, size_t outsize,
+                                     const unsigned char *in, size_t len)
+{
+#else
 static int qat_sw_sm4_ccm_encrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                     const unsigned char *in, size_t len)
 {
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_EVP_CIPHER sw_sm4_ccm_cipher;
+    QAT_PROV_CCM_CTX* qctx = (QAT_PROV_CCM_CTX*)ctx;
+#else
     QAT_SM4_CCM_CTX *qctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#endif
     int sts = 0, job_ret = 0;
     ASYNC_JOB *job;
     sm4_ccm_encrypt_op_data *sm4_ccm_encrypt_req = NULL;
@@ -231,12 +314,14 @@ static int qat_sw_sm4_ccm_encrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return sts;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
     qctx = (QAT_SM4_CCM_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     if (qctx == NULL) {
         WARN("qctx is NULL \n");
         QATerr(QAT_F_QAT_SW_SM4_CCM_ENCRYPT, QAT_R_QCTX_NULL);
         return sts;
     }
+#endif
 
     init_flag = qctx->init_flag;
 
@@ -324,6 +409,7 @@ static int qat_sw_sm4_ccm_encrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
 
 use_sw_method:
+#ifndef QAT_OPENSSL_PROVIDER
     sw_ctx_cipher_data = qctx->sw_ctx_cipher_data;
     if (!sw_ctx_cipher_data)
         goto err;
@@ -333,18 +419,38 @@ use_sw_method:
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
     DEBUG("SW Encryption Finished sts=%d\n", sts);
+#else
+    sw_sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+    if (sw_sm4_ccm_cipher.cupdate == NULL)
+        goto err;
+    sw_sm4_ccm_cipher.cupdate(qctx->sw_ctx, out, padlen, outsize, in, len);
+    *padlen = len;
+
+    return 1;
+#endif
 
 err:
     return sts;
 
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+static int qat_sw_sm4_ccm_decrypt(void *ctx, unsigned char *out,
+                                           size_t *padlen, size_t outsize,
+                                     const unsigned char *in, size_t len)
+{
+#else
 static int qat_sw_sm4_ccm_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                     const unsigned char *in, size_t len)
 {
-
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_EVP_CIPHER sw_sm4_ccm_cipher;
+    QAT_PROV_CCM_CTX* qctx = (QAT_PROV_CCM_CTX*)ctx;
+#else
     QAT_SM4_CCM_CTX *qctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#endif
     int sts = 0, job_ret = 0;
     ASYNC_JOB *job;
     sm4_ccm_decrypt_op_data *sm4_ccm_decrypt_req = NULL;
@@ -360,12 +466,14 @@ static int qat_sw_sm4_ccm_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return sts;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
     qctx = (QAT_SM4_CCM_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     if (qctx == NULL) {
         WARN("qctx is NULL \n");
         QATerr(QAT_F_QAT_SW_SM4_CCM_DECRYPT, QAT_R_QCTX_NULL);
         return sts;
     }
+#endif
 
     init_flag = qctx->init_flag;
 
@@ -454,6 +562,7 @@ static int qat_sw_sm4_ccm_decrypt(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
 
 use_sw_method:
+#ifndef QAT_OPENSSL_PROVIDER
     sw_ctx_cipher_data = qctx->sw_ctx_cipher_data;
     if (!sw_ctx_cipher_data)
         goto err;
@@ -463,16 +572,42 @@ use_sw_method:
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
     DEBUG("SW Decryption Finished sts=%d\n", sts);
+#else
+    sw_sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
 
+    if (sw_sm4_ccm_cipher.cupdate == NULL)
+        goto err;
+    sw_sm4_ccm_cipher.cupdate(qctx->sw_ctx, out, padlen, outsize, in, len);
+    *padlen = len;
+
+    return 1;
+#endif
 err:
     return sts;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int QAT_SM4_CCM_CIPHER_CTX_encrypting(QAT_PROV_CCM_CTX *qctx)
+{
+    return qctx->enc;
+}
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sw_sm4_ccm_do_cipher(void *ctx, unsigned char* out, size_t *padlen,
+                          size_t outsize, const unsigned char* in, size_t len)
+#else
 int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         const unsigned char *in, size_t len)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *)ctx;
+    QAT_EVP_CIPHER sw_sm4_ccm_cipher;
+#else
     QAT_SM4_CCM_CTX *qctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#endif
     int sts = 0;
     int enc = 0;
     unsigned char *out_text = NULL;
@@ -485,12 +620,20 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return sts;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
     qctx = (QAT_SM4_CCM_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     if (qctx == NULL) {
         WARN("qctx is NULL\n");
         QATerr(QAT_F_QAT_SW_SM4_CCM_DO_CIPHER, QAT_R_QCTX_NULL);
         return sts;
     }
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+    enc = QAT_SM4_CCM_CIPHER_CTX_encrypting(ctx);
+#else
+    enc = EVP_CIPHER_CTX_encrypting(ctx);
+#endif
 
     if (fallback_to_openssl)
         goto use_sw_method;
@@ -508,7 +651,11 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
     if ((in == NULL ) && (out != NULL)) {
         DEBUG("in is NULL while out is not NULL \n");
+#ifdef QAT_OPENSSL_PROVIDER
+        return 1;
+#else
         return sts;
+#endif
     }
 
     if (!qctx->iv_set) {
@@ -523,6 +670,9 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             qctx->iv_len = QAT_SM4_CCM_OP_VALUE - qctx->L;
             qctx->msg_len = len;
             qctx->len_set = 1;
+#ifdef QAT_OPENSSL_PROVIDER
+            *padlen = len;
+#endif
             return len;
         }
 
@@ -541,10 +691,11 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         }
         memcpy(qctx->tls_aad, in, len);
         qctx->aad_len = len;
+#ifdef QAT_OPENSSL_PROVIDER
+        *padlen = len;
+#endif
         return len;
     }
-
-    enc = EVP_CIPHER_CTX_encrypting(ctx);
 
     /* The tag must be set before actually decrypting data */
     if (!enc && !qctx->tag_set) {
@@ -563,13 +714,21 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if (enc) {
         qctx->msg_len = len;
         qctx->tag_set = 1;
+#ifdef QAT_OPENSSL_PROVIDER
+        sts = qat_sw_sm4_ccm_encrypt(qctx, out, padlen, outsize, in, len);
+#else
         sts = qat_sw_sm4_ccm_encrypt(ctx, out, in, len);
+#endif
         sts = 1;
     } else {
         qctx->tag_calculated = 1;
         out_text = OPENSSL_zalloc(len);
         qctx->msg_len = len;
+#ifdef QAT_OPENSSL_PROVIDER
+        sts = qat_sw_sm4_ccm_decrypt(qctx, out_text, padlen, outsize, in, len);
+#else
         sts = qat_sw_sm4_ccm_decrypt(ctx, out_text, in, len);
+#endif
         memcpy(out, out_text, len);
         if (qctx->tag_set) {
             if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0){
@@ -581,6 +740,9 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 DUMPL("Calculated Tag:", (const unsigned char *)qctx->calculated_tag, qctx->tag_len);
                 DUMPL("Decrypt - Calculated Tag",
                      (const unsigned char*)qctx->calculated_tag , qctx->tag_len);
+#ifdef QAT_OPENSSL_PROVIDER
+                *padlen = 0;
+#endif
                 sts = -1;
             }
         }
@@ -589,15 +751,24 @@ int qat_sw_sm4_ccm_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qctx->len_set = 0;
         qctx->msg_len = 0;
     }
+#ifdef QAT_OPENSSL_PROVIDER
+    if(sts == 1)
+       *padlen = len;
+    if (sts == -1)
+        OPENSSL_free(out_text);
 
+    return 1;
+#else
     if (sts == 1)
         sts = len;
     if(sts == -1)
         OPENSSL_free(out_text);
     return sts;
+#endif
 
 use_sw_method:
 
+#ifndef QAT_OPENSSL_PROVIDER
     sw_ctx_cipher_data = qctx->sw_ctx_cipher_data;
     if (!sw_ctx_cipher_data)
         goto err;
@@ -607,6 +778,34 @@ use_sw_method:
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
     DEBUG("SW Offload Finished sts=%d\n", sts);
+#else
+    sw_sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+
+    if (sw_sm4_ccm_cipher.cupdate == NULL)
+        goto err;
+    if (in == NULL && out != NULL) {
+        sts = sw_sm4_ccm_cipher.cfinal(qctx->sw_ctx, out, padlen, outsize);
+        if (enc) {
+            OSSL_PARAM params[4] = {OSSL_PARAM_END, OSSL_PARAM_END,
+                                    OSSL_PARAM_END, OSSL_PARAM_END};
+            void *ptr = OPENSSL_zalloc(EVP_CCM_TLS_TAG_LEN);
+
+            params[0] = OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_AEAD_TAG,
+                                                          ptr, EVP_CCM_TLS_TAG_LEN);
+            sw_sm4_ccm_cipher.get_ctx_params(qctx->sw_ctx, params);
+            memcpy(qctx->tag, (char*)params->data, EVP_CCM_TLS_TAG_LEN);
+            qctx->tag_set = 1;
+        }
+        *padlen = len;
+        DEBUG("SW Offload Finished sts=%d\n", sts);
+        return 1;
+    }
+    else {
+        sw_sm4_ccm_cipher.cupdate(qctx->sw_ctx, out, padlen, outsize, in, len);
+        *padlen = len;
+        return 1;
+    }
+#endif
 err:
     return sts;
 }
@@ -782,11 +981,19 @@ void process_mb_sm4_ccm_decrypt_reqs(mb_thread_data *tlv)
     DEBUG("Processed SM4_CCM decrypt Request \n");
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sw_sm4_ccm_cleanup(void *ctx)
+#else
 int qat_sw_sm4_ccm_cleanup(EVP_CIPHER_CTX *ctx)
+#endif
 {
 
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *)ctx;
+#else
     QAT_SM4_CCM_CTX *qctx;
     void *sw_ctx_cipher_data = NULL;
+#endif
     int sts = 0;
 
     DEBUG("started: ctx=%p \n", ctx);
@@ -797,12 +1004,14 @@ int qat_sw_sm4_ccm_cleanup(EVP_CIPHER_CTX *ctx)
         return sts;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
     qctx = (QAT_SM4_CCM_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     if (qctx == NULL) {
         WARN("qctx is NULL \n");
         QATerr(QAT_F_QAT_SW_SM4_CCM_CLEANUP, QAT_R_QCTX_NULL);
         return sts;
     }
+#endif
 
     if (qctx->iv != NULL) {
         DEBUG("qctx->iv_len = %d \n", qctx->iv_len);
@@ -825,7 +1034,11 @@ int qat_sw_sm4_ccm_cleanup(EVP_CIPHER_CTX *ctx)
     }
 
     if (qctx->tls_aad != NULL) {
+#ifdef QAT_OPENSSL_PROVIDER
+        DEBUG("qctx->tls_aad_len = %ld \n", qctx->tls_aad_len);
+#else
         DEBUG("qctx->tls_aad_len = %d \n", qctx->tls_aad_len);
+#endif
         OPENSSL_free(qctx->tls_aad);
         qctx->tls_aad = NULL;
         qctx->tls_aad_len = -1;
@@ -846,9 +1059,16 @@ int qat_sw_sm4_ccm_cleanup(EVP_CIPHER_CTX *ctx)
         qctx->tag_calculated = 0;
     }
 
+#ifdef QAT_OPENSSL_PROVIDER
+    if (qctx->sw_ctx != NULL) {
+        OPENSSL_free(qctx->sw_ctx);
+	qctx->sw_ctx = NULL;
+    }
+#else
     sw_ctx_cipher_data = qctx->sw_ctx_cipher_data;
     if (sw_ctx_cipher_data)
         OPENSSL_free(sw_ctx_cipher_data);
+#endif
 
     qctx->iv_set = 0;
     qctx->tag_set = 0;
@@ -858,10 +1078,18 @@ int qat_sw_sm4_ccm_cleanup(EVP_CIPHER_CTX *ctx)
     return 1;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sw_sm4_ccm_ctrl(void *ctx, int type, int arg, void *ptr)
+#else
 int qat_sw_sm4_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_PROV_CCM_CTX* qctx = (QAT_PROV_CCM_CTX*)ctx;
+#else
     QAT_SM4_CCM_CTX *qctx;
     void *sw_ctx_cipher_data = NULL;
+#endif
     int ret_val = 0;
     int enc = 0;
 
@@ -874,6 +1102,7 @@ int qat_sw_sm4_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         return -1;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
     qctx = (QAT_SM4_CCM_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     if (qctx == NULL) {
         WARN("qctx cannot be NULL \n");
@@ -917,8 +1146,13 @@ int qat_sw_sm4_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
         return ret_val;
     }
+#endif
 
+#ifdef QAT_OPENSSL_PROVIDER
+    enc = qctx->enc;
+#else
     enc = EVP_CIPHER_CTX_encrypting(ctx);
+#endif
 
     switch (type) {
     case EVP_CTRL_INIT:
@@ -1028,7 +1262,6 @@ int qat_sw_sm4_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
             ret_val = 0;
             break;
         }
-
         qctx->L = arg;
         ret_val = 1;
         break;
