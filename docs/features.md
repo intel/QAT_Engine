@@ -52,7 +52,7 @@ Please refer [here](qat_hw_algo.md) for supported platforms list and default beh
     * AES128-GCM, AES192-GCM and AES256-GCM
 
 ## Common Features to qat_hw & qat_sw
-* [QAT_HW & QAT_SW Co-existence with runtime configuration](qat_common.md#qat-hw-and-qat-sw-co-existence)
+* [QAT_HW & QAT_SW Co-existence with runtime configuration](qat_coex.md#qat-hw-and-qat-sw-co-existence)
 * [OpenSSL 3.0 Provider Support](qat_common.md#openssl-30-provider-support)
 * [FIPS 140-3 Certification requirements Support using QAT Provider](qat_common.md#fips-140-3-certification-requirements-support-using-qat-provider)
 

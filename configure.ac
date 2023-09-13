@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [1.3.1], [])
+AC_INIT([qatengine], [1.4.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -318,7 +318,7 @@ AC_CHECK_FILE(${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h,
 	      [with_icp_sal_versions_h=no])
 if test "x$with_icp_sal_versions_h" = "xyes"
 then
-  if test `grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h | wc -l` = "1"
+  if grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h
   then
     AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_INTREE -DQAT_HW_DISABLE_NONZERO_MEMFREE"])
     AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
@@ -345,7 +345,7 @@ then
   #BoringSSL from Source
   if test -f $with_openssl_install_dir/include/openssl/base.h
   then
-    if test "`grep "define BORINGSSL_API_VERSION" $with_openssl_install_dir/include/openssl/base.h | wc -l`" = "1"
+    if grep "define BORINGSSL_API_VERSION" $with_openssl_install_dir/include/openssl/base.h
     then
       AC_MSG_NOTICE([Build QAT Engine against BoringSSL])
       AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL"])
@@ -358,7 +358,7 @@ then
     fi
   else
     ac_default_prefix=$with_openssl_install_dir
-    if test "`grep "define OPENSSL_VERSION_NUMBER  0x1010"  $with_openssl_install_dir/include/openssl/opensslv.h | wc -l`" = "1"
+    if grep "define OPENSSL_VERSION_NUMBER  0x1010"  $with_openssl_install_dir/include/openssl/opensslv.h
     then
       #OPENSSL 1.1.1
       AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.1])
@@ -388,7 +388,7 @@ else
   AS_IF([test "x$PKGCONFIG" = "x"], [AC_MSG_ERROR(pkg-config not found.)], )
   libdir="`pkg-config --variable=enginesdir libcrypto`"
   includes_openssl="`pkg-config --variable=includedir libcrypto`"
-  if test "`grep "define OPENSSL_VERSION_NUMBER  0x1010" $includes_openssl/openssl/opensslv.h | wc -l`" = "1"
+  if grep "define OPENSSL_VERSION_NUMBER  0x1010" $includes_openssl/openssl/opensslv.h
   then
       AC_MSG_NOTICE([Build QAT Engine against system OpenSSL 1.1.1])
   else

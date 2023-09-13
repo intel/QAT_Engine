@@ -44,7 +44,9 @@
 # include <openssl/engine.h>
 # include <openssl/ssl.h>
 # include <openssl/kdf.h>
-# include <openssl/core_names.h>
+#ifdef QAT_OPENSSL_3
+ # include <openssl/core_names.h>
+#endif
 # include "tests.h"
 # include "../qat_utils.h"
 

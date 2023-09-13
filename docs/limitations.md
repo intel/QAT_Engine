@@ -65,6 +65,9 @@
 * Known issue with QAT_SW SM2 in `ntls` mode since QAT_SW SM2 doesn't have plain sign and
   verify operation support in engine. Disable QAT_SW SM2 to workaround the issue with ntls.
   No issues with TLS mode since it uses digestsign and digestverify which is supported.
+* Known issue in Software fallback with OpenSSL3.0 Engine(only) disabled via co-existence
+  algo bitmap for algorithms PRF, HKDF, SM2, SM3 & SM4-CBC. QAT_HW PRF and QAT_HW HKDF are
+  not accelerated in OpenSSL 3.0 engine due to the issue [OpenSSL#21622][4]
 
 ### Performance
 * There is known performance scaling issue (performance drop with threads >32)
@@ -73,7 +76,7 @@
   or in multi-process mode.
 * SM3 is disabled by default due to performance drop observed in **multithread scenario**
   for all ciphers suites due to the additional locks at engine_table_select introduced by
-  engine digest registration in OpenSSL - [OpenSSL#18509][4]
+  engine digest registration in OpenSSL - [OpenSSL#18509][5]
 * In Co-Existence mode, performance will drop for PKE algorithms compared with
   QAT_SW when process number >= 64.
 * Note regarding multithreaded performance with OpenSSL:** In some cases, using QAT_Engine with 
@@ -81,8 +84,7 @@
   handles higher thread counts. Check for `native_queued_spin_lock_slowpath()` consuming CPU process 
   idle time, and see the OpenSSL GitHub issues and web articles below.
 * Nginx Handshake Performance in OpenSSL3.0 is slightly slower compared to OpenSSL 1.1.1. The same
-  behaviour is observed in OpenSSL_SW as well. PRF and HKDF are not offloaded via QAT Engine due to
-  the issue [OpenSSL#21622][5]
+  behaviour is observed in OpenSSL_SW as well [OpenSSL#21833][6].
 * Performance scaling is not linear in QAT2.0 supported platforms in ECDSA and chacha-poly algorithms.
   
   Articles:
@@ -96,5 +98,6 @@
 [1]:https://github.com/openssl/openssl/pull/17112
 [2]:https://github.com/openssl/openssl/issues/18298
 [3]:https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127
-[4]:https://github.com/openssl/openssl/issues/18509
-[5]:https://github.com/openssl/openssl/issues/21622
+[4]:https://github.com/openssl/openssl/issues/21622
+[5]:https://github.com/openssl/openssl/issues/18509
+[6]:https://github.com/openssl/openssl/issues/21833
