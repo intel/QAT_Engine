@@ -68,3 +68,4 @@ test_bssl/.dirstamp
 /compile
 /depcomp
 /ltmain.sh
+/rpmbuild

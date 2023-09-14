@@ -203,7 +203,7 @@ mostlyclean-generic:
 	-rm -rf *.obj bin lib tags core .pure .nfs* \
 	*.old *.bak fluff *.so *.sl *.dll test/*.obj testapp \
 	test/.dirstamp test/*.o test_bssl/*obj test_bssl/.dirstamp \
-    test_bssl/*.o qatengine_test
+        test_bssl/*.o qatengine_test rpmbuild
 
 if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make
@@ -249,4 +249,11 @@ ipsec_mb:
 
 crypto_mb:
 	cd ipp-crypto/sources/ippcp/crypto_mb && rm -rf build && cmake . -B"build" -DOPENSSL_INCLUDE_DIR=$(with_openssl_install_dir)/include -DOPENSSL_LIBRARIES=$(with_openssl_install_dir) -DOPENSSL_ROOT_DIR=$(PWD)/openssl && cd build && make clean && make -j$(nproc) && make install -j$(nproc)
+endif
+
+if QAT_4XXX
+rpm:
+	mkdir -p rpmbuild/BUILD rpmbuild/RPMS rpmbuild/SOURCES rpmbuild/SPECS rpmbuild/SRPMS
+	cp qatengine-oot.spec rpmbuild/SPECS/
+	rpmbuild --undefine=_disable_source_fetch --define "_topdir $(abs_srcdir)/rpmbuild" -ba rpmbuild/SPECS/qatengine-oot.spec
 endif

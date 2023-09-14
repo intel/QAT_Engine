@@ -59,3 +59,36 @@ The FIPS 140-3 certification is under process.
 | :---: | :---: |
 | QAT_HW | RSA, ECDSA, ECDH, ECDHX25519, ECDHX448, DSA, DH, TLS1.2-KDF(PRF), TLS1.3-KDF(HKDF), SHA3 & AES-GCM |
 | QAT_SW | RSA, ECDSA, ECDH, ECDHX25519, SHA2 & AES-GCM |
+
+# Binary RPM Package
+
+QAT_Engine supports Binary Package via RPM which can be found in the Release page (Assests section)
+The Current Binary RPM Package is created for the distros RHEL 9.1, Ubuntu 22.04 and SUSE SLES15 SP3 with
+with default Kernel and other dependant packages from the system default.
+The RPM is generated using QAT2.0 OOT driver with QAT_SW Co-existence which means
+it will accelerate via QAT_HW for asymmetic PKE and QAT_SW for AES-GCM and supported only on
+[Intel® Xeon® Scalable Processor family with Intel® QAT Gen4/Gen4m][1] with default build configuration
+in QAT Engine against OpenSSL 3.0 engine and can be build using `make rpm` target.
+Dependant library versions used for building binary package are mentioned in Software requirements section.
+
+Example commands below to install and uninstall RPM Package
+
+```
+install:
+    RHEL & SUSE: rpm -ivh QAT_Engine-<version>.x86_64.rpm --target noarch
+    Ubuntu: alien -i QAT_Engine-<version>.x86_64.rpm --scripts
+uninstall
+    RHEL & SUSE: rpm -e QAT_Engine
+    Ubuntu: apt-get remove QAT_Engine
+```
+
+The binary RPM Package will take care of installing dependant libraries and kernel modules in the
+default path and OpenSSL being installed in `/usr/local/ssl`
+Since it is using different OpenSSL version(refer Software requirements for verion) than what is
+present in thesystem. LD_LIBRARY_PATH must be set to this path below.
+
+```
+export LD_LIBRARY_PATH=/usr/local/ssl/lib64
+```
+
+[1]:https://www.intel.com/content/www/us/en/products/docs/processors/xeon-accelerated/4th-gen-xeon-scalable-processors.html

@@ -8,11 +8,11 @@ if ( lsmod | grep qat >/dev/null ); then
       rmmod usdm_drv
       rmmod qat_4xxx
       rmmod intel_qat
-      echo "Removed existing driver........."
+      echo "Removed existing driver"
    elif (lsmod | grep intel_qat >/dev/null); then
       rmmod qat_4xxx
       rmmod intel_qat
-      echo "Removed existing driver........"
+      echo "Removed existing driver"
    fi
 else
    echo "Shutdown qat services"
@@ -31,7 +31,7 @@ sudo modprobe uio
 cp -rf /usr/lib64/build/qat_4xxx.bin /lib/firmware/
 cp -rf /usr/lib64/build/qat_4xxx_mmp.bin /lib/firmware/
 
-echo "Installing the QAT driver......."
+echo "Installing QAT Kernel Modules"
 
 sudo insmod /usr/lib64/build/intel_qat.ko
 sudo insmod /usr/lib64/build/usdm_drv.ko
@@ -47,7 +47,5 @@ cp /usr/lib64/build/adf_ctl /usr/local/bin
 cp /usr/lib64/build/adf_ctl /usr/bin
 
 cd /usr/lib64/build
-
-./qat_service start
 
 sudo adf_ctl restart

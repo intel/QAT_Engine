@@ -55,6 +55,7 @@ Please refer [here](qat_hw_algo.md) for supported platforms list and default beh
 * [QAT_HW & QAT_SW Co-existence with runtime configuration](qat_coex.md#qat-hw-and-qat-sw-co-existence)
 * [OpenSSL 3.0 Provider Support](qat_common.md#openssl-30-provider-support)
 * [FIPS 140-3 Certification requirements Support using QAT Provider](qat_common.md#fips-140-3-certification-requirements-support-using-qat-provider)
+* [Binary RPM Package](qat_common.md#binary-rpm-package)
 
 Note: RSA Padding schemes are handled by OpenSSL\* or BoringSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL\* or BoringSSL\* does natively.
