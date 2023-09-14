@@ -65,8 +65,8 @@
 * Known issue with QAT_SW SM2 in `ntls` mode since QAT_SW SM2 doesn't have plain sign and
   verify operation support in engine. Disable QAT_SW SM2 to workaround the issue with ntls.
   No issues with TLS mode since it uses digestsign and digestverify which is supported.
-* Known issue in Software fallback with OpenSSL3.0 Engine(only) disabled via co-existence
-  algo bitmap for algorithms PRF, HKDF, SM2, SM3 & SM4-CBC. QAT_HW PRF and QAT_HW HKDF are
+* Known issue in Software fallback with OpenSSL3.0 Engine(only) when disabled via co-existence
+  algo bitmap for algorithms PRF, HKDF, SM2 & SM3. QAT_HW PRF and QAT_HW HKDF are
   not accelerated in OpenSSL 3.0 engine due to the issue [OpenSSL#21622][4]
 
 ### Performance

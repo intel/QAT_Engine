@@ -870,7 +870,6 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
         res &= EVP_CIPHER_meth_set_init(c, qat_sm4_cbc_init);
         res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sm4_cbc_do_cipher);
         res &= EVP_CIPHER_meth_set_cleanup(c, qat_sm4_cbc_cleanup);
-        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_sm4_ctx));
         res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
                                                 NULL : EVP_CIPHER_set_asn1_iv);
         res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
@@ -884,11 +883,15 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
 #ifdef ENABLE_QAT_SW_SM4_CBC
         if (qat_sw_offload && (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM4_CBC) &&
             mbx_get_algo_info(MBX_ALGO_SM4)) {
-            res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(sm4cbc_coexistence_ctx));
+            res &= EVP_CIPHER_meth_set_impl_ctx_size(c,
+                                    sizeof(qat_sm4_ctx) + sizeof(SM4_CBC_CTX));
             qat_sm4_cbc_coexist = 1;
             DEBUG("QAT SM4_CBC HW&SW Coexistence is enabled \n");
         }
 # endif
+        if (!qat_sm4_cbc_coexist) {
+            res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_sm4_ctx));
+        }
         if (res == 0) {
             WARN("Failed to set SM4 methods for nid %d\n", nid);
             QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_SET_METHODS_FAILED);
