@@ -1030,6 +1030,7 @@ const EVP_CIPHER *qat_create_sm4_ccm_cipher_meth(int nid, int keylen)
         mbx_get_algo_info(MBX_ALGO_SM4)) {
 
         res &= EVP_CIPHER_meth_set_flags(c, CUSTOM_CCM_FLAGS);
+        res &= EVP_CIPHER_meth_set_iv_length(c, EVP_CCM_TLS_IV_LEN);
 #ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_init(c, qat_sw_sm4_ccm_init);
         res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sw_sm4_ccm_do_cipher);
