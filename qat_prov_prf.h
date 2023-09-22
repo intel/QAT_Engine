@@ -63,6 +63,31 @@
 
 # define TLS1_PRF_MAXBUF 1024
 
+typedef _Atomic int CRYPTO_REF_COUNT;
+typedef void CRYPTO_RWLOCK;
+
+struct evp_kdf_st {
+    OSSL_PROVIDER *prov;
+    int name_id;
+    char *type_name;
+    const char *description;
+    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_RWLOCK *lock;
+
+    OSSL_FUNC_kdf_newctx_fn *newctx;
+    OSSL_FUNC_kdf_dupctx_fn *dupctx;
+    OSSL_FUNC_kdf_freectx_fn *freectx;
+    OSSL_FUNC_kdf_reset_fn *reset;
+    OSSL_FUNC_kdf_derive_fn *derive;
+    OSSL_FUNC_kdf_gettable_params_fn *gettable_params;
+    OSSL_FUNC_kdf_gettable_ctx_params_fn *gettable_ctx_params;
+    OSSL_FUNC_kdf_settable_ctx_params_fn *settable_ctx_params;
+    OSSL_FUNC_kdf_get_params_fn *get_params;
+    OSSL_FUNC_kdf_get_ctx_params_fn *get_ctx_params;
+    OSSL_FUNC_kdf_set_ctx_params_fn *set_ctx_params;
+};
+typedef struct evp_kdf_st QAT_EVP_KDF;
+
 typedef struct {
     /*
      * References to the underlying digest implementation.  |md| caches
