@@ -63,10 +63,11 @@
 #define SM4_KEY_SCHEDULE  32
 
 /* babassl flags needed for sw method */
-#define CUSTOM_CCM_FLAGS    (EVP_CIPH_FLAG_DEFAULT_ASN1 \
+#define CUSTOM_CCM_FLAGS (EVP_CIPH_FLAG_DEFAULT_ASN1 | EVP_CIPH_FLAG_AEAD_CIPHER \
                          | EVP_CIPH_CUSTOM_IV | EVP_CIPH_FLAG_CUSTOM_CIPHER \
                          | EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CTRL_INIT \
-                         | EVP_CIPH_CUSTOM_COPY | EVP_CIPH_CUSTOM_IV_LENGTH)
+                         | EVP_CIPH_CUSTOM_COPY | EVP_CIPH_CUSTOM_IV_LENGTH \
+                         | EVP_CIPH_CCM_MODE)
 
 typedef struct {
     SM4_CCM_CTX_mb16 mb_ccmctx;
