@@ -54,6 +54,10 @@ typedef struct {
     void *sw_hkdf_ctx_data;
     /* Struct that contains salt, key and info */
     CpaCyKeyGenHKDFOpData *hkdf_op_data;
+    /* HKDF cipherSuite */
+    CpaCyKeyHKDFCipherSuite cipher_suite;
+    /* fallback: SW offload */
+    unsigned int fallback;
 
     /* Below are used for SW fallback when compiled
      * with openssl 3.0 engine API. It uses the openssl
@@ -79,6 +83,18 @@ typedef struct {
 #endif
 } QAT_HKDF_CTX;
 
+#ifndef QAT_KDF_SUPPORT
+typedef struct {
+    int mode;
+    const EVP_MD *md;
+    unsigned char *salt;
+    size_t salt_len;
+    unsigned char *key;
+    size_t key_len;
+    unsigned char info[QAT_HKDF_INFO_MAXBUF];
+    size_t info_len;
+} QAT_HKDF_PKEY_CTX;
+#endif
 
 /* Function Declarations */
 int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
@@ -86,5 +102,4 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx);
 void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx);
 int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
                                 size_t *olen);
-
 #endif /* ENABLE_QAT_HW_HKDF */
