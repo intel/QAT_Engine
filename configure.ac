@@ -612,6 +612,18 @@ then
     fi
 fi
 
+AC_CHECK_FILE(${with_openssl_install_dir}/include/openssl/ossl_typ.h,
+              [with_kdf_support_h=yes],
+              [with_kdf_support_h=no])
+if test "x$with_kdf_support_h" = "xyes"
+then
+  if grep "struct evp_kdf_ctx_st EVP_KDF_CTX" $with_openssl_install_dir/include/openssl/ossl_typ.h
+  then
+    AC_SUBST([cflags_qat_hw], ["${cflags_qat_hw} -DQAT_KDF_SUPPORT"])
+    AC_MSG_NOTICE([KDF structure support available])
+  fi
+fi
+
 #Enable additional QAT_HW & QAT_SW flags
 AS_IF([test "x$enable_qat_debug" = "xyes"], 
       [cflags_common="${cflags_common} -DQAT_DEBUG"; AC_MSG_NOTICE([Debug messages enabled])])
