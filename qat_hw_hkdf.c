@@ -96,6 +96,17 @@ static const EVP_PKEY_METHOD *sw_hkdf_pmeth = NULL;
 #endif
 static EVP_PKEY_METHOD *_hidden_hkdf_pmeth = NULL;
 
+#ifdef ENABLE_QAT_HW_HKDF
+void qat_hkdf_pkey_methods(void)
+{
+    EVP_PKEY_meth_set_init(_hidden_hkdf_pmeth, qat_hkdf_init);
+    EVP_PKEY_meth_set_cleanup(_hidden_hkdf_pmeth, qat_hkdf_cleanup);
+    EVP_PKEY_meth_set_derive(_hidden_hkdf_pmeth, NULL,
+            qat_hkdf_derive);
+    EVP_PKEY_meth_set_ctrl(_hidden_hkdf_pmeth, qat_hkdf_ctrl, NULL);
+}
+#endif
+
 EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
 {
     if (_hidden_hkdf_pmeth) {
@@ -120,11 +131,7 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
 
 #ifdef ENABLE_QAT_HW_HKDF
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_HKDF)) {
-        EVP_PKEY_meth_set_init(_hidden_hkdf_pmeth, qat_hkdf_init);
-        EVP_PKEY_meth_set_cleanup(_hidden_hkdf_pmeth, qat_hkdf_cleanup);
-        EVP_PKEY_meth_set_derive(_hidden_hkdf_pmeth, NULL,
-                qat_hkdf_derive);
-        EVP_PKEY_meth_set_ctrl(_hidden_hkdf_pmeth, qat_hkdf_ctrl, NULL);
+        qat_hkdf_pkey_methods();
         qat_hw_hkdf_offload = 1;
         DEBUG("QAT HW HKDF Registration succeeded\n");
     } else {
@@ -133,18 +140,25 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
 #endif
 
     if (!qat_hw_hkdf_offload) {
+#ifndef QAT_OPENSSL_PROVIDER
+        DEBUG("QAT HW HKDF is disabled, using OpenSSL SW\n");
+#endif
 #ifndef QAT_OPENSSL_3
         EVP_PKEY_meth_copy(_hidden_hkdf_pmeth, sw_hkdf_pmeth);
-        DEBUG("OpenSSL HW HKDF is disabled, using OpenSSL SW\n");
 #else
         /* Although QATEngine supports software fallback to the default provider when
         * using the OpenSSL 3 legacy engine API, if it fails during the registration
         * phase, the pkey method cannot be set correctly because the OpenSSL3 legacy
         * engine framework no longer provides a standard method for HKDF, PRF and SM2.
-        * So it will just return NULL.
         * https://github.com/openssl/openssl/issues/19047
         */
-        WARN("HKDF methods registration failed with OpenSSL 3.\n");
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#  ifdef ENABLE_QAT_HW_HKDF
+        qat_openssl3_hkdf_fallback = 1;
+        qat_hkdf_pkey_methods();
+        return _hidden_hkdf_pmeth;
+#  endif
+# endif
         EVP_PKEY_meth_free(_hidden_hkdf_pmeth);
         return NULL;
 #endif
@@ -171,7 +185,6 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
     int (*sw_init_fn_ptr)(EVP_PKEY_CTX *) = NULL;
     int ret = 0;
 #endif
-    DEBUG("QAT HW HKDF Init Started\n");
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx (type EVP_PKEY_CTX) is NULL \n");
@@ -331,7 +344,6 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
     int ret = 0;
 #endif
 
-    DEBUG("QAT HW HKDF Ctrl Started\n");
     if (unlikely(qat_hkdf_ctx == NULL)) {
          WARN("qat_hkdf_ctx cannot be NULL\n");
          return 0;
@@ -632,7 +644,7 @@ static int qat_set_hkdf_mode(QAT_HKDF_CTX * qat_hkdf_ctx)
 *   HKDF SW fallback function. Using default provider of OpenSSL 3
 ******************************************************************************/
 int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out, size_t olen) {
-    int rv = 1;
+    int rv = 0;
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
     OSSL_PARAM params[6], *p = params;
@@ -702,7 +714,7 @@ int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
         goto end;
     }
 
-    rv = 0;
+    rv = 1;
 end:
     EVP_KDF_CTX_free(kctx);
     EVP_KDF_free(kdf);
@@ -755,7 +767,6 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         return ret;
     }
 
-    DEBUG("QAT HW HKDF Derive Started\n");
 #ifdef ENABLE_QAT_FIPS
     qat_fips_get_approved_status();
 #endif
@@ -766,6 +777,15 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         return ret;
     }
 
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (qat_openssl3_hkdf_fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+        qat_hkdf_ctx->fallback = 1;
+        goto err;
+    }
+#endif
+
+    DEBUG("QAT HW HKDF Started\n");
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         qat_hkdf_ctx->fallback = 1;

@@ -301,28 +301,36 @@ static EVP_PKEY_METHOD *_hidden_sm2_pmeth = NULL;
 const EVP_PKEY_METHOD *sw_sm2_pmeth = NULL;
 #endif
 
+#if defined(ENABLE_QAT_SW_SM3)
+int qat_sw_sm3_md_methods(EVP_MD *c)
+{
+    int res = 1;
+    res &= EVP_MD_meth_set_result_size(c, 32);
+    res &= EVP_MD_meth_set_input_blocksize(c, SM3_MSG_BLOCK_SIZE);
+    res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD *) + sizeof(SM3_CTX_mb));
+    res &= EVP_MD_meth_set_flags(c, EVP_MD_CTX_FLAG_REUSE);
+    res &= EVP_MD_meth_set_init(c, qat_sw_sm3_init);
+    res &= EVP_MD_meth_set_update(c, qat_sw_sm3_update);
+    res &= EVP_MD_meth_set_final(c, qat_sw_sm3_final);
+    return res;
+}
+#endif
+
 const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 {
 #ifdef ENABLE_QAT_SW_SM3
     int res = 1;
     EVP_MD *qat_sw_sm3_meth = NULL;
 
+    if ((qat_sw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
+        WARN("Failed to allocate digest methods for nid %d\n", nid);
+        return NULL;
+    }
     if (qat_sw_offload &&
         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM3)) {
-        if ((qat_sw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
-            WARN("Failed to allocate digest methods for nid %d\n", nid);
-            return NULL;
-        }
-
         /* For now check using MBX_ALGO_X25519 as algo info for sm3 is not implemented */
         if (mbx_get_algo_info(MBX_ALGO_X25519)) {
-            res &= EVP_MD_meth_set_result_size(qat_sw_sm3_meth, 32);
-            res &= EVP_MD_meth_set_input_blocksize(qat_sw_sm3_meth, SM3_MSG_BLOCK_SIZE);
-            res &= EVP_MD_meth_set_app_datasize(qat_sw_sm3_meth, sizeof(EVP_MD *) + sizeof(SM3_CTX_mb));
-            res &= EVP_MD_meth_set_flags(qat_sw_sm3_meth, EVP_MD_CTX_FLAG_REUSE);
-            res &= EVP_MD_meth_set_init(qat_sw_sm3_meth, qat_sw_sm3_init);
-            res &= EVP_MD_meth_set_update(qat_sw_sm3_meth, qat_sw_sm3_update);
-            res &= EVP_MD_meth_set_final(qat_sw_sm3_meth, qat_sw_sm3_final);
+            res = qat_sw_sm3_md_methods(qat_sw_sm3_meth);
         }
 
         if (0 == res) {
@@ -337,7 +345,18 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
     } else {
         qat_sw_sm3_offload = 0;
         DEBUG("QAT SW SM3 is disabled, using OpenSSL SW\n");
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+        qat_openssl3_sm3_fallback = 1;
+        res = qat_sw_sm3_md_methods(qat_sw_sm3_meth);
+        if (0 == res) {
+            WARN("Failed to set MD methods for nid %d\n", nid);
+            EVP_MD_meth_free(qat_sw_sm3_meth);
+            return NULL;
+        }
+        return qat_sw_sm3_meth;
+# else
         return (EVP_MD *)EVP_sm3();
+# endif
     }
 #else
     qat_sw_sm3_offload = 0;
@@ -1083,6 +1102,21 @@ static int pkey_ec_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 }
 #endif
 
+#if defined(ENABLE_QAT_SW_SM2) && !defined(QAT_OPENSSL_PROVIDER)
+void qat_sm2_pkey_methods(void)
+{
+    EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
+# ifdef QAT_OPENSSL_3 /* Only used for OpenSSL 3 legacy engine API */
+    EVP_PKEY_meth_set_keygen(_hidden_sm2_pmeth, NULL, pkey_ec_keygen);
+# endif
+    EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
+    EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
+    EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth, mb_digest_custom);
+    EVP_PKEY_meth_set_digestsign(_hidden_sm2_pmeth, mb_ecdsa_sm2_sign);
+    EVP_PKEY_meth_set_digestverify(_hidden_sm2_pmeth, mb_ecdsa_sm2_verify);
+}
+#endif
+
 EVP_PKEY_METHOD *qat_create_sm2_pmeth(void)
 {
 
@@ -1095,8 +1129,12 @@ EVP_PKEY_METHOD *qat_create_sm2_pmeth(void)
                 unsigned char *out, size_t *outlen,
                 const unsigned char *in, size_t inlen) = NULL;
 #endif
-
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (_hidden_sm2_pmeth && (qat_hw_sm2_offload || qat_sw_sm2_offload || 
+                              qat_openssl3_sm2_fallback)) {
+#else
     if (_hidden_sm2_pmeth && (qat_hw_sm2_offload || qat_sw_sm2_offload)) {
+#endif
         if (!qat_reload_algo)
             return _hidden_sm2_pmeth;
         EVP_PKEY_meth_free(_hidden_sm2_pmeth);
@@ -1144,41 +1182,31 @@ EVP_PKEY_METHOD *qat_create_sm2_pmeth(void)
     }
 # endif /* ENABLE_QAT_HW_SM2 */
 
-#ifdef ENABLE_QAT_SW_SM2
+# ifdef ENABLE_QAT_SW_SM2
     if (qat_sw_offload && !qat_hw_sm2_offload &&
         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
         mbx_get_algo_info(MBX_ALGO_X25519)) {
-        EVP_PKEY_meth_set_init(_hidden_sm2_pmeth, mb_sm2_init);
-# ifdef QAT_OPENSSL_3 /* Only used for OpenSSL 3 legacy engine API */
-        EVP_PKEY_meth_set_keygen(_hidden_sm2_pmeth, NULL, pkey_ec_keygen);
-# endif
-        EVP_PKEY_meth_set_cleanup(_hidden_sm2_pmeth, mb_sm2_cleanup);
-        EVP_PKEY_meth_set_ctrl(_hidden_sm2_pmeth, mb_sm2_ctrl, NULL);
-        EVP_PKEY_meth_set_digest_custom(_hidden_sm2_pmeth, mb_digest_custom);
-        EVP_PKEY_meth_set_digestsign(_hidden_sm2_pmeth, mb_ecdsa_sm2_sign);
-        EVP_PKEY_meth_set_digestverify(_hidden_sm2_pmeth, mb_ecdsa_sm2_verify);
+        qat_sm2_pkey_methods();
         qat_sw_sm2_offload = 1;
         DEBUG("QAT SW SM2 registration succeeded\n");
     } else {
         qat_sw_sm2_offload = 0;
-        DEBUG("QAT SW SM2 disabled\n");
     }
 
     if (!qat_sw_sm2_offload && !qat_hw_sm2_offload) {
-        DEBUG("OpenSSL SW SM2\n");
-# ifndef QAT_OPENSSL_3
+        DEBUG("QAT SW SM2 is disabled, using OpenSSL SW");
+#  ifndef QAT_OPENSSL_3
         return (EVP_PKEY_METHOD *)sw_sm2_pmeth;
-# else
+#  else
         /* Although QAT Engine supports software fallback to the default provider when
         * using the OpenSSL 3 legacy engine API, if it fails during the registration
         * phase, the pkey method cannot be set correctly because the OpenSSL3 legacy
         * engine framework no longer provides a standard method for HKDF, PRF and SM2.
-        * So it will just return NULL.
         * https://github.com/openssl/openssl/issues/19047
         */
-        WARN("SM2 PKEY methods registration failed with OpenSSL 3.\n");
-        return NULL;
-# endif
+        qat_openssl3_sm2_fallback = 1;
+        qat_sm2_pkey_methods();
+#  endif
     }
 # endif /* ENABLE_QAT_SW_SM2 */
 #endif    /* QAT_OPENSSL_PROVIDER */

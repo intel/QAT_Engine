@@ -697,6 +697,13 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     }
 # endif
 
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (qat_openssl3_sm2_fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+        goto use_sw_method;
+    }
+# endif
+
     /* QAT SW initialization fail, switching to OpenSSL. */
     if (fallback_to_openssl)
         goto use_sw_method;
@@ -1005,6 +1012,13 @@ int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
         smctx->id_set = 1;
         smctx->id = (uint8_t*)OPENSSL_memdup(SM2_DEFAULT_USERID, SM2_DEFAULT_USERID_LEN);
         smctx->id_len = SM2_DEFAULT_USERID_LEN;
+    }
+# endif
+
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (qat_openssl3_sm2_fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+        goto use_sw_method;
     }
 # endif
 

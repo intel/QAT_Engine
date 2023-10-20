@@ -173,6 +173,13 @@ const char *engine_qat_name =
 #endif
 unsigned int engine_inited = 0;
 int fallback_to_openssl = 0;
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+int qat_openssl3_prf_fallback = 0;
+int qat_openssl3_hkdf_fallback = 0;
+int qat_openssl3_sm2_fallback = 0;
+int qat_openssl3_sm3_fallback = 0;
+int qat_openssl3_sha_fallback = 0;
+#endif
 int fallback_to_qat_sw = 0; /* QAT HW initialize fail, offload to QAT SW. */
 int qat_hw_offload = 0;
 int qat_sw_offload = 0;
@@ -674,6 +681,13 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
         qat_hw_offload = 0;
         qat_sw_offload = 0;
         fallback_to_openssl = 0;
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+	qat_openssl3_prf_fallback = 0;
+	qat_openssl3_hkdf_fallback = 0;
+	qat_openssl3_sm2_fallback = 0;
+	qat_openssl3_sm3_fallback = 0;
+	qat_openssl3_sha_fallback = 0;
+#endif
         fallback_to_qat_sw = 0;
     }
     qat_pthread_mutex_unlock();
@@ -1137,10 +1151,10 @@ int bind_qat(ENGINE *e, const char *id)
         return ret;
     }
 
-     if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
-          WARN("ENGINE_set_pkey_meths failed\n");
-          return ret;
-     }
+    if (!ENGINE_set_pkey_meths(e, qat_pkey_methods)) {
+         WARN("ENGINE_set_pkey_meths failed\n");
+         return ret;
+    }
 
 #  ifndef QAT_BORINGSSL
     qat_create_digest_meth();
