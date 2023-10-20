@@ -89,6 +89,17 @@ static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 static const EVP_PKEY_METHOD *sw_prf_pmeth = NULL;
 #endif
 
+#ifdef ENABLE_QAT_HW_PRF
+void qat_prf_pkey_methods(void)
+{
+    EVP_PKEY_meth_set_init(_hidden_prf_pmeth, qat_tls1_prf_init);
+    EVP_PKEY_meth_set_cleanup(_hidden_prf_pmeth, qat_prf_cleanup);
+    EVP_PKEY_meth_set_derive(_hidden_prf_pmeth, NULL,
+                             qat_prf_tls_derive);
+    EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
+}
+#endif
+
 EVP_PKEY_METHOD *qat_prf_pmeth(void)
 {
     if (_hidden_prf_pmeth) {
@@ -98,7 +109,7 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
     }
 
     if ((_hidden_prf_pmeth =
-         EVP_PKEY_meth_new(EVP_PKEY_TLS1_PRF, 0)) == NULL) {
+        EVP_PKEY_meth_new(EVP_PKEY_TLS1_PRF, 0)) == NULL) {
         QATerr(QAT_F_QAT_PRF_PMETH, ERR_R_INTERNAL_ERROR);
         return NULL;
     }
@@ -114,11 +125,7 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
 
 #ifdef ENABLE_QAT_HW_PRF
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_PRF)) {
-        EVP_PKEY_meth_set_init(_hidden_prf_pmeth, qat_tls1_prf_init);
-        EVP_PKEY_meth_set_cleanup(_hidden_prf_pmeth, qat_prf_cleanup);
-        EVP_PKEY_meth_set_derive(_hidden_prf_pmeth, NULL,
-                                 qat_prf_tls_derive);
-        EVP_PKEY_meth_set_ctrl(_hidden_prf_pmeth, qat_tls1_prf_ctrl, NULL);
+        qat_prf_pkey_methods();
         qat_hw_prf_offload = 1;
         DEBUG("QAT HW PRF Registration succeeded\n");
     } else {
@@ -127,18 +134,25 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
 #endif
 
     if (!qat_hw_prf_offload) {
+#ifndef QAT_OPENSSL_PROVIDER
+        DEBUG("QAT HW PRF is disabled, using OpenSSL SW\n");
+#endif
 #ifndef QAT_OPENSSL_3
         EVP_PKEY_meth_copy(_hidden_prf_pmeth, sw_prf_pmeth);
-        DEBUG("QAT HW PRF is disabled, using OpenSSL SW\n");
 #else
-        /* Although QAEngine supports software fallback to the default provider when
+	/* Although QATEngine supports software fallback to the default provider when
         * using the OpenSSL 3 legacy engine API, if it fails during the registration
         * phase, the pkey method cannot be set correctly because the OpenSSL3 legacy
         * engine framework no longer provides a standard method for HKDF, PRF and SM2.
-        * So it will just return NULL.
         * https://github.com/openssl/openssl/issues/19047
         */
-        WARN("PRF methods registration failed with OpenSSL 3.\n");
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#  ifdef ENABLE_QAT_HW_PRF
+        qat_openssl3_prf_fallback = 1;
+        qat_prf_pkey_methods();
+        return _hidden_prf_pmeth;
+#  endif
+# endif
         EVP_PKEY_meth_free(_hidden_prf_pmeth);
         return NULL;
 #endif
@@ -562,7 +576,7 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
 *   PRF SW fallback function. Using default provider of OpenSSL 3
 ******************************************************************************/
 int default_provider_PRF_derive(QAT_TLS1_PRF_CTX *qat_prf_ctx, unsigned char *out, size_t olen) {
-    int rv = 1;
+    int rv = 0;
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
     OSSL_PARAM params[5], *p = params;
@@ -606,7 +620,7 @@ int default_provider_PRF_derive(QAT_TLS1_PRF_CTX *qat_prf_ctx, unsigned char *ou
         goto end;
     }
 
-    rv = 0;
+    rv = 1;
 end:
     EVP_KDF_CTX_free(kctx);
     EVP_KDF_free(kdf);
@@ -657,7 +671,6 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         return ret;
     }
 
-    DEBUG("QAT HW PRF Started\n");
 #ifdef ENABLE_QAT_FIPS
     qat_fips_get_approved_status();
 #endif
@@ -680,7 +693,15 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
     key_length = *olen;
     md_nid = EVP_MD_type(qat_prf_ctx->qat_md);
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (qat_openssl3_prf_fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+        fallback = 1;
+        goto err;
+    }
+#endif
 
+    DEBUG("QAT HW PRF Started\n");
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         fallback = 1;

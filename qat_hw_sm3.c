@@ -448,6 +448,18 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
 static int qat_hw_sm3_init(EVP_MD_CTX *ctx)
 {
     memset(QAT_SM3_GET_CTX(ctx), 0, sizeof(QAT_SM3_CTX));
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (qat_openssl3_sm3_fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+
+        int sts = 0;
+        int (*sw_fn_ptr)(EVP_MD_CTX *) = NULL;
+        sw_fn_ptr = EVP_MD_meth_get_init((EVP_MD *)EVP_sm3());
+        sts = (*sw_fn_ptr)(ctx);
+        DEBUG("SW Finished %p\n", ctx);
+        return sts;
+    }
+# endif
     return 1;
 }
 
@@ -471,7 +483,10 @@ static int qat_hw_sm3_init(EVP_MD_CTX *ctx)
 static int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 {
     const unsigned char *data = in;
-
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    int sts = 0;
+    int (*sw_fn_ptr)(EVP_MD_CTX *, const void *, size_t) = NULL;
+#endif
     QAT_SM3_CTX *qat_sm3_ctx = NULL;
     unsigned char *p;
     size_t n;
@@ -486,6 +501,13 @@ static int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         QATerr(QAT_F_QAT_HW_SM3_UPDATE, QAT_R_INVALID_INPUT);
         return 0;
     }
+
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (qat_openssl3_sm3_fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+        goto fallback;
+    }
+# endif
 
     qat_sm3_ctx = qat_hw_sm3_get_ctx(ctx);
     if (unlikely(qat_sm3_ctx == NULL)) {
@@ -556,8 +578,15 @@ static int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         qat_sm3_ctx->num = (unsigned int)len;
         memcpy(p, data, len);
     }
-
     return 1;
+
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+fallback:
+    sw_fn_ptr = EVP_MD_meth_get_update((EVP_MD *)EVP_sm3());
+    sts = (*sw_fn_ptr)(ctx, in, len);
+    DEBUG("SW Finished %p\n", ctx);
+    return sts;
+# endif
 }
 
 static int qat_hw_sm3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
@@ -609,12 +638,23 @@ static int qat_hw_sm3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
 static int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
 {
     QAT_SM3_CTX *qat_sm3_ctx = NULL;
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    int sts = 0;
+    int (*sw_fn_ptr)(EVP_MD_CTX *, unsigned char *) = NULL;
+#endif
 
     if (md == NULL) {
         WARN("hw sm3 md is null\n");
         QATerr(QAT_F_QAT_HW_SM3_FINAL, QAT_R_INPUT_PARAM_INVALID);
         return 0;
     }
+
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (qat_openssl3_sm3_fallback == 1) {
+        DEBUG("- Switched to software mode\n");
+        goto fallback;
+    }
+# endif
 
     qat_sm3_ctx = qat_hw_sm3_get_ctx(ctx);
     if (qat_sm3_ctx == NULL) {
@@ -658,6 +698,14 @@ static int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
     DUMPL("DigestResult (QAT_HW)", md, QAT_SM3_DIGEST_SIZE);
 
     return 1;
+
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+fallback:
+    sw_fn_ptr = EVP_MD_meth_get_final((EVP_MD *)EVP_sm3());
+    sts = (*sw_fn_ptr)(ctx, md);
+    DEBUG("SW Finished %p\n", ctx);
+    return sts;
+# endif
 }
 
 /******************************************************************************
@@ -747,34 +795,38 @@ static int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
     return ret_val;
 }
 
+int qat_hw_sm3_md_methods(EVP_MD *c)
+{
+    int res = 1;
+
+    res &= EVP_MD_meth_set_result_size(c, QAT_SM3_STATE_SIZE);
+    res &= EVP_MD_meth_set_input_blocksize(c, QAT_SM3_BLOCK_SIZE);
+    /* Totally 3 memory sections in application data, common EVP_MD,
+       SM3_CTX used for SM3 software, and QAT_SM3_CTX for QAT_HW */
+    res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD *) +
+                        sizeof(SM3_CTX) + sizeof(QAT_SM3_CTX));
+    res &= EVP_MD_meth_set_flags(c, EVP_MD_CTX_FLAG_REUSE);
+    res &= EVP_MD_meth_set_init(c, qat_hw_sm3_init);
+    res &= EVP_MD_meth_set_update(c, qat_hw_sm3_update);
+    res &= EVP_MD_meth_set_final(c, qat_hw_sm3_final);
+    res &= EVP_MD_meth_set_copy(c, qat_hw_sm3_copy);
+    res &= EVP_MD_meth_set_cleanup(c, qat_hw_sm3_cleanup);
+    return res;
+}
+
 const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
 {
     int res = 1;
     EVP_MD *qat_hw_sm3_meth = NULL;
 
+    if ((qat_hw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
+        WARN("Failed to allocate digest methods for nid %d\n", nid);
+        QATerr(QAT_F_QAT_HW_CREATE_SM3_METH, QAT_R_INIT_FAILURE);
+        return NULL;
+    }
+
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_SM3)) {
-        if ((qat_hw_sm3_meth = EVP_MD_meth_new(nid, key_type)) == NULL) {
-            WARN("Failed to allocate digest methods for nid %d\n", nid);
-            QATerr(QAT_F_QAT_HW_CREATE_SM3_METH, QAT_R_INIT_FAILURE);
-            return NULL;
-        }
-
-        res &= EVP_MD_meth_set_result_size(qat_hw_sm3_meth, QAT_SM3_STATE_SIZE);
-        res &=
-            EVP_MD_meth_set_input_blocksize(qat_hw_sm3_meth,
-                                            QAT_SM3_BLOCK_SIZE);
-        /* Totally 3 memory sections in application data, common EVP_MD,
-           SM3_CTX used for SM3 software, and QAT_SM3_CTX for QAT_HW */
-        res &= EVP_MD_meth_set_app_datasize(qat_hw_sm3_meth,
-                                            sizeof(EVP_MD *) + sizeof(SM3_CTX) +
-                                            sizeof(QAT_SM3_CTX));
-        res &= EVP_MD_meth_set_flags(qat_hw_sm3_meth, EVP_MD_CTX_FLAG_REUSE);
-        res &= EVP_MD_meth_set_init(qat_hw_sm3_meth, qat_hw_sm3_init);
-        res &= EVP_MD_meth_set_update(qat_hw_sm3_meth, qat_hw_sm3_update);
-        res &= EVP_MD_meth_set_final(qat_hw_sm3_meth, qat_hw_sm3_final);
-        res &= EVP_MD_meth_set_copy(qat_hw_sm3_meth, qat_hw_sm3_copy);
-        res &= EVP_MD_meth_set_cleanup(qat_hw_sm3_meth, qat_hw_sm3_cleanup);
-
+        res = qat_hw_sm3_md_methods(qat_hw_sm3_meth);
         if (0 == res) {
             WARN("Failed to set MD methods for nid %d\n", nid);
             QATerr(QAT_F_QAT_HW_CREATE_SM3_METH, QAT_R_INIT_FAILURE);
@@ -790,8 +842,18 @@ const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
     } else {
         qat_hw_sm3_offload = 0;
         DEBUG("QAT HW SM3 is disabled, using OpenSSL SW\n");
-
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+        qat_openssl3_sm3_fallback = 1;
+        res = qat_hw_sm3_md_methods(qat_hw_sm3_meth);
+        if (0 == res) {
+            WARN("Failed to set MD methods for nid %d\n", nid);
+            EVP_MD_meth_free(qat_hw_sm3_meth);
+            return NULL;
+        }
+        return qat_hw_sm3_meth;
+# else
         return (EVP_MD *)EVP_sm3();
+# endif
     }
 }
 
