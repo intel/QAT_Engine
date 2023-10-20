@@ -316,7 +316,7 @@ AC_SUBST([LIBQATNAME], "qatengine")
 AC_CHECK_FILE(${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h,
 	      [with_icp_sal_versions_h=yes],
 	      [with_icp_sal_versions_h=no])
-if test "x$with_icp_sal_versions_h" = "xyes"
+if test "x$with_icp_sal_versions_h" = "xyes" -a "x$enable_qat_hw" != "xno"
 then
   if grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h
   then
