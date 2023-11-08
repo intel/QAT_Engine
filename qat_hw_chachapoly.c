@@ -1376,6 +1376,7 @@ static int qat_chacha20_poly1305_cleanup(EVP_CIPHER_CTX *ctx)
     qat_chachapoly_ctx *cp_ctx = NULL;
     CpaStatus status;
     CpaCySymSessionSetupData *ssd = NULL;
+    CpaBoolean sessionInUse = CPA_FALSE;
 
     if (unlikely(ctx == NULL)) {
         WARN("ctx parameter is NULL.\n");
@@ -1392,6 +1393,13 @@ static int qat_chacha20_poly1305_cleanup(EVP_CIPHER_CTX *ctx)
         WARN("chachapoly context cipher data is NULL.\n");
         QATerr(QAT_F_QAT_CHACHA20_POLY1305_CLEANUP, QAT_R_CHACHAPOLY_CTX_NULL);
         return 0;
+    }
+
+    if (cp_ctx->session_ctx != NULL) {
+        /* Wait for in-flight requests before removing session */
+        do {
+            cpaCySymSessionInUse(cp_ctx->session_ctx, &sessionInUse);
+        } while (sessionInUse);
     }
 
     ssd = cp_ctx->session_data;
