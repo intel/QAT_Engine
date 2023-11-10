@@ -252,8 +252,12 @@ crypto_mb:
 endif
 
 if QAT_4XXX
-rpm:
+rpm_oot:
 	mkdir -p rpmbuild/BUILD rpmbuild/RPMS rpmbuild/SOURCES rpmbuild/SPECS rpmbuild/SRPMS
 	cp qatengine-oot.spec rpmbuild/SPECS/
 	rpmbuild --undefine=_disable_source_fetch --define "_topdir $(abs_srcdir)/rpmbuild" -ba rpmbuild/SPECS/qatengine-oot.spec
 endif
+
+rpm_intree:
+	mkdir -p rpmbuild/BUILD rpmbuild/RPMS rpmbuild/SOURCES rpmbuild/SPECS rpmbuild/SRPMS
+	rpmbuild --undefine=_disable_source_fetch --define "_topdir $(abs_srcdir)/rpmbuild" -ba qatengine.spec
