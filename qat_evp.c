@@ -532,6 +532,21 @@ int qat_ecx448_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 }
 #endif
 
+#ifdef ENABLE_QAT_SW_ECX
+static void qat_ecx25519_pkey_methods(void)
+{
+        EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
+        EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
+# ifdef QAT_OPENSSL_3
+        EVP_PKEY_meth_set_paramgen(_hidden_x25519_pmeth, qat_ecx_paramgen_init,
+                                   qat_ecx25519_paramgen);
+# endif /* QAT_OPENSSL_3 */
+# ifndef QAT_OPENSSL_PROVIDER
+        EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
+# endif
+}
+#endif
+
 EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 {
     if (_hidden_x25519_pmeth) {
@@ -585,23 +600,22 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
     if (qat_sw_offload && !qat_hw_ecx_offload &&
         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519) &&
         mbx_get_algo_info(MBX_ALGO_X25519)) {
-        EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
-        EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
-# ifdef QAT_OPENSSL_3
-        EVP_PKEY_meth_set_paramgen(_hidden_x25519_pmeth, qat_ecx_paramgen_init,
-                                   qat_ecx25519_paramgen);
-# endif /* QAT_OPENSSL_3 */
-# ifndef QAT_OPENSSL_PROVIDER
-        EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
-# endif
+        qat_ecx25519_pkey_methods();
         qat_sw_ecx_offload = 1;
         DEBUG("QAT SW X25519 registration succeeded\n");
     } else {
         qat_sw_ecx_offload = 0;
         DEBUG("QAT SW X25519 disabled\n");
     }
-#endif
 
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    if (!qat_sw_offload) {
+        fallback_to_openssl = 1;
+        qat_ecx25519_pkey_methods();
+        return _hidden_x25519_pmeth;
+    }
+# endif
+#endif
     if (qat_hw_ecx_offload == 0 && qat_sw_ecx_offload == 0)
         EVP_PKEY_meth_copy(_hidden_x25519_pmeth, sw_x25519_pmeth);
 
