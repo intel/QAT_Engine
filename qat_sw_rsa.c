@@ -1581,6 +1581,7 @@ int mb_bssl_rsa_priv_sign(RSA *rsa, size_t *out_len, uint8_t *out,
 
     if (max_out < rsa_size) {
         OPENSSL_PUT_ERROR(RSA, RSA_R_OUTPUT_BUFFER_TOO_SMALL);
+        _ret = ASYNC_current_job_last_check_and_get();
         return 0;
     }
 
@@ -1611,11 +1612,13 @@ int mb_bssl_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
 
     if (max_out < rsa_size) {
         OPENSSL_PUT_ERROR(RSA, RSA_R_OUTPUT_BUFFER_TOO_SMALL);
+        _ret = ASYNC_current_job_last_check_and_get();
         return 0;
     }
 
     if (in_len != rsa_size) {
         OPENSSL_PUT_ERROR(RSA, RSA_R_DATA_LEN_NOT_EQUAL_TO_MOD_LEN);
+        _ret = ASYNC_current_job_last_check_and_get();
         return 0;
     }
 
