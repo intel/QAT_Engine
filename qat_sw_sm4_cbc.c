@@ -65,7 +65,11 @@
 #include "qat_sw_request.h"
 #include "qat_sw_sm4_cbc.h"
 #ifdef ENABLE_QAT_HW_SM4_CBC
-#include "qat_hw_sm4_cbc.h"
+# include "qat_hw_sm4_cbc.h"
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+# include "qat_prov_sm4_cbc.h"
 #endif
 
 /* Crypto_mb includes */
@@ -87,6 +91,25 @@ static inline const EVP_CIPHER *sm4_cipher_sw_impl(int nid)
         return NULL;
     }
 }
+
+#ifdef QAT_OPENSSL_PROVIDER
+static QAT_EVP_CIPHER_SM4_CBC get_default_cipher_sm4_cbc()
+{
+    static QAT_EVP_CIPHER_SM4_CBC sm4_cipher;
+    static int initilazed = 0;
+    if (!initilazed) {
+        QAT_EVP_CIPHER_SM4_CBC *cipher = (QAT_EVP_CIPHER_SM4_CBC *)EVP_CIPHER_fetch(NULL, "SM4-CBC", "provider=default");
+        if (cipher) {
+            sm4_cipher = *cipher;
+            EVP_CIPHER_free((EVP_CIPHER *)cipher);
+            initilazed = 1;
+        } else {
+            WARN("EVP_CIPHER_fetch from default provider failed");
+        }
+    }
+    return sm4_cipher;
+}
+#endif
 
 static void process_mb_sm4_cbc_cipher_set_key(mbx_sm4_key_schedule *key_sched,
                                               const sm4_key **mb_key, int req_num)
@@ -230,11 +253,22 @@ void process_mb_sm4_cbc_cipher_dec_reqs(mb_thread_data *tlv)
     DEBUG("Processed SM4_CBC cipher decryption Request\n");
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sw_sm4_cbc_key_init(void *ctx, const unsigned char *key,
+                            int keylen, const unsigned char *iv,
+                            int ivlen, int enc)
+#else
 int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
                                    const unsigned char *iv, int enc)
+#endif
 {
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_EVP_CIPHER_SM4_CBC sw_sm4_cbc_cipher;
+    QAT_PROV_CBC_CTX *sm4_cbc_ctx = (QAT_PROV_CBC_CTX *)ctx;
+#else
     SM4_CBC_CTX *sm4_cbc_ctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#endif
     int sts = 0;
 #ifdef ENABLE_QAT_HW_SM4_CBC
     sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
@@ -247,15 +281,17 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         QATerr(QAT_F_QAT_SW_SM4_CBC_KEY_INIT, QAT_R_CTX_NULL);
         return sts;
     }
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#ifndef QAT_OPENSSL_PROVIDER
+# ifdef ENABLE_QAT_HW_SM4_CBC
     if (qat_sm4_cbc_coexist) {
         sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
         sm4_cbc_ctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_sw_ctx);
     } else {
         sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     }
-#else
+# else
     sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+# endif
 #endif
     if (sm4_cbc_ctx == NULL) {
         WARN("SM4-CBC CTX is NULL\n");
@@ -266,8 +302,10 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
 
     if (key == NULL) {
         WARN("SM4-CBC key is NULL \n");
+#ifndef QAT_OPENSSL_PROVIDER
         QATerr(QAT_F_QAT_SW_SM4_CBC_KEY_INIT, QAT_R_KEY_NULL);
         return sts;
+#endif
     } else {
         DEBUG("qat_sw_sm4_cbc_key_init: save key=%p parameter for later use key_len=%u\n",
                key, SM4_KEY_SIZE);
@@ -279,7 +317,27 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         memmove(sm4_cbc_ctx->iv, iv, SM4_IV_LEN);
         sm4_cbc_ctx->iv_set = 1;
     }
+#ifdef QAT_OPENSSL_PROVIDER
+    OSSL_PARAM params[2] = {OSSL_PARAM_END, OSSL_PARAM_END};
+    sw_sm4_cbc_cipher = get_default_cipher_sm4_cbc();
 
+    if (enc) {
+        if (!sm4_cbc_ctx->sw_ctx)
+            sm4_cbc_ctx->sw_ctx = sw_sm4_cbc_cipher.newctx(ctx);
+        sts = sw_sm4_cbc_cipher.einit(sm4_cbc_ctx->sw_ctx, key, keylen, iv, ivlen, params);
+    } else {
+        if (!sm4_cbc_ctx->sw_ctx)
+            sm4_cbc_ctx->sw_ctx = sw_sm4_cbc_cipher.newctx(ctx);
+
+        unsigned int pad = 0;
+        params[0] = OSSL_PARAM_construct_uint(OSSL_CIPHER_PARAM_PADDING, &pad);
+        sts = sw_sm4_cbc_cipher.dinit(sm4_cbc_ctx->sw_ctx, key, keylen, iv, ivlen, params);
+    }
+    if (sts != 1) {
+        QATerr(QAT_F_QAT_SW_SM4_CBC_KEY_INIT, QAT_R_INIT_FAILURE);
+	return sts;
+    }
+#else
     /* cipher context init, used by sw_fallback */
     sw_ctx_cipher_data = OPENSSL_zalloc(sizeof(EVP_SM4_KEY));
     if (sw_ctx_cipher_data == NULL) {
@@ -296,27 +354,39 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         return sts;
     }
     sm4_cbc_ctx->sw_ctx_cipher_data = sw_ctx_cipher_data;
-#ifdef ENABLE_QAT_HW_SM4_CBC
+# ifdef ENABLE_QAT_HW_SM4_CBC
     if (qat_sm4_cbc_coexist) {
         EVP_CIPHER_CTX_set_cipher_data(ctx, sm4cbc_hw_sw_ctx);
     } else {
         EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
     }
-#else
+# else
     EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
+# endif
 #endif
     /* Save key in ctx and return, key_init will be done in cipher operation. */
     return sts;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sw_sm4_cbc_cipher(void *ctx, unsigned char *out,
+                          size_t *outl, size_t outsize,
+                          const unsigned char *in, size_t len)
+#else
 int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                           const unsigned char *in, size_t len)
+#endif
 {
     int sts = 0, job_ret = 0;
     ASYNC_JOB *job;
     sm4_cbc_cipher_op_data *sm4_cbc_cipher_req = NULL;
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_EVP_CIPHER_SM4_CBC sw_sm4_cbc_cipher;
+    QAT_PROV_CBC_CTX *sm4_cbc_ctx = (QAT_PROV_CBC_CTX *)ctx;
+#else
     SM4_CBC_CTX *sm4_cbc_ctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#endif
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
     int8u *in_iv = NULL;
@@ -333,18 +403,18 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         QATerr(QAT_F_QAT_SW_SM4_CBC_CIPHER, QAT_R_CTX_NULL);
         return sts;
     }
-
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#ifndef QAT_OPENSSL_PROVIDER
+# ifdef ENABLE_QAT_HW_SM4_CBC
     if (qat_sm4_cbc_coexist) {
         sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
         sm4_cbc_ctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_sw_ctx);
     } else {
         sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     }
-#else
+# else
     sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+# endif
 #endif
-
     if (sm4_cbc_ctx == NULL) {
         WARN("SM4-CBC CTX is NULL\n");
         QATerr(QAT_F_QAT_SW_SM4_CBC_CIPHER, QAT_R_CIPHER_DATA_NULL);
@@ -359,9 +429,15 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         in_iv = sm4_cbc_ctx->iv;
 
 #ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+# ifndef QAT_OPENSSL_PROVIDER
     if (len <=
         qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx)))
         goto use_sw_method;
+# else
+    if (len <=
+        qat_pkt_threshold_table_get_threshold(sm4_cbc_ctx->nid))
+        goto use_sw_method;
+# endif
 #endif
 
     if (fallback_to_openssl)
@@ -413,10 +489,14 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     sm4_cbc_cipher_req->in_txt_len = len;
     sm4_cbc_cipher_req->in_out = out;
 
-    if (in_enc)
+    if (in_enc) {
+        DEBUG("encryption enqueue \n");
         mb_queue_sm4_cbc_cipher_enqueue(tlv->sm4_cbc_cipher_queue, sm4_cbc_cipher_req);
-    else
+    }
+    else {
+        DEBUG("decryption enqueue \n");
         mb_queue_sm4_cbc_cipher_enqueue(tlv->sm4_cbc_cipher_dec_queue, sm4_cbc_cipher_req);
+    }
 
     STOP_RDTSC(&sm4_cbc_cycles_cipher_setup, 1, "[SM4_CBC:cipher_setup]");
 
@@ -445,34 +525,64 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     } while (QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
     DEBUG("Finished: cipher %p status = %d\n", sm4_cbc_cipher_req, sts);
     num_sm4_cbc_sw_cipher_reqs++;
+#ifndef QAT_OPENSSL_PROVIDER
     return sts;
+#else
+    *outl = len;
+    return 1;
+#endif
 
 use_sw_method:
+    DEBUG("SW method offload\n");
+#ifdef QAT_OPENSSL_PROVIDER
+    sw_sm4_cbc_cipher = get_default_cipher_sm4_cbc();
+    if (sw_sm4_cbc_cipher.cupdate == NULL)
+        goto err;
+    if (in != NULL) {
+       sts = sw_sm4_cbc_cipher.cupdate(sm4_cbc_ctx->sw_ctx, out, outl, outsize, in, len);
+       *outl = len;
+
+       return 1;
+    } else {
+       sts = sw_sm4_cbc_cipher.cfinal(sm4_cbc_ctx->sw_ctx, out, outl, outsize);
+       *outl = len;
+       return 1;
+    }
+    DEBUG("SW Offload Finished sts=%d\n", sts);
+#else
     sw_ctx_cipher_data = sm4_cbc_ctx->sw_ctx_cipher_data;
     if (!sw_ctx_cipher_data)
         goto err;
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, sw_ctx_cipher_data);
     sts = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))(ctx, out, in, len);
-#ifdef ENABLE_QAT_HW_SM4_CBC
+# ifdef ENABLE_QAT_HW_SM4_CBC
     if (qat_sm4_cbc_coexist) {
         EVP_CIPHER_CTX_set_cipher_data(ctx, sm4cbc_hw_sw_ctx);
     } else {
         EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
     }
-#else
+# else
     EVP_CIPHER_CTX_set_cipher_data(ctx, sm4_cbc_ctx);
+# endif
 #endif
-
 err:
     return sts;
 }
 
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_sw_sm4_cbc_cleanup(void *ctx)
+#else
 int qat_sw_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
+#endif
 {
     int sts = 0;
+#ifdef QAT_OPENSSL_PROVIDER
+    QAT_PROV_CBC_CTX *sm4_cbc_ctx = (QAT_PROV_CBC_CTX *)ctx;
+#else
     SM4_CBC_CTX *sm4_cbc_ctx = NULL;
     void *sw_ctx_cipher_data = NULL;
+#endif
 #ifdef ENABLE_QAT_HW_SM4_CBC
     sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
 #endif
@@ -484,27 +594,31 @@ int qat_sw_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
         QATerr(QAT_F_QAT_SW_SM4_CBC_CLEANUP, QAT_R_CTX_NULL);
         return sts;
     }
-
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#ifndef QAT_OPENSSL_PROVIDER
+# ifdef ENABLE_QAT_HW_SM4_CBC
     if (qat_sm4_cbc_coexist) {
         sm4cbc_hw_sw_ctx = (sm4cbc_coexistence_ctx *)(EVP_CIPHER_CTX_get_cipher_data(ctx));
         sm4_cbc_ctx = &(sm4cbc_hw_sw_ctx->sm4cbc_qat_sw_ctx);
     } else {
         sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
     }
-#else
+# else
     sm4_cbc_ctx = (SM4_CBC_CTX *)EVP_CIPHER_CTX_get_cipher_data(ctx);
+# endif
 #endif
     if (sm4_cbc_ctx == NULL) {
         WARN("SM4-CBC CTX is NULL\n");
         QATerr(QAT_F_QAT_SW_SM4_CBC_CLEANUP, QAT_R_CIPHER_DATA_NULL);
         return sts;
     }
-
+#ifndef QAT_OPENSSL_PROVIDER
     sw_ctx_cipher_data = sm4_cbc_ctx->sw_ctx_cipher_data;
     if (sw_ctx_cipher_data)
         OPENSSL_free(sw_ctx_cipher_data);
-
+#else
+    if (sm4_cbc_ctx->sw_ctx)
+        OPENSSL_free(sm4_cbc_ctx->sw_ctx);
+#endif
     sts = 1;
     return sts;
 }

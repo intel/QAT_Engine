@@ -943,14 +943,17 @@ const EVP_CIPHER *qat_create_sm4_cbc_cipher_meth(int nid, int keylen)
         mbx_get_algo_info(MBX_ALGO_SM4)) {
         res &= EVP_CIPHER_meth_set_iv_length(c, SM4_IV_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, SM4_CBC_CUSTOM_FLAGS);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_init(c, qat_sw_sm4_cbc_key_init);
         res &= EVP_CIPHER_meth_set_do_cipher(c, qat_sw_sm4_cbc_cipher);
         res &= EVP_CIPHER_meth_set_cleanup(c, qat_sw_sm4_cbc_cleanup);
+#endif
         res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(SM4_CBC_CTX));
         res &= EVP_CIPHER_meth_set_set_asn1_params(c, NULL);
         res &= EVP_CIPHER_meth_set_get_asn1_params(c, NULL);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_ctrl(c, NULL);
-
+#endif
         if (res == 0) {
             WARN("Failed to set SM4 methods for nid %d\n", nid);
             QATerr(QAT_F_QAT_CREATE_SM4_CBC_CIPHER_METH, QAT_R_SM4_SET_METHODS_FAILED);
