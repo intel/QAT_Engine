@@ -67,6 +67,26 @@
 extern "C" {
 #endif
 
+static inline unsigned int value_barrier(unsigned int a)
+{
+    volatile unsigned int r = a;
+    return r;
+}
+
+static inline unsigned int qat_constant_time_select(unsigned int mask,
+                                                     unsigned int a,
+                                                     unsigned int b)
+{
+    return (value_barrier(mask) & a) | (value_barrier(~mask) & b);
+}
+
+static inline unsigned char qat_constant_time_select_8(unsigned char mask,
+                                                        unsigned char a,
+                                                        unsigned char b)
+{
+    return (unsigned char)qat_constant_time_select(mask, a, b);
+}
+
 static inline unsigned int qat_constant_time_msb(unsigned int a)
 {
     return 0 - (a >> (sizeof(a) * 8 - 1));

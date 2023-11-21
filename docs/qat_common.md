@@ -27,6 +27,7 @@ and the default if not specified will use engine interface.
 | ChachaPoly | QAT_HW |
 | SM4-GCM (BabaSSL only) | QAT_SW |
 | SM4-CCM (BabaSSL only) | QAT_SW |
+| SM4-CBC | QAT_HW & QAT_SW |
 
 This support is added as an experimental feature and tested with
 OpenSSL Speed and testapp only and not tested with any application.

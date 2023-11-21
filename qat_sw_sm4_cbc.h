@@ -92,12 +92,21 @@ typedef struct {
     } stream;
 } EVP_SM4_KEY;
 
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
                                    const unsigned char *iv, int enc);
 int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                  const unsigned char *in, size_t len);
 int qat_sw_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx);
-
+#else
+int qat_sw_sm4_cbc_cipher(void *ctx, unsigned char *out,
+                         size_t *outl, size_t outsize,
+                         const unsigned char *in, size_t len);
+int qat_sw_sm4_cbc_key_init(void *ctx, const unsigned char *inkey,
+                            int keylen, const unsigned char *iv,
+			    int ivlen, int enc);
+int qat_sw_sm4_cbc_cleanup(void *ctx);
+#endif
 void process_mb_sm4_cbc_key_init_reqs(mb_thread_data *tlv);
 void process_mb_sm4_cbc_cipher_enc_reqs(mb_thread_data *tlv);
 void process_mb_sm4_cbc_cipher_dec_reqs(mb_thread_data *tlv);
