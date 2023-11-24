@@ -445,8 +445,13 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
 *    This function initialises the hash algorithm parameters for EVP context.
 *
 ******************************************************************************/
-static int qat_hw_sm3_init(EVP_MD_CTX *ctx)
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_hw_sm3_init(void *ctx)
+#else
+int qat_hw_sm3_init(EVP_MD_CTX *ctx)
+#endif
 {
+#ifndef QAT_OPENSSL_PROVIDER
     memset(QAT_SM3_GET_CTX(ctx), 0, sizeof(QAT_SM3_CTX));
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     if (qat_openssl3_sm3_fallback == 1) {
@@ -460,6 +465,7 @@ static int qat_hw_sm3_init(EVP_MD_CTX *ctx)
         return sts;
     }
 # endif
+#endif
     return 1;
 }
 
@@ -480,7 +486,11 @@ static int qat_hw_sm3_init(EVP_MD_CTX *ctx)
 *
 *
 ******************************************************************************/
-static int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_hw_sm3_update(void *ctx, const void *in, size_t len)
+#else
+int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
+#endif
 {
     const unsigned char *data = in;
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
@@ -508,8 +518,11 @@ static int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         goto fallback;
     }
 # endif
-
+#ifdef QAT_OPENSSL_PROVIDER
+    qat_sm3_ctx = (QAT_SM3_CTX *)ctx;
+#else
     qat_sm3_ctx = qat_hw_sm3_get_ctx(ctx);
+#endif
     if (unlikely(qat_sm3_ctx == NULL)) {
         WARN("SM3 context hash data is NULL.\n");
         QATerr(QAT_F_QAT_HW_SM3_UPDATE, QAT_R_SM3_CTX_NULL);
@@ -589,7 +602,11 @@ fallback:
 # endif
 }
 
-static int qat_hw_sm3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_hw_sm3_copy(QAT_SM3_CTX *to, const QAT_SM3_CTX *from)
+#else
+int qat_hw_sm3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
+#endif
 {
     QAT_SM3_CTX *qat_from;
 
@@ -598,14 +615,16 @@ static int qat_hw_sm3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
         QATerr(QAT_F_QAT_HW_SM3_COPY, QAT_R_CTX_NULL);
         return 0;
     }
-
+#ifndef QAT_OPENSSL_PROVIDER
     /* Digest-copy can be called without a md_data in some condition */
     if (EVP_MD_CTX_md_data(from) == 0) {
         DEBUG("digest copy without md_data\n");
         return 1;
     }
-
     qat_from = QAT_SM3_GET_CTX(from);
+#else
+    qat_from = (QAT_SM3_CTX *)from;
+#endif
     if (NULL == qat_from) {
         WARN("qat_from %p is NULL\n", qat_from);
         QATerr(QAT_F_QAT_HW_SM3_COPY, QAT_R_CTX_NULL);
@@ -620,7 +639,6 @@ static int qat_hw_sm3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
 
     return 1;
 }
-
 /******************************************************************************
 * function:
 *    qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
@@ -635,7 +653,11 @@ static int qat_hw_sm3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
 *    This function performs the copy operation of digest into md buffer.
 *
 ******************************************************************************/
-static int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_hw_sm3_final(void *ctx, unsigned char *md)
+#else
+int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
+#endif
 {
     QAT_SM3_CTX *qat_sm3_ctx = NULL;
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
@@ -656,7 +678,11 @@ static int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
 # endif
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qat_sm3_ctx = (QAT_SM3_CTX *)ctx;
+#else
     qat_sm3_ctx = qat_hw_sm3_get_ctx(ctx);
+#endif
     if (qat_sm3_ctx == NULL) {
         WARN("qat_sm3_ctx is NULL\n");
         QATerr(QAT_F_QAT_HW_SM3_FINAL, QAT_R_CTX_NULL);
@@ -667,6 +693,7 @@ static int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
         /* Software calculation can start from init, because SPO threshold will
            always small than context buffer and all data are stored in context
            buffer */
+#ifndef QAT_OPENSSL_PROVIDER
         int (*sw_init_ptr)(EVP_MD_CTX *);
         int (*sw_update_ptr)(EVP_MD_CTX *, const void *, size_t);
         int (*sw_final_ptr)(EVP_MD_CTX *, unsigned char *);
@@ -684,12 +711,28 @@ static int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
             return 0;
         }
 
+	DUMPL("DigestResult (OSSL)", md, QAT_SM3_DIGEST_SIZE);
+
+	return 1;
+#else
+        qat_sm3_ctx->sw_md_ctx = EVP_MD_CTX_new();
+        if (qat_sm3_ctx->sw_md_ctx == NULL)
+            WARN("EVP_MD_CTX_new failed.\n");
+        qat_sm3_ctx->sw_md = EVP_MD_fetch(NULL, "sm3", "provider=default");
+        if (qat_sm3_ctx->sw_md == NULL) {
+            WARN("EVP_MD_fetch failed.\n");
+        }
+        if (!EVP_DigestInit_ex(qat_sm3_ctx->sw_md_ctx, qat_sm3_ctx->sw_md, NULL)
+            || !EVP_DigestUpdate(qat_sm3_ctx->sw_md_ctx, qat_sm3_ctx->data, qat_sm3_ctx->num)
+            || !EVP_DigestFinal_ex(qat_sm3_ctx->sw_md_ctx, md, NULL)) {
+           WARN("QAT_SW SM3 Offload failed \n");
+           return 0;
+        }
         DUMPL("DigestResult (OSSL)", md, QAT_SM3_DIGEST_SIZE);
-
         return 1;
-    }
 # endif
-
+    }
+#endif
     qat_sm3_ctx->digest_data = md;
     if (!qat_hw_sm3_do_offload(qat_sm3_ctx, qat_sm3_ctx->data, qat_sm3_ctx->num,
                                CPA_CY_SYM_PACKET_TYPE_LAST_PARTIAL))
@@ -722,24 +765,34 @@ fallback:
 *  cryptographic transform.
 *
 ******************************************************************************/
-static int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_hw_sm3_cleanup(QAT_SM3_CTX *ctx)
+#else
+int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
+#endif
 {
     QAT_SM3_CTX *qat_sm3_ctx;
     CpaStatus status = 0;
     int ret_val = 1;
     CpaBoolean sessionInUse = CPA_FALSE;
 
+#ifdef QAT_OPENSSL_PROVIDER
+    qat_sm3_ctx = (QAT_SM3_CTX *)ctx;
+#else
     qat_sm3_ctx = qat_hw_sm3_get_ctx(ctx);
+#endif
     if (NULL == qat_sm3_ctx) {
         WARN("qat_sm3_ctx is NULL\n");
         QATerr(QAT_F_QAT_HW_SM3_CLEANUP, QAT_R_CTX_NULL);
         return 0;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
     if (EVP_MD_CTX_md_data(ctx) == NULL) {
         DEBUG("digest cleanup without md_data\n");
         return 1;
     }
+#endif
 
     if (qat_sm3_ctx->data_refs) {
         if (*qat_sm3_ctx->data_refs > 0) {
@@ -806,11 +859,13 @@ int qat_hw_sm3_md_methods(EVP_MD *c)
     res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD *) +
                         sizeof(SM3_CTX) + sizeof(QAT_SM3_CTX));
     res &= EVP_MD_meth_set_flags(c, EVP_MD_CTX_FLAG_REUSE);
+#ifndef QAT_OPENSSL_PROVIDER
     res &= EVP_MD_meth_set_init(c, qat_hw_sm3_init);
     res &= EVP_MD_meth_set_update(c, qat_hw_sm3_update);
     res &= EVP_MD_meth_set_final(c, qat_hw_sm3_final);
     res &= EVP_MD_meth_set_copy(c, qat_hw_sm3_copy);
     res &= EVP_MD_meth_set_cleanup(c, qat_hw_sm3_cleanup);
+#endif
     return res;
 }
 

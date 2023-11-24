@@ -234,5 +234,6 @@ struct evp_pkey_ctx_st {
     BIGNUM *rsa_pubexp;
 } /* EVP_PKEY_CTX */ ;
 
+int qat_get_cipher_suite(QAT_HKDF_CTX * qat_hkdf_ctx);
 # endif /* ENABLE_QAT_HW_HKDF */
 #endif /* QAT_PROV_HKDF_H */

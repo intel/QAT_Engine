@@ -1229,6 +1229,10 @@ int bind_qat(ENGINE *e, const char *id)
         qat_hw_sha_offload = 1;
         INFO("QAT_HW SHA3 for Provider Enabled\n");
 # endif
+# ifdef ENABLE_QAT_HW_SM3
+        qat_hw_sm3_offload = 1;
+        INFO("QAT_HW SM3 for Provider Enabled\n");
+# endif
 # ifdef ENABLE_QAT_HW_GCM
         if (!qat_sw_gcm_offload) {
             qat_hw_gcm_offload = 1;
