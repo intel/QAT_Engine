@@ -288,6 +288,12 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
     }
     qat_hkdf_ctx->qat_md = md;
 
+    if (!qat_get_cipher_suite(qat_hkdf_ctx)) {
+        DEBUG("Failed to get cipher suite, fallback to SW\n");
+        fallback = 1;
+        goto end;
+    }
+
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         fallback = 1;

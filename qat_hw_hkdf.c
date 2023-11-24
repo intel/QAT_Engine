@@ -548,7 +548,7 @@ static void qat_hkdf_cb(void *pCallbackTag, CpaStatus status,
 *   Retrieve the cipher suite from the hkdf context and convert it to
 *   the CPA format
 ******************************************************************************/
-static int qat_get_cipher_suite(QAT_HKDF_CTX * qat_hkdf_ctx)
+int qat_get_cipher_suite(QAT_HKDF_CTX * qat_hkdf_ctx)
 {
     const EVP_MD *md = NULL;
     if (qat_hkdf_ctx == NULL) {
