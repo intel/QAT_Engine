@@ -307,11 +307,13 @@ int qat_sw_sm3_md_methods(EVP_MD *c)
     int res = 1;
     res &= EVP_MD_meth_set_result_size(c, 32);
     res &= EVP_MD_meth_set_input_blocksize(c, SM3_MSG_BLOCK_SIZE);
-    res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD *) + sizeof(SM3_CTX_mb));
+    res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD *) + sizeof(QAT_SM3_CTX_mb));
     res &= EVP_MD_meth_set_flags(c, EVP_MD_CTX_FLAG_REUSE);
+#ifndef QAT_OPENSSL_PROVIDER
     res &= EVP_MD_meth_set_init(c, qat_sw_sm3_init);
     res &= EVP_MD_meth_set_update(c, qat_sw_sm3_update);
     res &= EVP_MD_meth_set_final(c, qat_sw_sm3_final);
+#endif
     return res;
 }
 #endif

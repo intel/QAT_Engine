@@ -1315,6 +1315,10 @@ int bind_qat(ENGINE *e, const char *id)
     if (qat_sw_sm4_cbc_offload)
         INFO("QAT_SW SM4-CBC for Provider Enabled\n");
 # endif
+# ifdef ENABLE_QAT_SW_SM3
+        qat_sw_sm3_offload = 1;
+        INFO("QAT_SW SM3 for Provider Enabled\n");
+# endif
 #endif
 
 #ifndef QAT_BORINGSSL
