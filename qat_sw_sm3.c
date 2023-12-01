@@ -255,12 +255,18 @@ void process_sm3_final_reqs(mb_thread_data *tlv)
     DEBUG("Processed Final Request\n");
 }
 
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_sw_sm3_init(EVP_MD_CTX *ctx)
+#else
+int qat_sw_sm3_init(QAT_SM3_CTX_mb *ctx)
+#endif
 {
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     sm3_init_op_data *sm3_init_req = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
     int (*sw_fn_ptr)(EVP_MD_CTX *) = NULL;
+#endif
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
@@ -270,10 +276,19 @@ int qat_sw_sm3_init(EVP_MD_CTX *ctx)
         QATerr(QAT_F_QAT_SW_SM3_INIT, QAT_R_CTX_NULL);
         return sts;
     }
-
-    SM3_CTX_mb *sm3_ctx = (SM3_CTX_mb *) EVP_MD_CTX_md_data(ctx);
+#ifndef QAT_OPENSSL_PROVIDER
+    QAT_SM3_CTX_mb *sm3_ctx = (QAT_SM3_CTX_mb *) EVP_MD_CTX_md_data(ctx);
+#else
+    QAT_SM3_CTX_mb *sm3_ctx = (QAT_SM3_CTX_mb *) ctx;
+    sm3_ctx->sw_md_ctx = EVP_MD_CTX_new();
+    if (sm3_ctx->sw_md_ctx == NULL)
+        WARN("EVP_MD_CTX_new failed.\n");
+    sm3_ctx->sw_md = EVP_MD_fetch(NULL, "sm3", "provider=default");
+    if (sm3_ctx->sw_md == NULL)
+        WARN("EVP_MD_fetch failed.\n");
+#endif
     if (unlikely(sm3_ctx == NULL)) {
-        WARN("sm3_ctx (type SM3_CTX_mb) is NULL.\n");
+        WARN("sm3_ctx (type QAT_SM3_CTX_mb) is NULL.\n");
         QATerr(QAT_F_QAT_SW_SM3_INIT, QAT_R_CTX_NULL);
         return sts;
     }
@@ -359,18 +374,33 @@ int qat_sw_sm3_init(EVP_MD_CTX *ctx)
     }
 
 use_sw_method:
+#ifndef QAT_OPENSSL_PROVIDER
     sw_fn_ptr = EVP_MD_meth_get_init((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
+#else
+    if (!EVP_DigestInit_ex2(sm3_ctx->sw_md_ctx, sm3_ctx->sw_md, NULL)) {
+        WARN("Software calculate failed \n");
+        return 0;
+    }
+    DEBUG("SW Init Finished %p\n", sm3_ctx);
+    return 1;
+#endif
 }
 
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
+#else
+int qat_sw_sm3_update(QAT_SM3_CTX_mb *ctx, const void *in, size_t len)
+#endif
 {
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     sm3_update_op_data *sm3_update_req = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
     int (*sw_fn_ptr)(EVP_MD_CTX *, const void *, size_t) = NULL;
+#endif
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
@@ -379,10 +409,13 @@ int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         QATerr(QAT_F_QAT_SW_SM3_UPDATE, QAT_R_CTX_NULL);
         return 0;
     }
-
-    SM3_CTX_mb *sm3_ctx = (SM3_CTX_mb *) EVP_MD_CTX_md_data(ctx);
+#ifndef QAT_OPENSSL_PROVIDER
+    QAT_SM3_CTX_mb *sm3_ctx = (QAT_SM3_CTX_mb *) EVP_MD_CTX_md_data(ctx);
+#else
+    QAT_SM3_CTX_mb *sm3_ctx = (QAT_SM3_CTX_mb *) ctx;
+#endif
     if (unlikely(sm3_ctx == NULL)) {
-        WARN("sm3_ctx (type SM3_CTX_mb) is NULL.\n");
+        WARN("sm3_ctx (type QAT_SM3_CTX_mb) is NULL.\n");
         QATerr(QAT_F_QAT_SW_SM3_UPDATE, QAT_R_CTX_NULL);
         return sts;
     }
@@ -471,18 +504,33 @@ int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     }
 
 use_sw_method:
+#ifndef QAT_OPENSSL_PROVIDER
     sw_fn_ptr = EVP_MD_meth_get_update((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, in, len);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
+#else
+    if (!EVP_DigestUpdate(sm3_ctx->sw_md_ctx, in, len)) {
+        WARN("Software calculate failed \n");
+        return 0;
+    }
+    DEBUG("SW Update Finished %p\n", sm3_ctx);
+    return 1;
+#endif
 }
 
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
+#else
+int qat_sw_sm3_final(QAT_SM3_CTX_mb *ctx, unsigned char *md)
+#endif
 {
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     sm3_final_op_data *sm3_final_req = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
     int (*sw_fn_ptr)(EVP_MD_CTX *, unsigned char *) = NULL;
+#endif
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
 
@@ -491,10 +539,13 @@ int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
         QATerr(QAT_F_QAT_SW_SM3_FINAL, QAT_R_CTX_NULL);
         return 0;
     }
-
-    SM3_CTX_mb *sm3_ctx = (SM3_CTX_mb *) EVP_MD_CTX_md_data(ctx);
+#ifndef QAT_OPENSSL_PROVIDER
+    QAT_SM3_CTX_mb *sm3_ctx = (QAT_SM3_CTX_mb *) EVP_MD_CTX_md_data(ctx);
+#else
+    QAT_SM3_CTX_mb *sm3_ctx = (QAT_SM3_CTX_mb *) ctx;
+#endif
     if (unlikely(sm3_ctx == NULL)) {
-        WARN("sm3_ctx (type SM3_CTX_mb) is NULL.\n");
+        WARN("sm3_ctx (type QAT_SM3_CTX_mb) is NULL.\n");
         QATerr(QAT_F_QAT_SW_SM3_FINAL, QAT_R_CTX_NULL);
         return sts;
     }
@@ -582,8 +633,17 @@ int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
 
 use_sw_method:
+#ifndef QAT_OPENSSL_PROVIDER
     sw_fn_ptr = EVP_MD_meth_get_final((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, md);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
+#else
+    if (!EVP_DigestFinal_ex(sm3_ctx->sw_md_ctx, md, NULL)) {
+        WARN("Software calculate failed \n");
+        return 0;
+    }
+    DEBUG("SW Final Finished %p\n", sm3_ctx);
+    return 1;
+#endif
 }

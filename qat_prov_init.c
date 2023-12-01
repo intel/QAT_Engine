@@ -141,7 +141,7 @@ extern const OSSL_DISPATCH qat_sha3_256_functions[];
 extern const OSSL_DISPATCH qat_sha3_384_functions[];
 extern const OSSL_DISPATCH qat_sha3_512_functions[];
 #endif /* ENABLE_QAT_HW_SHA3 */
-#ifdef ENABLE_QAT_HW_SM3
+#if defined(ENABLE_QAT_HW_SM3) || defined (ENABLE_QAT_SW_SM3)
 extern const OSSL_DISPATCH qat_sm3_functions[];
 #endif
 #ifdef ENABLE_QAT_HW_HKDF
@@ -326,7 +326,7 @@ static const OSSL_ALGORITHM qat_kdfs[] = {
     {NULL, NULL, NULL}};
 #endif
 
-#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2) || defined(ENABLE_QAT_HW_SM3)
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2) || defined(ENABLE_QAT_HW_SM3) || defined(ENABLE_QAT_SW_SM3)
 static const OSSL_ALGORITHM qat_digests[] = {
 #if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
 # ifdef QAT_INSECURE_ALGO
@@ -344,7 +344,7 @@ static const OSSL_ALGORITHM qat_digests[] = {
     { QAT_NAMES_SHA3_384, QAT_DEFAULT_PROPERTIES, qat_sha3_384_functions },
     { QAT_NAMES_SHA3_512, QAT_DEFAULT_PROPERTIES, qat_sha3_512_functions },
 #endif
-# ifdef ENABLE_QAT_HW_SM3
+# if defined(ENABLE_QAT_HW_SM3) || defined (ENABLE_QAT_SW_SM3)
     { QAT_NAMES_SM3, QAT_DEFAULT_PROPERTIES, qat_sm3_functions },
 # endif
     { NULL, NULL, NULL }};
@@ -446,7 +446,7 @@ static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_
     if (integrity_status && strcmp((char *)sm_ptr, "KAT_FAIL") != 0) {
 #endif
         switch (operation_id) {
-#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2) || defined(ENABLE_QAT_HW_SM3)
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2) || defined(ENABLE_QAT_HW_SM3) || defined(ENABLE_QAT_SW_SM3)
         case OSSL_OP_DIGEST:
             return qat_digests;
 #endif

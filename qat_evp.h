@@ -49,6 +49,7 @@
 
 # include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
+# include "e_qat.h"
 
 # define AES_KEY_SIZE_128    16
 # define AES_KEY_SIZE_192    24
@@ -126,9 +127,15 @@ int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
 # endif
 
 # ifdef ENABLE_QAT_SW_SM3
+#  ifndef QAT_OPENSSL_PROVIDER
 int qat_sw_sm3_init(EVP_MD_CTX *ctx);
 int qat_sw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len);
 int qat_sw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md);
+#  else
+int qat_sw_sm3_init(QAT_SM3_CTX_mb *ctx);
+int qat_sw_sm3_update(QAT_SM3_CTX_mb *ctx, const void *in, size_t len);
+int qat_sw_sm3_final(QAT_SM3_CTX_mb *ctx, unsigned char *md);
+#  endif
 # endif
 
 # if defined(ENABLE_QAT_SW_SM2) || defined(ENABLE_QAT_HW_SM2)

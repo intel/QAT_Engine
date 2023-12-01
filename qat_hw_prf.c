@@ -152,9 +152,10 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
         qat_prf_pkey_methods();
         return _hidden_prf_pmeth;
 #  endif
-# endif
+# else
         EVP_PKEY_meth_free(_hidden_prf_pmeth);
         return NULL;
+# endif
 #endif
     }
 
