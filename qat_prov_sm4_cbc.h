@@ -45,7 +45,7 @@
 #ifndef QAT_PROV_SM4_CBC_H
 # define QAT_PROV_SM4_CBC_H
 
-# ifdef ENABLE_QAT_SW_SM4_CBC
+# if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
 # include <string.h>
 # include <openssl/core.h>
 # include <openssl/provider.h>
@@ -60,8 +60,9 @@
 # include <openssl/rand.h>
 # include <openssl/sha.h>
 # include <openssl/ossl_typ.h>
-
-# include "crypto_mb/sm4_gcm.h"
+# ifdef ENABLE_QAT_SW_SM4_CBC
+#  include "crypto_mb/sm4.h"
+# endif
 
 #define SM4_IV_LEN 16
 #define IV_STATE_UNINITIALISED 0  /* initial state is not initialized */
@@ -184,9 +185,13 @@ typedef struct qat_prov_cbc_ctx_st {
     unsigned char iv[QAT_SM4_CBC_BLOCK_SIZE];
     const void *ks; /* Pointer to algorithm specific key data */
     OSSL_LIB_CTX *libctx;
-
+#if ENABLE_QAT_HW_SM4_CBC
+    void *qat_cipher_ctx;
+#endif
     EVP_CIPHER *sw_cipher;
+#if ENABLE_QAT_SW_SM4_CBC
     sm4_key key;
+#endif
     void *sw_ctx;
 } QAT_PROV_CBC_CTX;
 
@@ -230,5 +235,5 @@ const OSSL_DISPATCH alg##_##lc##_functions[] = {                       \
      (void (*)(void))qat_sm4_cbc_generic_settable_ctx_params },               \
     { 0, NULL }                                                                \
 }
-# endif /* ENABLE_QAT_SW_SM4_CBC */
+# endif
 #endif /* QAT_PROV_SM4_CBC_H */

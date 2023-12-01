@@ -399,6 +399,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE),
     "sm4 no qat instance available"},
     {ERR_PACK(0, 0, QAT_R_SM4_NULL_CKEY), "sm4 null ckey"},
+    {ERR_PACK(0, 0, QAT_R_SM4_NULL_CTX), "sm4 null ctx"},
     {ERR_PACK(0, 0, QAT_R_SM4_NULL_CTX_OR_KEY), "sm4 null ctx or key"},
     {ERR_PACK(0, 0, QAT_R_SM4_NULL_POINTER), "sm4 null pointer"},
     {ERR_PACK(0, 0, QAT_R_SM4_NULL_QCTX), "sm4 null qctx"},

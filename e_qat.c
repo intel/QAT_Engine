@@ -1311,9 +1311,12 @@ int bind_qat(ENGINE *e, const char *id)
     if (qat_sw_sm4_ccm_offload)
         INFO("QAT_SW SM4-CCM for Provider Enabled\n");
 # endif
-# ifdef ENABLE_QAT_SW_SM4_CBC
-    if (qat_sw_sm4_cbc_offload)
+# if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
+    if (qat_sw_sm4_cbc_offload && !qat_hw_sm4_cbc_offload)
         INFO("QAT_SW SM4-CBC for Provider Enabled\n");
+
+    if (qat_hw_sm4_cbc_offload && !qat_sw_sm4_cbc_offload)
+        INFO("QAT_HW SM4-CBC for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_SW_SM3
         qat_sw_sm3_offload = 1;

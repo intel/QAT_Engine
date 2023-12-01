@@ -63,6 +63,9 @@
 #ifdef ENABLE_QAT_SW_SM4_CBC
 #  include "qat_sw_sm4_cbc.h"
 #endif
+#ifdef QAT_OPENSSL_PROVIDER
+# include "qat_prov_sm4_cbc.h"
+#endif
 
 #ifndef SM4_KEY_SIZE
 # define SM4_KEY_SIZE               16
@@ -124,13 +127,22 @@ extern CpaStatus qat_sym_perform_op(int inst_num,
                              const CpaBufferList * pSrcBuffer,
                              CpaBufferList * pDstBuffer,
                              CpaBoolean * pVerifyResult);
+#  ifdef QAT_OPENSSL_PROVIDER
+int qat_sm4_cbc_init(QAT_PROV_CBC_CTX *ctx, const unsigned char *key,
+                     int keylen, const unsigned char *iv,
+                     int ivlen, int enc);
+int qat_sm4_cbc_cleanup(QAT_PROV_CBC_CTX *ctx);
+int qat_sm4_cbc_do_cipher(QAT_PROV_CBC_CTX *ctx, unsigned char *out,
+                          size_t *outl, size_t outsize,
+                          const unsigned char *in, size_t len);
+#  else
 int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
                                     const unsigned char *inkey,
                                     const unsigned char *iv, int enc);
 int qat_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx);
 int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                   const unsigned char *in, size_t len);
-
-# endif /* ENABLE_QAT_HW_SM4_CBC */
+#   endif
+#  endif /* ENABLE_QAT_HW_SM4_CBC */
 # endif /* QAT_HW */
 #endif  /* QAT_HW_SM4_H */
