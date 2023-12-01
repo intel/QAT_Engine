@@ -52,6 +52,10 @@
 #ifdef ENABLE_QAT_SW_SM4_CBC
 # include "qat_sw_sm4_cbc.h"
 #endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+# include "qat_hw_sm4_cbc.h"
+#endif
+
 #include "qat_constant_time.h"
 
 #define ossl_assert(x) ((x) != 0)
@@ -60,7 +64,7 @@
 # define MAX_PADDING 256
 # define SSL3_VERSION 0x0300
 
-#ifdef ENABLE_QAT_SW_SM4_CBC
+#if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
 static OSSL_FUNC_cipher_freectx_fn qat_sm4_cbc_freectx;
 OSSL_FUNC_cipher_get_ctx_params_fn qat_sm4_cbc_get_ctx_params;
 OSSL_FUNC_cipher_gettable_ctx_params_fn qat_sm4_cbc_generic_gettable_ctx_params;
@@ -324,6 +328,9 @@ void qat_sm4_cbc_initctx(void *provctx, QAT_PROV_CBC_CTX *ctx, size_t keybits,
     ctx->blocksize = blkbits / 8;
     if (provctx != NULL)
         ctx->libctx = prov_libctx_of(provctx); /* used for rand */
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    ctx->qat_cipher_ctx = OPENSSL_zalloc(sizeof(qat_sm4_ctx));
+#endif
 }
 
 static void *qat_sm4_cbc_newctx(void *provctx, size_t keybits, size_t blkbits,
@@ -369,6 +376,15 @@ int qat_sm4_cbc_einit(void *vctx, const unsigned char *inkey,
 	}
     }
 #endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_hw_sm4_cbc_offload) {
+        sts = qat_sm4_cbc_init(ctx, inkey, keylen, iv, ivlen, 1);
+        if (sts != 1) {
+            QATerr(ERR_LIB_PROV, QAT_R_EINIT_OPERATION_FAILED);
+            return sts;
+        }
+    }
+#endif
     if (iv != NULL && ctx->mode != EVP_CIPH_ECB_MODE) {
         if (!qat_sm4_cbc_generic_initiv(ctx, iv, ivlen))
             return 0;
@@ -408,6 +424,15 @@ int qat_sm4_cbc_dinit(void *vctx, const unsigned char *inkey,
 #ifdef ENABLE_QAT_SW_SM4_CBC
     if (qat_sw_sm4_cbc_offload) {
         sts = qat_sw_sm4_cbc_key_init(ctx, inkey, keylen, iv, ivlen, 0);
+        if (sts != 1) {
+            QATerr(ERR_LIB_PROV, QAT_R_DINIT_OPERATION_FAILED);
+            return sts;
+        }
+    }
+#endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_hw_sm4_cbc_offload) {
+        sts = qat_sm4_cbc_init(ctx, inkey, keylen, iv, ivlen, 0);
         if (sts != 1) {
             QATerr(ERR_LIB_PROV, QAT_R_DINIT_OPERATION_FAILED);
             return sts;
@@ -507,7 +532,14 @@ int qat_sm4_cbc_block_update(void *vctx, unsigned char *out,
             }
         }
 #endif
-
+#ifdef ENABLE_QAT_HW_SM4_CBC
+        if (qat_hw_sm4_cbc_offload) {
+            if (qat_sm4_cbc_do_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
+                QATerr(ERR_LIB_PROV, QAT_R_CBC_OPERATION_FAILED);
+                return 0;
+            }
+        }
+#endif
         if (ctx->alloced) {
             OPENSSL_free(ctx->tlsmac);
             ctx->alloced = 0;
@@ -549,6 +581,14 @@ int qat_sm4_cbc_block_update(void *vctx, unsigned char *out,
             }
         }
 #endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+        if (qat_hw_sm4_cbc_offload) {
+            if (qat_sm4_cbc_do_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
+                QATerr(ERR_LIB_PROV, QAT_R_CBC_OPERATION_FAILED);
+                return 0;
+            }
+        }
+#endif
         ctx->bufsz = 0;
         outlint = blksz;
         out += blksz;
@@ -571,6 +611,14 @@ int qat_sm4_cbc_block_update(void *vctx, unsigned char *out,
 #ifdef ENABLE_QAT_SW_SM4_CBC
         if (qat_sw_sm4_cbc_offload) {
             if (qat_sw_sm4_cbc_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
+                QATerr(ERR_LIB_PROV, QAT_R_CBC_OPERATION_FAILED);
+                return 0;
+            }
+        }
+#endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+        if (qat_hw_sm4_cbc_offload) {
+            if (qat_sm4_cbc_do_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
                 QATerr(ERR_LIB_PROV, QAT_R_CBC_OPERATION_FAILED);
                 return 0;
             }
@@ -609,9 +657,7 @@ int qat_sm4_cbc_cipher(void *vctx, unsigned char *out,
                        const unsigned char *in, size_t inl)
 {
     int ret = 0;
-#ifdef ENABLE_QAT_SW_SM4_CBC
     QAT_PROV_CBC_CTX *ctx = (QAT_PROV_CBC_CTX *) vctx;
-#endif
 
     if (!qat_prov_is_running())
         goto end;
@@ -622,11 +668,20 @@ int qat_sm4_cbc_cipher(void *vctx, unsigned char *out,
     }
 #ifdef ENABLE_QAT_SW_SM4_CBC
     if (qat_sw_sm4_cbc_offload) {
-        if (qat_sw_sm4_cbc_cipher(ctx, out, outl, outsize, in, inl) <= 0)
-            goto end;
+        if (qat_sw_sm4_cbc_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
+            QATerr(ERR_LIB_PROV, QAT_R_CBC_OPERATION_FAILED);
+            return 0;
+        }
     }
 #endif
-
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_hw_sm4_cbc_offload) {
+        if (qat_sm4_cbc_do_cipher(ctx, out, outl, outsize, in, inl) <= 0)  {
+            QATerr(ERR_LIB_PROV, QAT_R_CBC_OPERATION_FAILED);
+            return 0;
+        }
+    }
+#endif
     *outl = inl;
     ret = 1;
 
@@ -644,6 +699,10 @@ static void qat_sm4_cbc_freectx(void *vctx)
 #ifdef ENABLE_QAT_SW_SM4_CBC
     if (qat_sw_sm4_cbc_offload)
         qat_sw_sm4_cbc_cleanup((QAT_PROV_CBC_CTX *) ctx);
+#endif
+#ifdef ENABLE_QAT_HW_SM4_CBC
+    if (qat_hw_sm4_cbc_offload)
+        qat_sm4_cbc_cleanup((QAT_PROV_CBC_CTX *) ctx);
 #endif
     OPENSSL_clear_free(ctx, sizeof(*ctx));
 }

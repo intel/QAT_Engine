@@ -1855,7 +1855,7 @@ CpaStatus qat_sym_perform_op(int inst_num,
                                    pVerifyResult);
         if (status == CPA_STATUS_RETRY) {
             DEBUG("cpaCySymPerformOp Retry.\n");
-#ifdef ENABLE_QAT_SW_SM4_CBC
+#if defined(ENABLE_QAT_SW_SM4_CBC) && !defined(QAT_OPENSSL_PROVIDER)
             /* The request will switch to qat sw to process if a retry occurs. */
             if (qat_sm4_cbc_coexist) {
                 ++num_sm4_cbc_cipher_retry;
@@ -1885,7 +1885,7 @@ CpaStatus qat_sym_perform_op(int inst_num,
                     usleep(ulPollInterval + (
                            uiRetry % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
                 }
-#ifdef ENABLE_QAT_SW_SM4_CBC
+#if defined(ENABLE_QAT_SW_SM4_CBC) && !defined(QAT_OPENSSL_PROVIDER)
             }
 #endif
         }
