@@ -255,6 +255,8 @@ CpaInstanceHandle *qat_instance_handles = NULL;
 Cpa16U qat_num_instances = 0;
 Cpa16U qat_asym_num_instance = 0;
 Cpa16U qat_sym_num_instance = 0;
+Cpa16U qat_svm_num_instance = 0;
+Cpa16U qat_contig_num_instance = 0;
 Cpa32U qat_num_devices = 0;
 pthread_key_t thread_local_variables;
 pthread_mutex_t qat_instance_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -265,10 +267,7 @@ int qat_epoll_timeout = QAT_EPOLL_TIMEOUT_IN_MS;
 int qat_max_retry_count = QAT_CRYPTO_NUM_POLLING_RETRIES;
 unsigned int qat_map_sym_inst[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
 unsigned int qat_map_asym_inst[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
-# ifdef QAT_HW_SET_INSTANCE_THREAD
-long int threadId[QAT_MAX_CRYPTO_THREADS] = {'\0'};
-int threadCount = 0;
-# endif
+unsigned int qat_map_svm_inst[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
 #endif
 
 #ifdef QAT_SW

@@ -224,17 +224,18 @@ static inline const EVP_CIPHER *get_cipher_from_nid(int nid)
 
 
 static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
-        unsigned int *num_elem)
+                                                unsigned int *num_elem, int qat_svm)
 {
     unsigned int i = 0;
     qat_op_params *qop = NULL;
     if (pqop != NULL && ((qop = *pqop) != NULL)) {
         for (i = 0; i < *num_elem; i++) {
-            QAT_CHK_QMFREE_FLATBUFF(qop[i].src_fbuf[0]);
-            QAT_CHK_QMFREE_FLATBUFF(qop[i].src_fbuf[1]);
-            QAT_QMEMFREE_BUFF(qop[i].src_sgl.pPrivateMetaData);
-            QAT_QMEMFREE_BUFF(qop[i].dst_sgl.pPrivateMetaData);
-            QAT_QMEMFREE_BUFF(qop[i].op_data.pIv);
+            if (!qat_svm)
+                qaeCryptoMemFreeNonZero(qop[i].src_fbuf[1].pData);
+            QAT_MEM_FREE_FLATBUFF(qop[i].src_fbuf[0], qat_svm);
+            QAT_MEM_FREE_BUFF(qop[i].src_sgl.pPrivateMetaData, qat_svm);
+            QAT_MEM_FREE_BUFF(qop[i].dst_sgl.pPrivateMetaData, qat_svm);
+            QAT_MEM_FREE_BUFF(qop[i].op_data.pIv, qat_svm);
         }
         OPENSSL_free(qop);
         *pqop = NULL;
@@ -405,7 +406,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
          * free the previous allocated memory.
          */
         if (qctx->qop != NULL && qctx->qop_len < qctx->numpipes) {
-            qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
+            qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len, qctx->qat_svm);
             DEBUG_PPL("[%p] qop memory freed\n", ctx);
         }
     }
@@ -437,8 +438,14 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
          * some more logic here to work out how many blocks of size
          * QAT_BYTE_ALIGNMENT we need to allocate to fit the header in.
          */
-        FLATBUFF_ALLOC_AND_CHAIN(qctx->qop[i].src_fbuf[0],
-                                 qctx->qop[i].dst_fbuf[0], QAT_BYTE_ALIGNMENT);
+        if (!qctx->qat_svm)
+            FLATBUFF_ALLOC_AND_CHAIN(qctx->qop[i].src_fbuf[0],
+                                     qctx->qop[i].dst_fbuf[0],
+                                     QAT_BYTE_ALIGNMENT);
+        else
+            FLATBUFF_ALLOC_AND_CHAIN_SVM(qctx->qop[i].src_fbuf[0],
+                                         qctx->qop[i].dst_fbuf[0],
+                                         QAT_BYTE_ALIGNMENT);
         if (qctx->qop[i].src_fbuf[0].pData == NULL) {
             WARN("Unable to allocate memory for TLS header\n");
             goto err;
@@ -474,16 +481,15 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
 
         if (msize) {
             qctx->qop[i].src_sgl.pPrivateMetaData =
-                qaeCryptoMemAlloc(msize, __FILE__, __LINE__);
+                qat_mem_alloc(msize, qctx->qat_svm, __FILE__, __LINE__);
             qctx->qop[i].dst_sgl.pPrivateMetaData =
-                qaeCryptoMemAlloc(msize, __FILE__, __LINE__);
+                qat_mem_alloc(msize, qctx->qat_svm, __FILE__, __LINE__);
             if (qctx->qop[i].src_sgl.pPrivateMetaData == NULL ||
-                qctx->qop[i].dst_sgl.pPrivateMetaData == NULL) {
+                    qctx->qop[i].dst_sgl.pPrivateMetaData == NULL) {
                 WARN("QMEM alloc failed for PrivateData\n");
                 goto err;
             }
         }
-
         opd = &qctx->qop[i].op_data;
 
         /* Copy the opData template */
@@ -492,15 +498,15 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
         /* Update Opdata */
         opd->sessionCtx = qctx->session_ctx;
 #ifdef QAT_OPENSSL_PROVIDER
-        opd->pIv = qaeCryptoMemAlloc(ctx->ivlen, __FILE__, __LINE__);
+        opd->pIv = qat_mem_alloc(ctx->ivlen, qctx->qat_svm,  __FILE__, __LINE__);
 #else
-        opd->pIv = qaeCryptoMemAlloc(EVP_CIPHER_CTX_iv_length(ctx),
-                                     __FILE__, __LINE__);
+        opd->pIv = qat_mem_alloc(EVP_CIPHER_CTX_iv_length(ctx), qctx->qat_svm, __FILE__, __LINE__);
 #endif
         if (opd->pIv == NULL) {
             WARN("QMEM Mem Alloc failed for pIv for pipe %d.\n", i);
             goto err;
         }
+
 #ifdef QAT_OPENSSL_PROVIDER
         opd->ivLenInBytes = (Cpa32U) ctx->ivlen;
 #else
@@ -511,8 +517,8 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
     DEBUG_PPL("[%p] qop setup for %u elements\n", ctx, qctx->qop_len);
     return 1;
 
- err:
-    qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
+err:
+    qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len, qctx->qat_svm);
     return 0;
 }
 
@@ -682,7 +688,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         goto err;
     }
 
-    ssd = OPENSSL_malloc(sizeof(CpaCySymSessionSetupData));
+    ssd = OPENSSL_zalloc(sizeof(CpaCySymSessionSetupData));
     if (ssd == NULL) {
         WARN("Failed to allocate session setup data\n");
         goto err;
@@ -716,7 +722,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     ssd->hashSetupData.authModeSetupData.authKey = qctx->hmac_key;
 
-    qctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
+    qctx->inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY);
     if (qctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");
         if (qat_get_sw_fallback_enabled()) {
@@ -725,8 +731,8 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         }
         goto err;
     }
+    qctx->qat_svm = !qat_instance_details[qctx->inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
-    DEBUG("inst_num = %d\n", qctx->inst_num);
     DUMP_SESSION_SETUP_DATA(ssd);
     sts = cpaCySymSessionCtxGetSize(qat_instance_handles[qctx->inst_num], ssd, &sctx_size);
 
@@ -743,15 +749,13 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     }
 
     DEBUG("Size of session ctx = %d\n", sctx_size);
-    sctx = (CpaCySymSessionCtx) qaeCryptoMemAlloc(sctx_size, __FILE__,
-                                                  __LINE__);
+    sctx = (CpaCySymSessionCtx) qat_mem_alloc(sctx_size, qctx->qat_svm, __FILE__,
+                                                      __LINE__);
     if (sctx == NULL) {
         WARN("QMEM alloc failed for session ctx!\n");
         goto err;
     }
-
     qctx->session_ctx = sctx;
-
     qctx->qop = NULL;
     qctx->qop_len = 0;
 
@@ -762,12 +766,13 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
  err:
 /* NOTE: no init seq flags will have been set if this 'err:' label code section is entered. */
-    QAT_CLEANSE_FREE_BUFF(ckey, ckeylen);
-    QAT_CLEANSE_FREE_BUFF(qctx->hmac_key, HMAC_KEY_SIZE);
+    OPENSSL_clear_free(ckey, ckeylen);
+    OPENSSL_clear_free(qctx->hmac_key, HMAC_KEY_SIZE);
     if (ssd != NULL)
         OPENSSL_free(ssd);
     qctx->session_data = NULL;
-    QAT_QMEMFREE_BUFF(qctx->session_ctx);
+    QAT_MEM_FREE_BUFF(qctx->session_ctx, qctx->qat_svm);
+
     if ((qctx->fallback == 1) && (qctx->sw_ctx_cipher_data != NULL) && (ret == 1)) {
         DEBUG("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
@@ -1126,7 +1131,7 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
 #endif
 
     /* ctx may be cleaned before it gets a chance to allocate qop */
-    qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len);
+    qat_chained_ciphers_free_qop(&qctx->qop, &qctx->qop_len, qctx->qat_svm);
 
     ssd = qctx->session_data;
     if (ssd) {
@@ -1142,15 +1147,14 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
                 }
             }
         }
-        QAT_QMEMFREE_BUFF(qctx->session_ctx);
-        QAT_CLEANSE_FREE_BUFF(ssd->hashSetupData.authModeSetupData.authKey,
-                              ssd->hashSetupData.authModeSetupData.
-                              authKeyLenInBytes);
-        QAT_CLEANSE_FREE_BUFF(ssd->cipherSetupData.pCipherKey,
-                              ssd->cipherSetupData.cipherKeyLenInBytes);
+        QAT_MEM_FREE_BUFF(qctx->session_ctx, qctx->qat_svm);
+        OPENSSL_clear_free(ssd->hashSetupData.authModeSetupData.authKey,
+                           ssd->hashSetupData.authModeSetupData.
+                           authKeyLenInBytes);
+        OPENSSL_clear_free(ssd->cipherSetupData.pCipherKey,
+                           ssd->cipherSetupData.cipherKeyLenInBytes);
         OPENSSL_free(ssd);
     }
-
     qctx->fallback = 0;
     INIT_SEQ_CLEAR_ALL_FLAGS(qctx);
     DEBUG_PPL("[%p] EVP CTX cleaned up\n", ctx);
@@ -1161,7 +1165,6 @@ int qat_chained_ciphers_cleanup(EVP_CIPHER_CTX *ctx)
 #endif
     return retVal;
 }
-
 
 /******************************************************************************
 * function:
@@ -1432,10 +1435,8 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         qctx->p_out = &out;
         qctx->p_inlen = &len;
     }
-
     DEBUG_PPL("[%p] Start Cipher operation with num pipes %u\n",
               ctx, qctx->numpipes);
-
     tlv = qat_check_create_local_variables();
     if (NULL == tlv) {
             WARN("could not create local variables\n");
@@ -1606,15 +1607,23 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         SET_TLS_PAYLOAD_LEN((d_fbuf[0].pData +
                              (d_fbuf[0].dataLenInBytes - TLS_VIRT_HDR_SIZE)),
                             plen);
+        if (!qctx->qat_svm) {
+            FLATBUFF_ALLOC_AND_CHAIN(s_fbuf[1], d_fbuf[1], buflen);
+        } else {
+            s_fbuf[1].pData = (Cpa8U *)inb;
+            d_fbuf[1].pData = s_fbuf[1].pData;
+            s_fbuf[1].dataLenInBytes = buflen;
+            d_fbuf[1].dataLenInBytes = buflen;
+        }
 
-        FLATBUFF_ALLOC_AND_CHAIN(s_fbuf[1], d_fbuf[1], buflen);
         if ((s_fbuf[1].pData) == NULL) {
             WARN("Failure in src buffer allocation.\n");
             error = 1;
             break;
         }
 
-        memcpy(d_fbuf[1].pData, inb, buflen - discardlen);
+        if (!qctx->qat_svm)
+            memcpy(d_fbuf[1].pData, inb, buflen - discardlen);
 
         if (enc) {
             i = plen + dlen;
@@ -1743,12 +1752,20 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     pipe = 0;
     do {
         if (retVal == 1) {
-            memcpy(qctx->p_out[pipe] + plen_adj,
-                   qctx->qop[pipe].dst_fbuf[1].pData,
-                   qctx->p_inlen[pipe] - discardlen - plen_adj);
+            if (!qctx->qat_svm) {
+                memcpy(qctx->p_out[pipe] + plen_adj,
+                        qctx->qop[pipe].dst_fbuf[1].pData,
+                        qctx->p_inlen[pipe] - discardlen - plen_adj);
+            } else {
+                qctx->p_out[pipe] += plen_adj;
+                qctx->qop[pipe].dst_fbuf[1].pData -= plen_adj;
+                qctx->p_out[pipe] = qctx->qop[pipe].dst_fbuf[1].pData;
+            }
             outlen += buflen + plen_adj - discardlen;
         }
-        qaeCryptoMemFreeNonZero(qctx->qop[pipe].src_fbuf[1].pData);
+        if (!qctx->qat_svm)
+            qaeCryptoMemFreeNonZero(qctx->qop[pipe].src_fbuf[1].pData);
+
         qctx->qop[pipe].src_fbuf[1].pData = NULL;
         qctx->qop[pipe].dst_fbuf[1].pData = NULL;
     } while (++pipe < qctx->numpipes);

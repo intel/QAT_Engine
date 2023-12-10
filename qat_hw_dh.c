@@ -193,6 +193,7 @@ int qat_dh_generate_key(DH *dh)
     size_t buflen;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
     thread_local_variables_t *tlv = NULL;
+    int qat_svm = QAT_INSTANCE_ANY;
 # ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
     unsigned char *prime_buf = NULL;
     int prime_bytes = 0;
@@ -230,6 +231,19 @@ int qat_dh_generate_key(DH *dh)
         }
         return DH_meth_get_generate_key(sw_dh_method)(dh);
     }
+
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
+            == QAT_INVALID_INSTANCE) {
+        WARN("Failed to get an instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            WARN("Failed to get an instance - fallback to SW - %s\n", __func__);
+            return DH_meth_get_generate_key(sw_dh_method)(dh);
+        } else {
+            QATerr(QAT_F_QAT_DH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            return 0;
+        }
+    }
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
 # ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
     prime_bytes = BN_num_bytes(p);
@@ -321,13 +335,15 @@ int qat_dh_generate_key(DH *dh)
     }
 
     buflen = BN_num_bytes(p);
-    pPV = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
+
+    pPV = (CpaFlatBuffer *) OPENSSL_zalloc(sizeof(CpaFlatBuffer));
     if (pPV == NULL) {
         WARN("Failed to allocate memory for pPV\n");
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PPV_MALLOC_FAILURE);
         goto err;
     }
-    pPV->pData = qaeCryptoMemAlloc(buflen, __FILE__, __LINE__);
+
+    pPV->pData = qat_mem_alloc(buflen, qat_svm, __FILE__, __LINE__);
     if (pPV->pData == NULL) {
         WARN("Failed to allocate memory for pPV->pData\n");
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_PPV_PDATA_MALLOC_FAILURE);
@@ -335,9 +351,9 @@ int qat_dh_generate_key(DH *dh)
     }
     pPV->dataLenInBytes = (Cpa32U) buflen;
 
-    if ((qat_BN_to_FB(&(opData->primeP), (BIGNUM *)p) != 1) ||
-        (qat_BN_to_FB(&(opData->baseG), (BIGNUM *)g) != 1) ||
-        (qat_BN_to_FB(&(opData->privateValueX), (BIGNUM *)priv_key) != 1)) {
+    if ((qat_BN_to_FB(&(opData->primeP), (BIGNUM *)p, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->baseG), (BIGNUM *)g, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->privateValueX), (BIGNUM *)priv_key, qat_svm) != 1)) {
         WARN("Failed to convert p, g or priv_key to a flat buffer\n");
         QATerr(QAT_F_QAT_DH_GENERATE_KEY, QAT_R_P_G_PRIV_KEY_CONVERT_TO_FB_FAILURE);
         goto err;
@@ -359,11 +375,12 @@ int qat_dh_generate_key(DH *dh)
             goto err;
         }
     }
-
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
+
     do {
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
-             == QAT_INVALID_INSTANCE) {
+        if (status == CPA_STATUS_RETRY &&
+           (inst_num = get_instance(QAT_INSTANCE_ASYM, qat_svm))
+            == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -377,7 +394,6 @@ int qat_dh_generate_key(DH *dh)
             qat_cleanup_op_done(&op_done);
             goto err;
         }
-
         CRYPTO_QAT_LOG("KX - %s\n", __func__);
         DUMP_DH_GEN_PHASE1(qat_instance_handles[inst_num], opData, pPV);
         status = cpaCyDhKeyGenPhase1(qat_instance_handles[inst_num],
@@ -505,33 +521,33 @@ int qat_dh_generate_key(DH *dh)
 err:
     if (pPV) {
         if (pPV->pData) {
-            qaeCryptoMemFree(pPV->pData);
+             QAT_MEM_FREE_BUFF(pPV->pData,qat_svm);
         }
         OPENSSL_free(pPV);
     }
-
     if (opData) {
-        if (opData->primeP.pData)
-            qaeCryptoMemFree(opData->primeP.pData);
-        if (opData->baseG.pData)
-            qaeCryptoMemFree(opData->baseG.pData);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->privateValueX);
+        if (!qat_svm) {
+            if (opData->primeP.pData)
+                qaeCryptoMemFree(opData->primeP.pData);
+            if (opData->baseG.pData)
+                qaeCryptoMemFree(opData->baseG.pData);
+            QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->privateValueX, qat_svm);
+        } else {
+            QAT_CLEANSE_FLATBUFF(opData->privateValueX);
+        }
         OPENSSL_free(opData);
     }
-
     if (!ok) {
         if (generate_new_pub_key)
             BN_free(pub_key);
         if (generate_new_priv_key)
             BN_clear_free(priv_key);
     }
-
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
         return DH_meth_get_generate_key(sw_dh_method)(dh);
     }
-
     return ok;
 }
 
@@ -562,6 +578,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     const BIGNUM *pub_key = NULL, *priv_key = NULL;
     const DH_METHOD *sw_dh_method = DH_OpenSSL();
     thread_local_variables_t *tlv = NULL;
+    int qat_svm = QAT_INSTANCE_ANY;
 # ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
     unsigned char *prime_buf = NULL;
     int prime_bytes = 0;
@@ -611,6 +628,19 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
         return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
     }
 
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
+            == QAT_INVALID_INSTANCE) {
+        WARN("Failed to get an instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            return DH_meth_get_compute_key(sw_dh_method)(key, in_pub_key, dh);
+        } else {
+            QATerr(QAT_F_QAT_DH_COMPUTE_KEY, ERR_R_INTERNAL_ERROR);
+            return 0;
+        }
+    }
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+
 # ifndef QAT_HW_DISABLE_DH_PRIME_CHECK
     prime_bytes = BN_num_bytes(p);
     prime_buf = OPENSSL_zalloc(prime_bytes);
@@ -653,13 +683,18 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     opData->privateValueX.pData = NULL;
 
     buflen = BN_num_bytes(p);
-    pSecretKey = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
+    pSecretKey = (CpaFlatBuffer *) OPENSSL_zalloc(sizeof(CpaFlatBuffer));
     if (pSecretKey == NULL) {
         WARN("Failure allocating memory for pSecretKey\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_SECRET_KEY_MALLOC_FAILURE);
         goto err;
     }
-    pSecretKey->pData = qaeCryptoMemAlloc(buflen, __FILE__, __LINE__);
+
+    if (qat_svm)
+        pSecretKey->pData = (Cpa8U*) key;
+    else
+        pSecretKey->pData = qaeCryptoMemAlloc(buflen, __FILE__, __LINE__);
+
     if (pSecretKey->pData == NULL) {
         WARN("Failure allocating memory for pSecretKey data\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE);
@@ -667,10 +702,9 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     }
     pSecretKey->dataLenInBytes = (Cpa32U) buflen;
 
-    if ((qat_BN_to_FB(&(opData->primeP), (BIGNUM *)p) != 1) ||
-            (qat_BN_to_FB(&(opData->remoteOctetStringPV), (BIGNUM *)in_pub_key) != 1)
-            || (qat_BN_to_FB(&(opData->privateValueX), (BIGNUM *)priv_key) !=
-                1)) {
+    if ((qat_BN_to_FB(&(opData->primeP), (BIGNUM *)p, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->remoteOctetStringPV), (BIGNUM *)in_pub_key, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->privateValueX), (BIGNUM *)priv_key, qat_svm) != 1)) {
         WARN("Failure converting p, pub_key or priv_key into a flat buffer\n");
         QATerr(QAT_F_QAT_DH_COMPUTE_KEY, QAT_R_P_PUB_PRIV_KEY_CONVERT_TO_FB_FAILURE);
         goto err;
@@ -692,11 +726,11 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
             goto err;
         }
     }
-
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
     do {
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
-             == QAT_INVALID_INSTANCE) {
+        if (status == CPA_STATUS_RETRY &&
+           (inst_num = get_instance(QAT_INSTANCE_ASYM, qat_svm))
+            == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -832,32 +866,35 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
     }
 
     /* Remove leading zeros */
-    if (!pSecretKey->pData[0]) {
-        while (index < pSecretKey->dataLenInBytes && !pSecretKey->pData[index])
-            index++;
-        pSecretKey->dataLenInBytes = pSecretKey->dataLenInBytes - index;
-        memcpy(key, &pSecretKey->pData[index],
-                pSecretKey->dataLenInBytes);
-    } else {
-        memcpy(key, pSecretKey->pData, pSecretKey->dataLenInBytes);
+    if (!qat_svm) {
+        if (!pSecretKey->pData[0]) {
+            while (index < pSecretKey->dataLenInBytes && !pSecretKey->pData[index])
+                index++;
+            pSecretKey->dataLenInBytes = pSecretKey->dataLenInBytes - index;
+            memcpy(key, &pSecretKey->pData[index],pSecretKey->dataLenInBytes);
+        } else {
+            memcpy(key, pSecretKey->pData, pSecretKey->dataLenInBytes);
+        }
     }
     ret = pSecretKey->dataLenInBytes;
 
  err:
     if (pSecretKey) {
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(*pSecretKey);
+        if (!qat_svm) {
+             if (pSecretKey->pData != NULL) {
+                 QAT_CLEANSE_FLATBUFF(*pSecretKey);
+                 qaeCryptoMemFreeNonZero(pSecretKey->pData);
+             }
+        }
         OPENSSL_free(pSecretKey);
     }
 
     if (opData) {
-        if (opData->primeP.pData)
-            qaeCryptoMemFree(opData->primeP.pData);
-        if (opData->remoteOctetStringPV.pData)
-            qaeCryptoMemFree(opData->remoteOctetStringPV.pData);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->privateValueX);
+        QAT_MEM_FREE_FLATBUFF(opData->primeP, qat_svm);
+        QAT_MEM_FREE_FLATBUFF(opData->remoteOctetStringPV, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->privateValueX, qat_svm);
         OPENSSL_free(opData);
     }
-
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);

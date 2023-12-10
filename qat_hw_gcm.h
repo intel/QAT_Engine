@@ -150,6 +150,8 @@ typedef struct qat_aes_gcm_ctx_t
 
     /* Flag to keep track of key passed */
     int key_set;
+
+    int qat_svm;
 } qat_gcm_ctx;
 
 #ifdef QAT_OPENSSL_PROVIDER

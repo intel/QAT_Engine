@@ -97,6 +97,7 @@ typedef struct {
     unsigned char *digest_data;
     EVP_MD *sw_md;
     EVP_MD_CTX *sw_md_ctx;
+    int qat_svm;
 } QAT_SM3_CTX;
 
 /* Totally 3 memory sections in application data, common EVP_MD,

@@ -144,25 +144,18 @@ void qat_ecx_cb(void *pCallbackTag, CpaStatus status,
 }
 
 static void qat_pkey_ecx_keygen_op_data_free(CpaFlatBuffer *pXk,
-	                                     CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data,
-					     int qat_keylen)
+        CpaCyEcMontEdwdsPointMultiplyOpData *qat_ecx_op_data,
+        int qat_keylen, int qat_svm)
 {
     /* Clean the memory. */
     if (pXk != NULL) {
-        if (pXk->pData != NULL) {
-            OPENSSL_cleanse(pXk->pData, qat_keylen);
-            qaeCryptoMemFreeNonZero(pXk->pData);
-        }
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(*pXk, qat_svm);
         OPENSSL_free(pXk);
     }
 
     if (NULL != qat_ecx_op_data) {
-        if (qat_ecx_op_data->k.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->k.pData, qat_keylen);
-            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
-        }
-        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
-        qat_ecx_op_data = NULL;
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(qat_ecx_op_data->k, qat_svm);
+        QAT_MEM_FREE_BUFF(qat_ecx_op_data, qat_svm);
     }
 }
 
@@ -193,11 +186,11 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     int inst_num = QAT_INVALID_INSTANCE;
     thread_local_variables_t *tlv = NULL;
     int fallback = 0;
-
     ECX_KEY *key = NULL;
     unsigned char *privkey = NULL;
     unsigned char *pubkey = NULL;
     int is_ecx_448 = 0;
+    int qat_svm = QAT_INSTANCE_ANY;
 
 # ifndef QAT_OPENSSL_PROVIDER
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
@@ -293,10 +286,25 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
         }
     }
 #endif
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
+            == QAT_INVALID_INSTANCE) {
+        WARN("Failed to get an instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            fallback = 1;
+            goto err;
+        } else {
+            QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
+            OPENSSL_free(key);
+            return 0;
+        }
+    }
+
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     qat_ecx_op_data = (CpaCyEcMontEdwdsPointMultiplyOpData *)
-                        qaeCryptoMemAlloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
-                                            __FILE__, __LINE__);
+                       qat_mem_alloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
+                                     qat_svm, __FILE__, __LINE__);
     if (NULL == qat_ecx_op_data) {
         WARN("Failed to allocate memory for qat_ecx_op_data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
@@ -305,7 +313,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     }
     memset(qat_ecx_op_data, 0, sizeof(CpaCyEcMontEdwdsPointMultiplyOpData));
 
-    qat_ecx_op_data->k.pData = (Cpa8U *)qaeCryptoMemAlloc(qat_keylen, __FILE__, __LINE__);
+    qat_ecx_op_data->k.pData = (Cpa8U *)qat_mem_alloc(qat_keylen, qat_svm, __FILE__, __LINE__);
     if (qat_ecx_op_data->k.pData == NULL) {
         WARN("Failure to allocate k.pData.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
@@ -333,7 +341,8 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    pXk->pData = (Cpa8U *)qaeCryptoMemAlloc(qat_keylen, __FILE__, __LINE__);
+
+    pXk->pData = (Cpa8U *)qat_mem_alloc(qat_keylen, qat_svm, __FILE__, __LINE__);
     if (NULL == pXk->pData) {
         WARN("Failed to allocate memory for pXk data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
@@ -370,8 +379,9 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     }
 
     do {
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
-             == QAT_INVALID_INSTANCE) {
+        if (status == CPA_STATUS_RETRY &&
+           (inst_num = get_instance(QAT_INSTANCE_ASYM, qat_svm))
+                == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -379,9 +389,8 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
             } else {
                 QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
             }
-            if (op_done.job != NULL) {
+            if (op_done.job != NULL)
                 qat_clear_async_event_notification(op_done.job);
-            }
             qat_cleanup_op_done(&op_done);
             goto err;
         }
@@ -525,7 +534,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
         goto err;
     }
 #ifdef QAT_OPENSSL_PROVIDER
-    qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen);
+    qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen, qat_svm);
     return key;
 #else
     EVP_PKEY_assign(pkey, (is_ecx_448 ? EVP_PKEY_X448 : EVP_PKEY_X25519), key);
@@ -533,7 +542,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
 #endif
 
 err:
-    qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen);
+    qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen, qat_svm);
     /* For success case cleanup will be taken care by calling application */
     if (!ret) {
         if (NULL != privkey) {
@@ -679,6 +688,7 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
     int inst_num = QAT_INVALID_INSTANCE;
     thread_local_variables_t *tlv = NULL;
     int fallback = 0;
+    int qat_svm = QAT_INSTANCE_ANY;
 
     DEBUG("QAT HW ECX Started\n");
     START_RDTSC(&qat_hw_ecx_derive_req_prepare);
@@ -711,9 +721,24 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
         return 1;
     }
 
-    qat_ecx_op_data =
-        (CpaCyEcMontEdwdsPointMultiplyOpData *)qaeCryptoMemAlloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
-                                                                 __FILE__, __LINE__);
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, qat_svm))
+            == QAT_INVALID_INSTANCE) {
+        WARN("Failed to get an instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            fallback = 1;
+            goto err;
+        } else {
+            QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
+            return 0;
+        }
+    }
+
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+
+    qat_ecx_op_data = (CpaCyEcMontEdwdsPointMultiplyOpData *)
+		               qat_mem_alloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
+                                            qat_svm, __FILE__, __LINE__);
     if (NULL == qat_ecx_op_data) {
         WARN("Failed to allocate memory for qat_ecx_op_data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
@@ -721,15 +746,16 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
     }
     memset(qat_ecx_op_data, 0, sizeof(CpaCyEcMontEdwdsPointMultiplyOpData));
 
-    qat_ecx_op_data->k.pData = (Cpa8U *)qaeCryptoMemAlloc(X25519_KEYLEN, __FILE__, __LINE__);
+    qat_ecx_op_data->k.pData = (Cpa8U *)qat_mem_alloc(X25519_KEYLEN, qat_svm,
+                                                      __FILE__, __LINE__);
     if (qat_ecx_op_data->k.pData == NULL) {
         WARN("Failure to allocate k.pData.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
         goto err;
     }
     qat_ecx_op_data->k.dataLenInBytes = X25519_KEYLEN;
-
-    qat_ecx_op_data->x.pData = (Cpa8U *)qaeCryptoMemAlloc(X25519_KEYLEN, __FILE__, __LINE__);
+    qat_ecx_op_data->x.pData = (Cpa8U *)qat_mem_alloc(X25519_KEYLEN, qat_svm,
+                                                      __FILE__, __LINE__);
     if (qat_ecx_op_data->x.pData == NULL) {
         WARN("Failure to allocate x.pData.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
@@ -743,7 +769,8 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    pXk->pData = (Cpa8U *)qaeCryptoMemAlloc(X25519_KEYLEN, __FILE__, __LINE__);
+
+    pXk->pData = (Cpa8U *)qat_mem_alloc(X25519_KEYLEN, qat_svm, __FILE__, __LINE__);
     if (NULL == pXk->pData) {
         WARN("Failed to allocate memory for pXk data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_MALLOC_FAILURE);
@@ -754,14 +781,13 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
     qat_ecx_op_data->generator = CPA_FALSE;
     qat_ecx_op_data->curveType = CPA_CY_EC_MONTEDWDS_CURVE25519_TYPE;
 
-    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, (unsigned char *)privkey,
+    if (0 == reverse_bytes(qat_ecx_op_data->k.pData,(unsigned char *)privkey,
                            X25519_KEYLEN, X25519_KEYLEN)) {
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
         goto err;
     }
-
-    if (0 == reverse_bytes(qat_ecx_op_data->x.pData,(unsigned char *)pubkey,
+    if (0 == reverse_bytes(qat_ecx_op_data->x.pData, (unsigned char *)pubkey,
                            X25519_KEYLEN, X25519_KEYLEN)) {
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
@@ -789,7 +815,8 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
 
     do {
         START_RDTSC(&qat_hw_ecx_derive_req_submit);
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+        if (status == CPA_STATUS_RETRY &&
+           (inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
              == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
@@ -798,9 +825,8 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
             } else {
                 QATerr(QAT_F_QAT_PKEY_ECX_DERIVE25519, ERR_R_INTERNAL_ERROR);
             }
-            if (op_done.job != NULL) {
+            if (op_done.job != NULL)
                 qat_clear_async_event_notification(op_done.job);
-            }
             qat_cleanup_op_done(&op_done);
             goto err;
         }
@@ -898,9 +924,8 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
         QAT_ATOMIC_INC(num_asym_requests_in_flight);
     }
 
-    if (qat_ecx_coexist) {
+    if (qat_ecx_coexist)
         ++num_ecx_hw_derive_reqs;
-    }
 
     do {
         if (op_done.job != NULL) {
@@ -954,24 +979,14 @@ err:
     START_RDTSC(&qat_hw_ecx_derive_req_cleanup);
     /* Clean the memory. */
     if (pXk != NULL) {
-        if (pXk->pData != NULL) {
-            OPENSSL_cleanse(pXk->pData, X25519_KEYLEN);
-            qaeCryptoMemFreeNonZero(pXk->pData);
-        }
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(*pXk, qat_svm);
         OPENSSL_free(pXk);
     }
 
     if (NULL != qat_ecx_op_data) {
-        if (qat_ecx_op_data->k.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->k.pData, X25519_KEYLEN);
-            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
-        }
-        if (qat_ecx_op_data->x.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->x.pData, X25519_KEYLEN);
-            qaeCryptoMemFreeNonZero(qat_ecx_op_data->x.pData);
-        }
-        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
-        qat_ecx_op_data = NULL;
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(qat_ecx_op_data->k, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(qat_ecx_op_data->x, qat_svm);
+        QAT_MEM_FREE_BUFF(qat_ecx_op_data, qat_svm);
     }
     STOP_RDTSC(&qat_hw_ecx_derive_req_cleanup, 1, "[QAT HW ECX: cleanup]");
 
@@ -1023,6 +1038,7 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
     int inst_num = QAT_INVALID_INSTANCE;
     thread_local_variables_t *tlv = NULL;
     int fallback = 0;
+    int qat_svm = QAT_INSTANCE_ANY;
 
     DEBUG("QAT HW ECX Started\n");
 
@@ -1057,9 +1073,24 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
         return 1;
     }
 
-    qat_ecx_op_data =
-        (CpaCyEcMontEdwdsPointMultiplyOpData *)qaeCryptoMemAlloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
-                                                                 __FILE__, __LINE__);
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
+            == QAT_INVALID_INSTANCE) {
+        WARN("Failed to get an instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            fallback = 1;
+            goto err;
+        } else {
+            QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
+            return 0;
+        }
+    }
+
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+
+    qat_ecx_op_data = (CpaCyEcMontEdwdsPointMultiplyOpData *)
+                       qat_mem_alloc(sizeof(CpaCyEcMontEdwdsPointMultiplyOpData),
+                                     qat_svm, __FILE__, __LINE__);
     if (NULL == qat_ecx_op_data) {
         WARN("Failed to allocate memory for qat_ecx_op_data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_MALLOC_FAILURE);
@@ -1067,7 +1098,8 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
     }
     memset(qat_ecx_op_data, 0, sizeof(CpaCyEcMontEdwdsPointMultiplyOpData));
 
-    qat_ecx_op_data->k.pData = (Cpa8U *)qaeCryptoMemAlloc(QAT_X448_DATALEN, __FILE__, __LINE__);
+    qat_ecx_op_data->k.pData = (Cpa8U *)qat_mem_alloc(QAT_X448_DATALEN, qat_svm,
+                                                      __FILE__, __LINE__);
     if (qat_ecx_op_data->k.pData == NULL) {
         WARN("Failure to allocate k.pData.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_MALLOC_FAILURE);
@@ -1075,7 +1107,8 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
     }
     qat_ecx_op_data->k.dataLenInBytes = QAT_X448_DATALEN;
 
-    qat_ecx_op_data->x.pData = (Cpa8U *)qaeCryptoMemAlloc(QAT_X448_DATALEN, __FILE__, __LINE__);
+    qat_ecx_op_data->x.pData = (Cpa8U *)qat_mem_alloc(QAT_X448_DATALEN, qat_svm,
+                                                      __FILE__, __LINE__);
     if (qat_ecx_op_data->x.pData == NULL) {
         WARN("Failure to allocate x.pData.\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_MALLOC_FAILURE);
@@ -1089,7 +1122,8 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    pXk->pData = (Cpa8U *)qaeCryptoMemAlloc(QAT_X448_DATALEN, __FILE__, __LINE__);
+
+    pXk->pData = (Cpa8U *)qat_mem_alloc(QAT_X448_DATALEN, qat_svm, __FILE__, __LINE__);
     if (NULL == pXk->pData) {
         WARN("Failed to allocate memory for pXk data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_MALLOC_FAILURE);
@@ -1100,7 +1134,7 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
     qat_ecx_op_data->generator = CPA_FALSE;
     qat_ecx_op_data->curveType = CPA_CY_EC_MONTEDWDS_CURVE448_TYPE;
 
-    if (0 == reverse_bytes(qat_ecx_op_data->k.pData, (unsigned char *)privkey,
+    if (0 == reverse_bytes(qat_ecx_op_data->k.pData,(unsigned char *)privkey,
                            QAT_X448_DATALEN, X448_KEYLEN)) {
         WARN("Failed to reverse bytes for submission of data to QAT driver\n");
         QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
@@ -1133,8 +1167,9 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
     }
 
     do {
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
-             == QAT_INVALID_INSTANCE) {
+        if (status == CPA_STATUS_RETRY &&
+           (inst_num = get_instance(QAT_INSTANCE_ASYM, qat_svm))
+                == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -1142,9 +1177,8 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
             } else {
                 QATerr(QAT_F_QAT_PKEY_ECX_DERIVE448, ERR_R_INTERNAL_ERROR);
             }
-            if (op_done.job != NULL) {
+            if (op_done.job != NULL)
                 qat_clear_async_event_notification(op_done.job);
-            }
             qat_cleanup_op_done(&op_done);
             goto err;
         }
@@ -1279,24 +1313,14 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
 err:
     /* Clean the memory. */
     if (pXk != NULL) {
-        if (pXk->pData != NULL) {
-            OPENSSL_cleanse(pXk->pData, QAT_X448_DATALEN);
-            qaeCryptoMemFreeNonZero(pXk->pData);
-        }
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(*pXk, qat_svm);
         OPENSSL_free(pXk);
     }
 
     if (NULL != qat_ecx_op_data) {
-        if (qat_ecx_op_data->k.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->k.pData, QAT_X448_DATALEN);
-            qaeCryptoMemFreeNonZero(qat_ecx_op_data->k.pData);
-        }
-        if (qat_ecx_op_data->x.pData != NULL) {
-            OPENSSL_cleanse(qat_ecx_op_data->x.pData, QAT_X448_DATALEN);
-            qaeCryptoMemFreeNonZero(qat_ecx_op_data->x.pData);
-        }
-        qaeCryptoMemFreeNonZero(qat_ecx_op_data);
-        qat_ecx_op_data = NULL;
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(qat_ecx_op_data->k, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(qat_ecx_op_data->x, qat_svm);
+        QAT_MEM_FREE_BUFF(qat_ecx_op_data, qat_svm);
     }
 
     if (fallback) {

@@ -108,42 +108,41 @@ static int run_aesgcm128_update(void *args)
         0x72, 0xD2, 0x3A, 0x11, 0x55, 0x42, 0xBB, 0xFF
     };
 
-    unsigned char *plaintext = OPENSSL_malloc(size);
-    unsigned char *ciphertext = OPENSSL_malloc(size + (AES128_BLOCKSIZE * 4));
+    unsigned char *input = OPENSSL_malloc(size);
+    unsigned char *plaintext = NULL;
+    unsigned char *ciphertext = NULL;
     unsigned char tag[EVP_GCM_TLS_TAG_LEN] = { 0 };
-    unsigned char *dec_cipher = OPENSSL_malloc(size + (AES128_BLOCKSIZE * 4));
-    unsigned char *enc_cipher = NULL;
+    unsigned char *dec_cipher = NULL;
 
     int ciphertext_len = 0;
     int tmpout_len = 0;
-    int enc_cipher_len = 0;
     int dec_cipher_len = 0;
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
 #ifndef QAT_OPENSSL_PROVIDER
-    const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_128_gcm);
+    if (e !=NULL) {
+        const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_128_gcm);
 
-    if (!c) {
-        INFO("AES-128-GCM cipher disabled in QAT_Engine\n");
-        e = NULL;
+        if (!c) {
+            INFO("AES-128-GCM cipher disabled in QAT_Engine\n");
+            e = NULL;
+        }
     }
 #endif
 
-    if (plaintext == NULL || ciphertext == NULL || dec_cipher == NULL) {
+    if (input == NULL) {
         INFO("# FAIL: [%s] --- Initial parameters malloc failed ! \n",
              __func__);
         exit(EXIT_FAILURE);
     }
 
-    enc_cipher = ciphertext;
-
-    /* Set plaintext input data */
+    /* Set input data */
     for (i = 0; i < size; i++)
-         plaintext[i] = i % 16;
+         input[i] = i % 16;
 
     if (print_output)
-        tests_hexdump("AES-GCM 128: input message", plaintext, size);
+        tests_hexdump("AES-GCM 128: input message", input, size);
 
     /* Create context for encrypt operation */
     ctx = EVP_CIPHER_CTX_new();
@@ -199,6 +198,14 @@ static int run_aesgcm128_update(void *args)
              __func__, ret);
         goto err;
     }
+    plaintext = OPENSSL_malloc(size + (AES128_BLOCKSIZE * 4));
+    if (plaintext == NULL) {
+	INFO("# FAIL: [%s] --- malloc failed for plaintext! \n", __func__);
+	goto err;
+    }
+    ciphertext = plaintext;
+
+    memcpy(plaintext, input, size);
 
     /* Encrypt the input plaintext. */
     ret = EVP_EncryptUpdate(ctx, ciphertext, &tmpout_len, plaintext, size);
@@ -238,7 +245,6 @@ static int run_aesgcm128_update(void *args)
     ctx = NULL;
 
     tmpout_len = 0;
-    enc_cipher_len = ciphertext_len;
 
 /*----------------------- Decryption ------------------------ */
 
@@ -304,10 +310,11 @@ static int run_aesgcm128_update(void *args)
              __func__, ret);
         goto err;
     }
+    dec_cipher = ciphertext;
 
     /* Decrypt the ciphertext */
-    ret = EVP_DecryptUpdate(dec_ctx, dec_cipher, &tmpout_len, enc_cipher,
-                            enc_cipher_len);
+    ret = EVP_DecryptUpdate(dec_ctx, dec_cipher, &tmpout_len, ciphertext,
+                            ciphertext_len);
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptUpdate() failed when decrypting ciphertext: ret %d\n",
              __func__, ret);
@@ -348,10 +355,8 @@ static int run_aesgcm128_update(void *args)
     EVP_CIPHER_CTX_free(dec_ctx);
     dec_ctx = NULL;
 
-    if (ciphertext)
-        OPENSSL_free(ciphertext);
-    if (dec_cipher)
-        OPENSSL_free(dec_cipher);
+    if (input)
+        OPENSSL_free(input);
     if (plaintext)
         OPENSSL_free(plaintext);
 
@@ -427,11 +432,13 @@ static int run_aesgcm128_tls(void *args)
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
 #ifndef QAT_OPENSSL_PROVIDER
-    const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_128_gcm);
+    if (e != NULL) {
+        const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_128_gcm);
 
-    if (!c) {
-        INFO("AES-128-GCM disabled in QAT_Engine\n");
-        e = NULL;
+        if (!c) {
+            INFO("AES-128-GCM disabled in QAT_Engine\n");
+            e = NULL;
+        }
     }
 #endif
 

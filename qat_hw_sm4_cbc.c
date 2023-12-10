@@ -119,13 +119,14 @@ static QAT_EVP_CIPHER_SM4_CBC get_default_cipher_sm4_cbc()
 }
 #endif
 
-static inline void qat_sm4_cbc_free_op(qat_sm4_op_params *op)
+static inline void qat_sm4_cbc_free_op(qat_sm4_op_params *op, int qat_svm)
 {
     if (op == NULL) return;
-    QAT_CHK_QMFREE_FLATBUFF(op->src_fbuf);
-    QAT_QMEMFREE_BUFF(op->src_sgl.pPrivateMetaData);
-    QAT_QMEMFREE_BUFF(op->dst_sgl.pPrivateMetaData);
-    QAT_QMEMFREE_BUFF(op->op_data.pIv);
+    if (!qat_svm)
+        qaeCryptoMemFree(op->src_fbuf.pData);
+    QAT_MEM_FREE_BUFF(op->src_sgl.pPrivateMetaData, qat_svm);
+    QAT_MEM_FREE_BUFF(op->dst_sgl.pPrivateMetaData, qat_svm);
+    QAT_MEM_FREE_BUFF(op->op_data.pIv, qat_svm);
     OPENSSL_free(op);
     op = NULL;
 }
@@ -147,7 +148,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
 #endif
 
     if (qctx->op != NULL) {
-        qat_sm4_cbc_free_op(qctx->op);
+        qat_sm4_cbc_free_op(qctx->op, qctx->qat_svm);
         DEBUG("[%p] qop memory freed\n", ctx);
     }
 
@@ -187,9 +188,9 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
 
     if (msize) {
         qctx->op->src_sgl.pPrivateMetaData =
-            qaeCryptoMemAlloc(msize, __FILE__, __LINE__);
+                qat_mem_alloc(msize, qctx->qat_svm, __FILE__, __LINE__);
         qctx->op->dst_sgl.pPrivateMetaData =
-            qaeCryptoMemAlloc(msize, __FILE__, __LINE__);
+                qat_mem_alloc(msize, qctx->qat_svm, __FILE__, __LINE__);
         if (qctx->op->src_sgl.pPrivateMetaData == NULL ||
             qctx->op->dst_sgl.pPrivateMetaData == NULL) {
             WARN("QMEM alloc failed for PrivateData\n");
@@ -205,9 +206,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
 
     /* Update Opdata */
     opd->sessionCtx = qctx->session_ctx;
-    opd->pIv = qaeCryptoMemAlloc(iv_len,
-                                 __FILE__, __LINE__);
-
+    opd->pIv = qat_mem_alloc(iv_len, qctx->qat_svm, __FILE__, __LINE__);
     if (opd->pIv == NULL) {
         WARN("QMEM Mem Alloc failed for pIv.\n");
         QATerr(QAT_F_QAT_SETUP_OP_PARAMS, QAT_R_SM4_MALLOC_FAILED);
@@ -219,7 +218,7 @@ static int qat_setup_op_params(EVP_CIPHER_CTX *ctx)
     return 1;
 
  err:
-    qat_sm4_cbc_free_op(qctx->op);
+    qat_sm4_cbc_free_op(qctx->op, qctx->qat_svm);
     return 0;
 }
 
@@ -410,7 +409,7 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
     ssd->cipherSetupData.cipherKeyLenInBytes = ckeylen;
     ssd->cipherSetupData.pCipherKey = ckey;
 
-    qctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
+    qctx->inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY);
     if (qctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");
         QATerr(QAT_F_QAT_SM4_CBC_INIT, QAT_R_SM4_GET_INSTANCE_FAILED);
@@ -420,6 +419,7 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
         }
         goto err;
     }
+    DEBUG("inst_num = %d inst mem type \n", qctx->inst_num, qctx->qat_svm);
 
     DUMP_SESSION_SETUP_DATA(ssd);
     sts = cpaCySymSessionCtxGetSize(qat_instance_handles[qctx->inst_num], ssd, &sctx_size);
@@ -438,8 +438,8 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
     }
 
     DEBUG("Size of session ctx = %d\n", sctx_size);
-    sctx = (CpaCySymSessionCtx) qaeCryptoMemAlloc(sctx_size, __FILE__,
-                                                  __LINE__);
+    sctx = (CpaCySymSessionCtx) qat_mem_alloc(sctx_size, qctx->qat_svm,
+                                              __FILE__, __LINE__);
     if (sctx == NULL) {
         WARN("QMEM alloc failed for session ctx!\n");
         QATerr(QAT_F_QAT_SM4_CBC_INIT, QAT_R_SM4_MALLOC_FAILED);
@@ -461,7 +461,7 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
     if (ssd != NULL)
         OPENSSL_free(ssd);
     qctx->session_data = NULL;
-    QAT_QMEMFREE_BUFF(qctx->session_ctx);
+    QAT_MEM_FREE_BUFF(qctx->session_ctx, qctx->qat_svm);
     if (qctx->fallback == 1) {
 #ifndef QAT_OPENSSL_PROVIDER
         if ((qctx->sw_ctx_cipher_data != NULL) && (ret == 1)) {
@@ -533,7 +533,7 @@ int qat_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
     }
 #endif
     /* ctx may be cleaned before it gets a chance to allocate qop */
-    qat_sm4_cbc_free_op(qctx->op);
+    qat_sm4_cbc_free_op(qctx->op ,qctx->qat_svm);
 
     ssd = qctx->session_data;
     if (ssd) {
@@ -550,7 +550,7 @@ int qat_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
                 }
             }
         }
-        QAT_QMEMFREE_BUFF(qctx->session_ctx);
+        QAT_MEM_FREE_BUFF(qctx->session_ctx, qctx->qat_svm);
         QAT_CLEANSE_FREE_BUFF(ssd->hashSetupData.authModeSetupData.authKey,
                               ssd->hashSetupData.authModeSetupData.
                               authKeyLenInBytes);
@@ -809,14 +809,22 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #endif
     opd->messageLenToCipherInBytes = len;
 
-    FLATBUFF_ALLOC_AND_CHAIN(*s_fbuf, *d_fbuf, len);
+    if (!qctx->qat_svm) {
+        FLATBUFF_ALLOC_AND_CHAIN(*s_fbuf, *d_fbuf, len);
+    } else {
+        s_fbuf->pData = (Cpa8U *)in;
+        d_fbuf->pData = s_fbuf->pData;
+        s_fbuf->dataLenInBytes = len;
+        d_fbuf->dataLenInBytes = len;
+    }
     if ((s_fbuf->pData) == NULL) {
         WARN("Src buffer is not allocated.\n");
         error = 1;
         goto end;
     }
 
-    memcpy(d_fbuf->pData, in, len);
+    if (!qctx->qat_svm)
+        memcpy(d_fbuf->pData, in, len);
 
     DUMP_SYM_PERFORM_OP(qat_instance_handles[qctx->inst_num], opd, s_sgl, d_sgl);
 
@@ -906,7 +914,10 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         *outl = len;
 	outlen = 1;
 #endif
-        memcpy(out, qctx->op->dst_fbuf.pData, len);
+    if (!qctx->qat_svm)
+       memcpy(out, qctx->op->dst_fbuf.pData, len);
+    else
+       qctx->op->dst_fbuf.pData = (Cpa8U *)out;
     } else {
         if (qat_get_sw_fallback_enabled() && op_done.verifyResult == CPA_FALSE) {
             CRYPTO_QAT_LOG("Verification of result failed for qat \
@@ -921,7 +932,8 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         }
     }
     qat_cleanup_op_done(&op_done);
-    qaeCryptoMemFreeNonZero(qctx->op->src_fbuf.pData);
+    if (!qctx->qat_svm)
+        qaeCryptoMemFreeNonZero(qctx->op->src_fbuf.pData);
     qctx->op->src_fbuf.pData = NULL;
     qctx->op->dst_fbuf.pData = NULL;
 

@@ -534,10 +534,8 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
     }
 
     if (sha3_ctx->session_init) {
-        if (sha3_ctx->pSrcBufferList.pPrivateMetaData) {
-            qaeCryptoMemFreeNonZero(sha3_ctx->pSrcBufferList.pPrivateMetaData);
-            sha3_ctx->pSrcBufferList.pPrivateMetaData = NULL;
-        }
+        QAT_MEM_FREE_NONZERO_BUFF(sha3_ctx->pSrcBufferList.pPrivateMetaData, sha3_ctx->qat_svm);
+        sha3_ctx->pSrcBufferList.pPrivateMetaData = NULL;
 
         if (is_instance_available(sha3_ctx->inst_num)) {
             /* Wait for in-flight requests before removing session */
@@ -557,7 +555,7 @@ static int qat_sha3_cleanup(EVP_MD_CTX *ctx)
                  */
             }
 
-            qaeCryptoMemFreeNonZero(sha3_ctx->session_ctx);
+            QAT_MEM_FREE_NONZERO_BUFF(sha3_ctx->session_ctx, sha3_ctx->qat_svm);
             sha3_ctx->session_ctx = NULL;
 	}
         sha3_ctx->session_init = 0;
@@ -641,13 +639,15 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
     }
 
     /* Allocate instance */
-    sha3_ctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
+    sha3_ctx->inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY);
     if (sha3_ctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");
         QATerr(QAT_F_QAT_SHA3_SETUP_PARAM, ERR_R_INTERNAL_ERROR);
         return 0;
     }
+    sha3_ctx->qat_svm = !qat_instance_details[sha3_ctx->inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
+    DEBUG("inst_num = %d Size of session ctx = %d inst mem type = %d \n", sha3_ctx->inst_num, sctx_size, sha3_ctx->qat_svm);
     /* Determine size of session context to allocate */
     status = cpaCySymSessionCtxGetSize(qat_instance_handles[sha3_ctx->inst_num],
                                        sha3_ctx->session_data,
@@ -660,7 +660,7 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
     DEBUG("inst_num = %d, Size of session ctx = %d\n", sha3_ctx->inst_num, sctx_size);
 
     sha3_ctx->session_ctx =
-        (CpaCySymSessionCtx)qaeCryptoMemAlloc(sctx_size, __FILE__, __LINE__);
+        (CpaCySymSessionCtx)qat_mem_alloc(sctx_size, sha3_ctx->qat_svm, __FILE__, __LINE__);
     if (sha3_ctx->session_ctx == NULL) {
         WARN("Memory alloc failed for session ctx\n");
         QATerr(QAT_F_QAT_SHA3_SETUP_PARAM, ERR_R_MALLOC_FAILURE);
@@ -681,7 +681,7 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
                            qat_instance_details[sha3_ctx->inst_num].qat_instance_info.physInstId.packageId);
         }
         QATerr(QAT_F_QAT_SHA3_SETUP_PARAM, ERR_R_INTERNAL_ERROR);
-        qaeCryptoMemFreeNonZero(sha3_ctx->session_ctx);
+        QAT_MEM_FREE_NONZERO_BUFF(sha3_ctx->session_ctx, sha3_ctx->qat_svm);
         return 0;
     }
 
@@ -692,19 +692,19 @@ static int qat_sha3_setup_param(qat_sha3_ctx *sha3_ctx)
         WARN("cpaCyBufferListGetMetaSize failed for the instance id %d\n",
               sha3_ctx->inst_num);
         QATerr(QAT_F_QAT_SHA3_SETUP_PARAM, ERR_R_INTERNAL_ERROR);
-        qaeCryptoMemFreeNonZero(sha3_ctx->session_ctx);
+        QAT_MEM_FREE_NONZERO_BUFF(sha3_ctx->session_ctx, sha3_ctx->qat_svm);
         return 0;
     }
     DEBUG("Buffer MetaSize : %d\n", bufferMetaSize);
 
     if (bufferMetaSize) {
         sha3_ctx->pSrcBufferList.pPrivateMetaData =
-		  qaeCryptoMemAlloc(bufferMetaSize, __FILE__, __LINE__);
+		  qat_mem_alloc(bufferMetaSize, sha3_ctx->qat_svm, __FILE__, __LINE__);
         if (sha3_ctx->pSrcBufferList.pPrivateMetaData == NULL) {
             WARN("QMEM alloc failed for PrivateData\n");
             QATerr(QAT_F_QAT_SHA3_SETUP_PARAM, ERR_R_MALLOC_FAILURE);
-            qaeCryptoMemFreeNonZero(sha3_ctx->session_ctx);
-            qaeCryptoMemFreeNonZero(sha3_ctx->pSrcBufferList.pPrivateMetaData);
+            QAT_MEM_FREE_NONZERO_BUFF(sha3_ctx->session_ctx, sha3_ctx->qat_svm);
+            QAT_MEM_FREE_NONZERO_BUFF(sha3_ctx->pSrcBufferList.pPrivateMetaData, sha3_ctx->qat_svm);
             return 0;
         }
         sha3_ctx->pSrcBufferList.numBuffers = numBuffers;
@@ -780,7 +780,7 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
     }
 
     /* The variables in and out remain separate */
-    sha3_ctx->src_buffer.pData = qaeCryptoMemAlloc(len + sha3_ctx->md_size, __FILE__, __LINE__);
+    sha3_ctx->src_buffer.pData = qat_mem_alloc(len + sha3_ctx->md_size, sha3_ctx->qat_svm, __FILE__, __LINE__);
     if ((sha3_ctx->src_buffer.pData) == NULL) {
         WARN("Unable to allocate memory for buffer for sha3 hash.\n");
         QATerr(QAT_F_QAT_HW_SHA3_OFFLOAD, ERR_R_MALLOC_FAILURE);
@@ -927,11 +927,9 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
     ret = 1;
 
 err:
-    if (sha3_ctx->src_buffer.pData) {
-        qaeCryptoMemFreeNonZero(sha3_ctx->src_buffer.pData);
-        sha3_ctx->src_buffer.pData = NULL;
-        sha3_ctx->opd->pDigestResult = NULL;
-    }
+    QAT_MEM_FREE_NONZERO_BUFF(sha3_ctx->src_buffer.pData, sha3_ctx->qat_svm);
+    sha3_ctx->src_buffer.pData = NULL;
+    sha3_ctx->opd->pDigestResult = NULL;
     return ret;
 }
 

@@ -181,6 +181,7 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
 int qat_hkdf_init(EVP_PKEY_CTX *ctx)
 {
     QAT_HKDF_CTX *qat_hkdf_ctx = NULL;
+    int inst_num = QAT_INVALID_INSTANCE;
 #ifndef QAT_OPENSSL_3
     int (*sw_init_fn_ptr)(EVP_PKEY_CTX *) = NULL;
     int ret = 0;
@@ -198,6 +199,15 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
         QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
         return 0;
     }
+
+    if ((inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY))
+            == QAT_INVALID_INSTANCE) {
+        WARN("Failed to get an instance\n");
+        QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
+        return 0;
+    }
+
+    qat_hkdf_ctx->qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
 #ifndef QAT_OPENSSL_3
     /* Software Ctrl functions are called here */
@@ -222,8 +232,9 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
 #endif
 
     qat_hkdf_ctx->hkdf_op_data =
-        (CpaCyKeyGenHKDFOpData *) qaeCryptoMemAlloc(sizeof(CpaCyKeyGenHKDFOpData), __FILE__,
-                __LINE__);
+        (CpaCyKeyGenHKDFOpData *) qat_mem_alloc(sizeof(CpaCyKeyGenHKDFOpData),
+                qat_hkdf_ctx->qat_svm, __FILE__, __LINE__);
+
     if (NULL == qat_hkdf_ctx->hkdf_op_data) {
         WARN("Failed to allocate memory for hkdf_op_data\n");
         QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
@@ -288,7 +299,7 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
             OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->seed,
                     qat_hkdf_ctx->hkdf_op_data->seedLen);
 
-         if (qat_hkdf_ctx->hkdf_op_data->secretLen)
+        if (qat_hkdf_ctx->hkdf_op_data->secretLen)
             OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->secret,
                     qat_hkdf_ctx->hkdf_op_data->secretLen);
 
@@ -296,13 +307,12 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
             OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->info,
                     qat_hkdf_ctx->hkdf_op_data->infoLen);
 
-	if (qat_hkdf_ctx->hkdf_op_data->label[0].labelLen) {
+        if (qat_hkdf_ctx->hkdf_op_data->label[0].labelLen) {
             OPENSSL_cleanse(&qat_hkdf_ctx->hkdf_op_data->label[0],
                     qat_hkdf_ctx->hkdf_op_data->label[0].labelLen);
             qat_hkdf_ctx->hkdf_op_data->numLabels = 0;
-	}
-
-        qaeCryptoMemFreeNonZero(qat_hkdf_ctx->hkdf_op_data);
+        }
+        QAT_MEM_FREE_NONZERO_BUFF(qat_hkdf_ctx->hkdf_op_data, qat_hkdf_ctx->qat_svm);
     }
     qat_hkdf_ctx->fallback = 0;
     OPENSSL_free(qat_hkdf_ctx);
@@ -795,8 +805,22 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     if (!qat_get_cipher_suite(qat_hkdf_ctx)) {
         DEBUG("Failed to get cipher suite, fallback to SW\n");
         qat_hkdf_ctx->fallback = 1;
-	goto err;
+        goto err;
     }
+
+    if ((inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY))
+            == QAT_INVALID_INSTANCE) {
+        WARN("Failed to get an instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+            qat_hkdf_ctx->fallback = 1;
+            goto err;
+        } else {
+            QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
+            return 0;
+        }
+    }
+    qat_hkdf_ctx->qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     if (!qat_set_hkdf_mode(qat_hkdf_ctx)) {
         WARN("Error setting mode into HKDFOpdata\n");
@@ -871,8 +895,8 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     if (key_length < md_size)
         key_length = md_size;
 
-    generated_key->pData = (Cpa8U *) qaeCryptoMemAlloc(key_length,
-                            __FILE__, __LINE__);
+    generated_key->pData = (Cpa8U *) qat_mem_alloc(key_length, qat_hkdf_ctx->qat_svm,
+                                __FILE__, __LINE__);
     if (NULL == generated_key->pData) {
         WARN("Failed to allocate memory for generated_key data\n");
         QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_MALLOC_FAILURE);
@@ -902,8 +926,9 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     do {
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM))
-             == QAT_INVALID_INSTANCE) {
+        if (status == CPA_STATUS_RETRY &&
+           (inst_num = get_instance(QAT_INSTANCE_SYM, qat_hkdf_ctx->qat_svm))
+            == QAT_INVALID_INSTANCE) {
             WARN("Failed to get an instance\n");
             if (qat_get_sw_fallback_enabled()) {
                 CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
@@ -911,9 +936,8 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
             } else {
                 QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
             }
-            if (op_done.job != NULL) {
+            if (op_done.job != NULL)
                 qat_clear_async_event_notification(op_done.job);
-            }
             qat_cleanup_op_done(&op_done);
             goto err;
         }
@@ -1049,10 +1073,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     /* Clean the memory  */
     if (NULL != qat_hkdf_ctx->hkdf_op_data) {
         if (NULL != generated_key) {
-            if (NULL != generated_key->pData) {
-                OPENSSL_cleanse(generated_key->pData, key_length);
-                qaeCryptoMemFreeNonZero(generated_key->pData);
-            }
+            QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(*generated_key, qat_hkdf_ctx->qat_svm);
             OPENSSL_free(generated_key);
           }
     }

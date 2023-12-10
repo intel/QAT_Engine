@@ -149,6 +149,7 @@ typedef struct qat_chained_ctx_t {
 
     /* QAT Session Params */
     int inst_num;
+    int qat_svm;
     CpaCySymSessionSetupData *session_data;
     CpaCySymSessionCtx session_ctx;
     int init_flags;

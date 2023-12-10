@@ -562,6 +562,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     int iMsgRetry = getQatMsgRetryCount();
     thread_local_variables_t *tlv = NULL;
     BN_CTX *bctx = NULL;
+    int qat_svm = QAT_INSTANCE_ANY;
 
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     unsigned char *dgst = NULL;
@@ -694,6 +695,20 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         goto err;
     }
 
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
+        == QAT_INVALID_INSTANCE) {
+        WARN("Failure to get another instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            WARN("Failed to get an instance - fallback to SW - %s\n", __func__);
+	    fallback = 1;
+            goto err;
+        } else {
+            QATerr(QAT_F_QAT_SM2_SIGN, ERR_R_INTERNAL_ERROR);
+	    return 0;
+        }
+    }
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+
     opData = (CpaCyEcsm2SignOpData *)
         OPENSSL_zalloc(sizeof(CpaCyEcsm2SignOpData));
     if (opData == NULL) {
@@ -713,9 +728,9 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
      * e - digest of the message
      * d - private key (d > 0 and d < n)
      */
-    if ((qat_BN_to_FB(&(opData->k), k) != 1) ||
-        (qat_BN_to_FB(&(opData->e), e) != 1) ||
-        (qat_BN_to_FB(&(opData->d), (BIGNUM *)priv_key) != 1)) {
+    if ((qat_BN_to_FB(&(opData->k), k, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->e), e, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->d), (BIGNUM *)priv_key, qat_svm) != 1)) {
         WARN("Failure to convert e, tbs and priv_key to flatbuffer\n");
         QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_PRIV_KEY_K_E_D_CONVERT_TO_FB_FAILURE);
         goto err;
@@ -729,7 +744,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     }
 
     pResultR->pData =
-        (Cpa8U *) qaeMemAllocNUMA(buflen, NUMA_ANY_NODE, QAT_BYTE_ALIGNMENT);
+        (Cpa8U *) qat_mem_alloc(buflen, qat_svm, __FILE__, __LINE__);
     if (!pResultR->pData) {
         WARN("Failed to allocate memory for pResultR data\n");
         QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_PRESULTR_PDATA_MALLOC_FAILURE);
@@ -745,7 +760,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     }
 
     pResultS->pData =
-        (Cpa8U *) qaeMemAllocNUMA(buflen, NUMA_ANY_NODE, QAT_BYTE_ALIGNMENT);
+        (Cpa8U *) qat_mem_alloc(buflen, qat_svm, __FILE__, __LINE__);
     if (!pResultS->pData) {
         WARN("Failed to allocate memory for pResultS data\n");
         QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_PRESULTS_PDATA_MALLOC_FAILURE);
@@ -772,7 +787,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
 
     do {
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+        if (status == CPA_STATUS_RETRY && (inst_num = get_instance(QAT_INSTANCE_ASYM, qat_svm))
             == QAT_INVALID_INSTANCE) {
             WARN("Failure to get another instance\n");
             if (qat_get_sw_fallback_enabled()) {
@@ -926,18 +941,18 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     }
 
     if (pResultR) {
-        QAT_CHK_QMFREE_FLATBUFF(*pResultR);
+        QAT_MEM_FREE_FLATBUFF(*pResultR, qat_svm);
         OPENSSL_free(pResultR);
     }
     if (pResultS) {
-        QAT_CHK_QMFREE_FLATBUFF(*pResultS);
+        QAT_MEM_FREE_FLATBUFF(*pResultS, qat_svm);
         OPENSSL_free(pResultS);
     }
 
     if (opData) {
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->k);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->d);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->e);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->k, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->d, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->e, qat_svm);
         OPENSSL_free(opData);
     }
 
@@ -1040,6 +1055,7 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
     const unsigned char *p = sig;
     BIGNUM *e = NULL;
     int dlen = 0;
+    int qat_svm = QAT_INSTANCE_ANY;
 
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     unsigned char *msdgst = NULL;
@@ -1177,6 +1193,20 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
         goto err;
     }
 
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
+        == QAT_INVALID_INSTANCE) {
+        WARN("Failure to get another instance\n");
+        if (qat_get_sw_fallback_enabled()) {
+            CRYPTO_QAT_LOG
+                ("Failed to get an instance - fallback to SW - %s\n",
+                 __func__);
+            fallback = 1;
+        } else {
+            QATerr(QAT_F_QAT_SM2_VERIFY, ERR_R_INTERNAL_ERROR);
+	    return 0;
+        }
+    }
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
     opData = (CpaCyEcsm2VerifyOpData *)
         OPENSSL_zalloc(sizeof(CpaCyEcsm2VerifyOpData));
     if (opData == NULL) {
@@ -1193,11 +1223,11 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
         goto err;
     }
 
-    if ((qat_BN_to_FB(&(opData->r), (BIGNUM *)sig_r) != 1) ||
-        (qat_BN_to_FB(&(opData->s), (BIGNUM *)sig_s) != 1) ||
-        (qat_BN_to_FB(&(opData->e), e) != 1) ||
-        (qat_BN_to_FB(&(opData->xP), xp) != 1) ||
-        (qat_BN_to_FB(&(opData->yP), yp) != 1)) {
+    if ((qat_BN_to_FB(&(opData->r), (BIGNUM *)sig_r, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->s), (BIGNUM *)sig_s, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->e), e, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->xP), xp, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->yP), yp, qat_svm) != 1)) {
         WARN("Failed to convert sig_r, sig_s, xp or yp to a flatbuffer\n");
         QATerr(QAT_F_QAT_SM2_VERIFY,
                QAT_R_CURVE_COORDINATE_PARAMS_CONVERT_TO_FB_FAILURE);
@@ -1223,7 +1253,7 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
     CRYPTO_QAT_LOG("KX - %s\n", __func__);
 
     do {
-        if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+        if (status == CPA_STATUS_RETRY && (inst_num = get_instance(QAT_INSTANCE_ASYM, qat_svm))
             == QAT_INVALID_INSTANCE) {
             WARN("Failure to get another instance\n");
             if (qat_get_sw_fallback_enabled()) {
@@ -1361,11 +1391,11 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
     }
 
     if (opData) {
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->r);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->s);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->e);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->xP);
-        QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(opData->yP);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->r, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->s, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->e, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->xP, qat_svm);
+        QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(opData->yP, qat_svm);
         OPENSSL_free(opData);
     }
 

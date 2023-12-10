@@ -136,6 +136,25 @@ following:
     Hello world!
     # PASS Verify for QAT Contig Mem Test
 
+#### Shared Virtual Memory
+
+QAT gen4 devices(4xxx) supports Shared Virtual Memory (SVM) that allows the use
+of unpinned user space memory avoiding the memcpy of buffers to pinned contiguous memory.
+The SVM support in the driver enables passing of virtual addresses to the QAT hardware for
+processing acceleration requests, i.e. addresses are the same virtual addresses used in
+the calling process supporting Zero-copy. This Support in the QAT Engine can be enabled
+dynamically by setting `SvmEnabled = 1` and `ATEnabled = 1` in the QAT PF and VF device's
+driver config file(s) along with other prerequistes mentioned below.
+
+### Prerequisites
+
+The Following parameter needs to be enabled in BIOS and is supported only in
+QAT gen4 devices.
+
+* Support for Shared Virtual Memory with Intel IOMMU
+* Enable VT-d
+* Enable ATS
+
 </details>
 <details>
 <summary markdown="span">qat_sw Prerequisites<br></summary>

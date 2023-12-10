@@ -126,9 +126,6 @@ typedef struct {
     int qatAsymInstanceNumForThread;
     int qatSymInstanceNumForThread;
     unsigned int localOpsInFlight;
-# ifdef QAT_HW_SET_INSTANCE_THREAD
-    long int threadId;
-# endif
 } thread_local_variables_t;
 
 typedef struct {
@@ -142,8 +139,12 @@ typedef struct {
 } qat_accel_details_t;
 
 # define INSTANCE_TYPE_CRYPTO 1
-# define INSTANCE_TYPE_CRYPTO_ASYM 8
-# define INSTANCE_TYPE_CRYPTO_SYM 16
+# define QAT_INSTANCE_ASYM 8
+# define QAT_INSTANCE_SYM 16
+
+# define QAT_INSTANCE_ANY -1
+# define QAT_INSTANCE_CONTIGUOUS 0
+# define QAT_INSTANCE_SVM 1
 
 # define QAT_RETRY_BACKOFF_MODULO_DIVISOR 8
 # define QAT_INFINITE_MAX_NUM_RETRIES -1
@@ -165,10 +166,13 @@ typedef struct {
                 }                              \
             } while(0)
 
-# define QAT_QMEMFREE_BUFF(b)                 \
+# define QAT_MEM_FREE_BUFF(b, svm)            \
             do {                              \
                 if (b != NULL) {              \
-                    qaeCryptoMemFree(b);      \
+                    if (!svm)                 \
+                        qaeCryptoMemFree(b);  \
+                    else                      \
+                        OPENSSL_free(b);      \
                     b = NULL;                 \
                 }                             \
             } while(0)
@@ -182,58 +186,53 @@ typedef struct {
                 }                            \
             } while(0)
 
-# define QAT_CLEANSE_QMEMFREE_BUFF(b,len)    \
-            do {                             \
-                if (b != NULL) {             \
-                    OPENSSL_cleanse(b, len); \
-                    qaeCryptoMemFree(b);     \
-                    b = NULL;                \
-                }                            \
-            } while(0)
+# define QAT_MEM_FREE_NONZERO_BUFF(b, svm)               \
+         do {                                            \
+             if (b != NULL) {                            \
+                 if (!svm)                               \
+                     qaeCryptoMemFreeNonZero(b);         \
+                 else                                    \
+                     OPENSSL_free(b);                    \
+             }                                           \
+          } while(0)
 
 # define QAT_CLEANSE_FLATBUFF(b) \
             OPENSSL_cleanse((b).pData, (b).dataLenInBytes)
 
-# define QAT_QMEM_FREE_FLATBUFF(b) \
-            qaeCryptoMemFree((b).pData)
+# define QAT_MEM_FREE_FLATBUFF(b, svm)            \
+         do {                                     \
+             if ((b).pData != NULL) {             \
+                 if (!svm)                        \
+                     qaeCryptoMemFree((b).pData); \
+                 else                             \
+                     OPENSSL_free((b).pData);     \
+              }                                   \
+          } while(0)
 
-# define QAT_QMEM_FREE_NONZERO_FLATBUFF(b) \
-            qaeCryptoMemFreeNonZero((b).pData)
-
-# define QAT_CLEANSE_QMEMFREE_FLATBUFF(b)  \
-            do {                           \
-                QAT_CLEANSE_FLATBUFF(b);   \
-                QAT_QMEM_FREE_FLATBUFF(b); \
-            } while(0)
-
-# define QAT_CLEANSE_QMEMFREE_NONZERO_FLATBUFF(b)  \
+# define QAT_CLEANSE_MEMFREE_FLATBUFF(b, svm)      \
             do {                                   \
-                QAT_CLEANSE_FLATBUFF(b);           \
-                QAT_QMEM_FREE_NONZERO_FLATBUFF(b); \
+                if ((b).pData != NULL) {           \
+                    QAT_CLEANSE_FLATBUFF(b);       \
+                    QAT_MEM_FREE_FLATBUFF(b, svm); \
+                }                                  \
             } while(0)
 
-# define QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(b)             \
-            do {                                              \
-                if ((b).pData != NULL)                        \
-                    QAT_CLEANSE_QMEMFREE_NONZERO_FLATBUFF(b); \
-            } while(0)
+# define QAT_MEM_FREE_NONZERO_FLATBUFF(b, svm)           \
+         do {                                            \
+             if ((b).pData != NULL) {                    \
+                 if (!svm)                               \
+                     qaeCryptoMemFreeNonZero((b).pData); \
+                 else                                    \
+                     OPENSSL_free((b).pData);            \
+             }                                           \
+          } while(0)
 
-# define QAT_CHK_CLNSE_QMFREE_FLATBUFF(b)             \
-            do {                                      \
-                if ((b).pData != NULL)                \
-                    QAT_CLEANSE_QMEMFREE_FLATBUFF(b); \
-            } while(0)
-
-# define QAT_CHK_QMFREE_FLATBUFF(b)            \
-            do {                               \
-                if ((b).pData != NULL)         \
-                    QAT_QMEM_FREE_FLATBUFF(b); \
-            } while(0)
-
-# define QAT_CHK_QMFREE_NONZERO_FLATBUFF(b)            \
-            do {                                       \
-                if ((b).pData != NULL)                 \
-                    QAT_QMEM_FREE_NONZERO_FLATBUFF(b); \
+# define QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(b, svm)         \
+            do {                                         \
+                if ((b).pData != NULL) {                 \
+                    QAT_CLEANSE_FLATBUFF(b);             \
+                    QAT_MEM_FREE_NONZERO_FLATBUFF(b, svm);    \
+                }                                        \
             } while(0)
 
 # define FLATBUFF_ALLOC_AND_CHAIN(b1, b2, len) \
@@ -244,13 +243,18 @@ typedef struct {
                 (b2).dataLenInBytes = len; \
             } while(0)
 
+#define FLATBUFF_ALLOC_AND_CHAIN_SVM(b1, b2, len) \
+            do {                                  \
+                (b1).pData = OPENSSL_zalloc(len); \
+                (b2).pData = (b1).pData;          \
+                (b1).dataLenInBytes = len;        \
+                (b2).dataLenInBytes = len;        \
+            } while(0)
+
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
 # define QAT_MAX_CRYPTO_INSTANCES 256
 # define QAT_MAX_CRYPTO_ACCELERATORS 512
 
-# ifdef QAT_HW_SET_INSTANCE_THREAD
-# define QAT_MAX_CRYPTO_THREADS 256
-# endif
 /*
  * The default interval in nanoseconds used for the internal polling thread
  */
@@ -527,6 +531,8 @@ extern CpaInstanceHandle *qat_instance_handles;
 extern Cpa16U qat_num_instances;
 extern Cpa16U qat_asym_num_instance;
 extern Cpa16U qat_sym_num_instance;
+extern Cpa16U qat_svm_num_instance;
+extern Cpa16U qat_contig_num_instance;
 extern Cpa32U qat_num_devices;
 extern pthread_key_t thread_local_variables;
 extern pthread_mutex_t qat_instance_mutex;
@@ -537,10 +543,7 @@ extern int qat_epoll_timeout;
 extern int qat_max_retry_count;
 extern unsigned int qat_map_sym_inst[QAT_MAX_CRYPTO_INSTANCES];
 extern unsigned int qat_map_asym_inst[QAT_MAX_CRYPTO_INSTANCES];
-# ifdef QAT_HW_SET_INSTANCE_THREAD
-extern long int threadId[QAT_MAX_CRYPTO_THREADS];
-extern int threadCount;
-# endif
+extern unsigned int qat_map_svm_inst[QAT_MAX_CRYPTO_INSTANCES];
 # endif
 
 # ifdef QAT_SW
@@ -688,13 +691,13 @@ int is_any_device_available(void);
 
 /******************************************************************************
  * function:
- *         get_next_inst_num(int inst_type)
+ *         get_instance(int inst_type, int mem_type)
  *
  * description:
  *   Return the next instance number to use for an operation.
  *
  ******************************************************************************/
-int get_next_inst_num(int inst_type);
+int get_instance(int inst_type, int mem_type);
 
 
 /******************************************************************************
