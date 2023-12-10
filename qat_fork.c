@@ -259,4 +259,16 @@ int qat_set_instance_for_thread(long instanceNum)
     enable_instance_for_thread = 1;
     return 1;
 }
+
+/* Wrapper for memory Allocation to use pinned contiguous memory or application memory
+ * based on instance's SVM or contiguous mem capability  */
+void *qat_mem_alloc(size_t memsize, int inst_mem_type, const char *file, int line)
+{
+    if (inst_mem_type == QAT_INSTANCE_SVM)
+        return OPENSSL_zalloc(memsize);
+    else
+        return qaeCryptoMemAlloc(memsize, file, line);
+}
+
+
 #endif

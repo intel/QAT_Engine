@@ -224,7 +224,7 @@ static int perform_op(EVP_CIPHER_CTX *ctx, unsigned char **in,
     }
 
     if (*out == NULL) {
-        *out = outb = OPENSSL_malloc(size);
+        *out = outb = inb;
         if (outb == NULL)
             goto err;
     } else {
@@ -373,8 +373,6 @@ static int encrypt_and_compare(const test_info *t, int *buflen)
 
  err:
     OPENSSL_free(textbuf);
-    OPENSSL_free(eng_buf);
-    OPENSSL_free(sw_buf);
     return ret;
 }
 
@@ -424,8 +422,6 @@ static int test_crypto_op(const test_info *t, int enc_imp, int dec_imp)
 
  err:
     OPENSSL_free(textbuf);
-    OPENSSL_free(encbuf);
-    OPENSSL_free(decbuf);
     return ret;
 }
 
@@ -442,7 +438,6 @@ static int test_multi_op(const test_info *t)
     EVP_CIPHER_CTX *ctx = NULL;
     unsigned char *buf[6] = { NULL };
     unsigned char *ebuf[6] = { NULL };
-    unsigned char *dbuf[6] = { NULL };
     int num_encbytes[6] = { 0 };
 
     ctx = setup_ctx(t, ENC, USE_SW);
@@ -468,8 +463,6 @@ static int test_multi_op(const test_info *t)
     EVP_CIPHER_CTX_free(ctx);
     for (i = 0; i < 6; i++) {
         OPENSSL_free(buf[i]);
-        OPENSSL_free(ebuf[i]);
-        OPENSSL_free(dbuf[i]);
     }
     return ret;
 }

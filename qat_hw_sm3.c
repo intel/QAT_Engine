@@ -172,12 +172,15 @@ static int qat_hw_sm3_setup_param(QAT_SM3_CTX *qat_sm3_ctx)
     DUMP_SESSION_SETUP_DATA(qat_sm3_ctx->session_data);
 
     /* Allocate instance */
-    qat_sm3_ctx->inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_SYM);
+    qat_sm3_ctx->inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY);
     if (qat_sm3_ctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");
         QATerr(QAT_F_QAT_HW_SM3_SETUP_PARAM, QAT_R_GET_INSTANCE_FAILURE);
         goto err;
     }
+
+    qat_sm3_ctx->qat_svm = !qat_instance_details[qat_sm3_ctx->inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+    DEBUG("inst_num = %d inst mem type = %d \n", qat_sm3_ctx->inst_num, qat_sm3_ctx->qat_svm);
 
     /* Determine size of session context to allocate */
     status =
@@ -191,7 +194,7 @@ static int qat_hw_sm3_setup_param(QAT_SM3_CTX *qat_sm3_ctx)
     DEBUG("Size of session ctx = %d\n", sctx_size);
 
     qat_sm3_ctx->session_ctx =
-        (CpaCySymSessionCtx) qaeCryptoMemAlloc(sctx_size, __FILE__, __LINE__);
+        (CpaCySymSessionCtx) qat_mem_alloc(sctx_size, qat_sm3_ctx->qat_svm,__FILE__, __LINE__);
     if (qat_sm3_ctx->session_ctx == NULL) {
         WARN("Memory alloc failed for session ctx\n");
         QATerr(QAT_F_QAT_HW_SM3_SETUP_PARAM, ERR_R_MALLOC_FAILURE);
@@ -230,7 +233,7 @@ static int qat_hw_sm3_setup_param(QAT_SM3_CTX *qat_sm3_ctx)
 
     if (bufferMetaSize) {
         qat_sm3_ctx->pSrcBufferList.pPrivateMetaData =
-            qaeCryptoMemAlloc(bufferMetaSize, __FILE__, __LINE__);
+            qat_mem_alloc(bufferMetaSize, qat_sm3_ctx->qat_svm, __FILE__, __LINE__);
         if (qat_sm3_ctx->pSrcBufferList.pPrivateMetaData == NULL) {
             WARN("QMEM alloc failed for PrivateData\n");
             QATerr(QAT_F_QAT_HW_SM3_SETUP_PARAM, ERR_R_MALLOC_FAILURE);
@@ -248,8 +251,8 @@ static int qat_hw_sm3_setup_param(QAT_SM3_CTX *qat_sm3_ctx)
     return 1;
 
  err:
-    qaeCryptoMemFreeNonZero(qat_sm3_ctx->pSrcBufferList.pPrivateMetaData);
-    qaeCryptoMemFreeNonZero(qat_sm3_ctx->session_ctx);
+    QAT_MEM_FREE_NONZERO_BUFF(qat_sm3_ctx->pSrcBufferList.pPrivateMetaData, qat_sm3_ctx->qat_svm);
+    QAT_MEM_FREE_NONZERO_BUFF(qat_sm3_ctx->session_ctx, qat_sm3_ctx->qat_svm);
     OPENSSL_free(session_data);
     qat_sm3_ctx->session_data = NULL;
     qat_sm3_ctx->pOpData = NULL;
@@ -277,12 +280,14 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
     }
 
     /* The variables in and out remain separate */
-    src_buffer.pData =
-        qaeCryptoMemAlloc(len + QAT_SM3_DIGEST_SIZE, __FILE__, __LINE__);
-    if ((src_buffer.pData) == NULL) {
-        WARN("Unable to allocate memory for buffer for sm3 hash.\n");
-        QATerr(QAT_F_QAT_HW_SM3_DO_OFFLOAD, ERR_R_MALLOC_FAILURE);
-        goto err;
+    if (!qat_sm3_ctx->qat_svm) {
+        src_buffer.pData =
+           qaeCryptoMemAlloc(len + QAT_SM3_DIGEST_SIZE, __FILE__, __LINE__);
+        if ((src_buffer.pData) == NULL) {
+            WARN("Unable to allocate memory for buffer for sm3 hash.\n");
+            QATerr(QAT_F_QAT_HW_SM3_DO_OFFLOAD, ERR_R_MALLOC_FAILURE);
+            goto err;
+        }
     }
 
     src_buffer.dataLenInBytes = len + QAT_SM3_DIGEST_SIZE;
@@ -291,7 +296,10 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
         DEBUG("qat hw start offload: Length 0\n");
     } else {
         DUMPL("qat hw start offload", in, (len < 128) ? len : 128);
-        memcpy(src_buffer.pData, in, len);
+        if (!qat_sm3_ctx->qat_svm)
+            memcpy(src_buffer.pData, in, len);
+        else
+            src_buffer.pData = (Cpa8U *)in;
     }
 
     qat_sm3_ctx->pSrcBufferList.pBuffers = &src_buffer;
@@ -428,7 +436,8 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
     }
 
  err:
-    qaeCryptoMemFreeNonZero(src_buffer.pData);
+    if (!qat_sm3_ctx->qat_svm)
+        qaeCryptoMemFreeNonZero(src_buffer.pData);
     return ret;
 }
 
@@ -833,10 +842,10 @@ int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
             WARN("instance no longer available\n");
         }
 
-        qaeCryptoMemFreeNonZero(qat_sm3_ctx->session_ctx);
+        QAT_MEM_FREE_NONZERO_BUFF(qat_sm3_ctx->session_ctx, qat_sm3_ctx->qat_svm);
         qat_sm3_ctx->session_ctx = NULL;
 
-        qaeCryptoMemFreeNonZero(qat_sm3_ctx->pSrcBufferList.pPrivateMetaData);
+        QAT_MEM_FREE_NONZERO_BUFF(qat_sm3_ctx->pSrcBufferList.pPrivateMetaData, qat_sm3_ctx->qat_svm);
         qat_sm3_ctx->pSrcBufferList.pPrivateMetaData = NULL;
 
         OPENSSL_free(qat_sm3_ctx->session_data);

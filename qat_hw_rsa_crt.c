@@ -90,7 +90,8 @@ static void qat_rsaCallbackFn_CRT(void *pCallbackTag, CpaStatus status, void *pO
 static inline int
 CRT_prepare(CpaFlatBuffer *crt_out1, CpaFlatBuffer *crt_out2,
              int rsa_len, CpaCyRsaDecryptOpData * dec_op_data,
-             CpaCyLnModExpOpData *crt_op1_data, CpaCyLnModExpOpData *crt_op2_data)
+             CpaCyLnModExpOpData *crt_op1_data, CpaCyLnModExpOpData *crt_op2_data,
+             int qat_svm)
 {
     int ret = 0;
     BN_CTX *ctx = NULL;
@@ -155,7 +156,7 @@ CRT_prepare(CpaFlatBuffer *crt_out1, CpaFlatBuffer *crt_out2,
     BN_bn2bin(cp, cp_buf);
     BN_bn2bin(cq, cq_buf);
 
-    crt_op1_data->base.pData = qaeCryptoMemAlloc(rsa_len/2, __FILE__, __LINE__);
+    crt_op1_data->base.pData = qat_mem_alloc(rsa_len/2, qat_svm, __FILE__, __LINE__);
     if (crt_op1_data->base.pData == NULL) {
         WARN("Failure to allocate crt_op1_data->base.pData\n");
         QATerr(QAT_F_CRT_PREPARE, QAT_R_OP1_BASE_PDATA_MALLOC_FAILURE);
@@ -166,7 +167,10 @@ CRT_prepare(CpaFlatBuffer *crt_out1, CpaFlatBuffer *crt_out2,
     memcpy(crt_op1_data->base.pData + rsa_len/2 - BN_num_bytes(cp),
             &cp_buf[0], BN_num_bytes(cp));
 
-    crt_op2_data->base.pData = qaeCryptoMemAlloc(rsa_len/2, __FILE__, __LINE__);
+    if (!qat_svm)
+        crt_op2_data->base.pData = qat_mem_alloc(rsa_len/2, qat_svm, __FILE__, __LINE__);
+    else
+        crt_op2_data->base.pData = OPENSSL_malloc(rsa_len/2);
     if (crt_op2_data->base.pData == NULL) {
         WARN("Failure to allocate crt_op2_data->base.pData\n");
         QATerr(QAT_F_CRT_PREPARE, QAT_R_OP2_BASE_PDATA_MALLOC_FAILURE);
@@ -192,15 +196,14 @@ CRT_prepare(CpaFlatBuffer *crt_out1, CpaFlatBuffer *crt_out2,
             &cpa_prv_key->privateKeyRep2.exponent2Dq,
             sizeof(cpa_prv_key->privateKeyRep2.exponent2Dq));
 
-
-    crt_out1->pData = qaeCryptoMemAlloc(rsa_len/2, __FILE__, __LINE__);
+    crt_out1->pData = qat_mem_alloc(rsa_len/2, qat_svm, __FILE__, __LINE__);
     if (crt_out1->pData == NULL) {
         WARN("Failure to allocate crt_out1->pData\n");
         QATerr(QAT_F_CRT_PREPARE, QAT_R_OUT1_PDATA_MALLOC_FAILURE);
         goto err;
     }
     crt_out1->dataLenInBytes = rsa_len/2;
-    crt_out2->pData = qaeCryptoMemAlloc(rsa_len/2, __FILE__, __LINE__);
+    crt_out2->pData = qat_mem_alloc(rsa_len/2, qat_svm,__FILE__, __LINE__);
     if (crt_out2->pData == NULL) {
         WARN("Failure to allocate crt_out2->pData\n");
         QATerr(QAT_F_CRT_PREPARE, QAT_R_OUT2_PDATA_MALLOC_FAILURE);
@@ -230,7 +233,7 @@ err:
 
 static inline int
 CRT_combine(CpaFlatBuffer *crt_out1, CpaFlatBuffer *crt_out2, int rsa_len,
-             CpaFlatBuffer *output_buf, CpaCyRsaPrivateKey *cpa_prv_key)
+            CpaFlatBuffer *output_buf, CpaCyRsaPrivateKey *cpa_prv_key)
 {
     int ret = 0;
     BN_CTX *ctx = NULL;
@@ -337,6 +340,7 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     CpaStatus sts = CPA_STATUS_FAIL;
     int qatPerformOpRetries = 0;
     int inst_num = QAT_INVALID_INSTANCE;
+    int qat_svm = QAT_INSTANCE_ANY;
     CpaCyRsaPrivateKey *cpa_prv_key = NULL;
 
     int iMsgRetry = getQatMsgRetryCount();
@@ -359,23 +363,24 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     CRYPTO_QAT_LOG("RSA - %s\n", __func__);
 
-    if ((inst_num = get_next_inst_num(INSTANCE_TYPE_CRYPTO_ASYM))
+    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
          == QAT_INVALID_INSTANCE) {
         WARN("Failure to get an instance\n");
         if (qat_get_sw_fallback_enabled()) {
             CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
             *fallback = 1;
-        }
-        else
+        } else {
             QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
+        }
         qat_cleanup_op_done_rsa_crt(&op_done);
         return 0;
     }
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     DUMP_RSA_DECRYPT(qat_instance_handles[inst_num], &op_done, dec_op_data, output_buf);
 
     rv = CRT_prepare(&crt_out1, &crt_out2, rsa_len, dec_op_data,
-                     &crt_op1_data, &crt_op2_data);
+                     &crt_op1_data, &crt_op2_data, qat_svm);
     if(rv == 0) {
         WARN("failed to execute CRT_prepare\n");
         QATerr(QAT_F_QAT_RSA_DECRYPT_CRT, ERR_R_INTERNAL_ERROR);
@@ -512,10 +517,10 @@ int qat_rsa_decrypt_CRT(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     ret = 1;
 
 err:
-    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_op1_data.base);
-    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_op2_data.base);
-    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_out1);
-    QAT_CHK_CLNSE_QMFREE_NONZERO_FLATBUFF(crt_out2);
+    QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(crt_op1_data.base, qat_svm);
+    QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(crt_op2_data.base, qat_svm);
+    QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(crt_out1, qat_svm);
+    QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(crt_out2, qat_svm);
     DEBUG("- Finished\n");
     return ret;
 }

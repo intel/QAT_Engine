@@ -58,6 +58,7 @@ typedef struct {
     CpaCyKeyHKDFCipherSuite cipher_suite;
     /* fallback: SW offload */
     unsigned int fallback;
+    int qat_svm;
 
     /* Below are used for SW fallback when compiled
      * with openssl 3.0 engine API. It uses the openssl

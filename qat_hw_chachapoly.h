@@ -90,6 +90,7 @@ typedef struct qat_chachapoly_ctx_t {
     int tls_aad_len;
     size_t tls_payload_length;
     int packet_size;
+    int qat_svm;
 }qat_chachapoly_ctx;
 
 # ifdef QAT_OPENSSL_PROVIDER

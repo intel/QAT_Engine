@@ -299,14 +299,6 @@ The following is a list of the options that can be used with the
     allocate in one thread and free in another thread.  Running in this mode
     also does not support processes that fork (disabled by default).
 
---enable-qat_hw_set_inst_thread
-    Enables mapping the thread to a specific instance similar to engine ctrl
-    message SET_INSTANCE_FOR_THREAD. This is useful only in multithread
-    application and assigns instance to particular worker thread to avoid
-    locks inside the driver. With this change along with USDM driver
-    rebuilt for lockless by exporting ICP_WITHOUT_THREAD=1 is needed to get
-    performance benefit (disabled by default).
-
 --enable-qat_plock
     Enables Plock optimization within QAT Engine which is an alternative to
     pthread's rwlock for multithread application. This flag when enabled uses

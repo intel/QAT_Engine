@@ -271,11 +271,6 @@ AC_ARG_ENABLE(qat_hw_multi_thread,
                            [Enable using a multi threaded version of the user space part of the supplied memory driver. Please see the documentation on limitations of using this option]))
 AC_SUBST(enable_qat_hw_multi_thread)
 
-AC_ARG_ENABLE(qat_hw_set_inst_thread,
-              AS_HELP_STRING([--enable-qat_hw_set_inst_thread],
-                             [Enables mapping the thread to a specific instance]))
-AC_SUBST(enable_qat_hw_set_inst_thread)
-
 AC_ARG_ENABLE(qat_hw_lenstra_protection,
               AS_HELP_STRING([--disable-qat_hw_lenstra_protection],
                              [Disable protection against Lenstra attack]))

@@ -91,6 +91,7 @@ typedef struct {
     unsigned char *qat_sec;
     size_t qat_seclen;
     void *sw_prf_ctx_data;
+    int qat_svm;
 } QAT_TLS1_PRF_CTX;
 
 /* Function Declarations */

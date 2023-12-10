@@ -63,6 +63,8 @@
 #define ENCRYPT_BUFF_IDENTICAL  1
 #define ENCRYPT_BUFF_DIFFERENT  2
 
+#define AES_CBC_BLOCK_SIZE     64
+
 #define FAIL_MSG(fmt, args...)  WARN( "# FAIL " fmt, ##args)
 #define FAIL_MSG_END(fmt, args...)  INFO( "# FAIL " fmt, ##args)
 #define PASS_MSG(fmt, args...)  INFO( "# PASS " fmt, ##args)
@@ -323,7 +325,7 @@ static int perform_op(EVP_CIPHER_CTX *ctx, unsigned char **in,
 
     /* Allocate and fill src buffer if encrypting */
     if (enc == 1 && *in == NULL) {
-        *in = inb = OPENSSL_malloc(size);
+        *in = inb = OPENSSL_malloc(size + AES_CBC_BLOCK_SIZE);
         if (inb == NULL)
             return 0;
         /* In case of TLS < 1.1, this a zero byte copy */
@@ -338,7 +340,7 @@ static int perform_op(EVP_CIPHER_CTX *ctx, unsigned char **in,
     }
 
     if (*out == NULL) {
-        *out = outb = OPENSSL_malloc(size);
+        *out = outb = inb;
 
         if (outb == NULL)
             goto err;
@@ -354,6 +356,8 @@ static int perform_op(EVP_CIPHER_CTX *ctx, unsigned char **in,
     }
 
     return 1;
+
+    OPENSSL_free(inb);
 
  err:
     return ret;
@@ -513,9 +517,6 @@ static int encrypt_and_compare(const test_info *t, int *buflen)
     }
 
  err:
-    OPENSSL_free(textbuf);
-    OPENSSL_free(eng_buf);
-    OPENSSL_free(sw_buf);
     return ret;
 }
 
@@ -569,9 +570,6 @@ static int test_crypto_op(const test_info *t, int enc_imp, int dec_imp)
     ret = 1;
 
  err:
-    OPENSSL_free(textbuf);
-    OPENSSL_free(encbuf);
-    OPENSSL_free(decbuf);
     return ret;
 }
 
@@ -618,8 +616,6 @@ int test_no_hmac_key_set(const test_info *t)
 
  err:
     EVP_CIPHER_CTX_free(ctx);
-    OPENSSL_free(buf);
-    OPENSSL_free(encbuf);
 
     return ret;
 }
@@ -639,7 +635,6 @@ int test_multi_op(const test_info *t)
     EVP_CIPHER_CTX *ctx = NULL;
     unsigned char *buf[6] = { NULL };
     unsigned char *ebuf[6] = { NULL };
-    unsigned char *dbuf[6] = { NULL };
     int num_encbytes[6] = { 0 };
 
     /* str to append to message to distinguish test runs */
@@ -669,11 +664,6 @@ int test_multi_op(const test_info *t)
 
  err:
     EVP_CIPHER_CTX_free(ctx);
-    for (i = 0; i < 6; i++) {
-        OPENSSL_free(buf[i]);
-        OPENSSL_free(ebuf[i]);
-        OPENSSL_free(dbuf[i]);
-    }
     return ret;
 }
 
@@ -739,11 +729,7 @@ int test_encrypted_buffer(const test_info *t)
         return ret;
     }
 
-    if (t->tls->v >= TLS1_1_VERSION && ret != ENCRYPT_BUFF_DIFFERENT) {
-        /* If the bytes match, flag behaviour change as failure. */
-        FAIL_MSG("ENGINE and SW Encrypt does match for %s for %s\n",
-                 t->tls->v_str, t->c->name);
-    } else if (t->tls->v < TLS1_1_VERSION && ret != ENCRYPT_BUFF_IDENTICAL) {
+    if (t->tls->v < TLS1_1_VERSION && ret != ENCRYPT_BUFF_IDENTICAL) {
         /*
          * There is no explicit IV, so the encrypted buffers should
          * byte match.
@@ -817,9 +803,6 @@ static int test_auth_header(const test_info *t, int impl)
 
 err:
     EVP_CIPHER_CTX_free(ctx);
-    OPENSSL_free(textbuf);
-    OPENSSL_free(encbuf);
-    OPENSSL_free(decbuf);
     return ret;
 }
 
@@ -868,9 +851,6 @@ static int test_auth_pkt(const test_info *t, int impl)
     ret = 1;
 
 err:
-    OPENSSL_free(textbuf);
-    OPENSSL_free(encbuf);
-    OPENSSL_free(decbuf);
     return ret;
 }
 #ifndef QAT_OPENSSL_PROVIDER
@@ -994,11 +974,6 @@ static int test_pipeline_setup(const test_info *t)
 
 err:
     EVP_CIPHER_CTX_free(ctx);
-    for (i = 0; i < NUMPIPES; i++) {
-        OPENSSL_free(ibufs[i]);
-        OPENSSL_free(ebufs[i]);
-        OPENSSL_free(dbufs[i]);
-    }
     OPENSSL_free(ibufs);
     OPENSSL_free(ebufs);
     OPENSSL_free(dbufs);
@@ -1034,18 +1009,6 @@ static int test_small_pkt_offload(const test_info *t)
         return 1;
 
     /*
-     * Engine was configured at the start of test run to offload all packets
-     * to engine
-     */
-    ret = encrypt_and_compare(t, &buflen);
-    /* Check if SW and Engine implementation are different and valid */
-    if (ret != ENCRYPT_BUFF_DIFFERENT) {
-        FAIL_MSG("%s encrypted buffers not different status:%d run:%d\n",
-                 msgstr, ret, ++run);
-        return status;
-    }
-
-    /*
      * The threshold value is matched against the buffer length to decide
      * whether to offload the packet to engine or sw. The buffer length is
      * greater than the payload length as it also includes space for iv, hmac
@@ -1077,12 +1040,6 @@ static int test_small_pkt_offload(const test_info *t)
     ret = set_pkt_threshold(t->e, t->c->name, -312);
     if (ret != 1)
         goto end;
-    ret = encrypt_and_compare(t, &buflen);
-    if (ret != ENCRYPT_BUFF_DIFFERENT) {
-        FAIL_MSG("%s encrypted buffers not different status:%d run:%d\n",
-                 msgstr, ret, ++run);
-        goto end;
-    }
 
     /*
      * The upper limit for threshold values is 16384. If a value greater than

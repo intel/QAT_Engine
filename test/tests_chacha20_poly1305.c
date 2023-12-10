@@ -90,34 +90,32 @@ static int run_chachapoly_update(void *args, int enc, int dec)
         0x72, 0xD2, 0x3A, 0x11, 0x55, 0x42, 0xBB, 0xFF
     };
 
-    unsigned char *plaintext = OPENSSL_malloc(size);
-    unsigned char *ciphertext = OPENSSL_malloc(size + (64 * 4));
+    unsigned char *input = OPENSSL_malloc(size);
+    unsigned char *plaintext = NULL;
+    unsigned char *ciphertext = NULL;
     unsigned char tag[POLY1305_DIGEST_SIZE] = { 0 };
-    unsigned char *dec_cipher = OPENSSL_malloc(size + (64 * 4));;
-    unsigned char *enc_cipher = NULL;
+    unsigned char *dec_cipher = NULL;
 
     int ciphertext_len = 0;
     int tmpout_len = 0;
-    int enc_cipher_len = 0;
     int dec_cipher_len = 0;
+    int plaintext_len = size;
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
 
-    if (plaintext == NULL || ciphertext == NULL || dec_cipher == NULL) {
+    if (input == NULL) {
         fprintf(stderr,"# FAIL: [%s] --- Initial parameters malloc failed ! \n",
                             __func__);
         exit(EXIT_FAILURE);
     }
 
-    enc_cipher = ciphertext;
-
-    /* Set plaintext input data */
+    /* Set input data */
     for (i = 0; i < size; i++)
-        plaintext[i] = i % 16;
+        input[i] = i % 16;
 
     if (print_output)
-        tests_hexdump("CHACHAPOLY: input message", plaintext, size);
+        tests_hexdump("CHACHAPOLY: input message", input, size);
 
     /* Create context for encrypt operation */
     ctx = EVP_CIPHER_CTX_new();
@@ -160,6 +158,15 @@ static int run_chachapoly_update(void *args, int enc, int dec)
                            __func__, ret);
         goto err;
     }
+    plaintext_len += POLY1305_DIGEST_SIZE;
+    plaintext = OPENSSL_malloc(plaintext_len);
+    if (plaintext == NULL) {
+	INFO("# FAIL: [%s] --- malloc failed for plaintext! \n", __func__);
+	goto err;
+    }
+    ciphertext = plaintext;
+
+    memcpy(plaintext, input, size);
 
     /* Encrypt the input plaintext. */
     ret = EVP_EncryptUpdate(ctx, ciphertext, &tmpout_len, plaintext, size);
@@ -198,7 +205,6 @@ static int run_chachapoly_update(void *args, int enc, int dec)
     ctx = NULL;
 
     tmpout_len = 0;
-    enc_cipher_len = ciphertext_len;
 
 /*----------------------- Decryption ------------------------ */
     /* Create context for decrypt operation */
@@ -252,10 +258,11 @@ static int run_chachapoly_update(void *args, int enc, int dec)
                             __func__, ret);
         goto err;
     }
+    dec_cipher = ciphertext;
 
     /* Decrypt the ciphertext */
-    ret = EVP_DecryptUpdate(dec_ctx, dec_cipher, &tmpout_len, enc_cipher,
-                            enc_cipher_len);
+    ret = EVP_DecryptUpdate(dec_ctx, dec_cipher, &tmpout_len, ciphertext,
+                            ciphertext_len);
     if (ret != 1) {
         fprintf(stderr,"# FAIL: [%s] --- EVP_DecryptUpdate() failed when decrypting ciphertext: ret %d\n",
                             __func__, ret);
@@ -295,10 +302,8 @@ static int run_chachapoly_update(void *args, int enc, int dec)
     EVP_CIPHER_CTX_free(dec_ctx);
     dec_ctx = NULL;
 
-    if (ciphertext)
-        OPENSSL_free(ciphertext);
-    if (dec_cipher)
-        OPENSSL_free(dec_cipher);
+    if (input)
+        OPENSSL_free(input);
     if (plaintext)
         OPENSSL_free(plaintext);
 

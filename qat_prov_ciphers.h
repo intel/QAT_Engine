@@ -186,6 +186,8 @@ typedef struct qat_gcm_ctx_st {
 
     /* Flag to keep track of key passed */
     int key_set;
+
+    int qat_svm;
 #endif
     int            tls_aad_len;
     int            tag_len;
