@@ -94,6 +94,11 @@ AC_ARG_ENABLE(qat_hw_sm3,
                              [Enable qat_hw SM3 acceleration]))
 AC_SUBST(enable_qat_hw_sm3)
 
+AC_ARG_ENABLE(qat_hw_ccm,
+              AS_HELP_STRING([--disable-qat_hw_ccm],
+                             [Disable qat_hw AES-CCM acceleration]))
+AC_SUBST(enable_qat_hw_ccm)
+
 AC_ARG_ENABLE(qat_sw_gcm,
               AS_HELP_STRING([--disable-qat_sw_gcm],
                              [Disable qat_sw AES-GCM acceleration]))
@@ -502,6 +507,7 @@ then
     AC_SUBST([enable_qat_hw_ecx], ["no"])
     AC_SUBST([enable_qat_hw_gcm], ["no"])
     AC_SUBST([enable_qat_hw_sm2], ["no"])
+    AC_SUBST([enable_qat_hw_ccm], ["no"])
   fi
   if test "x$cflags_qat_sw" != "x"
   then
@@ -564,6 +570,8 @@ then
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SM4_CBC"; AC_MSG_NOTICE([Accelerating SM4-CBC to Hardware])])
   AS_IF([test "x$enable_qat_hw_sm2" = "xyes"],
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SM2"; AC_MSG_NOTICE([Accelerating SM2 to Hardware])])
+  AS_IF([test "x$enable_qat_hw_ccm" != "xno"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CCM"; AC_MSG_NOTICE([Accelerating AES-CCM to Hardware])])
 fi
 
 # Enable QAT_SW Algorithms based on enable/disable Flags

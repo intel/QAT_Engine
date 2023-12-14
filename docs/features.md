@@ -18,7 +18,7 @@
 * Symmetric Chained Cipher acceleration with pipelining capability:
     * AES128-CBC-HMAC-SHA1/AES256-CBC-HMAC-SHA1.
     * AES128-CBC-HMAC-SHA256/AES256-CBC-HMAC-SHA256.
-* Symmetric ciphers AES128-GCM and AES256-GCM
+* Symmetric ciphers AES128-CCM, AES128-GCM and AES256-GCM
 * Pseudo Random Function (PRF) Acceleration.
 * [HMAC Key Derivation Function (HKDF) Acceleration.](qat_hw.md#intel-qat-openssl-engine-hkdf-support)
 * [Pipelined Operations](qat_hw.md#using-the-openssl-pipelining-capability)
@@ -32,6 +32,7 @@
   *  ChaCha20-Poly1305
   *  SM2 (Not supported in qatlib)
   *  SM3 (Not supported in qatlib)
+  *  AES128-CCM, AES192-CCM and AES256-CCM
 
 Please refer [here](qat_hw_algo.md) for supported platforms list and default behaviour.
 

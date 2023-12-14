@@ -93,6 +93,7 @@
 # include "qat_hw_dsa.h"
 # include "qat_hw_dh.h"
 # include "qat_hw_gcm.h"
+# include "qat_hw_ccm.h"
 #endif /* QAT_BORINGSSL */
 
 /* QAT includes */
@@ -214,6 +215,7 @@ int qat_sw_sm3_offload = 0;
 int qat_sw_sm4_cbc_offload = 0;
 int qat_sw_sm4_gcm_offload = 0;
 int qat_sw_sm4_ccm_offload = 0;
+int qat_hw_aes_ccm_offload = 0;
 int qat_hw_keep_polling = 1;
 int qat_sw_keep_polling = 1;
 int enable_external_polling = 0;

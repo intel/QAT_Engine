@@ -128,6 +128,9 @@ void tests_run_hkdf(TEST_PARAMS *args);
 void tests_run_ecx(TEST_PARAMS *args);
 void tests_run_aes128_gcm(TEST_PARAMS *args);
 void tests_run_aes256_gcm(TEST_PARAMS *args);
+void tests_run_aes128_ccm(TEST_PARAMS *args);
+void tests_run_aes192_ccm(TEST_PARAMS *args);
+void tests_run_aes256_ccm(TEST_PARAMS *args);
 void tests_run_sha3(TEST_PARAMS *args);
 void tests_run_sm3(TEST_PARAMS *args);
 void tests_run_chacha20_poly1305(TEST_PARAMS *args);
@@ -157,6 +160,9 @@ enum test_algorithms {
     TEST_HKDF,
     TEST_AES128_GCM,
     TEST_AES256_GCM,
+    TEST_AES128_CCM,
+    TEST_AES192_CCM,
+    TEST_AES256_CCM,
     TEST_SHA3_224,
     TEST_SHA3_256,
     TEST_SHA3_384,

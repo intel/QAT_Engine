@@ -43,6 +43,9 @@ QAT_TEST_SRC = test/main.c                    \
                test/tests_ecdsa.c             \
                test/tests_aes128_gcm.c        \
                test/tests_aes256_gcm.c        \
+               test/tests_aes128_ccm.c        \
+               test/tests_aes192_ccm.c        \
+               test/tests_aes256_ccm.c        \
                test/tests_sm2.c               \
                test/tests_sm3.c               \
                test/tests_sm4_cbc.c           \

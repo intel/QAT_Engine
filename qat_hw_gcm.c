@@ -1234,9 +1234,9 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
 
     CRYPTO_QAT_LOG("CIPHER - %s\n", __func__);
-    DUMP_SYM_PERFORM_OP_GCM(qat_instance_handles[qctx->inst_num],
-                            qctx->OpData, qctx->srcBufferList,
-                            qctx->dstBufferList);
+    DUMP_SYM_PERFORM_OP_GCM_CCM(qat_instance_handles[qctx->inst_num],
+                                qctx->OpData, qctx->srcBufferList,
+                                qctx->dstBufferList);
 
     sts = qat_sym_perform_op(qctx->inst_num,
                              &op_done,
@@ -1320,7 +1320,7 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
 #endif
 
-    DUMP_SYM_PERFORM_OP_GCM_OUTPUT(qctx->dstBufferList);
+    DUMP_SYM_PERFORM_OP_GCM_CCM_OUTPUT(qctx->dstBufferList);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
     qat_cleanup_op_done(&op_done);
@@ -1609,9 +1609,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 }
             }
 
-            DUMP_SYM_PERFORM_OP_GCM(qat_instance_handles[qctx->inst_num],
-                                    qctx->OpData, qctx->srcBufferList,
-                                    qctx->dstBufferList);
+            DUMP_SYM_PERFORM_OP_GCM_CCM(qat_instance_handles[qctx->inst_num],
+                                        qctx->OpData, qctx->srcBufferList,
+                                        qctx->dstBufferList);
             DUMPL("AAD: ", qctx->OpData.pAdditionalAuthData,
                            qctx->session_data->hashSetupData.authModeSetupData.aadLenInBytes);
 
@@ -1672,7 +1672,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             } while (!op_done.flag ||
                      QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
-            DUMP_SYM_PERFORM_OP_GCM_OUTPUT(qctx->dstBufferList);
+            DUMP_SYM_PERFORM_OP_GCM_CCM_OUTPUT(qctx->dstBufferList);
 
             if (enc) {
                 if (CPA_TRUE == op_done.verifyResult){

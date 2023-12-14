@@ -54,6 +54,7 @@ and the bit map of each algorithm is defined below:
 | SM3 | 0x08000 | SW |
 | SM4-GCM | 0x10000 | SW |
 | SM4-CCM | 0x20000 | SW |
+| AES-CCM | 0x40000 | HW |
 
 ## QAT_HW & QAT_SW Co-existence recommended settings and working mechanism
 
