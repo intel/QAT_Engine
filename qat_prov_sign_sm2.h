@@ -44,12 +44,17 @@
  *****************************************************************************/
 #ifndef QAT_PROV_SIGN_SM2_H
 # define QAT_PROV_SIGN_SM2_H
-
+# include "qat_prov_ec.h"
+# include "qat_prov_hkdf_packet.h"
 # ifdef QAT_OPENSSL_3
 
 # define OSSL_MAX_NAME_SIZE           50 /* Algorithm name */
 # define OSSL_MAX_PROPQUERY_SIZE     256 /* Property query strings */
 # define OSSL_MAX_ALGORITHM_ID_SIZE  256 /* AlgorithmIdentifier DER */
+
+#define DER_OID_V_sm2_with_SM3 QAT_DER_P_OBJECT, 8, 0x2A, 0x81, 0x1C, 0xCF, 0x55, 0x01, 0x83, 0x75
+#define DER_OID_SZ_sm2_with_SM3 10
+
 
 typedef struct {
     OSSL_LIB_CTX *libctx;
@@ -83,5 +88,12 @@ typedef struct {
     const unsigned char *tbs;
     size_t tbs_len;
 } QAT_PROV_SM2_CTX;
+int qat_sm2sig_compute_z_digest(QAT_PROV_SM2_CTX *ctx);
+int qat_sm2_compute_z_digest(uint8_t *out,
+                              const EVP_MD *digest,
+                              const uint8_t *id,
+                              const size_t id_len,
+                              const EC_KEY *key);
+
 # endif
 #endif /* QAT_PROV_SIGN_SM2_H */

@@ -258,7 +258,11 @@ static const OSSL_ALGORITHM qat_keyexch[] = {
     {"ECDH", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT ECDH keyexch implementation."},
 # if !defined(ENABLE_QAT_FIPS)
 #  if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
+#   if defined(TONGSUO_VERSION_NUMBER)
+    {"SM2DH", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT SM2 keyexch implementation."},
+#   else
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_ecdh_keyexch_functions, "QAT SM2 keyexch implementation."},
+#   endif
 #  endif
 # endif
 #endif

@@ -51,6 +51,66 @@
 # include <openssl/crypto.h>
 # include <openssl/e_os2.h>
 
+
+/*
+ * QAT_DER UNIVERSAL tags, occupying bits 1-5 in the QAT_DER identifier byte
+ * These are only valid for the UNIVERSAL class.  With the other classes,
+ * these bits have a different meaning.
+ */
+#define QAT_DER_P_EOC                       0 /* BER End Of Contents tag */
+#define QAT_DER_P_BOOLEAN                   1
+#define QAT_DER_P_INTEGER                   2
+#define QAT_DER_P_BIT_STRING                3
+#define QAT_DER_P_OCTET_STRING              4
+#define QAT_DER_P_NULL                      5
+#define QAT_DER_P_OBJECT                    6
+#define QAT_DER_P_OBJECT_DESCRIPTOR         7
+#define QAT_DER_P_EXTERNAL                  8
+#define QAT_DER_P_REAL                      9
+#define QAT_DER_P_ENUMERATED               10
+#define QAT_DER_P_UTF8STRING               12
+#define QAT_DER_P_SEQUENCE                 16
+#define QAT_DER_P_SET                      17
+#define QAT_DER_P_NUMERICSTRING            18
+#define QAT_DER_P_PRINTABLESTRING          19
+#define QAT_DER_P_T61STRING                20
+#define QAT_DER_P_VIDEOTEXSTRING           21
+#define QAT_DER_P_IA5STRING                22
+#define QAT_DER_P_UTCTIME                  23
+#define QAT_DER_P_GENERALIZEDTIME          24
+#define QAT_DER_P_GRAPHICSTRING            25
+#define QAT_DER_P_ISO64STRING              26
+#define QAT_DER_P_GENERALSTRING            27
+#define QAT_DER_P_UNIVERSALSTRING          28
+#define QAT_DER_P_BMPSTRING                30
+
+/* QAT_DER Flags, occupying bit 6 in the QAT_DER identifier byte */
+#define QAT_DER_F_PRIMITIVE              0x00
+#define QAT_DER_F_CONSTRUCTED            0x20
+
+/* QAT_DER classes tags, occupying bits 7-8 in the QAT_DER identifier byte */
+#define QAT_DER_C_UNIVERSAL              0x00
+#define QAT_DER_C_APPLICATION            0x40
+#define QAT_DER_C_CONTEXT                0x80
+#define QAT_DER_C_PRIVATE                0xC0
+
+#ifdef NDEBUG
+# define ossl_assert(x) ((x) != 0)
+#else
+__owur static ossl_inline int ossl_assert_int(int expr, const char *exprstr,
+                                              const char *file, int line)
+{
+    if (!expr)
+        OPENSSL_die(exprstr, file, line);
+
+    return expr;
+}
+
+# define ossl_assert(x) ossl_assert_int((x) != 0, "Assertion failed: "#x, \
+                                         __FILE__, __LINE__)
+
+#endif
+
 /*
  * Convenience macros for calling WPACKET_start_sub_packet_len with different
  * lengths
@@ -741,7 +801,7 @@ int QAT_WPACKET_init_static_len(qat_WPACKET *pkt, unsigned char *buf, size_t len
 /*
  * Same as WPACKET_init_static_len except lenbytes is always 0, and we set the
  * WPACKET to write to the end of the buffer moving towards the start and use
- * DER length encoding for sub-packets.
+ * QAT_DER length encoding for sub-packets.
  */
 
 int QAT_WPACKET_close(qat_WPACKET *pkt);
@@ -858,9 +918,24 @@ int QAT_WPACKET_get_total_written(qat_WPACKET *pkt, size_t *written);
  * Returns a pointer to the current write location, but does not allocate any
  * bytes.
  */
-unsigned char *WPACKET_get_curr(qat_WPACKET *pkt);
+unsigned char *QAT_WPACKET_get_curr(qat_WPACKET *pkt);
 
 
 /* Release resources in a WPACKET if a failure has occurred. */
 void QAT_WPACKET_cleanup(qat_WPACKET *pkt);
+
+int QAT_WPACKET_init_der(qat_WPACKET *pkt, unsigned char *buf, size_t len);
+
+int QAT_WPACKET_set_flags(qat_WPACKET *pkt, unsigned int flags);
+
+int QAT_WPACKET_start_sub_packet(qat_WPACKET *pkt);
+
+int qat_int_end_context(qat_WPACKET *pkt, int tag);
+
+int qat_int_start_context(qat_WPACKET *pkt, int tag);
+
+int qat_DER_w_end_sequence(qat_WPACKET *pkt, int tag);
+
+int qat_DER_w_algorithmIdentifier_SM2_with_MD(qat_WPACKET *pkt, int cont,
+                                               EC_KEY *ec, int mdnid);
 

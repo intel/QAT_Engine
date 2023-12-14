@@ -74,6 +74,9 @@
 #include "qat_events.h"
 
 #define QAT_PERFORMOP_RETRIES 3
+#ifdef ENABLE_QAT_HW_SM2
+#define QAT_SM2_SIZE 32
+#endif
 
 /******************************************************************************
 * function:
@@ -120,6 +123,42 @@ int qat_BN_to_FB(CpaFlatBuffer * fb, const BIGNUM *bn, int qat_svm)
     BN_bn2bin(bn, fb->pData);
     return 1;
 }
+# if defined(QAT_OPENSSL_PROVIDER) && defined(ENABLE_QAT_HW_SM2)
+int qat_BN_to_FB_for_sm2(CpaFlatBuffer * fb, const BIGNUM *bn, int qat_svm)
+{
+    if (unlikely((fb == NULL ||
+                  bn == NULL ))) {
+        WARN("Invalid input params.\n");
+        return 0;
+    }
+    /* Memory allocate for flat buffer */
+    fb->dataLenInBytes = (Cpa32U) BN_num_bytes(bn);
+    if (0 == fb->dataLenInBytes) {
+        fb->pData = NULL;
+        DEBUG("Datalen = 0, zero byte memory allocation\n");
+        return 1;
+    }
+    if (fb->dataLenInBytes < QAT_SM2_SIZE)
+        fb->dataLenInBytes = fb->dataLenInBytes + (QAT_SM2_SIZE - fb->dataLenInBytes);
+    if (!qat_svm)
+        fb->pData = qaeCryptoMemAlloc(fb->dataLenInBytes, __FILE__, __LINE__);
+    else
+	fb->pData = OPENSSL_zalloc(fb->dataLenInBytes);
+
+    if (NULL == fb->pData) {
+        fb->dataLenInBytes = 0;
+        WARN("Failed to allocate fb->pData\n");
+        return 0;
+    }
+    /*
+     * BN_bn2in() converts the absolute value of big number into big-endian
+     * form and stores it at output buffer. the output buffer must point to
+     * BN_num_bytes of memory
+     */
+    BN_bn2bin(bn, fb->pData);
+    return 1;
+}
+#endif
 
 /* Callback to indicate QAT completion of bignum modular exponentiation */
 static void qat_modexpCallbackFn(void *pCallbackTag, CpaStatus status,
