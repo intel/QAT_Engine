@@ -43,10 +43,15 @@
  *
  *****************************************************************************/
 #include "qat_prov_hkdf_packet.h"
+#include "qat_prov_sign_sm2.h"
 #include <openssl/err.h>
-#define ossl_assert(x) ((x) != 0)
 
 #define DEFAULT_BUF_SIZE    256
+
+unsigned char qat_der_oid_sm2_with_SM3[DER_OID_SZ_sm2_with_SM3] = {
+    6, 8, 0x2A, 0x81, 0x1C, 0xCF, 0x55, 0x01, 0x83, 0x75
+};
+
 int QAT_WPACKET_allocate_bytes(qat_WPACKET *pkt, size_t len,
                                unsigned char **allocbytes)
 {
@@ -90,7 +95,7 @@ int QAT_WPACKET_reserve_bytes(qat_WPACKET *pkt, size_t len,
             return 0;
     }
     if (allocbytes != NULL) {
-        *allocbytes = WPACKET_get_curr(pkt);
+        *allocbytes = QAT_WPACKET_get_curr(pkt);
         if (pkt->endfirst && *allocbytes != NULL)
             *allocbytes -= len;
     }
@@ -357,7 +362,7 @@ int QAT_WPACKET_get_total_written(qat_WPACKET *pkt, size_t *written)
     return 1;
 }
 
-unsigned char *WPACKET_get_curr(qat_WPACKET *pkt)
+unsigned char *QAT_WPACKET_get_curr(qat_WPACKET *pkt)
 {
     unsigned char *buf = GETBUF(pkt);
 
@@ -385,3 +390,126 @@ void QAT_WPACKET_cleanup(qat_WPACKET *pkt)
     }
     pkt->subs = NULL;
 }
+
+int QAT_WPACKET_init_der(qat_WPACKET *pkt, unsigned char *buf, size_t len)
+{
+    /* Internal API, so should not fail */
+    if (!ossl_assert(buf != NULL && len > 0))
+        return 0;
+
+    pkt->staticbuf = buf;
+    pkt->buf = NULL;
+    pkt->maxsize = len;
+    pkt->endfirst = 1;
+
+    return QAT_wpacket_intern_init_len(pkt, 0);
+}
+
+int QAT_WPACKET_set_flags(qat_WPACKET *pkt, unsigned int flags)
+{
+    /* Internal API, so should not fail */
+    if (!ossl_assert(pkt->subs != NULL))
+        return 0;
+
+    pkt->subs->flags = flags;
+
+    return 1;
+}
+
+/*SM2 releated functions*/
+
+int qat_int_end_context(qat_WPACKET *pkt, int tag)
+{
+    /*
+     * If someone set the flag WPACKET_FLAGS_ABANDON_ON_ZERO_LENGTH on this
+     * sub-packet and this sub-packet has nothing written to it, the DER length
+     * will not be written, and the total written size will be unchanged before
+     * and after WPACKET_close().  We use size1 and size2 to determine if
+     * anything was written, and only write our tag if it has.
+     *
+     */
+    size_t size1, size2;
+
+    if (tag < 0)
+        return 1;
+    if (!ossl_assert(tag <= 30))
+        return 0;
+
+    /* Context specific are normally (?) constructed */
+    tag |= QAT_DER_F_CONSTRUCTED | QAT_DER_C_CONTEXT;
+
+    return QAT_WPACKET_get_total_written(pkt, &size1)
+        && QAT_WPACKET_close(pkt)
+        && QAT_WPACKET_get_total_written(pkt, &size2)
+        && (size1 == size2 || QAT_WPACKET_put_bytes_u8(pkt, tag));
+}
+
+int qat_int_start_context(qat_WPACKET *pkt, int tag)
+{
+    if (tag < 0)
+        return 1;
+    if (!ossl_assert(tag <= 30))
+        return 0;
+    return QAT_WPACKET_start_sub_packet(pkt);
+}
+
+int qat_DER_w_end_sequence(qat_WPACKET *pkt, int tag)
+{
+    /*
+     * If someone set the flag WPACKET_FLAGS_ABANDON_ON_ZERO_LENGTH on this
+     * sub-packet and this sub-packet has nothing written to it, the DER length
+     * will not be written, and the total written size will be unchanged before
+     * and after WPACKET_close().  We use size1 and size2 to determine if
+     * anything was written, and only write our tag if it has.
+     *
+     * Because we know that qat_int_end_context() needs to do the same check,
+     * we reproduce this flag if the written length was unchanged, or we will
+     * have an erroneous context tag.
+     */
+    size_t size1, size2;
+
+    return QAT_WPACKET_get_total_written(pkt, &size1)
+        && QAT_WPACKET_close(pkt)
+        && QAT_WPACKET_get_total_written(pkt, &size2)
+        && (size1 == size2
+            ? QAT_WPACKET_set_flags(pkt, QAT_WPACKET_FLAGS_ABANDON_ON_ZERO_LENGTH)
+            : QAT_WPACKET_put_bytes_u8(pkt, QAT_DER_F_CONSTRUCTED | QAT_DER_P_SEQUENCE))
+        && qat_int_end_context(pkt, tag);
+}
+
+int qat_DER_w_precompiled(qat_WPACKET *pkt, int tag,
+                           const unsigned char *precompiled,
+                           size_t precompiled_n)
+{
+    return qat_int_start_context(pkt, tag)
+        && QAT_WPACKET_memcpy(pkt, precompiled, precompiled_n)
+        && qat_int_end_context(pkt, tag);
+}
+
+/* Constructed things need a start and an end */
+int qat_DER_w_begin_sequence(qat_WPACKET *pkt, int tag)
+{
+    return qat_int_start_context(pkt, tag)
+        && QAT_WPACKET_start_sub_packet(pkt);
+}
+
+int qat_DER_w_algorithmIdentifier_SM2_with_MD(qat_WPACKET *pkt, int cont,
+                                               EC_KEY *ec, int mdnid)
+{
+    const unsigned char *precompiled = NULL;
+    size_t precompiled_sz = 0;
+
+    switch (mdnid) {
+    case NID_sm3:
+        precompiled = qat_der_oid_sm2_with_SM3;
+        precompiled_sz = sizeof(qat_der_oid_sm2_with_SM3);
+    default:
+        return 0;
+    }
+
+    return qat_DER_w_begin_sequence(pkt, cont)
+        /* No parameters (yet?) */
+        && qat_DER_w_precompiled(pkt, -1, precompiled, precompiled_sz)
+        && qat_DER_w_end_sequence(pkt, cont);
+}
+

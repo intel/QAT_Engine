@@ -149,6 +149,122 @@ static void qat_sm2VerifyCallbackFn(void *pCallbackTag, CpaStatus status,
     qat_crypto_callbackFn(pCallbackTag, status, 0, pOpData, NULL, verifyStatus);
 }
 
+int qat_sm2_compute_z_digest(uint8_t *out,
+                             const EVP_MD *digest,
+                             const uint8_t *id,
+                             const size_t id_len, const EC_KEY *key)
+{
+    int rc = 0;
+    const EC_GROUP *group = EC_KEY_get0_group(key);
+    BN_CTX *ctx = NULL;
+    EVP_MD_CTX *hash = NULL;
+    BIGNUM *p = NULL;
+    BIGNUM *a = NULL;
+    BIGNUM *b = NULL;
+    BIGNUM *xG = NULL;
+    BIGNUM *yG = NULL;
+    BIGNUM *xA = NULL;
+    BIGNUM *yA = NULL;
+    int p_bytes = 0;
+    uint8_t *buf = NULL;
+    uint16_t entl = 0;
+    uint8_t e_byte = 0;
+
+    hash = EVP_MD_CTX_new();
+    ctx = BN_CTX_new();
+    if (hash == NULL || ctx == NULL) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
+        goto done;
+    }
+
+    p = BN_CTX_get(ctx);
+    a = BN_CTX_get(ctx);
+    b = BN_CTX_get(ctx);
+    xG = BN_CTX_get(ctx);
+    yG = BN_CTX_get(ctx);
+    xA = BN_CTX_get(ctx);
+    yA = BN_CTX_get(ctx);
+
+    if (yA == NULL) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
+        goto done;
+    }
+
+    if (!EVP_DigestInit(hash, digest)) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        goto done;
+    }
+
+    /* Z = h(ENTL || ID || a || b || xG || yG || xA || yA) */
+
+    if (id_len >= (UINT16_MAX / 8)) {
+        /* too large */
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_SM2_ID_TOO_LARGE);
+        goto done;
+    }
+
+    entl = (uint16_t)(8 * id_len);
+
+    e_byte = entl >> 8;
+    if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        goto done;
+    }
+    e_byte = entl & 0xFF;
+    if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        goto done;
+    }
+
+    if (id_len > 0 && !EVP_DigestUpdate(hash, id, id_len)) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        goto done;
+    }
+
+    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EC_LIB);
+        goto done;
+    }
+
+    p_bytes = BN_num_bytes(p);
+    buf = OPENSSL_zalloc(p_bytes);
+    if (buf == NULL) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
+        goto done;
+    }
+
+    if (BN_bn2binpad(a, buf, p_bytes) < 0
+        || !EVP_DigestUpdate(hash, buf, p_bytes)
+        || BN_bn2binpad(b, buf, p_bytes) < 0
+        || !EVP_DigestUpdate(hash, buf, p_bytes)
+        || !EC_POINT_get_affine_coordinates(group,
+                                            EC_GROUP_get0_generator(group),
+                                            xG, yG, ctx)
+        || BN_bn2binpad(xG, buf, p_bytes) < 0
+        || !EVP_DigestUpdate(hash, buf, p_bytes)
+        || BN_bn2binpad(yG, buf, p_bytes) < 0
+        || !EVP_DigestUpdate(hash, buf, p_bytes)
+        || !EC_POINT_get_affine_coordinates(group,
+                                            EC_KEY_get0_public_key(key),
+                                            xA, yA, ctx)
+        || BN_bn2binpad(xA, buf, p_bytes) < 0
+        || !EVP_DigestUpdate(hash, buf, p_bytes)
+        || BN_bn2binpad(yA, buf, p_bytes) < 0
+        || !EVP_DigestUpdate(hash, buf, p_bytes)
+        || !EVP_DigestFinal(hash, out, NULL)) {
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_INTERNAL_ERROR);
+        goto done;
+    }
+
+    rc = 1;
+
+ done:
+    OPENSSL_free(buf);
+    BN_CTX_free(ctx);
+    EVP_MD_CTX_free(hash);
+    return rc;
+}
+
 # ifndef QAT_OPENSSL_PROVIDER
 int qat_sm2_init(EVP_PKEY_CTX *ctx)
 {
@@ -325,122 +441,6 @@ int qat_sm2_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
     default:
         return -2;
     }
-}
-
-int qat_sm2_compute_z_digest(uint8_t *out,
-                             const EVP_MD *digest,
-                             const uint8_t *id,
-                             const size_t id_len, const EC_KEY *key)
-{
-    int rc = 0;
-    const EC_GROUP *group = EC_KEY_get0_group(key);
-    BN_CTX *ctx = NULL;
-    EVP_MD_CTX *hash = NULL;
-    BIGNUM *p = NULL;
-    BIGNUM *a = NULL;
-    BIGNUM *b = NULL;
-    BIGNUM *xG = NULL;
-    BIGNUM *yG = NULL;
-    BIGNUM *xA = NULL;
-    BIGNUM *yA = NULL;
-    int p_bytes = 0;
-    uint8_t *buf = NULL;
-    uint16_t entl = 0;
-    uint8_t e_byte = 0;
-
-    hash = EVP_MD_CTX_new();
-    ctx = BN_CTX_new();
-    if (hash == NULL || ctx == NULL) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
-        goto done;
-    }
-
-    p = BN_CTX_get(ctx);
-    a = BN_CTX_get(ctx);
-    b = BN_CTX_get(ctx);
-    xG = BN_CTX_get(ctx);
-    yG = BN_CTX_get(ctx);
-    xA = BN_CTX_get(ctx);
-    yA = BN_CTX_get(ctx);
-
-    if (yA == NULL) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
-        goto done;
-    }
-
-    if (!EVP_DigestInit(hash, digest)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
-        goto done;
-    }
-
-    /* Z = h(ENTL || ID || a || b || xG || yG || xA || yA) */
-
-    if (id_len >= (UINT16_MAX / 8)) {
-        /* too large */
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_SM2_ID_TOO_LARGE);
-        goto done;
-    }
-
-    entl = (uint16_t)(8 * id_len);
-
-    e_byte = entl >> 8;
-    if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
-        goto done;
-    }
-    e_byte = entl & 0xFF;
-    if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
-        goto done;
-    }
-
-    if (id_len > 0 && !EVP_DigestUpdate(hash, id, id_len)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
-        goto done;
-    }
-
-    if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EC_LIB);
-        goto done;
-    }
-
-    p_bytes = BN_num_bytes(p);
-    buf = OPENSSL_zalloc(p_bytes);
-    if (buf == NULL) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
-        goto done;
-    }
-
-    if (BN_bn2binpad(a, buf, p_bytes) < 0
-        || !EVP_DigestUpdate(hash, buf, p_bytes)
-        || BN_bn2binpad(b, buf, p_bytes) < 0
-        || !EVP_DigestUpdate(hash, buf, p_bytes)
-        || !EC_POINT_get_affine_coordinates(group,
-                                            EC_GROUP_get0_generator(group),
-                                            xG, yG, ctx)
-        || BN_bn2binpad(xG, buf, p_bytes) < 0
-        || !EVP_DigestUpdate(hash, buf, p_bytes)
-        || BN_bn2binpad(yG, buf, p_bytes) < 0
-        || !EVP_DigestUpdate(hash, buf, p_bytes)
-        || !EC_POINT_get_affine_coordinates(group,
-                                            EC_KEY_get0_public_key(key),
-                                            xA, yA, ctx)
-        || BN_bn2binpad(xA, buf, p_bytes) < 0
-        || !EVP_DigestUpdate(hash, buf, p_bytes)
-        || BN_bn2binpad(yA, buf, p_bytes) < 0
-        || !EVP_DigestUpdate(hash, buf, p_bytes)
-        || !EVP_DigestFinal(hash, out, NULL)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_INTERNAL_ERROR);
-        goto done;
-    }
-
-    rc = 1;
-
- done:
-    OPENSSL_free(buf);
-    BN_CTX_free(ctx);
-    EVP_MD_CTX_free(hash);
-    return rc;
 }
 
 #  ifdef QAT_OPENSSL_3
@@ -728,6 +728,15 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
      * e - digest of the message
      * d - private key (d > 0 and d < n)
      */
+# ifdef QAT_OPENSSL_PROVIDER
+    if ((qat_BN_to_FB_for_sm2(&(opData->k), k, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->e), e, qat_svm) != 1) ||
+        (qat_BN_to_FB(&(opData->d), (BIGNUM *)priv_key, qat_svm) != 1)) {
+        WARN("Failure to convert e, tbs and priv_key to flatbuffer\n");
+        QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_PRIV_KEY_K_E_D_CONVERT_TO_FB_FAILURE);
+        goto err;
+    }
+# else
     if ((qat_BN_to_FB(&(opData->k), k, qat_svm) != 1) ||
         (qat_BN_to_FB(&(opData->e), e, qat_svm) != 1) ||
         (qat_BN_to_FB(&(opData->d), (BIGNUM *)priv_key, qat_svm) != 1)) {
@@ -735,7 +744,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_PRIV_KEY_K_E_D_CONVERT_TO_FB_FAILURE);
         goto err;
     }
-
+# endif
     pResultR = (CpaFlatBuffer *) OPENSSL_malloc(sizeof(CpaFlatBuffer));
     if (!pResultR) {
         WARN("Failed to allocate memory for pResultR\n");
@@ -974,7 +983,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         } else {
             if (sw_sm2_signature.digest_sign_update == NULL ||
                 sw_sm2_signature.digest_sign_final == NULL) {
-                WARN("ECDSA  digest_sign_update is NULL or digest_sign_final is NULL\n");
+                WARN("SM2  digest_sign_update is NULL or digest_sign_final is NULL\n");
                 QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_SM2_SIGN_NULL);
                 return 0;
             }

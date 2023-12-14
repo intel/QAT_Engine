@@ -91,10 +91,15 @@
 
 # ifdef ENABLE_QAT_HW_SM2
 #  ifdef QAT_OPENSSL_PROVIDER
-int ossl_sm2_compute_z_digest(uint8_t *out,
+int qat_sm2_compute_z_digest(uint8_t *out,
                               const EVP_MD *digest,
                               const uint8_t *id,
                               const size_t id_len, const EC_KEY *key);
+
+int qat_sm2_compute_z_digest(uint8_t *out,
+                             const EVP_MD *digest,
+                             const uint8_t *id,
+                             const size_t id_len, const EC_KEY *key);
 
 int qat_sm2_sign(QAT_PROV_SM2_CTX * ctx,
                  unsigned char *sig, size_t *siglen,
@@ -132,6 +137,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
 int qat_sm2_verify(EVP_PKEY_CTX *ctx,
                    const unsigned char *sig, size_t siglen,
                    const unsigned char *tbs, size_t tbslen);
+
 #  endif
 #  ifndef QAT_OPENSSL_PROVIDER
 int qat_sm2_init(EVP_PKEY_CTX *ctx);

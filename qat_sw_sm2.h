@@ -75,6 +75,12 @@
 
 # ifdef ENABLE_QAT_SW_SM2
 
+int qat_sm2_compute_z_digest(uint8_t *out,
+                              const EVP_MD *digest,
+                              const uint8_t *id,
+                              const size_t id_len,
+                              const EC_KEY *key);
+
 #  ifdef QAT_OPENSSL_PROVIDER
 int mb_ecdsa_sm2_sign(QAT_PROV_SM2_CTX *ctx,
                              unsigned char *sig, size_t *siglen,
@@ -84,12 +90,8 @@ int mb_ecdsa_sm2_verify(QAT_PROV_SM2_CTX *ctx,
                                const unsigned char *sig, size_t siglen,
                                const unsigned char *tbs,
                                size_t tbslen);
+
 #  else
-int ossl_sm2_compute_z_digest(uint8_t *out,
-                              const EVP_MD *digest,
-                              const uint8_t *id,
-                              const size_t id_len,
-                              const EC_KEY *key);
 int mb_ecdsa_sm2_sign(EVP_MD_CTX *ctx,
                              unsigned char *sig, size_t *siglen,
                              const unsigned char *tbs,
