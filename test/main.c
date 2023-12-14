@@ -267,6 +267,9 @@ static const option_data aes_choices[] = {
     {"aes256_cbc_hmac_sha256", 0, TEST_AES256_CBC_HMAC_SHA256, 0, 0},
     {"aes128gcm", 0, TEST_AES128_GCM, 0, 0},
     {"aes256gcm", 0, TEST_AES256_GCM, 0, 0},
+    {"aes128ccm", 0, TEST_AES128_CCM, 0, 0},
+    {"aes192ccm", 0, TEST_AES192_CCM, 0, 0},
+    {"aes256ccm", 0, TEST_AES256_CCM, 0, 0},
 };
 
 static const option_data sha3_choices[] = {
@@ -527,6 +530,12 @@ char *test_name(int test)
         return "AES128 GCM";
     case TEST_AES256_GCM:
         return "AES256 GCM";
+    case TEST_AES128_CCM:
+        return "AES128 CCM";
+    case TEST_AES192_CCM:
+        return "AES192 CCM";
+    case TEST_AES256_CCM:
+        return "AES256 CCM";
     case TEST_SM3:
         return "SM3";
     case TEST_DSA:
@@ -763,6 +772,9 @@ static void usage(char *program)
     printf("\thkdf    HKDF test\n");
     printf("\taes128gcm   AES128 GCM test\n");
     printf("\taes256gcm   AES256 GCM test\n");
+    printf("\taes128ccm   AES128 CCM test\n");
+    printf("\taes192ccm   AES192 CCM test\n");
+    printf("\taes256ccm   AES256 CCM test\n");
     printf("\tsha3-224    SHA3 224 test\n");
     printf("\tsha3-256    SHA3 256 test\n");
     printf("\tsha3-384    SHA3 384 test\n");

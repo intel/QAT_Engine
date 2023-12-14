@@ -665,12 +665,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
-#  define DUMP_SYM_PERFORM_OP_GCM(instance_handle, pOpData, pSrcBuffer,        \
+#  define DUMP_SYM_PERFORM_OP_GCM_CCM(instance_handle, pOpData, pSrcBuffer,    \
                                   pDstBuffer)                                  \
     do {                                                                       \
         unsigned int index = 0;                                                \
         fprintf(qatDebugLogFile,"=========================\n");                \
-        fprintf(qatDebugLogFile,"Symmetric GCM crypto perform op req: %p\n",   \
+        fprintf(qatDebugLogFile,"Symmetric crypto perform op req: %p\n",       \
                 &pOpData);                                                     \
         fprintf(qatDebugLogFile,"Instance Handle = %p\n", instance_handle);    \
         fprintf(qatDebugLogFile,"pOpData.packetType = %d\n",                   \
@@ -695,7 +695,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
-#  define DUMP_SYM_PERFORM_OP_GCM_OUTPUT(pDstBuffer)                           \
+#  define DUMP_SYM_PERFORM_OP_GCM_CCM_OUTPUT(pDstBuffer)                       \
     do {                                                                       \
         unsigned int index = 0;                                                \
         fprintf(qatDebugLogFile,"=========================\n");                \
@@ -922,8 +922,8 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_SESSION_SETUP_DATA(...)
 #  define DUMP_SYM_PERFORM_OP(...)
 #  define DUMP_SYM_PERFORM_OP_OUTPUT(...)
-#  define DUMP_SYM_PERFORM_OP_GCM(...)
-#  define DUMP_SYM_PERFORM_OP_GCM_OUTPUT(...)
+#  define DUMP_SYM_PERFORM_OP_GCM_CCM(...)
+#  define DUMP_SYM_PERFORM_OP_GCM_CCM_OUTPUT(...)
 #  define DUMP_PRF_OP_DATA(...)
 #  define DUMP_HKDF_OP_DATA(...)
 #  define DUMP_SYM_PERFORM_OP_SHA3(...)

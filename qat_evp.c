@@ -67,6 +67,7 @@
 # include "qat_hw_ec.h"
 #  ifndef QAT_BORINGSSL
 # include "qat_hw_gcm.h"
+# include "qat_hw_ccm.h"
 # include "qat_hw_sha3.h"
 # include "qat_hw_chachapoly.h"
 # include "qat_hw_sm3.h"
@@ -148,6 +149,11 @@ static chained_info info[] = {
 #ifdef ENABLE_QAT_SW_SM4_CCM
     {NID_sm4_ccm, NULL, SM4_KEY_SIZE},
 #endif
+#ifdef ENABLE_QAT_HW_CCM
+    {NID_aes_128_ccm, NULL, AES_KEY_SIZE_128},
+    {NID_aes_192_ccm, NULL, AES_KEY_SIZE_192},
+    {NID_aes_256_ccm, NULL, AES_KEY_SIZE_256},
+#endif
 };
 
 static const unsigned int num_cc = sizeof(info) / sizeof(chained_info);
@@ -178,6 +184,11 @@ int qat_cipher_nids[] = {
 #endif
 #ifdef ENABLE_QAT_SW_SM4_CCM
     NID_sm4_ccm,
+#endif
+#ifdef ENABLE_QAT_HW_CCM
+    NID_aes_128_ccm,
+    NID_aes_192_ccm,
+    NID_aes_256_ccm,
 #endif
 };
 
@@ -272,6 +283,11 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 # endif
 # ifdef ENABLE_QAT_HW_SM3
     {NID_sm3, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_SM3},
+# endif
+# ifdef ENABLE_QAT_HW_CCM
+    {NID_aes_128_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_192_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+    {NID_aes_256_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
 };
 
@@ -771,6 +787,23 @@ static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
     }
 }
 
+#ifdef ENABLE_QAT_HW_CCM
+const EVP_CIPHER *qat_ccm_cipher_sw_impl(int nid)
+{
+    switch (nid) {
+        case NID_aes_128_ccm:
+            return EVP_aes_128_ccm();
+        case NID_aes_192_ccm:
+            return EVP_aes_192_ccm();
+        case NID_aes_256_ccm:
+            return EVP_aes_256_ccm();
+        default:
+            WARN("Invalid nid %d\n", nid);
+            return NULL;
+    }
+}
+#endif
+
 /******************************************************************************
  * function:
  *         qat_create_gcm_cipher_meth(int nid, int keylen)
@@ -870,6 +903,72 @@ const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen)
 
     return c;
 }
+
+/******************************************************************************
+ * function:
+ *         qat_create_ccm_cipher_meth(int nid, int keylen)
+ *
+ * @param nid    [IN] - Cipher NID to be created
+ * @param keylen [IN] - Key length of cipher [128|192|256]
+ * @retval            - EVP_CIPHER * to created cipher
+ * @retval            - NULL if failure
+ *
+ * description:
+ *   Create a new EVP_CIPHER based on requested nid for qat_hw
+ ******************************************************************************/
+#ifdef ENABLE_QAT_HW_CCM
+const EVP_CIPHER *qat_create_ccm_cipher_meth(int nid, int keylen)
+{
+    EVP_CIPHER *c = NULL;
+    int res = 1;
+
+    if ((c = EVP_CIPHER_meth_new(nid, AES_CCM_BLOCK_SIZE, keylen)) == NULL) {
+        WARN("Failed to allocate cipher methods for nid %d\n", nid);
+        return NULL;
+    }
+
+    if (qat_hw_offload &&
+        (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_AES_CCM)) {
+#if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE)
+        if (nid == NID_aes_192_ccm || nid == NID_aes_256_ccm) {
+            EVP_CIPHER_meth_free(c);
+            DEBUG("OpenSSL SW AES_CCM_%d registration succeeded\n", keylen*8);
+            return qat_ccm_cipher_sw_impl(nid);
+        }
+#endif
+        res &= EVP_CIPHER_meth_set_iv_length(c, AES_CCM_IV_LEN);
+        res &= EVP_CIPHER_meth_set_flags(c, QAT_CCM_FLAGS);
+        res &= EVP_CIPHER_meth_set_init(c, qat_aes_ccm_init);
+        res &= EVP_CIPHER_meth_set_do_cipher(c, qat_aes_ccm_cipher);
+        res &= EVP_CIPHER_meth_set_cleanup(c, qat_aes_ccm_cleanup);
+        res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_ccm_ctx));
+        res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                   NULL : EVP_CIPHER_set_asn1_iv);
+        res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
+                                                   NULL : EVP_CIPHER_get_asn1_iv);
+        res &= EVP_CIPHER_meth_set_ctrl(c, qat_aes_ccm_ctrl);
+        if (0 == res) {
+            WARN("Failed to set cipher methods for nid %d\n", nid);
+            EVP_CIPHER_meth_free(c);
+            return NULL;
+        }
+
+        qat_hw_aes_ccm_offload = 1;
+        DEBUG("QAT HW AES_CCM_%d registration succeeded\n", keylen*8);
+    } else {
+        qat_hw_aes_ccm_offload = 0;
+        DEBUG("QAT HW AES_CCM_%d is disabled\n", keylen*8);
+    }
+
+    if (!qat_hw_aes_ccm_offload) {
+        DEBUG("OpenSSL SW AES_CCM_%d registration succeeded\n", keylen*8);
+        EVP_CIPHER_meth_free(c);
+        return qat_ccm_cipher_sw_impl(nid);
+    }
+
+    return c;
+}
+#endif
 
 /******************************************************************************
  * function:
@@ -1295,6 +1394,14 @@ void qat_create_ciphers(void)
                     qat_create_cipher_meth(info[i].nid, info[i].keylen);
                 break;
 # endif
+# ifdef ENABLE_QAT_HW_CCM
+            case NID_aes_128_ccm:
+            case NID_aes_192_ccm:
+            case NID_aes_256_ccm:
+                info[i].cipher = (EVP_CIPHER *)
+                    qat_create_ccm_cipher_meth(info[i].nid, info[i].keylen);
+                break;
+# endif
 #endif
             default:
                 /* Do nothing */
@@ -1359,6 +1466,16 @@ void qat_free_ciphers(void)
                     EVP_CIPHER_meth_free(info[i].cipher);
                 break;
 #endif
+#ifdef ENABLE_QAT_HW_CCM
+            case NID_aes_128_ccm:
+#if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
+            case NID_aes_192_ccm:
+            case NID_aes_256_ccm:
+#endif
+                if (qat_hw_aes_ccm_offload)
+                    EVP_CIPHER_meth_free(info[i].cipher);
+                break;
+#endif
             }
             info[i].cipher = NULL;
         }
@@ -1372,6 +1489,7 @@ void qat_free_ciphers(void)
     qat_sm4_cbc_coexist = 0;
     qat_sw_sm4_gcm_offload = 0;
     qat_sw_sm4_ccm_offload = 0;
+    qat_hw_aes_ccm_offload = 0;
 }
 
 /******************************************************************************

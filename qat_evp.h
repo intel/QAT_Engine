@@ -55,6 +55,7 @@
 # define AES_KEY_SIZE_192    24
 # define AES_KEY_SIZE_256    32
 # define AES_GCM_BLOCK_SIZE  1
+# define AES_CCM_BLOCK_SIZE  1
 
 # define CHACHA_KEY_SIZE     32
 
@@ -160,6 +161,7 @@ void qat_free_ciphers(void);
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                 int nid);
 const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen);
+const EVP_CIPHER *qat_create_ccm_cipher_meth(int nid, int keylen);
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4_CBC 64
@@ -187,6 +189,9 @@ int RSA_private_decrypt_default(size_t flen, const uint8_t *from, uint8_t *to,
                                 RSA *rsa, int padding);
 
 #endif /* QAT_BORINGSSL */
+#ifdef ENABLE_QAT_HW_CCM
+const EVP_CIPHER *qat_ccm_cipher_sw_impl(int nid);
+#endif /* ENABLE_QAT_HW_CCM */
 
 #endif /* QAT_EVP_H */
 

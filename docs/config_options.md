@@ -154,6 +154,9 @@ The following is a list of the options that can be used with the
 --disable-qat_hw_gcm/--enable-qat_hw_gcm
     Disable/Enable Intel(R) QAT Hardware AES-GCM acceleration (disabled by default).
 
+--disable-qat_hw_ccm/--enable-qat_hw_ccm
+    Disable/Enable Intel(R) QAT Hardware AES-CCM acceleration (enabled by default).
+
 --disable-qat_hw_sm4_cbc/--enable-qat_hw_sm4_cbc
     Disable/Enable Intel(R) QAT Hardware SM4-CBC acceleration.(disabled by default)
     This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available

@@ -428,6 +428,7 @@ extern int qat_sw_sm3_offload;
 extern int qat_sw_sm4_cbc_offload;
 extern int qat_sw_sm4_gcm_offload;
 extern int qat_sw_sm4_ccm_offload;
+extern int qat_hw_aes_ccm_offload;
 extern int qat_hw_keep_polling;
 extern int qat_sw_keep_polling;
 extern int enable_external_polling;
@@ -473,6 +474,7 @@ extern int qat_fips_service_indicator;
 #define ALGO_ENABLE_MASK_SM3                0x08000
 #define ALGO_ENABLE_MASK_SM4_GCM            0x10000
 #define ALGO_ENABLE_MASK_SM4_CCM            0x20000
+#define ALGO_ENABLE_MASK_AES_CCM            0x40000
 
 extern int qat_reload_algo;
 extern uint64_t qat_hw_algo_enable_mask;

@@ -762,6 +762,15 @@ void tests_run(TEST_PARAMS *args, int id)
     case TEST_AES256_GCM:
         tests_run_aes256_gcm(args);
         break;
+    case TEST_AES128_CCM:
+        tests_run_aes128_ccm(args);
+        break;
+    case TEST_AES192_CCM:
+        tests_run_aes192_ccm(args);
+        break;
+    case TEST_AES256_CCM:
+        tests_run_aes256_ccm(args);
+        break;
     case TEST_ECX:              /* X25519 & X448 test application */
         tests_run_ecx(args);
         break;
