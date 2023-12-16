@@ -1340,32 +1340,6 @@ int qat_aes_ccm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return RET_FAIL;
     }
 
-    if ((in == NULL) && (out != NULL)) {
-        if (!enc) {
-            if (qctx->tag_len < 0)
-                return RET_FAIL;
-            /* Don't reuse the IV */
-            qctx->iv_set = 0;
-            DEBUG("Decrypt Final()\n");
-            /* The SW implem here compares the TAGs and returns -1 if they are different.
-             * Now the TAGs are checked when decrypting the payload so Final always return success
-             */
-            return RET_SUCCESS;
-        }
-
-        DEBUG("Encrypt Final()\n");
-
-        /* The SW implem here copy the TAG to ctx->buf so that it can be
-         * retrieved using ctrl() with GET_TAG.
-         * Now the TAG is appended and has already been copied to that location
-         * hence we do nothing.
-         */
-
-        /* Don't reuse the IV */
-        qctx->iv_set = 0;
-        return RET_SUCCESS;
-    }
-
     if ((in == NULL) && (out == NULL)) {
         if (qctx->OpData.pIv == NULL) {
             qctx->OpData.pIv =
@@ -1645,7 +1619,30 @@ int qat_aes_ccm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             }
             return ret_val;
         }
+    } else {
+        if (!enc) {
+            if (qctx->tag_len < 0)
+                return RET_FAIL;
+            /* Don't reuse the IV */
+            qctx->iv_set = 0;
+            DEBUG("Decrypt Final()\n");
+            /* The SW implem here compares the TAGs and returns -1 if they are different.
+             * Now the TAGs are checked when decrypting the payload so Final always return success
+             */
+            return RET_SUCCESS;
+        }
+
+        DEBUG("Encrypt Final()\n");
+
+        /* The SW implem here copy the TAG to ctx->buf so that it can be
+         * retrieved using ctrl() with GET_TAG.
+         * Now the TAG is appended and has already been copied to that location
+         * hence we do nothing.
+         */
+
+        /* Don't reuse the IV */
+        qctx->iv_set = 0;
+        return RET_SUCCESS;
     }
-    return sts;
 }
 #endif

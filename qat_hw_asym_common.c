@@ -247,7 +247,11 @@ int qat_mod_exp(BIGNUM *res, const BIGNUM *base, const BIGNUM *exp,
             goto exit;
     }
 
+#ifdef QAT_BORINGSSL
+    qat_init_op_done(&op_done,qat_svm);
+#else
     qat_init_op_done(&op_done);
+#endif
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notifications\n");
