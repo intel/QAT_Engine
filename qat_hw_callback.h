@@ -60,6 +60,9 @@ typedef struct {
     volatile CpaBoolean verifyResult;
     volatile ASYNC_JOB *job;
     volatile CpaStatus status;
+#if defined(QAT_BORINGSSL)
+    volatile int qat_svm;
+#endif
 } op_done_t;
 
 /* Use this variant of op_done to track QAT chained cipher
@@ -98,8 +101,11 @@ typedef struct {
  *   Initialise the QAT operation "done" callback structure.
  *
  ******************************************************************************/
-void qat_init_op_done(op_done_t *opDone);
-
+#if defined(QAT_BORINGSSL)
+    void qat_init_op_done(op_done_t *opDone, int qat_svm);
+#else
+    void qat_init_op_done(op_done_t *opDone);
+#endif
 
 /******************************************************************************
  * function:

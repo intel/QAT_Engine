@@ -111,10 +111,11 @@ struct async_wait_ctx_st {
 struct async_job_st {
     int status;
     ASYNC_WAIT_CTX *waitctx;
-    void (*op_buf_free)(void *, void *);
+    void (*op_buf_free)(void *, void *, int);
     int (*tlv_destructor)(void *);
     void (*free_op_done)(void *);
-    void *(*copy_op_done)(const void *, unsigned int, void (*)(void *, void *));
+    void *(*copy_op_done)(const void *, unsigned int, void (*)(void *, void *, int));
+    int qat_svm;
 };
 struct async_ctx_st {;
     ASYNC_JOB *currjob;

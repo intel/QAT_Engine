@@ -77,6 +77,26 @@
 #include "cpa_types.h"
 #include "icp_sal_poll.h"
 
+#if defined(QAT_BORINGSSL)
+void qat_init_op_done(op_done_t *opDone, int qat_svm)
+{
+    if (unlikely(opDone == NULL)) {
+        WARN("opDone is NULL\n");
+        QATerr(QAT_F_QAT_INIT_OP_DONE, QAT_R_OPDONE_NULL);
+        return;
+    }
+
+    opDone->flag = 0;
+    opDone->verifyResult = CPA_FALSE;
+    opDone->status = CPA_STATUS_FAIL;
+
+    opDone->job = ASYNC_get_current_job();
+    if (opDone->job != NULL)
+        opDone->job->qat_svm = qat_svm;
+    opDone->qat_svm = qat_svm;
+
+}
+#else
 void qat_init_op_done(op_done_t *opDone)
 {
     if (unlikely(opDone == NULL)) {
@@ -92,6 +112,7 @@ void qat_init_op_done(op_done_t *opDone)
     opDone->job = ASYNC_get_current_job();
 
 }
+#endif
 
 int qat_init_op_done_pipe(op_done_pipe_t *opdpipe, unsigned int npipes)
 {

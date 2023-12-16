@@ -493,7 +493,11 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
             goto err;
     }
 
+#ifdef QAT_BORINGSSL
+    qat_init_op_done(&op_done, qat_svm);
+#else
     qat_init_op_done(&op_done);
+#endif
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notification\n");
@@ -1599,7 +1603,11 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
             goto err;
     }
 
+#ifdef QAT_BORINGSSL
+    qat_init_op_done(&op_done, qat_svm);
+#else
     qat_init_op_done(&op_done);
+#endif
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failure to setup async event notifications\n");
@@ -1626,7 +1634,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         op_done.job->waitctx->data = ret_sig;
         op_done_bssl = (op_done_t *)op_done.job->copy_op_done(&op_done,
                         sizeof(op_done),
-                        (void (*)(void *, void *))ec_decrypt_op_buf_free);
+                        (void (*)(void *, void *, int))ec_decrypt_op_buf_free);
     }
 #endif /* QAT_BORINGSSL */
 
@@ -2154,7 +2162,11 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
             goto err;
     }
 
+#ifdef QAT_BORINGSSL
+    qat_init_op_done(&op_done, qat_svm);
+#else
     qat_init_op_done(&op_done);
+#endif
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failure to setup async event notifications\n");

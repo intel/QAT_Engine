@@ -152,17 +152,6 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
                         CpaFlatBuffer * out_buf, int qat_svm)
 {
     CpaCyRsaPrivateKeyRep2 *key = NULL;
-
-#ifdef QAT_BORINGSSL
-    int inst_num = QAT_INVALID_INSTANCE;
-
-    if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY)) == QAT_INVALID_INSTANCE) {
-        WARN("Failed to get an instance\n");
-        return;
-    } else
-        qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
-#endif
-
     DEBUG("- Started\n");
 
     if (dec_op_data) {
@@ -213,7 +202,11 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         return 0;
     }
 
+#if defined(QAT_BORINGSSL)
+    qat_init_op_done(&op_done, qat_svm);
+#else
     qat_init_op_done(&op_done);
+#endif
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notifications\n");
@@ -247,7 +240,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     }
 # ifdef QAT_BORINGSSL
     op_done_bssl = (op_done_t*)op_done.job->copy_op_done(&op_done,
-       sizeof(op_done), (void (*)(void *, void *))rsa_decrypt_op_buf_free);
+       sizeof(op_done), (void (*)(void *, void *, int))rsa_decrypt_op_buf_free);
 #endif
     STOP_RDTSC(&qat_hw_rsa_dec_req_prepare, 1, "[QAT HW RSA: prepare]");
     /*
@@ -616,7 +609,11 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         return 0;
     }
 
+#if defined(QAT_BORINGSSL) && defined(ENABLE_QAT_HW_RSA)
+    qat_init_op_done(&op_done, qat_svm);
+#else
     qat_init_op_done(&op_done);
+#endif
     if (op_done.job != NULL) {
         if (qat_setup_async_event_notification(op_done.job) == 0) {
             WARN("Failed to setup async event notification\n");
