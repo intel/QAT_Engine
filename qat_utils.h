@@ -807,7 +807,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
-
 #  define DUMP_SYM_PERFORM_OP_SHA3_OUTPUT(pOpData, pDstBuffer)                 \
     do {                                                                       \
         fprintf(qatDebugLogFile,"=========================\n");                \
@@ -848,6 +847,69 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile, "\n");                                        \
         fflush(qatDebugLogFile);                                               \
     } while (0)
+
+#  ifdef ENABLE_QAT_HW_KPT
+#   define DUMP_KPT_WRAPPING_DATA(eswk, len_eswk, sig, len_sig, iv, len_iv,    \
+                                  aad, len_aad)                                \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"KPT Wrapping Metadata\n");                    \
+        DUMPL("ESWK", eswk, len_eswk);                                         \
+        DUMPL("Signature", sig, len_sig);                                      \
+        DUMPL("IV", iv, len_iv);                                               \
+        DUMPL("AAD", aad, len_aad);                                            \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+
+#   define DUMP_KPT_RSA_DECRYPT(instance_handle, kpt_handle,                  \
+                                op_done, opData, output_buf)                  \
+    do {                                                                      \
+       fprintf(qatDebugLogFile,"=========================\n");                \
+       fprintf(qatDebugLogFile,"RSA Decrypt Request: %p\n", opData);          \
+       fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
+       fprintf(qatDebugLogFile,"KPT handle = 0x%lx\n", kpt_handle);           \
+       fprintf(qatDebugLogFile,"op_done = %p\n", op_done);                    \
+       fprintf(qatDebugLogFile,"opData: pRecipientPrivateKey->version = %d\n",\
+               opData->pRecipientPrivateKey->version);                        \
+       fprintf(qatDebugLogFile,"opData: pRecipientPrivateKey"                 \
+               "->privateKeyRepType = %d\n",                                  \
+               opData->pRecipientPrivateKey->privateKeyRepType);              \
+       DUMPL("opData: pRecipientPrivateKey->privateKeyRep1.privateKey.pData", \
+              opData->pRecipientPrivateKey->privateKeyRep1.privateKey.pData,  \
+              opData->pRecipientPrivateKey->privateKeyRep1.privateKey.        \
+              dataLenInBytes);                                                \
+       DUMPL("opData: pRecipientPrivateKey->privateKeyRep2.privateKey.pData", \
+              opData->pRecipientPrivateKey->privateKeyRep2.privateKey.pData,  \
+              opData->pRecipientPrivateKey->privateKeyRep2.privateKey.        \
+              dataLenInBytes);                                                \
+       DUMPL("opData: inputData.pData", opData->inputData.pData,              \
+              opData->inputData.dataLenInBytes);                              \
+       fprintf(qatDebugLogFile,"output_buf = %p\n", output_buf);              \
+       fprintf(qatDebugLogFile,"=========================\n");                \
+       fflush(qatDebugLogFile);                                               \
+    } while (0)
+
+#   define DUMP_KPT_ECDSA_SIGN(instance_handle, kpt_handle,                    \
+                               opData, pResultR, pResultS)                     \
+    do {                                                                       \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fprintf(qatDebugLogFile,"KPT ECDSA Sign Request: %p\n", opData);       \
+        fprintf(qatDebugLogFile,"instance_handle ptr = %p\n", instance_handle);\
+        fprintf(qatDebugLogFile,"KPT handle = 0x%lx\n", kpt_handle);           \
+        DUMPL("m.pData", opData->m.pData, opData->m.dataLenInBytes);           \
+        DUMPL("WPK data", opData->privateKey.pData,                            \
+              opData->privateKey.dataLenInBytes);                              \
+        fprintf(qatDebugLogFile,"pResultR->dataLenInBytes = %u "               \
+                "pResultR->pData = %p\n",                                      \
+                pResultR->dataLenInBytes, pResultR->pData);                    \
+        fprintf(qatDebugLogFile,"pResultS->dataLenInBytes = %u "               \
+                "pResultS->pData = %p\n",                                      \
+                pResultS->dataLenInBytes, pResultS->pData);                    \
+        fprintf(qatDebugLogFile,"=========================\n");                \
+        fflush(qatDebugLogFile);                                               \
+    } while (0)
+#  endif
 
 #  define DUMP_SM2_SIGN(instance_handle, opData, pResultR, pResultS)           \
     do {                                                                       \
@@ -897,6 +959,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
     } while (0)
 
 # else
+#   ifdef ENABLE_QAT_HW_KPT
+#    define DUMP_KPT_WRAPPING_DATA(...)
+#    define DUMP_KPT_RSA_DECRYPT(...)
+#    define DUMP_KPT_ECDSA_SIGN(...)
+#   endif
 #  define DUMP_DH_GEN_PHASE1(...)
 #  define DUMP_DH_GEN_PHASE2(...)
 #  define DUMP_DH_GEN_PHASE1_OUTPUT(...)

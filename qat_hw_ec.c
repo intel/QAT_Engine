@@ -1320,6 +1320,20 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     int bitlen = 0;
 #endif
 
+#ifdef ENABLE_QAT_HW_KPT
+    if (eckey && qat_check_ec_wpk(eckey)) {
+        if (is_kpt_mode()) {
+            DEBUG("Run the qat_ecdsa_do_sign in KPT mode.\n");
+            return
+                qat_hw_kpt_ecdsa_do_sign(dgst, dgst_len, in_kinv, in_r, eckey);
+        }
+        else {
+            WARN("Use the WPK in Non-KPT mode, return failed.\n");
+            return NULL;
+        }
+    }
+#endif
+
     DEBUG("QAT HW ECDSA Started\n");
 #ifdef ENABLE_QAT_FIPS
     qat_fips_get_approved_status();

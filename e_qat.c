@@ -1045,6 +1045,48 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     return retVal;
 }
 
+#ifdef ENABLE_QAT_HW_KPT
+EVP_PKEY *qat_engine_load_privkey(ENGINE *e, const char *key_id, UI_METHOD *ui_method, void *callback_data)
+{
+    EVP_PKEY *pkey = NULL;
+    CpaStatus status = CPA_STATUS_SUCCESS;
+    CpaCyCapabilitiesInfo CapInfo;
+    int instNum = 0;
+    
+    DEBUG("Begin qat_engine_load_privkey\n");
+
+    if (access(key_id, F_OK)) {
+        WARN("File %s does not exist\n", key_id);
+        goto error;
+    }
+
+    /* Query KPT capability */
+    for (instNum = 0; instNum < qat_num_instances; instNum++) {
+        status = cpaCyQueryCapabilities(qat_instance_handles[instNum], &CapInfo);
+        if (CPA_STATUS_SUCCESS != status || CPA_FALSE == CapInfo.kptSupported) {
+            WARN("KPT is not supported on device %d\n", 
+                qat_instance_details[instNum].qat_instance_info.physInstId.packageId);
+            goto error;
+        }
+    }
+
+    pkey = qat_hw_kpt_load_privkey(e, key_id);
+    if (pkey == NULL) {
+        WARN("qat_hw_kpt_load_privkey failed\n");
+        goto error;
+    }
+
+    kpt_enabled = 1;
+
+    DEBUG("Finish qat_engine_load_privkey\n");
+    return pkey;
+
+error:
+    WARN("Error in qat_engine_load_privkey\n");
+    return NULL;
+}
+#endif
+
 /******************************************************************************
  * function:
  *         bind_qat(ENGINE *e,
@@ -1179,6 +1221,9 @@ int bind_qat(ENGINE *e, const char *id)
     ret &= ENGINE_set_init_function(e, qat_engine_init);
     ret &= ENGINE_set_ctrl_function(e, qat_engine_ctrl);
     ret &= ENGINE_set_finish_function(e, qat_engine_finish);
+#ifdef ENABLE_QAT_HW_KPT
+    ret &= ENGINE_set_load_privkey_function(e, qat_engine_load_privkey);
+#endif
     ret &= ENGINE_set_cmd_defns(e, qat_cmd_defns);
     if (ret == 0) {
         fprintf(stderr, "Engine failed to register init, finish or destroy functions\n");

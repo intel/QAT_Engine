@@ -419,7 +419,7 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
         }
         goto err;
     }
-    DEBUG("inst_num = %d inst mem type \n", qctx->inst_num, qctx->qat_svm);
+    DEBUG("inst_num = %d inst mem type = %d\n", qctx->inst_num, qctx->qat_svm);
 
     DUMP_SESSION_SETUP_DATA(ssd);
     sts = cpaCySymSessionCtxGetSize(qat_instance_handles[qctx->inst_num], ssd, &sctx_size);

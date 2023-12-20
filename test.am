@@ -32,9 +32,6 @@
 #
 ################################################################
 
-
-EXTRA_PROGRAMS = testapp
-
 QAT_TEST_SRC = test/main.c                    \
                test/tests.c                   \
                test/tests_rsa.c               \

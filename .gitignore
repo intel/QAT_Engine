@@ -39,14 +39,12 @@ qat_contig_mem_test
 *.la
 testapp
 qatengine_test
+kpttool
 
 # Autotools generated files
-test/.deps
-test_bssl/.deps
-test/.dirstamp
-test_bssl/.dirstamp
-/.deps
-/.libs
+*.deps
+*.dirstamp
+*.libs
 /m4
 /aclocal.m4
 /autom4te.cache/

@@ -659,6 +659,11 @@ Additional information for testapp tests available with the help option
 `./testapp -help`
 </details>
 
+
+
+## Key Protection Technology(KPT) feature
+Please refer to: [KPT README](docs/KPT_Feature.md)
+
 ## Troubleshooting
 Troubleshooting information is available [here](docs/troubleshooting.md).
 

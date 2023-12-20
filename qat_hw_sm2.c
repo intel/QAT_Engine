@@ -149,7 +149,7 @@ static void qat_sm2VerifyCallbackFn(void *pCallbackTag, CpaStatus status,
     qat_crypto_callbackFn(pCallbackTag, status, 0, pOpData, NULL, verifyStatus);
 }
 
-int qat_sm2_compute_z_digest(uint8_t *out,
+int qat_hw_sm2_compute_z_digest(uint8_t *out,
                              const EVP_MD *digest,
                              const uint8_t *id,
                              const size_t id_len, const EC_KEY *key)
@@ -466,7 +466,7 @@ static BIGNUM *sm2_compute_msg_hash(const EVP_MD *digest,
         goto done;
     }
 
-    if (!qat_sm2_compute_z_digest(z, digest, id, id_len, key)) {
+    if (!qat_hw_sm2_compute_z_digest(z, digest, id, id_len, key)) {
         /* SM2err already called */
         goto done;
     }
@@ -524,7 +524,7 @@ int qat_sm2_digest_custom(EVP_PKEY_CTX *ctx, EVP_MD_CTX *mctx)
     }
 
     /* get hashed prefix 'z' of tbs message */
-    if (!qat_sm2_compute_z_digest(z, md, smctx->id, smctx->id_len, eckey))
+    if (!qat_hw_sm2_compute_z_digest(z, md, smctx->id, smctx->id_len, eckey))
         return 0;
 
     return EVP_DigestUpdate(mctx, z, (size_t)mdlen);

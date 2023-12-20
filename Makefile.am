@@ -2,10 +2,7 @@ ACLOCAL_AMFLAGS = -I m4
 AUTOMAKE_OPTIONS = subdir-objects
 
 lib_LTLIBRARIES = @LIBQATNAME@.la
-
-if QAT_PLOCK
-lib_LTLIBRARIES += libplock.la
-endif
+bin_PROGRAMS =
 
 if QAT_HW
 if QAT_HW_CONTIG_MEM
@@ -96,6 +93,10 @@ if QAT_HW
               qat_hw_sm3.c         \
               qat_hw_sm2.c         \
               qat_hw_ccm.c
+
+if ENABLE_QAT_HW_KPT
+ QAT_HW_KPT_SRC = qat_hw_kpt.c
+endif
 endif
 
 if QAT_SW
@@ -157,11 +158,12 @@ endif
                           ${QAT_HW_SRC}       \
                           ${QAT_HW_MEM_SRC}   \
                           ${QAT_SW_SRC}       \
-                          ${QAT_SW_IPSEC_SRC}
+                          ${QAT_SW_IPSEC_SRC} \
+                          ${QAT_HW_KPT_SRC}
 
 AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)     \
               $(includes_qat_hw) $(includes_qat_sw_crypto_mb) \
-              $(includes_qat_sw_ipsec_mb)
+              $(includes_qat_sw_ipsec_mb) $(includes_kpt_lib)
 
 AM_CFLAGS = $(cflags_cc_opt) $(cflags_qat_hw_intree) \
             $(cflags_mem_driver) $(cflags_openssl_3) \
@@ -170,7 +172,7 @@ AM_CFLAGS = $(cflags_cc_opt) $(cflags_qat_hw_intree) \
             $(cflags_common) $(cflags_qat_debug)
 
 if QAT_BORINGSSL
-bin_PROGRAMS = qatengine_test
+bin_PROGRAMS += qatengine_test
 @LIBQATNAME@_la_LDFLAGS = -no-undefined -avoid-version                \
                           $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB)          \
                           $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)   \
@@ -191,6 +193,7 @@ else
 endif
 
 if QAT_PLOCK
+lib_LTLIBRARIES += libplock.la
 libplock_la_LDFLAGS = --shared -fPIC -Wextra -Wundef                           \
                       -Wdeclaration-after-statement -Wfatal-errors             \
                       -Wtype-limits -Wshift-negative-value -Wshift-overflow=2  \
@@ -202,11 +205,34 @@ libplock_la_LDFLAGS = --shared -fPIC -Wextra -Wundef                           \
 libplock_la_SOURCES = plock.c
 endif
 
+if ENABLE_QAT_HW_KPT
+noinst_LTLIBRARIES = libkpt.la
+libkpt_la_SOURCES = kpt/lib/kpt.c
+libkpt_la_CFLAGS = $(includes_qat_hw) $(includes_openssl) \
+                   $(cflags) $(cflags_openssl_3)          \
+                   $(cflags_common)
+libkpt_la_LDFLAGS = $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB)    \
+                    $(OPENSSL_LIB) -ldl -lrt -lpthread
+
+EXTRA_PROGRAMS = kpttool testapp
+kpttool_SOURCES = kpt/apps/main.c        \
+                  kpt/apps/kpt_swk.c     \
+                  kpt/apps/kpt_rsa_key.c \
+                  kpt/apps/kpt_ecc_key.c \
+                  kpt/apps/kpt_dev_pp.c
+kpttool_CFLAGS = $(includes_qat_hw) $(includes_openssl) \
+                 $(cflags_openssl_3)                    \
+                 -fPIE -pie -g -static -z relro -z now
+kpttool_LDFLAGS = $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB)
+kpttool_LDADD = $(OPENSSL_LIB) $(QAT_HW_MEM_LIB) -lpthread -ldl -lrt
+@LIBQATNAME@_la_LIBADD = libkpt.la
+endif
+
 mostlyclean-generic:
 	-rm -rf *.obj bin lib tags core .pure .nfs* \
 	*.old *.bak fluff *.so *.sl *.dll test/*.obj testapp \
 	test/.dirstamp test/*.o test_bssl/*obj test_bssl/.dirstamp \
-        test_bssl/*.o qatengine_test rpmbuild
+	test_bssl/*.o qatengine_test rpmbuild kpttool
 
 if QAT_ERR_FILES_BUILD
 MAKE = make err-files && make
@@ -225,7 +251,6 @@ if QAT_FIPS
 intkat:
 	$(shell ./intkat.sh)
 endif
-include test.am
 
 if QAT_HW
 depend: OpenSSL qat_hw_driver
@@ -264,3 +289,4 @@ endif
 rpm_intree:
 	mkdir -p rpmbuild/BUILD rpmbuild/RPMS rpmbuild/SOURCES rpmbuild/SPECS rpmbuild/SRPMS
 	rpmbuild --undefine=_disable_source_fetch --define "_topdir $(abs_srcdir)/rpmbuild" -ba qatengine.spec
+include test.am

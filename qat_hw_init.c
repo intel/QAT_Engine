@@ -182,6 +182,22 @@ int is_instance_available(int inst_num)
     if (!qat_instance_details[inst_num].qat_instance_started)
         return 0;
 
+#ifdef ENABLE_QAT_HW_KPT
+    thread_local_variables_t * tlv = NULL;
+
+    tlv = qat_check_create_local_variables();
+    if (unlikely(NULL == tlv)) {
+        WARN("No local variables are available\n");
+        return 0;
+    }
+
+    /* Return 0 if the KPT isn't initialized or provisioned
+     * while using the WPK in the current request. */
+    if (tlv->kpt_wpk_in_use > -1 &&
+        (!is_kpt_mode() || 
+            !kpt_instance_available(inst_num, tlv->kpt_wpk_in_use)))
+        return 0;
+#endif
 
     return !qat_accel_details[qat_instance_details[inst_num].
         qat_instance_info.physInstId.packageId].qat_accel_reset_status;
@@ -335,6 +351,10 @@ thread_local_variables_t * qat_check_create_local_variables(void)
         return tlv;
     tlv = OPENSSL_zalloc(sizeof(thread_local_variables_t));
     if (tlv != NULL) {
+#ifdef ENABLE_QAT_HW_KPT
+        tlv->kpt_wpk_in_use = KPT_INVALID_WPK_IDX;
+#endif
+
         tlv->qatAsymInstanceNumForThread = QAT_INVALID_INSTANCE;
         tlv->qatSymInstanceNumForThread = QAT_INVALID_INSTANCE;
 
@@ -758,6 +778,20 @@ int qat_hw_init(ENGINE *e)
             }
         }
     }
+
+#ifdef ENABLE_QAT_HW_KPT
+    /* Init KPT if KPT is enabled and hasn't be inited */
+    if (kpt_enabled && !kpt_inited) {
+        if (!qat_hw_kpt_init()) {
+            WARN("KPT init failed, please check\n");
+            qat_pthread_mutex_unlock();
+            qat_engine_finish(e);
+            return 0;
+        }
+        kpt_inited = 1;
+    }
+#endif
+
     return 1;
 }
 
@@ -771,6 +805,26 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
 #endif
 
     DEBUG("---- QAT Finishing...\n\n");
+
+#ifdef ENABLE_QAT_HW_KPT
+    if (kpt_enabled) {
+        /* Finish KPT before engine finish if KPT is inited */
+        if (kpt_inited) {
+            DEBUG("Start KPT Finishing.\n");
+            qat_hw_kpt_finish();
+
+            /* kpt_enabled can't be zeroed, otherwise child processes won't
+             * do qat_hw_kpt_init while forking. 
+             * kpt_inited should be zeroed as the process is terminated. */
+            kpt_inited = 0;
+        }
+
+        DEBUG("Reset the loaded WPK file number.\n");
+        if (kpt_reset_wpk_num()) {
+            WARN("Failure in kpt_reset_wpk_num.\n");
+        }
+    }
+#endif
 
     qat_hw_keep_polling = 0;
     if (qat_use_signals_no_engine_start()) {
@@ -871,6 +925,12 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
      * forking
      */
     if (reset_globals == 1) {
+#ifdef ENABLE_QAT_HW_KPT
+        DEBUG("KPT reset globally\n");
+        kpt_inited = 0;
+        kpt_enabled = 0;
+#endif
+
         enable_inline_polling = 0;
         enable_event_driven_polling = 0;
         enable_instance_for_thread = 0;

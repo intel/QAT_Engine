@@ -310,6 +310,11 @@ AC_ARG_ENABLE(qat_insecure_algorithms,
                              [Enable insecure algorithms (DSA, DH, SHA1, SHA3-224, EC <256 & RSA<2048]))
 AC_SUBST(enable_qat_insecure_algorithms)
 
+AC_ARG_ENABLE(qat_hw_kpt,
+              AS_HELP_STRING([--enable-qat_hw_kpt],
+                             [Enable QAT HW Key Protection technology(KPT) support]))
+AC_SUBST(enable_qat_hw_kpt)
+
 #Default library name is qatengine
 AC_SUBST([LIBQATNAME], "qatengine")
 
@@ -412,6 +417,7 @@ fi
 AM_CONDITIONAL([QAT_OPENSSL_3], [test "x$cflags_openssl_3" != "x"])
 AM_CONDITIONAL([QAT_PROVIDER], [test "x$enable_qat_provider" = "xyes"])
 AM_CONDITIONAL([QAT_BORINGSSL], [test "x$cflags_boringssl" != "x"])
+AM_CONDITIONAL([ENABLE_QAT_HW_KPT], [test "x$enable_qat_hw_kpt" = "xyes"])
 
 # qat_hw_dir configured, enable qat_hw
 if test "x$with_qat_hw_dir" != "x"
@@ -522,6 +528,11 @@ then
   fi
 fi
 
+if test "x$enable_qat_hw_kpt" = "xyes" -a "x$cflags_qat_hw" != "x"
+then
+  AC_SUBST([includes_kpt_lib], ["-Ikpt/lib"])
+fi
+
 # Compiler security flags
 AC_SUBST([cflags_common], ["-Wall -Wformat -Wformat-security -D_FORTIFY_SOURCE=2 -fno-delete-null-pointer-checks -fwrapv -fstack-protector-strong"])
 
@@ -572,6 +583,8 @@ then
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_SM2"; AC_MSG_NOTICE([Accelerating SM2 to Hardware])])
   AS_IF([test "x$enable_qat_hw_ccm" != "xno"],
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CCM"; AC_MSG_NOTICE([Accelerating AES-CCM to Hardware])])
+  AS_IF([test "x$enable_qat_hw_kpt" = "xyes"],
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_KPT"; AC_MSG_NOTICE([QAT_HW KPT Support enabled])])
 fi
 
 # Enable QAT_SW Algorithms based on enable/disable Flags
@@ -615,16 +628,19 @@ then
     fi
 fi
 
-AC_CHECK_FILE(${with_openssl_install_dir}/include/openssl/ossl_typ.h,
+if test "x$cflags_qat_hw" != "x"
+then
+    AC_CHECK_FILE(${with_openssl_install_dir}/include/openssl/ossl_typ.h,
               [with_kdf_support_h=yes],
               [with_kdf_support_h=no])
-if test "x$with_kdf_support_h" = "xyes"
-then
-  if grep "struct evp_kdf_ctx_st EVP_KDF_CTX" $with_openssl_install_dir/include/openssl/ossl_typ.h
-  then
-    AC_SUBST([cflags_qat_hw], ["${cflags_qat_hw} -DQAT_KDF_SUPPORT"])
-    AC_MSG_NOTICE([KDF structure support available])
-  fi
+    if test "x$with_kdf_support_h" = "xyes"
+    then
+        if grep "struct evp_kdf_ctx_st EVP_KDF_CTX" $with_openssl_install_dir/include/openssl/ossl_typ.h
+        then
+          AC_SUBST([cflags_qat_hw], ["${cflags_qat_hw} -DQAT_KDF_SUPPORT"])
+          AC_MSG_NOTICE([KDF structure support available])
+        fi
+    fi
 fi
 
 #Enable additional QAT_HW & QAT_SW flags

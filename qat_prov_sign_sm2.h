@@ -89,11 +89,20 @@ typedef struct {
     size_t tbs_len;
 } QAT_PROV_SM2_CTX;
 int qat_sm2sig_compute_z_digest(QAT_PROV_SM2_CTX *ctx);
+#ifdef ENABLE_QAT_HW_SM2
+int qat_hw_sm2_compute_z_digest(uint8_t *out,
+                              const EVP_MD *digest,
+                              const uint8_t *id,
+                              const size_t id_len,
+                              const EC_KEY *key);
+#endif
+#ifdef ENABLE_QAT_SW_SM2
 int qat_sm2_compute_z_digest(uint8_t *out,
                               const EVP_MD *digest,
                               const uint8_t *id,
                               const size_t id_len,
                               const EC_KEY *key);
+#endif
 
 # endif
 #endif /* QAT_PROV_SIGN_SM2_H */

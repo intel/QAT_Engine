@@ -50,6 +50,24 @@
   calls OPENSSL_cleanup(). Incorrect cleanup can lead to a segmentation fault (segfault). 
   Also, memory allocated in a thread is freed automatically when the thread exits/terminates, 
   even if the user does not explicitly free the memory.
+* SVM is not supported with BoringSSL library.
+* AES-CCM ciphers are not enabled in OpenSSL by default. Need to enable it manually using the openssl.cnf file.
+
+  Example:
+
+```
+  openssl_conf = cipher_conf
+
+  [cipher_conf]
+  ssl_conf = cipher_sect
+
+  [cipher_sect]
+  system_default = system_cipher_sect
+
+  [system_cipher_sect]
+  Cipherstring = ALL
+  Ciphersuites = TLS_AES_128_CCM_8_SHA256:TLS_AES_128_CCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
+```
 
 ## Known Issues
 
