@@ -284,7 +284,7 @@ int qat_sm2sig_compute_z_digest(QAT_PROV_SM2_CTX *ctx)
         if ((z = OPENSSL_zalloc(ctx->mdsize)) == NULL
 # ifdef ENABLE_QAT_HW_SM2
             /* get hashed prefix 'z' of tbs message */
-            || !qat_sm2_compute_z_digest(z, ctx->md, ctx->id, ctx->id_len,
+            || !qat_hw_sm2_compute_z_digest(z, ctx->md, ctx->id, ctx->id_len,
                                           ctx->ec)
 # endif
 
@@ -655,11 +655,11 @@ const OSSL_DISPATCH qat_sm2_signature_functions[] = {
 # ifdef ENABLE_QAT_SW_SM2
     { OSSL_FUNC_SIGNATURE_DIGEST_SIGN,
       (void (*)(void))qat_sm2sig_digest_sign },
-    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_INIT,
-      (void (*)(void))qat_sm2sig_digest_signverify_init },
     { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY,
       (void (*)(void))qat_sm2sig_digest_verify },
 # endif
+    { OSSL_FUNC_SIGNATURE_DIGEST_VERIFY_INIT,
+      (void (*)(void))qat_sm2sig_digest_signverify_init },
 # ifdef ENABLE_QAT_HW_SM2
     { OSSL_FUNC_SIGNATURE_DIGEST_SIGN_UPDATE,
       (void (*)(void))qat_sm2sig_digest_signverify_update },

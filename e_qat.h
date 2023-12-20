@@ -125,6 +125,10 @@
 typedef struct {
     int qatAsymInstanceNumForThread;
     int qatSymInstanceNumForThread;
+#ifdef ENABLE_QAT_HW_KPT
+    /* WPK index used in KPT scenario. */
+    int kpt_wpk_in_use;
+#endif
     unsigned int localOpsInFlight;
 } thread_local_variables_t;
 
@@ -546,6 +550,17 @@ extern int qat_max_retry_count;
 extern unsigned int qat_map_sym_inst[QAT_MAX_CRYPTO_INSTANCES];
 extern unsigned int qat_map_asym_inst[QAT_MAX_CRYPTO_INSTANCES];
 extern unsigned int qat_map_svm_inst[QAT_MAX_CRYPTO_INSTANCES];
+
+#  ifdef ENABLE_QAT_HW_KPT
+#   include "qat_hw_kpt.h"
+#   include "cpa_cy_kpt.h"
+
+#   define KPT_INVALID_WPK_IDX -1
+
+extern int kpt_enabled;
+extern int kpt_inited;
+#  endif
+
 # endif
 
 # ifdef QAT_SW
@@ -815,6 +830,25 @@ int qat_engine_finish(ENGINE *e);
  ******************************************************************************/
 int qat_engine_finish_int(ENGINE *e, int reset_globals);
 
+#ifdef ENABLE_QAT_HW_KPT
+/******************************************************************************
+* function:
+*         qat_engine_load_privkey(ENGINE *e, const char *key_id, 
+*                          UI_METHOD *ui_method, void *callback_data)
+*
+* @param e             [IN] - OpenSSL engine pointer
+* @param key_id        [IN] - String of Path to WPK file
+* @param ui_method     [IN] - Unused
+* @param callback_data [IN] - Unused
+*
+* description:
+*   Qat engine load private key function.
+*   This function will be hooked by openssl and used to load WPK file 
+*   in KPT scenario.
+******************************************************************************/
+EVP_PKEY *qat_engine_load_privkey(ENGINE *e, const char *key_id,
+                                  UI_METHOD *ui_method, void *callback_data);
+#endif
 /*****************************************************************************
  * function:
  *          int qat_pthread_mutex_lock(void)

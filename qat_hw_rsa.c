@@ -961,6 +961,19 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     int lenstra_ret = 0;
 # endif
 
+#ifdef ENABLE_QAT_HW_KPT
+    if (rsa && qat_check_rsa_wpk(rsa) > 0) {
+        if (is_kpt_mode()) {
+            DEBUG("Run the qat_rsa_priv_enc in KPT mode.\n");
+            return qat_hw_kpt_rsa_priv_enc(flen, from, to, rsa, padding);
+        }
+        else {
+            WARN("Use the WPK in Non-KPT mode, return failed.\n");
+            return 0;
+        }
+    }
+#endif
+
     DEBUG("QAT HW RSA Started.\n");
 #ifdef ENABLE_QAT_FIPS
     qat_fips_get_approved_status();
@@ -1151,6 +1164,19 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     const BIGNUM *d = NULL;
     int lenstra_ret = 0;
 # endif
+
+#ifdef ENABLE_QAT_HW_KPT
+    if (rsa && qat_check_rsa_wpk(rsa) > 0) {
+        if (is_kpt_mode()) {
+            DEBUG("Run the qat_rsa_priv_dec in KPT mode.\n");
+            return qat_hw_kpt_rsa_priv_dec(flen, from, to, rsa, padding);
+        }
+        else {
+            WARN("Use the WPK in Non-KPT mode, return failed.\n");
+            return 0;
+        }
+    }
+#endif
 
     DEBUG("QAT HW RSA Started.\n");
 

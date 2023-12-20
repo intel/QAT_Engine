@@ -33,6 +33,7 @@
   *  SM2 (Not supported in qatlib)
   *  SM3 (Not supported in qatlib)
   *  AES128-CCM, AES192-CCM and AES256-CCM
+* [Key Protection Technology (KPT) Support using QAT_HW driver v2.0](qat_hw_kpt.md)
 
 Please refer [here](qat_hw_algo.md) for supported platforms list and default behaviour.
 

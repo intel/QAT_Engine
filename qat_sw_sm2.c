@@ -323,7 +323,7 @@ int qat_sm2_compute_z_digest(uint8_t *out,
     ctx = BN_CTX_secure_new();
     BN_CTX_start(ctx);
     if (hash == NULL || ctx == NULL) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_MALLOC_FAILURE);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_MALLOC_FAILURE);
         WARN("Hash internal error\n");
         goto done;
     }
@@ -336,13 +336,13 @@ int qat_sm2_compute_z_digest(uint8_t *out,
     xA = BN_CTX_get(ctx);
     yA = BN_CTX_get(ctx);
     if (yA == NULL) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_MALLOC_FAILURE);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_MALLOC_FAILURE);
         WARN("Hash internal error\n");
         goto done;
     }
 
     if (!EVP_DigestInit(hash, digest)) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         WARN("Hash internal error\n");
         goto done;
     }
@@ -351,7 +351,7 @@ int qat_sm2_compute_z_digest(uint8_t *out,
 
     if (id_len >= (UINT16_MAX / 8)) {
         /* too large */
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_ID_TOO_LARGE);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_ID_TOO_LARGE);
         WARN("id_len too large\n");
         goto done;
     }
@@ -360,25 +360,25 @@ int qat_sm2_compute_z_digest(uint8_t *out,
 
     e_byte = entl >> 8;
     if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         WARN("EVP Digest Failure\n");
         goto done;
     }
     e_byte = entl & 0xFF;
     if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         WARN("EVP Digest Failure\n");
         goto done;
     }
 
     if (id_len > 0 && !EVP_DigestUpdate(hash, id, id_len)) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         WARN("EVP Digest Failure\n");
         goto done;
     }
 
     if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_EC_LIB);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_EC_LIB);
         WARN("EC Group get curve failed\n");
         goto done;
     }
@@ -410,7 +410,7 @@ int qat_sm2_compute_z_digest(uint8_t *out,
             || BN_bn2binpad(yA, buf, p_bytes) < 0
             || !EVP_DigestUpdate(hash, buf, p_bytes)
             || !EVP_DigestFinal(hash, out, NULL)) {
-        QATerr(QAT_F_OSSL_SM2_COMPUTE_Z_DIGEST, QAT_R_INTERNAL_ERROR);
+        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_INTERNAL_ERROR);
         WARN("EVP Digest Operation failure\n");
         goto done;
     }
