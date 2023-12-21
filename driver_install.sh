@@ -1,7 +1,7 @@
 #!/bin/sh
 
 #QAT_HW OOT driver Location
-QAT17_DRIVER=https://downloadmirror.intel.com/780675/QAT.L.4.22.0-00001.tar.gz
+QAT17_DRIVER=https://downloadmirror.intel.com/788561/QAT.L.4.23.0-00001.tar.gz
 QAT20_DRIVER=https://downloadmirror.intel.com/783270/QAT20.L.1.0.50-00003.tar.gz
 
 #Supported Devices
