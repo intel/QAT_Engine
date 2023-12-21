@@ -555,7 +555,6 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     CpaCyEcsm2SignOpData *opData = NULL;
     CpaStatus status = CPA_STATUS_FAIL;
     CpaBoolean bSM2SignStatus = 0;
-    int sig_sz;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
     useconds_t ulPollInterval = getQatPollInterval();
@@ -565,6 +564,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     int qat_svm = QAT_INSTANCE_ANY;
 
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    int sig_sz;
     unsigned char *dgst = NULL;
     BIGNUM *bg = NULL;
     EVP_MD *md = NULL;
@@ -593,7 +593,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_INPUT_PARAM_INVALID);
         return ret;
     }
-
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     sig_sz = ECDSA_size(eckey);
 
     if (sig_sz <= 0)
@@ -610,7 +610,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_INPUT_PARAM_INVALID);
         return ret;
     }
-
+# endif
     group = EC_KEY_get0_group(eckey);
     priv_key = EC_KEY_get0_private_key(eckey);
     pub_key = EC_KEY_get0_public_key(eckey);
@@ -995,7 +995,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
                                                       siglen, sigsize);
         }
 # else
-#  ifdef QAT_OPENSSL_3          // to be deleted
+#  ifdef QAT_OPENSSL_3
         /* When using OpenSSL 3 legacy engine API */
         sw_ctx = OPENSSL_malloc(sizeof(QAT_PROV_SM2_CTX));
         sw_ctx->mdsize = 0;
@@ -1008,9 +1008,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
 
         sw_sm2_signature = get_def_signature_sm2();
         if (sw_sm2_signature.sign) {
-            ret =
-                sw_sm2_signature.sign(sw_ctx, sig, siglen, (size_t)sig_sz, dgst,
-                                      dlen);
+            ret = sw_sm2_signature.sign(sw_ctx, sig, siglen, sig_sz, dgst, dlen);
         } else {
             WARN("Failed to obtain sm2 sign func from default provider.\n");
             ret = 0;
@@ -1044,7 +1042,7 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
 # endif
 {
     int ret = 0, i, job_ret = 0, fallback = 0;
-    ECDSA_SIG *s;
+    ECDSA_SIG *s = NULL;
     const EC_GROUP *group;
     BN_CTX *bctx = NULL;
     const BIGNUM *priv_key, *order;
@@ -1124,15 +1122,6 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
         WARN("Failure to allocate ECDSA_SIG_SM2\n");
         QATerr(QAT_F_QAT_SM2_VERIFY, QAT_R_SM2_SIG_MALLOC_FAILURE);
         return ret;
-    }
-
-    sig_r = BN_new();
-    sig_s = BN_new();
-
-    if (ECDSA_SIG_set0(s, (BIGNUM *)sig_r, (BIGNUM *)sig_s) == 0) {
-        WARN("Failure to allocate r and s values to assign to the ECDSA_SIG\n");
-        QATerr(QAT_F_QAT_SM2_VERIFY, QAT_R_SM2_SIG_SET_R_S_FAILURE);
-        goto err;
     }
 
     if (d2i_ECDSA_SIG(&s, &p, siglen) == NULL) {
