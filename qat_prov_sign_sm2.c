@@ -130,29 +130,6 @@ typedef struct evp_signature_st {
     OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
 } QAT_EVP_SIGNATURE /* EVP_SIGNATURE for QAT Provider sm2 */;
 
-# ifdef ENABLE_QAT_HW_SM2
-static QAT_EVP_SIGNATURE get_default_signature_sm2()
-{
-    static QAT_EVP_SIGNATURE s_signature;
-    static int initilazed = 0;
-    if (!initilazed)
-    {
-        QAT_EVP_SIGNATURE *signature = (QAT_EVP_SIGNATURE *)EVP_SIGNATURE_fetch(NULL, "SM2", "provider=default");
-        if (signature)
-        {
-            s_signature = *signature;
-            EVP_SIGNATURE_free((QAT_EVP_SIGNATURE *)signature);
-            initilazed = 1;
-        }
-        else
-        {
-            WARN("EVP_SIGNATURE_fetch from default provider failed");
-        }
-    }
-    return s_signature;
-}
-# endif
-
 static int qat_sm2sig_set_mdname(QAT_PROV_SM2_CTX *psm2ctx, const char *mdname)
 {
     if (psm2ctx->md == NULL) /* We need an SM3 md to compare with */
@@ -221,6 +198,7 @@ static int qat_sm2sig_sign(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
 {
     QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
     int ret;
+    size_t sltmp;
     /* SM2 uses ECDSA_size as well */
     size_t ecsize = ECDSA_size(ctx->ec);
 
@@ -239,12 +217,12 @@ static int qat_sm2sig_sign(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
 # endif
 
 # ifdef ENABLE_QAT_HW_SM2
-    ret = qat_sm2_sign(ctx, sig, siglen, sigsize, tbs, tbslen);
+    ret = qat_sm2_sign(ctx, sig, &sltmp, sigsize, tbs, tbslen);
 # endif
     if (ret <= 0)
         return 0;
 
-    *siglen = tbslen;
+    *siglen = sltmp;
     return 1;
 }
 
@@ -315,11 +293,24 @@ int qat_sm2sig_digest_signverify_update(void *vpsm2ctx, const unsigned char *dat
 int qat_sm2sig_digest_sign_final(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
                              size_t sigsize)
 {
-    typedef int (*fun_ptr)(void *, unsigned char *, size_t *, size_t);
-    fun_ptr fun = get_default_signature_sm2().digest_sign_final;
-    if (!fun)
+    QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
+    unsigned char digest[EVP_MAX_MD_SIZE];
+    unsigned int dlen = 0;
+
+    if (ctx == NULL || ctx->mdctx == NULL)
         return 0;
-    return fun(vpsm2ctx, sig, siglen, sigsize);
+
+    /*
+     * If sig is NULL then we're just finding out the sig size. Other fields
+     * are ignored. Defer to sm2sig_sign.
+     */
+    if (sig != NULL) {
+        if (!(qat_sm2sig_compute_z_digest(ctx)
+              && EVP_DigestFinal_ex(ctx->mdctx, digest, &dlen)))
+            return 0;
+    }
+
+    return qat_sm2sig_sign(ctx, sig, siglen, sigsize, digest, (size_t)dlen);
 }
 # endif
 

@@ -50,7 +50,7 @@
   calls OPENSSL_cleanup(). Incorrect cleanup can lead to a segmentation fault (segfault). 
   Also, memory allocated in a thread is freed automatically when the thread exits/terminates, 
   even if the user does not explicitly free the memory.
-* SVM is not supported with BoringSSL library.
+* SVM is not supported with BoringSSL library and KPT.
 * AES-CCM ciphers are not enabled in OpenSSL by default. Need to enable it manually using the openssl.cnf file.
 
   Example:
@@ -86,7 +86,6 @@
 * Known issue in Software fallback with OpenSSL3.0 Engine(only) when disabled via co-existence
   algo bitmap for algorithms PRF, HKDF, SM2 & SM3. QAT_HW PRF and QAT_HW HKDF are
   not accelerated in OpenSSL 3.0 engine due to the issue [OpenSSL#21622][4]
-
 ### Performance
 * There is known performance scaling issue (performance drop with threads >32)
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode
