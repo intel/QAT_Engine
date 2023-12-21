@@ -4,7 +4,7 @@
 %global debug_package %{nil}
 # Dependent Library Versions
 %global major        1
-%global minor        4
+%global minor        5
 %global rev          0
 %global ipsec        intel-ipsec-mb
 %global ipsecver     %{major}.%{minor}
@@ -12,20 +12,20 @@
 %global fullversion  %{major}.%{minor}.%{rev}
 
 %global ippcp_major        11
-%global ippcp_minor        8
+%global ippcp_minor        11
 %global ippcp              ipp-crypto
-%global ippcpver           ippcp_2021.8
+%global ippcpver           ippcp_2021.10.0
 %global ippcpfull          %{ippcp}-%{ippcpver}
 %global ippcpfullversion   %{ippcp_major}.%{ippcp_minor}
 
-%global openssl            openssl-3.0.10
+%global openssl            openssl-3.0.12
 %global qatdriver          QAT20.L.1.0.50-00003
 
 %global openssl_source     %{_builddir}/%{openssl}
 %global openssl_install    %{buildroot}/%{_prefix}/local/ssl
 
 Name:       QAT_Engine
-Version:    1.4.0
+Version:    1.5.0
 Release:    1%{?dist}
 Summary:    Intel QuickAssist Technology(QAT) OpenSSL Engine
 License:    BSD-3-Clause AND OpenSSL
