@@ -21,9 +21,9 @@
   implications.
 * Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
   in release OpenSSL\* 1.1.1d. This was later fixed in OpenSSL\* 1.1.1e release.
-* OpenSSL 1.1.1n introduced misleading error message(undefined symbol: **EVP_PKEY_get_base_id**)
+* OpenSSL 1.1.1n and OpenSSL3.0.2 introduced misleading error message(undefined symbol: **EVP_PKEY_get_base_id**)
   during engine load which can be ignored as it is not a real failure. This is later fixed in
-  OpenSSL\* 1.1.1o release.
+  OpenSSL\* 1.1.1o and OpenSSL* 3.0.3 release.
 * X25519/X448 support is available only from **version 4.9** of the Intel&reg; QAT
   driver for Linux. Use `--disable-qat_hw_ecx` in the Intel&reg; QAT OpenSSL\* Engine
   configure when building against earlier versions of the Linux driver.

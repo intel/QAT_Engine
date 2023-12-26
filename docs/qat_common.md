@@ -11,7 +11,7 @@ and the default if not specified will use engine interface.
 | ECDH | QAT_HW & QAT_SW |
 | ECX | QAT_HW & QAT_SW |
 | AES-GCM | QAT_HW & QAT_SW |
-| SM2 | QAT_SW |
+| SM2 | QAT_HW & QAT_SW |
 | DSA | QAT_HW |
 | DH | QAT_HW |
 | HKDF | QAT_HW |

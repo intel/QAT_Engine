@@ -115,6 +115,8 @@ static ERR_STRING_DATA QAT_str_functs[] = {
     {ERR_PACK(0, QAT_F_QAT_HW_FINISH_INT, 0), "qat_hw_finish_int"},
     {ERR_PACK(0, QAT_F_QAT_HW_INIT, 0), "qat_hw_init"},
     {ERR_PACK(0, QAT_F_QAT_HW_SHA3_OFFLOAD, 0), "qat_hw_sha3_offload"},
+    {ERR_PACK(0, QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, 0),
+     "qat_hw_sm2_compute_z_digest"},
     {ERR_PACK(0, QAT_F_QAT_HW_SM3_CLEANUP, 0), "qat_hw_sm3_cleanup"},
     {ERR_PACK(0, QAT_F_QAT_HW_SM3_COPY, 0), "qat_hw_sm3_copy"},
     {ERR_PACK(0, QAT_F_QAT_HW_SM3_DO_OFFLOAD, 0), "qat_hw_sm3_do_offload"},
