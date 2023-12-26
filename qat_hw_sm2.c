@@ -173,7 +173,7 @@ int qat_hw_sm2_compute_z_digest(uint8_t *out,
     hash = EVP_MD_CTX_new();
     ctx = BN_CTX_new();
     if (hash == NULL || ctx == NULL) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_MALLOC_FAILURE);
         goto done;
     }
 
@@ -186,12 +186,12 @@ int qat_hw_sm2_compute_z_digest(uint8_t *out,
     yA = BN_CTX_get(ctx);
 
     if (yA == NULL) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_MALLOC_FAILURE);
         goto done;
     }
 
     if (!EVP_DigestInit(hash, digest)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         goto done;
     }
 
@@ -199,7 +199,7 @@ int qat_hw_sm2_compute_z_digest(uint8_t *out,
 
     if (id_len >= (UINT16_MAX / 8)) {
         /* too large */
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, QAT_R_SM2_ID_TOO_LARGE);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_SM2_ID_TOO_LARGE);
         goto done;
     }
 
@@ -207,29 +207,29 @@ int qat_hw_sm2_compute_z_digest(uint8_t *out,
 
     e_byte = entl >> 8;
     if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         goto done;
     }
     e_byte = entl & 0xFF;
     if (!EVP_DigestUpdate(hash, &e_byte, 1)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         goto done;
     }
 
     if (id_len > 0 && !EVP_DigestUpdate(hash, id, id_len)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EVP_LIB);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_EVP_LIB);
         goto done;
     }
 
     if (!EC_GROUP_get_curve(group, p, a, b, ctx)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_EC_LIB);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_EC_LIB);
         goto done;
     }
 
     p_bytes = BN_num_bytes(p);
     buf = OPENSSL_zalloc(p_bytes);
     if (buf == NULL) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_MALLOC_FAILURE);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_MALLOC_FAILURE);
         goto done;
     }
 
@@ -252,7 +252,7 @@ int qat_hw_sm2_compute_z_digest(uint8_t *out,
         || BN_bn2binpad(yA, buf, p_bytes) < 0
         || !EVP_DigestUpdate(hash, buf, p_bytes)
         || !EVP_DigestFinal(hash, out, NULL)) {
-        QATerr(QAT_F_QAT_SM2_COMPUTE_Z_DIGEST, ERR_R_INTERNAL_ERROR);
+        QATerr(QAT_F_QAT_HW_SM2_COMPUTE_Z_DIGEST, QAT_R_INTERNAL_ERROR);
         goto done;
     }
 

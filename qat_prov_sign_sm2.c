@@ -198,7 +198,9 @@ static int qat_sm2sig_sign(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
 {
     QAT_PROV_SM2_CTX *ctx = (QAT_PROV_SM2_CTX *)vpsm2ctx;
     int ret;
+# ifdef ENABLE_QAT_HW_SM2
     size_t sltmp;
+# endif
     /* SM2 uses ECDSA_size as well */
     size_t ecsize = ECDSA_size(ctx->ec);
 
@@ -222,7 +224,12 @@ static int qat_sm2sig_sign(void *vpsm2ctx, unsigned char *sig, size_t *siglen,
     if (ret <= 0)
         return 0;
 
+# ifdef ENABLE_QAT_HW_SM2
     *siglen = sltmp;
+# endif
+# ifdef ENABLE_QAT_SW_SM2
+    *siglen = tbslen;
+# endif
     return 1;
 }
 
