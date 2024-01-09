@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-only
- * Copyright (C) 2007-2023 Intel Corporation */
+ * Copyright (C) 2007-2024 Intel Corporation */
 
 #define _XOPEN_SOURCE 600
 

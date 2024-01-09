@@ -1,6 +1,6 @@
 /* pthread_rwlock emulation (version without exponential back-off)
  *
- * Copyright (C) 2022-2023 Willy Tarreau <w@1wt.eu>
+ * Copyright (C) 2022-2024 Willy Tarreau <w@1wt.eu>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
