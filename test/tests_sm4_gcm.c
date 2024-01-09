@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2023 Intel Corporation.
+ *   Copyright(c) 2024 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without

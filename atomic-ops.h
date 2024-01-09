@@ -1,6 +1,6 @@
 /* generic atomic operations used by progressive locks
  *
- * Copyright (C) 2012-2023 Willy Tarreau <w@1wt.eu>
+ * Copyright (C) 2012-2024 Willy Tarreau <w@1wt.eu>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
