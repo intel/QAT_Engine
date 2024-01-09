@@ -73,12 +73,6 @@
 
 /* QAT includes */
 #ifdef QAT_HW
-# ifdef USE_QAT_CONTIG_MEM
-#  include "qae_mem_utils.h"
-# endif
-# ifdef USE_USDM_MEM
-#  include "qat_hw_usdm_inf.h"
-# endif
 # include "cpa.h"
 # include "cpa_types.h"
 

@@ -64,12 +64,6 @@
 #include "qat_hw_callback.h"
 #include "qat_hw_polling.h"
 #include "qat_events.h"
-#ifdef USE_QAT_CONTIG_MEM
-# include "qae_mem_utils.h"
-#endif
-#ifdef USE_USDM_MEM
-# include "qat_hw_usdm_inf.h"
-#endif
 #ifdef ENABLE_QAT_FIPS
 # include "qat_prov_cmvp.h"
 #endif

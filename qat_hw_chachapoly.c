@@ -63,13 +63,6 @@
 #include "qat_evp.h"
 #include "qat_hw_chachapoly.h"
 
-#ifdef USE_QAT_CONTIG_MEM
-# include "qae_mem_utils.h"
-#endif
-#ifdef USE_USDM_MEM
-# include "qat_hw_usdm_inf.h"
-#endif
-
 #ifdef QAT_HW_INTREE
 # define ENABLE_QAT_HW_CHACHAPOLY
 #endif
