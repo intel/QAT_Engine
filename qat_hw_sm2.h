@@ -64,9 +64,6 @@
 # include "qat_hw_callback.h"
 # include "qat_hw_polling.h"
 # include "qat_hw_asym_common.h"
-# ifdef USE_USDM_MEM
-#  include "qat_hw_usdm_inf.h"
-# endif
 # if defined(QAT_OPENSSL_3)|| defined(QAT_OPENSSL_PROVIDER)
 #  include "qat_prov_sign_sm2.h"
 # endif
@@ -78,10 +75,6 @@
 #  include "cpa_cy_ecsm2.h"
 # endif
 # include "cpa_dev.h"
-# ifdef USE_QAT_CONTIG_MEM
-#  include "qae_mem_utils.h"
-# endif
-# include "qae_mem.h"
 
 /* The default user id as specified in GM/T 0009-2012 */
 # define SM2_DEFAULT_USERID "1234567812345678"

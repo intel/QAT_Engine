@@ -78,12 +78,6 @@
 #include "qat_hw_polling.h"
 #include "qat_events.h"
 #include "qat_hw_asym_common.h"
-#ifdef USE_QAT_CONTIG_MEM
-# include "qae_mem_utils.h"
-#endif
-#ifdef USE_USDM_MEM
-# include "qat_hw_usdm_inf.h"
-#endif
 #include "qat_utils.h"
 #include "qat_hw_ec.h"
 #include "qat_evp.h"

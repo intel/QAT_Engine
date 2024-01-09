@@ -50,12 +50,6 @@
 #include <pthread.h>
 #include <signal.h>
 #include "qat_hw_dh.h"
-#ifdef USE_QAT_CONTIG_MEM
-# include "qae_mem_utils.h"
-#endif
-#ifdef USE_USDM_MEM
-# include "qat_hw_usdm_inf.h"
-#endif
 #include <openssl/err.h>
 #include <openssl/bn.h>
 #include "qat_hw_asym_common.h"
