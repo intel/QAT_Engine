@@ -338,7 +338,7 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
     if (pOpData == NULL) {
         WARN("memory allocation failed for symopData struct.\n");
         QATerr(QAT_F_QAT_SHA3_SESSION_DATA_INIT, ERR_R_MALLOC_FAILURE);
-        OPENSSL_free(sha3_ctx->session_data);
+        OPENSSL_free(session_data);
         return 0;
     }
 
