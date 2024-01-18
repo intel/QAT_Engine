@@ -292,7 +292,7 @@ static void *qat_##name##_newctx(void *provctx)                                 
         ctx->pad = pad_val;                                                        \
     }                                                                              \
     set_ctx_md_type(ctx, bitlen);                                                  \
-    ctx->qctx = OPENSSL_malloc(sizeof(qat_sha3_ctx));                              \
+    ctx->qctx = OPENSSL_zalloc(sizeof(qat_sha3_ctx));                              \
     if (ctx->qctx == NULL)                                                         \
         WARN("malloc failed.\n");                                                  \
     ctx->meth = sha3_generic_md;                                                   \
@@ -325,7 +325,7 @@ static void *qat_##name##_newctx(void *provctx)                                 
         ctx->pad = pad_val;                                                        \
     }                                                                              \
     set_ctx_md_type(ctx, bitlen);                                                  \
-    ctx->qctx = OPENSSL_malloc(sizeof(qat_sha3_ctx));                              \
+    ctx->qctx = OPENSSL_zalloc(sizeof(qat_sha3_ctx));                              \
     if (ctx->qctx == NULL)                                                         \
         WARN("malloc failed.\n");                                                  \
     ctx->meth = sha3_generic_md;                                                   \
