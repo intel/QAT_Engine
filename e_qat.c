@@ -753,14 +753,15 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             BREAK_IF(!enable_external_polling, "POLL failed as external polling is not enabled\n");
             BREAK_IF(p == NULL, "POLL failed as the input parameter was NULL\n");
 #ifdef QAT_HW
-            if (qat_hw_offload) {
+            if (qat_hw_offload && !fallback_to_qat_sw) {
                 BREAK_IF(qat_instance_handles == NULL, "POLL failed as no instances are available\n");
                 *(int *)p = (int)poll_instances();
             }
 #endif
 
 #ifdef QAT_SW
-            *(int *)p = qat_sw_poll();
+            if (qat_sw_offload)
+                *(int *)p = qat_sw_poll();
 #endif
         break;
 
@@ -978,14 +979,17 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         case QAT_CMD_HEARTBEAT_POLL:
 # if !defined(__FreeBSD__) && !defined(QAT_HW_INTREE)
         BREAK_IF(!engine_inited, "HEARTBEAT_POLL failed as engine is not initialized\n");
-        BREAK_IF(qat_instance_handles == NULL,
-                "HEARTBEAT_POLL failed as no instances are available\n");
         BREAK_IF(!enable_external_polling,
                 "HEARTBEAT_POLL failed as external polling is not enabled\n");
         BREAK_IF(p == NULL, "HEARTBEAT_POLL failed as the input parameter was NULL\n");
 
-        *(int *)p = (int)poll_heartbeat();
-        CRYPTO_QAT_LOG("QAT Engine Heartbeat Poll - %s\n", __func__);
+        if (qat_instance_handles != NULL) {
+            *(int *)p = (int)poll_heartbeat();
+            CRYPTO_QAT_LOG("QAT Engine Heartbeat Poll - %s\n", __func__);
+        } else if (!fallback_to_qat_sw) {
+            WARN("HEARTBEAT_POLL failed as no instances are available\n");
+            retVal = 0;
+        }
 # else
         WARN("QAT_CMD_HEARTBEAT_POLL is not supported\n");
         retVal = 0;
