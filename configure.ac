@@ -325,7 +325,7 @@ if test "x$with_icp_sal_versions_h" = "xyes" -a "x$enable_qat_hw" != "xno"
 then
   if grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h
   then
-    AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_INTREE -DQAT_HW_DISABLE_NONZERO_MEMFREE"])
+    AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_INTREE"])
     AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
     AC_MSG_NOTICE([QAT intree driver using QATlib in ${with_qat_hw_dir}])
   fi
