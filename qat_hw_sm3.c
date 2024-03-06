@@ -803,10 +803,12 @@ int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
             (*qat_sm3_ctx->data_refs)--;
             DEBUG("HW SM3 data reference decrease to %d\n",
                   *qat_sm3_ctx->data_refs);
-        } else {
+        }
+
+	if (*qat_sm3_ctx->data_refs == 0) {
             OPENSSL_free(qat_sm3_ctx->data);
             OPENSSL_free(qat_sm3_ctx->data_refs);
-        }
+	}
     }
 
     if (qat_sm3_ctx->context_params_set) {
