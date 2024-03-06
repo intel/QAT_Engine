@@ -704,7 +704,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
             goto err;
         } else {
             QATerr(QAT_F_QAT_SM2_SIGN, ERR_R_INTERNAL_ERROR);
-	    return 0;
+	    goto err;
         }
     }
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
@@ -969,6 +969,9 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         BN_CTX_end(bctx);
         BN_CTX_free(bctx);
     }
+
+    BN_free(sig_r);
+    BN_free(sig_s);
 
     if (fallback) {
         WARN("- Fallback to software mode.\n");
