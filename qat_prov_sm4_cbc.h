@@ -60,6 +60,7 @@
 # include <openssl/rand.h>
 # include <openssl/sha.h>
 # include <openssl/ossl_typ.h>
+
 # ifdef ENABLE_QAT_SW_SM4_CBC
 #  include "crypto_mb/sm4.h"
 # endif
@@ -78,7 +79,7 @@
 #define PROV_CIPHER_FLAG_VARIABLE_LENGTH  0x0100
 #define PROV_CIPHER_FLAG_INVERSE_CIPHER   0x0200
 
-typedef _Atomic int CRYPTO_REF_COUNT;
+typedef _Atomic int CRYPTO_REFERENCE_COUNT;
 
 typedef struct qat_evp_cipher_st {
     int nid;
@@ -117,7 +118,7 @@ typedef struct qat_evp_cipher_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_REFERENCE_COUNT refcnt;
     CRYPTO_RWLOCK *lock;
     OSSL_FUNC_cipher_newctx_fn *newctx;
     OSSL_FUNC_cipher_encrypt_init_fn *einit;

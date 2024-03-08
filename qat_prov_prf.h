@@ -63,7 +63,6 @@
 
 # define TLS1_PRF_MAXBUF 1024
 
-typedef _Atomic int CRYPTO_REF_COUNT;
 typedef void CRYPTO_RWLOCK;
 
 struct evp_kdf_st {

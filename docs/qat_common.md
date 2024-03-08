@@ -29,6 +29,7 @@ and the default if not specified will use engine interface.
 | SM4-CCM (BabaSSL only) | QAT_SW |
 | SM4-CBC | QAT_HW & QAT_SW |
 | SM3 | QAT_HW & QAT_SW |
+| AES-CCM | QAT_HW |
 
 This support is added as an experimental feature and tested with
 OpenSSL Speed and testapp only and not tested with any application.

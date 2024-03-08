@@ -115,7 +115,7 @@ typedef enum {
     ECX_KEY_TYPE_X448,
 }ECX_KEY_TYPE;
 
-typedef int CRYPTO_REF_COUNT;
+typedef int CRYPTO_REFERENCE_COUNT;
 typedef void CRYPTO_RWLOCK;
 
 typedef struct qat_ecx_key_st {
@@ -126,7 +126,7 @@ typedef struct qat_ecx_key_st {
     unsigned char *privkey;
     size_t keylen;
     ECX_KEY_TYPE type;
-    CRYPTO_REF_COUNT references;
+    CRYPTO_REFERENCE_COUNT references;
     CRYPTO_RWLOCK *lock;
 }ECX_KEY;
 

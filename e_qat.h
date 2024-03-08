@@ -927,6 +927,7 @@ int qat_sw_cpu_support(void);
 # endif
 
 # ifdef QAT_OPENSSL_PROVIDER
+typedef _Atomic int CRYPTO_REF_COUNT;
 static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
 {
     *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;

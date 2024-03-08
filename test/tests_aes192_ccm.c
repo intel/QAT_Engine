@@ -87,7 +87,9 @@ static const unsigned char iv[] = {
 static int run_aesccm192_tls(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *) args;
+#ifndef QAT_OPENSSL_PROVIDER
     ENGINE *e = temp_args->e;
+#endif
     int size = INPUT_TEXT_SIZE;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
@@ -128,6 +130,7 @@ static int run_aesccm192_tls(void *args)
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
 
+#ifndef QAT_OPENSSL_PROVIDER
     if (e != NULL) {
         const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_192_ccm);
 
@@ -136,6 +139,7 @@ static int run_aesccm192_tls(void *args)
             e = NULL;
         }
     }
+#endif
 
     if (input == NULL) {
         INFO("# FAIL: [%s] --- Initial parameters malloc failed ! \n",
@@ -166,7 +170,11 @@ static int run_aesccm192_tls(void *args)
      * IV used in the initialization of the cipher: in TLS case it is set
      * using ctrl() instead of EncryptInit_ex().
      */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit_ex(ctx, EVP_aes_192_ccm(), NULL, NULL, NULL);
+#else
     ret = EVP_EncryptInit_ex(ctx, EVP_aes_192_ccm(), e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -191,7 +199,11 @@ static int run_aesccm192_tls(void *args)
     }
 
     /* set 24-byte of key to the aes-ccm context. */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit_ex(ctx, NULL, NULL, key, NULL);
+#else
     ret = EVP_EncryptInit_ex(ctx, EVP_aes_192_ccm(), e, key, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed for setting key: ret %d\n", __func__, ret);
         goto err;
@@ -256,7 +268,11 @@ static int run_aesccm192_tls(void *args)
     }
 
     /* Initialise the context for decryption with 24-byte key and 12-byte IV. */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit_ex(dec_ctx, EVP_aes_192_ccm(), NULL, NULL, NULL);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, EVP_aes_192_ccm(), e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -281,7 +297,11 @@ static int run_aesccm192_tls(void *args)
     }
 
     /* set 24-byte of key to the aes-ccm context. */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit_ex(dec_ctx, NULL, NULL, key, NULL);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, EVP_aes_192_ccm(), e, key, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed for setting key: ret %d\n", __func__, ret);
         goto err;
@@ -369,7 +389,9 @@ static int run_aesccm192_tls(void *args)
 static int run_aesccm192_update(void *args)
 {
     TEST_PARAMS *temp_args = (TEST_PARAMS *) args;
+#ifndef QAT_OPENSSL_PROVIDER
     ENGINE *e = temp_args->e;
+#endif
     int size = INPUT_TEXT_SIZE;
     int print_output = temp_args->print_output;
     int verify = temp_args->verify;
@@ -387,6 +409,7 @@ static int run_aesccm192_update(void *args)
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
 
+#ifndef QAT_OPENSSL_PROVIDER
     if (e != NULL) {
         const EVP_CIPHER *c = ENGINE_get_cipher(e, NID_aes_192_ccm);
 
@@ -395,6 +418,7 @@ static int run_aesccm192_update(void *args)
             e = NULL;
         }
     }
+#endif
 
     /*
      * Set the plaintext input data.
@@ -421,7 +445,11 @@ static int run_aesccm192_update(void *args)
     }
 
     /* Initialize encryption context for aes-ccm */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit(ctx, EVP_aes_192_ccm(), NULL, NULL);
+#else
     ret = EVP_EncryptInit_ex(ctx, EVP_aes_192_ccm(), e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() encryption failed while setting context: ret %d\n", __func__, ret);
         goto err;
@@ -442,15 +470,21 @@ static int run_aesccm192_update(void *args)
         goto err;
     }
 
+#ifndef QAT_OPENSSL_PROVIDER
     /* set 24-byte of key to the aes-ccm context. */
     ret = EVP_EncryptInit_ex(ctx, NULL, NULL, key, NULL);
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed while setting key: ret %d\n", __func__, ret);
         goto err;
     }
+#endif
 
     /* set 12-byte of iv to the aes-ccm context. */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_EncryptInit(ctx, NULL, key, iv);
+#else
     ret = EVP_EncryptInit_ex(ctx, NULL, NULL, NULL, iv);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed while setting iv: ret %d\n", __func__, ret);
         goto err;
@@ -511,7 +545,11 @@ static int run_aesccm192_update(void *args)
     }
 
     /* Initialize decryption context for aes-ccm */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit(dec_ctx, EVP_aes_192_ccm(), NULL, NULL);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, EVP_aes_192_ccm(), e, NULL, NULL);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);
@@ -542,7 +580,11 @@ static int run_aesccm192_update(void *args)
      *  Initialise the aes-ccm decryption context with 24-byte key and
      *  12-byte IV.
      */
+#ifdef QAT_OPENSSL_PROVIDER
+    ret = EVP_DecryptInit(dec_ctx, NULL, key, iv);
+#else
     ret = EVP_DecryptInit_ex(dec_ctx, NULL, NULL, key, iv);
+#endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
              __func__, ret);

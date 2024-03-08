@@ -146,10 +146,22 @@ typedef struct qat_aes_ccm_ctx_t {
     int tag_set;
     int L, M;
     int packet_size;
+    int nid;
     void *sw_ctx_cipher_data;
     int qat_svm;
+    EVP_CIPHER_CTX *sw_ctx;
+    EVP_CIPHER *sw_cipher;
 } qat_ccm_ctx;
 
+# ifdef QAT_OPENSSL_PROVIDER
+int qat_aes_ccm_init(void *ctx, const unsigned char *inkey,
+                     int keylen, const unsigned char *iv, int ivlen, int enc);
+int qat_aes_ccm_cipher(void *ctx, unsigned char *out,
+                       size_t *padlen, size_t outsize,
+                       const unsigned char *in, size_t len);
+int qat_aes_ccm_cleanup(void *ctx);
+int qat_aes_ccm_ctrl(void *ctx, int type, int arg, void *ptr);
+# else
 int qat_aes_ccm_init(EVP_CIPHER_CTX *ctx,
                      const unsigned char *inkey,
                      const unsigned char *iv, int enc);
@@ -157,5 +169,6 @@ int qat_aes_ccm_cipher(EVP_CIPHER_CTX *ctx,
                        unsigned char *out, const unsigned char *in, size_t len);
 int qat_aes_ccm_cleanup(EVP_CIPHER_CTX *ctx);
 int qat_aes_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr);
+# endif
 
 #endif                          /* QAT_HW_CCM_H */

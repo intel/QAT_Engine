@@ -68,14 +68,12 @@ static OSSL_FUNC_signature_freectx_fn qat_dsa_freectx;
 static OSSL_FUNC_signature_set_ctx_params_fn qat_dsa_set_ctx_params;
 static OSSL_FUNC_signature_settable_ctx_params_fn qat_dsa_settable_ctx_params;
 
-typedef int CRYPTO_REF_COUNT;
-
 struct evp_signature_st {
     int name_id;
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_REFERENCE_COUNT refcnt;
     CRYPTO_RWLOCK *lock;
 
     OSSL_FUNC_signature_newctx_fn *newctx;
