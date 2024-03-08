@@ -938,15 +938,19 @@ const EVP_CIPHER *qat_create_ccm_cipher_meth(int nid, int keylen)
 #endif
         res &= EVP_CIPHER_meth_set_iv_length(c, AES_CCM_IV_LEN);
         res &= EVP_CIPHER_meth_set_flags(c, QAT_CCM_FLAGS);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_init(c, qat_aes_ccm_init);
         res &= EVP_CIPHER_meth_set_do_cipher(c, qat_aes_ccm_cipher);
         res &= EVP_CIPHER_meth_set_cleanup(c, qat_aes_ccm_cleanup);
+#endif
         res &= EVP_CIPHER_meth_set_impl_ctx_size(c, sizeof(qat_ccm_ctx));
         res &= EVP_CIPHER_meth_set_set_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
                                                    NULL : EVP_CIPHER_set_asn1_iv);
         res &= EVP_CIPHER_meth_set_get_asn1_params(c, EVP_CIPH_FLAG_DEFAULT_ASN1 ?
                                                    NULL : EVP_CIPHER_get_asn1_iv);
+#ifndef QAT_OPENSSL_PROVIDER
         res &= EVP_CIPHER_meth_set_ctrl(c, qat_aes_ccm_ctrl);
+#endif
         if (0 == res) {
             WARN("Failed to set cipher methods for nid %d\n", nid);
             EVP_CIPHER_meth_free(c);

@@ -54,7 +54,9 @@ if QAT_PROVIDER
                 qat_prov_sm4_gcm.c        \
                 qat_prov_sm4_ccm.c        \
                 qat_prov_sm4_cbc.c        \
-                qat_prov_sm3.c
+                qat_prov_sm3.c            \
+                qat_prov_aes_ccm.c
+
 
 if QAT_FIPS
  QAT_FIPS_SRC = qat_fips.c                \

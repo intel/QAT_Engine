@@ -100,6 +100,11 @@ extern const OSSL_DISPATCH qat_aes192gcm_functions[];
 # endif
 extern const OSSL_DISPATCH qat_aes256gcm_functions[];
 #endif
+#ifdef ENABLE_QAT_HW_CCM
+extern const OSSL_DISPATCH qat_aes128ccm_functions[];
+extern const OSSL_DISPATCH qat_aes192ccm_functions[];
+extern const OSSL_DISPATCH qat_aes256ccm_functions[];
+#endif
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
 extern const OSSL_DISPATCH qat_dsa_keymgmt_functions[];
 #endif
@@ -223,6 +228,11 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 #endif
 #ifdef ENABLE_QAT_SW_GCM
     ALG(QAT_NAMES_AES_192_GCM, qat_aes192gcm_functions),
+#endif
+#ifdef ENABLE_QAT_HW_CCM
+    ALG(QAT_NAMES_AES_128_CCM, qat_aes128ccm_functions),
+    ALG(QAT_NAMES_AES_192_CCM, qat_aes192ccm_functions),
+    ALG(QAT_NAMES_AES_256_CCM, qat_aes256ccm_functions),
 #endif
 #if defined(ENABLE_QAT_HW_CIPHERS) && !defined(ENABLE_QAT_FIPS)
 # ifdef QAT_INSECURE_ALGO

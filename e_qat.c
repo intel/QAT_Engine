@@ -1372,6 +1372,10 @@ int bind_qat(ENGINE *e, const char *id)
         qat_sw_sm3_offload = 1;
         INFO("QAT_SW SM3 for Provider Enabled\n");
 # endif
+# ifdef ENABLE_QAT_HW_CCM
+        qat_hw_aes_ccm_offload = 1;
+        INFO("QAT_HW AES-CCM for Provider Enabled\n");
+# endif
 #endif
 
 #ifndef QAT_BORINGSSL

@@ -66,7 +66,6 @@
 # include "qat_prov_hkdf_packet.h"
 # define HKDF_MAXBUF 1024
 
-typedef _Atomic int CRYPTO_REF_COUNT;
 typedef void CRYPTO_RWLOCK;
 
 struct kdf_data_st {

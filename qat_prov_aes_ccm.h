@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2023-2024 Intel Corporation.
+ *   Copyright(c) 2024 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -36,16 +36,16 @@
  * ====================================================================
  */
 /*****************************************************************************
- * @file qat_prov_sm4_ccm.h
+ * @file qat_prov_aes_ccm.h
  *
- * This file provides an interface to QAT provider SM4-CCM operations
+ * This file provides an interface to QAT provider AES-CCM operations
  *
  *****************************************************************************/
 
-#ifndef QAT_PROV_SM4_CCM_H
-# define QAT_PROV_SM4_CCM_H
+#ifndef QAT_PROV_AES_CCM_H
+# define QAT_PROV_AES_CCM_H
 
-# ifdef ENABLE_QAT_SW_SM4_CCM
+# ifdef ENABLE_QAT_HW_CCM
 #  include <string.h>
 #  include <openssl/core.h>
 #  include <openssl/provider.h>
@@ -56,32 +56,19 @@
 #  include <openssl/err.h>
 #  include <openssl/proverr.h>
 #  include <openssl/core_names.h>
-#  include <openssl/evp.h>
-#  include <openssl/rand.h>
-#  include <openssl/sha.h>
-#  include <openssl/prov_ssl.h>
-#  include <openssl/ossl_typ.h>
 
 #  include "qat_utils.h"
 #  include "e_qat.h"
-/* Crypto_mb includes */
-#  include "crypto_mb/sm4_ccm.h"
-#  include "qat_sw_sm4_ccm.h"
+#  include "qat_hw_ccm.h"
 
-#  define IV_STATE_UNINITIALISED 0
-                                 /* initial state is not initialized */
-#  define GENERIC_BLOCK_SIZE 16
+#  define IV_STATE_UNINITIALISED 0  /* initial state is not initialized */
+#  define QAT_AES_BLOCK_SIZE   16
 
 #  define PROV_CIPHER_FLAG_AEAD             0x0001
 #  define PROV_CIPHER_FLAG_CUSTOM_IV        0x0002
 #  define PROV_CIPHER_FLAG_CTS              0x0004
 #  define PROV_CIPHER_FLAG_TLS1_MULTIBLOCK  0x0008
 #  define PROV_CIPHER_FLAG_RAND_KEY         0x0010
-
-#  define OSSL_UNION_ALIGN       \
-    double align;               \
-    ossl_uintmax_t align_int;   \
-    void *align_ptr
 
 typedef struct qat_evp_cipher_st {
     int nid;
@@ -138,100 +125,134 @@ typedef struct qat_evp_cipher_st {
     OSSL_FUNC_cipher_settable_ctx_params_fn *settable_ctx_params;
 } QAT_EVP_CIPHER;
 
-/* Base structure that is shared by AES & ARIA for CCM MODE */
-typedef struct prov_ccm_st {
-    SM4_CCM_CTX_mb16 mb_ccmctx;
-    int init_flag;
+#  pragma pack(push, 16)
+typedef struct qat_ccm_ctx_st {
+    int inst_num;
+    CpaCySymSessionSetupData *session_data;
+    CpaCySymSessionCtx qat_ctx;
+    int init_params_set;
 
-    unsigned char *key;
-    int key_len;
-    int key_set;                /* Set if key initialized */
+    /* This flag is set to 1 when the session has been initialized */
+    int is_session_init;
 
-    unsigned char *tls_aad;
-    int aad_len;
-    size_t tls_aad_len;         /* TLS AAD length */
-    unsigned int tls_aad_set;
+    /* QAT Op Params */
+    CpaCySymOpData OpData;
 
-    unsigned char *tag;
-    unsigned char *calculated_tag;
+    CpaBufferList srcBufferList;
+    CpaBufferList dstBufferList;
+    CpaFlatBuffer srcFlatBuffer;
+    CpaFlatBuffer dstFlatBuffer;
+    /* -- Crypto -- */
+
+    /* Pointer to AAD.
+     * In the TLS case this will contain the TLS header */
+    Cpa8U *aad;
+
+    /* Size of the meta data for the driver
+     * It cannot allocate memory so this must be done by the user application */
+    unsigned int meta_size;
+
+    /* Pointer to pCipherKey */
+    Cpa8U *cipher_key;
+
+    /* Flag to keep track of key passed */
+    int key_set;
+
+    int qat_svm;
+    int tls_aad_len;
     int tag_len;
-    unsigned int tag_set;
-    unsigned int tag_calculated;
-
-    unsigned char *iv;
-    unsigned char *next_iv;
     int iv_len;
     unsigned int iv_set;
     int iv_gen;
-
-    int msg_len;                /* Message Length */
-    int len_set;                /* Set if message length set */
-    int L, M;                   /* L and M parameters from RFC3610 */
-
-    EVP_CIPHER_CTX *sw_ctx;
-    unsigned int mode;
+    Cpa8U next_iv[EVP_MAX_IV_LENGTH];
+    unsigned char *iv;
+    unsigned int mode;          /* The mode that we are using */
+    size_t keylen;
     size_t ivlen_min;
     size_t tls_aad_pad_sz;
     uint64_t tls_enc_records;   /* Number of TLS records encrypted */
+
     /*
      * num contains the number of bytes of |iv| which are valid for modes that
      * manage partial blocks themselves.
      */
     size_t num;
     size_t bufsz;               /* Number of bytes in buf */
-    unsigned int enc:1;
+
+    unsigned int enc:1;         /* Set to 1 if we are encrypting or 0 otherwise */
     unsigned int pad:1;         /* Whether padding should be used or not */
     unsigned int iv_gen_rand:1; /* No IV was specified, so generate a rand IV */
-    unsigned char buf[GENERIC_BLOCK_SIZE]; /* Buffer of partial blocks processed via update calls */
+    unsigned char buf[QAT_AES_BLOCK_SIZE]; /* Buffer of partial blocks processed via update calls */
     OSSL_LIB_CTX *libctx;       /* needed for rand calls */
-    ctr128_f str;
-    CCM128_CONTEXT ccm_ctx;
+    ctr128_f ctr;
+    size_t L, M;
+    int tag_set, len_set;
+    int packet_size;
+    int nid;
+    void *sw_ctx_cipher_data;
+    EVP_CIPHER_CTX *sw_ctx;
+    QAT_EVP_CIPHER *sw_cipher;
 } QAT_PROV_CCM_CTX;
+#  pragma pack(pop)
 
-typedef struct prov_sm4_ccm_ctx_st {
+struct evp_cipher_ctx_st {
+    const EVP_CIPHER *cipher;
+    ENGINE *engine;             /* functional reference if 'cipher' is
+                                 * ENGINE-provided */
+    int encrypt;                /* encrypt or decrypt */
+    int buf_len;                /* number we have left */
+    unsigned char oiv[EVP_MAX_IV_LENGTH]; /* original iv */
+    unsigned char iv[EVP_MAX_IV_LENGTH]; /* working iv */
+    unsigned char buf[EVP_MAX_BLOCK_LENGTH]; /* saved partial block */
+    int num;                    /* used by cfb/ofb/ctr mode */
+    void *app_data;             /* application stuff */
+    int key_len;                /* May change for variable length cipher */
+    unsigned long flags;        /* Various flags */
+    void *cipher_data;          /* per EVP data */
+    int final_used;
+    int block_mask;
+    unsigned char final[EVP_MAX_BLOCK_LENGTH]; /* possible final block */
+
+    /*
+     * Opaque ctx returned from a providers cipher algorithm implementation
+     * OSSL_FUNC_cipher_newctx()
+     */
+    void *algctx;
+    EVP_CIPHER *fetched_cipher;
+} /* EVP_CIPHER_CTX */ ;
+
+typedef struct prov_aes_ccm_ctx_st {
     QAT_PROV_CCM_CTX base;      /* must be first entry in struct */
     QAT_EVP_CIPHER *cipher;
-} QAT_PROV_SM4_CCM_CTX;
+} QAT_PROV_AES_CCM_CTX;
 
-typedef struct prov_sm4_ccm_st {
-    unsigned int enc:1;
-    unsigned int key_set:1;     /* Set if key initialised */
-    unsigned int iv_set:1;      /* Set if an iv is set */
-    unsigned int tag_set:1;     /* Set if tag is valid */
-    unsigned int len_set:1;     /* Set if message length set */
-    size_t l, m;                /* L and M parameters from RFC3610 */
-    size_t keylen;
-    size_t tls_aad_len;         /* TLS AAD length */
-    size_t tls_aad_pad_sz;
-    unsigned char iv[GENERIC_BLOCK_SIZE];
-    unsigned char buf[GENERIC_BLOCK_SIZE];
-    CCM128_CONTEXT ccm_ctx;
-    ccm128_f str;
-} PROV_CCM_CTX;
-
-size_t qat_sm4_ccm_get_ivlen(QAT_PROV_CCM_CTX * ctx);
-void qat_sm4_ccm_init_ctx(void *provctx, QAT_PROV_CCM_CTX * ctx, size_t keybits,
+size_t qat_aes_ccm_get_ivlen(QAT_PROV_CCM_CTX * ctx);
+void qat_aes_ccm_init_ctx(void *provctx, QAT_PROV_CCM_CTX * ctx, size_t keybits,
                           size_t ivlen_min);
-int qat_sm4_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[]);
-int qat_sm4_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[]);
-int qat_sm4_ccm_einit(void *ctx, const unsigned char *inkey,
-                      int keylen, const unsigned char *iv, int ivlen, int enc);
-int qat_sm4_ccm_dinit(void *ctx, const unsigned char *inkey,
-                      int keylen, const unsigned char *iv, int ivlen, int enc);
-int qat_sm4_ccm_stream_update(void *ctx, unsigned char *out,
+int qat_aes_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[]);
+int qat_aes_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[]);
+int qat_aes_ccm_einit(void *ctx, const unsigned char *inkey, size_t keylen,
+                      const unsigned char *iv, size_t ivlen, int enc);
+int qat_aes_ccm_dinit(void *ctx, const unsigned char *inkey, size_t keylen,
+                      const unsigned char *iv, size_t ivlen, int enc);
+int qat_aes_ccm_stream_update(void *ctx, unsigned char *out,
                               size_t *outl, size_t outsize,
                               const unsigned char *in, size_t inl);
-int qat_sm4_ccm_stream_final(void *ctx, unsigned char *out,
+int qat_aes_ccm_stream_final(void *ctx, unsigned char *out,
                              size_t *outl, size_t outsize);
-int qat_sm4_ccm_cipher(void *ctx, unsigned char *out,
-                       size_t *outl, size_t outsize,
-                       const unsigned char *in, size_t inl);
+int qat_aes_ccm_do_cipher(void *ctx, unsigned char *out,
+                          size_t *outl, size_t outsize,
+                          const unsigned char *in, size_t inl);
+const char *qat_ccm_cipher_name(int nid);
+#if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE)) || !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
+QAT_EVP_CIPHER get_default_cipher_aes_ccm(int nid);
+#endif
 
-#  define QAT_sm4_cipher(alg, lc, UCMODE, flags, kbits, blkbits, ivbits,nid)    \
-static OSSL_FUNC_cipher_get_params_fn alg##_##lc##_get_params;                  \
-static int alg##_##lc##_get_params(OSSL_PARAM params[])                         \
+#  define QAT_aes_cipher(alg, lc, UCMODE, flags, kbits, blkbits, ivbits,nid)    \
+static OSSL_FUNC_cipher_get_params_fn alg##_##kbits##_##lc##_get_params;        \
+static int alg##_##kbits##_##lc##_get_params(OSSL_PARAM params[])               \
 {                                                                               \
-    return qat_sm4_ccm_generic_get_params(params, EVP_CIPH_##UCMODE##_MODE,     \
+    return qat_aes_ccm_generic_get_params(params, EVP_CIPH_##UCMODE##_MODE,     \
                                           flags, kbits, blkbits, ivbits);       \
 }                                                                               \
 static OSSL_FUNC_cipher_newctx_fn alg##_##kbits##_##lc##_newctx;                \
@@ -239,7 +260,7 @@ static void *alg##_##kbits##_##lc##_newctx(void *provctx)                       
 {                                                                               \
     return alg##_##lc##_newctx(provctx, kbits, nid);                            \
 }                                                                               \
-const OSSL_DISPATCH alg##_##lc##_functions[] = {                                \
+const OSSL_DISPATCH alg##kbits##lc##_functions[] = {                            \
     { OSSL_FUNC_CIPHER_NEWCTX, (void (*)(void))alg##_##kbits##_##lc##_newctx }, \
     { OSSL_FUNC_CIPHER_FREECTX, (void (*)(void))alg##_##lc##_freectx },         \
     { OSSL_FUNC_CIPHER_ENCRYPT_INIT, (void (*)(void))alg##_##lc##_einit },      \
@@ -248,7 +269,7 @@ const OSSL_DISPATCH alg##_##lc##_functions[] = {                                
     { OSSL_FUNC_CIPHER_FINAL, (void (*)(void))alg##_##lc##_stream_final },      \
     { OSSL_FUNC_CIPHER_CIPHER, (void (*)(void))alg##_##lc##_cipher },           \
     { OSSL_FUNC_CIPHER_GET_PARAMS,                                              \
-      (void (*)(void)) alg##_##lc##_get_params },                               \
+      (void (*)(void)) alg##_##kbits##_##lc##_get_params },                     \
     { OSSL_FUNC_CIPHER_GET_CTX_PARAMS,                                          \
       (void (*)(void)) alg##_##lc##_get_ctx_params },                           \
     { OSSL_FUNC_CIPHER_SET_CTX_PARAMS,                                          \
@@ -261,5 +282,5 @@ const OSSL_DISPATCH alg##_##lc##_functions[] = {                                
       (void (*)(void))alg##_##lc##_aead_settable_ctx_params },                  \
     { 0, NULL }                                                                 \
 }
-# endif                         /* ENABLE_QAT_SW_SM4_CCM */
-#endif                          /* QAT_PROV_SM4_CCM_H */
+# endif                         /* ENABLE_QAT_HW_CCM */
+#endif                          /* QAT_PROV_AES_CCM_H */

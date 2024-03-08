@@ -62,6 +62,8 @@
 # include <openssl/ossl_typ.h>
 # include "crypto_mb/sm4_gcm.h"
 
+# include "e_qat.h"
+
 # define IV_STATE_UNINITIALISED 0  /* initial state is not initialized */
 # define SM4_GCM_TAG_MAX_SIZE       16
 
@@ -73,8 +75,6 @@
 
 # define SM4_GCM_IV_MAX_SIZE     (1024 / 8)
 # define QAT_SM4_GCM_BLOCK_SIZE   16
-
-typedef _Atomic int CRYPTO_REF_COUNT;
 
 typedef struct qat_evp_cipher_st {
     int nid;
