@@ -68,10 +68,8 @@ void qat_prov_ctx_set_core_bio_method(QAT_PROV_CTX *ctx, QAT_BIO_METHOD *corebio
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 extern const OSSL_DISPATCH qat_rsa_keymgmt_functions[];
 #endif
-#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
-extern const OSSL_DISPATCH qat_ecdsa_keymgmt_functions[];
-#endif
-#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_HW_ECDH) \
+ || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH)
 extern const OSSL_DISPATCH qat_ecdh_keymgmt_functions[];
 #endif
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
@@ -281,9 +279,6 @@ static const OSSL_ALGORITHM qat_keymgmt[] = {
 #if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keymgmt_functions, "QAT X25519 Keymgmt implementation."},
 #endif
-#if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
-    {"EC", QAT_DEFAULT_PROPERTIES, qat_ecdsa_keymgmt_functions, "QAT EC Keymgmt implementation."},
-#endif
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
     {"EC", QAT_DEFAULT_PROPERTIES, qat_ecdh_keymgmt_functions, "QAT EC Keymgmt implementation."},
 #endif
@@ -306,7 +301,7 @@ static const OSSL_ALGORITHM qat_signature[] = {
     {"RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_signature_functions, "QAT RSA Signature implementation."},
 #endif
 #if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
-    {"ECDSA",QAT_DEFAULT_PROPERTIES, qat_ecdsa_signature_functions, "QAT ECDSA Signature implementation."},
+    {"ECDSA", QAT_DEFAULT_PROPERTIES, qat_ecdsa_signature_functions, "QAT ECDSA Signature implementation."},
 #endif
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_signature_functions, "QAT DSA Signature implementation."},

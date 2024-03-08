@@ -141,6 +141,7 @@ static ERR_STRING_DATA QAT_str_reasons[] = {
     {ERR_PACK(0, 0, QAT_R_ICP_SAL_USERSTART_FAIL), "icp sal userstart fail"},
     {ERR_PACK(0, 0, QAT_R_ID_TOO_LARGE), "id too large"},
     {ERR_PACK(0, 0, QAT_R_INITIALIZE_CTX_FAILURE), "initialize ctx failure"},
+    {ERR_PACK(0, 0, QAT_R_INIT_FAIL), "init fail"},
     {ERR_PACK(0, 0, QAT_R_INIT_FAILURE), "init failure"},
     {ERR_PACK(0, 0, QAT_R_INPUT_DATA_MALLOC_FAILURE),
     "input data malloc failure"},
