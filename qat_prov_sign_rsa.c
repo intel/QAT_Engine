@@ -1847,11 +1847,54 @@ int qat_signature_rsa_digest_verify_final(void *vprsactx, const unsigned char *s
 
 static void *qat_signature_rsa_dupctx(void *vprsactx)
 {
-    typedef void* (*fun_ptr)(void *vprsactx);
-    fun_ptr fun = get_default_rsa_signature().dupctx;
-    if (!fun)
+    QAT_PROV_RSA_CTX *srcctx = (QAT_PROV_RSA_CTX *)vprsactx;
+    QAT_PROV_RSA_CTX *dstctx;
+
+    if (!qat_prov_is_running())
         return NULL;
-    return fun(vprsactx);
+
+    dstctx = OPENSSL_zalloc(sizeof(*srcctx));
+    if (dstctx == NULL) {
+        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        return NULL;
+    }
+
+    *dstctx = *srcctx;
+    dstctx->rsa = NULL;
+    dstctx->md = NULL;
+    dstctx->mdctx = NULL;
+    dstctx->tbuf = NULL;
+    dstctx->propq = NULL;
+
+    if (srcctx->rsa != NULL && !QAT_RSA_up_ref(srcctx->rsa))
+        goto err;
+    dstctx->rsa = srcctx->rsa;
+
+    if (srcctx->md != NULL && !EVP_MD_up_ref(srcctx->md))
+        goto err;
+    dstctx->md = srcctx->md;
+
+    if (srcctx->mgf1_md != NULL && !EVP_MD_up_ref(srcctx->mgf1_md))
+        goto err;
+    dstctx->mgf1_md = srcctx->mgf1_md;
+
+    if (srcctx->mdctx != NULL) {
+        dstctx->mdctx = EVP_MD_CTX_new();
+        if (dstctx->mdctx == NULL
+                || !EVP_MD_CTX_copy_ex(dstctx->mdctx, srcctx->mdctx))
+            goto err;
+    }
+
+    if (srcctx->propq != NULL) {
+        dstctx->propq = OPENSSL_strdup(srcctx->propq);
+        if (dstctx->propq == NULL)
+            goto err;
+    }
+
+    return dstctx;
+ err:
+    qat_signature_rsa_freectx(dstctx);
+    return NULL;
 }
 
 static int qat_signature_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM *params)
