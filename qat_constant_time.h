@@ -121,6 +121,35 @@ static inline unsigned int qat_constant_time_eq(unsigned int a,
     return qat_constant_time_is_zero(a ^ b);
 }
 
+static inline unsigned char qat_constant_time_is_zero_8(unsigned int a)
+{
+    return (unsigned char)qat_constant_time_is_zero(a);
+}
+
+static inline size_t value_barrier_s(size_t a)
+{
+    volatile size_t r = a;
+    return r;
+}
+
+static inline size_t qat_constant_time_select_s(size_t mask,
+                                                size_t a,
+                                                size_t b)
+{
+    return (value_barrier_s(mask) & a) | (value_barrier_s(~mask) & b);
+}
+
+static inline size_t qat_constant_time_msb_s(size_t a)
+{
+    return 0 - (a >> (sizeof(a) * 8 - 1));
+}
+
+static inline int qat_constant_time_select_int(unsigned int mask, int a,
+                                               int b)
+{
+    return (int)qat_constant_time_select(mask, (unsigned)(a), (unsigned)(b));
+}
+
 #ifdef __cplusplus
 }
 #endif

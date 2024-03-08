@@ -32,6 +32,7 @@ if QAT_PROVIDER
                 qat_prov_kmgmt_rsa.c      \
                 qat_prov_sign_rsa.c       \
                 qat_prov_rsa.c            \
+                qat_prov_rsa_enc_dec.c    \
                 qat_prov_kmgmt_ecx.c      \
                 qat_prov_exch_ecx.c       \
                 qat_prov_ciphers.c        \

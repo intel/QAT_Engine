@@ -194,7 +194,14 @@ typedef struct {
 
     /* Temp buffer */
     unsigned char *tbuf;
-
+    /* OAEP message digest */
+    EVP_MD *oaep_md;
+    /* OAEP label */
+    unsigned char *oaep_label;
+    size_t oaep_labellen;
+    /* TLS padding */
+    unsigned int client_version;
+    unsigned int alt_version;
 } QAT_PROV_RSA_CTX;
 
 typedef struct rsa_prime_info_st {
@@ -223,5 +230,6 @@ int QAT_RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp);
 int QAT_RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d);
 int QAT_RSA_up_ref(RSA *r);
 void QAT_RSA_free(RSA *r);
-
+int QAT_PKCS1_MGF1(unsigned char *mask, long len,
+                   const unsigned char *seed, long seedlen, const EVP_MD *dgst);
 #endif /* QAT_PROVIDER_RSA_H */
