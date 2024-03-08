@@ -400,43 +400,35 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
             goto err;
         }
 
-#ifndef QAT_OPENSSL_PROVIDER
-     /* Pass Co-factor to Opdata */
-         if (pOpData->pCurve->parameters.weierstrassParameters.fieldType
+        /* Pass Co-factor to Opdata */
+        if (pOpData->pCurve->parameters.weierstrassParameters.fieldType
              == CPA_CY_EC_FIELD_TYPE_PRIME) {
              if (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.h), h, qat_svm) != 1) {
                  WARN("Failure to convert h to flatbuffer\n");
                  QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
                  goto err;
              }
-         }
-#else
-         if (qat_BN_to_FB(&(pOpData->pCurve->parameters.weierstrassParameters.h), h, qat_svm) != 1) {
-             WARN("Failure to convert h to flatbuffer\n");
-             QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_H_CONVERT_TO_FB_FAILURE);
-             goto err;
-         }
-#endif
+        }
 
-         /*
-          * This is a special handling required for curves with 'a' co-efficient
-          * of 0. The translation to a flatbuffer results in a zero sized field
-          * but the Quickassist API expects a flatbuffer of size 1 with a value
-          * of zero. As a special case we will create that manually.
-          */
+        /*
+         * This is a special handling required for curves with 'a' co-efficient
+         * of 0. The translation to a flatbuffer results in a zero sized field
+         * but the Quickassist API expects a flatbuffer of size 1 with a value
+         * of zero. As a special case we will create that manually.
+         */
 
-         if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL &&
-             pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes == 0) {
-             pOpData->pCurve->parameters.weierstrassParameters.a.pData =
-                     qat_mem_alloc(1, qat_svm, __FILE__, __LINE__);
-             if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL) {
-                 WARN("Failure to allocate pOpData->pCurve->parameters.weierstrassParameters.a.pData\n");
-                 QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE);
-                 goto err;
-             }
-             pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes = 1;
-             pOpData->pCurve->parameters.weierstrassParameters.a.pData[0] = 0;
-         }
+        if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL &&
+            pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes == 0) {
+            pOpData->pCurve->parameters.weierstrassParameters.a.pData =
+                    qat_mem_alloc(1, qat_svm, __FILE__, __LINE__);
+            if (pOpData->pCurve->parameters.weierstrassParameters.a.pData == NULL) {
+                WARN("Failure to allocate pOpData->pCurve->parameters.weierstrassParameters.a.pData\n");
+                QATerr(QAT_F_QAT_ECDH_COMPUTE_KEY, QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE);
+                goto err;
+            }
+            pOpData->pCurve->parameters.weierstrassParameters.a.dataLenInBytes = 1;
+            pOpData->pCurve->parameters.weierstrassParameters.a.pData[0] = 0;
+        }
     }
 # else
     opData->fieldType = qat_get_field_type(group);
