@@ -52,17 +52,13 @@
 # include "cpa.h"
 #endif
 
-
+FILE *qatDebugLogFile = NULL;
 #ifdef QAT_TESTS_LOG
-
 FILE *cryptoQatLogger = NULL;
 pthread_mutex_t test_file_mutex = PTHREAD_MUTEX_INITIALIZER;
 int test_file_ref_count = 0;
 char test_file_name[QAT_MAX_TEST_FILE_NAME_LENGTH];
-
-#endif  /* QAT_TESTS_LOG */
-
-FILE *qatDebugLogFile = NULL;
+#endif /* QAT_TESTS_LOG */
 
 #ifdef QAT_CPU_CYCLES_COUNT
 rdtsc_prof_t rsa_cycles_priv_enc_setup;
@@ -153,7 +149,6 @@ int print_cycle_count = 1;
 #endif
 
 #ifdef QAT_DEBUG_FILE_PATH
-
 pthread_mutex_t debug_file_mutex = PTHREAD_MUTEX_INITIALIZER;
 int debug_file_ref_count = 0;
 
@@ -165,8 +160,7 @@ void crypto_qat_debug_init_log()
 
         if (NULL == qatDebugLogFile) {
             qatDebugLogFile = stderr;
-            WARN("unable to open %s\n",
-                 STR(QAT_DEBUG_FILE_PATH));
+            WARN("unable to open %s\n", STR(QAT_DEBUG_FILE_PATH));
         } else {
             debug_file_ref_count++;
         }
@@ -186,11 +180,9 @@ void crypto_qat_debug_close_log()
     }
     pthread_mutex_unlock(&debug_file_mutex);
 }
-
-#endif  /* QAT_DEBUG_FILE_PATH */
+#endif /* QAT_DEBUG_FILE_PATH */
 
 #ifdef QAT_TESTS_LOG
-
 char *crypto_qat_testing_get_log_filename()
 {
     snprintf(test_file_name, QAT_MAX_TEST_FILE_NAME_LENGTH,
@@ -226,33 +218,32 @@ void crypto_qat_testing_close_log()
     }
     pthread_mutex_unlock(&test_file_mutex);
 }
-
-#endif  /* QAT_TESTS_LOG */
+#endif /* QAT_TESTS_LOG */
 
 #ifdef QAT_DEBUG
-
 void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
-             int l)
+                  int l)
 {
-    int i;
 
-    fprintf(qatDebugLogFile, "%s: %s: Length %d, Address %p", func, var, l, p);
+    fprintf(qatDebugLogFile, "%s: %s: Length %d, Address %p\n", func, var, l, p);
+# ifdef QAT_HEX_DUMP
+    int i;
     if (NULL != p && l > 0) {
         for (i = 0; i < l; i++) {
-            if (i % 16 == 0)
+            if (i != 0 && i % 32 == 0)
                 fputc('\n', qatDebugLogFile);
-            else if (i % 8 == 0)
+            else if (i != 0 && i % 8 == 0)
                 fputs("- ", qatDebugLogFile);
             fprintf(qatDebugLogFile, "%02x ", p[i]);
         }
     }
     fputc('\n', qatDebugLogFile);
+    fflush(qatDebugLogFile);
+# endif
 }
-
 #endif
 
 #ifdef QAT_CPU_CYCLES_COUNT
-
 void rdtsc_prof_init(rdtsc_prof_t *p, const uint32_t bytes)
 {
     p->bytes = bytes;
@@ -268,19 +259,21 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name)
 {
     if (p == NULL) {
         fprintf(qatDebugLogFile, "%s\tavg\n", "    ");
-    }
-    else {
+    } else {
         if (p->clk_avgc > 0) {
             double avg_c = (p->clk_avg / ((double)p->clk_avgc));
 
 # ifdef QAT_CPU_CYCLE_MEASUREMENT_COST
-            fprintf(qatDebugLogFile, "\n%s - avg cycles per job (mca ENABLED):  %.1f - number of samples = %ld\n", name, avg_c, p->clk_avgc);
+            fprintf(qatDebugLogFile,
+                    "\n%s - avg cycles per job (mca ENABLED):  %.1f - number of samples = %ld\n",
+                    name, avg_c, p->clk_avgc);
 # else
             fprintf(qatDebugLogFile, "%s,%.1f,%ld\n", name, avg_c, p->clk_avgc);
 # endif
             if (p->bytes > 0) {
                 double avg_pb = avg_c / ((double)p->bytes);
-                fprintf(qatDebugLogFile, " - avg cycles per byte: %.1f\n", avg_pb);
+                fprintf(qatDebugLogFile, " - avg cycles per byte: %.1f\n",
+                        avg_pb);
             }
         }
     }
@@ -291,9 +284,7 @@ void rdtsc_initialize(void)
     rdtsc_prof_t p;
     unsigned i;
 
-    /*
-     * Figure out cost of measurement
-     */
+    /* Figure out cost of measurement */
     rdtsc_prof_init(&p, 0);
     print_cycle_count = 0;
     for (i = 0; i < 10000; i++) {
@@ -305,7 +296,9 @@ void rdtsc_initialize(void)
 # endif
     rdtsc_prof_print(&p, "Cost of CPU cycle measurement ");
     rdtsc_prof_cost = p.clk_avg / (double)p.clk_avgc;
-    fprintf(qatDebugLogFile, "[%s] - cost of measurement is subtracted from subsequent tests if build flag QAT_CPU_CYCLE_MEASUREMENT_COST is set.\n\n", __func__);
+    fprintf(qatDebugLogFile,
+            "[%s] - cost of measurement is subtracted from subsequent tests if build flag QAT_CPU_CYCLE_MEASUREMENT_COST is set\n\n",
+            __func__);
 }
 
 #endif /* QAT_CPU_CYCLES_COUNT */
@@ -315,7 +308,7 @@ void get_sem_wait_abs_time(struct timespec *polling_abs_timeout,
                            const struct timespec polling_timeout)
 {
     clock_gettime(CLOCK_REALTIME, polling_abs_timeout); /* Get current real time. */
-    polling_abs_timeout->tv_sec +=  polling_timeout.tv_sec;
+    polling_abs_timeout->tv_sec += polling_timeout.tv_sec;
     polling_abs_timeout->tv_nsec += polling_timeout.tv_nsec;
     polling_abs_timeout->tv_sec += polling_abs_timeout->tv_nsec / NSEC_TO_SEC;
     polling_abs_timeout->tv_nsec = polling_abs_timeout->tv_nsec % NSEC_TO_SEC;
