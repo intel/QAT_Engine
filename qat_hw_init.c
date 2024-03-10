@@ -694,7 +694,7 @@ int qat_hw_init(ENGINE *e)
 
 
     qat_contig_num_instance = qat_num_instances - qat_svm_num_instance;
-    DEBUG("Instances %d, SVM instances %d, contig instances %d", qat_num_instances,
+    DEBUG("Instances %d, SVM instances %d, contig instances %d\n", qat_num_instances,
            qat_svm_num_instance, qat_contig_num_instance);
     DUMP_INSTANCE_MAPPING("Asym sequence for thread mapping",
                           qat_map_asym_inst, qat_asym_num_instance);

@@ -57,35 +57,30 @@
 
 # define QAT_BYTE_ALIGNMENT 64
 # define NANO_TO_MICROSECS 1000
-#define NSEC_TO_SEC 1000000000L /* Nanosecond coverts to second. */
+# define NSEC_TO_SEC 1000000000L
 
 /* For best performance data buffers should be 64-byte aligned */
 # define QAT_CONTIG_MEM_ALIGN(x)                              \
          (void *)(((uintptr_t)(x) + QAT_BYTE_ALIGNMENT - 1) & \
          (~(uintptr_t)(QAT_BYTE_ALIGNMENT-1)))
 
-extern FILE* qatDebugLogFile;
+extern FILE *qatDebugLogFile;
 
 # ifdef QAT_DEBUG_FILE_PATH
-
 extern pthread_mutex_t debug_file_mutex;
 extern int debug_file_ref_count;
-
 void crypto_qat_debug_init_log();
 void crypto_qat_debug_close_log();
 
 #  define QAT_DEBUG_LOG_INIT() crypto_qat_debug_init_log()
 #  define QAT_DEBUG_LOG_CLOSE() crypto_qat_debug_close_log()
-
 # else
-
 #  define QAT_DEBUG_LOG_INIT()    \
 do {                              \
     if (qatDebugLogFile == NULL)  \
         qatDebugLogFile = stderr; \
 } while(0)
 #  define QAT_DEBUG_LOG_CLOSE()
-
 # endif
 
 /*
@@ -93,9 +88,7 @@ do {                              \
  * CRYPTO_QAT_LOG_FILE
  */
 # ifdef QAT_TESTS_LOG
-
 #  define QAT_MAX_TEST_FILE_NAME_LENGTH 1024
-
 extern FILE *cryptoQatLogger;
 extern pthread_mutex_t test_file_mutex;
 extern int test_file_ref_count;
@@ -116,13 +109,10 @@ do {                                                \
     }                                               \
     pthread_mutex_unlock(&test_file_mutex);         \
 } while(0)
-
 # else
-
 #  define CRYPTO_QAT_LOG(...)
 #  define CRYPTO_CLOSE_QAT_LOG()
 #  define CRYPTO_INIT_QAT_LOG()
-
 # endif
 
 /* Debug and warning messages for the QAT engine */
@@ -165,7 +155,7 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define WARN(...)
 # endif
 
-#  define INFO(fmt_str, ...)                                  \
+# define INFO(fmt_str, ...)                                   \
     do {                                                      \
         fprintf(stderr,fmt_str, ##__VA_ARGS__);               \
         fflush(stderr);                                       \
@@ -174,7 +164,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 # ifdef QAT_DEBUG
 #  define DUMP_DH_GEN_PHASE1(instance_handle, opData, pPV)                     \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"DH Generate Phase 1 Request: %p\n", opData);  \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("primeP.pData", opData->primeP.pData,                            \
@@ -185,13 +174,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                opData->privateValueX.dataLenInBytes);                          \
         fprintf(qatDebugLogFile, "pPV->dataLenInBytes = %u pPV->pData = %p\n", \
                 pPV->dataLenInBytes, pPV->pData);                              \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_DH_GEN_PHASE2(instance_handle, opData, pSecretKey)              \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"DH Generate Phase 2 Request: %p\n", opData);  \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("primeP.pData", opData->primeP.pData,                            \
@@ -204,33 +191,27 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pSecretKey->dataLenInBytes = %u "             \
                 "pSecretKey->pData = %p\n",                                    \
                 pSecretKey->dataLenInBytes, pSecretKey->pData);                \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_DH_GEN_PHASE1_OUTPUT(pPV)                                       \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"DH Generate Phase 1 Output: %p\n", pPV);      \
         DUMPL("pPV->pData", pPV->pData, pPV->dataLenInBytes);                  \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_DH_GEN_PHASE2_OUTPUT(pSecretKey)                                \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"DH Generate Phase 2 Output: %p\n",            \
                 pSecretKey);                                                   \
         DUMPL("pSecretKey->pData",                                             \
                pSecretKey->pData, pSecretKey->dataLenInBytes);                 \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_EC_POINT_MULTIPLY(instance_handle, opData, pResultX, pResultY)  \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"EC Point Multiply Request: %p\n", opData);    \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("k.pData", opData->k.pData, opData->k.dataLenInBytes);           \
@@ -247,13 +228,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pResultY->dataLenInBytes = %u "               \
                 "pResultY->pData = %p\n",                                      \
                 pResultY->dataLenInBytes, pResultY->pData);                    \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_EC_GENERIC_POINT_MULTIPLY(instance_handle, pOpData, pResultX, pResultY) \
     do {                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");               \
         fprintf(qatDebugLogFile,"EC Point Multiply Request: %p\n", pOpData);  \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);   \
         DUMPL("k.pData",  pOpData->k.pData, pOpData->k.dataLenInBytes);       \
@@ -274,13 +253,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pResultY->dataLenInBytes = %u "                    \
                 "pResultY->pData = %p\n",                                           \
                 pResultY->dataLenInBytes, pResultY->pData);                         \
-        fprintf(qatDebugLogFile,"=========================\n");                     \
         fflush(qatDebugLogFile);                                                    \
     } while (0)
 
 #  define DUMP_EC_SM2_POINT_MULTIPLY(instance_handle, pOpData, pResultX, pResultY) \
     do {                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");               \
         fprintf(qatDebugLogFile,"EC SM2 Point Multiply Request: %p\n", pOpData);  \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);   \
         DUMPL("k.pData",  pOpData->k.pData, pOpData->k.dataLenInBytes);       \
@@ -292,14 +269,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pResultY->dataLenInBytes = %u "                    \
                 "pResultY->pData = %p\n",                                           \
                 pResultY->dataLenInBytes, pResultY->pData);                         \
-        fprintf(qatDebugLogFile,"=========================\n");                     \
         fflush(qatDebugLogFile);                                                    \
     } while (0)
 
-
 #  define DUMP_EC_MONTEDWDS_POINT_MULTIPLY(instance_handle, opData, pXk, pYk)  \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"EC ECX Point Multiply Request: %p\n", opData);\
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("k.pData", opData->k.pData, opData->k.dataLenInBytes);           \
@@ -308,35 +282,29 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"opData: generator = %d\n", opData->generator);\
         fprintf(qatDebugLogFile,"pXk->dataLenInBytes = %u "                    \
                 "pXk->pData = %p\n", pXk->dataLenInBytes, pXk->pData);         \
-        fprintf(qatDebugLogFile,"=========================\n\n");              \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_EC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY)         \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"EC Point Multiply Output: pResultX %p \n",    \
                 pResultX);                          \
         fprintf(qatDebugLogFile,"bEcStatus = %u\n", bEcStatus);                \
         DUMPL("pResultX->pData", pResultX->pData, pResultX->dataLenInBytes);   \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_EC_GENERIC_POINT_MULTIPLY_OUTPUT(bEcStatus, pResultX, pResultY) \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"EC Point Multiply Output: pResultX %p \n",    \
                 pResultX);                          \
         fprintf(qatDebugLogFile,"bEcStatus = %u\n", bEcStatus);                \
         DUMPL("pResultX->pData", pResultX->pData, pResultX->dataLenInBytes);   \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_ECDSA_SIGN(instance_handle, opData, pResultR, pResultS)         \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"ECDSA Sign Request: %p\n", opData);           \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("xg.pData", opData->xg.pData, opData->xg.dataLenInBytes);        \
@@ -355,26 +323,22 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pResultS->dataLenInBytes = %u "               \
                 "pResultS->pData = %p\n",                                      \
                 pResultS->dataLenInBytes, pResultS->pData);                    \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_ECDSA_SIGN_OUTPUT(bEcdsaSignStatus, pResultR, pResultS)         \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"ECDSA Sign Output:"                           \
                 " pResultR %p, pResultS %p\n",                                 \
                 pResultR, pResultS);                                           \
         fprintf(qatDebugLogFile, "bEcdsaSignStatus = %u\n", bEcdsaSignStatus); \
         DUMPL("pResultR->pData", pResultR->pData, pResultR->dataLenInBytes);   \
         DUMPL("pResultS->pData", pResultS->pData, pResultS->dataLenInBytes);   \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_ECDSA_VERIFY(instance_handle, opData)                           \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"ECDSA Verify Request: %p\n", opData);         \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("xg.pData", opData->xg.pData, opData->xg.dataLenInBytes);        \
@@ -389,14 +353,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         DUMPL("xp.pData", opData->xp.pData, opData->xp.dataLenInBytes);        \
         DUMPL("yp.pData", opData->yp.pData, opData->yp.dataLenInBytes);        \
         fprintf(qatDebugLogFile,"opData: fieldType = %d\n", opData->fieldType);\
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_DSA_SIGN(instance_handle, op_done, opData, bDsaSignStatus,      \
                         pResultR, pResultS)                                    \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"DSA Sign Request: %p\n", opData);             \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         fprintf(qatDebugLogFile,"op_done = %p\n", op_done);                    \
@@ -413,25 +375,21 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pResultS->dataLenInBytes = %u\n",             \
                 pResultS->dataLenInBytes);                                     \
         fprintf(qatDebugLogFile,"pResultS->pData = %p\n", pResultS->pData);    \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_DSA_SIGN_OUTPUT(bDsaSignStatus, pResultR, pResultS)             \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"DSA Sign Output:  pResultR %p, pResultS %p\n",\
                 pResultR, pResultS);                                           \
         fprintf(qatDebugLogFile,"bDsaSignStatus = %u\n", bDsaSignStatus);      \
         DUMPL("pResultR->pData", pResultR->pData, pResultR->dataLenInBytes);   \
         DUMPL("pResultS->pData", pResultS->pData, pResultS->dataLenInBytes);   \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_DSA_VERIFY(instance_handle, op_done, opData, bDsaVerifyStatus)  \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"DSA Verify Request: %p\n", opData);           \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         fprintf(qatDebugLogFile,"op_done = %p\n", op_done);                    \
@@ -443,13 +401,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         DUMPL("R.pData", opData->R.pData, opData->R.dataLenInBytes);           \
         DUMPL("S.pData", opData->S.pData, opData->S.dataLenInBytes);           \
         fprintf(qatDebugLogFile,"bDsaVerifyStatus = %p\n", bDsaVerifyStatus);  \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_RSA_ENCRYPT(instance_handle, op_done, opData, output_buf)       \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"RSA Encrypt Request: %p\n", opData);          \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         fprintf(qatDebugLogFile,"op_done = %p\n", op_done);                    \
@@ -462,22 +418,18 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         DUMPL("opData->inputData.pData", opData->inputData.pData,              \
                opData->inputData.dataLenInBytes);                              \
         fprintf(qatDebugLogFile,"output_buf = %p\n", output_buf);              \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_RSA_ENCRYPT_OUTPUT(output_buf)                                  \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"RSA Encrypt Output: %p\n", output_buf);       \
         DUMPL("output_buf", output_buf->pData, output_buf->dataLenInBytes);    \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_RSA_DECRYPT(instance_handle, op_done, opData, output_buf)       \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"RSA Decrypt Request: %p\n", opData);          \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         fprintf(qatDebugLogFile,"op_done = %p\n", op_done);                    \
@@ -520,43 +472,35 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         DUMPL("opData: inputData.pData", opData->inputData.pData,              \
                opData->inputData.dataLenInBytes);                              \
         fprintf(qatDebugLogFile,"output_buf = %p\n", output_buf);              \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_RSA_DECRYPT_OUTPUT(output_buf)                                  \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"RSA Decrypt Output: %p\n", output_buf);       \
         DUMPL("output_buf", output_buf->pData, output_buf->dataLenInBytes);    \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_KEYGEN_TLS(instance_handle, generated_key)                      \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"TLS Keygen Request: \n");                     \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("generated_key->pData", generated_key->pData,                    \
                generated_key->dataLenInBytes);                                 \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_KEYGEN_TLS_OUTPUT(generated_key)                                \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"TLS Keygen Output: %p\n", generated_key);     \
         DUMPL("generated_key->pData", generated_key->pData,                    \
                generated_key->dataLenInBytes);                                 \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_SESSION_SETUP_DATA(ssd)                                         \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric crypto session setup data: %p\n",   \
                 ssd);                                                          \
         DUMPL("Cipher Key", ssd->cipherSetupData.pCipherKey,                   \
@@ -615,7 +559,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                 ssd->verifyDigest);                                            \
         fprintf(qatDebugLogFile,"ssd->partialsNotRequired = %d\n",             \
                 ssd->partialsNotRequired);                                     \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
@@ -623,7 +566,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         pDstBuffer)                                                            \
     do {                                                                       \
         unsigned int index = 0;                                                \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric crypto perform op req: %p\n",       \
                 pOpData);                                                      \
         fprintf(qatDebugLogFile,"Instance Handle = %p\n", instance_handle);    \
@@ -645,14 +587,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                    pSrcBuffer->pBuffers[index].pData,                          \
                    pSrcBuffer->pBuffers[index].dataLenInBytes);                \
         }                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_SYM_PERFORM_OP_OUTPUT(pVerifyResult, pDstBuffer)                \
     do {                                                                       \
         unsigned int index = 0;                                                \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric crypto perform op Output: %p\n",    \
                 pDstBuffer);                                                   \
         fprintf(qatDebugLogFile,"pVerifyResult = %d\n", *pVerifyResult);       \
@@ -661,7 +601,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                    pDstBuffer->pBuffers[index].pData,                          \
                    pDstBuffer->pBuffers[index].dataLenInBytes);                \
         }                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
@@ -669,7 +608,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                                   pDstBuffer)                                  \
     do {                                                                       \
         unsigned int index = 0;                                                \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric crypto perform op req: %p\n",       \
                 &pOpData);                                                     \
         fprintf(qatDebugLogFile,"Instance Handle = %p\n", instance_handle);    \
@@ -691,14 +629,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                    pSrcBuffer.pBuffers[index].pData,                           \
                    pSrcBuffer.pBuffers[index].dataLenInBytes);                 \
         }                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_SYM_PERFORM_OP_GCM_CCM_OUTPUT(pDstBuffer)                       \
     do {                                                                       \
         unsigned int index = 0;                                                \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric crypto perform op Output: %p\n",    \
                 &pDstBuffer);                                                  \
         for (index = 0; index < pDstBuffer.numBuffers; index++) {              \
@@ -706,13 +642,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                    pDstBuffer.pBuffers[index].pData,                           \
                    pDstBuffer.pBuffers[index].dataLenInBytes);                 \
         }                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_PRF_OP_DATA(prfOpData)                                          \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"PRF Op Data: %p\n", &prfOpData);              \
         if (prfOpData.tlsOp ==                                                 \
             CPA_CY_KEY_TLS_OP_MASTER_SECRET_DERIVE)                            \
@@ -735,13 +669,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
               prfOpData.seed.dataLenInBytes);                                  \
         DUMPL("User Label", prfOpData.userLabel.pData,                         \
               prfOpData.userLabel.dataLenInBytes);                             \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_HKDF_OP_DATA(hkdfOpData)                                        \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"HKDF Op Data: %p\n", &hkdfOpData);            \
         if (hkdfOpData->hkdfKeyOp == CPA_CY_HKDF_KEY_EXTRACT_EXPAND)           \
             fprintf(qatDebugLogFile,"hkdfOp: HKDF_EXTRACT_AND_EXPAND \n");     \
@@ -757,7 +689,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_SYM_PERFORM_OP_SHA3(instance_handle, pOpData, pSrcBuffer,       \
                                    pDstBuffer)                                 \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric SHA3 hash perform op req: %p\n",    \
                 &pOpData);                                                     \
         fprintf(qatDebugLogFile,"Instance Handle = %p\n", instance_handle);    \
@@ -773,7 +704,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                 pOpData->messageLenToHashInBytes);                             \
         fprintf(qatDebugLogFile,"pOpData.pDigestResult = %p\n",                \
                 pOpData->pDigestResult);                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
@@ -781,7 +711,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         pDstBuffer)                                                            \
     do {                                                                       \
         unsigned int index = 0;                                                \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric crypto perform op req: %p\n",       \
                 pOpData);                                                      \
         fprintf(qatDebugLogFile,"Instance Handle = %p\n", instance_handle);    \
@@ -803,13 +732,11 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                    pSrcBuffer.pBuffers[index].pData,                           \
                    pSrcBuffer.pBuffers[index].dataLenInBytes);                 \
         }                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_SYM_PERFORM_OP_SHA3_OUTPUT(pOpData, pDstBuffer)                 \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric SHA3 hash perform op Output: %p\n", \
                 &pDstBuffer);                                                  \
         fprintf(qatDebugLogFile,"pOpData->pDigestResult = %p\n",               \
@@ -817,14 +744,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         DUMPL("pOpData->pDigestResult",                                        \
                pOpData->pDigestResult,                                         \
                pOpData->messageLenToHashInBytes);                              \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_CP_PERFORM_OP_OUTPUT(pVerifyResult, pDstBuffer)                 \
     do {                                                                       \
         unsigned int index = 0;                                                \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"Symmetric crypto perform op Output:\n");      \
         fprintf(qatDebugLogFile,"pVerifyResult = %d\n", *pVerifyResult);       \
         for (index = 0; index < pDstBuffer.numBuffers; index++) {              \
@@ -832,7 +757,6 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
                    pDstBuffer.pBuffers[index].pData,                           \
                    pDstBuffer.pBuffers[index].dataLenInBytes);                 \
         }                                                                      \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
@@ -852,20 +776,17 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #   define DUMP_KPT_WRAPPING_DATA(eswk, len_eswk, sig, len_sig, iv, len_iv,    \
                                   aad, len_aad)                                \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"KPT Wrapping Metadata\n");                    \
         DUMPL("ESWK", eswk, len_eswk);                                         \
         DUMPL("Signature", sig, len_sig);                                      \
         DUMPL("IV", iv, len_iv);                                               \
         DUMPL("AAD", aad, len_aad);                                            \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #   define DUMP_KPT_RSA_DECRYPT(instance_handle, kpt_handle,                  \
                                 op_done, opData, output_buf)                  \
     do {                                                                      \
-       fprintf(qatDebugLogFile,"=========================\n");                \
        fprintf(qatDebugLogFile,"RSA Decrypt Request: %p\n", opData);          \
        fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
        fprintf(qatDebugLogFile,"KPT handle = 0x%lx\n", kpt_handle);           \
@@ -886,14 +807,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
        DUMPL("opData: inputData.pData", opData->inputData.pData,              \
               opData->inputData.dataLenInBytes);                              \
        fprintf(qatDebugLogFile,"output_buf = %p\n", output_buf);              \
-       fprintf(qatDebugLogFile,"=========================\n");                \
        fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #   define DUMP_KPT_ECDSA_SIGN(instance_handle, kpt_handle,                    \
                                opData, pResultR, pResultS)                     \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"KPT ECDSA Sign Request: %p\n", opData);       \
         fprintf(qatDebugLogFile,"instance_handle ptr = %p\n", instance_handle);\
         fprintf(qatDebugLogFile,"KPT handle = 0x%lx\n", kpt_handle);           \
@@ -906,14 +825,12 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pResultS->dataLenInBytes = %u "               \
                 "pResultS->pData = %p\n",                                      \
                 pResultS->dataLenInBytes, pResultS->pData);                    \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 #  endif
 
 #  define DUMP_SM2_SIGN(instance_handle, opData, pResultR, pResultS)           \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"SM2 Sign Request: %p\n", opData);             \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("k.pData", opData->k.pData, opData->k.dataLenInBytes);           \
@@ -926,26 +843,22 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         fprintf(qatDebugLogFile,"pResultS->dataLenInBytes = %u "               \
                 "pResultS->pData = %p\n",                                      \
                 pResultS->dataLenInBytes, pResultS->pData);                    \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_SM2_SIGN_OUTPUT(bSM2SignStatus, pResultR, pResultS)             \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"SM2 Sign Output:"                             \
                 " pResultR %p, pResultS %p\n",                                 \
                 pResultR, pResultS);                                           \
         fprintf(qatDebugLogFile, "bSM2SignStatus = %u\n", bSM2SignStatus);     \
         DUMPL("pResultR->pData", pResultR->pData, pResultR->dataLenInBytes);   \
         DUMPL("pResultS->pData", pResultS->pData, pResultS->dataLenInBytes);   \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 #  define DUMP_SM2_VERIFY(instance_handle, opData)                             \
     do {                                                                       \
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fprintf(qatDebugLogFile,"SM2 Verify Request: %p\n", opData);           \
         fprintf(qatDebugLogFile,"instance_handle = %p\n", instance_handle);    \
         DUMPL("e.pData", opData->e.pData, opData->e.dataLenInBytes);           \
@@ -954,16 +867,15 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
         DUMPL("xP.pData", opData->xP.pData, opData->xP.dataLenInBytes);        \
         DUMPL("yP.pData", opData->yP.pData, opData->yP.dataLenInBytes);        \
         fprintf(qatDebugLogFile,"opData: fieldType = %d\n", opData->fieldType);\
-        fprintf(qatDebugLogFile,"=========================\n");                \
         fflush(qatDebugLogFile);                                               \
     } while (0)
 
 # else
-#   ifdef ENABLE_QAT_HW_KPT
-#    define DUMP_KPT_WRAPPING_DATA(...)
-#    define DUMP_KPT_RSA_DECRYPT(...)
-#    define DUMP_KPT_ECDSA_SIGN(...)
-#   endif
+#  ifdef ENABLE_QAT_HW_KPT
+#   define DUMP_KPT_WRAPPING_DATA(...)
+#   define DUMP_KPT_RSA_DECRYPT(...)
+#   define DUMP_KPT_ECDSA_SIGN(...)
+#  endif
 #  define DUMP_DH_GEN_PHASE1(...)
 #  define DUMP_DH_GEN_PHASE2(...)
 #  define DUMP_DH_GEN_PHASE1_OUTPUT(...)
@@ -1003,14 +915,13 @@ void qat_hex_dump(const char *func, const char *var, const unsigned char p[],
 #  define DUMP_SM2_VERIFY(...)
 # endif                         /* QAT_DEBUG */
 
-
 # ifdef QAT_CPU_CYCLES_COUNT
 #  define GCC_ALWAYS_INLINE static __attribute__((always_inline)) inline
 
 typedef struct rdtsc_prof {
     volatile uint64_t clk_start;
     volatile uint64_t clk_avgc; /* count to calculate an average */
-    volatile double clk_avg; /* cumulative sum to calculate an average */
+    volatile double clk_avg;    /* cumulative sum to calculate an average */
     volatile double clk_diff_cost_adjusted;
     volatile double cost;
     volatile uint32_t bytes;
@@ -1110,58 +1021,51 @@ GCC_ALWAYS_INLINE uint64_t rdtsc_start(void)
     uint32_t cycles_high;
     uint32_t cycles_low;
 
-    asm volatile("lfence\n\t"
-            "rdtscp\n\t"
-            "mov %%edx, %0\n\t"
-            "mov %%eax, %1\n\t"
-            : "=r" (cycles_high), "=r" (cycles_low)
-            : : "%rax", "%rdx", "%rcx");
+    asm volatile ("lfence\n\t"
+                  "rdtscp\n\t"
+                  "mov %%edx, %0\n\t"
+                  "mov %%eax, %1\n\t":"=r" (cycles_high), "=r"(cycles_low)
+                  ::"%rax", "%rdx", "%rcx");
 
     return (((uint64_t)cycles_high << 32) | cycles_low);
 }
-
 
 GCC_ALWAYS_INLINE uint64_t rdtsc_end(void)
 {
     uint32_t cycles_high;
     uint32_t cycles_low;
 
-    asm volatile("rdtscp\n\t"
-            "mov %%edx, %0\n\t"
-            "mov %%eax, %1\n\t"
-            "lfence\n\t"
-            : "=r" (cycles_high), "=r" (cycles_low)
-            : : "%rax", "%rdx", "%rcx");
+    asm volatile ("rdtscp\n\t"
+                  "mov %%edx, %0\n\t"
+                  "mov %%eax, %1\n\t"
+                  "lfence\n\t":"=r" (cycles_high), "=r"(cycles_low)
+                  ::"%rax", "%rdx", "%rcx");
 
     return (((uint64_t)cycles_high << 32) | cycles_low);
 }
 
-GCC_ALWAYS_INLINE void rdtsc_prof_start(rdtsc_prof_t *p)
+GCC_ALWAYS_INLINE void rdtsc_prof_start(rdtsc_prof_t * p)
 {
     p->started = 1;
     p->clk_start = rdtsc_start();
 }
 
-
-GCC_ALWAYS_INLINE void rdtsc_prof_end(rdtsc_prof_t *p,
-        const unsigned inc,
-        char *name)
+GCC_ALWAYS_INLINE void rdtsc_prof_end(rdtsc_prof_t * p,
+                                      const unsigned inc, char *name)
 {
     if (p->started) {
-        /*
-         * int64_t not uint64_t because it may happen that
-         * for low cost operations, measured time is less than
-         * the subtracted average cost of measurement
-         */
+         /* int64_t not uint64_t because it may happen that
+          * for low cost operations, measured time is less than
+          * the subtracted average cost of measurement */
         volatile double clk_diff = (double)(rdtsc_end() - p->clk_start);
         p->clk_avgc += inc;
-# ifdef QAT_CPU_CYCLE_MEASUREMENT_COST
+#  ifdef QAT_CPU_CYCLE_MEASUREMENT_COST
         p->clk_avg += (clk_diff - p->cost);
         p->clk_diff_cost_adjusted += (clk_diff - p->cost);
-# else
+#  else
         p->clk_avg += clk_diff;
         p->clk_diff_cost_adjusted += clk_diff;
-# endif
+#  endif
         p->started = 0;
         if (inc != 0) {
             if (print_cycle_count)
@@ -1173,8 +1077,8 @@ GCC_ALWAYS_INLINE void rdtsc_prof_end(rdtsc_prof_t *p,
 }
 
 void rdtsc_initialize(void);
-void rdtsc_prof_init(rdtsc_prof_t *p, const uint32_t bytes);
-void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
+void rdtsc_prof_init(rdtsc_prof_t * p, const uint32_t bytes);
+void rdtsc_prof_print(rdtsc_prof_t * p, char *name);
 
 #  define INITIALISE_RDTSC_CLOCKS()                        \
     do {                                                   \
@@ -1236,7 +1140,6 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
         rdtsc_prof_init(&sm4_ccm_cycles_update_aad_setup, 0);   \
         rdtsc_prof_init(&sm4_ccm_cycles_update_aad_execute, 0);  \
     } while (0)
-
 
 #  define PRINT_RDTSC_AVERAGES() \
     do {                         \
@@ -1336,4 +1239,4 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name);
 void get_sem_wait_abs_time(struct timespec *polling_abs_timeout,
                            const struct timespec polling_timeout);
 
-#endif                          /* QAT_UTILS_H */
+#endif /* QAT_UTILS_H */
