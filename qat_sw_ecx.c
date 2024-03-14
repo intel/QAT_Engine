@@ -293,7 +293,11 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     }
 #ifdef QAT_OPENSSL_3
     key->keylen = X25519_KEYLEN;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     key->references = 1;
+# else
+    key->references.val = 1;
+# endif
 #endif
     pubkey = key->pubkey;
     privkey = key->privkey = OPENSSL_secure_malloc(X25519_KEYLEN);

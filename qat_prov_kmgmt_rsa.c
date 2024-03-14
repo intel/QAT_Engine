@@ -63,10 +63,9 @@ typedef struct{
     OSSL_PROVIDER *prov;
 
     int refcnt;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     void *lock;
-#endif
-
+# endif
     /* Constructor(s), destructor, information */
     OSSL_FUNC_keymgmt_new_fn *new;
     OSSL_FUNC_keymgmt_free_fn *free;

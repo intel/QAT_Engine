@@ -222,8 +222,12 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
      * count accordingly, otherwise it will trigger openssl's panic.
      */
 #ifdef QAT_OPENSSL_3
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     key->references = 1;
     key->lock = CRYPTO_THREAD_lock_new();
+# else
+    key->references.val = 1;
+# endif
 #endif
 
 #ifndef QAT_OPENSSL_PROVIDER

@@ -68,6 +68,7 @@
 #include <openssl/obj_mac.h>
 #include <openssl/configuration.h>
 #include <openssl/kdf.h>
+#include "e_qat.h"
 
 # define OSSL_NELEM(x)    (sizeof(x)/sizeof((x)[0]))
 
@@ -399,12 +400,18 @@ struct ec_key_st {
     BIGNUM *priv_key;
     unsigned int enc_flag;
     point_conversion_form_t conv_form;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     int references; /*CRYPTO_REF_COUNT references;*/
+# else
+    QAT_CRYPTO_REF_COUNT references;
+# endif
     int flags;
-#ifndef FIPS_MODULE
+# ifndef FIPS_MODULE
     CRYPTO_EX_DATA ex_data;
-#endif
+# endif
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
+# endif
     OSSL_LIB_CTX *libctx;
     char *propq;
 
@@ -445,7 +452,7 @@ typedef struct {
      */
     BIGNUM *kinv;
     BIGNUM *r;
-#if !defined(OPENSSL_NO_ACVP_TESTS)
+# if !defined(OPENSSL_NO_ACVP_TESTS)
     /*
      * This indicates that KAT (CAVS) test is running. Externally an app will
      * override the random callback such that the generated private key and k
@@ -454,7 +461,9 @@ typedef struct {
      * valid - but for this mode of operation it forces a failure instead.
      */
     unsigned int kattest;
-#endif
+# endif
+    /* If this is set then the generated k is not random */
+    unsigned int nonce_type;
 } QAT_PROV_ECDSA_CTX;
 
 int QAT_EC_KEY_up_ref(EC_KEY *r);

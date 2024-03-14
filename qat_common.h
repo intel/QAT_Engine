@@ -54,6 +54,12 @@
 
 # define MAX_KEYLEN  57
 
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+typedef struct {
+    _Atomic int val;
+} QAT_CRYPTO_REF_COUNT;
+# endif
+
 /* Only for QAT_HW built with OpenSSL 1.1.1 Engine */
 # ifndef QAT_OPENSSL_3
 typedef struct {
@@ -78,8 +84,12 @@ typedef struct ecx_key_st {
     unsigned char *privkey;
     size_t keylen;
     ECX_KEY_TYPE type;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     int references;
     CRYPTO_RWLOCK *lock;
+# else
+    QAT_CRYPTO_REF_COUNT references;
+# endif
 } QAT_SW_ECX_KEY, ECX_KEY;
 # else
 typedef struct {

@@ -1921,8 +1921,10 @@ int qat_aes_ccm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #  endif
 # endif
         if (!enc) {
+# if OPENSSL_VERSION_NUMBER < 0x30200000
             if (qctx->tag_len < 0)
                 return RET_FAIL;
+# endif
             /* Don't reuse the IV */
             qctx->iv_set = 0;
             DEBUG("Decrypt Final()\n");

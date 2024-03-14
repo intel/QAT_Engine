@@ -48,6 +48,7 @@
 # include <openssl/core.h>
 # include <openssl/provider.h>
 # include <openssl/crypto.h>
+# include "e_qat.h"
 
 # define X25519_KEYLEN         32
 # define X448_KEYLEN           56
@@ -60,8 +61,12 @@ typedef struct{
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     int refcnt;
     void *lock;
+# else
+    QAT_CRYPTO_REF_COUNT refcnt;
+# endif
     OSSL_FUNC_keymgmt_new_fn *new;
     OSSL_FUNC_keymgmt_free_fn *free;
     OSSL_FUNC_keymgmt_get_params_fn *get_params;
@@ -91,8 +96,12 @@ typedef struct evp_keyexch_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     int refcnt;
     void *lock;
+# else
+    QAT_CRYPTO_REF_COUNT refcnt;
+# endif
     OSSL_FUNC_keyexch_newctx_fn *newctx;
     OSSL_FUNC_keyexch_init_fn *init;
     OSSL_FUNC_keyexch_set_peer_fn *set_peer;
@@ -115,7 +124,9 @@ typedef enum {
     ECX_KEY_TYPE_X448,
 }ECX_KEY_TYPE;
 
+# if OPENSSL_VERSION_NUMBER < 0x30200000
 typedef int CRYPTO_REFERENCE_COUNT;
+# endif
 typedef void CRYPTO_RWLOCK;
 
 typedef struct qat_ecx_key_st {
@@ -126,8 +137,12 @@ typedef struct qat_ecx_key_st {
     unsigned char *privkey;
     size_t keylen;
     ECX_KEY_TYPE type;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_REFERENCE_COUNT references;
     CRYPTO_RWLOCK *lock;
+# else
+    QAT_CRYPTO_REF_COUNT references;
+# endif
 }ECX_KEY;
 
 typedef struct {
@@ -141,6 +156,10 @@ typedef struct ecx_gen_ctx {
     char *propq;
     ECX_KEY_TYPE type;
     int selection;
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    unsigned char *dhkem_ikm;
+    size_t dhkem_ikmlen;
+# endif
 }QAT_GEN_CTX;
 
 int qat_ecx_key_up_ref(ECX_KEY *key);
@@ -155,4 +174,5 @@ void* multibuff_x25519_keygen(void *ctx, OSSL_CALLBACK *osslcb,
                               void *cbarg);
 int multibuff_x25519_derive(void *ctx, unsigned char *key,
                             size_t *keylen,size_t outlen);
+
 #endif /* QAT_PROV_ECX_H */

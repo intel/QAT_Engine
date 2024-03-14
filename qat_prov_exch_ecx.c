@@ -153,9 +153,13 @@ static void *qat_x448_newctx(void *provctx)
 int qat_ecx_key_up_ref(ECX_KEY *key)
 {
     int i;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     if (CRYPTO_UP_REF(&key->references, &i, key->lock) <= 0)
         return 0;
+# else
+    if (QAT_CRYPTO_UP_REF(&key->references, &i) <= 0)
+        return 0;
+# endif
 
     if(i < 2) {
         WARN("refcount error");
@@ -174,8 +178,11 @@ void qat_ecx_key_free(ECX_KEY *key)
 
     if (key == NULL)
         return;
-
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_DOWN_REF(&key->references, &i, key->lock);
+#else
+    QAT_CRYPTO_DOWN_REF(&key->references, &i);
+#endif
 
     if (i > 0)
         return;
@@ -187,11 +194,13 @@ void qat_ecx_key_free(ECX_KEY *key)
 
     OPENSSL_free(key->propq);
     OPENSSL_secure_clear_free(key->privkey, key->keylen);
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_THREAD_lock_free(key->lock);
+#endif
     OPENSSL_free(key);
 #ifdef ENABLE_QAT_FIPS
     qat_fips_key_zeroize = 1;
-	qat_fips_get_key_zeroize_status();
+    qat_fips_get_key_zeroize_status();
 #endif
 }
 

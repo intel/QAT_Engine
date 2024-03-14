@@ -91,17 +91,22 @@ ECX_KEY *qat_ecx_key_new(OSSL_LIB_CTX *libctx, ECX_KEY_TYPE type, int haspubkey,
          break;
     }
     ret->type = type;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     ret->references = 1;
+#else
+    ret->references.val = 1;
+#endif
 
     if (propq != NULL) {
         ret->propq = OPENSSL_strdup(propq);
         if (ret->propq == NULL)
             goto err;
     }
-
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     ret->lock = CRYPTO_THREAD_lock_new();
     if (ret->lock == NULL)
         goto err;
+#endif
     return ret;
 err:
     QATerr(ERR_LIB_EC, ERR_R_MALLOC_FAILURE);
@@ -373,13 +378,67 @@ static const OSSL_PARAM *qat_ecx_gen_settable_params(ossl_unused void *genctx,
     return fun(genctx, provctx);
 }
 
+unsigned char *qat_ecx_key_allocate_privkey(ECX_KEY *key)
+{
+    key->privkey = OPENSSL_secure_zalloc(key->keylen);
+
+    return key->privkey;
+}
+
+ECX_KEY *qat_ecx_key_dup(const ECX_KEY *key, int selection)
+{
+    ECX_KEY *ret = OPENSSL_zalloc(sizeof(*ret));
+
+    if (ret == NULL) {
+        QATerr(ERR_LIB_EC, ERR_R_MALLOC_FAILURE);
+        return NULL;
+    }
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    ret->lock = CRYPTO_THREAD_lock_new();
+    if (ret->lock == NULL) {
+        OPENSSL_free(ret);
+        return NULL;
+    }
+#endif
+    ret->libctx = key->libctx;
+    ret->haspubkey = key->haspubkey;
+    ret->keylen = key->keylen;
+    ret->type = key->type;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    ret->references = 1;
+#else
+    ret->references.val = 1;
+#endif
+
+    if (key->propq != NULL) {
+        ret->propq = OPENSSL_strdup(key->propq);
+        if (ret->propq == NULL)
+            goto err;
+    }
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
+        memcpy(ret->pubkey, key->pubkey, sizeof(ret->pubkey));
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0
+        && key->privkey != NULL) {
+        if (qat_ecx_key_allocate_privkey(ret) == NULL)
+            goto err;
+        memcpy(ret->privkey, key->privkey, ret->keylen);
+    }
+
+    return ret;
+
+err:
+    qat_ecx_key_free(ret);
+    QATerr(ERR_LIB_EC, ERR_R_MALLOC_FAILURE);
+    return NULL;
+}
+
 static void *qat_ecx_dup(const void *keydata_from, int selection)
 {
-    typedef void * (*fun_ptr)(const void *keydata_from, int selection);
-    fun_ptr fun = get_default_x25519_keymgmt().dup;
-    if (!fun)
-        return NULL;
-    return fun(keydata_from, selection);
+    if (qat_prov_is_running())
+        return qat_ecx_key_dup(keydata_from, selection);
+    return NULL;
 }
 
 const OSSL_DISPATCH qat_X25519_keymgmt_functions[] = {
