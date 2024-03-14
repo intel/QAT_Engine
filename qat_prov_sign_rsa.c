@@ -1753,15 +1753,50 @@ static const OSSL_PARAM *qat_signature_rsa_settable_ctx_params(void *vprsactx,
     return settable_ctx_params;
 }
 
+static int qat_signature_rsa_digest_signverify_init(void *vprsactx, const char *mdname,
+                                                    void *vrsa, const OSSL_PARAM params[],
+                                                    int operation)
+{
+    QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
+
+    if (!qat_prov_is_running())
+        return 0;
+
+    if (!qat_rsa_signverify_init(vprsactx, vrsa, params, operation))
+        return 0;
+
+    if (mdname != NULL
+        /* was rsa_setup_md already called in rsa_signverify_init()? */
+        && (mdname[0] == '\0' || OPENSSL_strcasecmp(prsactx->mdname, mdname) != 0)
+        && !qat_rsa_setup_md(prsactx, mdname, prsactx->propq))
+        return 0;
+
+    prsactx->flag_allow_md = 0;
+
+    if (prsactx->mdctx == NULL) {
+        prsactx->mdctx = EVP_MD_CTX_new();
+        if (prsactx->mdctx == NULL)
+            goto error;
+    }
+
+    if (!EVP_DigestInit_ex2(prsactx->mdctx, prsactx->md, params))
+        goto error;
+
+    return 1;
+
+ error:
+    EVP_MD_CTX_free(prsactx->mdctx);
+    prsactx->mdctx = NULL;
+    return 0;
+}
+
 static int qat_signature_rsa_digest_sign_init(void *vprsactx, const char *mdname,
                                 void *vrsa, const OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *vprsactx, const char *mdname,
-                                void *vrsa, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_rsa_signature().digest_sign_init;
-    if (!fun)
+    if (!qat_prov_is_running())
         return 0;
-    return fun(vprsactx, mdname, vrsa, params);
+    return qat_signature_rsa_digest_signverify_init(vprsactx, mdname, vrsa,
+                                                    params, EVP_PKEY_OP_SIGN);
 }
 
 static int qat_signature_rsa_digest_signverify_update(void *vprsactx,
@@ -1808,12 +1843,10 @@ static int qat_signature_rsa_digest_sign_final(void *vprsactx, unsigned char *si
 static int qat_signature_rsa_digest_verify_init(void *vprsactx, const char *mdname,
                                   void *vrsa, const OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *vprsactx, const char *mdname,
-                           void *vrsa, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_rsa_signature().digest_verify_init;
-    if (!fun)
+    if (!qat_prov_is_running())
         return 0;
-    return fun(vprsactx, mdname, vrsa, params);
+    return qat_signature_rsa_digest_signverify_init(vprsactx, mdname, vrsa,
+                                                    params, EVP_PKEY_OP_VERIFY);
 }
 
 
@@ -1855,7 +1888,7 @@ static void *qat_signature_rsa_dupctx(void *vprsactx)
 
     dstctx = OPENSSL_zalloc(sizeof(*srcctx));
     if (dstctx == NULL) {
-        ERR_raise(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
+        QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
 

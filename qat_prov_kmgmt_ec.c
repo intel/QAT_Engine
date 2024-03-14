@@ -118,8 +118,9 @@ typedef struct{
     OSSL_PROVIDER *prov;
 
     int refcnt;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     void *lock;
-
+# endif
     /* Constructor(s), destructor, information */
     OSSL_FUNC_keymgmt_new_fn *new;
     OSSL_FUNC_keymgmt_free_fn *free;
@@ -202,7 +203,7 @@ EC_KEY *qat_ec_key_new(OSSL_LIB_CTX *libctx, const char *propq)
             goto err;
         }
     }
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     ret->references = 1;
 
     ret->lock = CRYPTO_THREAD_lock_new();
@@ -210,7 +211,9 @@ EC_KEY *qat_ec_key_new(OSSL_LIB_CTX *libctx, const char *propq)
         QATerr(ERR_LIB_EC, QAT_R_MALLOC_FAILURE);
         goto err;
     }
-
+# else
+    ret->references.val = 1;
+# endif
     ret->meth = EC_KEY_get_default_method();
 
     if (!CRYPTO_new_ex_data(CRYPTO_EX_INDEX_EC_KEY, ret, &ret->ex_data)) {

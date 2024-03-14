@@ -140,10 +140,13 @@ static const OSSL_PARAM known_gettable_ctx_params[] = {
 static int QAT_ECDH_KEY_up_ref(EC_KEY *r)
 {
     int i;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
         return 0;
-
+# else
+    if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
+        return 0;
+# endif
     if(i < 2){
         WARN("refcount error");
         return 0;
@@ -157,9 +160,11 @@ static void QAT_ECDH_KEY_free(EC_KEY *r)
 
     if (r == NULL)
         return;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_DOWN_REF(&r->references, &i, r->lock);
-
+# else
+    QAT_CRYPTO_DOWN_REF(&r->references, &i);
+# endif
     if (i > 0)
         return;
 
@@ -175,9 +180,9 @@ static void QAT_ECDH_KEY_free(EC_KEY *r)
         r->group->meth->keyfinish(r);
 
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_EC_KEY, r, &r->ex_data);
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_THREAD_lock_free(r->lock);
-
+# endif
     EC_GROUP_free(r->group);
     EC_POINT_free(r->pub_key);
     BN_clear_free(r->priv_key);

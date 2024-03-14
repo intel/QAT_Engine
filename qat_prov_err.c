@@ -497,3 +497,10 @@ void ERR_QAT_error(int function, int reason, const char *file, int line)
     ERR_raise(lib_code, reason);
     ERR_set_debug(file, line, NULL);
 }
+
+int ERR_QAT_lib(void)
+{
+    if (lib_code == 0)
+        lib_code = ERR_get_next_error_library();
+    return lib_code;
+}

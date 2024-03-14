@@ -157,7 +157,7 @@ void QAT_RSA_free(RSA *r)
 
 #ifdef ENABLE_QAT_FIPS
     qat_fips_key_zeroize = 1;
-	qat_fips_get_key_zeroize_status();
+    qat_fips_get_key_zeroize_status();
 #endif
 }
 

@@ -140,9 +140,13 @@ static const OSSL_PARAM settable_ctx_params_no_digest[] = {
 int QAT_EC_KEY_up_ref(EC_KEY *r)
 {
     int i;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
         return 0;
+# else
+    if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
+        return 0;
+# endif
 
     if(i < 2){
         WARN("refcount error");
@@ -160,8 +164,11 @@ void QAT_EC_KEY_free(EC_KEY *r)
 
     if (r == NULL)
         return;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_DOWN_REF(&r->references, &i, r->lock);
+# else
+    QAT_CRYPTO_DOWN_REF(&r->references, &i);
+# endif
 
     if (i > 0)
         return;
@@ -178,9 +185,9 @@ void QAT_EC_KEY_free(EC_KEY *r)
         r->group->meth->keyfinish(r);
 
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_EC_KEY, r, &r->ex_data);
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_THREAD_lock_free(r->lock);
-
+# endif
     EC_GROUP_free(r->group);
     EC_POINT_free(r->pub_key);
     BN_clear_free(r->priv_key);
@@ -565,16 +572,72 @@ static const OSSL_PARAM *qat_signature_ecdsa_settable_ctx_params(void *vctx,
     return settable_ctx_params;
 }
 
+static int qat_ecdsa_signverify_init(void *vctx, void *ec,
+                                     const OSSL_PARAM params[], int operation)
+{
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+
+    if (!qat_prov_is_running()
+            || ctx == NULL)
+        return 0;
+
+    if (ec == NULL && ctx->ec == NULL) {
+        QATerr(ERR_LIB_PROV, PROV_R_NO_KEY_SET);
+        return 0;
+    }
+
+    if (ec != NULL) {
+        if (!qat_ec_check_key(ctx->libctx, ec, operation == EVP_PKEY_OP_SIGN))
+            return 0;
+        if (!EC_KEY_up_ref(ec))
+            return 0;
+        EC_KEY_free(ctx->ec);
+        ctx->ec = ec;
+    }
+
+    ctx->operation = operation;
+
+    if (!qat_signature_ecdsa_set_ctx_params(ctx, params))
+        return 0;
+
+    return 1;
+}
+
+static int qat_ecdsa_digest_signverify_init(void *vctx, const char *mdname,
+                                            void *ec, const OSSL_PARAM params[],
+                                            int operation)
+{
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+
+    if (!qat_prov_is_running())
+        return 0;
+
+    if (!qat_ecdsa_signverify_init(vctx, ec, params, operation)
+        || !qat_ecdsa_setup_md(ctx, mdname, NULL))
+        return 0;
+
+    ctx->flag_allow_md = 0;
+
+    if (ctx->mdctx == NULL) {
+        ctx->mdctx = EVP_MD_CTX_new();
+        if (ctx->mdctx == NULL)
+            goto error;
+    }
+
+    if (!EVP_DigestInit_ex2(ctx->mdctx, ctx->md, params))
+        goto error;
+    return 1;
+error:
+    EVP_MD_CTX_free(ctx->mdctx);
+    ctx->mdctx = NULL;
+    return 0;
+}
+
 static int qat_ecdsa_digest_sign_init(void *vctx, const char *mdname, void *ec,
                                   const OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *vctx, const char *mdname, void *ec,
-                           const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_ECDSA_signature().digest_sign_init;
-    if (!fun)
-        return 0;
-    return fun(vctx, mdname, ec, params);
-
+    return qat_ecdsa_digest_signverify_init(vctx, mdname, ec, params,
+                                            EVP_PKEY_OP_SIGN);
 }
 
 int qat_ecdsa_digest_signverify_update(void *vctx, const unsigned char *data,
@@ -612,12 +675,8 @@ int qat_ecdsa_digest_sign_final(void *vctx, unsigned char *sig, size_t *siglen,
 static int qat_ecdsa_digest_verify_init(void *vctx, const char *mdname, void *ec,
                                     const OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *vctx, const char *mdname, void *ec,
-                           const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_ECDSA_signature().digest_verify_init;
-    if (!fun)
-        return 0;
-    return fun(vctx, mdname, ec, params);
+    return qat_ecdsa_digest_signverify_init(vctx, mdname, ec, params,
+                                        EVP_PKEY_OP_VERIFY);
 }
 
 int qat_ecdsa_digest_verify_final(void *vctx, const unsigned char *sig,
@@ -638,11 +697,50 @@ int qat_ecdsa_digest_verify_final(void *vctx, const unsigned char *sig,
 
 static void *qat_ecdsa_dupctx(void *vctx)
 {
-    typedef void * (*fun_ptr)(void *vctx);
-    fun_ptr fun = get_default_ECDSA_signature().dupctx;
-    if (!fun)
+    QAT_PROV_ECDSA_CTX *srcctx = (QAT_PROV_ECDSA_CTX *)vctx;
+    QAT_PROV_ECDSA_CTX *dstctx;
+
+    if (!qat_prov_is_running())
         return NULL;
-    return fun(vctx);
+
+    dstctx = OPENSSL_zalloc(sizeof(*srcctx));
+    if (dstctx == NULL)
+        return NULL;
+
+    *dstctx = *srcctx;
+    dstctx->ec = NULL;
+    dstctx->md = NULL;
+    dstctx->mdctx = NULL;
+    dstctx->propq = NULL;
+
+    if (srcctx->ec != NULL && !EC_KEY_up_ref(srcctx->ec))
+        goto err;
+    /* Test KATS should not need to be supported */
+    if (srcctx->kinv != NULL || srcctx->r != NULL)
+        goto err;
+    dstctx->ec = srcctx->ec;
+
+    if (srcctx->md != NULL && !EVP_MD_up_ref(srcctx->md))
+        goto err;
+    dstctx->md = srcctx->md;
+
+    if (srcctx->mdctx != NULL) {
+        dstctx->mdctx = EVP_MD_CTX_new();
+        if (dstctx->mdctx == NULL
+                || !EVP_MD_CTX_copy_ex(dstctx->mdctx, srcctx->mdctx))
+            goto err;
+    }
+
+    if (srcctx->propq != NULL) {
+        dstctx->propq = OPENSSL_strdup(srcctx->propq);
+        if (dstctx->propq == NULL)
+            goto err;
+    }
+
+    return dstctx;
+ err:
+    qat_signature_ecdsa_freectx(dstctx);
+    return NULL;
 }
 
 static int qat_ecdsa_get_ctx_params(void *vctx, OSSL_PARAM *params)
