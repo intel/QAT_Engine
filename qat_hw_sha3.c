@@ -845,7 +845,7 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
         if (((status == CPA_STATUS_RESTARTING) || (status == CPA_STATUS_FAIL))) {
             CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                             sha3_ctx->inst_num,
-                            qat_instance_details[sha3_ctx->inst_num].qat_instance_info.physInstId.packageId);
+                            qat_instance_details[sha3_ctx->inst_num].qat_instance_info.physInstId.packageId, __func__);
         } else if (status == CPA_STATUS_UNSUPPORTED) {
             WARN("Algorithm type unsupported in QAT_HW\n");
             QATerr(QAT_F_QAT_HW_SHA3_OFFLOAD, QAT_R_ALGO_TYPE_UNSUPPORTED);
@@ -904,8 +904,8 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
         QATerr(QAT_F_QAT_HW_SHA3_OFFLOAD, ERR_R_INTERNAL_ERROR);
         if (op_done.status == CPA_STATUS_FAIL) {
             CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - %s\n",
-                            inst_num,
-                            qat_instance_details[sha3_ctx->_inst_num].qat_instance_info.physInstId.packageId);
+                            sha3_ctx->inst_num,
+                            qat_instance_details[sha3_ctx->_inst_num].qat_instance_info.physInstId.packageId, __func__);
             qat_cleanup_op_done(&op_done);
             goto err;
         }

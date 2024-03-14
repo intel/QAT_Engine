@@ -204,6 +204,7 @@ typedef struct {
                      qaeCryptoMemFreeNonZero(b);         \
                  else                                    \
                      OPENSSL_free(b);                    \
+                 b = NULL;                               \
              }                                           \
           } while(0)
 
@@ -217,6 +218,7 @@ typedef struct {
                      qaeCryptoMemFree((b).pData); \
                  else                             \
                      OPENSSL_free((b).pData);     \
+                 (b).pData = NULL;                \
               }                                   \
           } while(0)
 
@@ -235,6 +237,7 @@ typedef struct {
                      qaeCryptoMemFreeNonZero((b).pData); \
                  else                                    \
                      OPENSSL_free((b).pData);            \
+                 (b).pData = NULL;                       \
              }                                           \
           } while(0)
 

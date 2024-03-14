@@ -362,9 +362,10 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
 
 err:
     if (NULL != qctx->iv) {
-        if (qctx->iv != EVP_CIPHER_CTX_iv_noconst(ctx))
+        if (qctx->iv != EVP_CIPHER_CTX_iv_noconst(ctx)) {
             QAT_MEM_FREE_NONZERO_BUFF(qctx->iv, qctx->qat_svm);
-        qctx->iv = NULL;
+            qctx->iv = NULL;
+	}
     }
 
     QAT_MEM_FREE_BUFF(qctx->cipher_key, qctx->qat_svm);
@@ -797,6 +798,7 @@ int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
 
             /* Cleanup the memory */
             QAT_MEM_FREE_NONZERO_BUFF(qctx->qat_ctx, qctx->qat_svm);
+            QAT_MEM_FREE_NONZERO_BUFF(qctx->aad, qctx->qat_svm);
             QAT_MEM_FREE_NONZERO_BUFF(qctx->srcBufferList.pPrivateMetaData, qctx->qat_svm);
             QAT_MEM_FREE_NONZERO_BUFF(qctx->dstBufferList.pPrivateMetaData, qctx->qat_svm);
             QAT_MEM_FREE_NONZERO_BUFF(qctx->iv, qctx->qat_svm);
