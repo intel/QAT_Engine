@@ -929,7 +929,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
         if (((status == CPA_STATUS_RESTARTING) || (status == CPA_STATUS_FAIL))) {
             CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                     cp_ctx->inst_num,
-                    qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId);
+                    qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId, __func__);
             QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
         } else if (status == CPA_STATUS_UNSUPPORTED) {
             WARN("Algorithm type unsupported in QAT_HW\n");
@@ -991,8 +991,8 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
             QATerr(QAT_F_QAT_CHACHA20_POLY1305_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
             if (op_done.status == CPA_STATUS_FAIL) {
                 CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - %s\n",
-                               inst_num,
-                               qat_instance_details[cp_ctx->_inst_num].qat_instance_info.physInstId.packageId);
+                               cp_ctx->inst_num,
+                               qat_instance_details[cp_ctx->_inst_num].qat_instance_info.physInstId.packageId, __func__);
                 qat_cleanup_op_done(&op_done);
                 goto tls_cipher_err;
             }
@@ -1253,7 +1253,7 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                 if (((status == CPA_STATUS_RESTARTING) || (status == CPA_STATUS_FAIL))) {
                     CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                                     cp_ctx->inst_num,
-                                    qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId);
+                                    qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId, __func__);
                     QATerr(QAT_F_QAT_CHACHA20_POLY1305_DO_CIPHER,
                            ERR_R_INTERNAL_ERROR);
                 } else if (status == CPA_STATUS_UNSUPPORTED) {
@@ -1321,8 +1321,8 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                             ERR_R_INTERNAL_ERROR);
                     if (op_done.status == CPA_STATUS_FAIL) {
                         CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - %s\n",
-                                       inst_num,
-                                       qat_instance_details[cp_ctx->_inst_num].qat_instance_info.physInstId.packageId);
+                                       cp_ctx->inst_num,
+                                       qat_instance_details[cp_ctx->_inst_num].qat_instance_info.physInstId.packageId, __func__);
                         qat_cleanup_op_done(&op_done);
                         goto do_cipher_err;
                     }

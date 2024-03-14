@@ -356,7 +356,7 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
                 ("Failed to submit request to qat inst_num %d device_id %d - %s\n",
                  qat_sm3_ctx->inst_num,
                  qat_instance_details[qat_sm3_ctx->inst_num].qat_instance_info.
-                 physInstId.packageId);
+                 physInstId.packageId, __func__);
         }
         QATerr(QAT_F_QAT_HW_SM3_DO_OFFLOAD, ERR_R_INTERNAL_ERROR);
         if (op_done.job != NULL)
@@ -413,7 +413,7 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
                 ("Verification of result failed for qat inst_num %d device_id %d - %s\n",
                  inst_num,
                  qat_instance_details[qat_sm3_ctx->_inst_num].qat_instance_info.
-                 physInstId.packageId);
+                 physInstId.packageId, __func__);
             qat_cleanup_op_done(&op_done);
             goto err;
         }
@@ -803,9 +803,7 @@ int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
             (*qat_sm3_ctx->data_refs)--;
             DEBUG("HW SM3 data reference decrease to %d\n",
                   *qat_sm3_ctx->data_refs);
-        }
-
-	if (*qat_sm3_ctx->data_refs == 0) {
+        } else {
             OPENSSL_free(qat_sm3_ctx->data);
             OPENSSL_free(qat_sm3_ctx->data_refs);
 	}
