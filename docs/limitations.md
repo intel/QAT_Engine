@@ -66,7 +66,16 @@
 
   [system_cipher_sect]
   Cipherstring = ALL
-  Ciphersuites = TLS_AES_128_CCM_8_SHA256:TLS_AES_128_CCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
+  Ciphersuites = TLS_AES_128_CCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
+```
+* FreeBSD qatlib Header files are not installed to the install path due to a known issue in the driver. Please copy manually as mentioned in the below example  which considers default path '/usr/local'. If the FreeBSD qatlib's install path is different then copy them to that directory.
+
+```
+  # Create destination directory from the QATlib 23.09 top directory:
+  ./install-sh -c -d '/usr/local/include/qat'
+
+  # Install Header Files:
+  /usr/bin/install -c -m 644 quickassist/include/cpa.h quickassist/include/cpa_dev.h quickassist/include/cpa_types.h quickassist/include/lac/cpa_cy_common.h quickassist/include/lac/cpa_cy_dh.h quickassist/include/lac/cpa_cy_drbg.h quickassist/include/lac/cpa_cy_dsa.h quickassist/include/lac/cpa_cy_ecdh.h quickassist/include/lac/cpa_cy_ecdsa.h quickassist/include/lac/cpa_cy_ecsm2.h quickassist/include/lac/cpa_cy_ec.h quickassist/include/lac/cpa_cy_im.h quickassist/include/lac/cpa_cy_key.h quickassist/include/lac/cpa_cy_kpt.h quickassist/include/lac/cpa_cy_ln.h quickassist/include/lac/cpa_cy_nrbg.h quickassist/include/lac/cpa_cy_prime.h quickassist/include/lac/cpa_cy_rsa.h quickassist/include/lac/cpa_cy_sym_dp.h quickassist/include/lac/cpa_cy_sym.h quickassist/include/dc/cpa_dc.h quickassist/include/dc/cpa_dc_dp.h quickassist/include/dc/cpa_dc_chain.h quickassist/lookaside/access_layer/include/icp_sal_poll.h quickassist/lookaside/access_layer/include/icp_sal_user.h quickassist/lookaside/access_layer/include/icp_sal.h quickassist/lookaside/access_layer/include/icp_sal_versions.h quickassist/utilities/libusdm_drv/qae_mem.h /usr/local/include/qat
 ```
 
 ## Known Issues

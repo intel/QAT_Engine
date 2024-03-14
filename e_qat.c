@@ -243,7 +243,11 @@ int qat_cond_wait_started = 0;
 
 #ifdef QAT_HW
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
+# if defined(QAT_HW_FBSD_INTREE)
+char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE] = "SSL";
+# else
 char qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE] = "SHIM";
+# endif
 char *ICPConfigSectionName_libcrypto = qat_config_section_name;
 int enable_inline_polling = 0;
 int enable_event_driven_polling = 0;

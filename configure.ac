@@ -327,9 +327,14 @@ then
   then
     AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_INTREE"])
     AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
-    AC_MSG_NOTICE([QAT intree driver using QATlib in ${with_qat_hw_dir}])
+    AC_MSG_NOTICE([QAT in-tree driver using QATlib in ${with_qat_hw_dir}])
+  else
+    AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_FBSD_INTREE"])
+    AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
+    AC_MSG_NOTICE([QAT in-tree driver using FBSD QATlib in ${with_qat_hw_dir}])
   fi
 fi
+
 AM_CONDITIONAL([QAT_HW_INTREE], [test "x$cflags_qat_hw_intree" != "x"])
 
 # ERROR message if mandatory options are not provided
@@ -779,8 +784,16 @@ fi
 # qatlib Intree uses different library name
 if test "x$cflags_qat_hw_intree" != "x"
 then
-  AC_SUBST([DRIVER], ["qat"])
-  AC_SUBST([USDM], ["usdm"])
+  case "$host_os" in
+  freebsd*)
+      AC_SUBST([DRIVER], ["qat_s"])
+      AC_SUBST([USDM], ["usdm_drv_s"])
+      ;;
+  *)
+      AC_SUBST([DRIVER], ["qat"])
+      AC_SUBST([USDM], ["usdm"])
+      ;;
+  esac
 else
   AC_SUBST([DRIVER], ["qat_s"])
   AC_SUBST([USDM], ["usdm_drv_s"])
