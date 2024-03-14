@@ -452,19 +452,16 @@ then
   then
     AC_MSG_NOTICE([QAT_SW enabled for PKE with crypto_mb from user provided path])
     AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-    AC_SUBST([includes_qat_sw_crypto_mb], ["-I\$(with_qat_sw_crypto_mb_install_dir)/include"])
-    AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_crypto_mb_install_dir)/lib -L\$(with_qat_sw_crypto_mb_install_dir)/lib -lcrypto_mb"])
+    AC_SUBST([includes_qat_sw_crypto_mb], ["-I\${with_qat_sw_crypto_mb_install_dir}/include"])
+    AC_CHECK_FILE(${with_qat_sw_crypto_mb_install_dir}/lib/libcrypto_mb.so,
+                 [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,${with_qat_sw_crypto_mb_install_dir}/lib -L\${with_qat_sw_crypto_mb_install_dir}/lib -lcrypto_mb"])],
+                 [AC_MSG_ERROR([$with_qat_sw_crypto_mb_install_dir/lib/libcrypto_mb.so not found. Install it and try again.])])
   else
-    AC_CHECK_LIB(crypto_mb, mbx_getversion, [AC_MSG_NOTICE([QAT_SW enabled for PKE with crypto_mb from standard path])], [AC_MSG_NOTICE([crypto_mb Library not found, QAT_SW disabled for PKE algorithms])], [])
-    if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
-    then
-      AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-      AC_SUBST([includes_qat_sw_crypto_mb], ["-I/usr/local/include"])
-      AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
-                   [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lcrypto_mb"])],
-                   [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
-    fi
     AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
+    AC_SUBST([includes_qat_sw_crypto_mb], ["-I/usr/local/include -I/usr/include"])
+    AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
+                 [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lcrypto_mb"])],
+                 [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])
   fi
 
 #IPSEC_MB install path provided
@@ -472,20 +469,14 @@ then
   then
     AC_MSG_NOTICE([QAT_SW for AES-GCM enabled with IPsec_mb library from the path provided])
     AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
-    AC_SUBST([includes_qat_sw_ipsec_mb], ["-I\$(with_qat_sw_ipsec_mb_install_dir)/include"])
-    AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-Wl,-rpath,\$(with_qat_sw_ipsec_mb_install_dir)/lib -L\$(with_qat_sw_ipsec_mb_install_dir)/lib -lIPSec_MB"])
+    AC_SUBST([includes_qat_sw_ipsec_mb], ["-I\${with_qat_sw_ipsec_mb_install_dir}/include"])
+    AC_CHECK_FILE(${with_qat_sw_ipsec_mb_install_dir}/lib/libIPSec_MB.so,
+                 [AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-Wl,-rpath,${with_qat_sw_ipsec_mb_install_dir}/lib -L\${with_qat_sw_ipsec_mb_install_dir}/lib -lIPSec_MB"])],
+                 [AC_MSG_ERROR([$with_qat_sw_ipsec_mb_install_dir/lib/libIPSec_MB.so not found. Install it and try again.])])
   else
-    AC_CHECK_LIB(IPSec_MB, imb_get_version, [AC_MSG_NOTICE([QAT_SW for AES-GCM enabled with IPsec_mb library from standard path])], [AC_MSG_NOTICE([IPSec_MB Library not found, QAT_SW GCM disabled])], [])
-    if test "x$ac_cv_lib_IPSec_MB_imb_get_version" = "xyes"
-    then
-      AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
-      AC_SUBST([includes_qat_sw_ipsec_mb], ["-I/usr/include"])
-      AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-lIPSec_MB"])
-    fi
-  fi
-  if test "x$cflags_qat_sw" = "x" -a "x$cflags_qat_sw_ipsec" = "x"
-  then
-    AC_MSG_ERROR([Both crypto_mb & IPSec_MB libraries not found in the default install dir, Install the dependent libraries or provide path via --with-qat_sw_crypto_mb_install_dir & --with-qat_sw_ipsec_mb_install_dir if installed other than the default location])
+    AC_SUBST([cflags_qat_sw_ipsec], ["-DQAT_SW_IPSEC"])
+    AC_SUBST([includes_qat_sw_ipsec_mb], ["-I/usr/include"])
+    AC_SUBST([QAT_SW_IPSEC_MB_LIB], ["-lIPSec_MB"])
   fi
 fi
 AM_CONDITIONAL([QAT_SW], [test "x$cflags_qat_sw" != "x"])
@@ -831,14 +822,37 @@ then
   fi
 fi
 
-# Output files from the configure
-AC_CONFIG_FILES([Makefile])
-AC_OUTPUT
-
-echo "==========================================="
+echo "==============================================================================="
 echo "Enabled Algorithms and Additional Flags"
-echo "==========================================="
+echo "==============================================================================="
 echo "QAT_HW ALGORITHMS :" [$cflags_qat_hw]
 echo "QAT_SW ALGORITHMS :" [$cflags_qat_sw]
 echo "ADDITIONAL FLAGS  :" [$cflags_common $cflags_openssl_3 $cflags_boringssl]
-echo "==========================================="
+if test "x$cflags_qat_hw" != "x"
+then
+  AC_CHECK_FILE(${with_qat_hw_dir}/build/libqat_s.so, [],
+                [echo "QAT_HW Driver library not found in $with_qat_hw_dir/build. Install it & try again or proceed with 'make depend' target to install dependencies"])
+fi
+if test "x$cflags_qat_sw" != "x"
+then
+  if test "x$with_qat_sw_crypto_mb_install_dir" = "x"
+  then
+    AC_CHECK_LIB(crypto_mb, mbx_getversion)
+    AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so)
+    if test "x$ac_cv_file__usr_local_lib_libcrypto_mb_so" != "xyes" -a "x$ac_cv_lib_crypto_mb_mbx_getversion" != "xyes"
+    then
+      echo "libcrypto_mb.so not found in /usr/local/lib or in system default. Install it & try again or proceed with 'make depend' target to install dependencies"
+      # Setting it for make depend target
+      AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lcrypto_mb"])
+    fi
+  fi
+  if test "x$with_qat_sw_ipsec_mb_install_dir" = "x"
+  then
+    AC_CHECK_LIB(IPSec_MB, imb_get_version, [], [echo "libIPsec_MB.so not found in default path. Install it & try again or proceed with 'make depend' target to install dependencies"])
+  fi
+fi
+echo "==============================================================================="
+
+# Output files from the configure
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
