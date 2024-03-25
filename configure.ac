@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [1.5.0], [])
+AC_INIT([qatengine], [1.6.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -638,6 +638,16 @@ then
         fi
     fi
 fi
+#System OpenSSL
+if test "x$with_openssl_install_dir" = "x"
+then
+  AC_CHECK_LIB([crypto],[EVP_sm3],[with_sm3_support_h=yes],[with_sm3_support_h=no])
+  if test "x$with_sm3_support_h" = "xno"
+  then
+    AC_SUBST([cflags_qat_hw], ["${cflags_qat_hw} -DOPENSSL_NO_SM2_SM3"])
+    AC_MSG_NOTICE([SM3 support not available in system OpenSSL])
+  fi
+fi
 
 #Enable additional QAT_HW & QAT_SW flags
 AS_IF([test "x$enable_qat_debug" = "xyes"], 
@@ -830,8 +840,11 @@ echo "QAT_SW ALGORITHMS :" [$cflags_qat_sw]
 echo "ADDITIONAL FLAGS  :" [$cflags_common $cflags_openssl_3 $cflags_boringssl]
 if test "x$cflags_qat_hw" != "x"
 then
+  if test "x$cflags_qat_hw_intree" = "x"
+  then
   AC_CHECK_FILE(${with_qat_hw_dir}/build/libqat_s.so, [],
                 [echo "QAT_HW Driver library not found in $with_qat_hw_dir/build. Install it & try again or proceed with 'make depend' target to install dependencies"])
+  fi
 fi
 if test "x$cflags_qat_sw" != "x"
 then

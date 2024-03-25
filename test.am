@@ -31,7 +31,6 @@
 #   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 ################################################################
-
 QAT_TEST_SRC = test/main.c                    \
                test/tests.c                   \
                test/tests_rsa.c               \

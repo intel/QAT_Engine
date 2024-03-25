@@ -70,7 +70,6 @@
 #include <openssl/ssl.h>
 
 #ifdef ENABLE_QAT_HW_SM3
-
 static inline QAT_SM3_CTX *qat_hw_sm3_get_ctx(EVP_MD_CTX *ctx)
 {
     if (unlikely(ctx == NULL)) {
@@ -911,7 +910,11 @@ const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
         }
         return qat_hw_sm3_meth;
 # else
+#  ifdef OPENSSL_NO_SM2_SM3
+	return NULL;
+#  else
         return (EVP_MD *)EVP_sm3();
+#  endif
 # endif
     }
 }

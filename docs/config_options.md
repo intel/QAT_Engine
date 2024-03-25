@@ -161,7 +161,7 @@ The following is a list of the options that can be used with the
     Disable/Enable Intel(R) QAT Hardware SM4-CBC acceleration.(disabled by default)
     This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
     for earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.) and QAT Engine
-    is built with BabaSSL only
+    is built with Tongsuo only
 
 --disable-qat_hw_sha3/--enable-qat_hw_sha3
     Disable/Enable Intel(R) QAT Hardware SHA-3 acceleration (disabled by default).
@@ -222,19 +222,19 @@ The following is a list of the options that can be used with the
 --disable-qat_sw_sm4_cbc/--enable-qat_sw_sm4_cbc
     Disable/Enable Intel(R) QAT Software SM4-CBC acceleration.
     This flag is valid only when QAT SW acceleration is enabled using the
-    flag '--enable-qat_sw' and QAT Engine is built with BabaSSL only
+    flag '--enable-qat_sw' and QAT Engine is built with Tongsuo only
     (disabled by default if qat_sw is enabled).
 
 --disable-qat_sw_sm4_gcm/--enable-qat_sw_sm4_gcm
     Disable/Enable Intel(R) QAT Software SM4-GCM acceleration.
     This flag is valid only when QAT SW acceleration is enabled using the
-    flag '--enable-qat_sw' and QAT Engine is built with BabaSSL only
+    flag '--enable-qat_sw' and QAT Engine is built with Tongsuo only
     (disabled by default if qat_sw is enabled).
 
 --disable-qat_sw_sm4_ccm/--enable-qat_sw_sm4_ccm
     Disable/Enable Intel(R) QAT Software SM4-CCM acceleration.
     This flag is valid only when QAT SW acceleration is enabled using the
-    flag '--enable-qat_sw' and QAT Engine is built with BabaSSL only
+    flag '--enable-qat_sw' and QAT Engine is built with Tongsuo only
     (disabled by default if qat_sw is enabled).
 
 --enable-qat_small_pkt_offload
@@ -310,7 +310,7 @@ The following is a list of the options that can be used with the
 
 --enable-qat_ntls
     Enable ntls in engine for handing NTLS requests which is needed for SMx
-    with BabaSSL (disabled by default).
+    with Tongsuo (disabled by default).
 
 --enable-qat_insecure_algorithms
     Enables insecure algorithms RSA < 2048, DH, DSA, ECDH curves with bitlen

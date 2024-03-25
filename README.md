@@ -164,12 +164,12 @@ QAT gen4 devices.
 </details>
 </details>
 <details>
-<summary>Install OpenSSL*    (Note this step is not required if OpenSSL* 1.1.1 or 3.0 is already installed)</summary>
+<summary>Install OpenSSL*    (Note this step is not required if OpenSSL* is already installed)</summary>
 
 ## Build OpenSSL\*
 
 This step is not required if building the Intel&reg; QAT OpenSSL\* Engine
-against system prebuilt OpenSSL\* 1.1.1 or 3.0. When using the prebuild system OpenSSL library
+against system prebuilt OpenSSL\* . When using the prebuild system OpenSSL library
 the engine library is installed in the system OpenSSL engines directory.
 
 Clone OpenSSL\* from Github\* at the following location:
@@ -177,8 +177,7 @@ Clone OpenSSL\* from Github\* at the following location:
     git clone https://github.com/openssl/openssl.git
 
 It is recommended to checkout and build against the OpenSSL\* git tag
-specified in the Software Requirements section. OpenSSL\* Version 1.1.1
-and 3.0 are only supported.
+specified in the Software Requirements section.
 
 Due to the nature of the Intel&reg; QAT OpenSSL\* Engine being a dynamic engine
 it can only be used with shared library builds of OpenSSL\*.
@@ -282,7 +281,7 @@ Here are a few example builds that demonstrate how the Intel&reg; QAT OpenSSL\*
 Engine can be configured to use qat_hw and/or qat_sw.
 
 <details>
-<summary>Example 1: qat_hw target with OpenSSL\* 1.1.1 or 3.0 built from source</summary>
+<summary>Example 1: qat_hw target with OpenSSL\* built from source</summary>
 <br>
 
 The following example is assuming:
@@ -291,7 +290,7 @@ The following example is assuming:
   of the drive: `/`.
 * The Intel&reg; QAT Driver version 1.7 or 2.0 was unpacked within `/QAT` and using
   the USDM component.
-* OpenSSL\* 1.1.1 or 3.0 built from source is being used and installed to `/usr/local/ssl`.
+* OpenSSL\* built from source is being used and installed to `/usr/local/ssl`.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -305,7 +304,7 @@ make install
 ```
 
 In the above example this will create the file `qatengine.so` and copy it to
-`/usr/local/ssl/lib/engines-1.1`.
+`/usr/local/ssl/lib64/engines-3`.
 
 For building QAT Engine against qatlib(intree driver) from source which is
 installed to default location "/usr/local" use `--with-qat_hw_dir=/usr/local`
@@ -319,7 +318,7 @@ libraries and headers from the default location `/usr/lib64`.
 </details>
 
 <details>
-<summary>Example 2: qat_hw target with Prebuilt OpenSSL\* 1.1.1 or 3.0</summary>
+<summary>Example 2: qat_hw target with Prebuilt OpenSSL\* </summary>
 <br>
 
 The following example is assuming:
@@ -328,7 +327,7 @@ The following example is assuming:
 * The Intel&reg; QAT Driver was unpacked within `/QAT` and using
   the USDM component.
 * Prebuilt OpenSSL\* (both library and devel RPM packages) are installed in
-  the system and the OpenSSL\* version is in the `1.1.1 or 3.0` series.
+  the system and the OpenSSL\* version is `3.0` or above.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -351,7 +350,7 @@ libraries and headers from the default location `/usr/lib64`.
 </details>
 
 <details>
-<summary>Example 3: qat_hw + qat_sw target with Prebuilt OpenSSL\* 1.1.1 or 3.0</summary>
+<summary>Example 3: qat_hw + qat_sw target with Prebuilt OpenSSL\* </summary>
 <br>
 
 The following example is assuming:
@@ -361,7 +360,7 @@ The following example is assuming:
 * The Intel&reg; QAT Driver was unpacked within `/QAT` and using
   the USDM component.
 * Intel&reg; Multi-Buffer Crypto for IPsec Library was installed to the default path
-* OpenSSL\* 1.1.1 or 3.0 built from source is being used and installed to `/usr/local/ssl`.
+* OpenSSL\* built from source is being used and installed to `/usr/local/ssl`.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine:
 
@@ -376,7 +375,7 @@ make install
 ```
 
 - In the above example this will create the file `qatengine.so` and copy it to
-  `/usr/local/ssl/lib/engines-1.1`.
+  `/usr/local/ssl/lib64/engines-3`.
 - AES-GCM operations are handled by qat_sw
 - Other cryptographic operations are handled by qat_hw
 
@@ -384,7 +383,7 @@ make install
 </details>
 
 <details>
-<summary>Example 4: qat_sw target with Prebuilt OpenSSL\* 1.1.1 or 3.0 </summary>
+<summary>Example 4: qat_sw target with Prebuilt OpenSSL\* </summary>
 <br>
 
 The following example is assuming:
@@ -395,7 +394,7 @@ The following example is assuming:
   (/usr/local).
 * The Intel&reg; Multi-Buffer crypto for IPsec Library was installed to its
   default path (/usr/). (Optional if QAT SW AES-GCM support is not needed).
-* Prebuilt OpenSSL\* 1.1.1 or 3.0 from the system is used.
+* Prebuilt OpenSSL\* from the system is used.
 
 To build and install the Intel&reg; QAT OpenSSL\* Engine with QAT Software support:
 
@@ -661,8 +660,6 @@ Additional information for testapp tests available with the help option
 
 
 
-## Key Protection Technology(KPT) feature
-Please refer to: [KPT README](docs/KPT_Feature.md)
 
 ## Troubleshooting
 Troubleshooting information is available [here](docs/troubleshooting.md).

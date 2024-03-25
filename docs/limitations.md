@@ -11,7 +11,7 @@
 * **qat_contig_mem** memory driver is not supported when running under FreeBSD
   Operating system or in the qatlib RPM. The default is to use the USDM memory
   driver supplied as part of the Intel&reg; QAT Driver.
-* **SM2, SM3 & SM4** application testing is done using BabaSSL only since OpenSSL
+* **SM2, SM3 & SM4** application testing is done using Tongsuo only since OpenSSL
   doesn't support SMx cipher suites.
 * QAT Engine doesn't support **ENCRYPT_THEN_MAC**(default) mode of operation meaning
   when Encrypt then MAC is negotiated for symmetric ciphers say AES-CBC, the requests will not
@@ -38,9 +38,8 @@
   algorithm support.
 * QAT Engine built for OpenSSL3.0 is only compatible with dependent libraries also linked with OpenSSL3.0
   libraries due to [OpenSSL#17112][1]. Same applies for OpenSSL 1.1.1.
-* SM4-GCM and SM4-CCM are only supported with BabaSSL versions based on OpenSSL 1.1.1.
-  They are not supported with OpenSSL 1.1.1, OpenSSL 3.0 and BabaSSL versions based
-  on OpenSSL 3.0.
+* SM4-GCM, SM4-CCM and SM4-CBC are only supported with Tongsuo and they are not supported with OpenSSL.
+* Handshake Failures with X25519/X448 which is fixed in [Tongsuo#563][7] and SM2 init Failure in Speed test is fixed in [Tongsuo#590][8]. These issues observed in Tongsuo only and not in OpenSSL.
 * HKDF based on SM3 is not supported in QAT_HW, The request will fallback to OpenSSL software if
   fallback been enabled otherwise failures are observed.
 * There is a limitation with thread specific USDM: *memory allocated in one thread
@@ -112,6 +111,7 @@
 * Nginx Handshake Performance in OpenSSL3.0 is slightly slower compared to OpenSSL 1.1.1. The same
   behaviour is observed in OpenSSL_SW as well [OpenSSL#21833][6].
 * Performance scaling is not linear in QAT2.0 supported platforms in ECDSA and chacha-poly algorithms.
+* Performance drop observed with ECDSAP256 algorithm in the OpenSSL speed tests with FreeBSD 14 intree driver.
   
   Articles:
 
@@ -127,3 +127,5 @@
 [4]:https://github.com/openssl/openssl/issues/21622
 [5]:https://github.com/openssl/openssl/issues/18509
 [6]:https://github.com/openssl/openssl/issues/21833
+[7]:https://github.com/Tongsuo-Project/Tongsuo/pull/563
+[8]:https://github.com/Tongsuo-Project/Tongsuo/pull/590

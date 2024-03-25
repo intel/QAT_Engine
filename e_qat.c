@@ -164,13 +164,13 @@ int qat_fips_kat_test;
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.5.0";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.6.0";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v1.5.0";
+    "Reference implementation of QAT crypto engine(qat_hw) v1.6.0";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v1.5.0";
+    "Reference implementation of QAT crypto engine(qat_sw) v1.6.0";
 #endif
 unsigned int engine_inited = 0;
 int fallback_to_openssl = 0;
@@ -607,6 +607,7 @@ int qat_engine_init(ENGINE *e)
         if (!qat_hw_init(e)) {
 # ifdef ENABLE_QAT_FIPS
             fprintf(stderr, "QAT_HW initialization Failed\n");
+            qat_pthread_mutex_unlock();
             return 0;
 # else
 #  ifdef QAT_SW /* Co-Existence mode: Don't return failure when QAT HW initialization Failed. */
@@ -627,6 +628,7 @@ int qat_engine_init(ENGINE *e)
         if (!qat_sw_init(e)) {
 # ifdef ENABLE_QAT_FIPS
             fprintf(stderr, "QAT_SW initialization Failed\n");
+            qat_pthread_mutex_unlock();
             return 0;
 # else
             WARN("QAT SW initialization Failed, switching to OpenSSL.\n");

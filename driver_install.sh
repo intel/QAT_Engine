@@ -1,8 +1,8 @@
 #!/bin/sh
 
 #QAT_HW OOT driver Location
-QAT17_DRIVER=https://downloadmirror.intel.com/788561/QAT.L.4.23.0-00001.tar.gz
-QAT20_DRIVER=https://downloadmirror.intel.com/783270/QAT20.L.1.0.50-00003.tar.gz
+QAT17_DRIVER=https://downloadmirror.intel.com/795697/QAT.L.4.24.0-00005.tar.gz
+QAT20_DRIVER=https://downloadmirror.intel.com/818498/QAT20.L.1.1.40-00018.tar.gz
 
 #Supported Devices
 numC62xDevice=`lspci -vnd 8086: | grep -c "37c8\|37c9"`

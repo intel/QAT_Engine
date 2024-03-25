@@ -48,9 +48,9 @@ Please refer [here](qat_hw_algo.md) for supported platforms list and default beh
         * NIST Prime Curves: P-256/P-384
         * SM2
     * SM3 Hash Support using 16 Multibuffer requests (Experimental)
-    * SM4-CBC Support using 16 Multibuffer requests (BabaSSL only)
-    * SM4-GCM Support using 16 Multibuffer requests (BabaSSL only)
-    * SM4-CCM Support using 16 Multibuffer requests (BabaSSL only)
+    * SM4-CBC Support using 16 Multibuffer requests (Tongsuo only)
+    * SM4-GCM Support using 16 Multibuffer requests (Tongsuo only)
+    * SM4-CCM Support using 16 Multibuffer requests (Tongsuo only)
     * AES128-GCM, AES192-GCM and AES256-GCM
 
 ## Common Features to qat_hw & qat_sw

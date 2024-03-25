@@ -52,6 +52,7 @@
 #include "tests.h"
 #include "../qat_utils.h"
 
+#ifndef OPENSSL_NO_SM2_SM3
 #define SM2_ID        "TLSv1.3+GM+Cipher+Suite"
 #define SM2_ID_LEN    sizeof("TLSv1.3+GM+Cipher+Suite") - 1
 
@@ -503,3 +504,4 @@ void tests_run_sm2(TEST_PARAMS *args)
     else
         start_async_job(args, run_sm2);
 }
+#endif /* OPENSSL_NO_SM2_SM3 */
