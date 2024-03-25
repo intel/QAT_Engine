@@ -3083,7 +3083,6 @@ static int run_rsa(void *args)
 
 #ifdef QAT_OPENSSL_PROVIDER
     EVP_PKEY *rsa_key = NULL;
-    ctext = OPENSSL_malloc(EVP_PKEY_get_size(rsa_key));
     RAND_bytes(HashData, 36);
     RAND_bytes(expectedPtext, 36);
 
@@ -3183,6 +3182,17 @@ static int run_rsa(void *args)
                 goto err;
             }
 
+	    if (clen <= 0) {
+                WARN("Cipher length less than zero\n");
+		ret = 0;
+		goto err;
+	    }
+	    ctext = OPENSSL_malloc(clen);
+	    if (ctext == NULL) {
+                WARN("Failed to allocate memory for ctext\n");
+		ret = 0;
+		goto err;
+	    }
             status = EVP_PKEY_encrypt(enc_ctx, ctext, &clen, expectedPtext, 36);
 
             if (status <= 0) {

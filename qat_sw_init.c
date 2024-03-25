@@ -424,7 +424,6 @@ int qat_sw_init(ENGINE *e)
     if (NULL == e_check) {
         WARN("Failure to allocate e_check\n");
         QATerr(QAT_F_QAT_SW_INIT, QAT_R_ALLOC_E_CHECK_FAILURE);
-        qat_pthread_mutex_unlock();
         qat_engine_finish(e);
         return 0;
     }
@@ -433,7 +432,6 @@ int qat_sw_init(ENGINE *e)
     if ((err = pthread_key_create(&mb_thread_key, mb_thread_local_destructor)) != 0) {
         WARN("pthread_key_create failed %s\n", strerror(err));
         QATerr(QAT_F_QAT_SW_INIT, QAT_R_PTHREAD_CREATE_FAILURE);
-        qat_pthread_mutex_unlock();
         qat_engine_finish(e);
         return 0;
     }

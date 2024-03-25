@@ -25,8 +25,8 @@ and the default if not specified will use engine interface.
 | SHA3-384 | QAT_HW |
 | SHA3-512 | QAT_HW |
 | ChachaPoly | QAT_HW |
-| SM4-GCM (BabaSSL only) | QAT_SW |
-| SM4-CCM (BabaSSL only) | QAT_SW |
+| SM4-GCM (Tongsuo only) | QAT_SW |
+| SM4-CCM (Tongsuo only) | QAT_SW |
 | SM4-CBC | QAT_HW & QAT_SW |
 | SM3 | QAT_HW & QAT_SW |
 | AES-CCM | QAT_HW |

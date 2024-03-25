@@ -113,7 +113,7 @@ an additional `init` setting that is out of scope of the documentation here.
 
 For further details on using the OpenSSL\* configuration file please see the
 OpenSSL\* online documentation located at:
-<https://www.openssl.org/docs/man1.1.0/apps/config.html>
+<https://www.openssl.org/docs/man3.0/man5/config.html>
 
 By setting up the configuration file as above it is possible for instance to run
 the OpenSSL\* speed application to use the Intel&reg; QAT OpenSSL\* Engine

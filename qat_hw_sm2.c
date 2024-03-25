@@ -49,7 +49,7 @@
 #define __USE_GNU
 #include "qat_hw_sm2.h"
 
-#ifdef ENABLE_QAT_HW_SM2
+#if defined(ENABLE_QAT_HW_SM2) && !defined(QAT_HW_FBSD_INTREE)
 typedef struct {
     /* Key and paramgen group */
     EC_GROUP *gen_group;

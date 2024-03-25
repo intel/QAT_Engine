@@ -518,7 +518,6 @@ int qat_hw_init(ENGINE *e)
     if ((err = pthread_key_create(&thread_local_variables, qat_local_variable_destructor)) != 0) {
         WARN("pthread_key_create failed: %s\n", strerror(err));
         QATerr(QAT_F_QAT_HW_INIT, QAT_R_PTHREAD_CREATE_FAILURE);
-        qat_pthread_mutex_unlock();
         return 0;
     }
 
@@ -530,7 +529,6 @@ int qat_hw_init(ENGINE *e)
         QATerr(QAT_F_QAT_HW_INIT, QAT_R_ICP_SAL_USERSTART_FAIL);
 # endif
         pthread_key_delete(thread_local_variables);
-        qat_pthread_mutex_unlock();
         return 0;
     }
 
@@ -761,13 +759,15 @@ int qat_hw_init(ENGINE *e)
         if (!qat_is_event_driven()) {
             if (pthread_mutex_lock(&qat_poll_mutex) == 0) {
                 while (!cleared_to_start){
-                   if (pthread_cond_wait(&qat_poll_condition, &qat_poll_mutex) != 0)
+                   if (pthread_cond_wait(&qat_poll_condition, &qat_poll_mutex) != 0) {
                        WARN("Failed to get conditional wait\n");
-		   qat_cond_wait_started = 1;
+		   }
+                   qat_cond_wait_started = 1;
                 }
-                if (pthread_mutex_unlock(&qat_poll_mutex) != 0)
+                if (pthread_mutex_unlock(&qat_poll_mutex) != 0) {
                     WARN("Failed to unlock conditional wait mutex \n");
-            }else {
+		}
+            } else {
                 WARN("Failed to lock conditional wait mutex \n");
             }
         }
@@ -905,10 +905,7 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals)
     if (!enable_external_polling && !enable_inline_polling) {
         if (!qat_is_event_driven()) {
             int res =0;
-            if ((res = pthread_mutex_unlock(&qat_poll_mutex)) != 0){
-                WARN("Unlocking of qat_poll_mutex failed. %d\n", res);
-            }
-            if ((qat_cond_wait_started && (res = pthread_cond_destroy(&qat_poll_condition))) != 0){
+            if ((qat_cond_wait_started && (res = pthread_cond_destroy(&qat_poll_condition))) != 0) {
                 WARN("Destroying of qat_poll_condition failed. %d\n", res);
             }
 	}

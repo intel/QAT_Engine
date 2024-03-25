@@ -992,7 +992,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
             if (op_done.status == CPA_STATUS_FAIL) {
                 CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - %s\n",
                                cp_ctx->inst_num,
-                               qat_instance_details[cp_ctx->_inst_num].qat_instance_info.physInstId.packageId, __func__);
+                               qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId, __func__);
                 qat_cleanup_op_done(&op_done);
                 goto tls_cipher_err;
             }
@@ -1322,7 +1322,7 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                     if (op_done.status == CPA_STATUS_FAIL) {
                         CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - %s\n",
                                        cp_ctx->inst_num,
-                                       qat_instance_details[cp_ctx->_inst_num].qat_instance_info.physInstId.packageId, __func__);
+                                       qat_instance_details[cp_ctx->inst_num].qat_instance_info.physInstId.packageId, __func__);
                         qat_cleanup_op_done(&op_done);
                         goto do_cipher_err;
                     }

@@ -798,7 +798,8 @@ int qat_aes_gcm_cleanup(EVP_CIPHER_CTX *ctx)
 
             /* Cleanup the memory */
             QAT_MEM_FREE_NONZERO_BUFF(qctx->qat_ctx, qctx->qat_svm);
-            QAT_MEM_FREE_NONZERO_BUFF(qctx->aad, qctx->qat_svm);
+            if (!qctx->qat_svm)
+                QAT_MEM_FREE_NONZERO_BUFF(qctx->aad, qctx->qat_svm);
             QAT_MEM_FREE_NONZERO_BUFF(qctx->srcBufferList.pPrivateMetaData, qctx->qat_svm);
             QAT_MEM_FREE_NONZERO_BUFF(qctx->dstBufferList.pPrivateMetaData, qctx->qat_svm);
             QAT_MEM_FREE_NONZERO_BUFF(qctx->iv, qctx->qat_svm);

@@ -379,7 +379,11 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 #else
     qat_sw_sm3_offload = 0;
     DEBUG("QAT SW SM3 is disabled, using OpenSSL SW\n");
+# ifdef OPENSSL_NO_SM2_SM3
+    return NULL;
+# else
     return (EVP_MD *)EVP_sm3();
+# endif
 #endif
 }
 

@@ -905,7 +905,7 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
         if (op_done.status == CPA_STATUS_FAIL) {
             CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - %s\n",
                             sha3_ctx->inst_num,
-                            qat_instance_details[sha3_ctx->_inst_num].qat_instance_info.physInstId.packageId, __func__);
+                            qat_instance_details[sha3_ctx->inst_num].qat_instance_info.physInstId.packageId, __func__);
             qat_cleanup_op_done(&op_done);
             goto err;
         }

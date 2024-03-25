@@ -49,7 +49,7 @@
 
 #include "tests.h"
 #include "../qat_utils.h"
-
+#ifndef OPENSSL_NO_SM2_SM3
 #define SM3_DIGEST_LENGTH 32
 
 typedef struct DIGEST_CASE {
@@ -326,3 +326,4 @@ void tests_run_sm3(TEST_PARAMS *args)
         start_async_job(args, run_sm3_hmac);
     }
 }
+#endif /* OPENSS_NOS_SM2_SM3 */
