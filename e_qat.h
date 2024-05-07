@@ -85,7 +85,7 @@
 #  include "qat_sw_queue.h"
 #  include "qat_sw_freelist.h"
 # endif
-# include "qat_common.h"
+#include "qat_common.h"
 
 # ifndef ERR_R_RETRY
 #  define ERR_R_RETRY 57
@@ -128,6 +128,7 @@
 # define QAT_ATOMIC_DEC(qat_int)              \
             (__sync_sub_and_fetch(&(qat_int), 1))
 
+extern clock_t clock_id;
 # ifdef QAT_HW
 typedef struct {
     int qatAsymInstanceNumForThread;
@@ -931,7 +932,8 @@ int qat_sw_cpu_support(void);
 # endif
 
 # ifdef QAT_OPENSSL_PROVIDER
-typedef _Atomic int CRYPTO_REF_COUNT;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
+
 static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
 {
     *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
@@ -946,22 +948,23 @@ static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret,
 	__atomic_thread_fence(__ATOMIC_ACQUIRE);
     return 1;
 }
-# endif
 
-# if OPENSSL_VERSION_NUMBER >= 0x30200000
-static __inline__ int QAT_CRYPTO_UP_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
+# else
+
+static __inline__ int QAT_CRYPTO_UP_REF(CRYPTO_REF_COUNT *refcnt, int *ret)
 {
     *ret = __atomic_fetch_add(&refcnt->val, 1, __ATOMIC_RELAXED) + 1;
     return 1;
 }
 
-static __inline__ int QAT_CRYPTO_DOWN_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
+static __inline__ int QAT_CRYPTO_DOWN_REF(CRYPTO_REF_COUNT *refcnt, int *ret)
 {
     *ret = __atomic_fetch_sub(&refcnt->val, 1, __ATOMIC_RELAXED) - 1;
     if (*ret == 0)
         __atomic_thread_fence(__ATOMIC_ACQUIRE);
     return 1;
 }
+# endif
 # endif
 
 #endif   /* E_QAT_H */

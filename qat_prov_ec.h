@@ -400,11 +400,7 @@ struct ec_key_st {
     BIGNUM *priv_key;
     unsigned int enc_flag;
     point_conversion_form_t conv_form;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    int references; /*CRYPTO_REF_COUNT references;*/
-# else
-    QAT_CRYPTO_REF_COUNT references;
-# endif
+    CRYPTO_REF_COUNT references; /*CRYPTO_REF_COUNT references;*/
     int flags;
 # ifndef FIPS_MODULE
     CRYPTO_EX_DATA ex_data;

@@ -81,8 +81,6 @@
 #define PROV_CIPHER_FLAG_VARIABLE_LENGTH  0x0100
 #define PROV_CIPHER_FLAG_INVERSE_CIPHER   0x0200
 
-typedef _Atomic int CRYPTO_REFERENCE_COUNT;
-
 typedef struct qat_evp_cipher_st {
     int nid;
 
@@ -120,12 +118,10 @@ typedef struct qat_evp_cipher_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_REFERENCE_COUNT refcnt;
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-# else
-    QAT_CRYPTO_REF_COUNT refcnt;
-# endif
+#endif
     OSSL_FUNC_cipher_newctx_fn *newctx;
     OSSL_FUNC_cipher_encrypt_init_fn *einit;
     OSSL_FUNC_cipher_decrypt_init_fn *dinit;

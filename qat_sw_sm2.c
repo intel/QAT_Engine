@@ -69,11 +69,10 @@ typedef struct evp_signature_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    int refcnt;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    void *lock;
-# endif
-
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+#endif
     OSSL_FUNC_signature_newctx_fn *newctx;
     OSSL_FUNC_signature_sign_init_fn *sign_init;
     OSSL_FUNC_signature_sign_fn *sign;

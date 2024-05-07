@@ -55,8 +55,12 @@
 /* Defines */
 #ifdef QAT_HW
 # ifdef QAT_HW_INTREE
-#  define ENABLE_QAT_HW_SHA3
-#  define ENABLE_QAT_HW_CHACHAPOLY
+#  ifndef ENABLE_QAT_HW_SHA3
+#   define ENABLE_QAT_HW_SHA3
+#  endif
+#  ifndef ENABLE_QAT_HW_CHACHAPOLY
+#   define ENABLE_QAT_HW_CHACHAPOLY
+#  endif
 # endif
 #endif
 
@@ -164,13 +168,13 @@ int qat_fips_kat_test;
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.6.2";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.7.0";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v1.6.2";
+    "Reference implementation of QAT crypto engine(qat_hw) v1.7.0";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v1.6.2";
+    "Reference implementation of QAT crypto engine(qat_sw) v1.7.0";
 #endif
 unsigned int engine_inited = 0;
 int fallback_to_openssl = 0;
@@ -340,6 +344,12 @@ __thread unsigned long long num_ecx_sw_derive_reqs = 0;
 __thread unsigned long long num_sm4_cbc_hw_cipher_reqs = 0;
 __thread unsigned long long num_sm4_cbc_sw_cipher_reqs = 0;
 
+#ifndef __FreeBSD__
+clock_t clock_id = CLOCK_MONOTONIC_RAW;
+#else
+clock_t clock_id = CLOCK_MONOTONIC_PRECISE;
+#endif
+
 #ifndef QAT_BORINGSSL
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
@@ -434,7 +444,6 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "SET_CONFIGURATION_SECTION_NAME",
         "Set the configuration section to use in QAT driver configuration file",
         ENGINE_CMD_FLAG_STRING},
-# ifndef __FreeBSD__
     {
         QAT_CMD_ENABLE_SW_FALLBACK,
         "ENABLE_SW_FALLBACK",
@@ -445,7 +454,6 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
         "HEARTBEAT_POLL",
         "Check the acceleration devices are still functioning",
         ENGINE_CMD_FLAG_NO_INPUT},
-# endif
     {
         QAT_CMD_DISABLE_QAT_OFFLOAD,
         "DISABLE_QAT_OFFLOAD",
@@ -970,20 +978,14 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
         }
         break;
         case QAT_CMD_ENABLE_SW_FALLBACK:
-# if !defined(__FreeBSD__) && !defined(QAT_HW_INTREE)
         DEBUG("Enabled SW Fallback\n");
         BREAK_IF(engine_inited, \
                 "ENABLE_SW_FALLBACK failed as the engine is already initialized\n");
         enable_sw_fallback = 1;
         CRYPTO_QAT_LOG("SW Fallback enabled - %s\n", __func__);
-# else
-        WARN("QAT_CMD_ENABLE_SW_FALLBACK is not supported\n");
-        retVal = 0;
-# endif
         break;
 
         case QAT_CMD_HEARTBEAT_POLL:
-# if !defined(__FreeBSD__) && !defined(QAT_HW_INTREE)
         BREAK_IF(!engine_inited, "HEARTBEAT_POLL failed as engine is not initialized\n");
         BREAK_IF(!enable_external_polling,
                 "HEARTBEAT_POLL failed as external polling is not enabled\n");
@@ -996,10 +998,6 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
             WARN("HEARTBEAT_POLL failed as no instances are available\n");
             retVal = 0;
         }
-# else
-        WARN("QAT_CMD_HEARTBEAT_POLL is not supported\n");
-        retVal = 0;
-# endif
         break;
 
         case QAT_CMD_DISABLE_QAT_OFFLOAD:
@@ -1113,7 +1111,7 @@ int bind_qat(ENGINE *e, const char *id)
    int ret = 0;
 #ifdef QAT_HW
     char *config_section = NULL;
-# if defined(QAT20_OOT) || defined(__FreeBSD__)
+# if !defined(QAT_HW_INTREE) && (defined(QAT20_OOT) || defined(__FreeBSD__)) 
     Cpa32U dev_count = 0;
 # endif
 #endif

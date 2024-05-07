@@ -70,9 +70,10 @@ struct evp_kdf_st {
     int name_id;
     char *type_name;
     const char *description;
-    CRYPTO_REF_COUNT refcnt;
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-
+#endif
     OSSL_FUNC_kdf_newctx_fn *newctx;
     OSSL_FUNC_kdf_dupctx_fn *dupctx;
     OSSL_FUNC_kdf_freectx_fn *freectx;
@@ -122,6 +123,7 @@ typedef struct {
     size_t qat_userLabel_len;
 
     EVP_PKEY_CTX *pctx;
+    EVP_PKEY_CTX *sw_ctx;
 } QAT_TLS_PRF;
 
 struct evp_pkey_ctx_st {

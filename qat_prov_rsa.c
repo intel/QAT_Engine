@@ -99,11 +99,14 @@ int QAT_RSA_size(const RSA *r)
 int QAT_RSA_up_ref(RSA *r)
 {
     int i;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
         return 0;
+# else
+    if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
+        return 0;
+# endif
 
-    // REF_PRINT_COUNT("RSA", r);
     if(i < 2)
     {
         WARN("refcount error");
@@ -121,9 +124,11 @@ void QAT_RSA_free(RSA *r)
 
     if (r == NULL)
         return;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_DOWN_REF(&r->references, &i, r->lock);
-    // REF_PRINT_COUNT("RSA", r);
+# else
+    QAT_CRYPTO_DOWN_REF(&r->references, &i);
+# endif
     if (i > 0)
         return;
     if(i < 0)
@@ -136,9 +141,9 @@ void QAT_RSA_free(RSA *r)
         qat_prov_rsa_finish(r);
 
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_RSA, r, &r->ex_data);
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_THREAD_lock_free(r->lock);
-
+# endif
     BN_free(r->n);
     BN_free(r->e);
     BN_clear_free(r->d);

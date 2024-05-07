@@ -61,6 +61,42 @@ static OSSL_FUNC_cipher_settable_ctx_params_fn qat_aes_settable_ctx_params;
 
 # define ossl_assert(x) ((x) != 0)
 
+const char *qat_get_cipher_name_from_nid(int nid)
+{
+    switch (nid) {
+        case NID_aes_128_cbc_hmac_sha1:
+            return "AES-128-CBC-HMAC-SHA1";
+        case NID_aes_256_cbc_hmac_sha1:
+            return "AES-256-CBC-HMAC-SHA1";
+        case NID_aes_128_cbc_hmac_sha256:
+            return "AES-128-CBC-HMAC-SHA256";
+        case NID_aes_256_cbc_hmac_sha256:
+            return "AES-256-CBC-HMAC-SHA256";
+        default:
+            WARN("Invalid nid %d\n", nid);
+            return NULL;
+    }
+}
+
+PROV_EVP_CIPHER get_default_cipher_aes_cbc(int nid)
+{
+    static PROV_EVP_CIPHER cbc_cipher;
+    static int initialized = 0;
+    if (!initialized) {
+        PROV_EVP_CIPHER *cipher =
+            (PROV_EVP_CIPHER *) EVP_CIPHER_fetch(NULL, qat_get_cipher_name_from_nid(nid),
+                                                "provider=default");
+        if (cipher) {
+            cbc_cipher = *cipher;
+            EVP_CIPHER_free((EVP_CIPHER *)cipher);
+            initialized = 1;
+        } else {
+            WARN("EVP_CIPHER_fetch from default provider failed");
+        }
+    }
+    return cbc_cipher;
+}
+
 static int qat_cipher_generic_initiv(PROV_CIPHER_CTX *ctx, const unsigned char *iv,
                                size_t ivlen)
 {
@@ -313,6 +349,11 @@ static int qat_aes_set_ctx_params(void *vctx, const OSSL_PARAM params[])
              */
             ctx->base.removetlsfixed -= AES_BLOCK_SIZE;
         }
+    }
+
+    if (ctx->base.sw_ctx) {
+        PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->base.nid);
+        sw_aes_cbc_cipher.set_ctx_params(ctx->base.sw_ctx, params);
     }
     return ret;
 }
@@ -580,7 +621,7 @@ int qat_aes_cbc_cipher_do_cipher(void *vctx, unsigned char *out, size_t *outl,
         return 0;
     }
 
-    if (qat_chained_ciphers_do_cipher(ctx, out, in, inl) <= 0) {
+    if (qat_chained_ciphers_do_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
         QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
         return 0;
     }
@@ -615,7 +656,7 @@ int qat_cipher_generic_stream_update(void *vctx, unsigned char *out,
         return 0;
     }
 
-    if (qat_chained_ciphers_do_cipher(ctx, out, in, inl) <= 0){
+    if (qat_chained_ciphers_do_cipher(ctx, out, outl, outsize, in, inl) <= 0){
         QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
         return 0;
     }

@@ -73,7 +73,9 @@
 #include <openssl/ssl.h>
 
 #ifdef QAT_HW_INTREE
-# define ENABLE_QAT_HW_SHA3
+# ifndef ENABLE_QAT_HW_SHA3
+#  define ENABLE_QAT_HW_SHA3
+# endif
 #endif
 
 # define GET_SW_SHA3_DIGEST(ctx) \

@@ -107,8 +107,12 @@
 #endif
 
 #ifdef QAT_HW_INTREE
-# define ENABLE_QAT_HW_SHA3
-# define ENABLE_QAT_HW_CHACHAPOLY
+# ifndef ENABLE_QAT_HW_SHA3
+#  define ENABLE_QAT_HW_SHA3
+# endif
+# ifndef ENABLE_QAT_HW_CHACHAPOLY
+#  define ENABLE_QAT_HW_CHACHAPOLY
+# endif
 #endif
 
 #ifndef SM4_BLOCK_SIZE
@@ -776,7 +780,7 @@ int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
     return 0;
 }
 
-static inline const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
+const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
 {
     switch (nid) {
         case NID_aes_128_gcm:
@@ -933,7 +937,8 @@ const EVP_CIPHER *qat_create_ccm_cipher_meth(int nid, int keylen)
 
     if (qat_hw_offload &&
         (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_AES_CCM)) {
-#if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE)
+#if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+    && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
         if (nid == NID_aes_192_ccm || nid == NID_aes_256_ccm) {
             EVP_CIPHER_meth_free(c);
             DEBUG("OpenSSL SW AES_CCM_%d registration succeeded\n", keylen*8);
@@ -1476,7 +1481,8 @@ void qat_free_ciphers(void)
 #endif
 #ifdef ENABLE_QAT_HW_CCM
             case NID_aes_128_ccm:
-#if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
+#if defined(QAT20_OOT) || defined(QAT_HW_INTREE) \
+    || defined(QAT_HW_FBSD_OOT) || defined(QAT_HW_FBSD_INTREE)
             case NID_aes_192_ccm:
             case NID_aes_256_ccm:
 #endif

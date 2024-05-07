@@ -920,6 +920,7 @@ int QAT_WPACKET_get_total_written(qat_WPACKET *pkt, size_t *written);
  */
 unsigned char *QAT_WPACKET_get_curr(qat_WPACKET *pkt);
 
+int WPACKET_is_null_buf(qat_WPACKET *pkt);
 
 /* Release resources in a WPACKET if a failure has occurred. */
 void QAT_WPACKET_cleanup(qat_WPACKET *pkt);
@@ -937,5 +938,8 @@ int qat_int_start_context(qat_WPACKET *pkt, int tag);
 int qat_DER_w_end_sequence(qat_WPACKET *pkt, int tag);
 
 int qat_DER_w_algorithmIdentifier_SM2_with_MD(qat_WPACKET *pkt, int cont,
+                                               EC_KEY *ec, int mdnid);
+
+int qat_DER_w_algorithmIdentifier_ECDSA_with_MD(qat_WPACKET *pkt, int cont,
                                                EC_KEY *ec, int mdnid);
 

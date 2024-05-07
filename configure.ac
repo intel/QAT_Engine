@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [1.6.2], [])
+AC_INIT([qatengine], [1.7.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -329,9 +329,16 @@ then
     AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
     AC_MSG_NOTICE([QAT in-tree driver using QATlib in ${with_qat_hw_dir}])
   else
-    AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_FBSD_INTREE"])
-    AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
-    AC_MSG_NOTICE([QAT in-tree driver using FBSD QATlib in ${with_qat_hw_dir}])
+    if grep "define SAL_INFO2_DRIVER_SW_VERSION_MAJ_NUMBER 3" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h
+    then
+      AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_FBSD_OOT"])
+      AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
+      AC_MSG_NOTICE([QAT FBSD OOT driver using libs from ${with_qat_hw_dir}])
+    else
+      AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_FBSD_INTREE"])
+      AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
+      AC_MSG_NOTICE([QAT in-tree driver using FBSD QATlib in ${with_qat_hw_dir}])
+    fi
   fi
 fi
 

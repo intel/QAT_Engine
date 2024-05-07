@@ -107,10 +107,10 @@ typedef struct qat_evp_cipher_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REF_COUNT refcnt;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-# endif
+#endif
     OSSL_FUNC_cipher_newctx_fn *newctx;
     OSSL_FUNC_cipher_encrypt_init_fn *einit;
     OSSL_FUNC_cipher_decrypt_init_fn *dinit;
@@ -246,9 +246,7 @@ int qat_aes_ccm_do_cipher(void *ctx, unsigned char *out,
                           size_t *outl, size_t outsize,
                           const unsigned char *in, size_t inl);
 const char *qat_ccm_cipher_name(int nid);
-#if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE)) || !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
 QAT_EVP_CIPHER get_default_cipher_aes_ccm(int nid);
-#endif
 
 #  define QAT_aes_cipher(alg, lc, UCMODE, flags, kbits, blkbits, ivbits,nid)    \
 static OSSL_FUNC_cipher_get_params_fn alg##_##kbits##_##lc##_get_params;        \

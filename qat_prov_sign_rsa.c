@@ -61,16 +61,16 @@ static const unsigned char digestinfo_##name##_der[] = {                       \
 #define RSA_KEY_SIZE 8
 
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
-typedef int CRYPTO_REFERENCE_COUNT;
 
 struct evp_signature_st {
     int name_id;
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REFERENCE_COUNT refcnt;
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-
+#endif
     OSSL_FUNC_signature_newctx_fn *newctx;
     OSSL_FUNC_signature_sign_init_fn *sign_init;
     OSSL_FUNC_signature_sign_fn *sign;

@@ -376,7 +376,6 @@ static void qat_local_variable_destructor(void *tlv)
 }
 
 
-#ifndef __FreeBSD__
 void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *callbackTag,
                                           const CpaInstanceEvent inst_ev)
 {
@@ -390,7 +389,7 @@ void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *call
             packageId =
                 qat_instance_details[(intptr_t)callbackTag].qat_instance_info.physInstId.packageId;
             qat_accel_details[packageId].qat_accel_reset_status = 1;
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+            clock_gettime(clock_id, &ts);
             CRYPTO_QAT_LOG("[%lld.%06ld] Instance: %ld Handle %p Device %d RESTARTING \n",
                     (long long)ts.tv_sec, ts.tv_nsec / NANOSECONDS_TO_MICROSECONDS,
                     (intptr_t)callbackTag, ih, packageId);
@@ -405,7 +404,7 @@ void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *call
             packageId =
                 qat_instance_details[(intptr_t)callbackTag].qat_instance_info.physInstId.packageId;
             qat_accel_details[packageId].qat_accel_reset_status = 0;
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+            clock_gettime(clock_id, &ts);
             CRYPTO_QAT_LOG("[%lld.%06ld] Instance: %ld Handle %p Device %d RESTARTED \n",
                     (long long)ts.tv_sec, ts.tv_nsec / NANOSECONDS_TO_MICROSECONDS,
                     (intptr_t)callbackTag, ih, packageId);
@@ -415,7 +414,6 @@ void qat_instance_notification_callbackFn(const CpaInstanceHandle ih, void *call
             break;
     }
 }
-#endif
 
 static int qat_instance_sym_supported(CpaCyCapabilitiesInfo *pCapInfo)
 {
@@ -669,7 +667,6 @@ int qat_hw_init(ENGINE *e)
         qat_instance_details[instNum].qat_instance_started = 1;
         DEBUG("Started Instance No: %d Located on Device: %d\n", instNum, package_id);
 
-#if !defined(__FreeBSD__) && !defined(QAT_DRIVER_INTREE)
         if (enable_sw_fallback) {
             DEBUG("cpaCyInstanceSetNotificationCb instNum = %d\n", instNum);
             status = cpaCyInstanceSetNotificationCb(qat_instance_handles[instNum],
@@ -682,7 +679,6 @@ int qat_hw_init(ENGINE *e)
                 return 0;
             }
         }
-#endif
     }
 
     if (!qat_remap_instances()) {

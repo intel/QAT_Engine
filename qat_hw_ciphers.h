@@ -189,6 +189,7 @@ int qat_chained_ciphers_init(PROV_CIPHER_CTX *ctx,
                              const unsigned char *iv, size_t ivlen, int enc);
 int qat_chained_ciphers_cleanup(PROV_CIPHER_CTX *ctx);
 int qat_chained_ciphers_do_cipher(PROV_CIPHER_CTX *ctx, unsigned char *out,
+                                  size_t *outl, size_t outsize,
                                   const unsigned char *in, size_t len);
 int qat_chained_ciphers_ctrl(PROV_AES_HMAC_SHA_CTX *ctx, int type, int arg, void *ptr);
 # else

@@ -48,6 +48,59 @@
 
 #define DEFAULT_BUF_SIZE    256
 
+#define QAT_DER_OID_V_ecdsa_with_SHA1 QAT_DER_P_OBJECT, 7, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x01
+#define QAT_DER_OID_SZ_ecdsa_with_SHA1 9
+extern const unsigned char qat_der_oid_ecdsa_with_SHA1[QAT_DER_OID_SZ_ecdsa_with_SHA1];
+
+#define QAT_DER_OID_V_ecdsa_with_SHA224 QAT_DER_P_OBJECT, 8, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x03, 0x01
+#define QAT_DER_OID_SZ_ecdsa_with_SHA224 10
+extern const unsigned char qat_der_oid_ecdsa_with_SHA224[QAT_DER_OID_SZ_ecdsa_with_SHA224];
+
+#define QAT_DER_OID_V_ecdsa_with_SHA256 QAT_DER_P_OBJECT, 8, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x03, 0x02
+#define QAT_DER_OID_SZ_ecdsa_with_SHA256 10
+extern const unsigned char qat_der_oid_ecdsa_with_SHA256[QAT_DER_OID_SZ_ecdsa_with_SHA256];
+
+#define QAT_DER_OID_V_ecdsa_with_SHA384 QAT_DER_P_OBJECT, 8, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x03, 0x03
+#define QAT_DER_OID_SZ_ecdsa_with_SHA384 10
+extern const unsigned char qat_der_oid_ecdsa_with_SHA384[QAT_DER_OID_SZ_ecdsa_with_SHA384];
+
+#define QAT_DER_OID_V_ecdsa_with_SHA512 QAT_DER_P_OBJECT, 8, 0x2A, 0x86, 0x48, 0xCE, 0x3D, 0x04, 0x03, 0x04
+#define QAT_DER_OID_SZ_ecdsa_with_SHA512 10
+extern const unsigned char qat_der_oid_ecdsa_with_SHA512[QAT_DER_OID_SZ_ecdsa_with_SHA512];
+
+const unsigned char qat_der_oid_ecdsa_with_SHA1[QAT_DER_OID_SZ_ecdsa_with_SHA1] = {
+    QAT_DER_OID_V_ecdsa_with_SHA1
+};
+
+const unsigned char qat_der_oid_ecdsa_with_SHA224[QAT_DER_OID_SZ_ecdsa_with_SHA224] = {
+    QAT_DER_OID_V_ecdsa_with_SHA224
+};
+
+const unsigned char qat_der_oid_ecdsa_with_SHA256[QAT_DER_OID_SZ_ecdsa_with_SHA256] = {
+    QAT_DER_OID_V_ecdsa_with_SHA256
+};
+
+const unsigned char qat_der_oid_ecdsa_with_SHA384[QAT_DER_OID_SZ_ecdsa_with_SHA384] = {
+    QAT_DER_OID_V_ecdsa_with_SHA384
+};
+
+const unsigned char qat_der_oid_ecdsa_with_SHA512[QAT_DER_OID_SZ_ecdsa_with_SHA512] = {
+    QAT_DER_OID_V_ecdsa_with_SHA512
+};
+
+/* Aliases so we can have a uniform MD_CASE */
+#define qat_der_oid_id_ecdsa_with_sha1   qat_der_oid_ecdsa_with_SHA1
+#define qat_der_oid_id_ecdsa_with_sha224 qat_der_oid_ecdsa_with_SHA224
+#define qat_der_oid_id_ecdsa_with_sha256 qat_der_oid_ecdsa_with_SHA256
+#define qat_der_oid_id_ecdsa_with_sha384 qat_der_oid_ecdsa_with_SHA384
+#define qat_der_oid_id_ecdsa_with_sha512 qat_der_oid_ecdsa_with_SHA512
+
+#define QAT_MD_CASE(name)                                                   \
+    case NID_##name:                                                    \
+        precompiled = qat_der_oid_id_ecdsa_with_##name;                \
+        precompiled_sz = sizeof(qat_der_oid_id_ecdsa_with_##name);     \
+        break;
+
 unsigned char qat_der_oid_sm2_with_SM3[DER_OID_SZ_sm2_with_SM3] = {
     6, 8, 0x2A, 0x81, 0x1C, 0xCF, 0x55, 0x01, 0x83, 0x75
 };
@@ -491,6 +544,28 @@ int qat_DER_w_begin_sequence(qat_WPACKET *pkt, int tag)
 {
     return qat_int_start_context(pkt, tag)
         && QAT_WPACKET_start_sub_packet(pkt);
+}
+
+int qat_DER_w_algorithmIdentifier_ECDSA_with_MD(qat_WPACKET *pkt, int cont,
+                                                 EC_KEY *ec, int mdnid)
+{
+    const unsigned char *precompiled = NULL;
+    size_t precompiled_sz = 0;
+
+    switch (mdnid) {
+        QAT_MD_CASE(sha1);
+        QAT_MD_CASE(sha224);
+        QAT_MD_CASE(sha256);
+        QAT_MD_CASE(sha384);
+        QAT_MD_CASE(sha512);
+    default:
+        return 0;
+    }
+
+    return qat_DER_w_begin_sequence(pkt, cont)
+        /* No parameters (yet?) */
+        && qat_DER_w_precompiled(pkt, -1, precompiled, precompiled_sz)
+        && qat_DER_w_end_sequence(pkt, cont);
 }
 
 int qat_DER_w_algorithmIdentifier_SM2_with_MD(qat_WPACKET *pkt, int cont,
