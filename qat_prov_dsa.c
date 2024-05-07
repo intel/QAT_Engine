@@ -73,9 +73,10 @@ struct evp_signature_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REFERENCE_COUNT refcnt;
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-
+#endif
     OSSL_FUNC_signature_newctx_fn *newctx;
     OSSL_FUNC_signature_sign_init_fn *sign_init;
     OSSL_FUNC_signature_sign_fn *sign;
@@ -141,9 +142,13 @@ static void qat_ffc_params_cleanup(FFC_PARAMS *params)
 static int qat_DSA_up_ref(DSA *r)
 {
     int i;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
         return 0;
+# else
+    if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
+        return 0;
+# endif
 
     if (i < 2)
     {
@@ -162,8 +167,11 @@ void qat_DSA_free(DSA *r)
 
     if (r == NULL)
         return;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_DOWN_REF(&r->references, &i, r->lock);
+# else
+    QAT_CRYPTO_DOWN_REF(&r->references, &i);
+# endif
     if (i > 0)
         return;
     if (i < 0)
@@ -175,8 +183,9 @@ void qat_DSA_free(DSA *r)
         r->meth->finish(r);
 
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_DSA, r, &r->ex_data);
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_THREAD_lock_free(r->lock);
+# endif
 
     qat_ffc_params_cleanup(&r->params);
     BN_clear_free(r->pub_key);

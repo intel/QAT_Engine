@@ -241,7 +241,7 @@ static int qat_kdf_hkdf_derive(void *vctx, unsigned char *key, size_t keylen,
         goto end;
     }
     qat_hkdf_ctx->qat_md = md;
-    ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
+    ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen, params);
 
 end:
     return ret;
@@ -327,7 +327,7 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
                 goto end;
             }
 
-            ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
+            ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen, params);
             if (ret <= 0) {
                 WARN("Failed to generate the pre-extract secret.\n");
                 goto end;
@@ -354,7 +354,7 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
         }
     }
 
-    ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen);
+    ret = qat_hkdf_derive(ctx->evp_pkey_ctx, key, &keylen, params);
 
 end:
 #ifdef ENABLE_QAT_FIPS

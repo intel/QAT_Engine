@@ -58,7 +58,6 @@
 #include <string.h>
 #include <signal.h>
 #include <stdarg.h>
-
 #include "qat_hw_prf.h"
 
 #ifdef ENABLE_QAT_FIPS
@@ -200,14 +199,11 @@ int qat_tls1_prf_init(EVP_PKEY_CTX *ctx)
     }
 
     if ((inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY))
-            == QAT_INVALID_INSTANCE) {
+            != QAT_INVALID_INSTANCE) {
+         qat_prf_ctx->qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+    } else {
         WARN("Failed to get an instance\n");
-        if (qat_prf_ctx)
-            OPENSSL_free(qat_prf_ctx);
-        return 0;
     }
-
-    qat_prf_ctx->qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     if (qat_get_qat_offload_disabled() || qat_get_sw_fallback_enabled())
         qat_prf_ctx->sw_prf_ctx_data = EVP_PKEY_CTX_get_data(ctx);
@@ -562,7 +558,12 @@ static int build_tls_prf_op_data(QAT_TLS1_PRF_CTX * qat_prf_ctx,
         DEBUG("Using USER_DEFINED label = %s\n", (char*)label);
         prf_op_data->tlsOp = (CpaCyKeyTlsOp) CPA_CY_KEY_TLS_OP_USER_DEFINED;
         prf_op_data->userLabel.pData = (Cpa8U *) qat_prf_ctx->qat_userLabel;
-        prf_op_data->userLabel.dataLenInBytes = qat_prf_ctx->qat_userLabel_len;
+	if (qat_prf_ctx->qat_seedlen == 0) {
+	    qat_prf_ctx->qat_seedlen = qat_prf_ctx->qat_userLabel_len;
+	    memcpy(qat_prf_ctx->qat_seed, qat_prf_ctx->qat_userLabel, qat_prf_ctx->qat_seedlen);
+	}
+	else
+            prf_op_data->userLabel.dataLenInBytes = qat_prf_ctx->qat_userLabel_len;
     }
 
     /*-
@@ -610,17 +611,10 @@ int default_provider_PRF_derive(QAT_TLS1_PRF_CTX *qat_prf_ctx, unsigned char *ou
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
     OSSL_PARAM params[5], *p = params;
-    OSSL_LIB_CTX *library_context = NULL;
     const char *mdname;
 
-    library_context = OSSL_LIB_CTX_new();
-    if (library_context == NULL) {
-        fprintf(stderr, "OSSL_LIB_CTX_new() returned NULL\n");
-        goto end;
-    }
-
     /* Fetch the key derivation function implementation */
-    kdf = EVP_KDF_fetch(library_context, "TLS1-PRF", "provider=default");
+    kdf = EVP_KDF_fetch(NULL, "TLS1-PRF", "provider=default");
     if (kdf == NULL) {
         fprintf(stderr, "EVP_KDF_fetch() returned NULL\n");
         goto end;
@@ -654,7 +648,6 @@ int default_provider_PRF_derive(QAT_TLS1_PRF_CTX *qat_prf_ctx, unsigned char *ou
 end:
     EVP_KDF_CTX_free(kctx);
     EVP_KDF_free(kdf);
-    OSSL_LIB_CTX_free(library_context);
     return rv;
 }
 #endif
@@ -712,10 +705,10 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     if ((qat_prf_ctx->qat_md == NULL) || (qat_prf_ctx->qat_sec == NULL) ||
-        (qat_prf_ctx->qat_seedlen == 0)) {
-        WARN("Either md %p, secret %p, or seedlen %zu is ZERO\n",
+        ((qat_prf_ctx->qat_seedlen == 0) && qat_prf_ctx->qat_userLabel_len == 0)) {
+        WARN("Either md %p, secret %p, or seedlen %zu userLabel_len %zu is ZERO\n",
              qat_prf_ctx->qat_md, qat_prf_ctx->qat_sec,
-             qat_prf_ctx->qat_seedlen);
+             qat_prf_ctx->qat_seedlen, qat_prf_ctx->qat_userLabel_len);
         QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_PASSED_NULL_PARAMETER);
         return ret;
     }
@@ -732,6 +725,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 #endif
 
     DEBUG("QAT HW PRF Started\n");
+
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         fallback = 1;
@@ -824,22 +818,6 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     do {
-        if (status == CPA_STATUS_RETRY &&
-           (inst_num = get_instance(QAT_INSTANCE_SYM, qat_prf_ctx->qat_svm))
-            == QAT_INVALID_INSTANCE) {
-            WARN("Failed to get an instance\n");
-            if (qat_get_sw_fallback_enabled()) {
-                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
-                fallback = 1;
-            } else {
-                QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-            }
-            if (op_done.job != NULL)
-                qat_clear_async_event_notification(op_done.job);
-            qat_cleanup_op_done(&op_done);
-            goto err;
-        }
-
         DUMP_KEYGEN_TLS(qat_instance_handles[inst_num], generated_key);
         /* Call the function of CPA according the to the version of TLS */
         if (md_nid != NID_md5_sha1) {

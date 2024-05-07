@@ -62,10 +62,10 @@ typedef struct{
     const char *description;
     OSSL_PROVIDER *prov;
 
-    int refcnt;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    void *lock;
-# endif
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+#endif
     /* Constructor(s), destructor, information */
     OSSL_FUNC_keymgmt_new_fn *new;
     OSSL_FUNC_keymgmt_free_fn *free;
@@ -92,8 +92,14 @@ typedef struct{
     /* Import and export routines */
     OSSL_FUNC_keymgmt_import_fn *import;
     OSSL_FUNC_keymgmt_import_types_fn *import_types;
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    OSSL_FUNC_keymgmt_import_types_ex_fn *import_types_ex;
+# endif
     OSSL_FUNC_keymgmt_export_fn *export;
     OSSL_FUNC_keymgmt_export_types_fn *export_types;
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    OSSL_FUNC_keymgmt_export_types_ex_fn *export_types_ex;
+# endif
     OSSL_FUNC_keymgmt_dup_fn *dup;
 
 } QAT_RSA_KEYMGMT;

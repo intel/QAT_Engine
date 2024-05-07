@@ -70,11 +70,7 @@
  * down in the driver.
  */
 # ifdef ENABLE_QAT_HW_PRF
-#  if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
-#   define QAT_TLS1_PRF_SECRET_MAXBUF 1024
-#  else
-#   define QAT_TLS1_PRF_SECRET_MAXBUF 512
-#  endif
+#  define QAT_TLS1_PRF_SECRET_MAXBUF 1024
 #  define QAT_TLS1_PRF_SEED_MAXBUF 64
 #  define QAT_TLS1_PRF_LABEL_MAXBUF 136
 

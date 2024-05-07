@@ -61,12 +61,11 @@
 #include <openssl/dsa.h>
 #include <stdio.h>
 #include <string.h>
+#include "e_qat.h"
 
 #define OSSL_MAX_NAME_SIZE 50          /* Algorithm name */
 #define OSSL_MAX_PROPQUERY_SIZE 256    /* Property query strings */
 #define OSSL_MAX_ALGORITHM_ID_SIZE 256 /* AlgorithmIdentifier DER */
-
-typedef int CRYPTO_REFERENCE_COUNT;
 #define FFC_UNVERIFIABLE_GINDEX -1
 #define FFC_PARAM_FLAG_VALIDATE_PQ 0x01
 #define FFC_PARAM_FLAG_VALIDATE_G 0x02
@@ -131,14 +130,16 @@ struct dsa_st
     int flags;
     /* Normally used to cache montgomery values */
     BN_MONT_CTX *method_mont_p;
-    CRYPTO_REFERENCE_COUNT references;
+    CRYPTO_REF_COUNT references;
 #ifndef FIPS_MODULE
     CRYPTO_EX_DATA ex_data;
 #endif
     const DSA_METHOD *meth;
     /* functional reference if 'meth' is ENGINE-provided */
     ENGINE *engine;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
+#endif
     OSSL_LIB_CTX *libctx;
 
     /* Provider data */

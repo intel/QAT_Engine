@@ -81,6 +81,25 @@ static void qat_cipher_generic_reset_ctx(QAT_PROV_CIPHER_CTX *ctx)
     }
 }
 
+QAT_EVP_CIPHER get_default_cipher_chachapoly()
+{
+    static QAT_EVP_CIPHER chachapoly_cipher;
+    static int initialized = 0;
+    if (!initialized) {
+        QAT_EVP_CIPHER *cipher =
+            (QAT_EVP_CIPHER *) EVP_CIPHER_fetch(NULL, "ChaCha20-Poly1305",
+                                                "provider=default");
+        if (cipher) {
+            chachapoly_cipher = *cipher;
+            EVP_CIPHER_free((EVP_CIPHER *)cipher);
+            initialized = 1;
+        } else {
+            WARN("EVP_CIPHER_fetch from default provider failed");
+        }
+    }
+    return chachapoly_cipher;
+}
+
 static int qat_cipher_generic_get_params(OSSL_PARAM params[], unsigned int md,
                                    uint64_t flags,
                                    size_t kbits, size_t blkbits, size_t ivbits)
@@ -182,35 +201,10 @@ static void *qat_chacha20_poly1305_newctx(void *provctx)
                                    CHACHA20_IVLEN * 8,
                                    0, CHACHA20_FLAGS,
                                    NULL);
-        /* Malloc memory for qat chachapoly context structure. */
-        ctx->base.qat_cpctx = OPENSSL_zalloc(sizeof(qat_chachapoly_ctx));
-        if (ctx->base.qat_cpctx == NULL) {
-            WARN("Failed to malloc memory for qat_chachapoly_ctx.\n");
-        } else {
-            ctx->base.nid = NID_chacha20_poly1305;
-            ctx->base.qat_cpctx->nonce_len = CHACHA20_POLY1305_IVLEN;
-            ctx->base.qat_cpctx->tls_payload_length = NO_TLS_PAYLOAD_LENGTH;
-        }
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-        ctx->base.sw_ctx = EVP_CIPHER_CTX_new();
-        if (ctx->base.sw_ctx == NULL) {
-            WARN("sw_ctx zalloc failed.\n");
-            goto finish;
-        }
-        EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL, "ChaCha20-Poly1305", 
-                                                "provider=default");
-        if (sw_cipher == NULL) {
-            WARN("SW cipher fetch failed!\n");
-            goto finish;
-        }
-        ctx->base.sw_cipher = sw_cipher;
-        ctx->base.sw_ctx->algctx = ctx->base.sw_cipher->newctx(NULL);
-
-#endif
+        ctx->base.nid = NID_chacha20_poly1305;
+        ctx->base.nonce_len = CHACHA20_POLY1305_IVLEN;
+        ctx->base.tls_payload_length = NO_TLS_PAYLOAD_LENGTH;
     }
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-finish:
-#endif
     return ctx;
 }
 
@@ -219,13 +213,9 @@ static void qat_chacha20_poly1305_freectx(void *vctx)
     PROV_CHACHA20_POLY1305_CTX *ctx = (PROV_CHACHA20_POLY1305_CTX *)vctx;
 
     if (ctx != NULL) {
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-        EVP_CIPHER_free(ctx->base.sw_cipher);
-        EVP_CIPHER_CTX_free(ctx->base.sw_ctx);
-#endif
+        EVP_CIPHER_free((EVP_CIPHER *)ctx->base.sw_cipher);
         /* Free the memory of qat chachapoly context structure. */
         qat_chacha20_poly1305_cleanup(&ctx->base);
-        OPENSSL_clear_free(ctx->base.qat_cpctx, sizeof(qat_chachapoly_ctx));
         qat_cipher_generic_reset_ctx((QAT_PROV_CIPHER_CTX *)vctx);
         OPENSSL_clear_free(ctx, sizeof(*ctx));
     }
@@ -243,6 +233,7 @@ static int qat_chacha20_poly1305_get_ctx_params(void *vctx, OSSL_PARAM params[])
 {
     PROV_CHACHA20_POLY1305_CTX *ctx = (PROV_CHACHA20_POLY1305_CTX *)vctx;
     OSSL_PARAM *p;
+    int ret = 1;
 
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
     if (p != NULL) {
@@ -278,13 +269,25 @@ static int qat_chacha20_poly1305_get_ctx_params(void *vctx, OSSL_PARAM params[])
             return 0;
         }
         if (p->data_size == 0 || p->data_size > QAT_POLY1305_BLOCK_SIZE) {
-            QATerr(ERR_LIB_PROV, PROV_R_INVALID_TAG_LENGTH);
-            return 0;
+            if (ctx->base.tag_set)
+                QATerr(ERR_LIB_PROV, PROV_R_INVALID_TAG_LENGTH);
+            ret = 0;
+            ctx->base.tag_set = 0;
+            goto end;
         }
-        memcpy(p->data, ctx->tag, p->data_size);
+        memcpy(p->data, ctx->base.tag, p->data_size);
+        if (ctx->base.tag_set) {
+            ctx->base.tag_set = 0;
+            return 1;
+        }
     }
 
-    return 1;
+end:
+    if (ctx->base.sw_ctx) {
+        QAT_EVP_CIPHER sw_chachapoly_cipher = get_default_cipher_chachapoly();
+        sw_chachapoly_cipher.get_ctx_params(ctx->base.sw_ctx, params);
+    }
+    return ret;
 }
 
 static const OSSL_PARAM chacha20_poly1305_known_gettable_ctx_params[] = {
@@ -351,11 +354,10 @@ static int qat_chacha20_poly1305_set_ctx_params(void *vctx,
                 QATerr(ERR_LIB_PROV, PROV_R_TAG_NOT_NEEDED);
                 return 0;
             }
-            memcpy(ctx->tag, p->data, p->data_size);
+            memcpy(ctx->base.tag, p->data, p->data_size);
+            ctx->base.tag_set = 1;
         }
-        ctx->tag_len = p->data_size;
-        qat_chacha20_poly1305_ctrl(&ctx->base, EVP_CTRL_AEAD_SET_TAG, 
-                                   p->data_size, p->data);
+        ctx->base.tag_len = p->data_size;
     }
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_AAD);
@@ -385,9 +387,11 @@ static int qat_chacha20_poly1305_set_ctx_params(void *vctx,
             return 0;
         }
     }
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    ctx->base.sw_cipher->set_ctx_params(ctx->base.sw_ctx->algctx, params);
-#endif
+
+    if (ctx->base.sw_ctx) {
+        QAT_EVP_CIPHER sw_chachapoly_cipher = get_default_cipher_chachapoly();
+        sw_chachapoly_cipher.set_ctx_params(ctx->base.sw_ctx, params);
+    }
     /* ignore OSSL_CIPHER_PARAM_AEAD_MAC_KEY */
     return 1;
 }
@@ -443,13 +447,10 @@ static int qat_chacha20_poly1305_einit(void *vctx, const unsigned char *key,
         }
     }
     
-    ret = qat_chacha20_poly1305_init(ctx, key, iv, 1);
+    ret = qat_chacha20_poly1305_init(ctx, key, keylen, iv, ivlen, 1);
 
     if (ret && !qat_chacha20_poly1305_set_ctx_params(vctx, params))
         ret = 0;
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    ctx->sw_cipher->einit(ctx->sw_ctx->algctx, key, keylen, iv, ivlen, params);
-#endif
     return ret;
 }
 
@@ -491,16 +492,11 @@ static int qat_chacha20_poly1305_dinit(void *vctx, const unsigned char *key,
         }
     }
 
-    ret = qat_chacha20_poly1305_init(ctx, key, iv, 0);
-
+    ret = qat_chacha20_poly1305_init(ctx, key, keylen, iv, ivlen, 0);
     if (ret && !qat_chacha20_poly1305_set_ctx_params(vctx, params))
         ret = 0;
 
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    ctx->sw_cipher->dinit(ctx->sw_ctx->algctx, key, keylen, iv, ivlen, params);
-#endif
-    memcpy(cp_ctx->tag, ctx->qat_cpctx->tag, ctx->qat_cpctx->tag_len);
-
+    memcpy(cp_ctx->tag, ctx->tag, ctx->tag_len);
     return ret;
 }
 
@@ -509,9 +505,6 @@ static int qat_chacha20_poly1305_cipher(void *vctx, unsigned char *out,
                                     const unsigned char *in, size_t inl)
 {
     QAT_PROV_CIPHER_CTX *ctx = (QAT_PROV_CIPHER_CTX *)vctx;
-#ifdef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    PROV_CHACHA20_POLY1305_CTX *cp_ctx = (PROV_CHACHA20_POLY1305_CTX *)vctx;
-#endif
 
     if (!qat_prov_is_running())
         return 0;
@@ -526,20 +519,8 @@ static int qat_chacha20_poly1305_cipher(void *vctx, unsigned char *out,
         return 0;
     }
 
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    if (inl <= qat_pkt_threshold_table_get_threshold(ctx->nid)){
-        if (!ctx->sw_cipher->ccipher(ctx->sw_ctx->algctx, 
-                                     out, outl, outsize, in, inl))
-            return 0;
-    } else {
-        if (!qat_chacha20_poly1305_do_cipher(ctx, out, outl, in, inl))
-            return 0;
-    }
-#else
-    if (!qat_chacha20_poly1305_do_cipher(ctx, out, outl, in, inl))
+    if (!qat_chacha20_poly1305_do_cipher(ctx, out, outl, outsize, in, inl))
         return 0;
-    memcpy(cp_ctx->tag, ctx->qat_cpctx->tag, ctx->qat_cpctx->tag_len);
-#endif
 
     return 1;
 }
@@ -548,29 +529,12 @@ static int qat_chacha20_poly1305_final(void *vctx, unsigned char *out, size_t *o
                                    size_t outsize)
 {
     QAT_PROV_CIPHER_CTX *ctx = (QAT_PROV_CIPHER_CTX *)vctx;
-    PROV_CHACHA20_POLY1305_CTX *cp_ctx = (PROV_CHACHA20_POLY1305_CTX *)vctx;
 
     if (!qat_prov_is_running())
         return 0;
-#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    if (out != NULL && ctx->enc) {
-        if (ctx->sw_cipher->cfinal(ctx->sw_ctx->algctx, 
-                                   out, outl, outsize) <= 0)
-            return 0;
-        OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
-        params[0] = OSSL_PARAM_construct_octet_string(OSSL_CIPHER_PARAM_AEAD_TAG,
-                                                    (void*)cp_ctx->tag, 
-                                                    QAT_POLY1305_DIGEST_SIZE);
-        ctx->sw_cipher->get_ctx_params(ctx->sw_ctx->algctx, params);
-    } else {
-        if (qat_chacha20_poly1305_do_cipher(ctx, out, outl, NULL, 0) <= 0)
-            return 0;
-    }
-#else
-    if (qat_chacha20_poly1305_do_cipher(ctx, out, outl, NULL, 0) <= 0)
+
+    if (qat_chacha20_poly1305_do_cipher(ctx, out, outl, outsize, NULL, 0) <= 0)
         return 0;
-    memcpy(cp_ctx->tag, ctx->qat_cpctx->tag, ctx->qat_cpctx->tag_len);
-#endif
 
     *outl = 0;
     return 1;

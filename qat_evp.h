@@ -162,6 +162,7 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                 int nid);
 const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen);
 const EVP_CIPHER *qat_create_ccm_cipher_meth(int nid, int keylen);
+const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid);
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_SM4_CBC 64

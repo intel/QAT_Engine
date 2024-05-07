@@ -50,6 +50,7 @@
 #define __USE_GNU
 
 #include "qat_provider.h"
+#include "qat_prov_hkdf_packet.h"
 #include "qat_prov_ec.h"
 #include "qat_utils.h"
 #include "qat_evp.h"
@@ -76,9 +77,10 @@ typedef struct evp_signature_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    int refcnt;
-    void *lock;
-
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+#endif
     OSSL_FUNC_signature_newctx_fn *newctx;
     OSSL_FUNC_signature_sign_init_fn *sign_init;
     OSSL_FUNC_signature_sign_fn *sign;
@@ -333,6 +335,7 @@ static int qat_ecdsa_setup_md(QAT_PROV_ECDSA_CTX *ctx, const char *mdname,
     EVP_MD *md = NULL;
     size_t mdname_len;
     int md_nid, sha1_allowed;
+    qat_WPACKET pkt;
 
     if (mdname == NULL)
         return 1;
@@ -365,7 +368,16 @@ static int qat_ecdsa_setup_md(QAT_PROV_ECDSA_CTX *ctx, const char *mdname,
 
     EVP_MD_CTX_free(ctx->mdctx);
     EVP_MD_free(ctx->md);
+
     ctx->aid_len = 0;
+    if (QAT_WPACKET_init_der(&pkt, ctx->aid_buf, sizeof(ctx->aid_buf))
+        && qat_DER_w_algorithmIdentifier_ECDSA_with_MD(&pkt, -1, ctx->ec,
+                                                        md_nid)
+        && QAT_WPACKET_finish(&pkt)) {
+        QAT_WPACKET_get_total_written(&pkt, &ctx->aid_len);
+        ctx->aid = QAT_WPACKET_get_curr(&pkt);
+    }
+    QAT_WPACKET_cleanup(&pkt);
     ctx->mdctx = NULL;
     ctx->md = md;
     ctx->mdsize = EVP_MD_get_size(ctx->md);

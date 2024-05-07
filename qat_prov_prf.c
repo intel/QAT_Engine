@@ -58,8 +58,6 @@ static OSSL_FUNC_kdf_set_ctx_params_fn qat_tls_prf_set_ctx_params;
 static OSSL_FUNC_kdf_gettable_ctx_params_fn qat_tls_prf_gettable_ctx_params;
 static OSSL_FUNC_kdf_get_ctx_params_fn qat_tls_prf_get_ctx_params;
 
-static int fallback = 0;
-
 static QAT_EVP_KDF get_default_tls12_kdf()
 {
     static QAT_EVP_KDF s_kdf;
@@ -142,7 +140,8 @@ static int qat_prov_digest_load_from_params(PROV_DIGEST *pd,
 static void *qat_tls_prf_new(void *provctx)
 {
     QAT_TLS_PRF *ctx;
-
+    QAT_EVP_KDF sw_prf_kdf;
+    sw_prf_kdf = get_default_tls12_kdf();
     if (!qat_prov_is_running())
         return NULL;
 
@@ -157,37 +156,46 @@ static void *qat_tls_prf_new(void *provctx)
         WARN("Malloc for EVP_PKEY_CTX error.\n");
         return NULL;
     }
+    if (!ctx->sw_ctx)
+         ctx->sw_ctx = sw_prf_kdf.newctx(ctx);
     if (!qat_tls1_prf_init(ctx->pctx)){
-        WARN("EVP_PKEY_CTX init failed.\n");
-        return NULL;
+        if (!qat_get_sw_fallback_enabled()) {
+            WARN("EVP_PKEY_CTX init failed.\n");
+            return NULL;
+        }
     }
+
     return ctx;
 }
 
 static void qat_tls_prf_free(void *vctx)
 {
+    QAT_TLS_PRF *ctx = (QAT_TLS_PRF *)vctx;
+    int fallback = 0;
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         fallback = 1;
         goto end;
     }
 
-    QAT_TLS_PRF *ctx = (QAT_TLS_PRF *)vctx;
-
     if (ctx != NULL) {
+        if (ctx->sw_ctx) {
+            OPENSSL_free(ctx->sw_ctx);
+            ctx->sw_ctx = NULL;
+        }
         qat_prf_cleanup(ctx->pctx);
         OPENSSL_free(ctx->pctx);
         ctx->pctx = NULL;
         qat_tls_prf_reset(ctx);
         OPENSSL_free(ctx);
     }
+
 end:
     if (fallback) {
         typedef void(*sw_fun_ptr)(void *);
         sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().freectx;
-        default_prov_tls12_kdf_fun(vctx);
+        default_prov_tls12_kdf_fun(ctx->sw_ctx);
     }
-
 }
 
 static void qat_tls_prf_reset(void *vctx)
@@ -207,21 +215,19 @@ static void qat_tls_prf_reset(void *vctx)
 static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
                                const OSSL_PARAM params[])
 {
+    QAT_TLS_PRF *ctx = (QAT_TLS_PRF *)vctx;
+    QAT_TLS1_PRF_CTX *qat_prf_ctx = (QAT_TLS1_PRF_CTX *)EVP_PKEY_CTX_get_data(
+                                                            ctx->pctx);
+    const EVP_MD *md;
+    int ret = 0, fallback = 0;
+#ifdef ENABLE_QAT_FIPS
+    qat_fips_service_indicator = 1;
+#endif
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         fallback = 1;
         goto end;
     }
-
-    QAT_TLS_PRF *ctx = (QAT_TLS_PRF *)vctx;
-    QAT_TLS1_PRF_CTX *qat_prf_ctx = (QAT_TLS1_PRF_CTX *)EVP_PKEY_CTX_get_data(
-                                                            ctx->pctx);
-    const EVP_MD *md;
-    int ret = 0;
-#ifdef ENABLE_QAT_FIPS
-    qat_fips_service_indicator = 1;
-#endif
-
     if (!qat_prov_is_running() || !qat_tls_prf_set_ctx_params(ctx, params))
         goto end;
 
@@ -239,7 +245,7 @@ static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_SECRET);
         goto end;
     }
-    if (ctx->seedlen == 0) {
+    if (ctx->seedlen == 0 && ctx->qat_userLabel_len == 0) {
         QATerr(ERR_LIB_PROV, PROV_R_MISSING_SEED);
         goto end;
     }
@@ -254,6 +260,7 @@ static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
         WARN("Failed in setting prf userLabel.\n");
         goto end;
     }
+
     if (!qat_tls1_prf_ctrl(ctx->pctx, EVP_PKEY_CTRL_TLS_SEED,
                             ctx->seedlen, ctx->seed)) {
         WARN("Failed in setting prf seed.\n");
@@ -261,17 +268,15 @@ static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
     }
 
     ret = qat_prf_tls_derive(ctx->pctx, key, &keylen);
-
 end:
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 0;
 #endif
-    if (fallback) {
-        typedef int(*sw_fun_ptr)(void *, unsigned char *, size_t , const OSSL_PARAM *);
-        sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().derive;
-        ret = default_prov_tls12_kdf_fun(vctx, key, keylen, params);
+   if (fallback) {
+       typedef int(*sw_fun_ptr)(void *, unsigned char *, size_t , const OSSL_PARAM *);
+       sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().derive;
+       ret = default_prov_tls12_kdf_fun(ctx->sw_ctx, key, keylen, params);
     }
-
     return ret;
 }
 
@@ -407,15 +412,15 @@ static int qat_prov_macctx_load_from_params(EVP_MAC_CTX **macctx,
 
 static int qat_tls_prf_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 {
+    const OSSL_PARAM *p;
+    QAT_TLS_PRF *ctx = (QAT_TLS_PRF *)vctx;
+    OSSL_LIB_CTX *libctx = prov_libctx_of(ctx->provctx);
+    int fallback = 0;
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         fallback = 1;
         goto end;
     }
-
-    const OSSL_PARAM *p;
-    QAT_TLS_PRF *ctx = vctx;
-    OSSL_LIB_CTX *libctx = prov_libctx_of(ctx->provctx);
 
     if (params == NULL)
         return 1;
@@ -489,7 +494,7 @@ end:
     if (fallback) {
         typedef int(*sw_fun_ptr)(void *, const OSSL_PARAM *);
         sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().set_ctx_params;
-        default_prov_tls12_kdf_fun(vctx, params);
+        default_prov_tls12_kdf_fun(ctx->sw_ctx, params);
     }
     return 1;
 }

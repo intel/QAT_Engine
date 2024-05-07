@@ -63,6 +63,46 @@
 #define AEAD_FLAGS (PROV_CIPHER_FLAG_AEAD | PROV_CIPHER_FLAG_CUSTOM_IV)
 
 #if defined(ENABLE_QAT_HW_GCM) || defined(ENABLE_QAT_SW_GCM)
+const char *qat_gcm_cipher_name(int nid)
+{
+    switch (nid) {
+    case NID_aes_128_gcm:
+        return LN_aes_128_gcm;
+    case NID_aes_192_gcm:
+        return LN_aes_192_gcm;
+    case NID_aes_256_gcm:
+        return LN_aes_256_gcm;
+    default:
+        WARN("Invalid nid %d\n", nid);
+        return NULL;
+    }
+}
+QAT_EVP_CIPHER get_default_cipher_aes_gcm(int nid)
+{
+    static QAT_EVP_CIPHER gcm_cipher;
+    static int initialized = 0;
+    if (!initialized) {
+        QAT_EVP_CIPHER *cipher =
+            (QAT_EVP_CIPHER *) EVP_CIPHER_fetch(NULL, qat_gcm_cipher_name(nid),
+                                                "provider=default");
+        if (cipher) {
+            gcm_cipher = *cipher;
+            EVP_CIPHER_free((EVP_CIPHER *)cipher);
+            initialized = 1;
+        } else {
+            WARN("EVP_CIPHER_fetch from default provider failed");
+        }
+    }
+    return gcm_cipher;
+}
+
+#ifdef ENABLE_QAT_HW_GCM
+int QAT_AES_GCM_CTX_get_nid(const QAT_AES_GCM_CTX *ctx)
+{
+    return ctx->cipher->nid;
+}
+#endif
+
 void qat_gcm_initctx(void *provctx, QAT_GCM_CTX *ctx, size_t keybits,
                      size_t ivlen_min)
 {
@@ -101,6 +141,10 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
     OSSL_PARAM *p;
     size_t sz;
+    int ret = 1;
+#ifdef ENABLE_QAT_HW_GCM
+    int nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+#endif
 
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->iv_len)) {
@@ -163,15 +207,39 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
             || sz > EVP_GCM_TLS_TAG_LEN
             || !ctx->enc
             || ctx->tag_len == UNINITIALISED_SIZET) {
-            QATerr(ERR_LIB_PROV, PROV_R_INVALID_TAG);
+#ifdef ENABLE_QAT_HW_GCM
+            if (ctx->tag_set)
+                QATerr(ERR_LIB_PROV, PROV_R_INVALID_TAG);
+            ret = 0;
+            ctx->tag_set = 0;
+	    goto end;
+#else
             return 0;
+#endif
         }
         if (!OSSL_PARAM_set_octet_string(p, ctx->buf, sz)) {
             QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
             return 0;
         }
+#ifdef ENABLE_QAT_HW_GCM
+        if (!ctx->tag_set) {
+            ctx->tag_set = 0;
+            goto end;
+        }
+        ctx->tag_set = 0;
+#endif
     }
+
     return 1;
+
+#ifdef ENABLE_QAT_HW_GCM
+end:
+    if (ctx->sw_ctx) {
+        QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
+        ret = sw_aes_gcm_cipher.get_ctx_params(ctx->sw_ctx, params);
+    }
+#endif
+    return ret;
 }
 
 int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
@@ -180,6 +248,9 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     const OSSL_PARAM *p;
     size_t sz = 0;
     void *vp;
+#ifdef ENABLE_QAT_HW_GCM
+    int nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+#endif
 
     if (params == NULL)
         return 1;
@@ -196,6 +267,9 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             return 0;
         }
         ctx->tag_len = sz;
+#ifdef ENABLE_QAT_HW_GCM
+        ctx->tag_set = 1;
+#endif
     }
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_IVLEN);
@@ -260,14 +334,21 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             return 0;
     }
 
+#ifdef ENABLE_QAT_HW_GCM
+    if (ctx->sw_ctx) {
+        QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
+        sw_aes_gcm_cipher.set_ctx_params(ctx->sw_ctx, params);
+    }
+#endif
     return 1;
 }
 
-int qat_gcm_einit(void *ctx, const unsigned char* inkey,
+int qat_gcm_einit(void *vctx, const unsigned char* inkey,
                   int keylen, const unsigned char* iv, int ivlen,
                   int enc)
 {
     int sts = 0;
+    QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload)
         sts = qat_aes_gcm_init(ctx, inkey, keylen, iv, ivlen, 1);
@@ -279,11 +360,12 @@ int qat_gcm_einit(void *ctx, const unsigned char* inkey,
     return sts;
 }
 
-int qat_gcm_dinit(void *ctx, const unsigned char* inkey,
+int qat_gcm_dinit(void *vctx, const unsigned char* inkey,
                   int keylen, const unsigned char* iv, int ivlen,
                   int enc)
 {
     int sts = 0;
+    QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload)
         sts = qat_aes_gcm_init(ctx, inkey, keylen, iv, ivlen, 0);
@@ -323,7 +405,7 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
     }
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload) {
-        if ((ret = qat_aes_gcm_cipher(ctx, out, outl, in, inl)) <= 0) {
+        if ((ret = qat_aes_gcm_cipher(ctx, out, outl, outsize, in, inl)) <= 0) {
             QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
             goto end;
         }
@@ -364,7 +446,7 @@ int ret = 0;
         goto end;
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload)
-        i = qat_aes_gcm_cipher(ctx, out, outl, NULL, 0);
+        i = qat_aes_gcm_cipher(ctx, out, outl, outsize, NULL, 0);
 #endif
 
 #ifdef ENABLE_QAT_SW_GCM
@@ -406,7 +488,7 @@ int qat_gcm_cipher(void *vctx, unsigned char *out,
     }
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload) {
-        if (qat_aes_gcm_cipher(ctx, out, outl, in, inl) <= 0)
+        if (qat_aes_gcm_cipher(ctx, out, outl, outsize, in, inl) <= 0)
             goto end;
     }
 #endif

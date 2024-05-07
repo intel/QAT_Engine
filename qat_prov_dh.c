@@ -74,9 +74,13 @@ static OSSL_FUNC_keyexch_gettable_ctx_params_fn qat_dh_gettable_ctx_params;
 static int qat_DH_up_ref(DH *r)
 {
     int i;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
         return 0;
+# else
+    if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
+        return 0;
+# endif
 
     if (i < 2)
     {
@@ -113,8 +117,12 @@ void qat_DH_free(DH *r)
 
     if (r == NULL)
         return;
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_DOWN_REF(&r->references, &i, r->lock);
+# else
+    QAT_CRYPTO_DOWN_REF(&r->references, &i);
+# endif
+
     if (i > 0)
         return;
     if (i < 0)
@@ -126,8 +134,9 @@ void qat_DH_free(DH *r)
         r->meth->finish(r);
 
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_DH, r, &r->ex_data);
-
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_THREAD_lock_free(r->lock);
+# endif
 
     qat_ffc_params_cleanup(&r->params);
     BN_clear_free(r->pub_key);

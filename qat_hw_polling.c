@@ -83,11 +83,6 @@ struct epoll_event eng_epoll_events[QAT_MAX_CRYPTO_INSTANCES] = {{ 0 }};
 ENGINE_EPOLL_ST eng_poll_st[QAT_MAX_CRYPTO_INSTANCES] = {{ -1 }};
 #endif
 int internal_efd = 0;
-#ifndef __FreeBSD__
-clock_t clock_id = CLOCK_MONOTONIC_RAW;
-#else
-clock_t clock_id = CLOCK_MONOTONIC_PRECISE;
-#endif
 
 
 int getQatMsgRetryCount()

@@ -63,8 +63,8 @@
 #include <openssl/err.h>
 #include <openssl/proverr.h>
 #include <openssl/params.h>
+#include "e_qat.h"
 
-typedef int CRYPTO_REFERENCE_COUNT;
 #define FFC_UNVERIFIABLE_GINDEX -1
 #define FFC_PARAM_FLAG_VALIDATE_PQ 0x01
 #define FFC_PARAM_FLAG_VALIDATE_G 0x02
@@ -123,14 +123,16 @@ struct dh_st
     BIGNUM *priv_key; /* x */
     int flags;
     BN_MONT_CTX *method_mont_p;
-    CRYPTO_REFERENCE_COUNT references;
+    CRYPTO_REF_COUNT references;
 #ifndef FIPS_MODULE
     CRYPTO_EX_DATA ex_data;
     ENGINE *engine;
 #endif
     OSSL_LIB_CTX *libctx;
     const DH_METHOD *meth;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
+#endif
 
     /* Provider data */
     size_t dirty_cnt; /* If any key material changes, increment this */

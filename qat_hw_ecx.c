@@ -552,6 +552,8 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
         goto err;
     }
+
+    key->haspubkey = 1;
 #ifdef QAT_OPENSSL_PROVIDER
     qat_pkey_ecx_keygen_op_data_free(pXk, qat_ecx_op_data, qat_keylen, qat_svm);
     return key;

@@ -64,6 +64,7 @@
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
 #include "qat_hw_chachapoly.h"
 #include "qat_provider.h"
+#include "e_qat.h"
 
 /* Internal flags that can be queried */
 #define PROV_CIPHER_FLAG_AEAD             0x0001
@@ -85,10 +86,110 @@
     ossl_uintmax_t align_int;   \
     void *align_ptr
 
+
+# define NO_TLS_PAYLOAD_LENGTH ((size_t)-1)
+# define CHACHA20_POLY1305_IVLEN 12
+# define GENERIC_BLOCK_SIZE 16
+
+# define QAT_PROV_GET_ENC(ctx) ((ctx)->enc)
+
 typedef void (*poly1305_blocks_f) (void *ctx, const unsigned char *inp,
                                    size_t len, unsigned int padbit);
 typedef void (*poly1305_emit_f) (void *ctx, unsigned char mac[16],
                                  const unsigned int nonce[4]);
+
+typedef struct qat_evp_cipher_st QAT_EVP_CIPHER;
+typedef struct prov_cp_cipher_ctx_st QAT_PROV_CIPHER_CTX;
+struct prov_cp_cipher_ctx_st {
+    int nid;
+
+    block128_f block;
+    union {
+        cbc128_f cbc;
+        ctr128_f ctr;
+        ecb128_f ecb;
+    } stream;
+
+    unsigned int mode;
+    size_t keylen;           /* key size (in bytes) */
+    size_t ivlen;
+    size_t blocksize;
+    size_t bufsz;            /* Number of bytes in buf */
+    unsigned int cts_mode;   /* Use to set the type for CTS modes */
+    unsigned int pad : 1;    /* Whether padding should be used or not */
+    unsigned int enc : 1;    /* Set to 1 for encrypt, or 0 otherwise */
+    unsigned int iv_set : 1; /* Set when the iv is copied to the iv/oiv buffers */
+    unsigned int updated : 1; /* Set to 1 during update for one shot ciphers */
+    unsigned int variable_keylength : 1;
+    unsigned int inverse_cipher : 1; /* set to 1 to use inverse cipher */
+    unsigned int use_bits : 1; /* Set to 0 for cfb1 to use bits instead of bytes */
+
+    unsigned int tlsversion; /* If TLS padding is in use the TLS version number */
+    unsigned char *tlsmac;   /* tls MAC extracted from the last record */
+    int alloced;             /*
+                              * Whether the tlsmac data has been allocated or
+                              * points into the user buffer.
+                              */
+    size_t tlsmacsize;       /* Size of the TLS MAC */
+    int removetlspad;        /* Whether TLS padding should be removed or not */
+    size_t removetlsfixed;   /*
+                              * Length of the fixed size data to remove when
+                              * processing TLS data (equals mac size plus
+                              * IV size if applicable)
+                              */
+
+    /*
+     * num contains the number of bytes of |iv| which are valid for modes that
+     * manage partial blocks themselves.
+     */
+    unsigned int num;
+
+    /* The original value of the iv */
+    unsigned char oiv[GENERIC_BLOCK_SIZE];
+    /* Buffer of partial blocks processed via update calls */
+    unsigned char buf[GENERIC_BLOCK_SIZE];
+    unsigned char iv[GENERIC_BLOCK_SIZE];
+    const void *ks; /* Pointer to algorithm specific key data */
+    OSSL_LIB_CTX *libctx;
+
+    EVP_CIPHER_CTX *sw_ctx;
+    QAT_EVP_CIPHER *sw_cipher;
+
+
+
+    void *sw_ctx_cipher_data;
+    int inst_num;
+    int context_params_set;
+    int session_init;
+
+    CpaCySymSessionSetupData *session_data;
+    CpaCySymSessionCtx session_ctx;
+    CpaCySymOpData *opd;
+    CpaBufferList pSrcBufferList;
+    CpaBufferList pDstBufferList;
+    CpaFlatBuffer src_buffer;
+    CpaFlatBuffer dst_buffer;
+
+    unsigned char tag[QAT_POLY1305_BLOCK_SIZE];
+    unsigned char *tls_aad;
+    unsigned char cipher_key[QAT_CHACHA_KEY_SIZE];
+    unsigned char *mac_key;
+    unsigned char nonce[QAT_CHACHA20_POLY1305_MAX_IVLEN];
+    unsigned char derived_iv[QAT_CHACHA20_POLY1305_MAX_IVLEN];
+    unsigned int counter[QAT_CHACHA_CTR_SIZE/4];
+    unsigned int chacha_key[QAT_CHACHA_KEY_SIZE/4];
+
+    int key_set;
+    int mac_key_set;
+    int tag_len;
+    int nonce_len;
+    int tls_aad_len;
+    size_t tls_payload_length;
+    int packet_size;
+    int qat_svm;
+    /* If tag_set 1 Encryption in qat,if tag_set 0 Encryption in Openssl SW */
+    int tag_set;
+};
 
 typedef struct {
     QAT_PROV_CIPHER_CTX base;     /* must be first */
@@ -130,7 +231,7 @@ typedef struct {
     size_t tls_aad_pad_sz;
 } PROV_CHACHA20_POLY1305_CTX;
 
-struct evp_cipher_st {
+struct qat_evp_cipher_st{
     int nid;
 
     int block_size;
@@ -168,10 +269,10 @@ struct evp_cipher_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    int refcnt;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-# endif
+#endif
     OSSL_FUNC_cipher_newctx_fn *newctx;
     OSSL_FUNC_cipher_encrypt_init_fn *einit;
     OSSL_FUNC_cipher_decrypt_init_fn *dinit;
@@ -195,7 +296,7 @@ struct evp_cipher_ctx_st {
     int encrypt;                /* encrypt or decrypt */
     int buf_len;                /* number we have left */
     unsigned char oiv[EVP_MAX_IV_LENGTH]; /* original iv */
-    unsigned char iv[EVP_MAX_IV_LENGTH]; /* working iv */
+    unsigned int iv[3]; /* working iv */
     unsigned char buf[EVP_MAX_BLOCK_LENGTH]; /* saved partial block */
     int num;                    /* used by cfb/ofb/ctr mode */
     /* FIXME: Should this even exist? It appears unused */
@@ -214,6 +315,17 @@ struct evp_cipher_ctx_st {
     void *algctx;
     EVP_CIPHER *fetched_cipher;
 } /* EVP_CIPHER_CTX */ ;
+
+QAT_EVP_CIPHER get_default_cipher_chachapoly();
+int qat_chacha20_poly1305_init(QAT_PROV_CIPHER_CTX *ctx,
+                                      const unsigned char *user_key, int keylen,
+                                      const unsigned char *iv, int ivlen, int enc);
+int qat_chacha20_poly1305_do_cipher(QAT_PROV_CIPHER_CTX * ctx, unsigned char *out,
+                                    size_t *padlen, size_t outl,
+                                    const unsigned char *in, size_t len);
+int qat_chacha20_poly1305_cleanup(QAT_PROV_CIPHER_CTX *ctx);
+int qat_chacha20_poly1305_ctrl(QAT_PROV_CIPHER_CTX *ctx, int type, int arg,
+                                      void *ptr);
 
 # endif /* ENABLE_QAT_HW_CHACHAPOLY */
 #endif

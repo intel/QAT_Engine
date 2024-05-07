@@ -60,6 +60,7 @@
 # include <openssl/sha.h>
 
 #include "qat_hw_ciphers.h"
+#include "e_qat.h"
 
 # include "cpa.h"
 # include "cpa_types.h"
@@ -89,6 +90,63 @@ typedef struct prov_cipher_ctx_st PROV_CIPHER_CTX;
 /* Internal flags that are only used within the provider */
 #define PROV_CIPHER_FLAG_VARIABLE_LENGTH  0x0100
 #define PROV_CIPHER_FLAG_INVERSE_CIPHER   0x0200
+
+typedef struct evp_cipher_st {
+    int nid;
+
+    int block_size;
+    /* Default value for variable length ciphers */
+    int key_len;
+    int iv_len;
+
+    /* Legacy structure members */
+    /* Various flags */
+    unsigned long flags;
+    /* How the EVP_CIPHER was created. */
+    int origin;
+    /* init key */
+    int (*init) (EVP_CIPHER_CTX *ctx, const unsigned char *key,
+                 const unsigned char *iv, int enc);
+    /* encrypt/decrypt data */
+    int (*do_cipher) (EVP_CIPHER_CTX *ctx, unsigned char *out,
+                      const unsigned char *in, size_t inl);
+    /* cleanup ctx */
+    int (*cleanup) (EVP_CIPHER_CTX *);
+    /* how big ctx->cipher_data needs to be */
+    int ctx_size;
+    /* Populate a ASN1_TYPE with parameters */
+    int (*set_asn1_parameters) (EVP_CIPHER_CTX *, ASN1_TYPE *);
+    /* Get parameters from a ASN1_TYPE */
+    int (*get_asn1_parameters) (EVP_CIPHER_CTX *, ASN1_TYPE *);
+    /* Miscellaneous operations */
+    int (*ctrl) (EVP_CIPHER_CTX *, int type, int arg, void *ptr);
+    /* Application data */
+    void *app_data;
+    /* New structure members */
+    /* Above comment to be removed when legacy has gone */
+    int name_id;
+    char *type_name;
+    const char *description;
+    OSSL_PROVIDER *prov;
+    CRYPTO_REF_COUNT references;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+# endif
+    OSSL_FUNC_cipher_newctx_fn *newctx;
+    OSSL_FUNC_cipher_encrypt_init_fn *einit;
+    OSSL_FUNC_cipher_decrypt_init_fn *dinit;
+    OSSL_FUNC_cipher_update_fn *cupdate;
+    OSSL_FUNC_cipher_final_fn *cfinal;
+    OSSL_FUNC_cipher_cipher_fn *ccipher;
+    OSSL_FUNC_cipher_freectx_fn *freectx;
+    OSSL_FUNC_cipher_dupctx_fn *dupctx;
+    OSSL_FUNC_cipher_get_params_fn *get_params;
+    OSSL_FUNC_cipher_get_ctx_params_fn *get_ctx_params;
+    OSSL_FUNC_cipher_set_ctx_params_fn *set_ctx_params;
+    OSSL_FUNC_cipher_gettable_params_fn *gettable_params;
+    OSSL_FUNC_cipher_gettable_ctx_params_fn *gettable_ctx_params;
+    OSSL_FUNC_cipher_settable_ctx_params_fn *settable_ctx_params;
+}PROV_EVP_CIPHER;
 
 struct prov_cipher_ctx_st {
     int nid;
@@ -174,5 +232,8 @@ typedef struct prov_aes_hmac_sha256_ctx_st {
     SHA256_CTX head, tail, md;
 } PROV_AES_HMAC_SHA256_CTX;
 
+
+PROV_EVP_CIPHER get_default_cipher_aes_cbc(int nid);
+const char *qat_get_cipher_name_from_nid(int nid);
 # endif /* QAT_HW */
 #endif /* QAT_PROV_CBC_H */

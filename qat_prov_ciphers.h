@@ -57,6 +57,7 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include "e_qat.h"
 #ifdef ENABLE_QAT_HW_GCM
 # include "cpa.h"
 # include "cpa_types.h"
@@ -66,7 +67,6 @@
 # ifdef ENABLE_QAT_SW_GCM
 # include <intel-ipsec-mb.h>
 #endif
-
 #define IV_STATE_UNINITIALISED 0  /* initial state is not initialized */
 #define GCM_TAG_MAX_SIZE       16
 
@@ -79,7 +79,7 @@
 #define GCM_IV_MAX_SIZE     (1024 / 8)
 #define QAT_AES_BLOCK_SIZE   16
 
-typedef struct qat_evp_cipher_st {
+typedef struct qat_evp_aes_cbc_cipher_st {
     int nid;
 
     int block_size;
@@ -116,7 +116,10 @@ typedef struct qat_evp_cipher_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
+    CRYPTO_REF_COUNT references;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
+# endif
     OSSL_FUNC_cipher_newctx_fn *newctx;
     OSSL_FUNC_cipher_encrypt_init_fn *einit;
     OSSL_FUNC_cipher_decrypt_init_fn *dinit;
@@ -188,6 +191,10 @@ typedef struct qat_gcm_ctx_st {
     int key_set;
 
     int qat_svm;
+    EVP_CIPHER_CTX *sw_ctx;
+    int fallback;
+    int sw_tls_ctrl;
+    int tag_set;
 #endif
     int            tls_aad_len;
     int            tag_len;
@@ -244,6 +251,7 @@ int qat_gcm_stream_final(void *ctx, unsigned char *out,
 int qat_gcm_cipher(void *ctx, unsigned char *out,
                    size_t *outl, size_t outsize,
                    const unsigned char *in, size_t inl);
+QAT_EVP_CIPHER get_default_cipher_aes_gcm(int nid);
 
 #define QAT_aes_gcm_cipher(alg, lc, UCMODE, flags, kbits, blkbits, ivbits,nid)  \
 static OSSL_FUNC_cipher_get_params_fn alg##_##kbits##_##lc##_get_params;        \

@@ -101,6 +101,10 @@ typedef struct {
 int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
 int qat_hkdf_init(EVP_PKEY_CTX *ctx);
 void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx);
-int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key,
-                                size_t *olen);
+#ifndef QAT_OPENSSL_PROVIDER
+int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen);
+#else
+int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
+                    const OSSL_PARAM params[]);
+#endif
 #endif /* ENABLE_QAT_HW_HKDF */

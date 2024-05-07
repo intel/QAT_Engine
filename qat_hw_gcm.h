@@ -52,6 +52,9 @@
 # include "cpa_types.h"
 # include "cpa_cy_sym.h"
 # include "cpa_cy_drbg.h"
+#ifdef QAT_OPENSSL_PROVIDER
+#include "qat_prov_ciphers.h"
+#endif
 
 # define AES_GCM_IV_LEN      12
 
@@ -71,7 +74,9 @@
                          | EVP_CIPH_FLAG_CUSTOM_CIPHER                    \
                          | EVP_CIPH_ALWAYS_CALL_INIT | EVP_CIPH_CTRL_INIT)
 
-
+# define GET_SW_AES_GCM_CIPHER(ctx) \
+      qat_gcm_cipher_sw_impl(EVP_CIPHER_CTX_type(ctx))
+#define TLS_CIPHER_SW_CTRL  0x004d
 /* AES-GCM context */
 typedef struct qat_aes_gcm_ctx_t
 {
@@ -152,15 +157,19 @@ typedef struct qat_aes_gcm_ctx_t
     int key_set;
 
     int qat_svm;
+    void *sw_ctx_cipher_data;
+    int fallback;
+    int sw_tls_ctrl;
+    int tag_set;
 } qat_gcm_ctx;
 
 #ifdef QAT_OPENSSL_PROVIDER
-int qat_aes_gcm_init(void *ctx, const unsigned char *inkey,
+int qat_aes_gcm_init(QAT_GCM_CTX *ctx, const unsigned char *inkey,
                      int keylen, const unsigned char *iv, int ivlen,
                      int enc);
 int qat_aes_gcm_cipher(void *ctx, unsigned char *out,
-                       size_t *padlen,const unsigned char *in,
-                       size_t len);
+                       size_t *padlen, size_t outsize,
+                       const unsigned char *in, size_t len);
 int qat_aes_gcm_ctrl(void *ctx, int type, int arg, void *ptr);
 int qat_aes_gcm_cleanup(void *ctx);
 #else

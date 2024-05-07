@@ -61,12 +61,10 @@ typedef struct{
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    int refcnt;
-    void *lock;
-# else
-    QAT_CRYPTO_REF_COUNT refcnt;
-# endif
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+#endif
     OSSL_FUNC_keymgmt_new_fn *new;
     OSSL_FUNC_keymgmt_free_fn *free;
     OSSL_FUNC_keymgmt_get_params_fn *get_params;
@@ -86,8 +84,14 @@ typedef struct{
     OSSL_FUNC_keymgmt_match_fn *match;
     OSSL_FUNC_keymgmt_import_fn *import;
     OSSL_FUNC_keymgmt_import_types_fn *import_types;
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    OSSL_FUNC_keymgmt_import_types_ex_fn *import_types_ex;
+# endif
     OSSL_FUNC_keymgmt_export_fn *export;
     OSSL_FUNC_keymgmt_export_types_fn *export_types;
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    OSSL_FUNC_keymgmt_export_types_ex_fn *export_types_ex;
+# endif
     OSSL_FUNC_keymgmt_dup_fn *dup;
 } QAT_ECX_KEYMGMT;
 
@@ -96,12 +100,10 @@ typedef struct evp_keyexch_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    int refcnt;
-    void *lock;
-# else
-    QAT_CRYPTO_REF_COUNT refcnt;
-# endif
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+#endif
     OSSL_FUNC_keyexch_newctx_fn *newctx;
     OSSL_FUNC_keyexch_init_fn *init;
     OSSL_FUNC_keyexch_set_peer_fn *set_peer;
@@ -124,9 +126,6 @@ typedef enum {
     ECX_KEY_TYPE_X448,
 }ECX_KEY_TYPE;
 
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-typedef int CRYPTO_REFERENCE_COUNT;
-# endif
 typedef void CRYPTO_RWLOCK;
 
 typedef struct qat_ecx_key_st {
@@ -137,12 +136,10 @@ typedef struct qat_ecx_key_st {
     unsigned char *privkey;
     size_t keylen;
     ECX_KEY_TYPE type;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_REFERENCE_COUNT references;
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-# else
-    QAT_CRYPTO_REF_COUNT references;
-# endif
+#endif
 }ECX_KEY;
 
 typedef struct {

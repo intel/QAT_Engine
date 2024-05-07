@@ -48,6 +48,7 @@
 #include <openssl/core.h>
 #include <openssl/provider.h>
 #include <openssl/crypto.h>
+#include "e_qat.h"
 
 typedef struct{
     int hash_algorithm_nid;
@@ -95,8 +96,7 @@ struct rsa_st{
     STACK_OF(RSA_PRIME_INFO) *prime_infos;
     /* Be careful using this if the RSA structure is shared */
     CRYPTO_EX_DATA ex_data;
-
-    int references; //CRYPTO_REF_COUNT references;
+    CRYPTO_REF_COUNT references; //CRYPTO_REF_COUNT references;
     int flags;
     /* Used to cache montgomery values */
     BN_MONT_CTX *_method_mod_n;
@@ -104,7 +104,9 @@ struct rsa_st{
     BN_MONT_CTX *_method_mod_q;
     BN_BLINDING *blinding;
     BN_BLINDING *mt_blinding;
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
+#endif
 
     int dirty_cnt;
 };

@@ -94,8 +94,10 @@ void qat_hkdf_pkey_methods(void)
 {
     EVP_PKEY_meth_set_init(_hidden_hkdf_pmeth, qat_hkdf_init);
     EVP_PKEY_meth_set_cleanup(_hidden_hkdf_pmeth, qat_hkdf_cleanup);
+#ifndef QAT_OPENSSL_PROVIDER
     EVP_PKEY_meth_set_derive(_hidden_hkdf_pmeth, NULL,
             qat_hkdf_derive);
+#endif
     EVP_PKEY_meth_set_ctrl(_hidden_hkdf_pmeth, qat_hkdf_ctrl, NULL);
 }
 #endif
@@ -196,8 +198,6 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
     if ((inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY))
             == QAT_INVALID_INSTANCE) {
         WARN("Failed to get an instance\n");
-        QATerr(QAT_F_QAT_HKDF_INIT, ERR_R_MALLOC_FAILURE);
-        return 0;
     }
 
     qat_hkdf_ctx->qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
@@ -443,12 +443,17 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             }
 #ifdef QAT_OPENSSL_3
             /* Setup the sw fallback parameters */
-            memcpy(qat_hkdf_ctx->sw_info + qat_hkdf_ctx->sw_info_size, p2, p1);
-            qat_hkdf_ctx->sw_info_size += p1;
+            OPENSSL_cleanse(qat_hkdf_ctx->sw_info,
+                            QAT_KDF_MAX_INFO_SZ);
+            memcpy(qat_hkdf_ctx->sw_info, p2, p1);
+            qat_hkdf_ctx->sw_info_size = p1;
 #endif
-            memcpy(qat_hkdf_ctx->hkdf_op_data->info
-                   + qat_hkdf_ctx->hkdf_op_data->infoLen, p2, p1);
-            qat_hkdf_ctx->hkdf_op_data->infoLen += p1;
+	    OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->info,
+                            qat_hkdf_ctx->hkdf_op_data->infoLen);
+            qat_hkdf_ctx->hkdf_op_data->infoLen = 0;
+
+            memcpy(qat_hkdf_ctx->hkdf_op_data->info, p2, p1);
+            qat_hkdf_ctx->hkdf_op_data->infoLen = p1;
             return 1;
 #ifdef QAT_OPENSSL_PROVIDER
           case EVP_PKEY_CTRL_HKDF_PREFIX:
@@ -646,23 +651,15 @@ static int qat_set_hkdf_mode(QAT_HKDF_CTX * qat_hkdf_ctx)
 * description:
 *   HKDF SW fallback function. Using default provider of OpenSSL 3
 ******************************************************************************/
-int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out, size_t olen) {
+int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
+                                 size_t olen,  const OSSL_PARAM params[]) {
     int rv = 0;
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
-    OSSL_PARAM params[6], *p = params;
-    OSSL_LIB_CTX *library_context = NULL;
-    char *mode = NULL;
-    const char *mdname;
-
-    library_context = OSSL_LIB_CTX_new();
-    if (library_context == NULL) {
-        fprintf(stderr, "OSSL_LIB_CTX_new() returned NULL\n");
-        goto end;
-    }
 
     /* Fetch the key derivation function implementation */
-    kdf = EVP_KDF_fetch(library_context, "HKDF", "provider=default");
+    kdf = EVP_KDF_fetch(NULL, "TLS13-KDF", "provider=default");
+
     if (kdf == NULL) {
         fprintf(stderr, "EVP_KDF_fetch() returned NULL\n");
         goto end;
@@ -675,42 +672,6 @@ int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
         goto end;
     }
 
-    switch (qat_hkdf_ctx->mode) {
-        case EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY:
-            mode = "EXTRACT_ONLY";
-            break;
-
-        case EVP_PKEY_HKDEF_MODE_EXPAND_ONLY:
-            mode = "EXPAND_ONLY";
-            break;
-
-        case EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND:
-            mode = "EXTRACT_AND_EXPAND";
-            break;
-
-        default:
-            WARN("Unknown HKDF mode \n");
-            return 0;
-    }
-
-    mdname = EVP_MD_get0_name(qat_hkdf_ctx->qat_md);
-
-    /* Set the underlying hash function used to derive the key */
-    *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST, (char *)mdname, 0);
-    /* Set input keying material */
-    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_KEY, qat_hkdf_ctx->sw_ikm,
-                                             qat_hkdf_ctx->sw_ikm_size);
-    /* Set application specific information */
-    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_INFO, qat_hkdf_ctx->sw_info,
-                                                qat_hkdf_ctx->sw_info_size);
-    /* Set mode */
-    *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_MODE, mode, 0);
-    /* Set salt */
-    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SALT, qat_hkdf_ctx->sw_salt,
-                                             qat_hkdf_ctx->sw_salt_size);
-
-    *p = OSSL_PARAM_construct_end();
-
     /* Derive the key */
     if (EVP_KDF_derive(kctx, out, olen, params) != 1) {
         fprintf(stderr, "EVP_KDF_derive() failed\n");
@@ -721,7 +682,6 @@ int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
 end:
     EVP_KDF_CTX_free(kctx);
     EVP_KDF_free(kdf);
-    OSSL_LIB_CTX_free(library_context);
     return rv;
 }
 #endif
@@ -738,7 +698,12 @@ end:
 * description:
 *   HKDF derive function for TLS case
 ******************************************************************************/
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
+#else
+int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
+                    const OSSL_PARAM params[])
+#endif
 {
     int ret = 0, job_ret = 0;
     CpaFlatBuffer *generated_key = NULL;
@@ -789,6 +754,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
 #endif
 
     DEBUG("QAT HW HKDF Started\n");
+
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
         qat_hkdf_ctx->fallback = 1;
@@ -813,6 +779,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
             return 0;
         }
     }
+
     qat_hkdf_ctx->qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     if (!qat_set_hkdf_mode(qat_hkdf_ctx)) {
@@ -919,22 +886,6 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     }
 
     do {
-        if (status == CPA_STATUS_RETRY &&
-           (inst_num = get_instance(QAT_INSTANCE_SYM, qat_hkdf_ctx->qat_svm))
-            == QAT_INVALID_INSTANCE) {
-            WARN("Failed to get an instance\n");
-            if (qat_get_sw_fallback_enabled()) {
-                CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
-                qat_hkdf_ctx->fallback = 1;
-            } else {
-                QATerr(QAT_F_QAT_HKDF_DERIVE, ERR_R_INTERNAL_ERROR);
-            }
-            if (op_done.job != NULL)
-                qat_clear_async_event_notification(op_done.job);
-            qat_cleanup_op_done(&op_done);
-            goto err;
-        }
-
         DUMP_KEYGEN_TLS(qat_instance_handles[inst_num], generated_key);
         DEBUG("Calling cpaCyKeyGenTls3 \n");
         status = cpaCyKeyGenTls3(qat_instance_handles[inst_num],
@@ -1071,8 +1022,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
           }
     }
 
-    if (qat_hkdf_ctx->fallback == 1 ||
-        qat_get_qat_offload_disabled() || qat_get_sw_fallback_enabled()) {
+    if (qat_hkdf_ctx->fallback == 1) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
 #ifndef QAT_OPENSSL_3
@@ -1081,7 +1031,9 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
         ret = (*sw_derive_fn_ptr)(ctx, key, olen);
         EVP_PKEY_CTX_set_data(ctx, qat_hkdf_ctx);
 #else
-        ret = default_provider_HKDF_derive(qat_hkdf_ctx, key, *olen);
+# ifdef QAT_OPENSSL_PROVIDER
+        ret = default_provider_HKDF_derive(qat_hkdf_ctx, key, *olen, params);
+# endif
 #endif
     }
     return ret;

@@ -25,7 +25,7 @@
 %global openssl_install    %{buildroot}/%{_prefix}/local/ssl
 
 Name:       QAT_Engine
-Version:    1.6.1
+Version:    1.7.0
 Release:    1%{?dist}
 Summary:    Intel QuickAssist Technology(QAT) OpenSSL Engine
 License:    BSD-3-Clause AND OpenSSL
