@@ -4,7 +4,7 @@
 %global enginesdir %(pkg-config --variable=enginesdir libcrypto)
 
 Name:           qatengine
-Version:        1.6.1
+Version:        1.6.2
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
 
@@ -70,6 +70,15 @@ openssl engine -v %{name}
 %{enginesdir}/%{name}.so
 
 %changelog
+* Wed Aug 14 2024 Krithika Kumaravelu <krithikax.kumaravelu@intel.com> - 1.6.2-1
+- Update to qatengine v1.6.2
+
+* Fri Aug 09 2024 Yogaraj Alamenda <yogaraj.alamenda@intel.com> - 1.6.1-3
+- Add openssl-devel-engine dependency from F41
+
+* Fri Jul 19 2024 Fedora Release Engineering <releng@fedoraproject.org> - 1.6.1-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_41_Mass_Rebuild
+
 * Thu Jun 20 2024 Venkatesh J <venkatesh.j@intel.com> - 1.6.1-1
 - Update to qatengine v1.6.1
 
@@ -84,6 +93,9 @@ openssl engine -v %{name}
 
 * Mon Dec 25 2023 Jaya Naga Venkata Sudhakar <bavirisettyx.jaya.naga.venkata.sudhakar@intel.com> - 1.5.0-1
 - Update to qatengine v1.5.0
+
+* Wed Nov 22 2023 Vladis Dronov <vdronov@redhat.com> - 1.4.0-2
+- Rebuild due to qatlib so-version bump
 
 * Wed Sep 13 2023 Yogaraj Alamenda <yogarajx.alamenda@intel.com> - 1.4.0-1
 - Update to qatengine v1.4.0
