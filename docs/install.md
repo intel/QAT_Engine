@@ -15,6 +15,10 @@ Ubuntu 22.04 and SUSE SLES15 SP3 with QAT_HW(OOT driver for 4xxx device) and QAT
 co-existence. Please refer [here](qat_common.md#binary-rpm-package)
 for the details.
 
+Also there is dockerfile available for QAT Engine with QATlib and HAproxy with QAT
+which can be built into docker images.
+Please refer [here](../dockerfiles/README.md) for more details.
+
 ## Installing from Source code.
 QAT Engine supports various crypto libraries and QAT generations with
 both hardware and software based accelerations. Follow the steps below
@@ -47,6 +51,7 @@ to use the option.
 ```
 cd /QAT_Engine
 git submodule update --init
+./autogen.sh \
 ./configure \
 --with-qat_hw_dir=/QAT \  #For QAT_HW supported platforms, Needed only if platform supports QAT_HW
 --enable-qat_sw \ #For QAT_SW supported platforms, Needed only if platform supports QAT_SW
