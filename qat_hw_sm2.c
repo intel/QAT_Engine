@@ -325,18 +325,6 @@ int qat_sm2_copy(EVP_PKEY_CTX *dst, EVP_PKEY_CTX *src)
     if (!qat_sm2_init(dst))
         return 0;
 
-    if ((smsctx = OPENSSL_zalloc(sizeof(*smsctx))) == NULL) {
-        WARN("smsctx alloc Failure\n");
-        QATerr(QAT_F_QAT_SM2_COPY, QAT_R_MALLOC_FAILURE);
-        return 0;
-    }
-
-    if ((smdctx = OPENSSL_zalloc(sizeof(*smdctx))) == NULL) {
-        WARN("smdctx alloc Failure\n");
-        QATerr(QAT_F_QAT_SM2_COPY, QAT_R_MALLOC_FAILURE);
-        return 0;
-    }
-
     smsctx = EVP_PKEY_CTX_get_data(src);
     smdctx = EVP_PKEY_CTX_get_data(dst);
 
