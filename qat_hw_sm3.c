@@ -594,6 +594,9 @@ int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         qat_sm3_ctx->num = (unsigned int)len;
         memcpy(p, data, len);
     }
+#ifndef QAT_OPENSSL_PROVIDER
+    EVP_MD_CTX_set_flags(ctx, EVP_MD_CTX_FLAG_FINALISE);
+#endif
     return 1;
 
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
