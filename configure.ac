@@ -315,6 +315,11 @@ AC_ARG_ENABLE(qat_hw_kpt,
                              [Enable QAT HW Key Protection technology(KPT) support]))
 AC_SUBST(enable_qat_hw_kpt)
 
+AC_ARG_WITH(fstack_dir,
+              AS_HELP_STRING([--with-fstack_dir],
+                             [Path to where the F-stack libraries are installed to.]))
+AC_SUBST(with_fstack_dir)
+
 #Default library name is qatengine
 AC_SUBST([LIBQATNAME], "qatengine")
 
@@ -650,6 +655,10 @@ then
 fi
 
 #Enable additional QAT_HW & QAT_SW flags
+
+AS_IF([test "x$with_fstack_dir" != "x"],
+      [cflags_common="${cflags_common} -DFSTACK -I\$(with_fstack_dir)/lib"; AC_MSG_NOTICE([FSTACK enabled])])
+
 AS_IF([test "x$enable_qat_debug" = "xyes"], 
       [cflags_common="${cflags_common} -DQAT_DEBUG"; AC_MSG_NOTICE([Debug messages enabled])])
 

@@ -57,7 +57,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
-#ifndef __FreeBSD__
+#if defined(FSTACK)
+# include <ff_api.h>
+#elif defined(__FreeBSD__)
 # include <sys/epoll.h>
 # include <sys/eventfd.h>
 #else
@@ -99,10 +101,17 @@ static void qat_fd_cleanup(ASYNC_WAIT_CTX *ctx, const void *key,
         return;
     }
 #endif
+#ifndef FSTACK
     if (close(readfd) != 0) {
         WARN("Failed to close readfd: %d - error: %d\n", readfd, errno);
         QATerr(QAT_F_QAT_FD_CLEANUP, QAT_R_CLOSE_READFD_FAILURE);
     }
+#else
+    if (ff_close(readfd) != 0) {
+        WARN("Failed to close readfd: %d - error: %d\n", readfd, errno);
+        QATerr(QAT_F_QAT_FD_CLEANUP, QAT_R_CLOSE_READFD_FAILURE);
+    }
+#endif
 }
 
 int qat_setup_async_event_notification(volatile ASYNC_JOB *job)
@@ -115,7 +124,7 @@ int qat_setup_async_event_notification(volatile ASYNC_JOB *job)
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(FSTACK)
     struct kevent event;
 #endif
 
@@ -146,7 +155,20 @@ int qat_setup_async_event_notification(volatile ASYNC_JOB *job)
             close(efd);
             return 0;
         }
-
+#elif defined(FSTACK)
+        efd = ff_kqueue();
+        if (efd == -1) {
+            WARN("Failed to get kqueue fd = %d\n", errno);
+            return 0;
+        }
+        /* Initialize the event  */
+        EV_SET(&event, QAT_EVENT_NUM, EVFILT_USER, EV_ADD | EV_CLEAR, NOTE_WRITE,
+               0, NULL);
+        if (ff_kevent(efd, &event, QAT_EVENT_NUM, NULL, 0, NULL) == -1) {
+            WARN("Failed to register event for the fd = %d\n", efd);
+            ff_close(efd);
+            return 0;
+        }
 #else
         efd = eventfd(0, EFD_NONBLOCK);
         if (efd == -1) {
@@ -231,7 +253,7 @@ int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
 #endif
     OSSL_ASYNC_FD readfd;
     void *custom = NULL;
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(FSTACK)
     struct kevent event;
 #else
     uint64_t buf = 0;
@@ -261,17 +283,23 @@ int qat_pause_job(volatile ASYNC_JOB *job, int jobStatus)
 #endif
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &readfd,
                                      &custom)) > 0) {
-#ifndef __FreeBSD__
-        if (read(readfd, &buf, sizeof(uint64_t)) == -1) {
-            if (errno != EAGAIN) {
-                WARN("Failed to read from fd: %d - error: %d\n", readfd, errno);
-            }
+#if defined(FSTACK)
+        if (ff_kevent(readfd, NULL, 0, &event, QAT_EVENT_NUM, NULL) == -1) {
+            WARN("Failed to get event from fd: %d - error: %d\n", readfd, errno);
+            /* Not resumed by the expected qat_wake_job() */
+            return QAT_JOB_RESUMED_UNEXPECTEDLY;
+        }
+#elif defined(__FreeBSD__)
+        if (kevent(readfd, NULL, 0, &event, QAT_EVENT_NUM, NULL) == -1) {
+            WARN("Failed to get event from fd: %d - error: %d\n", readfd, errno);
             /* Not resumed by the expected qat_wake_job() */
             return QAT_JOB_RESUMED_UNEXPECTEDLY;
         }
 #else
-        if (kevent(readfd, NULL, 0, &event, QAT_EVENT_NUM, NULL) == -1) {
-            WARN("Failed to get event from fd: %d - error: %d\n", readfd, errno);
+        if (read(readfd, &buf, sizeof(uint64_t)) == -1) {
+            if (errno != EAGAIN) {
+                WARN("Failed to read from fd: %d - error: %d\n", readfd, errno);
+            }
             /* Not resumed by the expected qat_wake_job() */
             return QAT_JOB_RESUMED_UNEXPECTEDLY;
         }
@@ -290,7 +318,7 @@ int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
 #endif
     OSSL_ASYNC_FD efd;
     void *custom = NULL;
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(FSTACK)
     struct kevent event;
 #else
     /* Arbitrary value '1' to write down the pipe to trigger event */
@@ -319,14 +347,19 @@ int qat_wake_job(volatile ASYNC_JOB *job, int jobStatus)
 
     if ((ret = ASYNC_WAIT_CTX_get_fd(waitctx, engine_qat_id, &efd,
                                      &custom)) > 0) {
-#ifndef __FreeBSD__
-        if (write(efd, &buf, sizeof(uint64_t)) == -1) {
-            WARN("Failed to write to fd: %d - error: %d\n", efd, errno);
+#if defined(FSTACK)
+        EV_SET(&event, QAT_EVENT_NUM, EVFILT_USER, EV_ADD, NOTE_TRIGGER, 0, NULL);
+        if (ff_kevent(efd, &event, QAT_EVENT_NUM, NULL, 0, NULL) == -1) {
+            WARN("Failed to trigger event to fd: %d - error: %d\n", efd, errno);
         }
-#else
+#elif defined(__FreeBSD__)
         EV_SET(&event, QAT_EVENT_NUM, EVFILT_USER, EV_ADD, NOTE_TRIGGER, 0, NULL);
         if (kevent(efd, &event, QAT_EVENT_NUM, NULL, 0, NULL) == -1) {
             WARN("Failed to trigger event to fd: %d - error: %d\n", efd, errno);
+        }
+#else
+        if (write(efd, &buf, sizeof(uint64_t)) == -1) {
+            WARN("Failed to write to fd: %d - error: %d\n", efd, errno);
         }
 #endif
     }
