@@ -162,8 +162,7 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
     DEBUG("- Started\n");
 
     if (dec_op_data) {
-        if (dec_op_data->inputData.pData && !qat_svm)
-            qaeCryptoMemFreeNonZero(dec_op_data->inputData.pData);
+	QAT_CLEANSE_MEMFREE_NONZERO_FLATBUFF(dec_op_data->inputData, qat_svm);
 
         if (dec_op_data->pRecipientPrivateKey) {
             key = &dec_op_data->pRecipientPrivateKey->privateKeyRep2;
@@ -510,12 +509,9 @@ build_decrypt_op_buf(int flen, const unsigned char *from, unsigned char *to,
         return 0;
     }
 
-    if (qat_svm)
-        (*dec_op_data)->inputData.pData = (Cpa8U *) from;
-    else
-        (*dec_op_data)->inputData.pData = (Cpa8U *) qaeCryptoMemAlloc(
-                ((padding != RSA_NO_PADDING) && alloc_pad) ? rsa_len : flen,
-                __FILE__,__LINE__);
+    (*dec_op_data)->inputData.pData = (Cpa8U *) qat_mem_alloc(
+                    ((padding != RSA_NO_PADDING) && alloc_pad) ? rsa_len : flen, qat_svm,
+                    __FILE__,__LINE__);
 
     if (NULL == (*dec_op_data)->inputData.pData) {
         WARN("Failed to allocate (*dec_op_data)->inputData.pData\n");
