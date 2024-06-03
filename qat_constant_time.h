@@ -67,6 +67,9 @@
 extern "C" {
 #endif
 
+#pragma GCC push_options
+#pragma GCC optimize ("O0")
+
 static inline unsigned int value_barrier(unsigned int a)
 {
     volatile unsigned int r = a;
@@ -150,6 +153,24 @@ static inline int qat_constant_time_select_int(unsigned int mask, int a,
     return (int)qat_constant_time_select(mask, (unsigned)(a), (unsigned)(b));
 }
 
+/* This function works like qat_constant_time_select but
+ * operates on pointer types. This would return either
+ * "a" (if "i" is 1) or "b" (if "i" is 0). */
+static inline void *qat_constant_time_select_ptr(int i, void *a, void *b)
+{
+    /* i should be 0 or 1 to avoid running into pointer issues. */
+    i = i & 1;
+    intptr_t time_int_result = ((~(i - 1)) & (intptr_t)a) | ((i - 1) & (intptr_t)b);
+    return (void *)time_int_result;
+}
+
+/* This function returns 1 in case of a<=b else 0. */
+static inline int qat_constant_time_le_int(int a, int b)
+{
+    return !(((b + (~a + 1)) >> (sizeof(int) * 8 - 1)) & 1);
+}
+
+#pragma GCC pop_options
 #ifdef __cplusplus
 }
 #endif

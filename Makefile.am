@@ -81,7 +81,6 @@ if QAT_HW
               qat_hw_polling.c     \
               qat_hw_callback.c    \
               qat_hw_rsa.c         \
-              qat_hw_rsa_crt.c     \
               qat_hw_ciphers.c     \
               qat_hw_dh.c          \
               qat_hw_dsa.c         \
@@ -139,7 +138,6 @@ if QAT_HW
               qat_hw_polling.c     \
               qat_hw_callback.c    \
               qat_hw_rsa.c         \
-              qat_hw_rsa_crt.c     \
               qat_hw_ec.c
 endif
 
