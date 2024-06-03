@@ -65,6 +65,7 @@
 #include "qat_fork.h"
 #include "qat_utils.h"
 #include "qat_evp.h"
+#include "qat_constant_time.h"
 #ifdef ENABLE_QAT_FIPS
 # include "qat_prov_cmvp.h"
 #endif
@@ -147,8 +148,7 @@ static int multibuff_rsa_check_padding_priv_dec(unsigned char *from,
                                    from_len);
         break;
     default:
-        break; /* Do nothing as the error will be caught
-                  when checking output_len. */
+        break;
     }
 
     return output_len;
@@ -187,8 +187,7 @@ static int multibuff_rsa_check_padding_pub_dec(unsigned char *from,
                                    from_len);
         break;
     default:
-        break; /* Do nothing as the error will be caught
-                  when checking output_len. */
+        break;
     }
 
     return output_len;
@@ -614,6 +613,9 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     int job_ret = 0;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
+    unsigned char temp_buf[RSA_4K_LENGTH];
+    unsigned char *select_ptr = NULL;
+    int rsa_priv_enc_sts = 0;
 #ifdef QAT_BORINGSSL
     ASYNC_WAIT_CTX *waitctx = NULL;
     mb_bssl_rsa_async_ctx *bssl_rsa_async_ctx = NULL;
@@ -869,14 +871,12 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     }
 #endif
 
-    if (sts > 0) {
-        return rsa_len;
-    } else {
-        WARN("Failure in Private Encrypt\n");
-        QATerr(QAT_F_MULTIBUFF_RSA_PRIV_ENC, ERR_R_INTERNAL_ERROR);
-        OPENSSL_cleanse(to, rsa_len);
-        return sts;
-    }
+    rsa_priv_enc_sts = qat_constant_time_select_int((sts <= 0), sts, rsa_len);
+    select_ptr = qat_constant_time_select_ptr((rsa_priv_enc_sts == rsa_len),
+                  (void *)temp_buf, (void *)to);
+    OPENSSL_cleanse(select_ptr, rsa_len);
+
+    return rsa_priv_enc_sts;
 
 use_sw_method:
     sts = RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
@@ -916,6 +916,8 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     int job_ret = 0;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
+    unsigned char temp_buf[RSA_4K_LENGTH];
+    unsigned char *select_ptr = NULL;
 #ifdef QAT_BORINGSSL
     ASYNC_WAIT_CTX *waitctx = NULL;
     mb_bssl_rsa_async_ctx *bssl_rsa_async_ctx = NULL;
@@ -1074,7 +1076,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
         WARN("Allocating for bssl_rsa_async_ctx failed.\n");
         goto use_sw_method;
     }
-    
+
     bssl_rsa_async_ctx->status = 0;
     bssl_rsa_async_ctx->length = rsa_len;
     bssl_rsa_async_ctx->async_ctx.callback_func = mb_bssl_rsa_priv_enc_callback_fn;
@@ -1152,11 +1154,9 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     }
 #endif
 
-    if (sts < 1 ) {
-        WARN("Failure in Private Decrypt\n");
-        QATerr(QAT_F_MULTIBUFF_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
-        OPENSSL_cleanse(to, rsa_len);
-    }
+    select_ptr = qat_constant_time_select_ptr((sts < 1), (void *)to, (void *)temp_buf);
+    OPENSSL_cleanse(select_ptr, rsa_len);
+
     return sts;
 
 use_sw_method:
@@ -1193,6 +1193,9 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     int job_ret = 0;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
+    unsigned char temp_buf[RSA_4K_LENGTH];
+    unsigned char *select_ptr = NULL;
+    int rsa_pub_enc_sts = 0;
 
 #ifdef ENABLE_QAT_FIPS
     qat_fips_get_approved_status();
@@ -1371,14 +1374,12 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     }
 #endif
 
-    if (sts > 0) {
-        return rsa_len;
-    } else {
-        WARN("Failure in Public Encrypt\n");
-        QATerr(QAT_F_MULTIBUFF_RSA_PUB_ENC, ERR_R_INTERNAL_ERROR);
-        OPENSSL_cleanse(to, rsa_len);
-        return sts;
-    }
+    rsa_pub_enc_sts = qat_constant_time_select_int((sts <= 0), sts, rsa_len);
+    select_ptr = qat_constant_time_select_ptr((rsa_pub_enc_sts == rsa_len),
+                  (void *)temp_buf, (void *)to);
+    OPENSSL_cleanse(select_ptr, rsa_len);
+
+    return rsa_pub_enc_sts;
 
 use_sw_method:
     sts = RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
@@ -1399,6 +1400,8 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     int job_ret = 0;
     mb_thread_data *tlv = NULL;
     static __thread int req_num = 0;
+    unsigned char temp_buf[RSA_4K_LENGTH];
+    unsigned char *select_ptr = NULL;
 
 #ifdef ENABLE_QAT_FIPS
     qat_fips_get_approved_status();
@@ -1557,11 +1560,9 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     }
 #endif
 
-    if (sts < 1) {
-        WARN("Failure in Public Decrypt\n");
-        QATerr(QAT_F_MULTIBUFF_RSA_PUB_DEC, ERR_R_INTERNAL_ERROR);
-        OPENSSL_cleanse(to, rsa_len);
-    }
+    select_ptr = qat_constant_time_select_ptr((sts < 1), (void *)to, (void *)temp_buf);
+    OPENSSL_cleanse(select_ptr, rsa_len);
+
     return sts;
 
 use_sw_method:

@@ -73,8 +73,8 @@
 #include "qat_hw_rsa.h"
 #include "qat_hw_asym_common.h"
 #include "icp_sal_poll.h"
-#include "qat_hw_rsa_crt.h"
 #include "qat_evp.h"
+#include "qat_constant_time.h"
 
 #ifdef ENABLE_QAT_SW_RSA
 # include "qat_sw_rsa.h"
@@ -104,6 +104,19 @@
 static inline int qat_rsa_range_check(int plen)
 {
     return ((plen >= RSA_QAT_RANGE_MIN) && (plen <= RSA_QAT_RANGE_MAX));
+}
+
+static RSA *copy_rsa_public_to_private_exponent(RSA *rsa)
+{
+    RSA *rsa_copy = NULL;
+    const BIGNUM *lenstra_n = NULL;
+    const BIGNUM *lenstra_e = NULL;
+    RSA_get0_key((const RSA *)rsa, &lenstra_n, &lenstra_e, NULL);
+    rsa_copy = RSA_new();
+    if (rsa_copy == NULL)
+        return NULL;
+    RSA_set0_key(rsa_copy, (BIGNUM *)lenstra_n, NULL, (BIGNUM *)lenstra_e);
+    return rsa_copy;
 }
 
 /******************************************************************************
@@ -179,13 +192,14 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     /* Used for RSA Decrypt and RSA Sign */
     op_done_t op_done;
     CpaStatus sts = CPA_STATUS_FAIL;
-    int sync_mode_ret = 0;
     thread_local_variables_t *tlv = NULL;
 # ifdef QAT_BORINGSSL
     op_done_t *op_done_bssl = NULL;
-# else
-    int job_ret = 0;
 # endif
+    int job_ret = 0;
+    int iMsgRetry = getQatMsgRetryCount();
+    useconds_t ulPollInterval = getQatPollInterval();
+    int qatPerformOpRetries = 0;
 
     DEBUG("- Started\n");
 
@@ -208,34 +222,13 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
             qat_cleanup_op_done(&op_done);
             return 0;
         }
-    } else {
-        /*
-         * Sync mode
-         * Work-around:
-         * When num_requests_in_flight increased, the internal polling thread
-         * will begin to poll the instance.
-         */
-        QAT_INC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-        if (qat_use_signals()) {
-            if (tlv->localOpsInFlight == 1) {
-                if (sem_post(&hw_polling_thread_sem) != 0) {
-                    WARN("hw sem_post failed!, hw_polling_thread_sem address: %p.\n",
-                          &hw_polling_thread_sem);
-                    QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
-                    QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-                    return 0;
-                }
-            }
-        }
-        qat_cleanup_op_done(&op_done);
-        sync_mode_ret = qat_rsa_decrypt_CRT(dec_op_data, rsa_len, output_buf, fallback);
-        QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
-        return sync_mode_ret;
     }
 # ifdef QAT_BORINGSSL
-    op_done_bssl = (op_done_t*)op_done.job->copy_op_done(&op_done,
-       sizeof(op_done), (void (*)(void *, void *, int))rsa_decrypt_op_buf_free);
-#endif
+    if (op_done.job != NULL) {
+        op_done_bssl = (op_done_t*)op_done.job->copy_op_done(&op_done,
+            sizeof(op_done), (void (*)(void *, void *, int))rsa_decrypt_op_buf_free);
+    }
+# endif
     STOP_RDTSC(&qat_hw_rsa_dec_req_prepare, 1, "[QAT HW RSA: prepare]");
     /*
      * cpaCyRsaDecrypt() is the function called for RSA Sign in the API.
@@ -259,22 +252,33 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
             }
 # ifdef QAT_BORINGSSL
-            op_done.job->free_op_done(op_done_bssl);
+            if (op_done.job != NULL)
+                op_done.job->free_op_done(op_done_bssl);
 # endif
-            qat_clear_async_event_notification(op_done.job);
+            if (op_done.job != NULL)
+                qat_clear_async_event_notification(op_done.job);
             qat_cleanup_op_done(&op_done);
             return 0;
         }
-        DUMP_RSA_DECRYPT(qat_instance_handles[inst_num], &op_done, dec_op_data, output_buf);
-# ifdef QAT_BORINGSSL
-        sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn,
-                              op_done_bssl,
+        DUMP_RSA_DECRYPT(qat_instance_handles[inst_num], &op_done,
+                         dec_op_data, output_buf);
+# ifndef QAT_BORINGSSL
+        sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num],
+                              qat_rsaCallbackFn, &op_done,
                               dec_op_data, output_buf);
-        /* No need for wake up job or pause job here */
-#else
-        sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num], qat_rsaCallbackFn,
-                              &op_done,
-                              dec_op_data, output_buf);
+# else
+        if (op_done.job != NULL) {
+            sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num],
+                                  qat_rsaCallbackFn,
+                                  op_done_bssl, dec_op_data,
+                                  output_buf);
+        } /* No need for wake up job or pause job here */
+        else {
+            sts = cpaCyRsaDecrypt(qat_instance_handles[inst_num],
+                                  qat_rsaCallbackFn, &op_done,
+                                  dec_op_data, output_buf);
+        }
+# endif
         STOP_RDTSC(&qat_hw_rsa_dec_req_submit, 1, "[QAT HW RSA: submit]");
         if (sts == CPA_STATUS_RETRY) {
             DEBUG("cpaCyRsaDecrypt Retry \n");
@@ -287,14 +291,26 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 STOP_RDTSC(&qat_hw_rsa_dec_req_retry, 1, "[QAT HW RSA: retry]");
                 return 0;
             } else {
-                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                    WARN("qat_wake_job or qat_pause_job failed\n");
-                    break;
+                if (op_done.job == NULL) {
+                    usleep(ulPollInterval + qatPerformOpRetries);
+                    qatPerformOpRetries++;
+                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                        if (qatPerformOpRetries >= iMsgRetry) {
+                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
+                            break;
+                        }
+                    }
+                } else {
+# ifndef QAT_BORINGSSL
+                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                        WARN("qat_wake_job or qat_pause_job failed\n");
+                        break;
+                    }
+# endif
                 }
             }
         }
-# endif /* QAT_BORINGSSL */
     }
     while (sts == CPA_STATUS_RETRY);
 
@@ -312,10 +328,12 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         } else {
             QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
         }
+        if (op_done.job != NULL) {
 # ifdef QAT_BORINGSSL
-        op_done.job->free_op_done(op_done_bssl);
+            op_done.job->free_op_done(op_done_bssl);
 # endif
-        qat_clear_async_event_notification(op_done.job);
+            qat_clear_async_event_notification(op_done.job);
+        }
         qat_cleanup_op_done(&op_done);
 
         return 0;
@@ -330,7 +348,8 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 QATerr(QAT_F_QAT_RSA_DECRYPT, ERR_R_INTERNAL_ERROR);
                 QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 # ifdef QAT_BORINGSSL
-                op_done.job->free_op_done(op_done_bssl);
+                if (op_done.job != NULL)
+                    op_done.job->free_op_done(op_done_bssl);
 # endif
                 return 0;
             }
@@ -338,10 +357,11 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     }
 
 # ifdef QAT_BORINGSSL
-    qat_cleanup_op_done(&op_done);
-    return -1; /* Async mode for BoringSSL */
-# else
-
+    if (op_done.job != NULL) {
+        qat_cleanup_op_done(&op_done);
+        return -1; /* Async mode for BoringSSL */
+    }
+# endif
     if (qat_get_sw_fallback_enabled()) {
         CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
                        inst_num,
@@ -357,16 +377,31 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         ++num_rsa_hw_priv_reqs;
 
     do {
-        /* If we get a failure on qat_pause_job then we will
-           not flag an error here and quit because we have
-           an asynchronous request in flight.
-           We don't want to start cleaning up data
-           structures that are still being used. If
-           qat_pause_job fails we will just yield and
-           loop around and try again until the request
-           completes and we can continue. */
-        if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
+        if(op_done.job != NULL) {
+            /* If we get a failure on qat_pause_job then we will
+               not flag an error here and quit because we have
+               an asynchronous request in flight.
+               We don't want to start cleaning up data
+               structures that are still being used. If
+               qat_pause_job fails we will just yield and
+               loop around and try again until the request
+               completes and we can continue. */
+            if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
+                sched_yield();
+        }
+        else {
+# ifdef QAT_BORINGSSL
+            /* Support inline polling in current scenario */
+            if(getEnableInlinePolling()) {
+                icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+                RSA_INLINE_POLLING_USLEEP();
+            } else {
+                sched_yield();
+            }
+# else
             sched_yield();
+# endif /* QAT_BORINGSSL */
+        }
     }
     while (!op_done.flag ||
            QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
@@ -393,7 +428,6 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 
     DEBUG("- Finished\n");
     return 1;
-# endif /* QAT_BORINGSSL */
 }
 
 static int
@@ -649,8 +683,7 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
         if (sts == CPA_STATUS_RETRY) {
             DEBUG("cpaCyRsaDecrypt Retry \n");
             if (op_done.job == NULL) {
-                usleep(ulPollInterval +
-                       (qatPerformOpRetries % QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                usleep(ulPollInterval + qatPerformOpRetries);
                 qatPerformOpRetries++;
                 if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
                     if (qatPerformOpRetries >= iMsgRetry) {
@@ -949,10 +982,10 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     int qat_svm = QAT_INSTANCE_ANY;
 # ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
     unsigned char *ver_msg = NULL;
-    const BIGNUM *n = NULL;
-    const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
-    int lenstra_ret = 0;
+    RSA *lenstra_rsa = NULL;
+    int lenstra_ret = -1;
+    int memcmp_ret = -1;
 # endif
 
 #ifdef ENABLE_QAT_HW_KPT
@@ -1060,12 +1093,11 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     output_buffer = NULL;
 
 # ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
-    /* Lenstra vulnerability protection: Now call the s/w impl'n of public decrypt in order to
-       verify the sign operation just carried out (cpaCyRsaDecrypt). */
-    RSA_get0_key((const RSA*)rsa, &n, &e, &d);
+    lenstra_rsa = copy_rsa_public_to_private_exponent(rsa);
+    if (lenstra_rsa != NULL)
+        d = RSA_get0_d((const RSA*)lenstra_rsa);
 
-    /* Note: not checking 'd' as it is not used */
-    if (e != NULL) { /* then a public key exists and we can effect Lenstra attack protection*/
+    if (d != NULL) {
         ver_msg = OPENSSL_zalloc(flen);
         if (ver_msg == NULL) {
             WARN("ver_msg zalloc failed.\n");
@@ -1077,12 +1109,13 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
         lenstra_ret = qat_rsa_pub_dec(rsa_len, (const unsigned char *)to,
                                       ver_msg, rsa, padding);
 #  else
-        lenstra_ret = RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
+        lenstra_ret = RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())
                                            (rsa_len,
                                            (const unsigned char *)to,
-                                           ver_msg, rsa, padding);
+                                           ver_msg, lenstra_rsa, padding);
 #  endif
-        if ((lenstra_ret <= 0) || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
+        memcmp_ret = CRYPTO_memcmp(from, ver_msg, flen);
+        if ((qat_constant_time_le_int(lenstra_ret, 0)) | (memcmp_ret != 0)) {
             WARN("QAT RSA Verify failed - redoing sign operation in s/w\n");
             OPENSSL_free(ver_msg);
             return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
@@ -1090,6 +1123,8 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
         }
         OPENSSL_free(ver_msg);
     }
+    if (lenstra_rsa != NULL)
+        RSA_free(lenstra_rsa);
 # endif
 
     DEBUG("- Finished\n");
@@ -1153,11 +1188,14 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     int qat_svm = QAT_INSTANCE_ANY;
 # ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
     unsigned char *ver_msg = NULL;
-    const BIGNUM *n = NULL;
-    const BIGNUM *e = NULL;
     const BIGNUM *d = NULL;
-    int lenstra_ret = 0;
+    RSA *lenstra_rsa = NULL;
+    int lenstra_ret = -1;
+    int memcmp_ret = -1;
 # endif
+    unsigned char temp_buf[RSA_QAT_RANGE_MAX];
+    unsigned char *select_ptr = NULL;
+    int rsa_priv_dec_sts = -1;
 
 #ifdef ENABLE_QAT_HW_KPT
     if (rsa && qat_check_rsa_wpk(rsa) > 0) {
@@ -1247,12 +1285,11 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     }
 
 # ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
-    /* Lenstra vulnerability protection: Now call the s/w impl'n of public encrypt in order to
-       verify the decrypt operation just carried out. */
-    RSA_get0_key((const RSA*)rsa, &n, &e, &d);
+    lenstra_rsa = copy_rsa_public_to_private_exponent(rsa);
+    if (lenstra_rsa != NULL)
+        d = RSA_get0_d((const RSA*)lenstra_rsa);
 
-    /* Note: not checking 'd' as it is not used */
-    if (e != NULL) { /* then a public key exists and we can effect Lenstra attack protection*/
+    if (d != NULL) {
         ver_msg = OPENSSL_zalloc(flen);
         if (ver_msg == NULL) {
             WARN("ver_msg zalloc failed.\n");
@@ -1262,15 +1299,16 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         }
 #  ifdef ENABLE_QAT_HW_LENSTRA_VERIFY_HW
         lenstra_ret = qat_rsa_pub_enc(rsa_len,
-                                      (const unsigned char *)output_buffer->pData,
-                                      ver_msg, rsa, RSA_NO_PADDING);
+                        (const unsigned char *)output_buffer->pData,
+                        ver_msg, rsa, RSA_NO_PADDING);
 #  else
-        lenstra_ret = RSA_meth_get_pub_enc(RSA_PKCS1_OpenSSL())
-                                           (rsa_len,
-                                           (const unsigned char *)output_buffer->pData,
-                                           ver_msg, rsa, RSA_NO_PADDING);
+        lenstra_ret = RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
+                             (rsa_len,
+                             (const unsigned char *)output_buffer->pData,
+                             ver_msg, lenstra_rsa, RSA_NO_PADDING);
 #  endif
-        if ((lenstra_ret <= 0) || (CRYPTO_memcmp(from, ver_msg, flen) != 0)) {
+        memcmp_ret = CRYPTO_memcmp(from, ver_msg, flen);
+        if ((qat_constant_time_le_int(lenstra_ret, 0)) | (memcmp_ret != 0)) {
             WARN("- QAT RSA sign failed - redoing decrypt operation in s/w\n");
             OPENSSL_free(ver_msg);
             rsa_decrypt_op_buf_free(dec_op_data, output_buffer, qat_svm);
@@ -1278,6 +1316,9 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         }
         OPENSSL_free(ver_msg);
     }
+
+    if(lenstra_rsa != NULL)
+        RSA_free(lenstra_rsa);
 # endif
 
     switch (padding) {
@@ -1318,22 +1359,17 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
                                    rsa_len);
         break;
     default:
-        break; /* Do nothing as the error will be caught below. */
+        break;
     }
 
-    if (output_len < 0) {
-        WARN("Failure in removing padding\n");
-        QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_INTERNAL_ERROR);
-        sts = 0;
-        goto exit;
-    }
-
+    rsa_priv_dec_sts = qat_constant_time_select_int((output_len < 0), 0, output_len);
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer, qat_svm);
     dec_op_data = NULL;
     output_buffer = NULL;
+    select_ptr = qat_constant_time_select_ptr((rsa_priv_dec_sts == 0), to, temp_buf);
+    OPENSSL_cleanse(select_ptr, rsa_len);
 
-    DEBUG("- Finished\n");
-    return output_len;
+    return rsa_priv_dec_sts;
 
  exit:
     START_RDTSC(&qat_hw_rsa_dec_req_cleanup);
@@ -1520,6 +1556,9 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     int sts = 1, fallback = 0;
     int inst_num = QAT_INVALID_INSTANCE;
     int qat_svm = QAT_INSTANCE_ANY;
+    unsigned char temp_buf[RSA_QAT_RANGE_MAX];
+    unsigned char *select_ptr = NULL;
+    int rsa_pub_dec_sts = -1;
 
     DEBUG("QAT HW RSA Started.\n");
 #ifdef ENABLE_QAT_FIPS
@@ -1605,21 +1644,17 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
                                    rsa_len);
         break;
     default:
-        break; /* Do nothing as the error will be caught below. */
+        break;
     }
 
-    if (output_len < 0) {
-        WARN("Failure in removing padding\n");
-        QATerr(QAT_F_QAT_RSA_PUB_DEC, ERR_R_INTERNAL_ERROR);
-        sts = 0;
-        goto exit;
-    }
-
+    rsa_pub_dec_sts = qat_constant_time_select_int((output_len < 0), 0, output_len);
     rsa_encrypt_op_buf_free(enc_op_data, output_buffer, qat_svm);
     enc_op_data = NULL;
     output_buffer = NULL;
-    DEBUG("- Finished\n");
-    return output_len;
+    select_ptr = qat_constant_time_select_ptr((rsa_pub_dec_sts == 0), to, temp_buf);
+    OPENSSL_cleanse(select_ptr, rsa_len);
+
+    return rsa_pub_dec_sts;
 
  exit:
     /* Free all the memory allocated in this function */
