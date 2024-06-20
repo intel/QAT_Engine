@@ -6,12 +6,12 @@ that supports OpenSSL\* 1.1.1 or OpenSSL\* 3.0 or BoringSSL\* and Intel&reg; Qui
 Technology Driver for Linux or Intel&reg;  QuickAssist Technology
 Driver for FreeBSD. This release was validated on the following:
 
-* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 2.0 (RHEL\* 8.6) - **QAT20.L.1.1.4000018**
-* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 1.7 & 1.8 (CentOS\* 8.4 & Ubuntu\* 20.04.2) - **QAT.L.4.24.0-00005**
+* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 2.0 (RHEL\* 9.3) - **QAT20.L.1.1.5000003**
+* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 1.7 & 1.8 (CentOS\* 8.4 & Ubuntu\* 22.04) - **QAT.L.4.25.0-00001**
 * Intel&reg; QuickAssist Technology Driver for FreeBSD\* HW Version 1.7 (FreeBSD\* 12.4) - **QAT.B.3.12.0-00004**
 * Intel&reg; QATlib for Linux - **QATlib 24.02.0**
 * Intel&reg; QATlib for FreeBSD (FreeBSD 14)- **FreeBSD QATlib 23.09.0**
-* OpenSSL\* 1.1.1w (for FreeBSD only) & 3.0.13
+* OpenSSL\* 1.1.1w (for FreeBSD only) & 3.0.14
 * BoringSSL\* commit - [23ed9d3][1]
 * Tongsuo - 8.4.0 (BabaSSL)
 
@@ -31,7 +31,7 @@ This release was validated on the following:
 
 * Operating system: Ubuntu\* 20.04.2 LTS
 * Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][2] release
-  version **IPP Crypto 2021.11** for OpenSSL & Tongsuo-8.4.0 (BabaSSL) and **IPP Crypto 2021.10** for BoringSSL
+  version **IPP Crypto 2021.12.1** for OpenSSL & Tongsuo-8.4.0 (BabaSSL) and **IPP Crypto 2021.10** for BoringSSL
 * Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.5**
 * OpenSSL\* 3.0.13
 * BoringSSL\* commit - [23ed9d3][1]
