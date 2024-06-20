@@ -12,27 +12,27 @@
 %global fullversion  %{major}.%{minor}.%{rev}
 
 %global ippcp_major        11
-%global ippcp_minor        13
+%global ippcp_minor        15
 %global ippcp              ipp-crypto
-%global ippcpver           ippcp_2021.11.1
+%global ippcpver           ippcp_2021.12.1
 %global ippcpfull          %{ippcp}-%{ippcpver}
 %global ippcpfullversion   %{ippcp_major}.%{ippcp_minor}
 
-%global openssl            openssl-3.0.13
-%global qatdriver          QAT20.L.1.1.40-00018
+%global openssl            openssl-3.0.14
+%global qatdriver          QAT20.L.1.1.50-00003
 
 %global openssl_source     %{_builddir}/%{openssl}
 %global openssl_install    %{buildroot}/%{_prefix}/local/ssl
 
 Name:       QAT_Engine
-Version:    1.6.0
+Version:    1.6.1
 Release:    1%{?dist}
 Summary:    Intel QuickAssist Technology(QAT) OpenSSL Engine
 License:    BSD-3-Clause AND OpenSSL
 
 Source0:    https://github.com/intel/QAT_Engine/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 Source1:    https://github.com/openssl/openssl/releases/download/%{openssl}/%{openssl}.tar.gz#/%{openssl}.tar.gz
-Source2:    https://downloadmirror.intel.com/818498/%{qatdriver}.tar.gz#/%{qatdriver}.tar.gz
+Source2:    https://downloadmirror.intel.com/822703/%{qatdriver}.tar.gz#/%{qatdriver}.tar.gz
 %if !0%{?suse_version}
 Source3:    https://github.com/intel/ipp-crypto/archive/refs/tags/%{ippcpver}.tar.gz#/%{ippcp}-%{ippcpver}.tar.gz
 Source4:    https://github.com/intel/intel-ipsec-mb/archive/refs/tags/v%{ipsecver}.tar.gz#/%{ipsecfull}.tar.gz
