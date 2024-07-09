@@ -373,6 +373,22 @@ then
       AC_SUBST([with_openssl_dir], [""]) #Err files are updated manually for BoringSSL
       AC_SUBST([LIBQATNAME], "libqatengine")
     fi
+  elif grep "define OPENSSL_SHLIB_VERSION 81.3" $with_openssl_install_dir/include/openssl/opensslv.h
+  #Build with QuicTLS 3.x libraries
+  then
+    if test "x$enable_qat_provider" = "xyes"
+    then
+      AC_MSG_NOTICE([Build QAT Provider against QuicTLS 3.x])
+      libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/ossl-modules"
+      AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED -DQAT_OPENSSL_PROVIDER"])
+      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
+      AC_SUBST([LIBQATNAME], "qatprovider")
+    else
+      AC_MSG_NOTICE([Build QAT Engine against QuicTLS 3.x])
+      libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/engines-81.3"
+      AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
+      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
+    fi
   else
     ac_default_prefix=$with_openssl_install_dir
     if grep "define OPENSSL_VERSION_NUMBER  0x1010"  $with_openssl_install_dir/include/openssl/opensslv.h
