@@ -406,6 +406,7 @@ else
     then
       AC_MSG_NOTICE([Build QAT Provider against system OpenSSL 3.0])
       AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED -DQAT_OPENSSL_PROVIDER"])
+      AC_SUBST([LIBQATNAME], "qatprovider")
       openssl3_lib="`pkg-config --variable=libdir libcrypto`"
       libdir="\$(openssl3_lib)/ossl-modules"
     else
