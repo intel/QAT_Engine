@@ -279,10 +279,16 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
         return DSA_meth_get_sign(default_dsa_method)(dgst, dlen, dsa);
 
     }
+
     if (unlikely(dsa == NULL || dgst == NULL)) {
         WARN("Either dsa %p or dgst %p are NULL\n", dsa, dgst);
         QATerr(QAT_F_QAT_DSA_DO_SIGN, QAT_R_DSA_DGST_NULL);
         return NULL;
+    }
+
+    if (*dgst == 0) {
+        DEBUG("- Received zero plaintext and Switched to software mode\n");
+        return DSA_meth_get_sign(default_dsa_method)(dgst, dlen, dsa);
     }
 
     DSA_get0_pqg(dsa, &p, &q, &g);
@@ -730,6 +736,11 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
         WARN("Either dsa = %p, dgst = %p or sig = %p are NULL\n", dsa, dgst, sig);
         QATerr(QAT_F_QAT_DSA_DO_VERIFY, QAT_R_DSA_DGST_SIG_NULL);
         return ret;
+    }
+
+    if (*dgst == 0) {
+        DEBUG("- Received zero plaintext and Switched to software mode\n");
+        return DSA_meth_get_verify(default_dsa_method)(dgst, dgst_len, sig, dsa);
     }
 
     DSA_get0_pqg(dsa, &p, &q, &g);
