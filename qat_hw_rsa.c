@@ -392,7 +392,13 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
 # ifdef QAT_BORINGSSL
             /* Support inline polling in current scenario */
             if(getEnableInlinePolling()) {
-                icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+                sts = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+		if (sts == CPA_STATUS_FAIL) {
+                    WARN("icp_sal_CyPollInstance failed - status %d\n", sts);
+                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+                    qat_cleanup_op_done(&op_done);
+                    return 0;
+                }
                 RSA_INLINE_POLLING_USLEEP();
             } else {
                 sched_yield();
@@ -767,12 +773,16 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
-            if(getEnableInlinePolling())
-                icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
-            else
+            if(getEnableInlinePolling()) {
+                sts = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+	        if (sts == CPA_STATUS_FAIL) {
+                    WARN("icp_sal_CyPollInstance failed - status %d\n", sts);
+		    op_done.flag = 1;
+                }
+	    } else
                 sched_yield();
         }
-    } while (!op_done.flag ||
+    } while (!op_done.flag || (sts == CPA_STATUS_RETRY) ||
              QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
 
     DUMP_RSA_ENCRYPT_OUTPUT(output_buf);

@@ -246,6 +246,9 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     default:
         WARN("Unsupported NID: %d\n", type);
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
+        # if OPENSSL_VERSION_NUMBER < 0x30200000
+            CRYPTO_THREAD_lock_free(key->lock);
+        # endif
         OPENSSL_free(key);
         return 0;
     }
@@ -271,12 +274,18 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     default:
         WARN("Unsupported NID: %d\n", gctx->type);
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
+        # if OPENSSL_VERSION_NUMBER < 0x30200000
+            CRYPTO_THREAD_lock_free(key->lock);
+        # endif
         OPENSSL_free(key);
         return 0;
     }
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
+        # if OPENSSL_VERSION_NUMBER < 0x30200000
+            CRYPTO_THREAD_lock_free(key->lock);
+        # endif
         OPENSSL_free(key);
 
         if (!is_ecx_448) {
@@ -299,6 +308,9 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
             goto err;
         } else {
             QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
+            # if OPENSSL_VERSION_NUMBER < 0x30200000
+                CRYPTO_THREAD_lock_free(key->lock);
+            # endif
             OPENSSL_free(key);
             return 0;
         }
@@ -312,6 +324,9 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     if (NULL == qat_ecx_op_data) {
         WARN("Failed to allocate memory for qat_ecx_op_data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
+        # if OPENSSL_VERSION_NUMBER < 0x30200000
+            CRYPTO_THREAD_lock_free(key->lock);
+        # endif
         OPENSSL_free(key);
         return 0;
     }
@@ -554,6 +569,9 @@ err:
             privkey = NULL;
         }
         if (NULL != key) {
+            # if OPENSSL_VERSION_NUMBER < 0x30200000
+                CRYPTO_THREAD_lock_free(key->lock);
+            # endif
             OPENSSL_free(key);
             key = NULL;
         }
