@@ -54,7 +54,7 @@ The following is a list of the options that can be used with the
     the in-tree driver even though QAT SW acceleration is enabled via
     use of the '--enable-qat_sw' option, if both capabilities are
     available (both QAT HW or QAT SW) then QAT HW acceleration will
-    be used by default. However, use of this --disable-qat_hw option will
+    be used by default. However, use of this `--disable-qat_hw` option will
     force the use of QAT SW acceleration.
 
 ```

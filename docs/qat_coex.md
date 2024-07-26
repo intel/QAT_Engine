@@ -1,11 +1,9 @@
 # QAT_HW and QAT_SW Co-existence
 
-Intel&reg; QAT OpenSSL\* Engine supports QAT_HW and QAT_SW Co-existence build
-with both QAT_HW and QAT_SW dependent libraries(QAT Driver, crypto_mb and
-ipsec_mb) linked in the qatengine.so library. This support can be enabled at
-build time when both QAT_HW flag `--with-qat_hw_dir=/path/to/QAT_Driver`
-and QAT_SW flag `--enable-qat_sw` configured together in the build configure
-option.
+Intel&reg; QAT OpenSSL\* Engine supports QAT_HW and QAT_SW Co-existence
+when both QAT_HW flag `--with-qat_hw_dir=/path/to/QAT_Driver`
+and QAT_SW flag `--enable-qat_sw` configured in the build configure
+option to provide acceleration from both QAT_HW and QAT_SW combined.
 
 If the platform has support for both QAT_HW and QAT_SW, the default
 behavior is to accelerate asymmetric algorithms and Symmetric chained ciphers
@@ -26,37 +24,7 @@ mentioned in the Figure below.
 <img src="images/qat_coex.png" alt="drawing" width="300"/>
 </p>
 
-
-## Run time Co-existence configuration using HW & SW algorithm bitmap
-Intel&reg; QAT OpenSSL\* Engine supports a runtime mechanism to dynamically choose
-the QAT_HW or QAT_SW or both for each algorithm, using QAT_HW and QAT_SW dependent
-libraries linked in a single qatengine.
-It can be accomplished through two ENGINE ctrl commands:
-**HW_ALGO_BITMAP** & **SW_ALGO_BITMAP**,
-and the bit map of each algorithm is defined below:
-| Algorithm | Bit | HW or SW supported(Priority) |
-| :- | :- | :-: |
-| RSA | 0x00001 | Both (HW > SW) |
-| DSA | 0x00002 | HW |
-| DH | 0x00004 | HW |
-| ECDSA | 0x00008 | Both (HW > SW) |
-| ECDH | 0x00010 | Both (HW > SW) |
-| ECX25519 | 0x00020 | Both (HW > SW) |
-| ECX448 | 0x00040 | HW |
-| PRF | 0x00080 | HW |
-| HKDF | 0x00100 | HW |
-| SM2(ECDSA) | 0x00200 | HW > SW |
-| AES_GCM | 0x00400 | Both (SW > HW) |
-| AES_CBC_HMAC_SHA | 0x00800 | HW |
-| SM4_CBC | 0x01000 | Both (HW > SW) |
-| CHACHA_POLY | 0x02000 | HW |
-| SHA3 | 0x04000 | HW |
-| SM3 | 0x08000 | SW |
-| SM4-GCM | 0x10000 | SW |
-| SM4-CCM | 0x20000 | SW |
-| AES-CCM | 0x40000 | HW |
-
-## QAT_HW & QAT_SW Co-existence recommended settings and working mechanism
+## Recommended settings and working mechanism
 
 1. For those algorithms that can achieve stronger performance with QAT_SW, we
    only use QAT_SW by default. These algorithms include:`AES-GCM`, `ECDSA-P256`,
@@ -82,6 +50,33 @@ and the bit map of each algorithm is defined below:
    | 1024 bytes | 96 async jobs  | 96 async jobs  | 96 async jobs  | 96 async jobs  |
    | 8192 bytes | 48 async jobs  | 88 async jobs  | 136 async jobs  | 176 async jobs  |
    | 16384 bytes | 48 async jobs  | 88 async jobs  | 152 async jobs  | 176 async jobs  |
+
+## Run time configuration using HW & SW algorithm bitmap
+Intel&reg; QAT OpenSSL\* Engine supports a runtime mechanism to dynamically choose
+the QAT_HW or QAT_SW or both for each algorithm using the ENGINE ctrl commands:
+**HW_ALGO_BITMAP** & **SW_ALGO_BITMAP**,
+Bitmap of each algorithm is defined below:
+| Algorithm | Bit | HW or SW supported(Priority) |
+| :- | :- | :-: |
+| RSA | 0x00001 | Both (HW > SW) |
+| DSA | 0x00002 | HW |
+| DH | 0x00004 | HW |
+| ECDSA | 0x00008 | Both (HW > SW) |
+| ECDH | 0x00010 | Both (HW > SW) |
+| ECX25519 | 0x00020 | Both (HW > SW) |
+| ECX448 | 0x00040 | HW |
+| PRF | 0x00080 | HW |
+| HKDF | 0x00100 | HW |
+| SM2(ECDSA) | 0x00200 | HW > SW |
+| AES_GCM | 0x00400 | Both (SW > HW) |
+| AES_CBC_HMAC_SHA | 0x00800 | HW |
+| SM4_CBC | 0x01000 | Both (HW > SW) |
+| CHACHA_POLY | 0x02000 | HW |
+| SHA3 | 0x04000 | HW |
+| SM3 | 0x08000 | SW |
+| SM4-GCM | 0x10000 | SW |
+| SM4-CCM | 0x20000 | SW |
+| AES-CCM | 0x40000 | HW |
 
 **Note: ECDH-SM2 is included in ECDH SW group.**
 
