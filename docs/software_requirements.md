@@ -1,43 +1,39 @@
 # Software Requirements
 
-## qat_hw Requirements
-Successful operation of QAT Hardware acceleration requires a software tool chain
-that supports OpenSSL\* 1.1.1 or OpenSSL\* 3.0 or BoringSSL\* and Intel&reg; QuickAssist
-Technology Driver for Linux or Intel&reg;  QuickAssist Technology
-Driver for FreeBSD. This release was validated on the following:
+Successful operation of QAT Hardware(QAT_HW) acceleration requires a 
+[QAT Hardware driver][1] depending on the platform and OS mentioned below. 
+QAT Software(QAT_SW) acceleration requires optimized software libraries
+[Intel® Crypto Multi-buffer library][2] and [intel-ipsec-mb][3]. Depending on the use 
+case crypto library like OpenSSL, TongSuo(BabaSSL) and BoringSSL needs to be installed along
+with a QAT_HW driver or QAT_SW libraries or both.
 
-* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 2.0 (RHEL\* 9.3) - **QAT20.L.1.1.5000003**
-* Intel&reg; QuickAssist Technology Driver for Linux\* HW Version 1.7 & 1.8 (CentOS\* 8.4 & Ubuntu\* 22.04) - **QAT.L.4.25.0-00001**
-* Intel&reg; QuickAssist Technology Driver for FreeBSD\* HW Version 1.7 (FreeBSD\* 12.4) - **QAT.B.3.12.0-00004**
-* Intel&reg; QATlib for Linux - **QATlib 24.02.0**
-* Intel&reg; QATlib for FreeBSD (FreeBSD 14)- **FreeBSD QATlib 23.09.0**
-* OpenSSL\* 1.1.1w (for FreeBSD only) & 3.0.14
-* BoringSSL\* commit - [23ed9d3][1]
-* Tongsuo - 8.4.0 (BabaSSL)
+This release was validated on the following versions and expected to work on all Linux distributions
+and also from the latest versions from the links below.
 
-## qat_sw Requirements
-Successful operation of the Intel&reg; QAT Software acceleration requires a
-software tool chain that supports OpenSSL\* 1.1.1 or OpenSSL\* 3.0 and Intel&reg;
-Crypto Multi-buffer library(for Asymmetric PKE) cloned from the [ipp-crypto][2] repo.
-The crypto_mb library needs to be installed using the instructions from the
-[Crypto Multi-buffer Library][3] Readme.
+## QAT_HW Drivers:
+* [Intel® QuickAssist Technology Driver for Linux\* HW Version 2.0][4] - **QAT20.L.1.1.5000003**
+* [Intel® QuickAssist Technology Driver for Linux\* HW Version 1.x][5] - **QAT.L.4.25.0-00001**
+* [Intel® QuickAssist Technology Driver for FreeBSD\* HW Version 1.x][6] - **QAT.B.3.12.0-00004** (FreeBSD 12.4)
+* [Intel® QATlib for Linux with intree driver][7] - **QATlib 24.02.0**
+* [Intel®  QATlib for FreeBSD with intree driver(FreeBSD 14)][8] - **FreeBSD QATlib 23.09.0** (FreeBSD 14)
 
-For QAT SW AES-GCM acceleration, prerequisite is to have Intel&reg;
-Multi-Buffer crypto for IPsec Library cloned from the [intel-ipsec-mb][4]
-repo and installed using the instructions from the intel-ipsec-mb README.
-The Intel&reg; QAT Engine supports QAT SW AES-GCM from OpenSSL\* 1.1.1d.
+## QAT_SW Libraries:
+* [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto 2021.12.1** & **IPP Crypto 2021.10** (for BoringSSL only)
+* [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v1.5**
 
-This release was validated on the following:
+## Crypto Libraries:
+* [OpenSSL\*][9] 1.1.1w (for FreeBSD only) & 3.0.14
+* BoringSSL\* commit - [23ed9d3][11]
+* [Tongsuo][11] - 8.4.0 (BabaSSL)
 
-* Operating system: Ubuntu\* 20.04.2 LTS
-* Intel&reg; Crypto Multi-buffer library from the [ipp-crypto][2] release
-  version **IPP Crypto 2021.12.1** for OpenSSL & Tongsuo-8.4.0 (BabaSSL) and **IPP Crypto 2021.10** for BoringSSL
-* Intel&reg; Multi-Buffer crypto for IPsec Library release version **v1.5**
-* OpenSSL\* 3.0.13
-* BoringSSL\* commit - [23ed9d3][1]
-* Tongsuo - 8.4.0 (BabaSSL)
-
-[1]:https://github.com/google/boringssl/commit/23ed9d3852bbc738bebeaa0fe4a0782f91d7873c
-[2]:https://github.com/intel/ipp-crypto
-[3]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
-[4]:https://github.com/intel/intel-ipsec-mb
+[1]:https://www.intel.com/content/www/us/en/developer/topic-technology/open/quick-assist-technology/overview.html
+[2]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
+[3]:https://github.com/intel/intel-ipsec-mb
+[4]:https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html
+[5]:https://www.intel.com/content/www/us/en/download/19734/intel-quickassist-technology-driver-for-linux-hw-version-1-x.html
+[6]:https://www.intel.com/content/www/us/en/download/19735/intel-quickassist-technology-driver-for-freebsd-hw-version-1-x.html
+[7]:https://github.com/intel/qatlib
+[8]:https://github.com/intel/qatlib-freebsd
+[9]:https://github.com/openssl/openssl
+[10]:https://github.com/google/boringssl/commit/23ed9d3852bbc738bebeaa0fe4a0782f91d7873c
+[11]:https://github.com/Tongsuo-Project/Tongsuo

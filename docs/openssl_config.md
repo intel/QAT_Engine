@@ -22,7 +22,7 @@ you may find that the application instead makes the now deprecated call to:
 
     OPENSSL_config(NULL);
 
-Where the parameter is a const char* pointer to the `appname` section you want
+Where the parameter is a const char\* pointer to the `appname` section you want
 to use, or NULL to use the default `openssl_conf` section.
 
 Currently this will give the same behaviour as the
@@ -31,7 +31,7 @@ deprecated it should not be relied upon for future use.
 
 For further details on using the OPENSSL_init_crypto function please see the
 OpenSSL\* online documentation located at:
-<https://www.openssl.org/docs/man1.1.0/crypto/OPENSSL_init_crypto.html>
+<https://www.openssl.org/docs/man1.1.1/man3/OPENSSL_init_crypto.html>
 
 In order to start using the openssl.cnf file it needs some additional lines
 adding. You should add the following statement in the global section (this is
@@ -63,7 +63,7 @@ For instance it may contain:
 
     [ qat_section ]
     engine_id = qatengine
-    dynamic_path = /usr/local/ssl/lib/engines-1.1/qatengine.so
+    dynamic_path = /usr/local/ssl/lib/engines-3/qatengine.so
     # Add engine specific messages here
     default_algorithms = ALL
 

@@ -11,35 +11,17 @@
 * **qat_contig_mem** memory driver is not supported when running under FreeBSD
   Operating system or in the qatlib RPM. The default is to use the USDM memory
   driver supplied as part of the Intel&reg; QAT Driver.
-* **SM2, SM3 & SM4** application testing is done using Tongsuo only since OpenSSL
-  doesn't support SMx cipher suites.
 * QAT Engine doesn't support **ENCRYPT_THEN_MAC**(default) mode of operation meaning
   when Encrypt then MAC is negotiated for symmetric ciphers say AES-CBC, the requests will not
   get offloaded via QAT_HW, instead uses OpenSSL SW. Disable ENCRYPT_THEN_MAC with the flag
   `SSL_OP_NO_ENCRYPT_THEN_MAC` programmatically using SSL_CTX_set_options() to offload
   symmetric chained ciphers via QAT_HW. Please note disabling ENCRYPT_THEN_MAC has security
   implications.
-* Support for cipher AES-128-CBC-HMAC-SHA1 and its related ciphers was broken
-  in release OpenSSL\* 1.1.1d. This was later fixed in OpenSSL\* 1.1.1e release.
-* OpenSSL 1.1.1n and OpenSSL3.0.2 introduced misleading error message(undefined symbol: **EVP_PKEY_get_base_id**)
+* OpenSSL 1.1.1n and OpenSSL 3.0.2 introduced misleading error message(undefined symbol: **EVP_PKEY_get_base_id**)
   during engine load which can be ignored as it is not a real failure. This is later fixed in
-  OpenSSL\* 1.1.1o and OpenSSL* 3.0.3 release.
-* X25519/X448 support is available only from **version 4.9** of the Intel&reg; QAT
-  driver for Linux. Use `--disable-qat_hw_ecx` in the Intel&reg; QAT OpenSSL\* Engine
-  configure when building against earlier versions of the Linux driver.
-* Support for qaeMemFreeNonZeroNUMA() USDM API is available only from **version 4.10**
-  of the Intel&reg; QAT driver for Linux. Use `--with-cc-opt="-DQAT_HW_DISABLE_NONZERO_MEMFREE"`
-  in the Intel&reg; QAT OpenSSL\* Engine configuration when building against earlier
-  versions of the Linux driver.
-* From **version 4.19 and later** of Intel&reg; QAT driver for Linux, legacy or insecure
-  algorithms such as DH, DSA, SHA1, RSA keysizes < 2048, EC curves < 256 bits are
-  disabled by default hence there will be algo unsupported failures in the relevant ciphers.
-  Driver needs to be built with flag "--enable-legacy-algorithms" to enable those
-  algorithm support.
+  OpenSSL\* 1.1.1o and OpenSSL\* 3.0.3 release.
 * QAT Engine built for OpenSSL3.0 is only compatible with dependent libraries also linked with OpenSSL3.0
-  libraries due to [OpenSSL#17112][1]. Same applies for OpenSSL 1.1.1.
-* SM4-GCM, SM4-CCM and SM4-CBC are only supported with Tongsuo and they are not supported with OpenSSL.
-* Handshake Failures with X25519/X448 which is fixed in [Tongsuo#563][7] and SM2 init Failure in Speed test is fixed in [Tongsuo#590][8]. These issues observed in Tongsuo only and not in OpenSSL.
+  libraries due to [OpenSSL#17112](https://github.com/openssl/openssl/pull/17112). Same applies for OpenSSL 1.1.1.
 * HKDF based on SM3 is not supported in QAT_HW, The request will fallback to OpenSSL software if
   fallback been enabled otherwise failures are observed.
 * There is a limitation with thread specific USDM: *memory allocated in one thread
@@ -49,11 +31,9 @@
   calls OPENSSL_cleanup(). Incorrect cleanup can lead to a segmentation fault (segfault). 
   Also, memory allocated in a thread is freed automatically when the thread exits/terminates, 
   even if the user does not explicitly free the memory.
-* SVM is not supported with BoringSSL library and KPT.
-* AES-CCM ciphers are not enabled in OpenSSL by default. Need to enable it manually using the openssl.cnf file.
-
-  Example:
-
+* SVM mode is not supported with BoringSSL library and KPT mode.
+* AES-CCM ciphers are not enabled in OpenSSL by default. Need to enable it manually using the openssl.cnf
+  section as below
 ```
   openssl_conf = cipher_conf
 
@@ -67,7 +47,9 @@
   Cipherstring = ALL
   Ciphersuites = TLS_AES_128_CCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256
 ```
-* FreeBSD qatlib Header files are not installed to the install path due to a known issue in the driver. Please copy manually as mentioned in the below example  which considers default path '/usr/local'. If the FreeBSD qatlib's install path is different then copy them to that directory.
+* FreeBSD qatlib Header files are not installed to the install path due to a known issue in the driver.
+  Header needs to be manually copied in the default path (/usr/local) as below or to the
+  install path specified during driver installation.
 
 ```
   # Create destination directory from the QATlib 23.09 top directory:
@@ -81,19 +63,20 @@
 
 ### Functional
 * AES-CBC-HMAC-SHA chained ciphers does not support **pipeline feature** when built with
-  OpenSSL 3.0 as the corresponding support is not available in OpenSSL 3.0 - [OpenSSL#18298][2]
+  OpenSSL 3.0 as the corresponding support is not available in OpenSSL 3.0 -
+  [OpenSSL#18298](https://github.com/openssl/openssl/issues/18298)
 * There is an issue in **sshd** daemon application when using the QAT for default openssl.
   sshd looks to be closing the file descriptors associated with QAT engine and driver after
   initialising openssl. Similar issue was present which prevents the ability to ssh out of
   the system using the QAT engine in versions of the ssh application before OpenSSH 8.7.
-  The issue has been fixed with this commit [c9f7bba][3] . This update can be applied to
-  sshd to work-around the issue.
+  The issue has been fixed with this commit [c9f7bba](https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127)
+  This update can be applied to sshd to work-around the issue.
 * Known issue with QAT_SW SM2 in `ntls` mode since QAT_SW SM2 doesn't have plain sign and
   verify operation support in engine. Disable QAT_SW SM2 to workaround the issue with ntls.
   No issues with TLS mode since it uses digestsign and digestverify which is supported.
 * Known issue in Software fallback with OpenSSL3.0 Engine(only) when disabled via co-existence
   algo bitmap for algorithms PRF, HKDF, SM2 & SM3. QAT_HW PRF and QAT_HW HKDF are
-  not accelerated in OpenSSL 3.0 engine due to the issue [OpenSSL#21622][4]
+  not accelerated in OpenSSL 3.0 engine due to the issue [OpenSSL#21622](https://github.com/openssl/openssl/issues/21622)
 ### Performance
 * There is known performance scaling issue (performance drop with threads >32)
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode
@@ -101,31 +84,20 @@
   or in multi-process mode.
 * SM3 is disabled by default due to performance drop observed in **multithread scenario**
   for all ciphers suites due to the additional locks at engine_table_select introduced by
-  engine digest registration in OpenSSL - [OpenSSL#18509][5]
-* In Co-Existence mode, performance will drop for PKE algorithms compared with
-  QAT_SW when process number >= 64.
-* Note regarding multithreaded performance with OpenSSL:** In some cases, using QAT_Engine with 
+  engine digest registration in OpenSSL - [OpenSSL#18509](https://github.com/openssl/openssl/issues/18509)
+* In Co-Existence mode, Performance is lower than QAT_SW only when process number >=64 due
+  to known issue.
+* Note regarding multithreaded performance with OpenSSL/*: In some cases, using QAT_Engine with
   OpenSSL at higher thread counts can produce *worse* performance, due to issues in the way OpenSSL
   handles higher thread counts. Check for `native_queued_spin_lock_slowpath()` consuming CPU process 
   idle time, and see the OpenSSL GitHub issues and web articles below.
-* Nginx Handshake Performance in OpenSSL3.0 is slightly slower compared to OpenSSL 1.1.1. The same
-  behaviour is observed in OpenSSL_SW as well [OpenSSL#21833][6].
-* Performance scaling is not linear in QAT2.0 supported platforms in ECDSA and chacha-poly algorithms.
-* Performance drop observed with ECDSAP256 algorithm in the OpenSSL speed tests with FreeBSD 14 intree driver.
   
-  Articles:
-
-  - https://github.com/openssl/openssl/issues/18509 OpenSSL 1.1.* "Performance bottleneck with locks in engine_table_select() function #18509"
-  - https://github.com/openssl/openssl/issues/20286 OpenSSL 3.* "3.0 performance degraded due to locking #20286"
+  - Performance bottleneck with locks in engine_table_select() function - [OpenSSL#18509](https://github.com/openssl/openssl/issues/18509)
+  - 3.0 performance degraded due to locking - [OpenSSL#20286](https://github.com/openssl/openssl/issues/20286)
   - https://serverfault.com/questions/919552/why-having-more-and-faster-cores-makes-my-multithreaded-software-slower
   - https://superuser.com/questions/1737747/high-system-cpu-usage-on-linux
 
-
-[1]:https://github.com/openssl/openssl/pull/17112
-[2]:https://github.com/openssl/openssl/issues/18298
-[3]:https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127
-[4]:https://github.com/openssl/openssl/issues/21622
-[5]:https://github.com/openssl/openssl/issues/18509
-[6]:https://github.com/openssl/openssl/issues/21833
-[7]:https://github.com/Tongsuo-Project/Tongsuo/pull/563
-[8]:https://github.com/Tongsuo-Project/Tongsuo/pull/590
+* Nginx Handshake Performance in OpenSSL3.0 is slightly slower compared to OpenSSL 1.1.1. The same
+  behaviour is observed in OpenSSL_SW as well [OpenSSL#21833](https://github.com/openssl/openssl/issues/21833)
+* Performance scaling is not linear in QAT2.0 supported platforms for ECDSA and Chacha-Poly algorithms.
+* Performance drop observed with ECDSAP256 algorithm in the OpenSSL speed tests with FreeBSD 14 intree driver.

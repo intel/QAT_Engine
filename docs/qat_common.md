@@ -4,33 +4,6 @@ Intel&reg; QAT OpenSSL\* Engine supports Provider interface for OpenSSL 3.0.
 The qatprovider support can be enabled using configure flag `--enable-qat_provider`
 and the default if not specified will use engine interface.
 
-| Algorithms | Supported by |
-| :---: | :---: |
-| RSA | QAT_HW & QAT_SW |
-| ECDSA | QAT_HW & QAT_SW |
-| ECDH | QAT_HW & QAT_SW |
-| ECX | QAT_HW & QAT_SW |
-| AES-GCM | QAT_HW & QAT_SW |
-| SM2 | QAT_HW & QAT_SW |
-| DSA | QAT_HW |
-| DH | QAT_HW |
-| HKDF | QAT_HW |
-| PRF | QAT_HW |
-| AES128_CBC_HMAC_SHA1 | QAT_HW |
-| AES256_CBC_HMAC_SHA1 | QAT_HW |
-| AES128_CBC_HMAC_SHA256 | QAT_HW |
-| AES256_CBC_HMAC_SHA256 | QAT_HW |
-| SHA3-224 | QAT_HW |
-| SHA3-256 | QAT_HW |
-| SHA3-384 | QAT_HW |
-| SHA3-512 | QAT_HW |
-| ChachaPoly | QAT_HW |
-| SM4-GCM (Tongsuo only) | QAT_SW |
-| SM4-CCM (Tongsuo only) | QAT_SW |
-| SM4-CBC | QAT_HW & QAT_SW |
-| SM3 | QAT_HW & QAT_SW |
-| AES-CCM | QAT_HW |
-
 This support is added as an experimental feature and tested with
 OpenSSL Speed and testapp only and not tested with any application.
 
@@ -41,7 +14,7 @@ Example OpenSSL Speed command to test using qatprovider:
 * QAT_SW
      ./openssl speed -provider qatprovider -elapsed -async_jobs 8 rsa2048
 
-# FIPS 140-3 Certification requirements Support using QAT Provider
+# FIPS 140-3 Certification
 
 Intel&reg; QAT OpenSSL\* Engine contains changes to comply with FIPS 140-3 Level-1
 Certification requirements using QAT Provider against OpenSSL 3.0.8. The FIPS
@@ -58,6 +31,7 @@ certification requirements and not FIPS certified yet.
 The FIPS 140-3 certification is under process.
 
 ## Support Algorithms in FIPS mode
+
 | Mode | Algorithms |
 | :---: | :---: |
 | QAT_HW | RSA, ECDSA, ECDH, ECDHX25519, ECDHX448, DSA, DH, TLS1.2-KDF(PRF), TLS1.3-KDF(HKDF), SHA3 & AES-GCM |
@@ -67,12 +41,12 @@ The FIPS 140-3 certification is under process.
 
 QAT_Engine supports Binary Package via RPM which can be found in the Release page (Assests section)
 The Current Binary RPM Package is created for the distros RHEL 9.1, Ubuntu 22.04 and SUSE SLES15 SP3 with
-with default Kernel and other dependant packages from the system default.
+with default Kernel and other dependent packages from the system default.
 The RPM is generated using QAT2.0 OOT driver with QAT_SW Co-existence which means
 it will accelerate via QAT_HW for asymmetic PKE and QAT_SW for AES-GCM and supported only on
 [Intel® Xeon® Scalable Processor family with Intel® QAT Gen4/Gen4m][1] with default build configuration
 in QAT Engine against OpenSSL 3.0 engine and can be build using `make rpm` target.
-Dependant library versions used for building binary package are mentioned in Software requirements section.
+Dependent library versions used for building binary package are mentioned in Software requirements section.
 
 Example commands below to install and uninstall RPM Package
 
@@ -85,10 +59,10 @@ uninstall
     Ubuntu: apt-get remove QAT_Engine
 ```
 
-The binary RPM Package will take care of installing dependant libraries and kernel modules in the
+The binary RPM Package will take care of installing dependent libraries and kernel modules in the
 default path and OpenSSL being installed in `/usr/local/ssl`
-Since it is using different OpenSSL version(refer Software requirements for verion) than what is
-present in thesystem. LD_LIBRARY_PATH must be set to this path below.
+Since it is using different OpenSSL version(refer Software requirements for version) than what is
+present in the system. LD_LIBRARY_PATH must be set to this path below.
 
 ```
 export LD_LIBRARY_PATH=/usr/local/ssl/lib64
