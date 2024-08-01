@@ -41,7 +41,6 @@
 OSSL_PROVIDER *prov = NULL;
 #ifdef ENABLE_QAT_FIPS
 # define SM_KEY 0x00102F
-
 void *sm_ptr;
 int sm_id;
 #endif
@@ -165,6 +164,7 @@ static void qat_teardown(void *provctx)
 {
     DEBUG("qatprovider teardown\n");
     qat_engine_finish_int(NULL, QAT_RESET_GLOBALS);
+    ERR_unload_QAT_strings();
 
 #if defined(ENABLE_QAT_FIPS) && defined (ENABLE_QAT_SW_SHA2)
     sha_free_ipsec_mb_mgr();
@@ -656,7 +656,7 @@ int OSSL_provider_init(const OSSL_CORE_HANDLE *handle,
     return 1;
 
 err:
-    WARN("QAT provider init failed");
+    WARN("QAT provider init failed\n");
     qat_teardown(qat_ctx);
     return 0;
 }
