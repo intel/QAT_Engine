@@ -73,7 +73,7 @@
 # define ASYNC_STATUS_EAGAIN         3
 #endif
 
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(FSTACK)
 # define QAT_EVENT_NUM 1
 #endif
 
