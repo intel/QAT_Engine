@@ -1559,7 +1559,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
         if (enc) {
             i = plen + dlen;
-            if (i > buflen) {
+            if (i < 0 || i > buflen) {
                 WARN("plen %d or dlen %d out of range, buflen %d\n", plen, dlen, buflen);
                 error = 1;
                 break;
