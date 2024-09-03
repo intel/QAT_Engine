@@ -17,7 +17,6 @@
 
 
 # define QATerr(f, r) ERR_QAT_error(0, (r), OPENSSL_FILE, OPENSSL_LINE)
-# define ERR_R_QAT_LIB ERR_QAT_lib()
 
 
 # ifdef  __cplusplus

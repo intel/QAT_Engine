@@ -1805,8 +1805,8 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
             if(getEnableInlinePolling()) {
                 status = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
                 if (status == CPA_STATUS_FAIL) {
-                    WARN("icp_sal_CyPollInstance failed - status %d\n", sts);
-                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+                    WARN("icp_sal_CyPollInstance failed - status %d\n", status);
+                    QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_POLL_INSTANCE_FAILURE);
                     qat_cleanup_op_done(&op_done);
                     goto err;
                 }

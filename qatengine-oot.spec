@@ -18,7 +18,7 @@
 %global ippcpfull          %{ippcp}-%{ippcpver}
 %global ippcpfullversion   %{ippcp_major}.%{ippcp_minor}
 
-%global openssl            openssl-3.0.14
+%global openssl            openssl-3.0.15
 %global qatdriver          QAT20.L.1.1.50-00003
 
 %global openssl_source     %{_builddir}/%{openssl}

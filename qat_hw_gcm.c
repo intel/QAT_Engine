@@ -1425,7 +1425,7 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
             fallback = 1;
 	} else {
-          QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
+          QATerr(QAT_F_QAT_AES_GCM_TLS_CIPHER, ERR_R_INTERNAL_ERROR);
         }
         goto err;
     }

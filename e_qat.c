@@ -1111,7 +1111,7 @@ int bind_qat(ENGINE *e, const char *id)
    int ret = 0;
 #ifdef QAT_HW
     char *config_section = NULL;
-# if !defined(QAT_HW_INTREE) && (defined(QAT20_OOT) || defined(__FreeBSD__)) 
+# if !defined(QAT_HW_INTREE) && (defined(QAT20_OOT) || defined(__FreeBSD__))
     Cpa32U dev_count = 0;
 # endif
 #endif

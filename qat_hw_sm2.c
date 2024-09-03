@@ -959,9 +959,6 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         BN_CTX_free(bctx);
     }
 
-    BN_free(sig_r);
-    BN_free(sig_s);
-
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);

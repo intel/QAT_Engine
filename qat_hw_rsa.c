@@ -86,7 +86,7 @@
 #else
 # define RSA_QAT_RANGE_MIN 2048
 #endif
-#if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
+#if defined(QAT20_OOT) || defined(QAT_HW_INTREE) || defined(QAT_HW_FBSD_OOT) || defined(QAT_HW_FBSD_INTREE)
 # define RSA_QAT_RANGE_MAX 8192
 #else
 # define RSA_QAT_RANGE_MAX 4096
@@ -395,7 +395,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 sts = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
 		if (sts == CPA_STATUS_FAIL) {
                     WARN("icp_sal_CyPollInstance failed - status %d\n", sts);
-                    QATerr(QAT_F_POLL_INSTANCES, QAT_R_POLL_INSTANCE_FAILURE);
+                    QATerr(QAT_F_QAT_RSA_DECRYPT, QAT_R_POLL_INSTANCE_FAILURE);
                     qat_cleanup_op_done(&op_done);
                     return 0;
                 }
