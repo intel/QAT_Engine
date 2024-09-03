@@ -32,7 +32,7 @@
 | SM2 | | *** | *** | |
 
 \* Enabled in the default build of qatengine for the specified platforms when `--with-qat_hw_dir` is provided in qatengine/qatprovider build configure.<br>
-\** Insecure algorithms which are disabled by default in QAT_HW driver version 1.7 & 1.8 and qatengine/qatprovider. Can be enabled using configure flag `--enable-qat_insecure_algorithms`. Driver will also needs to be built with the flag `./configure --enable-legacy-algorithms` to enable these algorithms at driver.<br>
+\** Insecure algorithms which are disabled by default in QAT_HW driver and qatengine/qatprovider. Can be enabled using configure flag `--enable-qat_insecure_algorithms`. Driver will also needs to be built with the flag `./configure --enable-legacy-algorithms` to enable these algorithms at driver.<br>
 \*** Algorithms disabled by default as those are experimental.<br>
 \# Disabled by default as it is specific to Tongsuo and not applicable to OpenSSL. To be enabled when qatengine is built with Tongsuo.
 

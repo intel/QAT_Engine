@@ -651,15 +651,26 @@ static int qat_set_hkdf_mode(QAT_HKDF_CTX * qat_hkdf_ctx)
 * description:
 *   HKDF SW fallback function. Using default provider of OpenSSL 3
 ******************************************************************************/
+#ifdef QAT_OPENSSL_PROVIDER
 int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
                                  size_t olen,  const OSSL_PARAM params[]) {
+#else
+int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
+                                 size_t olen) {
+#endif
     int rv = 0;
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
+#ifndef QAT_OPENSSL_PROVIDER
+    OSSL_PARAM params[6], *p = params;
+    char *mode = NULL;
+    const char *mdname;
 
     /* Fetch the key derivation function implementation */
+    kdf = EVP_KDF_fetch(NULL, "HKDF", "provider=default");
+#else
     kdf = EVP_KDF_fetch(NULL, "TLS13-KDF", "provider=default");
-
+#endif
     if (kdf == NULL) {
         fprintf(stderr, "EVP_KDF_fetch() returned NULL\n");
         goto end;
@@ -671,7 +682,42 @@ int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
         fprintf(stderr, "EVP_KDF_CTX_new() returned NULL\n");
         goto end;
     }
+#ifndef QAT_OPENSSL_PROVIDER
+    switch (qat_hkdf_ctx->mode) {
+        case EVP_PKEY_HKDEF_MODE_EXTRACT_ONLY:
+            mode = "EXTRACT_ONLY";
+            break;
 
+        case EVP_PKEY_HKDEF_MODE_EXPAND_ONLY:
+            mode = "EXPAND_ONLY";
+            break;
+
+        case EVP_PKEY_HKDEF_MODE_EXTRACT_AND_EXPAND:
+            mode = "EXTRACT_AND_EXPAND";
+            break;
+
+        default:
+            WARN("Unknown HKDF mode \n");
+            return 0;
+    }
+    mdname = EVP_MD_get0_name(qat_hkdf_ctx->qat_md);
+
+    /* Set the underlying hash function used to derive the key */
+    *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST, (char *)mdname, 0);
+    /* Set input keying material */
+    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_KEY, qat_hkdf_ctx->sw_ikm,
+                                             qat_hkdf_ctx->sw_ikm_size);
+    /* Set application specific information */
+    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_INFO, qat_hkdf_ctx->sw_info,
+                                                qat_hkdf_ctx->sw_info_size);
+    /* Set mode */
+    *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_MODE, mode, 0);
+    /* Set salt */
+    *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SALT, qat_hkdf_ctx->sw_salt,
+                                             qat_hkdf_ctx->sw_salt_size);
+
+    *p = OSSL_PARAM_construct_end();
+#endif
     /* Derive the key */
     if (EVP_KDF_derive(kctx, out, olen, params) != 1) {
         fprintf(stderr, "EVP_KDF_derive() failed\n");
@@ -1033,6 +1079,8 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
 #else
 # ifdef QAT_OPENSSL_PROVIDER
         ret = default_provider_HKDF_derive(qat_hkdf_ctx, key, *olen, params);
+# else
+        ret = default_provider_HKDF_derive(qat_hkdf_ctx, key, *olen);
 # endif
 #endif
     }

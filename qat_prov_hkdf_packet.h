@@ -942,4 +942,3 @@ int qat_DER_w_algorithmIdentifier_SM2_with_MD(qat_WPACKET *pkt, int cont,
 
 int qat_DER_w_algorithmIdentifier_ECDSA_with_MD(qat_WPACKET *pkt, int cont,
                                                EC_KEY *ec, int mdnid);
-

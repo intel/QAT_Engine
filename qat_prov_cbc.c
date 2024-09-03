@@ -447,6 +447,7 @@ static void *qat_aes_cbc_hmac_sha1_newctx(void *provctx, size_t kbits,
 {
     PROV_AES_HMAC_SHA1_CTX *ctx = NULL;
     PROV_CIPHER_CTX *base_ctx = NULL;
+    PROV_EVP_CIPHER sw_aes_cbc_cipher;
 
     if (!qat_prov_is_running())
         return NULL;
@@ -461,15 +462,16 @@ static void *qat_aes_cbc_hmac_sha1_newctx(void *provctx, size_t kbits,
             WARN("qat_cipher_ctx zalloc failed.\n");
             goto err;
         }
+	sw_aes_cbc_cipher = get_default_cipher_aes_cbc(base_ctx->nid);
 #ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-        base_ctx->sw_ctx = EVP_CIPHER_CTX_new();
+	base_ctx->sw_ctx = sw_aes_cbc_cipher.newctx(base_ctx);
         if (base_ctx->sw_ctx == NULL){
             WARN("base_ctx->sw_ctx zalloc failed.\n");
             goto err;
         }
 #else
         if (enable_sw_fallback){
-            base_ctx->sw_ctx = EVP_CIPHER_CTX_new();
+	    base_ctx->sw_ctx = sw_aes_cbc_cipher.newctx(base_ctx);
             if (base_ctx->sw_ctx == NULL){
                 WARN("base_ctx->sw_ctx zalloc failed.\n");
                 goto err;
@@ -507,6 +509,7 @@ static void *qat_aes_cbc_hmac_sha256_newctx(void *provctx, size_t kbits,
 {
     PROV_AES_HMAC_SHA256_CTX *ctx = NULL;
     PROV_CIPHER_CTX *base_ctx = NULL;
+    PROV_EVP_CIPHER sw_aes_cbc_cipher;
 
     if (!qat_prov_is_running())
         return NULL;
@@ -521,8 +524,9 @@ static void *qat_aes_cbc_hmac_sha256_newctx(void *provctx, size_t kbits,
             WARN("qat_cipher_ctx zalloc failed.\n");
             goto err;
         }
+	sw_aes_cbc_cipher = get_default_cipher_aes_cbc(base_ctx->nid);
 #ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-        base_ctx->sw_ctx = EVP_CIPHER_CTX_new();
+	base_ctx->sw_ctx = sw_aes_cbc_cipher.newctx(base_ctx);
         if (base_ctx->sw_ctx == NULL){
             WARN("base_ctx->sw_ctx zalloc failed.\n");
             goto err;
@@ -530,7 +534,7 @@ static void *qat_aes_cbc_hmac_sha256_newctx(void *provctx, size_t kbits,
         EVP_CIPHER_CTX_init(base_ctx->sw_ctx);
 #else
         if (enable_sw_fallback){
-            base_ctx->sw_ctx = EVP_CIPHER_CTX_new();
+	    base_ctx->sw_ctx = sw_aes_cbc_cipher.newctx(base_ctx);
             if (base_ctx->sw_ctx == NULL){
                 WARN("base_ctx->sw_ctx zalloc failed.\n");
                 goto err;

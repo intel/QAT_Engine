@@ -586,11 +586,13 @@ static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg
     ret = qat_ec_gen_assign_group(ec, gctx->gen_group);
 
 #if ENABLE_QAT_HW_ECDH
-    ret = ret && qat_ecdh_generate_key(ec);
+    if (qat_hw_ecdh_offload)
+        ret = ret && qat_ecdh_generate_key(ec);
 #endif
 
 #if ENABLE_QAT_SW_ECDH
-    ret = ret && mb_ecdh_generate_key(ec);
+    if (qat_sw_ecdh_offload)
+        ret = ret && mb_ecdh_generate_key(ec);
 #endif
     if (gctx->ecdh_mode != -1)
         ret = ret && qat_ec_set_ecdh_cofactor_mode(ec, gctx->ecdh_mode);

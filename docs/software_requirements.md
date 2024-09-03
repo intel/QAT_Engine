@@ -11,10 +11,10 @@ This release was validated on the following versions and expected to work on all
 and also from the latest versions from the links below.
 
 ## QAT_HW Drivers:
-* [Intel® QuickAssist Technology Driver for Linux\* HW Version 2.0][4] - **QAT20.L.1.1.5000003**
-* [Intel® QuickAssist Technology Driver for Linux\* HW Version 1.x][5] - **QAT.L.4.25.0-00001**
-* [Intel® QuickAssist Technology Driver for FreeBSD\* HW Version 1.x][6] - **QAT.B.3.12.0-00004** (FreeBSD 12.4)
-* [Intel® QATlib for Linux with intree driver][7] - **QATlib 24.02.0**
+* [Intel® QuickAssist Technology Driver for Linux\* HW Version 2.0][4] - **QAT20.L.1.1.50-00003**
+* [Intel® QuickAssist Technology Driver for Linux\* HW Version 1.x][5] - **QAT.L.4.26.0-00008**
+* [Intel® QuickAssist Technology Driver for FreeBSD\* HW Version 1.x and 2.0] - **QAT.B.3.14.31-00003** (FreeBSD 13.2)
+* [Intel® QATlib for Linux with intree driver][7] - **QATlib 24.09.0**
 * [Intel®  QATlib for FreeBSD with intree driver(FreeBSD 14)][8] - **FreeBSD QATlib 23.09.0** (FreeBSD 14)
 
 ## QAT_SW Libraries:
@@ -22,7 +22,7 @@ and also from the latest versions from the links below.
 * [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v1.5**
 
 ## Crypto Libraries:
-* [OpenSSL\*][9] 1.1.1w (for FreeBSD only) & 3.0.14
+* [OpenSSL\*][9] 1.1.1w (for FreeBSD only) & 3.0.15
 * BoringSSL\* commit - [23ed9d3][11]
 * [Tongsuo][11] - 8.4.0 (BabaSSL)
 

@@ -410,8 +410,8 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
         if (op_done.status == CPA_STATUS_FAIL) {
             CRYPTO_QAT_LOG
                 ("Verification of result failed for qat inst_num %d device_id %d - %s\n",
-                 inst_num,
-                 qat_instance_details[qat_sm3_ctx->_inst_num].qat_instance_info.
+                 qat_sm3_ctx->inst_num,
+                 qat_instance_details[qat_sm3_ctx->inst_num].qat_instance_info.
                  physInstId.packageId, __func__);
             qat_cleanup_op_done(&op_done);
             goto err;
