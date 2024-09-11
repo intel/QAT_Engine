@@ -241,16 +241,6 @@ AC_ARG_WITH(qat_sw_ipsec_mb_install_dir,
                              [Path to the Intel(R) Multi-Buffer Crypto for IPsec library install location]))
 AC_SUBST(with_qat_sw_ipsec_mb_install_dir)
 
-AC_ARG_ENABLE(qat_hw_contig_mem,
-              AS_HELP_STRING([--enable-qat_hw_contig_mem],
-                             [This should be specified to force the Engine to use the qat_contig_mem component supplied within the QAT Engine release package]))
-AC_SUBST(enable_qat_hw_contig_mem)
-
-AC_ARG_WITH(qat_hw_usdm_dir,
-              AS_HELP_STRING([--with-qat_hw_usdm_dir],
-                             [Path to the USDM Component source code. This should be used to specify a path to the USDM Component source other than the standard default path within the QAT1.7 Intel Quickassist Technology Driver source code]))
-AC_SUBST(with_qat_hw_usdm_dir)
-
 AC_ARG_WITH(qat_debug_file,
               AS_HELP_STRING([--with-qat_debug_file],
                              [Path and filename to log debug output to. Combine with other flags that enable the debug and warning output]))
@@ -270,11 +260,6 @@ AC_ARG_WITH(ld_opt,
               AS_HELP_STRING([--with-ld_opt],
                              [Sets additional parameters that will be used during linking]))
 AC_SUBST(with_ld_opt)
-
-AC_ARG_ENABLE(qat_hw_multi_thread,
-            AS_HELP_STRING([--enable-qat_hw_multi_thread],
-                           [Enable using a multi threaded version of the user space part of the supplied memory driver. Please see the documentation on limitations of using this option]))
-AC_SUBST(enable_qat_hw_multi_thread)
 
 AC_ARG_ENABLE(qat_hw_lenstra_protection,
               AS_HELP_STRING([--disable-qat_hw_lenstra_protection],
@@ -742,27 +727,6 @@ then
   AC_MSG_NOTICE([Debugs to file enabled])
 fi
 
-#QAT_HW Memory Driver
-if test "x$cflags_qat_hw" != "x"
-then
-  if test "x$enable_qat_hw_contig_mem" = "xyes" -a "x$enable_qat_hw_multi_thread" != "xyes"
-  then
-    AC_SUBST([cflags_mem_driver], ["-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem"])
-    AC_MSG_NOTICE([qat_contig_mem enabled])
-  else if test "x$enable_qat_hw_multi_thread" = "xyes"
-  then
-    AC_SUBST([cflags_mem_driver], ["-DUSE_QAT_CONTIG_MEM -Iqat_contig_mem"])
-    AC_MSG_NOTICE([qat_contig_mem (multi-thread) enabled])
-  else
-    AC_SUBST([cflags_mem_driver], ["-DUSE_USDM_MEM"])
-    AC_MSG_NOTICE([USDM enabled])
-  fi
-  fi
-fi
-AM_CONDITIONAL([QAT_HW_CONTIG_MEM], [test "x$enable_qat_hw_contig_mem" = "xyes" -a "x$enable_qat_hw_multi_thread" != "xyes"])
-AM_CONDITIONAL([QAT_HW_MULTI_THREAD], [test "x$enable_qat_hw_multi_thread" = "xyes"])
-AM_CONDITIONAL([QAT_HW_USDM], [test "x$enable_qat_hw_contig_mem" != "xyes" -a "x$enable_qat_hw_multi_thread" != "xyes"])
-
 #glibc detection for AVX512 memcpy optimization (not related to QAT_SW AVX512)
 case "$host_os" in
 linux*)
@@ -802,7 +766,8 @@ then
     AC_SUBST([with_ICP_SAL_API_DIR], ["\$(with_qat_hw_dir)/quickassist/lookaside/access_layer/include"])
     AC_SUBST([with_ICP_LAC_API_DIR], ["\$(with_ICP_API_DIR)/lac"])
     AC_SUBST([with_ICP_DC_DIR], ["\$(with_qat_hw_dir)/quickassist/include/dc"])
-    AC_SUBST([includes_qat_hw], ["-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR) -I\$(with_ICP_DC_DIR)"])
+    AC_SUBST([with_USDM_DIR], ["\$(with_qat_hw_dir)/quickassist/utilities/libusdm_drv"])
+    AC_SUBST([includes_qat_hw], ["-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR) -I\$(with_ICP_DC_DIR) -I\$(with_USDM_DIR)"])
   fi
 fi
 
@@ -828,31 +793,13 @@ if test "x$cflags_qat_hw" != "x"
 then
   if test "x$cflags_qat_hw_intree" != "x"
   then
-    AC_SUBST([QAT_HW_DRIVER_LIB], ["-L\$(with_qat_hw_dir)/lib -l\$(DRIVER)"])
+    AC_SUBST([QAT_HW_DRIVER_LIB], ["-L\$(with_qat_hw_dir)/lib -l\$(DRIVER) -l\$(USDM)"])
   else
     if test "x$with_qat_hw_install_dir" = "x"
     then
       with_qat_hw_install_dir="\$(with_qat_hw_dir)/build"
     fi
-    AC_SUBST([QAT_HW_DRIVER_LIB], ["-Wl,-rpath,\$(with_qat_hw_install_dir) -L\$(with_qat_hw_install_dir) -l\$(DRIVER)"])
-  fi
-fi
-
-if test "x$cflags_qat_hw" != "x"
-then
-  if test "x$enable_qat_hw_contig_mem" != "xyes" -a "x$enable_qat_hw_multi_thread" != "xyes"
-  then
-    if test "x$cflags_qat_hw_intree" != "x"
-    then
-      AC_SUBST([QAT_HW_MEM_LIB], ["-l\$(USDM)"])
-    else
-      if test "x$with_qat_hw_usdm_dir" = "x"
-      then
-       with_qat_hw_usdm_dir="\$(with_qat_hw_dir)/quickassist/utilities/libusdm_drv"
-      fi
-      AC_SUBST([QAT_HW_MEM_LIB], ["-Wl,-rpath,\$(with_qat_hw_usdm_dir) -L\$(with_qat_hw_usdm_dir) -l\$(USDM)"])
-      AC_SUBST([includes_qat_hw_usdm], ["-I\$(with_qat_hw_usdm_dir)"])
-    fi
+    AC_SUBST([QAT_HW_DRIVER_LIB], ["-Wl,-rpath,\$(with_qat_hw_install_dir) -L\$(with_qat_hw_install_dir) -l\$(DRIVER) -l\$(USDM)"])
   fi
 fi
 
@@ -862,6 +809,7 @@ echo "==========================================================================
 echo "QAT_HW ALGORITHMS :" [$cflags_qat_hw]
 echo "QAT_SW ALGORITHMS :" [$cflags_qat_sw]
 echo "ADDITIONAL FLAGS  :" [$cflags_common $cflags_openssl_3 $cflags_boringssl]
+
 if test "x$cflags_qat_hw" != "x"
 then
   if test "x$cflags_qat_hw_intree" = "x"

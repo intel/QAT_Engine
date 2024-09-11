@@ -10,8 +10,7 @@ Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
 
 # Most of the source code is BSD, with the following exceptions:
 #  - e_qat.txt, e_qat_err.c, and e_qat_err.h are OpenSSL
-#  - qat/config/* are (BSD or GPLv2), but are not used during compilation
-#  - qat_contig_mem/* are GPLv2, but are not used during compilation
+#  - qat_hw_config/* are (BSD or GPLv2), but are not used during compilation
 License:        BSD-3-Clause AND OpenSSL
 URL:            https://github.com/intel/QAT_Engine
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
@@ -24,6 +23,9 @@ BuildRequires:  automake
 BuildRequires:  gcc
 BuildRequires:  libtool
 BuildRequires:  openssl-devel >= 1.1.1
+%if 0%{?fedora} > 40
+BuildRequires:  openssl-devel-engine
+%endif
 BuildRequires:  qatlib-devel >= 23.02.0
 %if !0%{?rhel}
 BuildRequires:  intel-ipp-crypto-mb-devel >= 1.0.6
@@ -70,8 +72,9 @@ openssl engine -v %{name}
 %{enginesdir}/%{name}.so
 
 %changelog
-* Sat Aug 31 2024 Tirupatigopi Ravulapalli <ravulapallix.tirupatigopi@intel.com> - 1.7.0-1
+* Wed Sep 11 2024 Yogaraj Alamenda <yogaraj.alamenda@intel.com> - 1.7.0-1
 - Update to qatengine v1.7.0
+- Remove qat_contig_mem from upstream package
 
 * Wed Aug 14 2024 Krithika Kumaravelu <krithikax.kumaravelu@intel.com> - 1.6.2-1
 - Update to qatengine v1.6.2

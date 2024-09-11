@@ -100,11 +100,6 @@ The following is a list of the options that can be used with the
     You only need to specify this parameter if the Intel(R) IPSec_MB
     library files have been built somewhere other than the default.
 
---enable-qat_hw_contig_mem
-    Enables build against the qat_contig_mem driver supplied within
-    QAT Engine instead of the USDM component distributed with the Intel(R) QAT
-    Driver (disabled by default).
-
 --with-qat_hw_usdm_dir=/path/to/usdm/directory
     Specify the path to the location of the USDM component. The default if not
     specified is to use the path specified by '--with-qat_hw_dir' with
@@ -291,16 +286,6 @@ The following is a list of the options that can be used with the
    the default which is now "qatengine" (previously it was "qat"). This option
    can be used to set engine id as "qat" for application that still uses older
    engine id within the application(disabled by default).
-
---enable-qat_hw_multi_thread
-    Enable an alternative way of managing within userspace the pinned
-    contiguous memory allocated by the qat_contig_mem driver. This alternative
-    method will give improved performance in a multi-threaded environment by
-    making the slab pools thread local to avoid locking between threads.
-    Although this can give better performance there are several drawbacks such
-    as the memory slabs will be utilized less efficiently, and you cannot
-    allocate in one thread and free in another thread.  Running in this mode
-    also does not support processes that fork (disabled by default).
 
 --enable-qat_plock
     Enables Plock optimization within QAT Engine which is an alternative to

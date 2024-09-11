@@ -4,22 +4,6 @@ AUTOMAKE_OPTIONS = subdir-objects
 lib_LTLIBRARIES = @LIBQATNAME@.la
 bin_PROGRAMS =
 
-if QAT_HW
-if QAT_HW_CONTIG_MEM
- QAT_HW_MEM_SRC = qae_mem_utils.c \
-                  qat_sys_call.c
-endif
-
-if QAT_HW_MULTI_THREAD
- QAT_HW_MEM_SRC = qat_hw_multi_thread_inf.c \
-                  qat_sys_call.c
-endif
-
-if QAT_HW_USDM
- QAT_HW_MEM_SRC = qat_hw_usdm_inf.c
-endif
-endif
-
 if !QAT_BORINGSSL
  QAT_COMMON_SRC = e_qat.c      \
                   qat_fork.c   \
@@ -80,6 +64,7 @@ if QAT_HW
               qat_hw_asym_common.c \
               qat_hw_polling.c     \
               qat_hw_callback.c    \
+              qat_hw_usdm_inf.c    \
               qat_hw_rsa.c         \
               qat_hw_ciphers.c     \
               qat_hw_dh.c          \
@@ -135,6 +120,7 @@ QAT_ERR_SRC = qat_bssl_err.c
 if QAT_HW
  QAT_HW_SRC = qat_hw_init.c        \
               qat_hw_asym_common.c \
+              qat_hw_usdm_inf.c    \
               qat_hw_polling.c     \
               qat_hw_callback.c    \
               qat_hw_rsa.c         \
@@ -157,29 +143,27 @@ endif
                           ${QAT_FIPS_SRC}     \
                           ${QAT_ERR_SRC}      \
                           ${QAT_HW_SRC}       \
-                          ${QAT_HW_MEM_SRC}   \
                           ${QAT_SW_SRC}       \
                           ${QAT_SW_IPSEC_SRC} \
                           ${QAT_HW_KPT_SRC}
 
-AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw_usdm)     \
-              $(includes_qat_hw) $(includes_qat_sw_crypto_mb) \
+AM_CPPFLAGS = $(includes_openssl) $(includes_qat_hw) $(includes_qat_sw_crypto_mb) \
               $(includes_qat_sw_ipsec_mb) $(includes_kpt_lib)
 
 AM_CFLAGS = $(cflags_cc_opt) $(cflags_qat_hw_intree) \
-            $(cflags_mem_driver) $(cflags_openssl_3) \
-            $(cflags_boringssl) $(cflags_qat_hw)     \
-            $(cflags_qat_sw) $(cflags_qat_sw_ipsec)  \
-            $(cflags_common) $(cflags_qat_debug)
+            $(cflags_openssl_3) $(cflags_boringssl)  \
+            $(cflags_qat_hw) $(cflags_qat_sw)        \
+            $(cflags_qat_sw_ipsec) $(cflags_common)  \
+            $(cflags_qat_debug)
 
 if QAT_BORINGSSL
 bin_PROGRAMS += qatengine_test
 @LIBQATNAME@_la_LDFLAGS = -no-undefined -avoid-version                \
                           $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB)          \
-                          $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)   \
+                          $(QAT_SW_CRYPTO_MB_LIB)                     \
                           $(QAT_SW_IPSEC_MB_LIB) $(QAT_BORINGSSL_LIB)
 qatengine_test_LDFLAGS = $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB)           \
-                         $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)    \
+                         $(QAT_SW_CRYPTO_MB_LIB)                      \
                          $(QAT_SW_IPSEC_MB_LIB) $(QAT_BORINGSSL_LIB)
 qatengine_test_SOURCES = test_bssl/main.c                             \
                          test_bssl/test_bssl_rsa.c                    \
@@ -189,8 +173,7 @@ qatengine_test_LDADD = $(lib_LTLIBRARIES) -lpthread
 else
 @LIBQATNAME@_la_LDFLAGS = -module -no-undefined -avoid-version        \
                           -shared $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB)  \
-                          $(QAT_HW_MEM_LIB) $(QAT_SW_CRYPTO_MB_LIB)   \
-                          $(QAT_SW_IPSEC_MB_LIB)
+                          $(QAT_SW_CRYPTO_MB_LIB) $(QAT_SW_IPSEC_MB_LIB)
 endif
 
 if QAT_PLOCK
@@ -225,7 +208,7 @@ kpttool_CFLAGS = $(includes_qat_hw) $(includes_openssl) \
                  $(cflags_openssl_3)                    \
                  -fPIE -pie -g -static -z relro -z now
 kpttool_LDFLAGS = $(QAT_LD_LIB) $(QAT_HW_DRIVER_LIB)
-kpttool_LDADD = $(OPENSSL_LIB) $(QAT_HW_MEM_LIB) -lpthread -ldl -lrt
+kpttool_LDADD = $(OPENSSL_LIB) -lpthread -ldl -lrt
 @LIBQATNAME@_la_LIBADD = libkpt.la
 endif
 

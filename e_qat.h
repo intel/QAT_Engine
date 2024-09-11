@@ -73,12 +73,7 @@
 #  include "cpa.h"
 #  include "cpa_types.h"
 #  include "cpa_cy_common.h"
-#  ifdef USE_QAT_CONTIG_MEM
-#   include "qae_mem_utils.h"
-#  endif
-#  ifdef USE_USDM_MEM
-#   include "qat_hw_usdm_inf.h"
-#  endif
+#  include "qat_hw_usdm_inf.h"
 # endif
 
 # ifdef QAT_SW

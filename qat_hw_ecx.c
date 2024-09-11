@@ -66,17 +66,9 @@
 #else
 # include "qat_evp.h"
 #endif
-
 #ifdef ENABLE_QAT_SW_ECX
 # include "qat_sw_ecx.h"
 #endif
-#ifdef USE_QAT_CONTIG_MEM
-# include "qae_mem_utils.h"
-#endif
-#ifdef USE_USDM_MEM
-# include "qat_hw_usdm_inf.h"
-#endif
-
 #include "cpa.h"
 #include "cpa_types.h"
 #include "cpa_cy_key.h"
