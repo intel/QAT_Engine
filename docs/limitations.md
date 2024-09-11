@@ -8,9 +8,6 @@
   process.
 * **Event driven mode** of polling operation is not supported in the FreeBSD
   Operating system or in the qatlib RPM.
-* **qat_contig_mem** memory driver is not supported when running under FreeBSD
-  Operating system or in the qatlib RPM. The default is to use the USDM memory
-  driver supplied as part of the Intel&reg; QAT Driver.
 * QAT Engine doesn't support **ENCRYPT_THEN_MAC**(default) mode of operation meaning
   when Encrypt then MAC is negotiated for symmetric ciphers say AES-CBC, the requests will not
   get offloaded via QAT_HW, instead uses OpenSSL SW. Disable ENCRYPT_THEN_MAC with the flag
