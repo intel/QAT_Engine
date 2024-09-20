@@ -48,7 +48,9 @@
 
 # ifdef QAT_HW
 
-# include <openssl/engine.h>
+# ifndef QAT_OPENSSL_3
+#  include <openssl/engine.h>
+# endif
 # include <openssl/ssl.h>
 # include <openssl/crypto.h>
 # include <openssl/aes.h>

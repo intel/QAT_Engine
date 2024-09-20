@@ -46,8 +46,12 @@
 #ifndef QAT_SW_SM4_CBC_H
 # define QAT_SW_SM4_CBC_H
 
-# include <openssl/engine.h>
-# include <openssl/ossl_typ.h>
+# ifdef QAT_OPENSSL_3
+#  include <openssl/evp.h>
+# else
+#  include <openssl/engine.h>
+#  include <openssl/ossl_typ.h>
+#endif
 
 /* BabaSSL includes needed for sw method */
 # include <openssl/modes.h>

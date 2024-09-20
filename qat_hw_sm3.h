@@ -46,7 +46,11 @@
 #ifndef QAT_HW_SM3_H
 # define QAT_HW_SM3_H
 
+#ifdef QAT_OPENSSL_3
+# include <openssl/evp.h>
+#else
 # include <openssl/engine.h>
+#endif
 
 # include "cpa.h"
 # include "cpa_types.h"

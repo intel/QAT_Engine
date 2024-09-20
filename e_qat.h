@@ -46,7 +46,12 @@
 #ifndef E_QAT_H
 # define E_QAT_H
 
-# include <openssl/engine.h>
+# ifdef QAT_OPENSSL_PROVIDER
+#  include <openssl/ec.h>
+#  include <openssl/err.h>
+# else
+#  include <openssl/engine.h>
+# endif
 # include <sys/types.h>
 # include <unistd.h>
 # include <string.h>

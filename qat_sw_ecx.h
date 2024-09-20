@@ -46,7 +46,9 @@
 #ifndef QAT_SW_ECX_H
 # define QAT_SW_ECX_H
 
-# include <openssl/engine.h>
+# ifndef QAT_OPENSSL_3
+#  include <openssl/engine.h>
+# endif
 # include <openssl/ossl_typ.h>
 
 
