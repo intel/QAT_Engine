@@ -47,7 +47,11 @@
 # define QAT_EVP_H
 
 
-# include <openssl/engine.h>
+# ifdef QAT_OPENSSL_3
+#  include <openssl/ec.h>
+# else
+#  include <openssl/engine.h>
+# endif
 # include <openssl/ossl_typ.h>
 # include "e_qat.h"
 

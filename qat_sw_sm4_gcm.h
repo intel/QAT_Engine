@@ -46,7 +46,11 @@
 #ifndef QAT_SW_SM4_GCM_H
 # define QAT_SW_SM4_GCM_H
 
-# include <openssl/engine.h>
+# ifdef QAT_OPENSSL_3
+#  include <openssl/evp.h>
+# else
+#  include <openssl/engine.h>
+# endif
 # include <openssl/ossl_typ.h>
 # include <openssl/modes.h>
 

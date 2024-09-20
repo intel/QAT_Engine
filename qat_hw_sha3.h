@@ -46,7 +46,11 @@
 #ifndef QAT_HW_SHA3_H
 # define QAT_HW_SHA3_H
 
-# include <openssl/engine.h>
+# ifdef QAT_OPENSSL_3
+#  include <openssl/evp.h>
+# else
+#  include <openssl/engine.h>
+# endif
 
 # include "cpa.h"
 # include "cpa_types.h"
