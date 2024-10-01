@@ -38,9 +38,9 @@
 ARG UBUNTU_BASE=ubuntu:22.04
 FROM ${UBUNTU_BASE} AS builder
 
-ARG OPENSSL_VERSION="openssl-3.0.14"
+ARG OPENSSL_VERSION="openssl-3.0.15"
 ARG QATLIB_VERSION="24.02.0"
-ARG QAT_ENGINE_VERSION="v1.6.1"
+ARG QAT_ENGINE_VERSION="v1.7.0"
 ARG IPSEC_MB_VERSION="v1.5"
 ARG IPP_CRYPTO_VERSION="ippcp_2021.12.1"
 ARG HAPROXY_VERSION="v2.8.0"
@@ -49,11 +49,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install required packages including curl, telnet, and git
 RUN apt-get update && \
-    apt-get install -y apt-utils --no-install-recommends
+    apt-get install -y apt-utils
 
 # Upgrade all other packages
 RUN apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
     libudev-dev \
     make \
     gcc \
@@ -75,7 +75,7 @@ RUN apt-get upgrade -y && \
     libtool && \
     git clone --depth 1 -b $OPENSSL_VERSION https://github.com/openssl/openssl.git && \
     git clone --depth 1 -b $QAT_ENGINE_VERSION https://github.com/intel/QAT_Engine && \
-    git clone --depth 1 -b $IPP_CRYPTO_VERSION https://github.com/intel/ipp-crypto && \
+    git clone --depth 1 -b $IPP_CRYPTO_VERSION https://github.com/intel/cryptography-primitives && \
     git clone --depth 1 -b $IPSEC_MB_VERSION https://github.com/intel/intel-ipsec-mb && \
     git clone --depth 1 -b $QATLIB_VERSION https://github.com/intel/qatlib && \
     git clone --depth 1 -b $HAPROXY_VERSION https://github.com/haproxy/haproxy
@@ -99,13 +99,13 @@ RUN ./autogen.sh && \
     usermod -a -G qat appuser
 
 # Building Crypto_MB
-WORKDIR /ipp-crypto/sources/ippcp/crypto_mb
+WORKDIR /cryptography-primitives/sources/ippcp/crypto_mb
 RUN cmake . -B"../build" \
     -DOPENSSL_INCLUDE_DIR=/usr/local/include \
     -DOPENSSL_LIBRARIES=/usr/local/lib64 \
     -DOPENSSL_ROOT_DIR=/openssl
 
-WORKDIR /ipp-crypto/sources/ippcp/build
+WORKDIR /cryptography-primitives/sources/ippcp/build
 RUN make crypto_mb -j && make install -j
 
 # Building Ipsec_MB
@@ -148,7 +148,9 @@ COPY --from=builder /usr/local/sbin/haproxy /usr/local/sbin/haproxy
 COPY --from=builder /usr/local/etc/haproxy/ /usr/local/etc/haproxy/
 RUN ldconfig
 
+#Expose the 8080 port
 EXPOSE 8080
+
 # Switch to non-root user
 USER appuser
 

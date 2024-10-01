@@ -3,7 +3,7 @@
 #                                                                         \
 #   BSD LICENSE                                                           \
 #                                                                         \
-#    opyright(c) 2024 Intel Corporation.                                  \
+#   Copyright(c) 2024 Intel Corporation.                                  \
 #   All rights reserved.                                                  \
 #                                                                         \
 #   Redistribution and use in source and binary forms, with or without    \
@@ -38,9 +38,9 @@
 ARG UBUNTU_BASE=ubuntu:22.04
 FROM ${UBUNTU_BASE} AS builder
 
-ARG OPENSSL_VERSION="openssl-3.0.14"
+ARG OPENSSL_VERSION="openssl-3.0.15"
 ARG QATLIB_VERSION="24.02.0"
-ARG QAT_ENGINE_VERSION="v1.6.1"
+ARG QAT_ENGINE_VERSION="v1.7.0"
 ARG IPSEC_MB_VERSION="v1.5"
 ARG IPP_CRYPTO_VERSION="ippcp_2021.12.1"
 ARG GID
@@ -48,11 +48,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install required packages including curl, telnet, and git
 RUN apt-get update && \
-    apt-get install -y apt-utils --no-install-recommends
+    apt-get install -y apt-utils
 
 # Upgrade all other packages
 RUN apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends \
+    apt-get install -y \
     libudev-dev \
     make \
     gcc \
@@ -70,7 +70,7 @@ RUN apt-get upgrade -y && \
     libtool && \
     git clone --depth 1 -b $OPENSSL_VERSION https://github.com/openssl/openssl.git && \
     git clone --depth 1 -b $QAT_ENGINE_VERSION https://github.com/intel/QAT_Engine && \
-    git clone --depth 1 -b $IPP_CRYPTO_VERSION https://github.com/intel/ipp-crypto && \
+    git clone --depth 1 -b $IPP_CRYPTO_VERSION https://github.com/intel/cryptography-primitives && \
     git clone --depth 1 -b $IPSEC_MB_VERSION https://github.com/intel/intel-ipsec-mb && \
     git clone --depth 1 -b $QATLIB_VERSION https://github.com/intel/qatlib
 
@@ -93,13 +93,13 @@ RUN ./autogen.sh && \
     usermod -a -G qat appuser
 
 # Building Cypto_MB
-WORKDIR /ipp-crypto/sources/ippcp/crypto_mb
+WORKDIR /cryptography-primitives/sources/ippcp/crypto_mb
 RUN cmake . -B"../build" \
     -DOPENSSL_INCLUDE_DIR=/usr/local/include \
     -DOPENSSL_LIBRARIES=/usr/local/lib64 \
     -DOPENSSL_ROOT_DIR=/openssl
 
-WORKDIR /ipp-crypto/sources/ippcp/build
+WORKDIR /cryptography-primitives/sources/ippcp/build
 RUN make crypto_mb -j && make install -j
 
 # Building Ipsec_MB
@@ -115,7 +115,7 @@ RUN ./autogen.sh && \
     --enable-qat_sw && \
     make -j && make install -j
 
-#Added to remobe libc library for vulnerability issue
+#Added to remove libc library for vulnerability issue
 RUN apt-get purge -y linux-libc-dev
 
 FROM ${UBUNTU_BASE}
