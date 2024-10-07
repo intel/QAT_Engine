@@ -46,7 +46,10 @@
 #ifndef QAT_HW_CCM_H
 # define QAT_HW_CCM_H
 
-# include <openssl/engine.h>
+# ifndef QAT_OPENSSL_PROVIDER
+#  include <openssl/engine.h>
+# endif
+# include <openssl/evp.h>
 
 # include "cpa.h"
 # include "cpa_types.h"

@@ -53,6 +53,7 @@
 #include <pthread.h>
 #include <openssl/rsa.h>
 #include <openssl/err.h>
+#include <openssl/rand.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>

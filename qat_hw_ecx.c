@@ -51,10 +51,11 @@
 #include <signal.h>
 #include <stdarg.h>
 
-#include "openssl/ossl_typ.h"
-#include "openssl/kdf.h"
-#include "openssl/evp.h"
-#include "openssl/ssl.h"
+#include <openssl/ossl_typ.h>
+#include <openssl/kdf.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <openssl/ssl.h>
 #include "e_qat.h"
 #include "qat_utils.h"
 #include "qat_hw_asym_common.h"
