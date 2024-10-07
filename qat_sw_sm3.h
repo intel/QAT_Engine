@@ -46,7 +46,10 @@
 #ifndef QAT_SW_SM3_H
 # define QAT_SW_SM3_H
 
-# include <openssl/engine.h>
+# ifndef QAT_OPENSSL_PROVIDER
+#  include <openssl/engine.h>
+# endif
+# include <openssl/evp.h>
 # include <openssl/ossl_typ.h>
 
 /* QAT_SW SM3 methods declaration */

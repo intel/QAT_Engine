@@ -86,7 +86,6 @@
 # include <openssl/rand.h>
 # include <openssl/sha.h>
 # include <openssl/err.h>
-# include <openssl/engine.h>
 # include <openssl/evp.h>
 # include <openssl/async.h>
 # include <openssl/e_os2.h>

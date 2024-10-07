@@ -350,7 +350,7 @@ clock_t clock_id = CLOCK_MONOTONIC_RAW;
 clock_t clock_id = CLOCK_MONOTONIC_PRECISE;
 #endif
 
-#ifndef QAT_BORINGSSL
+#if ! defined(QAT_BORINGSSL) && ! defined(QAT_OPENSSL_PROVIDER)
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
         QAT_CMD_ENABLE_EXTERNAL_POLLING,
@@ -747,6 +747,7 @@ int qat_engine_finish(ENGINE *e)
  *         ENGINE_init
  ******************************************************************************/
 
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 {
     unsigned int retVal = 1;
@@ -1052,6 +1053,7 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     }
     return retVal;
 }
+#endif /* QAT_OPENSSL_PROVIDER */
 
 #ifdef ENABLE_QAT_HW_KPT
 EVP_PKEY *qat_engine_load_privkey(ENGINE *e, const char *key_id, UI_METHOD *ui_method, void *callback_data)
@@ -1417,6 +1419,7 @@ int bind_qat(ENGINE *e, const char *id)
     return ret;
 }
 
+#ifndef QAT_OPENSSL_PROVIDER
 #ifndef OPENSSL_NO_DYNAMIC_ENGINE
 IMPLEMENT_DYNAMIC_BIND_FN(bind_qat)
 IMPLEMENT_DYNAMIC_CHECK_FN()
@@ -1499,4 +1502,5 @@ void ENGINE_unload_qat(void)
     }
 }
 #endif /* QAT_BORINGSSL */
+#endif /* QAT_OPENSSL_PROVIDER */
 #endif

@@ -1,7 +1,16 @@
 # SPDX-License-Identifier: MIT
 
+# Build as an OpenSSL provider instead of as an engine
+%bcond provider %[0%{?fedora} >= 41 || 0%{?rhel} >= 10]
+# QAT_HW only acceleration for RHEL
+%bcond sw %{undefined rhel}
+
 # Define the directory where the OpenSSL engines are installed
+%if %{with provider}
+%global modulesdir %(pkg-config --variable=modulesdir libcrypto)
+%else
 %global enginesdir %(pkg-config --variable=enginesdir libcrypto)
+%endif
 
 Name:           qatengine
 Version:        1.7.0
@@ -23,15 +32,12 @@ BuildRequires:  automake
 BuildRequires:  gcc
 BuildRequires:  libtool
 BuildRequires:  openssl-devel >= 1.1.1
-%if 0%{?fedora} > 40
-BuildRequires:  openssl-devel-engine
-%endif
 BuildRequires:  qatlib-devel >= 23.02.0
 %if !0%{?rhel}
 BuildRequires:  intel-ipp-crypto-mb-devel >= 1.0.6
 BuildRequires:  intel-ipsec-mb-devel >= 1.3.0
-BuildRequires:  openssl
 %endif
+BuildRequires:  openssl
 
 %description
 This package provides the Intel QuickAssist Technology OpenSSL Engine
@@ -44,13 +50,7 @@ enabled Intel platforms.
 
 %build
 autoreconf -ivf
-%if !0%{?rhel}
-# Enable QAT_HW & QAT_SW Co-existence acceleration
-%configure --enable-qat_sw
-%else
-# QAT_HW only acceleration for RHEL
-%configure
-%endif
+%configure %{?with_sw:--enable-qat_sw} %{?with_provider:--enable-qat_provider}
 %make_build
 
 %install
@@ -60,8 +60,11 @@ autoreconf -ivf
 find %{buildroot} -name "*.la" -delete
 %endif
 
-%if !0%{?rhel}
 %check
+%if %{with provider}
+export OPENSSL_MODULES=%{buildroot}%{modulesdir}
+openssl list -providers -provider qatprovider
+%else
 export OPENSSL_ENGINES=%{buildroot}%{enginesdir}
 openssl engine -v %{name}
 %endif
@@ -69,12 +72,19 @@ openssl engine -v %{name}
 %files
 %license LICENSE*
 %doc README.md docs*
+%if %{with provider}
+%{modulesdir}/qatprovider.so
+%else
 %{enginesdir}/%{name}.so
+%endif
 
 %changelog
-* Wed Sep 11 2024 Yogaraj Alamenda <yogaraj.alamenda@intel.com> - 1.7.0-1
+* Thu Oct 24 2024 Yogaraj Alamenda <yogaraj.alamenda@intel.com> - 1.7.0-1
 - Update to qatengine v1.7.0
 - Remove qat_contig_mem from upstream package
+
+* Fri Sep 20 2024 Yaakov Selkowitz <yselkowi@redhat.com> - 1.6.2-2
+- Build as a provider for F41 and EL10
 
 * Wed Aug 14 2024 Krithika Kumaravelu <krithikax.kumaravelu@intel.com> - 1.6.2-1
 - Update to qatengine v1.6.2

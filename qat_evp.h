@@ -47,7 +47,6 @@
 # define QAT_EVP_H
 
 
-# include <openssl/engine.h>
 # include <openssl/ossl_typ.h>
 # include "e_qat.h"
 

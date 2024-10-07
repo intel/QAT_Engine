@@ -63,6 +63,7 @@
 #include <openssl/err.h>
 #include <openssl/proverr.h>
 #include <openssl/params.h>
+#include <openssl/evp.h>
 #include "e_qat.h"
 
 #define FFC_UNVERIFIABLE_GINDEX -1
