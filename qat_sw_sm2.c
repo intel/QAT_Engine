@@ -698,12 +698,10 @@ int mb_ecdsa_sm2_sign(EVP_MD_CTX *mctx,
     }
 # endif
 
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-    if (qat_openssl3_sm2_fallback == 1) {
+    if ((qat_openssl3_sm2_fallback == 1) || (!qat_sw_sm2_offload)) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
     }
-# endif
 
     /* QAT SW initialization fail, switching to OpenSSL. */
     if (fallback_to_openssl)
@@ -1016,12 +1014,10 @@ int mb_ecdsa_sm2_verify(EVP_MD_CTX *mctx,
     }
 # endif
 
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-    if (qat_openssl3_sm2_fallback == 1) {
+    if ((qat_openssl3_sm2_fallback == 1) || (!qat_sw_sm2_offload)) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
     }
-# endif
 
     /* QAT SW initialization fail, switching to OpenSSL. */
     if (fallback_to_openssl)

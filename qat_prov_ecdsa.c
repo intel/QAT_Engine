@@ -514,6 +514,13 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
         ret = mb_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
         if (ret <= 0)
             goto end;
+    } else {
+        typedef int (*fun_ptr)(void *, unsigned char *, size_t *,
+                               size_t , const unsigned char *, size_t);
+        fun_ptr fun = get_default_ECDSA_signature().sign;
+        if (!fun)
+            return 0;
+        return fun(vctx, sig, siglen, sigsize, tbs, tbslen);
     }
 #endif
     *siglen = sltmp;
@@ -545,8 +552,16 @@ static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size
         ret = qat_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
 #endif
 #ifdef ENABLE_QAT_SW_ECDSA
-    if (qat_sw_ecdsa_offload)
+    if (qat_sw_ecdsa_offload) {
         ret = mb_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
+    } else {
+        typedef int (*fun_ptr)(void *, const unsigned char *, size_t,
+                               const unsigned char *, size_t);
+        fun_ptr fun = get_default_ECDSA_signature().verify;
+        if (!fun)
+            return 0;
+        return fun(vctx, sig, siglen, tbs, tbslen);
+    }
 #endif
 
 end:

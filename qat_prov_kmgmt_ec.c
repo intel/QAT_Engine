@@ -293,18 +293,26 @@ static void *qat_keymgmt_ec_gen_init(void *provctx, int selection,
     OSSL_LIB_CTX *libctx = prov_libctx_of(provctx);
     QAT_EC_GEN_CTX *gctx = NULL;
 
-    if (!qat_prov_is_running() || (selection & (OSSL_KEYMGMT_SELECT_ALL)) == 0)
-        return NULL;
+    if (qat_sw_ecdh_offload) {
+        if (!qat_prov_is_running() || (selection & (OSSL_KEYMGMT_SELECT_ALL)) == 0)
+            return NULL;
 
-    if ((gctx = OPENSSL_zalloc(sizeof(*gctx))) != NULL) {
-        gctx->libctx = libctx;
-        gctx->selection = selection;
-        gctx->ecdh_mode = 0;
+        if ((gctx = OPENSSL_zalloc(sizeof(*gctx))) != NULL) {
+             gctx->libctx = libctx;
+             gctx->selection = selection;
+             gctx->ecdh_mode = 0;
 
-        if (!qat_keymgmt_ec_gen_set_params(gctx, params)) {
-            OPENSSL_free(gctx);
-            gctx = NULL;
+            if (!qat_keymgmt_ec_gen_set_params(gctx, params)) {
+                OPENSSL_free(gctx);
+                gctx = NULL;
+            }
         }
+    } else {
+        typedef void * (*fun_ptr)(void *, int, const OSSL_PARAM *);
+        fun_ptr fun = get_default_keymgmt().gen_init;
+        if (!fun)
+            return NULL;
+        return fun(provctx, selection, params);
     }
     return gctx;
 }
@@ -591,8 +599,15 @@ static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg
 #endif
 
 #if ENABLE_QAT_SW_ECDH
-    if (qat_sw_ecdh_offload)
+    if (qat_sw_ecdh_offload) {
         ret = ret && mb_ecdh_generate_key(ec);
+    } else {
+      typedef void * (*fun_ptr)(void *, OSSL_CALLBACK *, void *);
+      fun_ptr fun = get_default_keymgmt().gen;
+      if (!fun)
+          return NULL;
+      return fun(genctx, osslcb, cbarg);
+    }
 #endif
     if (gctx->ecdh_mode != -1)
         ret = ret && qat_ec_set_ecdh_cofactor_mode(ec, gctx->ecdh_mode);

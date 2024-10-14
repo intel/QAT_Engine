@@ -107,8 +107,17 @@ static int qat_ecx_derive25519(void *vecxctx, unsigned char *secret,
         ret = qat_pkey_ecx_derive25519(vecxctx,secret,secretlen,outlen);
 #endif
 #ifdef ENABLE_QAT_SW_ECX
-    if (qat_sw_ecx_offload)
+    if (qat_sw_ecx_offload) {
         ret = multibuff_x25519_derive(vecxctx,secret,secretlen,outlen);
+    } else {
+      typedef int (*fun_ptr)(void *vecxctx, unsigned char *secret,
+                             size_t *secretlen, size_t outlen);
+      fun_ptr fun = get_default_x25519_keyexch().derive;
+      if (!fun)
+          return 0;
+      return fun(vecxctx, secret, secretlen, outlen);
+    }
+
 #endif
     return ret;
 }

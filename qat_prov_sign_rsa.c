@@ -190,7 +190,7 @@ static const OSSL_PARAM settable_ctx_params_no_digest[] = {
     OSSL_PARAM_utf8_string(OSSL_SIGNATURE_PARAM_PSS_SALTLEN, NULL, 0),
     OSSL_PARAM_END};
 
-static int QAT_RSA_private_encrypt(int flen, const unsigned char *from,
+static int qat_rsa_private_encrypt(int flen, const unsigned char *from,
                         unsigned char *to, RSA *rsa, int padding)
 {
     int ret = 0;
@@ -206,7 +206,7 @@ static int QAT_RSA_private_encrypt(int flen, const unsigned char *from,
     return ret;
 }
 
-static int QAT_RSA_public_decrypt(int flen, const unsigned char *from, unsigned char *to,
+static int qat_rsa_public_decrypt(int flen, const unsigned char *from, unsigned char *to,
                        RSA *rsa, int padding)
 {
     int ret = 0;
@@ -507,7 +507,7 @@ int QAT_RSA_sign_ASN1_OCTET_STRING(int type,
     }
     p = s;
     i2d_ASN1_OCTET_STRING(&sig, &p);
-    i = QAT_RSA_private_encrypt(i, s, sigret, rsa, RSA_PKCS1_PADDING);
+    i = qat_rsa_private_encrypt(i, s, sigret, rsa, RSA_PKCS1_PADDING);
     if (i <= 0)
         ret = 0;
     else
@@ -885,7 +885,7 @@ int QAT_RSA_sign(int type, const unsigned char *m, unsigned int m_len,
         QATerr(ERR_LIB_RSA, RSA_R_DIGEST_TOO_BIG_FOR_RSA_KEY);
         goto err;
     }
-    encrypt_len = QAT_RSA_private_encrypt((int)encoded_len, encoded, sigret, rsa,
+    encrypt_len = qat_rsa_private_encrypt((int)encoded_len, encoded, sigret, rsa,
                                       RSA_PKCS1_PADDING);
     if (encrypt_len <= 0)
         goto err;
@@ -918,7 +918,7 @@ int QAT_RSA_verify(int type, const unsigned char *m, unsigned int m_len,
         goto err;
     }
 
-    len = QAT_RSA_public_decrypt((int)siglen, sigbuf, decrypt_buf, rsa,
+    len = qat_rsa_public_decrypt((int)siglen, sigbuf, decrypt_buf, rsa,
                                   RSA_PKCS1_PADDING);
     if (len <= 0)
         goto err;
@@ -1448,7 +1448,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
             }
             memcpy(prsactx->tbuf, tbs, tbslen);
             prsactx->tbuf[tbslen] = RSA_X931_hash_id(prsactx->mdnid);
-            ret = QAT_RSA_private_encrypt(tbslen + 1, prsactx->tbuf,
+            ret = qat_rsa_private_encrypt(tbslen + 1, prsactx->tbuf,
                                       sig, prsactx->rsa, RSA_X931_PADDING);
             clean_tbuf(prsactx);
             break;
@@ -1504,8 +1504,19 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
                 QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                 goto end;
             }
-            ret = QAT_RSA_private_encrypt(QAT_RSA_size(prsactx->rsa), prsactx->tbuf,
-                                          sig, prsactx->rsa, RSA_NO_PADDING);
+	    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+                ret = qat_rsa_private_encrypt(QAT_RSA_size(prsactx->rsa), prsactx->tbuf,
+                                              sig, prsactx->rsa, RSA_NO_PADDING);
+            } else {
+                typedef int (*fun_ptr)(void *vprsactx, unsigned char *sig,
+                                       size_t *siglen, size_t sigsize,
+                                       const unsigned char *tbs, size_t tbslen);
+                fun_ptr fun = get_default_rsa_signature().sign;
+                if (!fun)
+                    return 0;
+                return fun(vprsactx, sig, siglen, sigsize, tbs, tbslen);
+            }
+
             clean_tbuf(prsactx);
             break;
 
@@ -1515,8 +1526,18 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
             goto end;
         }
     } else {
-        ret = QAT_RSA_private_encrypt(tbslen, tbs, sig, prsactx->rsa,
-                                      prsactx->pad_mode);
+	if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+            ret = qat_rsa_private_encrypt(tbslen, tbs, sig, prsactx->rsa,
+                                          prsactx->pad_mode);
+	} else {
+            typedef int (*fun_ptr)(void *vprsactx, unsigned char *sig,
+                                   size_t *siglen, size_t sigsize,
+                                   const unsigned char *tbs, size_t tbslen);
+            fun_ptr fun = get_default_rsa_signature().sign;
+            if (!fun)
+                return 0;
+            return fun(vprsactx, sig, siglen, sigsize, tbs, tbslen);
+	}
     }
 
 end:
@@ -1567,7 +1588,7 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
         case RSA_X931_PADDING:
             if (!setup_tbuf(prsactx))
                 return 0;
-            ret = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf, prsactx->rsa,
+            ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf, prsactx->rsa,
                                          RSA_X931_PADDING);
             if (ret < 1) {
                 QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
@@ -1616,7 +1637,7 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
             return 0;
         }
     } else {
-        ret = QAT_RSA_public_decrypt(siglen, sig, rout, prsactx->rsa,
+        ret = qat_rsa_public_decrypt(siglen, sig, rout, prsactx->rsa,
                                  prsactx->pad_mode);
         if (ret < 0) {
             QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
@@ -1699,7 +1720,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
 
                 if (!setup_tbuf(prsactx))
                     goto end;
-                ret = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf,
+                ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf,
                                          prsactx->rsa, RSA_NO_PADDING);
                 if (ret <= 0) {
                     QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
@@ -1724,8 +1745,18 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
     } else {
         if (!setup_tbuf(prsactx))
             goto end;
-        rslen = QAT_RSA_public_decrypt(siglen, sig, prsactx->tbuf, prsactx->rsa,
-                                   prsactx->pad_mode);
+	if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+            rslen = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf, prsactx->rsa,
+                                           prsactx->pad_mode);
+        } else {
+            typedef int (*fun_ptr)(void *vprsactx, const unsigned char *sig,
+                                   size_t siglen, const unsigned char *tbs,
+                                   size_t tbslen);
+            fun_ptr fun = get_default_rsa_signature().verify;
+            if (!fun)
+                return 0;
+            return fun(vprsactx, sig, siglen, tbs, tbslen);
+	}
         if (rslen == 0) {
             QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
             goto end;

@@ -76,7 +76,7 @@ static void *qat_sm4_gcm_newctx(void *provctx, size_t keybits, int nid)
 {
     QAT_EVP_CIPHER_SM4_GCM *cipher = NULL;
     QAT_SM4GCM_CTX *ctx;
-
+    QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
     if (!qat_prov_is_running())
         return NULL;
 
@@ -85,7 +85,8 @@ static void *qat_sm4_gcm_newctx(void *provctx, size_t keybits, int nid)
 
     cipher->nid = nid;
     ctx->cipher = cipher;
-
+    if (!ctx->base.sw_ctx)
+        ctx->base.sw_ctx = sm4_gcm_cipher.newctx(ctx);
     if (ctx != NULL)
         qat_sm4_gcm_initctx(provctx, &ctx->base, keybits, SM4_GCM_IV_MIN_SIZE);
     return ctx;
@@ -96,6 +97,11 @@ int qat_sm4_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
     QAT_PROV_GCM_CTX *ctx = (QAT_PROV_GCM_CTX *) vctx;
     OSSL_PARAM *p;
     size_t sz;
+
+    if (qat_sw_sm4_gcm_offload != 1) {
+        QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
+        return sm4_gcm_cipher.get_ctx_params(ctx->sw_ctx, params);
+    }
 
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->iv_len)) {
@@ -182,6 +188,11 @@ int qat_sm4_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     if (params == NULL)
         return 1;
 
+    if (qat_sw_sm4_gcm_offload != 1) {
+        QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
+        return sm4_gcm_cipher.set_ctx_params(ctx->sw_ctx, params);
+    }
+
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TAG);
     if (p != NULL) {
         vp = ctx->buf;
@@ -260,8 +271,15 @@ int qat_sm4_gcm_einit(void *ctx, const unsigned char *inkey,
 {
     int sts = 0;
 # ifdef ENABLE_QAT_SW_SM4_GCM
-    if (qat_sw_sm4_gcm_offload)
+    if (qat_sw_sm4_gcm_offload) {
         sts = qat_sw_sm4_gcm_init(ctx, inkey, keylen, iv, ivlen, 1);
+    } else {
+      QAT_PROV_GCM_CTX *qctx = (QAT_PROV_GCM_CTX *) ctx;
+      OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+      QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
+      sts = sm4_gcm_cipher.einit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+                                 params);
+    }
 # endif
     return sts;
 }
@@ -271,8 +289,15 @@ int qat_sm4_gcm_dinit(void *ctx, const unsigned char *inkey,
 {
     int sts = 0;
 # ifdef ENABLE_QAT_SW_SM4_GCM
-    if (qat_sw_sm4_gcm_offload)
+    if (qat_sw_sm4_gcm_offload) {
         sts = qat_sw_sm4_gcm_init(ctx, inkey, keylen, iv, ivlen, 0);
+    } else {
+      QAT_PROV_GCM_CTX *qctx = (QAT_PROV_GCM_CTX *) ctx;
+      OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+      QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
+      sts = sm4_gcm_cipher.dinit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+                                 params);
+    }
 # endif
     return sts;
 }
@@ -297,6 +322,14 @@ int qat_sm4_gcm_stream_update(void *vctx, unsigned char *out,
             QATerr(ERR_LIB_PROV, QAT_R_CIPHER_OPERATION_FAILED);
             goto end;
         }
+    } else {
+        QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
+        if (sm4_gcm_cipher.cupdate == NULL)
+            return 0;
+        if (sm4_gcm_cipher.cupdate(ctx->sw_ctx, out, outl,
+                                   outsize, in, inl) <= 0) {
+            return 0;
+        }
     }
 # endif
     ret = 1;
@@ -318,8 +351,14 @@ int qat_sm4_gcm_stream_final(void *vctx, unsigned char *out,
     if (!qat_prov_is_running())
         goto end;
 # ifdef ENABLE_QAT_SW_SM4_GCM
-    if (qat_sw_sm4_gcm_offload)
+    if (qat_sw_sm4_gcm_offload) {
         i = qat_sw_sm4_gcm_cipher(ctx, out, outl, outsize, NULL, 0);
+    } else {
+      QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
+      if (sm4_gcm_cipher.cfinal == NULL)
+          return 0;
+      i = sm4_gcm_cipher.cfinal(ctx->sw_ctx, out, outl, outsize);
+    }
 # endif
 
     if (i <= 0)
@@ -352,6 +391,14 @@ int qat_sm4_gcm_cipher(void *vctx, unsigned char *out,
     if (qat_sw_sm4_gcm_offload) {
         if (qat_sw_sm4_gcm_cipher(ctx, out, outl, outsize, in, inl) <= 0)
             goto end;
+    } else {
+        QAT_EVP_CIPHER_SM4_GCM sm4_gcm_cipher = get_default_cipher_sm4_gcm();
+        if (sm4_gcm_cipher.cupdate == NULL)
+            return 0;
+        if (sm4_gcm_cipher.cupdate(ctx->sw_ctx, out, outl,
+                                   outsize, in, inl) <= 0) {
+            return 0;
+        }
     }
 # endif
 

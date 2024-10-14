@@ -404,10 +404,10 @@ extern int fallback_to_openssl;
 #if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 extern int qat_openssl3_prf_fallback;
 extern int qat_openssl3_hkdf_fallback;
-extern int qat_openssl3_sm2_fallback;
 extern int qat_openssl3_sha_fallback;
 #endif
 extern int qat_openssl3_sm3_fallback;
+extern int qat_openssl3_sm2_fallback;
 extern int fallback_to_qat_sw; /* QAT HW initialization fail, offload to QAT SW. */
 extern int qat_hw_offload;
 extern int qat_sw_offload;

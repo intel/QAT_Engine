@@ -117,6 +117,23 @@ static OSSL_FUNC_keyexch_settable_ctx_params_fn qat_keyexch_ecdh_settable_ctx_pa
 static OSSL_FUNC_keyexch_get_ctx_params_fn qat_keyexch_ecdh_get_ctx_params;
 static OSSL_FUNC_keyexch_gettable_ctx_params_fn qat_keyexch_ecdh_gettable_ctx_params;
 
+QAT_EVP_ECDH_KEYEXCH get_default_ecdh_keyexch()
+{
+    static QAT_EVP_ECDH_KEYEXCH s_keyexch;
+    static int initialized = 0;
+    if (!initialized) {
+        QAT_EVP_ECDH_KEYEXCH *keyexch = (QAT_EVP_ECDH_KEYEXCH *)EVP_KEYEXCH_fetch(NULL,"ECDH","provider=default");
+        if (keyexch) {
+           s_keyexch = *keyexch;
+           EVP_KEYEXCH_free((EVP_KEYEXCH *)keyexch);
+           initialized = 1;
+        } else {
+           WARN("EVP_KEYEXCH_fetch from default provider failed");
+        }
+    }
+    return s_keyexch;
+}
+
 static const OSSL_PARAM known_settable_ctx_params[] = {
     OSSL_PARAM_int(OSSL_EXCHANGE_PARAM_EC_ECDH_COFACTOR_MODE, NULL),
     OSSL_PARAM_utf8_string(OSSL_EXCHANGE_PARAM_KDF_TYPE, NULL, 0),
@@ -763,6 +780,15 @@ static int qat_keyexch_ecdh_derive(void *vpecdhctx, unsigned char *secret,
 
     qat_fips_service_indicator = 1;
 #endif
+    if (qat_sw_ecdh_offload != 1 && qat_hw_ecdh_offload != 1) {
+        typedef int (*fun_ptr)(void *, unsigned char *,
+                               size_t *, size_t);
+        fun_ptr fun = get_default_ecdh_keyexch().derive;
+        if (!fun)
+            return 0;
+        return fun(vpecdhctx, secret, psecretlen, outlen);
+    }
+
     switch (pecdhctx->kdf_type) {
     case PROV_ECDH_KDF_NONE:
         ret = qat_keyexch_ecdh_plain_derive(vpecdhctx, secret, psecretlen, outlen);

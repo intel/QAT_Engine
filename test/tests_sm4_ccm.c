@@ -134,7 +134,7 @@ static int run_sm4ccm_update(void *args)
     }
 #endif
 
-    if (plaintext == NULL || ciphertext == NULL || dec_cipher == NULL) {
+    if (ciphertext == NULL || dec_cipher == NULL) {
         INFO("# FAIL: [%s] --- Initial parameters malloc failed ! \n",
              __func__);
         exit(EXIT_FAILURE);

@@ -92,6 +92,11 @@ static void *qat_sm4_ccm_newctx(void *provctx, size_t keybits, int nid)
 
     cipher->nid = nid;
     ctx->cipher = cipher;
+    if (!qat_sw_sm4_ccm_offload) {
+        QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+        if (!ctx->base.sw_ctx)
+            ctx->base.sw_ctx = sm4_ccm_cipher.newctx(ctx);
+    }
 
     if (ctx != NULL) {
         qat_sm4_ccm_init_ctx(provctx, &ctx->base, keybits, SM4_CCM_IV_MIN_SIZE);
@@ -108,8 +113,15 @@ int qat_sm4_ccm_einit(void *ctx, const unsigned char *inkey,
                       int keylen, const unsigned char *iv, int ivlen, int enc)
 {
     int sts = 0;
-    if (qat_sw_sm4_ccm_offload)
+    if (qat_sw_sm4_ccm_offload) {
         sts = qat_sw_sm4_ccm_init(ctx, inkey, keylen, iv, ivlen, 1);
+    } else {
+      QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
+      OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+      QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+      sts = sm4_ccm_cipher.einit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+                                 params);
+    }
     return sts;
 }
 
@@ -117,8 +129,15 @@ int qat_sm4_ccm_dinit(void *ctx, const unsigned char *inkey,
                       int keylen, const unsigned char *iv, int ivlen, int enc)
 {
     int sts = 0;
-    if (qat_sw_sm4_ccm_offload)
+    if (qat_sw_sm4_ccm_offload) {
         sts = qat_sw_sm4_ccm_init(ctx, inkey, keylen, iv, ivlen, 0);
+    } else {
+      QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
+      OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+      QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+      sts = sm4_ccm_cipher.dinit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+                                 params);
+    }
     return sts;
 }
 
@@ -145,6 +164,14 @@ int qat_sm4_ccm_stream_update(void *vctx, unsigned char *out,
             QATerr(ERR_LIB_PROV, QAT_R_CIPHER_OPERATION_FAILED);
             goto end;
         }
+    } else {
+        QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+        if (sm4_ccm_cipher.cupdate == NULL)
+            return 0;
+        if (sm4_ccm_cipher.cupdate(ctx->sw_ctx, out, outl,
+                                   outsize, in, inl) <= 0) {
+            return 0;
+        }
     }
 
     ret = 1;
@@ -163,8 +190,14 @@ int qat_sm4_ccm_stream_final(void *vctx, unsigned char *out,
     if (!qat_prov_is_running())
         goto end;
 
-    if (qat_sw_sm4_ccm_offload)
+    if (qat_sw_sm4_ccm_offload) {
         i = qat_sw_sm4_ccm_do_cipher(ctx, out, outl, outsize, NULL, 0);
+    } else {
+      QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+      if (sm4_ccm_cipher.cfinal == NULL)
+          return 0;
+      i = sm4_ccm_cipher.cfinal(ctx->sw_ctx, out, outl, outsize);
+    }
 
     if (i <= 0)
         goto end;
@@ -194,6 +227,14 @@ int qat_sm4_ccm_cipher(void *vctx, unsigned char *out,
         if (qat_sw_sm4_ccm_do_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
             goto end;
         }
+    } else {
+        QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+        if (sm4_ccm_cipher.cupdate == NULL)
+            return 0;
+        if (sm4_ccm_cipher.cupdate(ctx->sw_ctx, out, outl,
+                                   outsize, in, inl) <= 0) {
+            return 0;
+        }
     }
 
     *outl = inl;
@@ -206,6 +247,11 @@ int qat_sm4_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[])
 {
     QAT_PROV_CCM_CTX *ctx = (QAT_PROV_CCM_CTX *) vctx;
     OSSL_PARAM *p;
+
+    if (qat_sw_sm4_ccm_offload != 1) {
+        QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+        return sm4_ccm_cipher.get_ctx_params(ctx->sw_ctx, params);
+    }
 
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, qat_sm4_ccm_get_ivlen(ctx))) {
@@ -289,6 +335,11 @@ int qat_sm4_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 
     if (params == NULL)
         return 1;
+
+    if (qat_sw_sm4_ccm_offload != 1) {
+        QAT_EVP_CIPHER sm4_ccm_cipher = qat_get_default_cipher_sm4_ccm();
+        return sm4_ccm_cipher.set_ctx_params(ctx->sw_ctx, params);
+    }
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TAG);
     if (p != NULL) {

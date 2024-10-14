@@ -1299,8 +1299,8 @@ int vaesgcm_init_ipsec_mb_mgr()
             QATerr(QAT_F_VAESGCM_INIT_IPSEC_MB_MGR, QAT_R_IPSEC_MGR_NULL);
             return 0;
         } else {
-            /* Initialize the manager to dispatch AVX512 IPsec APIs */
-            init_mb_mgr_avx512(ipsec_mgr);
+            /* Initialize the manager to dispatch AVX2 and AVX512 IPsec APIs */
+            init_mb_mgr_auto(ipsec_mgr, NULL);
             return 1;
         }
     }

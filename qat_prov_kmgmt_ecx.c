@@ -184,8 +184,17 @@ static void *qat_x25519_gen(void *genctx, OSSL_CALLBACK *osslcb,
         return qat_pkey_ecx25519_keygen(genctx,osslcb,cbarg);
 #endif
 #ifdef ENABLE_QAT_SW_ECX
-    if (qat_sw_ecx_offload)
+    if (qat_sw_ecx_offload) {
         return multibuff_x25519_keygen(genctx,osslcb,cbarg);
+    } else {
+      typedef void* (*fun_ptr)(void *genctx, OSSL_CALLBACK *osslcb,
+                               void *cbarg);
+      fun_ptr fun = get_default_x25519_keymgmt().gen;
+      if (!fun)
+          return NULL;
+      return fun(genctx, osslcb, cbarg);
+    }
+
 #endif
     return 0;
 }
