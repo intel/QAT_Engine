@@ -202,6 +202,7 @@ int qat_sm4_gcm_stream_final(void *ctx, unsigned char *out,
 int qat_sm4_gcm_cipher(void *ctx, unsigned char *out,
                    size_t *outl, size_t outsize,
                    const unsigned char *in, size_t inl);
+QAT_EVP_CIPHER_SM4_GCM get_default_cipher_sm4_gcm();
 
 # define QAT_sm4_gcm_cipher(alg, lc, UCMODE, flags, kbits, blkbits, ivbits, nid) \
 static OSSL_FUNC_cipher_get_params_fn alg##_##kbits##_##lc##_get_params;        \

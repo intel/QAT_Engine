@@ -83,7 +83,7 @@ int QAT_SM4_CIPHER_CTX_encrypting(QAT_PROV_GCM_CTX *qctx)
     return qctx->enc;
 }
 
-static QAT_EVP_CIPHER_SM4_GCM get_default_cipher_sm4_gcm()
+QAT_EVP_CIPHER_SM4_GCM get_default_cipher_sm4_gcm()
 {
     static QAT_EVP_CIPHER_SM4_GCM sm4_cipher;
     static int initilazed = 0;

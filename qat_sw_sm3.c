@@ -293,12 +293,10 @@ int qat_sw_sm3_init(QAT_SM3_CTX_mb *ctx)
         return sts;
     }
 
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-    if (qat_openssl3_sm3_fallback == 1) {
+    if ((qat_openssl3_sm3_fallback == 1) || (!qat_sw_sm3_offload)) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
     }
-# endif
 
     /* QAT SW initialization fail, switching to OpenSSL. */
     if (fallback_to_openssl)
@@ -420,12 +418,10 @@ int qat_sw_sm3_update(QAT_SM3_CTX_mb *ctx, const void *in, size_t len)
         return sts;
     }
 
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-    if (qat_openssl3_sm3_fallback == 1) {
+    if ((qat_openssl3_sm3_fallback == 1) || (!qat_sw_sm3_offload)) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
     }
-# endif
 
     /* QAT SW initialization fail, switching to OpenSSL. */
     if (fallback_to_openssl)
@@ -550,12 +546,10 @@ int qat_sw_sm3_final(QAT_SM3_CTX_mb *ctx, unsigned char *md)
         return sts;
     }
 
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-    if (qat_openssl3_sm3_fallback == 1) {
+    if ((qat_openssl3_sm3_fallback == 1) || (!qat_sw_sm3_offload)) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
     }
-# endif
 
     /* QAT SW initialization fail, switching to OpenSSL. */
     if (fallback_to_openssl)

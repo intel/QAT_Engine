@@ -355,12 +355,9 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
         return NULL;
     }
     if (qat_sw_offload &&
-        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM3)) {
-        /* For now check using MBX_ALGO_X25519 as algo info for sm3 is not implemented */
-        if (mbx_get_algo_info(MBX_ALGO_X25519)) {
-            res = qat_sw_sm3_md_methods(qat_sw_sm3_meth);
-        }
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM3) && mbx_get_algo_info(MBX_ALGO_SM3)) {
 
+        res = qat_sw_sm3_md_methods(qat_sw_sm3_meth);
         if (0 == res) {
             WARN("Failed to set MD methods for nid %d\n", nid);
             EVP_MD_meth_free(qat_sw_sm3_meth);
@@ -648,9 +645,14 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
     }
 # endif
 #endif
-    if (qat_hw_ecx_offload == 0 && qat_sw_ecx_offload == 0)
+    if (qat_hw_ecx_offload == 0 && qat_sw_ecx_offload == 0) {
         EVP_PKEY_meth_copy(_hidden_x25519_pmeth, sw_x25519_pmeth);
-
+#ifdef QAT_OPENSSL_3
+        EVP_PKEY_meth_set_paramgen(_hidden_x25519_pmeth, qat_ecx_paramgen_init,
+                                   qat_ecx25519_paramgen);
+#endif
+        DEBUG("QAT HW & SW X25519 are not supported, using OpenSSL SW.\n");
+    }
     return _hidden_x25519_pmeth;
 }
 

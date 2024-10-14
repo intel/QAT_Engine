@@ -151,6 +151,7 @@
 # define VAES_BIT 9
 # define VPCLMULQDQ_BIT 10
 # define AVX512F_BIT 16
+# define AVX2_BIT 5
 #endif
 
 #define QAT_MAX_INPUT_STRING_LENGTH 1024
@@ -181,9 +182,9 @@ int fallback_to_openssl = 0;
 #if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 int qat_openssl3_prf_fallback = 0;
 int qat_openssl3_hkdf_fallback = 0;
-int qat_openssl3_sm2_fallback = 0;
 int qat_openssl3_sha_fallback = 0;
 #endif
+int qat_openssl3_sm2_fallback = 0;
 int qat_openssl3_sm3_fallback = 0;
 int fallback_to_qat_sw = 0; /* QAT HW initialize fail, offload to QAT SW. */
 int qat_hw_offload = 0;
@@ -554,6 +555,7 @@ int qat_sw_cpu_support(void)
     __cpuid(info, 0x07, 0);
 
     unsigned int avx512f = 0;
+    unsigned int avx2 = 0;
     unsigned int vaes    = 0;
     unsigned int vpclmulqdq = 0;
 
@@ -566,14 +568,16 @@ int qat_sw_cpu_support(void)
     if (*ecx & (0x1 << VPCLMULQDQ_BIT))
         vpclmulqdq = 1;
 
-    DEBUG("QAT_SW - Processor supported: AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
-           avx512f, vaes, vpclmulqdq);
+    if (*ebx & (0x1 << AVX2_BIT))
+        avx2 = 1;
 
-    if (avx512f && vaes && vpclmulqdq) {
-        return 1;
+    if ((avx512f || avx2) && vaes && vpclmulqdq) {
+         DEBUG("QAT_SW - Processor supported: AVX512F = %u, AVX2 = %u, VAES = %u, VPCLMULQDQ = %u\n",
+               avx512f, avx2, vaes, vpclmulqdq);
+	 return 1;
     } else {
-        fprintf(stderr, "QAT_SW - Processor unsupported: AVX512F = %u, VAES = %u, VPCLMULQDQ = %u\n",
-                avx512f, vaes, vpclmulqdq);
+        fprintf(stderr, "\nQAT_SW - Processor unsupported: AVX512F = %u, AVX2 = %u, VAES = %u, VPCLMULQDQ = %u\n",
+                avx512f, avx2, vaes, vpclmulqdq);
         return 0;
     }
 }
@@ -1334,6 +1338,15 @@ int bind_qat(ENGINE *e, const char *id)
         }
 # endif
 
+# ifdef ENABLE_QAT_SW_SM2
+    if (!qat_hw_sm2_offload &&
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
+         mbx_get_algo_info(MBX_ALGO_EC_SM2)) {
+         qat_sw_sm2_offload = 1;
+         INFO("QAT_SW SM2 for Provider Enabled\n");
+    }
+# endif
+
 # ifdef ENABLE_QAT_SW_GCM
         qat_sw_gcm_offload = 1;
         DEBUG("QAT_SW GCM for Provider Enabled\n");
@@ -1351,6 +1364,9 @@ int bind_qat(ENGINE *e, const char *id)
     /* Create static structures for ciphers now
      * as this function will be called by a single thread. */
     qat_create_ciphers();
+    /* Initialize EVP_MD methods for supported digest algorithms.
+     * This sets up the digest methods for both hardware and software digests. */
+    qat_create_digest_meth();
 # ifndef QAT_DEBUG
     if (qat_sw_gcm_offload && !qat_hw_gcm_offload)
         INFO("QAT_SW GCM for Provider Enabled\n");
@@ -1375,8 +1391,9 @@ int bind_qat(ENGINE *e, const char *id)
         INFO("QAT_HW SM4-CBC for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_SW_SM3
-        qat_sw_sm3_offload = 1;
+    if (qat_sw_sm3_offload) {
         INFO("QAT_SW SM3 for Provider Enabled\n");
+    }
 # endif
 # ifdef ENABLE_QAT_HW_CCM
     if (qat_hw_aes_ccm_offload)

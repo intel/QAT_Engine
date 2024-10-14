@@ -462,6 +462,27 @@ typedef struct {
     unsigned int nonce_type;
 } QAT_PROV_ECDSA_CTX;
 
+typedef struct qat_evp_keyexch_st {
+    int name_id;
+    char *type_name;
+    const char *description;
+    OSSL_PROVIDER *prov;
+    CRYPTO_REF_COUNT references;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+#endif
+    OSSL_FUNC_keyexch_newctx_fn *newctx;
+    OSSL_FUNC_keyexch_init_fn *init;
+    OSSL_FUNC_keyexch_set_peer_fn *set_peer;
+    OSSL_FUNC_keyexch_derive_fn *derive;
+    OSSL_FUNC_keyexch_freectx_fn *freectx;
+    OSSL_FUNC_keyexch_dupctx_fn *dupctx;
+    OSSL_FUNC_keyexch_set_ctx_params_fn *set_ctx_params;
+    OSSL_FUNC_keyexch_settable_ctx_params_fn *settable_ctx_params;
+    OSSL_FUNC_keyexch_get_ctx_params_fn *get_ctx_params;
+    OSSL_FUNC_keyexch_gettable_ctx_params_fn *gettable_ctx_params;
+} QAT_EVP_ECDH_KEYEXCH;
+
 int QAT_EC_KEY_up_ref(EC_KEY *r);
 void QAT_EC_KEY_free(EC_KEY *r);
 

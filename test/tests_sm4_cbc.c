@@ -727,6 +727,8 @@ static int test_sm4_cbc_encrypt(int num_buffers, ENGINE *e, int *len,
 {
     mbx_sm4_key_schedule rkey;
     EVP_CIPHER_CTX *ctx[MULTIBUFF_SM4_BATCH];
+    EVP_CIPHER_CTX *ctx_engine[MULTIBUFF_SM4_BATCH];
+    EVP_CIPHER_CTX *ctx_mb[MULTIBUFF_SM4_BATCH];
     int outl;
     int ret = 1;
 #ifdef QAT_OPENSSL_3
@@ -738,31 +740,56 @@ static int test_sm4_cbc_encrypt(int num_buffers, ENGINE *e, int *len,
     EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL, "SM4-CBC", "provider=default");
 #endif
 
-    /* Use Engine to do the encryption. */
-    for (int i = 0; i < num_buffers; i++) {
-        ctx[i] = EVP_CIPHER_CTX_new();
+    if (mbx_get_algo_info(MBX_ALGO_SM4)) {
+        /* Use Engine to do the encryption. */
+        for (int i = 0; i < num_buffers; i++) {
+            ctx[i] = EVP_CIPHER_CTX_new();
 #ifdef QAT_OPENSSL_3
-        if (e == NULL)
-            EVP_CipherInit_ex2(ctx[i], cipher, (int8u*)key[i], iv[i], 1, params);
-        else
+            if (e == NULL)
+                EVP_CipherInit_ex2(ctx[i], cipher, (int8u*)key[i], iv[i], 1, params);
+            else
 #endif
-            EVP_EncryptInit_ex(ctx[i], EVP_sm4_cbc(), e, (int8u*)key[i], iv[i]);
-    }
+                EVP_EncryptInit_ex(ctx[i], EVP_sm4_cbc(), e, (int8u*)key[i], iv[i]);
+        }
 
-    for (int i = 0; i < num_buffers; i++) {
-        EVP_EncryptUpdate(ctx[i], engine_out[i], &outl, engine_in[i], len[i]);
-    }
+        for (int i = 0; i < num_buffers; i++) {
+            EVP_EncryptUpdate(ctx[i], engine_out[i], &outl, engine_in[i], len[i]);
+        }
 
-    for (int i = 0; i < num_buffers; i++) {
-        EVP_EncryptFinal(ctx[i], engine_out[i] + len[i], &outl);
-        EVP_CIPHER_CTX_free(ctx[i]);
+        for (int i = 0; i < num_buffers; i++) {
+            EVP_EncryptFinal(ctx[i], engine_out[i] + len[i], &outl);
+            EVP_CIPHER_CTX_free(ctx[i]);
+        }
+
+        /* crypto_mb encryption */
+        mbx_sm4_set_key_mb16(&rkey, (const sm4_key**)key);
+        mbx_sm4_encrypt_cbc_mb16(mb_out, (const int8u**)mb_in, (const int*)len, &rkey, (const int8u**)iv);
+    } else {
+        for (int i = 0; i < num_buffers; i++) {
+            ctx_engine[i] = EVP_CIPHER_CTX_new();
+            ctx_mb[i] = EVP_CIPHER_CTX_new();
+#ifdef QAT_OPENSSL_3
+            EVP_CipherInit_ex2(ctx_engine[i], sw_cipher, (int8u*)key[i], iv[i], 1, NULL);
+            EVP_CipherInit_ex2(ctx_mb[i], sw_cipher, (int8u*)key[i], iv[i], 1, NULL);
+#else
+            EVP_EncryptInit(ctx_engine[i], EVP_sm4_cbc(), (int8u*)key[i], iv[i]);
+            EVP_EncryptInit(ctx_mb[i], EVP_sm4_cbc(), (int8u*)key[i], iv[i]);
+#endif
+            EVP_EncryptUpdate(ctx_engine[i], engine_out[i], &outl, engine_in[i], len[i]);
+            EVP_EncryptFinal(ctx_engine[i], engine_out[i] + len[i], &outl);
+
+            EVP_EncryptUpdate(ctx_mb[i], mb_out[i], &outl, mb_in[i], len[i]);
+            EVP_EncryptFinal(ctx_mb[i], mb_out[i] + len[i], &outl);
+
+            EVP_CIPHER_CTX_free(ctx_engine[i]);
+            EVP_CIPHER_CTX_free(ctx_mb[i]);
+        }
     }
 
     /* OpenSSL and crypto_mb are used as reference */
     for (int i = 0; i < num_buffers; i++) {
         ctx[i] = EVP_CIPHER_CTX_new();
 #ifdef QAT_OPENSSL_3
-	params[0] = OSSL_PARAM_construct_uint(OSSL_CIPHER_PARAM_PADDING, &pad);
         EVP_CipherInit_ex2(ctx[i], sw_cipher, (int8u*)key[i], iv[i], 1, NULL);
 #else
         EVP_EncryptInit(ctx[i], EVP_sm4_cbc(), (int8u*)key[i], iv[i]);
@@ -771,10 +798,6 @@ static int test_sm4_cbc_encrypt(int num_buffers, ENGINE *e, int *len,
         EVP_EncryptFinal(ctx[i], openssl_out[i] + len[i], &outl);
         EVP_CIPHER_CTX_free(ctx[i]);
     }
-
-    /* crypto_mb encryption */
-    mbx_sm4_set_key_mb16(&rkey, (const sm4_key**)key);
-    mbx_sm4_encrypt_cbc_mb16(mb_out, (const int8u**)mb_in, (const int*)len, &rkey, (const int8u**)iv);
 
     /* Comparison with OpenSSL and crypto_mb */
     for (int i = 0; i < num_buffers; i++) {
@@ -812,6 +835,9 @@ static int test_sm4_cbc_decrypt(int num_buffers, ENGINE *e, int *len,
 {
     mbx_sm4_key_schedule rkey;
     EVP_CIPHER_CTX *ctx[MULTIBUFF_SM4_BATCH];
+    EVP_CIPHER_CTX *ctx_engine[MULTIBUFF_SM4_BATCH];
+    EVP_CIPHER_CTX *ctx_mb[MULTIBUFF_SM4_BATCH];
+
     int outl;
     int ret = 1;
 #ifdef QAT_OPENSSL_3
@@ -822,24 +848,50 @@ static int test_sm4_cbc_decrypt(int num_buffers, ENGINE *e, int *len,
     EVP_CIPHER *cipher = EVP_CIPHER_fetch(NULL, "SM4-CBC", "");
     EVP_CIPHER *sw_cipher = EVP_CIPHER_fetch(NULL, "SM4-CBC", "provider=default");
 #endif
-    /* Use Engine to do the decryption. */
-    for (int i = 0; i < num_buffers; i++) {
-        ctx[i] = EVP_CIPHER_CTX_new();
+    if (mbx_get_algo_info(MBX_ALGO_SM4)) {
+        /* Use Engine to do the decryption. */
+        for (int i = 0; i < num_buffers; i++) {
+            ctx[i] = EVP_CIPHER_CTX_new();
 #ifdef QAT_OPENSSL_3
-        if (e == NULL)
-            EVP_CipherInit_ex2(ctx[i], cipher, (int8u*)key[i], iv[i], 0, params);
-	else
+            if (e == NULL)
+                EVP_CipherInit_ex2(ctx[i], cipher, (int8u*)key[i], iv[i], 0, params);
+            else
 #endif
-            EVP_DecryptInit_ex(ctx[i], EVP_sm4_cbc(), e, (int8u*)key[i], iv[i]);
-    }
+                EVP_DecryptInit_ex(ctx[i], EVP_sm4_cbc(), e, (int8u*)key[i], iv[i]);
+        }
 
-    for (int i = 0; i < num_buffers; i++) {
-        EVP_DecryptUpdate(ctx[i], engine_out[i], &outl, engine_in[i], len[i]);
-    }
+        for (int i = 0; i < num_buffers; i++) {
+            EVP_DecryptUpdate(ctx[i], engine_out[i], &outl, engine_in[i], len[i]);
+        }
 
-    for (int i = 0; i < num_buffers; i++) {
-        EVP_DecryptFinal(ctx[i], engine_out[i] + len[i], &outl);
-        EVP_CIPHER_CTX_free(ctx[i]);
+        for (int i = 0; i < num_buffers; i++) {
+            EVP_DecryptFinal(ctx[i], engine_out[i] + len[i], &outl);
+            EVP_CIPHER_CTX_free(ctx[i]);
+        }
+
+        /* crypto_mb decryption */
+        mbx_sm4_set_key_mb16(&rkey, (const sm4_key**)key);
+        mbx_sm4_decrypt_cbc_mb16(mb_out, (const int8u**)mb_in, (const int*)len, &rkey, (const int8u**)iv);
+    } else {
+        for (int i = 0; i < num_buffers; i++) {
+            ctx_engine[i] = EVP_CIPHER_CTX_new();
+            ctx_mb[i] = EVP_CIPHER_CTX_new();
+#ifdef QAT_OPENSSL_3
+            EVP_CipherInit_ex2(ctx_engine[i], sw_cipher, (int8u*)key[i], iv[i], 0, params);
+            EVP_CipherInit_ex2(ctx_mb[i], sw_cipher, (int8u*)key[i], iv[i], 0, params);
+#else
+            EVP_DecryptInit(ctx_engine[i], EVP_sm4_cbc(), (int8u*)key[i], iv[i]);
+            EVP_DecryptInit(ctx_mb[i], EVP_sm4_cbc(), (int8u*)key[i], iv[i]);
+#endif
+            EVP_DecryptUpdate(ctx_engine[i], engine_out[i], &outl, engine_in[i], len[i]);
+            EVP_DecryptFinal(ctx_engine[i], engine_out[i] + len[i], &outl);
+
+            EVP_DecryptUpdate(ctx_mb[i], mb_out[i], &outl, mb_in[i], len[i]);
+            EVP_DecryptFinal(ctx_mb[i], mb_out[i] + len[i], &outl);
+
+            EVP_CIPHER_CTX_free(ctx_engine[i]);
+            EVP_CIPHER_CTX_free(ctx_mb[i]);
+        }
     }
 
     /* OpenSSL and crypto_mb are used as reference */
@@ -854,10 +906,6 @@ static int test_sm4_cbc_decrypt(int num_buffers, ENGINE *e, int *len,
         EVP_DecryptFinal(ctx[i], openssl_out[i] + len[i], &outl);
         EVP_CIPHER_CTX_free(ctx[i]);
     }
-
-    /* crypto_mb decryption */
-    mbx_sm4_set_key_mb16(&rkey, (const sm4_key**)key);
-    mbx_sm4_decrypt_cbc_mb16(mb_out, (const int8u**)mb_in, (const int*)len, &rkey, (const int8u**)iv);
 
     /* Comparison with OpenSSL and crypto_mb */
     for (int i = 0; i < num_buffers; i++) {
@@ -910,8 +958,15 @@ static int test_sm4_cbc(ENGINE *e, int count, int size)
     for (int i = 0; i < num_buffers; i++) {
         len[i] = size;
         mb_key[i] = (sm4_key*)OPENSSL_zalloc(SM4_CBC_KEY_SIZE);
-        mb_enc_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
-        mb_dec_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
+
+	if (mbx_get_algo_info(MBX_ALGO_SM4)) {
+            mb_enc_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
+            mb_dec_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
+	} else {
+            mb_enc_txt[i] = OPENSSL_zalloc(len[i] + SM4_CBC_KEY_SIZE);
+            mb_dec_txt[i] = OPENSSL_zalloc(len[i] + SM4_CBC_KEY_SIZE);
+	}
+
         mb_txt[i] = (int8u*)OPENSSL_zalloc(len[i]);
         mb_iv[i] = (int8u*)OPENSSL_zalloc(SM4_CBC_IV_SIZE);
 

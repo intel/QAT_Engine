@@ -93,7 +93,7 @@ static inline const EVP_CIPHER *sm4_cipher_sw_impl(int nid)
 #endif /* QAT_OPENSSL_PROVIDER */
 
 #ifdef QAT_OPENSSL_PROVIDER
-static QAT_EVP_CIPHER qat_get_default_cipher_sm4_ccm()
+QAT_EVP_CIPHER qat_get_default_cipher_sm4_ccm()
 {
     static QAT_EVP_CIPHER sm4_cipher;
     static int initilazed = 0;
