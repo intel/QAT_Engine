@@ -62,14 +62,15 @@
 #include "qat_hw_ciphers.h"
 #include "qat_evp.h"
 #include "qat_hw_chachapoly.h"
-#ifdef QAT_OPENSSL_PROVIDER
-#include "qat_prov_chachapoly.h"
-#endif
 
 #ifdef QAT_HW_INTREE
 # ifndef ENABLE_QAT_HW_CHACHAPOLY
 #  define ENABLE_QAT_HW_CHACHAPOLY
 # endif
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+#include "qat_prov_chachapoly.h"
 #endif
 
 # define GET_SW_CHACHA_CTX EVP_chacha20_poly1305()
