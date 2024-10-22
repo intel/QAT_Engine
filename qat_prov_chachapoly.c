@@ -45,6 +45,12 @@
  *****************************************************************************/
 #include <openssl/proverr.h>
 
+#ifdef QAT_HW_INTREE
+# ifndef ENABLE_QAT_HW_CHACHAPOLY
+#  define ENABLE_QAT_HW_CHACHAPOLY
+# endif
+#endif
+
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
 #include "qat_prov_chachapoly.h"
 #include "e_qat.h"
