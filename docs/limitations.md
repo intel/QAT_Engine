@@ -56,6 +56,10 @@
   /usr/bin/install -c -m 644 quickassist/include/cpa.h quickassist/include/cpa_dev.h quickassist/include/cpa_types.h quickassist/include/lac/cpa_cy_common.h quickassist/include/lac/cpa_cy_dh.h quickassist/include/lac/cpa_cy_drbg.h quickassist/include/lac/cpa_cy_dsa.h quickassist/include/lac/cpa_cy_ecdh.h quickassist/include/lac/cpa_cy_ecdsa.h quickassist/include/lac/cpa_cy_ecsm2.h quickassist/include/lac/cpa_cy_ec.h quickassist/include/lac/cpa_cy_im.h quickassist/include/lac/cpa_cy_key.h quickassist/include/lac/cpa_cy_kpt.h quickassist/include/lac/cpa_cy_ln.h quickassist/include/lac/cpa_cy_nrbg.h quickassist/include/lac/cpa_cy_prime.h quickassist/include/lac/cpa_cy_rsa.h quickassist/include/lac/cpa_cy_sym_dp.h quickassist/include/lac/cpa_cy_sym.h quickassist/include/dc/cpa_dc.h quickassist/include/dc/cpa_dc_dp.h quickassist/include/dc/cpa_dc_chain.h quickassist/lookaside/access_layer/include/icp_sal_poll.h quickassist/lookaside/access_layer/include/icp_sal_user.h quickassist/lookaside/access_layer/include/icp_sal.h quickassist/lookaside/access_layer/include/icp_sal_versions.h quickassist/utilities/libusdm_drv/qae_mem.h /usr/local/include/qat
 ```
 * HKDF infolen > 80 is not supported due to QAT driver limitation.
+* Symmetric keys are not protected by [Key Protection Technology](#qat_hw_kpt.md).
+* QAT Engine does not process the plaintext if the length is not a multiple of AES_BLOCK_SIZE for
+  chained cipher AES-CBC-HMAC-SHA when built with OpenSSL v3 and above. No padding would be added
+  to the plaintext as specified in RFC 5652 or RFC 5246.
 
 ## Known Issues
 
@@ -75,6 +79,8 @@
 * Known issue in Software fallback with OpenSSL3.0 Engine(only) when disabled via co-existence
   algo bitmap for algorithms PRF, HKDF, SM2 & SM3. QAT_HW PRF and QAT_HW HKDF are
   not accelerated in OpenSSL 3.0 engine due to the issue [OpenSSL#21622](https://github.com/openssl/openssl/issues/21622)
+* Known issue in Co-existence mode with QAT provider on OpenSSL 3.2 and above during QAT_SW offload
+  when QAT_HW modules are not present.
 ### Performance
 * There is known performance scaling issue (performance drop with threads >32)
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode
