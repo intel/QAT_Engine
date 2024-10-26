@@ -260,7 +260,7 @@ ipsec_mb:
 	cd intel-ipsec-mb && make uninstall && make clean && make -j$(nproc) && make install -j$(nproc)
 
 crypto_mb:
-	cd ipp-crypto/sources/ippcp/crypto_mb && rm -rf build && cmake . -B"build" -DOPENSSL_INCLUDE_DIR=$(with_openssl_install_dir)/include -DOPENSSL_LIBRARIES=$(with_openssl_install_dir) -DOPENSSL_ROOT_DIR=$(PWD)/openssl && cd build && make clean && make -j$(nproc) && make install -j$(nproc)
+	cd cryptography-primitives/sources/ippcp/crypto_mb && rm -rf build && cmake . -B"build" -DOPENSSL_INCLUDE_DIR=$(with_openssl_install_dir)/include -DOPENSSL_LIBRARIES=$(with_openssl_install_dir) -DOPENSSL_ROOT_DIR=$(PWD)/openssl && cd build && make clean && make -j$(nproc) && make install -j$(nproc)
 endif
 
 if QAT_4XXX

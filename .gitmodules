@@ -4,6 +4,6 @@
 [submodule "intel-ipsec-mb"]
 	path = intel-ipsec-mb
 	url = https://github.com/intel/intel-ipsec-mb.git
-[submodule "ipp-crypto"]
-	path = ipp-crypto
-	url = https://github.com/intel/ipp-crypto
+[submodule "cryptography-primitives"]
+	path = cryptography-primitives
+	url = https://github.com/intel/cryptography-primitives

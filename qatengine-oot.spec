@@ -13,7 +13,7 @@
 
 %global ippcp_major        11
 %global ippcp_minor        15
-%global ippcp              ipp-crypto
+%global ippcp              cryptography-primitives
 %global ippcpver           ippcp_2021.12.1
 %global ippcpfull          %{ippcp}-%{ippcpver}
 %global ippcpfullversion   %{ippcp_major}.%{ippcp_minor}

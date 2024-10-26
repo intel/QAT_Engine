@@ -23,11 +23,11 @@ and also from the latest versions from the links below.
 
 ## Crypto Libraries:
 * [OpenSSL\*][9] 1.1.1w (for FreeBSD only) & 3.0.15
-* BoringSSL\* commit - [23ed9d3][11]
+* BoringSSL\* commit - [23ed9d3][10]
 * [Tongsuo][11] - 8.4.0 (BabaSSL)
 
 [1]:https://www.intel.com/content/www/us/en/developer/topic-technology/open/quick-assist-technology/overview.html
-[2]:https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb
+[2]:https://github.com/intel/cryptography-primitives/tree/develop/sources/ippcp/crypto_mb
 [3]:https://github.com/intel/intel-ipsec-mb
 [4]:https://www.intel.com/content/www/us/en/download/765501/intel-quickassist-technology-driver-for-linux-hw-version-2-0.html
 [5]:https://www.intel.com/content/www/us/en/download/19734/intel-quickassist-technology-driver-for-linux-hw-version-1-x.html
