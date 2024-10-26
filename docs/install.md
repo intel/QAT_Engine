@@ -44,7 +44,7 @@ libtool and pkg-config) installed in the system.
 ### Install with make depend target
 `make depend`  target in the QAT_Engine supports cloning and  building
 the dependent libraries OpenSSL, QAT_HW(QAT1.x & QAT2.0 OOT Linux driver) and
-QAT_SW(ipp-crypto & ipsec_mb automatically based on the QAT Engine configure
+QAT_SW(cryptography-primitives & ipsec_mb automatically based on the QAT Engine configure
 flags specified and platform underneath. Please follow the instructions below
 to use the option.
 
@@ -62,7 +62,7 @@ make install
 ```
 
 Here `make depend` will clone the dependent libraries and install QAT_HW driver in /QAT
-and QAT_SW in the default path(`/usr/local` for ipp-crypto & `/usr` for ipsec_mb).
+and QAT_SW in the default path(`/usr/local` for cryptography-primitives & `/usr` for ipsec_mb).
 `qatengine.so` library will be installed in `/usr/local/ssl/lib64/engines-3` where
 openssl is also installed as mentioned in the openssl install flag.
 Please note make depend target is not supported in FreeBSD OS, Virtualized
@@ -147,7 +147,7 @@ The Following parameter needs to be enabled in BIOS and is supported only in QAT
 </details>
 
 For **QAT_SW Acceleration**, Install Intel® Crypto Multi-buffer library using the Installation instructions
-from [Crypto_MB README](https://github.com/intel/ipp-crypto/tree/develop/sources/ippcp/crypto_mb)
+from [Crypto_MB README](https://github.com/intel/cryptography-primitives/tree/develop/sources/ippcp/crypto_mb)
 and Intel® Multi-Buffer Crypto for IPsec Library using the instructions
 from the [intel-ipsec_mb README](https://github.com/intel/intel-ipsec-mb).
 
