@@ -729,27 +729,27 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
 
         if (qctx->iv) {
             DEBUG("qctx->iv_len = %d\n", qctx->iv_len);
-            OPENSSL_cleanse(qctx->iv, qctx->iv_len);
+            OPENSSL_clear_free(qctx->iv, qctx->iv_len);
             qctx->iv = NULL;
             qctx->iv_set = 0;
         }
 
         if (qctx->next_iv) {
-            OPENSSL_cleanse(qctx->next_iv, qctx->iv_len);
+            OPENSSL_clear_free(qctx->next_iv, qctx->iv_len);
             qctx->next_iv = NULL;
 	    qctx->iv_len = 0;
         }
 
         if (qctx->tls_aad) {
             DEBUG("qctx->tls_aad_len = %d\n", qctx->tls_aad_len);
-            OPENSSL_cleanse(qctx->tls_aad, EVP_AEAD_TLS1_AAD_LEN);
+            OPENSSL_clear_free(qctx->tls_aad, EVP_AEAD_TLS1_AAD_LEN);
             qctx->tls_aad = NULL;
             qctx->tls_aad_len = -1;
             qctx->tls_aad_set = 0;
         }
 
         if (qctx->calculated_tag) {
-            OPENSSL_cleanse(qctx->calculated_tag, qctx->tag_len);
+            OPENSSL_clear_free(qctx->calculated_tag, qctx->tag_len);
             qctx->calculated_tag = NULL;
             qctx->tag_calculated = 0;
         }
@@ -760,7 +760,7 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
 #else
             DEBUG("qctx->tag_len = %u\n", qctx->tag_len);
 #endif
-            OPENSSL_cleanse(qctx->tag, qctx->tag_len);
+            OPENSSL_clear_free(qctx->tag, qctx->tag_len);
             qctx->tag = NULL;
             qctx->tag_len = 0;
             qctx->tag_set = 0;
