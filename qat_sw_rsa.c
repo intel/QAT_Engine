@@ -930,8 +930,8 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     /* Check input parameters */
     if (unlikely(rsa == NULL || from == NULL || to == NULL ||
         (flen != (rsa_len = RSA_size(rsa))))) {
-        WARN("RSA key, input or output is NULL or invalid length, \
-             flen = %d\n", flen);
+        WARN("RSA key %p, input %p or output %p are NULL or invalid length, \
+              flen = %d, rsa_len = %d\n", rsa, from, to, flen, rsa_len);
         QATerr(QAT_F_MULTIBUFF_RSA_PRIV_DEC, QAT_R_RSA_FROM_TO_NULL);
         if (to != NULL && rsa != NULL) {
             rsa_len = RSA_size(rsa);

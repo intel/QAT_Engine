@@ -68,7 +68,7 @@ void qat_prov_ctx_set_core_bio_method(QAT_PROV_CTX *ctx, QAT_BIO_METHOD *corebio
 extern const OSSL_DISPATCH qat_rsa_keymgmt_functions[];
 extern const OSSL_DISPATCH qat_rsa_signature_functions[];
 #endif
-#ifdef ENABLE_QAT_HW_RSA
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 extern const OSSL_DISPATCH qat_rsa_asym_cipher_functions[];
 #endif
 #if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
@@ -354,7 +354,7 @@ static const OSSL_ALGORITHM qat_digests[] = {
     { NULL, NULL, NULL }};
 #endif
 
-#ifdef ENABLE_QAT_HW_RSA
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 static const OSSL_ALGORITHM qat_asym_cipher[] = {
     { "RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_asym_cipher_functions },
     { NULL, NULL, NULL }
@@ -473,7 +473,7 @@ static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_
         case OSSL_OP_KDF:
             return qat_kdfs;
 #endif
-#ifdef ENABLE_QAT_HW_RSA
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
         case OSSL_OP_ASYM_CIPHER:
             return qat_asym_cipher;
 #endif

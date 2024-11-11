@@ -2675,6 +2675,9 @@ static int run_rsa(void *args)
     int hash_length = 0;
     unsigned char *HashData = OPENSSL_malloc(HASH_DATA_SIZE_NO_PADDING_8192);
     unsigned char *ctext = NULL;
+#ifdef QAT_OPENSSL_PROVIDER
+    unsigned char *dtext = NULL;
+#endif
 #ifndef QAT_OPENSSL_PROVIDER
     unsigned char *ptext = NULL;
     int plen = 0;
@@ -3216,13 +3219,20 @@ static int run_rsa(void *args)
 
             if ((dec_ctx == NULL)
                  || (EVP_PKEY_decrypt_init(dec_ctx)) <= 0
-                 || (EVP_PKEY_decrypt(dec_ctx, NULL, &clen, expectedPtext, 36) <=0)) {
+                 || (EVP_PKEY_decrypt(dec_ctx, NULL, &clen, ctext, clen) <=0)) {
                 WARN("RSA Decrypt_init Failed\n");
                 ret = 0;
                 goto err;
             }
 
-            status = EVP_PKEY_decrypt(dec_ctx, ctext, &clen, expectedPtext, 36);
+	    dtext = OPENSSL_zalloc(clen);
+            if (dtext == NULL) {
+                WARN("Failed to allocate memory for dtext\n");
+                ret = 0;
+                goto err;
+            }
+
+            status = EVP_PKEY_decrypt(dec_ctx, dtext, &clen, ctext, clen);
 
             if (status <= 0) {
                 WARN("# FAIL RSA - Decrypt Failed\n");
@@ -3243,7 +3253,7 @@ static int run_rsa(void *args)
               sign_only ? "sign" : "verify", pad_str);
     }
 
-    if (encrypt_only || decrypt_only) {
+    if (encrypt_only || decrypt_only || status) {
         /* Compare and verify the encrypted and decrypted message */
         if (verify) {
                 INFO("# PASS %s for RSA with %s\n",
@@ -3267,11 +3277,11 @@ err:
         EVP_PKEY_CTX_free(enc_ctx);
     if (dec_ctx)
         EVP_PKEY_CTX_free(dec_ctx);
+    if (dtext)
+	OPENSSL_free(dtext);
 #else
     if (ptext)
         OPENSSL_free(ptext);
-    if (ctext)
-        OPENSSL_free(ctext);
     RSA_free(key);
 #endif
     if (sig)
@@ -3282,6 +3292,8 @@ err:
         OPENSSL_free(HashData);
     if (expectedPtext)
         OPENSSL_free(expectedPtext);
+    if (ctext)
+        OPENSSL_free(ctext);
     return ret;
 }
 
