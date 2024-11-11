@@ -42,7 +42,6 @@
  * This file provides an implementation to qatprovider RSA Encryption and Decryption operations
  *
  *****************************************************************************/
-#ifdef ENABLE_QAT_HW_RSA
 # include <openssl/core_dispatch.h>
 # include <openssl/params.h>
 # include <openssl/err.h>
@@ -63,8 +62,14 @@
 #  include "qat_hw_rsa.h"
 # endif
 
+#ifdef QAT_SW
+#include "qat_sw_rsa.h"
+#endif
+
 # define QAT_MAX_NAME_SIZE           50/* Algorithm name */
 # define QAT_MAX_PROPQUERY_SIZE     256/* Property query strings */
+
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 
 static OSSL_ITEM qat_padding_item[] = {
     {RSA_PKCS1_PADDING, OSSL_PKEY_RSA_PAD_MODE_PKCSV15},
@@ -228,6 +233,84 @@ int qat_rsa_padding_add_PKCS1_OAEP_mgf1_ex(OSSL_LIB_CTX * libctx,
     return rv;
 }
 
+/******************************************************************************
+ *    * function:
+ *          qat_rsa_public_encrypt(int flen, const unsigned char *from,
+ *                                   unsigned char *to, RSA *rsa, int padding)
+ *
+ * qat_rsa_public_encrypt - RSA public key encryption using QAT engine.
+ *
+ * @param flen [IN] - Length of the input data (in bytes) to be encrypted.
+ * @param from [IN] -  Pointer to the input data to be encrypted.
+ * @param to [IN] - Pointer to the output buffer.
+ * @param rsa [IN] -  RSA key structure containing the public key.
+ * @param padding [IN] - Padding mode to be used for encryption.
+ *
+ * description:
+ *    This function performs RSA public key encryption. Depending on the
+ *    configuration, it may offload the encryption operation to hardware (QAT)
+ *    or software (QAT_SW) if offloading is enabled. The result is stored in
+ *    the output buffer provided.
+ *
+ * returns:
+ * - The size of the decrypted data on success.
+ * - 0 or a negative value on error.
+ ******************************************************************************/
+static int qat_rsa_public_encrypt(int flen, const unsigned char *from,
+                                   unsigned char *to, RSA *rsa, int padding)
+{
+    int ret = 0;
+#ifdef ENABLE_QAT_HW_RSA
+    if (qat_hw_rsa_offload)
+        ret = qat_rsa_pub_enc(flen, from, to, rsa, padding);
+#endif
+
+#ifdef ENABLE_QAT_SW_RSA
+    if (qat_sw_rsa_offload)
+        ret = multibuff_rsa_pub_enc(flen, from, to, rsa, padding);
+#endif
+    return ret;
+}
+
+/******************************************************************************
+ *    * function:
+ *          qat_rsa_private_decrypt(int flen, const unsigned char *from,
+ *                                   unsigned char *to, RSA *rsa, int padding)
+ *
+ * qat_rsa_private_decrypt - RSA private key decryption using QAT engine.
+ *
+ * @param flen [IN] - Length of the encrypted input data to be decrypted.
+ * @param from [IN] -  Pointer to the encrypted input data.
+ * @param to [IN] - Pointer to the output buffer.
+ * @param rsa [IN] -  RSA key structure containing the private key.
+ * @param padding [IN] - Padding mode to be used for decryption.
+ *
+ * description:
+ *    This function performs RSA private key decryption. Depending on the
+ *    configuration, it may offload the decryption operation to hardware (QAT)
+ *    or software (QAT_SW) if offloading is enabled. The result is
+ *    stored in the output buffer provided.
+ *
+ * returns:
+ * - The size of the decrypted data on success.
+ * - 0 or a negative value on error.
+ ******************************************************************************/
+static int qat_rsa_private_decrypt(int flen, const unsigned char *from,
+                                    unsigned char *to, RSA *rsa, int padding)
+{
+    int ret = 0;
+#ifdef ENABLE_QAT_HW_RSA
+    if (qat_hw_rsa_offload)
+        ret = qat_rsa_priv_dec(flen, from, to, rsa, padding);
+#endif
+
+#ifdef ENABLE_QAT_SW_RSA
+    if (qat_sw_rsa_offload)
+        ret = multibuff_rsa_priv_dec(flen, from, to, rsa, padding);
+#endif
+    return ret;
+}
+
 static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
                                 size_t *outlen, size_t outsize,
                                 const unsigned char *in, size_t inlen)
@@ -275,10 +358,10 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
             OPENSSL_free(tbuf);
             return 0;
         }
-        ret = qat_rsa_pub_enc(rsasize, tbuf, out, ctx->rsa, RSA_NO_PADDING);
+        ret = qat_rsa_public_encrypt(rsasize, tbuf, out, ctx->rsa, RSA_NO_PADDING);
         OPENSSL_free(tbuf);
     } else {
-        ret = qat_rsa_pub_enc(inlen, in, out, ctx->rsa, ctx->pad_mode);
+        ret = qat_rsa_public_encrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
     }
     if (ret < 0)
         return ret;
@@ -397,7 +480,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
             QATerr(ERR_LIB_PROV, QAT_R_MALLOC_FAILURE);
             return 0;
         }
-        ret = qat_rsa_priv_dec(inlen, in, tbuf, ctx->rsa, RSA_NO_PADDING);
+        ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa, RSA_NO_PADDING);
         /*
          * With no padding then, on success ret should be len, otherwise an
          * error occurred (non-constant time)
@@ -435,7 +518,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
         }
         OPENSSL_free(tbuf);
     } else {
-        ret = qat_rsa_priv_dec(inlen, in, out, ctx->rsa, ctx->pad_mode);
+        ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
     }
     *outlen =
         qat_constant_time_select_s(qat_constant_time_msb_s(ret), *outlen, ret);
