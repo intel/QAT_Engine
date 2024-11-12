@@ -306,19 +306,23 @@ static int pkt_threshold_table_size =
 # endif
 #endif /* QAT_BORINGSSL */
 
+#ifndef QAT_OPENSSL_PROVIDER
 static EC_KEY_METHOD *qat_ec_method = NULL;
 static RSA_METHOD *qat_rsa_method = NULL;
+#endif
 #ifdef QAT_BORINGSSL
 static RSA_METHOD  null_rsa_method = {.common={.is_static = 1}};
 static EC_KEY_METHOD null_ecdsa_method = {.common={.is_static = 1}};
 #endif /* QAT_BORINGSSL */
 
 #ifndef QAT_BORINGSSL
+# ifndef QAT_OPENSSL_PROVIDER
 static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
+static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
+# endif
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
 
-static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
 
@@ -500,6 +504,7 @@ void qat_free_digest_meth(void)
  * description:
  *   QAT engine digest operations register.
 ******************************************************************************/
+#ifndef QAT_OPENSSL_PROVIDER
 int qat_digest_methods(ENGINE *e, const EVP_MD **md,
                        const int **nids, int nid)
 {
@@ -526,6 +531,7 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
     *md = NULL;
     return 0;
 }
+#endif
 
 #ifdef QAT_OPENSSL_3
 /* The following 3 functions are only used for
@@ -562,20 +568,21 @@ int qat_ecx448_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 #endif
 
 #ifdef ENABLE_QAT_SW_ECX
+# ifndef QAT_OPENSSL_PROVIDER
 static void qat_ecx25519_pkey_methods(void)
 {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, multibuff_x25519_derive);
-# ifdef QAT_OPENSSL_3
+#  ifdef QAT_OPENSSL_3
         EVP_PKEY_meth_set_paramgen(_hidden_x25519_pmeth, qat_ecx_paramgen_init,
                                    qat_ecx25519_paramgen);
-# endif /* QAT_OPENSSL_3 */
-# ifndef QAT_OPENSSL_PROVIDER
+#  endif /* QAT_OPENSSL_3 */
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, multibuff_x25519_ctrl, NULL);
-# endif
 }
+# endif
 #endif
 
+# ifndef QAT_OPENSSL_PROVIDER
 EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 {
     if (_hidden_x25519_pmeth) {
@@ -599,30 +606,30 @@ EVP_PKEY_METHOD *qat_x25519_pmeth(void)
     }
 
 #ifdef ENABLE_QAT_HW_ECX
+# ifndef QAT_OPENSSL_PROVIDER
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519)) {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, qat_pkey_ecx25519_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x25519_pmeth, NULL, qat_pkey_ecx_derive25519);
-# ifdef QAT_OPENSSL_3
+#  ifdef QAT_OPENSSL_3
         EVP_PKEY_meth_set_paramgen(_hidden_x25519_pmeth, qat_ecx_paramgen_init,
                                    qat_ecx25519_paramgen);
-# endif /* QAT_OPENSSL_3 */
-# ifndef QAT_OPENSSL_PROVIDER
+#  endif /* QAT_OPENSSL_3 */
         EVP_PKEY_meth_set_ctrl(_hidden_x25519_pmeth, qat_pkey_ecx_ctrl, NULL);
-# endif
         qat_hw_ecx_offload = 1;
         DEBUG("QAT HW X25519 registration succeeded\n");
-# ifdef ENABLE_QAT_SW_ECX
+#  ifdef ENABLE_QAT_SW_ECX
         if (qat_sw_offload &&
             (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECX25519) &&
             mbx_get_algo_info(MBX_ALGO_X25519)) {
             qat_ecx_coexist = 1;
             DEBUG("QAT ECX25519 HW&SW Coexistence is enabled \n");
         }
-# endif
+#  endif
     } else {
         qat_hw_ecx_offload = 0;
         DEBUG("QAT HW X25519 is disabled\n");
     }
+# endif
 #endif
 
 #ifdef ENABLE_QAT_SW_ECX
@@ -679,20 +686,20 @@ EVP_PKEY_METHOD *qat_x448_pmeth(void)
     }
 
 #ifdef ENABLE_QAT_HW_ECX
+# ifndef QAT_OPENSSL_PROVIDER
     if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_ECX448)) {
         EVP_PKEY_meth_set_keygen(_hidden_x448_pmeth, NULL, qat_pkey_ecx448_keygen);
         EVP_PKEY_meth_set_derive(_hidden_x448_pmeth, NULL, qat_pkey_ecx_derive448);
-# ifdef QAT_OPENSSL_3
+#  ifdef QAT_OPENSSL_3
         EVP_PKEY_meth_set_paramgen(_hidden_x448_pmeth, qat_ecx_paramgen_init, qat_ecx448_paramgen);
-# endif /* QAT_OPENSSL_3 */
-# ifndef QAT_OPENSSL_PROVIDER
+#  endif /* QAT_OPENSSL_3 */
         EVP_PKEY_meth_set_ctrl(_hidden_x448_pmeth, qat_pkey_ecx_ctrl, NULL);
-# endif
         qat_hw_ecx_offload = 1;
         DEBUG("QAT HW ECDH X448 Registration succeeded\n");
     } else {
         qat_hw_ecx_offload = 0;
     }
+# endif
 #else
     qat_hw_ecx_offload = 0;
 #endif
@@ -787,6 +794,7 @@ int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
     *pmeth = NULL;
     return 0;
 }
+#endif
 
 const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid)
 {
@@ -1535,6 +1543,7 @@ void qat_free_ciphers(void)
 * description:
 *   Qat engine cipher operations registrar
 ******************************************************************************/
+# ifndef QAT_OPENSSL_PROVIDER
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
 {
     int i;
@@ -1566,8 +1575,10 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
     *cipher = NULL;
     return 0;
 }
+# endif
 #endif
 
+# ifndef QAT_OPENSSL_PROVIDER
 EC_KEY_METHOD *qat_get_EC_methods(void)
 {
     if (qat_ec_method != NULL && !qat_reload_algo)
@@ -1865,6 +1876,7 @@ void qat_free_RSA_methods(void)
         qat_rsa_coexist = 0;
     }
 }
+#endif
 
 #ifdef QAT_BORINGSSL
 EC_KEY_METHOD *bssl_get_default_EC_methods(void)

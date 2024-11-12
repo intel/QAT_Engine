@@ -109,20 +109,32 @@ extern const EVP_PKEY_METHOD *sw_x25519_pmeth;
 extern const EVP_PKEY_METHOD *sw_x448_pmeth;
 
 # ifdef ENABLE_QAT_HW_ECX
+#  ifndef QAT_OPENSSL_PROVIDER
 int qat_pkey_ecx25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
 int qat_pkey_ecx448_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
 int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
 int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
-#  ifndef QAT_OPENSSL_PROVIDER
 int qat_pkey_ecx_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
+#  else
+void *qat_pkey_ecx25519_keygen(void *ctx, OSSL_CALLBACK *osslcb, void *cbarg);
+void *qat_pkey_ecx448_keygen(void *ctx, OSSL_CALLBACK *osslcb, void *cbarg);
+int qat_pkey_ecx_derive25519(void *ctx, unsigned char *key, size_t *keylen,
+                             size_t outlen);
+int qat_pkey_ecx_derive448(void *ctx, unsigned char *key, size_t *keylen,
+                           size_t outlen);
 #  endif
 # endif
 
 # ifdef ENABLE_QAT_SW_ECX
+#  ifndef QAT_OPENSSL_PROVIDER
 int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey);
 int multibuff_x25519_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen);
-#  ifndef QAT_OPENSSL_PROVIDER
 int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
+#  else
+void* multibuff_x25519_keygen(void *ctx, OSSL_CALLBACK *osslcb,
+                              void *cbarg);
+int multibuff_x25519_derive(void *ctx, unsigned char *key,
+                            size_t *keylen, size_t outlen);
 #  endif
 # endif
 
