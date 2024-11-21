@@ -131,8 +131,8 @@ static chained_info info[] = {
 # ifdef QAT_INSECURE_ALGO
     {NID_aes_128_cbc_hmac_sha1, NULL, AES_KEY_SIZE_128},
     {NID_aes_256_cbc_hmac_sha1, NULL, AES_KEY_SIZE_256},
-# endif
     {NID_aes_128_cbc_hmac_sha256, NULL, AES_KEY_SIZE_128},
+# endif
     {NID_aes_256_cbc_hmac_sha256, NULL, AES_KEY_SIZE_256},
 #endif
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
@@ -154,8 +154,10 @@ static chained_info info[] = {
     {NID_sm4_ccm, NULL, SM4_KEY_SIZE},
 #endif
 #ifdef ENABLE_QAT_HW_CCM
+# ifdef QAT_INSECURE_ALGO
     {NID_aes_128_ccm, NULL, AES_KEY_SIZE_128},
     {NID_aes_192_ccm, NULL, AES_KEY_SIZE_192},
+# endif
     {NID_aes_256_ccm, NULL, AES_KEY_SIZE_256},
 #endif
 };
@@ -168,8 +170,8 @@ int qat_cipher_nids[] = {
 # ifdef QAT_INSECURE_ALGO
     NID_aes_128_cbc_hmac_sha1,
     NID_aes_256_cbc_hmac_sha1,
-# endif
     NID_aes_128_cbc_hmac_sha256,
+# endif
     NID_aes_256_cbc_hmac_sha256,
 #endif
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
@@ -190,8 +192,10 @@ int qat_cipher_nids[] = {
     NID_sm4_ccm,
 #endif
 #ifdef ENABLE_QAT_HW_CCM
+# ifdef QAT_INSECURE_ALGO
     NID_aes_128_ccm,
     NID_aes_192_ccm,
+# endif
     NID_aes_256_ccm,
 #endif
 };
@@ -265,9 +269,9 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
 #  ifdef QAT_INSECURE_ALGO
     {NID_aes_128_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_aes_256_cbc_hmac_sha1, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
-#  endif
     {NID_aes_128_cbc_hmac_sha256,
      CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+#  endif
     {NID_aes_256_cbc_hmac_sha256,
      CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
@@ -289,8 +293,10 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
     {NID_sm3, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_SM3},
 # endif
 # ifdef ENABLE_QAT_HW_CCM
+#  ifdef QAT_INSECURE_ALGO
     {NID_aes_128_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_aes_192_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
+#  endif
     {NID_aes_256_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
 };
@@ -1400,16 +1406,18 @@ void qat_create_ciphers(void)
 #  ifdef QAT_INSECURE_ALGO
             case NID_aes_128_cbc_hmac_sha1:
             case NID_aes_256_cbc_hmac_sha1:
-#  endif
             case NID_aes_128_cbc_hmac_sha256:
-            case NID_aes_256_cbc_hmac_sha256:
+#  endif
+	    case NID_aes_256_cbc_hmac_sha256:
                 info[i].cipher = (EVP_CIPHER *)
                     qat_create_cipher_meth(info[i].nid, info[i].keylen);
                 break;
 # endif
 # ifdef ENABLE_QAT_HW_CCM
+#  ifdef QAT_INSECURE_ALGO
             case NID_aes_128_ccm:
             case NID_aes_192_ccm:
+#  endif
             case NID_aes_256_ccm:
                 info[i].cipher = (EVP_CIPHER *)
                     qat_create_ccm_cipher_meth(info[i].nid, info[i].keylen);
@@ -1472,18 +1480,22 @@ void qat_free_ciphers(void)
 # ifdef QAT_INSECURE_ALGO
             case NID_aes_128_cbc_hmac_sha1:
             case NID_aes_256_cbc_hmac_sha1:
-# endif
             case NID_aes_128_cbc_hmac_sha256:
-            case NID_aes_256_cbc_hmac_sha256:
+# endif
+	    case NID_aes_256_cbc_hmac_sha256:
                 if (qat_hw_aes_cbc_hmac_sha_offload)
                     EVP_CIPHER_meth_free(info[i].cipher);
                 break;
 #endif
 #ifdef ENABLE_QAT_HW_CCM
+# ifdef QAT_INSECURE_ALGO
             case NID_aes_128_ccm:
+# endif
 #if defined(QAT20_OOT) || defined(QAT_HW_INTREE) \
     || defined(QAT_HW_FBSD_OOT) || defined(QAT_HW_FBSD_INTREE)
+# ifdef QAT_INSECURE_ALGO
             case NID_aes_192_ccm:
+# endif
             case NID_aes_256_ccm:
 #endif
                 if (qat_hw_aes_ccm_offload)
