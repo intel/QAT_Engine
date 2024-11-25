@@ -122,6 +122,16 @@ static void *qat_sm3_newctx(void *prov_ctc)
     return ctx;
 }
 
+# ifdef ENABLE_QAT_HW_SM3
+static void qat_sm3_free_sw_md_ctx(QAT_SM3_CTX *ctx)
+{
+    EVP_MD_CTX_free(ctx->sw_md_ctx);
+    EVP_MD_free(ctx->sw_md);
+    ctx->sw_md_ctx = NULL;
+    ctx->sw_md = NULL;
+}
+# endif
+
 static void qat_sm3_freectx(void *vctx)
 {
 # ifdef ENABLE_QAT_HW_SM3
@@ -129,12 +139,16 @@ static void qat_sm3_freectx(void *vctx)
     if (!qat_hw_sm3_cleanup(ctx)){
         WARN("qat sm3 ctx cleanup failed.\n");
     }
+
+    if ((qat_hw_sm3_offload) && (!qat_get_qat_offload_disabled())) {
 #  ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
-    EVP_MD_CTX_free(ctx->sw_md_ctx);
-    EVP_MD_free(ctx->sw_md);
-    ctx->sw_md_ctx = NULL;
-    ctx->sw_md = NULL;
+        qat_sm3_free_sw_md_ctx(ctx);
 #  endif
+    } else {
+        if (ctx->rcv_count == 0) {
+            qat_sm3_free_sw_md_ctx(ctx);
+	}
+    }
 # endif
 # ifdef ENABLE_QAT_SW_SM3
     QAT_SM3_CTX_mb *ctx = (QAT_SM3_CTX_mb *)vctx;
@@ -155,6 +169,11 @@ static void *qat_sm3_dupctx(void *ctx)
 # endif
     if (ret != NULL)
         *ret = *in;
+# ifdef ENABLE_QAT_HW_SM3
+    if ((!qat_hw_sm3_offload) || (qat_get_qat_offload_disabled())) {
+        ret->rcv_count = 1;
+    }
+# endif
     return ret;
 }
 

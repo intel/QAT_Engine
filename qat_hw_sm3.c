@@ -468,6 +468,25 @@ int qat_hw_sm3_init(EVP_MD_CTX *ctx)
         return sts;
     }
 # endif
+#else
+    if ((!qat_hw_sm3_offload) || (qat_get_qat_offload_disabled())) {
+        QAT_SM3_CTX *qat_sm3_ctx = (QAT_SM3_CTX *) ctx;
+        qat_sm3_ctx->sw_md_ctx = EVP_MD_CTX_new();
+        if (qat_sm3_ctx->sw_md_ctx == NULL) {
+            WARN("EVP_MD_CTX_new failed.\n");
+        }
+        qat_sm3_ctx->sw_md = EVP_MD_fetch(NULL, "sm3", "provider=default");
+        if (qat_sm3_ctx->sw_md == NULL) {
+            WARN("EVP_MD_fetch failed.\n");
+        }
+        if (!EVP_DigestInit_ex(qat_sm3_ctx->sw_md_ctx,
+                                qat_sm3_ctx->sw_md, NULL)) {
+            WARN("Software calculate failed \n");
+            return 0;
+        }
+        DEBUG("SW Init Finished %p\n", qat_sm3_ctx);
+        return 1;
+    }
 #endif
     return 1;
 }
@@ -514,13 +533,6 @@ int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         QATerr(QAT_F_QAT_HW_SM3_UPDATE, QAT_R_INVALID_INPUT);
         return 0;
     }
-
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-    if (qat_openssl3_sm3_fallback == 1) {
-        DEBUG("- Switched to software mode\n");
-        goto fallback;
-    }
-# endif
 #ifdef QAT_OPENSSL_PROVIDER
     qat_sm3_ctx = (QAT_SM3_CTX *)ctx;
 #else
@@ -532,6 +544,10 @@ int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         return 0;
     }
 
+    if ((qat_openssl3_sm3_fallback == 1) || (!qat_hw_sm3_offload) || (qat_get_qat_offload_disabled())) {
+        DEBUG("- Switched to software mode\n");
+        goto fallback;
+    }
     qat_sm3_ctx->rcv_count += len;
     DUMPL("sm3 hw update receive", in, len);
 
@@ -599,12 +615,19 @@ int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 #endif
     return 1;
 
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 fallback:
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     sw_fn_ptr = EVP_MD_meth_get_update((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, in, len);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
+# else
+    if (!EVP_DigestUpdate(qat_sm3_ctx->sw_md_ctx, in, len)) {
+        WARN("Software calculate failed \n");
+        return 0;
+    }
+    DEBUG("SW Update Finished %p\n", qat_sm3_ctx);
+    return 1;
 # endif
 }
 
@@ -676,14 +699,6 @@ int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
         QATerr(QAT_F_QAT_HW_SM3_FINAL, QAT_R_INPUT_PARAM_INVALID);
         return 0;
     }
-
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-    if (qat_openssl3_sm3_fallback == 1) {
-        DEBUG("- Switched to software mode\n");
-        goto fallback;
-    }
-# endif
-
 #ifdef QAT_OPENSSL_PROVIDER
     qat_sm3_ctx = (QAT_SM3_CTX *)ctx;
 #else
@@ -694,6 +709,12 @@ int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
         QATerr(QAT_F_QAT_HW_SM3_FINAL, QAT_R_CTX_NULL);
         return 0;
     }
+
+    if ((qat_openssl3_sm3_fallback == 1) || (!qat_hw_sm3_offload) || (qat_get_qat_offload_disabled())) {
+        DEBUG("- Switched to software mode\n");
+        goto fallback;
+    }
+
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (qat_sm3_ctx->rcv_count <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_SM3) {
         /* Software calculation can start from init, because SPO threshold will
@@ -748,12 +769,19 @@ int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
 
     return 1;
 
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
 fallback:
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     sw_fn_ptr = EVP_MD_meth_get_final((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, md);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
+# else
+    if (!EVP_DigestFinal_ex(qat_sm3_ctx->sw_md_ctx, md, NULL)) {
+        WARN("Software calculate failed \n");
+        return 0;
+    }
+    DEBUG("SW Final Finished %p\n", qat_sm3_ctx);
+    return 1;
 # endif
 }
 

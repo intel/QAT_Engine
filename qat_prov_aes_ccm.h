@@ -234,9 +234,9 @@ void qat_aes_ccm_init_ctx(void *provctx, QAT_PROV_CCM_CTX * ctx, size_t keybits,
 int qat_aes_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[]);
 int qat_aes_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[]);
 int qat_aes_ccm_einit(void *ctx, const unsigned char *inkey, size_t keylen,
-                      const unsigned char *iv, size_t ivlen, int enc);
+                      const unsigned char *iv, size_t ivlen, const OSSL_PARAM params[]);
 int qat_aes_ccm_dinit(void *ctx, const unsigned char *inkey, size_t keylen,
-                      const unsigned char *iv, size_t ivlen, int enc);
+                      const unsigned char *iv, size_t ivlen, const OSSL_PARAM params[]);
 int qat_aes_ccm_stream_update(void *ctx, unsigned char *out,
                               size_t *outl, size_t outsize,
                               const unsigned char *in, size_t inl);

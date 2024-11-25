@@ -112,6 +112,37 @@ QAT_EVP_CIPHER get_default_cipher_aes_ccm(int nid)
     return ccm_cipher;
 }
 
+static int qat_aes_ccm_tls_init(QAT_PROV_CCM_CTX *ctx, unsigned char *aad, size_t alen)
+{
+    size_t len;
+
+    if (!qat_prov_is_running() || alen != EVP_AEAD_TLS1_AAD_LEN)
+        return 0;
+
+    /* Save the aad for later use. */
+    memcpy(ctx->buf, aad, alen);
+    ctx->tls_aad_len = alen;
+
+    len = ctx->buf[alen - 2] << 8 | ctx->buf[alen - 1];
+    if (len < EVP_CCM_TLS_EXPLICIT_IV_LEN)
+        return 0;
+
+    /* Correct length for explicit iv. */
+    len -= EVP_CCM_TLS_EXPLICIT_IV_LEN;
+
+    if (!ctx->enc) {
+        if (len < ctx->M)
+            return 0;
+        /* Correct length for tag. */
+        len -= ctx->M;
+    }
+    ctx->buf[alen - 2] = (unsigned char)(len >> 8);
+    ctx->buf[alen - 1] = (unsigned char)(len & 0xff);
+
+    /* Extra padding: tag appended to record. */
+    return ctx->M;
+}
+
 static void *qat_aes_ccm_newctx(void *provctx, size_t keybits, int nid)
 {
     QAT_PROV_AES_CCM_CTX *ctx = NULL;
@@ -139,10 +170,12 @@ size_t qat_aes_ccm_get_ivlen(QAT_PROV_CCM_CTX * ctx)
     return QAT_AES_CCM_OP_VALUE - ctx->L;
 }
 
-int qat_aes_ccm_einit(void *ctx, const unsigned char *inkey, size_t keylen,
-                      const unsigned char *iv, size_t ivlen, int enc)
+int qat_aes_ccm_einit(void *vctx, const unsigned char *inkey, size_t keylen,
+                      const unsigned char *iv, size_t ivlen, const OSSL_PARAM param[])
 {
     int sts = 0;
+    QAT_PROV_CCM_CTX *ctx = (QAT_PROV_CCM_CTX *) vctx;
+    ctx->enc = 1;
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
     QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
@@ -162,16 +195,23 @@ int qat_aes_ccm_einit(void *ctx, const unsigned char *inkey, size_t keylen,
         return sts;
     }
 # endif
-    if (qat_hw_aes_ccm_offload)
+    if (qat_hw_aes_ccm_offload) {
         sts = qat_aes_ccm_init(ctx, inkey, keylen, iv, ivlen, 1);
+        if (sts != 1) {
+            QATerr(ERR_LIB_PROV, QAT_R_EINIT_OPERATION_FAILED);
+            return sts;
+        }
+    }
 
-    return sts;
+    return qat_aes_ccm_set_ctx_params(ctx, param);
 }
 
-int qat_aes_ccm_dinit(void *ctx, const unsigned char *inkey, size_t keylen,
-                      const unsigned char *iv, size_t ivlen, int enc)
+int qat_aes_ccm_dinit(void *vctx, const unsigned char *inkey, size_t keylen,
+                      const unsigned char *iv, size_t ivlen, const OSSL_PARAM param[])
 {
     int sts = 0;
+    QAT_PROV_CCM_CTX *ctx = (QAT_PROV_CCM_CTX *) vctx;
+    ctx->enc = 0;
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
     QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
@@ -192,10 +232,15 @@ int qat_aes_ccm_dinit(void *ctx, const unsigned char *inkey, size_t keylen,
         return sts;
     }
 # endif
-    if (qat_hw_aes_ccm_offload)
+    if (qat_hw_aes_ccm_offload) {
         sts = qat_aes_ccm_init(ctx, inkey, keylen, iv, ivlen, 0);
+        if (sts != 1) {
+            QATerr(ERR_LIB_PROV, QAT_R_DINIT_OPERATION_FAILED);
+            return sts;
+        }
+    }
 
-    return sts;
+    return qat_aes_ccm_set_ctx_params(ctx, param);
 }
 
 int qat_aes_ccm_stream_update(void *vctx, unsigned char *out,
@@ -239,7 +284,10 @@ int qat_aes_ccm_stream_update(void *vctx, unsigned char *out,
             return 0;
         }
     }
-
+    else {
+        /* Set *outl to NULL when offload is disabled to avoid garbage values and prevent errors. */
+        *outl = 0;
+    }
     return 1;
 
 }
@@ -269,11 +317,12 @@ int qat_aes_ccm_stream_final(void *vctx, unsigned char *out,
     }
 # endif
 
-    if (qat_hw_aes_ccm_offload)
+    if (qat_hw_aes_ccm_offload) {
         i = qat_aes_ccm_cipher(ctx, out, outl, outsize, NULL, 0);
 
-    if (i <= 0)
-        return 0;
+        if (i <= 0)
+            return 0;
+    }
 
     *outl = 0;
     return 1;
@@ -486,6 +535,8 @@ int qat_aes_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
         if (qat_hw_aes_ccm_offload)
             sz = qat_aes_ccm_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size,
                                   p->data);
+	else
+	    sz = qat_aes_ccm_tls_init(ctx, p->data, p->data_size);
 
         if (sz == 0) {
             QATerr(ERR_LIB_PROV, QAT_R_INVALID_DATA);
