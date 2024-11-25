@@ -182,9 +182,9 @@ int fallback_to_openssl = 0;
 int qat_openssl3_prf_fallback = 0;
 int qat_openssl3_hkdf_fallback = 0;
 int qat_openssl3_sm2_fallback = 0;
-int qat_openssl3_sm3_fallback = 0;
 int qat_openssl3_sha_fallback = 0;
 #endif
+int qat_openssl3_sm3_fallback = 0;
 int fallback_to_qat_sw = 0; /* QAT HW initialize fail, offload to QAT SW. */
 int qat_hw_offload = 0;
 int qat_sw_offload = 0;
@@ -1379,7 +1379,7 @@ int bind_qat(ENGINE *e, const char *id)
         INFO("QAT_SW SM3 for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_CCM
-        qat_hw_aes_ccm_offload = 1;
+    if (qat_hw_aes_ccm_offload)
         INFO("QAT_HW AES-CCM for Provider Enabled\n");
 # endif
 #endif

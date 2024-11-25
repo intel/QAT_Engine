@@ -1599,6 +1599,12 @@ int qat_aes_ccm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         return RET_FAIL;
     }
 
+    if (qat_get_qat_offload_disabled()) {
+	DEBUG("- Switched to software mode\n");
+        fallback = 1;
+	goto end;
+    }
+
     DEBUG("enc = %d - ctx = %p, out = %p, in = %p, len = %zu\n",
           enc, (void *)ctx, (void *)out, (void *)in, len);
 
