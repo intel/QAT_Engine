@@ -852,7 +852,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
             if (sts != CPA_STATUS_SUCCESS) {
                 WARN("cpaCySymInitSession failed! Status = %d\n", sts);
                 if (fallback &&
-                    ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL))) {
+                    ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL) || (sts == CPA_STATUS_UNSUPPORTED))) {
                     CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
                                    qctx->inst_num,
                                    qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
@@ -1246,7 +1246,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         if (sts != CPA_STATUS_SUCCESS) {
             WARN("cpaCySymInitSession failed! Status = %d\n", sts);
             if (qat_get_sw_fallback_enabled() &&
-                ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL))) {
+                ((sts == CPA_STATUS_RESTARTING) || (sts == CPA_STATUS_FAIL) || (sts == CPA_STATUS_UNSUPPORTED))) {
                 CRYPTO_QAT_LOG("Failed to submit request to qat inst_num %d device_id %d - fallback to SW - %s\n",
                                qctx->inst_num,
                                qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,

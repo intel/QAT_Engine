@@ -91,6 +91,7 @@ struct test_params_t {
     ASYNC_WAIT_CTX **awcs;
     void *additional_args;
     int q_size;
+    int sw_fallback;
 };
 typedef struct test_params_t TEST_PARAMS;
 

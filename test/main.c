@@ -1395,6 +1395,7 @@ static void functional_test(void)
     args.async_jobs = async_jobs;
     args.prf_op = prf_op;
     args.hkdf_op = hkdf_op;
+    args.sw_fallback = sw_fallback;
     args.jobs = OPENSSL_malloc(sizeof(ASYNC_JOB*)*async_jobs);
     if (args.jobs == NULL) {
         WARN("# FAIL: Unable to allocate args.jobs\n");
