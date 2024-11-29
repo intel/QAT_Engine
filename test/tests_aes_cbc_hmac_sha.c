@@ -134,6 +134,7 @@ typedef struct _test_info_ {
     ENGINE *e;
     chained_alg_info *c;
     tls_v *tls;
+    int sw_fallback;
 } test_info;
 
 /* get_alg_info:
@@ -1185,11 +1186,13 @@ static int run_aes_cbc_hmac_sha(void *pointer)
                   (test_auth_header(&ti, USE_ENGINE) != 1) ||
                   (test_auth_pkt(&ti, USE_ENGINE) != 1) ||
                   (test_multi_op(&ti) != 1) ||
-                  (test_pipeline_setup(&ti) != 1) ||
                   (test_small_pkt_offload(&ti) != 1)
                  )
                 )
-               ) {
+               )
+                 if (!args->sw_fallback)
+                    if ((ti.e != NULL) && (test_pipeline_setup(&ti) != 1))
+	       {
 #endif
                 ret = 0;
                 break;
