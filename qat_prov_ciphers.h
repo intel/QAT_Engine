@@ -150,7 +150,6 @@ typedef struct qat_gcm_ctx_st {
     unsigned int   tls_aad_set;
     unsigned char* tag;
     unsigned char* calculated_tag;
-    unsigned int   tag_set;
     unsigned int   tag_calculated;
 #endif
 #ifdef ENABLE_QAT_HW_GCM
@@ -191,15 +190,15 @@ typedef struct qat_gcm_ctx_st {
     int key_set;
 
     int qat_svm;
-    EVP_CIPHER_CTX *sw_ctx;
     int fallback;
-    int sw_tls_ctrl;
-    int tag_set;
 #endif
+    EVP_CIPHER_CTX *sw_ctx;
+    int sw_tls_ctrl;
     int            tls_aad_len;
     int            tag_len;
     int            iv_len;
     unsigned int   iv_set;
+    unsigned int   tag_set;
     int            iv_gen;
     unsigned char* next_iv;
     unsigned char* iv;
@@ -232,7 +231,7 @@ typedef struct qat_aes_gcm_ctx_st {
     QAT_EVP_CIPHER *cipher;
 }QAT_AES_GCM_CTX;
 
-int QAT_AES_GCM_CTX_get_nid(const QAT_AES_GCM_CTX *ctx);
+int qat_aes_gcm_ctx_get_nid(const QAT_AES_GCM_CTX *ctx);
 void qat_gcm_initctx(void *provctx, QAT_GCM_CTX *ctx, size_t keybits,
                      size_t ivlen_min);
 int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[]);

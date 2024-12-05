@@ -95,10 +95,8 @@ extern const OSSL_DISPATCH qat_aes192gcm_functions[];
 extern const OSSL_DISPATCH qat_aes256gcm_functions[];
 #endif
 #ifdef ENABLE_QAT_HW_CCM
-# ifdef QAT_INSECURE_ALGO
 extern const OSSL_DISPATCH qat_aes128ccm_functions[];
 extern const OSSL_DISPATCH qat_aes192ccm_functions[];
-# endif
 extern const OSSL_DISPATCH qat_aes256ccm_functions[];
 #endif
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
@@ -113,8 +111,8 @@ extern const OSSL_DISPATCH qat_dh_keyexch_functions[];
 # ifdef QAT_INSECURE_ALGO
 extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha1_functions[];
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha1_functions[];
-extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha256_functions[];
 # endif
+extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha256_functions[];
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha256_functions[];
 #endif /* ENABLE_QAT_HW_CIPHERS */
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
@@ -223,18 +221,16 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
     ALG(QAT_NAMES_AES_192_GCM, qat_aes192gcm_functions),
 #endif
 #ifdef ENABLE_QAT_HW_CCM
-# ifdef QAT_INSECURE_ALGO
     ALG(QAT_NAMES_AES_128_CCM, qat_aes128ccm_functions),
     ALG(QAT_NAMES_AES_192_CCM, qat_aes192ccm_functions),
-# endif
     ALG(QAT_NAMES_AES_256_CCM, qat_aes256ccm_functions),
 #endif
 #if defined(ENABLE_QAT_HW_CIPHERS) && !defined(ENABLE_QAT_FIPS)
 # ifdef QAT_INSECURE_ALGO
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA1, qat_aes128cbc_hmac_sha1_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA1, qat_aes256cbc_hmac_sha1_functions),
-    ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA256, qat_aes128cbc_hmac_sha256_functions),
 # endif
+    ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA256, qat_aes128cbc_hmac_sha256_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA256, qat_aes256cbc_hmac_sha256_functions),
 #endif
 # ifdef ENABLE_QAT_HW_CHACHAPOLY

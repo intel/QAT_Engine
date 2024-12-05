@@ -13,13 +13,13 @@ and also from the latest versions from the links below.
 ## QAT_HW Drivers:
 * [Intel® QuickAssist Technology Driver for Linux\* HW Version 2.0][4] - **QAT20.L.1.1.50-00003**
 * [Intel® QuickAssist Technology Driver for Linux\* HW Version 1.x][5] - **QAT.L.4.26.0-00008**
-* [Intel® QuickAssist Technology Driver for FreeBSD\* HW Version 1.x and 2.0] - **QAT.B.3.14.31-00003** (FreeBSD 13.2)
+* Intel® QuickAssist Technology Driver for FreeBSD\* HW Version 1.x and 2.0 - **QAT.B.3.14.31-00003** (FreeBSD 13.2)
 * [Intel® QATlib for Linux with intree driver][7] - **QATlib 24.09.0** & **QATlib 24.02.0** (for Dockerfile only)
 * [Intel®  QATlib for FreeBSD with intree driver(FreeBSD 14)][8] - **FreeBSD QATlib 23.09.0** (FreeBSD 14)
 
 ## QAT_SW Libraries:
-* [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto 2021.12.1** & **IPP Crypto 2021.10** (for BoringSSL only)
-* [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v1.5**
+* [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto v1.0.0** & **IPP Crypto 2021.10** (for BoringSSL only)
+* [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v2.0**
 
 ## Crypto Libraries:
 * [OpenSSL\*][9] 1.1.1w (for FreeBSD only) & 3.0.15

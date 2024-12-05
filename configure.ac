@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [1.7.0], [])
+AC_INIT([qatengine], [1.8.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -292,7 +292,7 @@ AC_SUBST(enable_qat_ntls)
 
 AC_ARG_ENABLE(qat_insecure_algorithms,
               AS_HELP_STRING([--enable-qat_insecure_algorithms],
-                             [Enable insecure algorithms (DSA, DH, SHA1, SHA3-224, EC <256 & RSA<2048]))
+                             [Enable insecure algorithms (DSA, DH, SHA1, SHA3-224, EC <256 & RSA<2048, AES-128-GCM, AES-128-CCM, AES-192-GCM & AES-128-CBC-HMAC-SHA256]))
 AC_SUBST(enable_qat_insecure_algorithms)
 
 AC_ARG_ENABLE(qat_hw_kpt,

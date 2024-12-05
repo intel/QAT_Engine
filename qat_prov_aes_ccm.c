@@ -179,21 +179,18 @@ int qat_aes_ccm_einit(void *vctx, const unsigned char *inkey, size_t keylen,
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
     QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
-    OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
-    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(qctx->nid);
-
-    if (qctx->nid == NID_aes_192_ccm || qctx->nid == NID_aes_256_ccm) {
-        if (!qctx->sw_ctx)
-            qctx->sw_ctx = sw_aes_ccm_cipher.newctx(ctx);
-
-        sts =
-            sw_aes_ccm_cipher.einit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
-                                    params);
-        if (sts != 1)
-            return 0;
-
-        return sts;
-    }
+#  ifdef QAT_INSECURE_ALGO
+    if (qctx->nid != NID_aes_128_ccm)
+        goto end;
+#  else
+    goto end;
+#  endif
+# else
+#  ifndef QAT_INSECURE_ALGO
+    QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
+    if (qctx->nid != NID_aes_256_ccm)
+        goto end;
+#  endif
 # endif
     if (qat_hw_aes_ccm_offload) {
         sts = qat_aes_ccm_init(ctx, inkey, keylen, iv, ivlen, 1);
@@ -204,6 +201,17 @@ int qat_aes_ccm_einit(void *vctx, const unsigned char *inkey, size_t keylen,
     }
 
     return qat_aes_ccm_set_ctx_params(ctx, param);
+# if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE) \
+     && defined(QAT_INSECURE_ALGO)) || !defined(QAT_INSECURE_ALGO)
+end:
+    OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(qctx->nid);
+    if (qctx->sw_ctx || (qctx->sw_ctx = sw_aes_ccm_cipher.newctx(ctx)))
+        return sw_aes_ccm_cipher.einit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+			                             params);
+    return 0;
+#endif
 }
 
 int qat_aes_ccm_dinit(void *vctx, const unsigned char *inkey, size_t keylen,
@@ -215,22 +223,18 @@ int qat_aes_ccm_dinit(void *vctx, const unsigned char *inkey, size_t keylen,
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
     QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
-    OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
-    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(qctx->nid);
-    if (qctx->nid == NID_aes_192_ccm || qctx->nid == NID_aes_256_ccm) {
-        if (!qctx->sw_ctx)
-            qctx->sw_ctx = sw_aes_ccm_cipher.newctx(ctx);
-
-        unsigned int pad = 0;
-        params[0] = OSSL_PARAM_construct_uint(OSSL_CIPHER_PARAM_PADDING, &pad);
-        sts =
-            sw_aes_ccm_cipher.dinit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
-                                    params);
-        if (sts != 1)
-            return 0;
-
-        return sts;
-    }
+#  ifdef QAT_INSECURE_ALGO
+    if (qctx->nid != NID_aes_128_ccm)
+        goto end;
+#  else
+    goto end;
+#  endif
+# else
+#  ifndef QAT_INSECURE_ALGO
+    QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
+    if (qctx->nid != NID_aes_256_ccm)
+        goto end;
+#  endif
 # endif
     if (qat_hw_aes_ccm_offload) {
         sts = qat_aes_ccm_init(ctx, inkey, keylen, iv, ivlen, 0);
@@ -241,6 +245,24 @@ int qat_aes_ccm_dinit(void *vctx, const unsigned char *inkey, size_t keylen,
     }
 
     return qat_aes_ccm_set_ctx_params(ctx, param);
+# if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE) \
+     && defined(QAT_INSECURE_ALGO)) || !defined(QAT_INSECURE_ALGO)
+end:
+    OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(qctx->nid);
+    if (!qctx->sw_ctx)
+         qctx->sw_ctx = sw_aes_ccm_cipher.newctx(ctx);
+    unsigned int pad = 0;
+    params[0] = OSSL_PARAM_construct_uint(OSSL_CIPHER_PARAM_PADDING, &pad);
+    sts =
+            sw_aes_ccm_cipher.dinit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+                                    params);
+    if (sts != 1)
+            return 0;
+
+    return sts;
+#endif
 }
 
 int qat_aes_ccm_stream_update(void *vctx, unsigned char *out,
@@ -248,10 +270,6 @@ int qat_aes_ccm_stream_update(void *vctx, unsigned char *out,
                               const unsigned char *in, size_t inl)
 {
     QAT_PROV_CCM_CTX *ctx = (QAT_PROV_CCM_CTX *) vctx;
-# if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
-     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    QAT_EVP_CIPHER sw_aes_ccm_cipher;
-# endif
 
     if (inl == 0) {
         *outl = 0;
@@ -264,18 +282,17 @@ int qat_aes_ccm_stream_update(void *vctx, unsigned char *out,
     }
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    if (ctx->nid == NID_aes_192_ccm || ctx->nid == NID_aes_256_ccm) {
-        sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->nid);
-        if (sw_aes_ccm_cipher.cupdate == NULL)
-            return 0;
-
-        if (sw_aes_ccm_cipher.cupdate(ctx->sw_ctx, out, outl,
-                                             outsize, in, inl) <= 0) {
-            return 0;
-        }
-
-        return 1;
-    }
+#  ifdef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_128_ccm)
+        goto end;
+#  else
+    goto end;
+#  endif
+# else
+#  ifndef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_256_ccm)
+        goto end;
+#  endif
 # endif
 
     if (qat_hw_aes_ccm_offload) {
@@ -289,7 +306,19 @@ int qat_aes_ccm_stream_update(void *vctx, unsigned char *out,
         *outl = 0;
     }
     return 1;
+# if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE) \
+     && defined(QAT_INSECURE_ALGO)) || !defined(QAT_INSECURE_ALGO)
+end:
+    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->nid);
+    if (sw_aes_ccm_cipher.cupdate == NULL)
+        return 0;
+    if (sw_aes_ccm_cipher.cupdate(ctx->sw_ctx, out,
+                            outl, outsize, in, inl) <= 0)
+        return 0;
 
+    return 1;
+#endif
 }
 
 int qat_aes_ccm_stream_final(void *vctx, unsigned char *out,
@@ -297,24 +326,23 @@ int qat_aes_ccm_stream_final(void *vctx, unsigned char *out,
 {
     int i = 0;
     QAT_PROV_CCM_CTX *ctx = (QAT_PROV_CCM_CTX *) vctx;
-# if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
-     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    QAT_EVP_CIPHER sw_aes_ccm_cipher;
-# endif
 
     if (!qat_prov_is_running())
         return 0;
 
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    if (ctx->nid == NID_aes_192_ccm || ctx->nid == NID_aes_256_ccm) {
-        sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->nid);
-        if (sw_aes_ccm_cipher.cfinal == NULL)
-            return 0;
-        i = sw_aes_ccm_cipher.cfinal(ctx->sw_ctx, out, outl, outsize);
-        *outl = 0;
-        return 1;
-    }
+#  ifdef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_128_ccm)
+        goto end;
+#  else
+    goto end;
+#  endif
+# else
+#  ifndef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_256_ccm)
+        goto end;
+#  endif
 # endif
 
     if (qat_hw_aes_ccm_offload) {
@@ -326,6 +354,17 @@ int qat_aes_ccm_stream_final(void *vctx, unsigned char *out,
 
     *outl = 0;
     return 1;
+# if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE) \
+     && defined(QAT_INSECURE_ALGO)) || !defined(QAT_INSECURE_ALGO)
+end:
+    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->nid);
+    if (sw_aes_ccm_cipher.cfinal == NULL)
+        return 0;
+    i = sw_aes_ccm_cipher.cfinal(ctx->sw_ctx, out, outl, outsize);
+    *outl = 0;
+    return 1;
+#endif
 }
 
 int qat_aes_ccm_do_cipher(void *vctx, unsigned char *out,
@@ -333,10 +372,6 @@ int qat_aes_ccm_do_cipher(void *vctx, unsigned char *out,
                           const unsigned char *in, size_t inl)
 {
     QAT_PROV_CCM_CTX *ctx = (QAT_PROV_CCM_CTX *) vctx;
-# if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
-     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    QAT_EVP_CIPHER sw_aes_ccm_cipher;
-# endif
 
     if (!qat_prov_is_running())
         return 0;
@@ -347,18 +382,17 @@ int qat_aes_ccm_do_cipher(void *vctx, unsigned char *out,
     }
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    if (ctx->nid == NID_aes_192_ccm || ctx->nid == NID_aes_256_ccm) {
-        sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->nid);
-        if (sw_aes_ccm_cipher.cupdate == NULL)
-            return 0;
-
-        if (sw_aes_ccm_cipher.cupdate(ctx->sw_ctx, out, outl,
-                                             outsize, in, inl) <= 0) {
-            return 0;
-        }
-
-        return 1;
-    }
+#  ifdef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_128_ccm)
+        goto end;
+#  else
+    goto end;
+#  endif
+# else
+#  ifndef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_256_ccm)
+        goto end;
+#  endif
 # endif
     if (qat_hw_aes_ccm_offload) {
         if (qat_aes_ccm_cipher(ctx, out, outl, outsize, in, inl) <= 0) {
@@ -368,6 +402,18 @@ int qat_aes_ccm_do_cipher(void *vctx, unsigned char *out,
 
     *outl = inl;
     return 1;
+# if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE) \
+     && defined(QAT_INSECURE_ALGO)) || !defined(QAT_INSECURE_ALGO)
+end:
+    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->nid);
+    if (sw_aes_ccm_cipher.cupdate == NULL)
+        return 0;
+    if (sw_aes_ccm_cipher.cupdate(ctx->sw_ctx, out, outl,
+                                          outsize, in, inl) <= 0)
+        return 0;
+    return 1;
+#endif
 }
 
 int qat_aes_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[])
@@ -377,13 +423,17 @@ int qat_aes_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[])
 
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    if (ctx->nid == NID_aes_192_ccm || ctx->nid == NID_aes_256_ccm) {
-        if (ctx->sw_ctx) {
-            QAT_EVP_CIPHER sw_aes_ccm_cipher =
-                get_default_cipher_aes_ccm(ctx->nid);
-            return sw_aes_ccm_cipher.get_ctx_params(ctx->sw_ctx, params);
-        }
-    }
+#  ifdef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_128_ccm)
+        goto end;
+#  else
+    goto end;
+#  endif
+# else
+#  ifndef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_256_ccm)
+        goto end;
+#  endif
 # endif
 
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
@@ -463,6 +513,15 @@ int qat_aes_ccm_get_ctx_params(void *vctx, OSSL_PARAM params[])
         sw_aes_ccm_cipher.get_ctx_params(ctx->sw_ctx, params);
     }
     return 1;
+# if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE) \
+     && defined(QAT_INSECURE_ALGO)) || !defined(QAT_INSECURE_ALGO)
+end:
+    QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->nid);
+    if (ctx->sw_ctx || (ctx->sw_ctx = sw_aes_ccm_cipher.newctx(ctx)))
+        return sw_aes_ccm_cipher.get_ctx_params(ctx->sw_ctx, params);
+    return 0;
+#endif
 }
 
 int qat_aes_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
@@ -476,13 +535,17 @@ int qat_aes_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 
 # if !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
      && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE)
-    if (ctx->nid == NID_aes_192_ccm || ctx->nid == NID_aes_256_ccm) {
-        if (ctx->sw_ctx) {
-            QAT_EVP_CIPHER sw_aes_ccm_cipher =
-                get_default_cipher_aes_ccm(ctx->nid);
-            return sw_aes_ccm_cipher.set_ctx_params(ctx->sw_ctx, params);
-        }
-    }
+#  ifdef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_128_ccm)
+        goto end;
+#  else
+    goto end;
+#  endif
+# else
+#  ifndef QAT_INSECURE_ALGO
+    if (ctx->nid != NID_aes_256_ccm)
+        goto end;
+#  endif
 # endif
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TAG);
     if (p != NULL) {
@@ -565,6 +628,17 @@ int qat_aes_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
         sw_aes_ccm_cipher.set_ctx_params(ctx->sw_ctx, params);
     }
     return 1;
+# if (!defined(QAT20_OOT) && !defined(QAT_HW_INTREE) \
+     && !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE) \
+     && defined(QAT_INSECURE_ALGO)) || !defined(QAT_INSECURE_ALGO)
+end:
+    if (ctx->sw_ctx) {
+        QAT_EVP_CIPHER sw_aes_ccm_cipher =
+              get_default_cipher_aes_ccm(ctx->nid);
+        return sw_aes_ccm_cipher.set_ctx_params(ctx->sw_ctx, params);
+    }
+    return 0;
+#endif
 }
 
 int qat_aes_ccm_generic_get_params(OSSL_PARAM params[], unsigned int md,

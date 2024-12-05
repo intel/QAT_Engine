@@ -775,11 +775,6 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
 }
 
 #ifdef QAT_OPENSSL_PROVIDER
-int QAT_AES_GCM_CTX_get_nid(const QAT_AES_GCM_CTX *ctx)
-{
-    return ctx->cipher->nid;
-}
-
 int QAT_AES_CIPHER_CTX_encrypting(QAT_GCM_CTX *qctx)
 {
     return qctx->enc;
@@ -859,7 +854,7 @@ int aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx,
     }
 #endif
 #ifdef QAT_OPENSSL_PROVIDER
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
 #else
     nid = EVP_CIPHER_CTX_nid(ctx);
 #endif
@@ -1000,7 +995,7 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
     }
 #ifdef QAT_OPENSSL_PROVIDER
     enc = QAT_AES_CIPHER_CTX_encrypting(qctx);
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)qctx);
+    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)qctx);
 #else
     enc = EVP_CIPHER_CTX_encrypting(ctx);
     nid = EVP_CIPHER_CTX_nid(ctx);
@@ -1182,7 +1177,7 @@ int vaesgcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char* inkey)
         return 0;
     }
 #ifdef QAT_OPENSSL_PROVIDER
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
 #else
     nid = EVP_CIPHER_CTX_nid(ctx);
 #endif
@@ -1246,7 +1241,7 @@ int vaesgcm_init_gcm(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 #ifdef QAT_OPENSSL_PROVIDER
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
 #else
     nid = EVP_CIPHER_CTX_nid(ctx);
 #endif

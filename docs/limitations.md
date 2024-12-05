@@ -81,6 +81,8 @@
   not accelerated in OpenSSL 3.0 engine due to the issue [OpenSSL#21622](https://github.com/openssl/openssl/issues/21622)
 * Known issue in Co-existence mode with QAT provider on OpenSSL 3.2 and above during QAT_SW offload
   when QAT_HW modules are not present.
+* Known build issue with the latest commit of BoringSSL; hence, IPP Crypto 2021.10 should be used
+  for the QAT engine with BoringSSL (use the BoringSSL commit mentioned in the Software requirements section).
 ### Performance
 * There is known performance scaling issue (performance drop with threads >32)
   with ECDSA Ciphers in the QAT Software acceleration using multithread mode

@@ -291,7 +291,7 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
     qctx->iv = (Cpa8U *)qctx->iv;
     qctx->next_iv = (Cpa8U *)qctx->next_iv;
     qctx->enc = enc;
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
 #endif
@@ -1253,7 +1253,7 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifdef QAT_OPENSSL_PROVIDER
     qctx = (QAT_GCM_CTX *)ctx;
     qctx->iv = (Cpa8U *)qctx->iv;
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
 #endif
@@ -1635,7 +1635,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifdef QAT_OPENSSL_PROVIDER
     qctx = (QAT_GCM_CTX *)ctx;
     qctx->iv = (Cpa8U *)qctx->iv;
-    nid = QAT_AES_GCM_CTX_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
 #endif
