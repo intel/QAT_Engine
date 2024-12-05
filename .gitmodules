@@ -7,3 +7,6 @@
 [submodule "cryptography-primitives"]
 	path = cryptography-primitives
 	url = https://github.com/intel/cryptography-primitives
+[submodule "haproxy"]
+	path = dockerfiles/haproxy/haproxy
+	url =  https://github.com/haproxy/haproxy
