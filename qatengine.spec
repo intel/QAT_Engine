@@ -13,7 +13,7 @@
 %endif
 
 Name:           qatengine
-Version:        1.7.0
+Version:        1.8.0
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
 
@@ -35,7 +35,7 @@ BuildRequires:  openssl-devel >= 1.1.1
 BuildRequires:  qatlib-devel >= 23.02.0
 %if !0%{?rhel}
 BuildRequires:  intel-ipp-crypto-mb-devel >= 1.0.6
-BuildRequires:  intel-ipsec-mb-devel >= 1.3.0
+BuildRequires:  intel-ipsec-mb-devel >= 2.0
 %endif
 BuildRequires:  openssl
 
@@ -79,6 +79,12 @@ openssl engine -v %{name}
 %endif
 
 %changelog
+* Thu Dec 5 2024 Jaya Naga Venkata Sudhakar <bavirisettyx.jaya.naga.venkata.sudhakar@intel.com> - 1.8.0-1
+- Update to qatengine v1.8.0
+
+* Thu Nov 14 2024 Ali Erdinc Koroglu <aekoroglu@fedoraproject.org> - 1.7.0-2
+- Rebuilt for intel-ipsec-mb-2.0
+
 * Thu Oct 24 2024 Yogaraj Alamenda <yogaraj.alamenda@intel.com> - 1.7.0-1
 - Update to qatengine v1.7.0
 - Remove qat_contig_mem from upstream package

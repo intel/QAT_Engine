@@ -40,7 +40,7 @@ The FIPS 140-3 certification is under process.
 # Binary RPM Package
 
 QAT_Engine supports Binary Package via RPM which can be found in the Release page (Assests section)
-The Current Binary RPM Package is created for the distros RHEL 9.1, Ubuntu 22.04 and SUSE SLES15 SP3 with
+The Current Binary RPM Package is created for the distros RHEL 9.2, Ubuntu 22.04 and SUSE SLES15 SP3 with
 with default Kernel and other dependent packages from the system default.
 The RPM is generated using QAT2.0 OOT driver with QAT_SW Co-existence which means
 it will accelerate via QAT_HW for asymmetic PKE and QAT_SW for AES-GCM and supported only on

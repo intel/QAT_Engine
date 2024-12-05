@@ -164,6 +164,25 @@ typedef struct rsa_meth_st RSA_METHOD;
 
 typedef struct {
     OSSL_LIB_CTX *libctx;
+    RSA *rsa;
+    int pad_mode;
+    int operation;
+    /* OAEP message digest */
+    EVP_MD *oaep_md;
+    /* message digest for MGF1 */
+    EVP_MD *mgf1_md;
+    /* OAEP label */
+    unsigned char *oaep_label;
+    size_t oaep_labellen;
+    /* TLS padding */
+    unsigned int client_version;
+    unsigned int alt_version;
+    /* PKCS#1 v1.5 decryption mode */
+    unsigned int implicit_rejection;
+} QAT_PROV_RSA_ENC_DEC_CTX;
+
+typedef struct {
+    OSSL_LIB_CTX *libctx;
     char *propq;
     RSA *rsa;
     int operation;

@@ -105,13 +105,53 @@ static const OSSL_PARAM *qat_prov_rsa_settable_ctx_params(ossl_unused void
                                                           ossl_unused void
                                                           *provctx);
 
+
+typedef struct qat_evp_asym_cipher_st {
+    int name_id;
+    char *type_name;
+    const char *description;
+    OSSL_PROVIDER *prov;
+    CRYPTO_REF_COUNT refcnt;
+#if OPENSSL_VERSION_NUMBER < 0x30200000
+    CRYPTO_RWLOCK *lock;
+#endif
+    OSSL_FUNC_asym_cipher_newctx_fn *newctx;
+    OSSL_FUNC_asym_cipher_encrypt_init_fn *encrypt_init;
+    OSSL_FUNC_asym_cipher_encrypt_fn *encrypt;
+    OSSL_FUNC_asym_cipher_decrypt_init_fn *decrypt_init;
+    OSSL_FUNC_asym_cipher_decrypt_fn *decrypt;
+    OSSL_FUNC_asym_cipher_freectx_fn *freectx;
+    OSSL_FUNC_asym_cipher_dupctx_fn *dupctx;
+    OSSL_FUNC_asym_cipher_get_ctx_params_fn *get_ctx_params;
+    OSSL_FUNC_asym_cipher_gettable_ctx_params_fn *gettable_ctx_params;
+    OSSL_FUNC_asym_cipher_set_ctx_params_fn *set_ctx_params;
+    OSSL_FUNC_asym_cipher_settable_ctx_params_fn *settable_ctx_params;
+} QAT_EVP_ASYM_CIPHER;
+
+static QAT_EVP_ASYM_CIPHER get_default_rsa_asym_cipher()
+{
+    static QAT_EVP_ASYM_CIPHER s_asym_cipher;
+    static int initilazed = 0;
+    if (!initilazed) {
+        QAT_EVP_ASYM_CIPHER *asym_cipher = (QAT_EVP_ASYM_CIPHER *)EVP_ASYM_CIPHER_fetch(NULL, "RSA", "provider=default");
+        if (asym_cipher) {
+            s_asym_cipher = *asym_cipher;
+            EVP_ASYM_CIPHER_free((EVP_ASYM_CIPHER *)asym_cipher);
+            initilazed = 1;
+        } else {
+            WARN("EVP_ASYM_CIPHER_fetch from default provider failed");
+        }
+    }
+    return s_asym_cipher;
+}
+
 static void *qat_prov_rsa_newctx(void *provctx)
 {
-    QAT_PROV_RSA_CTX *ctx;
+    QAT_PROV_RSA_ENC_DEC_CTX *ctx;
 
     if (!qat_prov_is_running())
         return NULL;
-    ctx = OPENSSL_zalloc(sizeof(QAT_PROV_RSA_CTX));
+    ctx = OPENSSL_zalloc(sizeof(QAT_PROV_RSA_ENC_DEC_CTX));
     if (ctx == NULL)
         return NULL;
     ctx->libctx = prov_libctx_of(provctx);
@@ -315,7 +355,7 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
                                 size_t *outlen, size_t outsize,
                                 const unsigned char *in, size_t inlen)
 {
-    QAT_PROV_RSA_CTX *ctx = (QAT_PROV_RSA_CTX *) vprsactx;
+    QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
     int ret;
 
     if (!qat_prov_is_running())
@@ -358,10 +398,30 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
             OPENSSL_free(tbuf);
             return 0;
         }
-        ret = qat_rsa_public_encrypt(rsasize, tbuf, out, ctx->rsa, RSA_NO_PADDING);
+	if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+            ret = qat_rsa_public_encrypt(rsasize, tbuf, out, ctx->rsa, RSA_NO_PADDING);
+        } else {
+            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
+                                   size_t *outlen, size_t outsize,
+                                   const unsigned char *in, size_t inlen);
+            fun_ptr fun = get_default_rsa_asym_cipher().encrypt;
+            if (!fun)
+                return 0;
+            return fun(vprsactx, out, outlen, outsize, in, inlen);
+        }
         OPENSSL_free(tbuf);
     } else {
-        ret = qat_rsa_public_encrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
+        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+            ret = qat_rsa_public_encrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
+        } else {
+            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
+                                   size_t *outlen, size_t outsize,
+                                   const unsigned char *in, size_t inlen);
+            fun_ptr fun = get_default_rsa_asym_cipher().encrypt;
+            if (!fun)
+                return 0;
+            return fun(vprsactx, out, outlen, outsize, in, inlen);
+        }
     }
     if (ret < 0)
         return ret;
@@ -441,7 +501,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
                                 size_t *outlen, size_t outsize,
                                 const unsigned char *in, size_t inlen)
 {
-    QAT_PROV_RSA_CTX *ctx = (QAT_PROV_RSA_CTX *) vprsactx;
+    QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
     int ret;
     size_t len = QAT_RSA_size(ctx->rsa);
 
@@ -480,7 +540,17 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
             QATerr(ERR_LIB_PROV, QAT_R_MALLOC_FAILURE);
             return 0;
         }
-        ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa, RSA_NO_PADDING);
+        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+            ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa, RSA_NO_PADDING);
+        } else {
+            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
+                                size_t *outlen, size_t outsize,
+                                const unsigned char *in, size_t inlen);
+            fun_ptr fun = get_default_rsa_asym_cipher().decrypt;
+            if (!fun)
+                return 0;
+            return fun(vprsactx, out, outlen, outsize, in, inlen);
+        }
         /*
          * With no padding then, on success ret should be len, otherwise an
          * error occurred (non-constant time)
@@ -518,7 +588,17 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
         }
         OPENSSL_free(tbuf);
     } else {
-        ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
+        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+            ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
+        } else {
+            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
+                                size_t *outlen, size_t outsize,
+                                const unsigned char *in, size_t inlen);
+            fun_ptr fun = get_default_rsa_asym_cipher().decrypt;
+            if (!fun)
+                return 0;
+            return fun(vprsactx, out, outlen, outsize, in, inlen);
+        }
     }
     *outlen =
         qat_constant_time_select_s(qat_constant_time_msb_s(ret), *outlen, ret);
@@ -528,7 +608,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
 
 static void qat_prov_rsa_freectx(void *vprsactx)
 {
-    QAT_PROV_RSA_CTX *ctx = (QAT_PROV_RSA_CTX *) vprsactx;
+    QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
     QAT_RSA_free(ctx->rsa);
     EVP_MD_free(ctx->oaep_md);
     EVP_MD_free(ctx->mgf1_md);
@@ -538,8 +618,8 @@ static void qat_prov_rsa_freectx(void *vprsactx)
 
 static void *qat_prov_rsa_dupctx(void *vprsactx)
 {
-    QAT_PROV_RSA_CTX *srcctx = (QAT_PROV_RSA_CTX *) vprsactx;
-    QAT_PROV_RSA_CTX *dstctx;
+    QAT_PROV_RSA_ENC_DEC_CTX *srcctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
+    QAT_PROV_RSA_ENC_DEC_CTX *dstctx;
 
     if (!qat_prov_is_running())
         return NULL;
@@ -572,7 +652,7 @@ static void *qat_prov_rsa_dupctx(void *vprsactx)
 
 static int qat_prov_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM * params)
 {
-    QAT_PROV_RSA_CTX *ctx = (QAT_PROV_RSA_CTX *) vprsactx;
+    QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
     OSSL_PARAM *p;
 
     if (ctx == NULL)
@@ -663,7 +743,7 @@ static const OSSL_PARAM *qat_prov_rsa_gettable_ctx_params(ossl_unused void
 static int qat_prov_rsa_set_ctx_params(void *vprsactx,
                                        const OSSL_PARAM params[])
 {
-    QAT_PROV_RSA_CTX *ctx = (QAT_PROV_RSA_CTX *) vprsactx;
+    QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
     const OSSL_PARAM *p;
     char mdname[QAT_MAX_NAME_SIZE];
     char mdprops[QAT_MAX_PROPQUERY_SIZE] = { '\0' };
@@ -810,7 +890,7 @@ static const OSSL_PARAM *qat_prov_rsa_settable_ctx_params(ossl_unused void
 static int qat_prov_rsa_init(void *vprsactx, void *vrsa,
                              const OSSL_PARAM params[], int operation)
 {
-    QAT_PROV_RSA_CTX *ctx = (QAT_PROV_RSA_CTX *) vprsactx;
+    QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
 
     if (!qat_prov_is_running() || ctx == NULL || vrsa == NULL)
         return 0;
