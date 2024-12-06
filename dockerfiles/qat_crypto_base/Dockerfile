@@ -40,23 +40,26 @@ FROM ${UBUNTU_BASE} AS builder
 
 ARG OPENSSL_VERSION="openssl-3.0.15"
 ARG QATLIB_VERSION="24.02.0"
-ARG QAT_ENGINE_VERSION="v1.7.0"
-ARG IPSEC_MB_VERSION="v1.5"
-ARG IPP_CRYPTO_VERSION="ippcp_2021.12.1"
+ARG QAT_ENGINE_VERSION="v1.8.0"
+ARG IPSEC_MB_VERSION="v2.0"
+ARG IPP_CRYPTO_VERSION="v1.0.0"
 ARG GID
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install required packages including curl, telnet, and git
 RUN apt-get update && \
-    apt-get install -y apt-utils
+    apt-get install -y apt-utils \
+    software-properties-common  && \
+    add-apt-repository ppa:ubuntu-toolchain-r/test -y  && \
+    apt-get update
 
 # Upgrade all other packages
 RUN apt-get upgrade -y && \
     apt-get install -y \
     libudev-dev \
     make \
-    gcc \
-    g++ \
+    gcc-13 \
+    g++-13 \
     nasm \
     pkg-config \
     libssl-dev \
@@ -67,12 +70,27 @@ RUN apt-get upgrade -y && \
     automake \
     cmake \
     ca-certificates \
-    libtool && \
+    libtool \
+    texinfo \
+    bison \
+    python3 \
+    wget && \
     git clone --depth 1 -b $OPENSSL_VERSION https://github.com/openssl/openssl.git && \
     git clone --depth 1 -b $QAT_ENGINE_VERSION https://github.com/intel/QAT_Engine && \
     git clone --depth 1 -b $IPP_CRYPTO_VERSION https://github.com/intel/cryptography-primitives && \
     git clone --depth 1 -b $IPSEC_MB_VERSION https://github.com/intel/intel-ipsec-mb && \
     git clone --depth 1 -b $QATLIB_VERSION https://github.com/intel/qatlib
+
+# Add the GCC 13 alternative to the update-alternatives filesystem
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 10 --slave /usr/bin/g++ g++ /usr/bin/g++-13
+
+# Install binutils 2.40
+RUN wget https://sourceware.org/pub/binutils/releases/binutils-2.40.tar.gz && \
+    tar -zxvf binutils-2.40.tar.gz
+WORKDIR /binutils-2.40
+RUN ./configure && \
+    make -j && \
+    make install -j
 
 # Create a non-root user and group
 RUN groupadd -r appuser && useradd -r -g appuser -s /bin/bash appuser
@@ -92,7 +110,7 @@ RUN ./autogen.sh && \
     groupadd qat -g ${GID}  && \
     usermod -a -G qat appuser
 
-# Building Cypto_MB
+# Building Crypto_MB
 WORKDIR /cryptography-primitives/sources/ippcp/crypto_mb
 RUN cmake . -B"../build" \
     -DOPENSSL_INCLUDE_DIR=/usr/local/include \
@@ -122,9 +140,9 @@ FROM ${UBUNTU_BASE}
 
 COPY --from=builder /usr/local/lib/libqat.so.4.2.0 /usr/lib/
 COPY --from=builder /usr/local/lib/libusdm.so.0.1.0 /usr/lib/
-COPY --from=builder /usr/local/lib/libIPSec_MB.so.1.5.0  /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib/libIPSec_MB.so.2.0.0  /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/lib64/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/local/lib/libcrypto_mb.so.11.15 /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib/libcrypto_mb.so.12.0 /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/bin/openssl /usr/bin/
 COPY --from=builder /usr/local/lib64/engines-3/qatengine.so /usr/lib/x86_64-linux-gnu/engines-3/
 COPY --from=builder /etc/group /etc/group
