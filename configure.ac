@@ -618,9 +618,9 @@ fi
 if test "x$cflags_qat_sw_ipsec" != "x"
 then
   AS_IF([test "x$enable_qat_sw_gcm" != "xno"],
-        [cflags_qat_sw_ipsec+=" -DENABLE_QAT_SW_GCM"; AC_MSG_NOTICE([Accelerating GCM to Software (IPSec_mb)])])
+        [cflags_qat_sw_ipsec="${cflags_qat_sw_ipsec} -DENABLE_QAT_SW_GCM"; AC_MSG_NOTICE([Accelerating GCM to Software (IPSec_mb)])])
   AS_IF([test "x$enable_qat_sw_sha2" != "xno"],
-        [cflags_qat_sw_ipsec+=" -DENABLE_QAT_SW_SHA2"; AC_MSG_NOTICE([Accelerating SHA2 to Software (IPSec_mb)])])
+        [cflags_qat_sw_ipsec="${cflags_qat_sw_ipsec} -DENABLE_QAT_SW_SHA2"; AC_MSG_NOTICE([Accelerating SHA2 to Software (IPSec_mb)])])
 fi    
 
 if test "x$cflags_qat_hw" != "x" -a  "x$cflags_qat_sw" != "x"

@@ -60,7 +60,9 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <fcntl.h>
+# ifndef __FreeBSD__
 #include <sys/epoll.h>
+# endif
 #include <sys/types.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
@@ -395,7 +397,7 @@ mb_thread_data* mb_check_thread_local(void)
                 goto err;
             }
             DEBUG("Polling thread created %lx, tlv %p\n",
-                  tlv->polling_thread, tlv);
+                  (uintptr_t)tlv->polling_thread, tlv);
         } else {
             /* External Polling assign it to the global pointer */
             mb_tlv = tlv;

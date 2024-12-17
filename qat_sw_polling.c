@@ -300,7 +300,7 @@ void multibuff_init_req_rates(mb_req_rates * req_rates)
 {
     req_rates->req_this_period = 0;
     multibuff_get_timeout_time(&mb_poll_timeout_time, mb_timeout_level);
-    clock_gettime(CLOCK_MONOTONIC_RAW, &req_rates->previous_time);
+    clock_gettime(clock_id, &req_rates->previous_time);
     req_rates->current_time = req_rates->previous_time;
 }
 
@@ -387,7 +387,7 @@ void multibuff_update_req_timeout(mb_req_rates * req_rates)
 {
     unsigned int existing_timeout_level;
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &req_rates->current_time);
+    clock_gettime(clock_id, &req_rates->current_time);
     if (multibuff_poll_check_for_timeout(mb_poll_timeout_time,
                                          req_rates->previous_time,
                                          req_rates->current_time) == 0) {
@@ -1408,7 +1408,7 @@ int qat_sw_poll()
     if (mb_tlv == NULL)
         return 1; /* Do nothing as there are no QAT_SW Requests */
 
-    clock_gettime(CLOCK_MONOTONIC_RAW, &current_time);
+    clock_gettime(clock_id, &current_time);
 
 #ifdef ENABLE_QAT_SW_ECX
     /* Deal with X25519 Keygen requests */
@@ -1418,7 +1418,7 @@ int qat_sw_poll()
             process_x25519_keygen_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &x25519_keygen_previous_time);
+        clock_gettime(clock_id, &x25519_keygen_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1426,7 +1426,7 @@ int qat_sw_poll()
                                                  x25519_keygen_previous_time,
                                                  current_time) == 1) {
             process_x25519_keygen_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &x25519_keygen_previous_time);
+            clock_gettime(clock_id, &x25519_keygen_previous_time);
         }
     }
 
@@ -1437,7 +1437,7 @@ int qat_sw_poll()
             process_x25519_derive_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &x25519_derive_previous_time);
+        clock_gettime(clock_id, &x25519_derive_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1445,7 +1445,7 @@ int qat_sw_poll()
                                                  x25519_derive_previous_time,
                                                  current_time) == 1) {
             process_x25519_derive_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &x25519_derive_previous_time);
+            clock_gettime(clock_id, &x25519_derive_previous_time);
         }
     }
 #endif
@@ -1458,7 +1458,7 @@ int qat_sw_poll()
             process_ecdsa_sign_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_previous_time);
+        clock_gettime(clock_id, &ecdsap256_sign_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1466,7 +1466,7 @@ int qat_sw_poll()
                                                  ecdsap256_sign_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sign_reqs(mb_tlv, EC_P256);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_previous_time);
+            clock_gettime(clock_id, &ecdsap256_sign_previous_time);
         }
     }
 
@@ -1477,7 +1477,7 @@ int qat_sw_poll()
             process_ecdsa_sign_setup_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_setup_previous_time);
+        clock_gettime(clock_id, &ecdsap256_sign_setup_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1485,7 +1485,7 @@ int qat_sw_poll()
                                                  ecdsap256_sign_setup_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sign_setup_reqs(mb_tlv, EC_P256);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_setup_previous_time);
+            clock_gettime(clock_id, &ecdsap256_sign_setup_previous_time);
         }
     }
 
@@ -1496,7 +1496,7 @@ int qat_sw_poll()
             process_ecdsa_sign_sig_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_sig_previous_time);
+        clock_gettime(clock_id, &ecdsap256_sign_sig_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1504,7 +1504,7 @@ int qat_sw_poll()
                                                  ecdsap256_sign_sig_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sign_sig_reqs(mb_tlv, EC_P256);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_sign_sig_previous_time);
+            clock_gettime(clock_id, &ecdsap256_sign_sig_previous_time);
         }
     }
 
@@ -1515,7 +1515,7 @@ int qat_sw_poll()
             process_ecdsa_sign_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_previous_time);
+        clock_gettime(clock_id, &ecdsap384_sign_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1523,7 +1523,7 @@ int qat_sw_poll()
                                                  ecdsap384_sign_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sign_reqs(mb_tlv, EC_P384);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_previous_time);
+            clock_gettime(clock_id, &ecdsap384_sign_previous_time);
         }
     }
 
@@ -1534,7 +1534,7 @@ int qat_sw_poll()
             process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
          }
-         clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_setup_previous_time);
+         clock_gettime(clock_id, &ecdsap384_sign_setup_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1542,7 +1542,7 @@ int qat_sw_poll()
                                                  ecdsap384_sign_setup_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sign_setup_reqs(mb_tlv, EC_P384);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_setup_previous_time);
+            clock_gettime(clock_id, &ecdsap384_sign_setup_previous_time);
         }
     }
 
@@ -1553,7 +1553,7 @@ int qat_sw_poll()
              process_ecdsa_sign_sig_reqs(mb_tlv, EC_P384);
              snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_sig_previous_time);
+        clock_gettime(clock_id, &ecdsap384_sign_sig_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1561,7 +1561,7 @@ int qat_sw_poll()
                                                  ecdsap384_sign_sig_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sign_sig_reqs(mb_tlv, EC_P384);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_sign_sig_previous_time);
+            clock_gettime(clock_id, &ecdsap384_sign_sig_previous_time);
         }
     }
 
@@ -1572,7 +1572,7 @@ int qat_sw_poll()
             process_ecdsa_verify_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_verify_previous_time);
+        clock_gettime(clock_id, &ecdsap256_verify_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1580,7 +1580,7 @@ int qat_sw_poll()
                                                  ecdsap256_verify_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_verify_reqs(mb_tlv, EC_P256);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap256_verify_previous_time);
+            clock_gettime(clock_id, &ecdsap256_verify_previous_time);
         }
     }
 
@@ -1591,7 +1591,7 @@ int qat_sw_poll()
             process_ecdsa_verify_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_verify_previous_time);
+        clock_gettime(clock_id, &ecdsap384_verify_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1599,7 +1599,7 @@ int qat_sw_poll()
                                                  ecdsap384_verify_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_verify_reqs(mb_tlv, EC_P384);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsap384_verify_previous_time);
+            clock_gettime(clock_id, &ecdsap384_verify_previous_time);
         }
     }
 #endif
@@ -1612,7 +1612,7 @@ int qat_sw_poll()
             process_ecdsa_sm2_sign_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsa_sm2_sign_previous_time);
+        clock_gettime(clock_id, &ecdsa_sm2_sign_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1620,7 +1620,7 @@ int qat_sw_poll()
                                                  ecdsa_sm2_sign_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sm2_sign_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsa_sm2_sign_previous_time);
+            clock_gettime(clock_id, &ecdsa_sm2_sign_previous_time);
         }
     }
 
@@ -1631,7 +1631,7 @@ int qat_sw_poll()
             process_ecdsa_sm2_verify_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsa_sm2_verify_previous_time);
+        clock_gettime(clock_id, &ecdsa_sm2_verify_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1639,7 +1639,7 @@ int qat_sw_poll()
                                                  ecdsa_sm2_verify_previous_time,
                                                  current_time) == 1) {
             process_ecdsa_sm2_verify_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdsa_sm2_verify_previous_time);
+            clock_gettime(clock_id, &ecdsa_sm2_verify_previous_time);
         }
     }
 #endif
@@ -1652,7 +1652,7 @@ int qat_sw_poll()
             process_ecdh_keygen_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_keygen_previous_time);
+        clock_gettime(clock_id, &ecdhp256_keygen_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1660,7 +1660,7 @@ int qat_sw_poll()
                                                  ecdhp256_keygen_previous_time,
                                                  current_time) == 1) {
             process_ecdh_keygen_reqs(mb_tlv, EC_P256);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_keygen_previous_time);
+            clock_gettime(clock_id, &ecdhp256_keygen_previous_time);
         }
     }
 
@@ -1671,7 +1671,7 @@ int qat_sw_poll()
             process_ecdh_compute_reqs(mb_tlv, EC_P256);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_compute_previous_time);
+        clock_gettime(clock_id, &ecdhp256_compute_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1679,7 +1679,7 @@ int qat_sw_poll()
                                                  ecdhp256_compute_previous_time,
                                                  current_time) == 1) {
             process_ecdh_compute_reqs(mb_tlv, EC_P256);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp256_compute_previous_time);
+            clock_gettime(clock_id, &ecdhp256_compute_previous_time);
         }
     }
 
@@ -1690,7 +1690,7 @@ int qat_sw_poll()
             process_ecdh_keygen_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_keygen_previous_time);
+        clock_gettime(clock_id, &ecdhp384_keygen_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1698,7 +1698,7 @@ int qat_sw_poll()
                                                  ecdhp384_keygen_previous_time,
                                                  current_time) == 1) {
             process_ecdh_keygen_reqs(mb_tlv, EC_P384);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_keygen_previous_time);
+            clock_gettime(clock_id, &ecdhp384_keygen_previous_time);
         }
     }
 
@@ -1709,7 +1709,7 @@ int qat_sw_poll()
             process_ecdh_compute_reqs(mb_tlv, EC_P384);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_compute_previous_time);
+        clock_gettime(clock_id, &ecdhp384_compute_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1717,7 +1717,7 @@ int qat_sw_poll()
                                                  ecdhp384_compute_previous_time,
                                                  current_time) == 1) {
             process_ecdh_compute_reqs(mb_tlv, EC_P384);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &ecdhp384_compute_previous_time);
+            clock_gettime(clock_id, &ecdhp384_compute_previous_time);
         }
     }
 
@@ -1728,7 +1728,7 @@ int qat_sw_poll()
             process_ecdh_keygen_reqs(mb_tlv, EC_SM2);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_keygen_previous_time);
+        clock_gettime(clock_id, &sm2ecdh_keygen_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1736,7 +1736,7 @@ int qat_sw_poll()
                                                  sm2ecdh_keygen_previous_time,
                                                  current_time) == 1) {
             process_ecdh_keygen_reqs(mb_tlv, EC_SM2);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_keygen_previous_time);
+            clock_gettime(clock_id, &sm2ecdh_keygen_previous_time);
         }
     }
 
@@ -1747,7 +1747,7 @@ int qat_sw_poll()
             process_ecdh_compute_reqs(mb_tlv, EC_SM2);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_compute_previous_time);
+        clock_gettime(clock_id, &sm2ecdh_compute_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1755,7 +1755,7 @@ int qat_sw_poll()
                                                  sm2ecdh_compute_previous_time,
                                                  current_time) == 1) {
             process_ecdh_compute_reqs(mb_tlv, EC_SM2);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm2ecdh_compute_previous_time);
+            clock_gettime(clock_id, &sm2ecdh_compute_previous_time);
         }
     }
 #endif
@@ -1768,7 +1768,7 @@ int qat_sw_poll()
             process_RSA_priv_reqs(mb_tlv, RSA_2K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_priv_previous_time);
+        clock_gettime(clock_id, &rsa2k_priv_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1776,7 +1776,7 @@ int qat_sw_poll()
                                              rsa2k_priv_previous_time,
                                              current_time) == 1) {
             process_RSA_priv_reqs(mb_tlv, RSA_2K_LENGTH);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_priv_previous_time);
+            clock_gettime(clock_id, &rsa2k_priv_previous_time);
         }
     }
     /* Deal with rsa public key requests */
@@ -1786,7 +1786,7 @@ int qat_sw_poll()
             process_RSA_pub_reqs(mb_tlv, RSA_2K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_pub_previous_time);
+        clock_gettime(clock_id, &rsa2k_pub_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1794,7 +1794,7 @@ int qat_sw_poll()
                                              rsa2k_pub_previous_time,
                                              current_time) == 1) {
             process_RSA_pub_reqs(mb_tlv, RSA_2K_LENGTH);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa2k_pub_previous_time);
+            clock_gettime(clock_id, &rsa2k_pub_previous_time);
         }
     }
     /* Deal with rsa3k private key requests */
@@ -1804,7 +1804,7 @@ int qat_sw_poll()
             process_RSA_priv_reqs(mb_tlv, RSA_3K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_priv_previous_time);
+        clock_gettime(clock_id, &rsa3k_priv_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1812,7 +1812,7 @@ int qat_sw_poll()
                                              rsa3k_priv_previous_time,
                                              current_time) == 1) {
             process_RSA_priv_reqs(mb_tlv, RSA_3K_LENGTH);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_priv_previous_time);
+            clock_gettime(clock_id, &rsa3k_priv_previous_time);
         }
     }
     /* Deal with rsa3k public key requests */
@@ -1822,7 +1822,7 @@ int qat_sw_poll()
             process_RSA_pub_reqs(mb_tlv, RSA_3K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_pub_previous_time);
+        clock_gettime(clock_id, &rsa3k_pub_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1830,7 +1830,7 @@ int qat_sw_poll()
                                              rsa3k_pub_previous_time,
                                              current_time) == 1) {
             process_RSA_pub_reqs(mb_tlv, RSA_3K_LENGTH);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa3k_pub_previous_time);
+            clock_gettime(clock_id, &rsa3k_pub_previous_time);
         }
     }
     /* Deal with rsa4k private key requests */
@@ -1840,7 +1840,7 @@ int qat_sw_poll()
             process_RSA_priv_reqs(mb_tlv, RSA_4K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_priv_previous_time);
+        clock_gettime(clock_id, &rsa4k_priv_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1848,7 +1848,7 @@ int qat_sw_poll()
                                              rsa4k_priv_previous_time,
                                              current_time) == 1) {
             process_RSA_priv_reqs(mb_tlv, RSA_4K_LENGTH);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_priv_previous_time);
+            clock_gettime(clock_id, &rsa4k_priv_previous_time);
         }
     }
     /* Deal with rsa4k public key requests */
@@ -1858,7 +1858,7 @@ int qat_sw_poll()
             process_RSA_pub_reqs(mb_tlv, RSA_4K_LENGTH);
             snapshot_num_reqs -= MULTIBUFF_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_pub_previous_time);
+        clock_gettime(clock_id, &rsa4k_pub_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
             snapshot_num_reqs < MULTIBUFF_MAX_BATCH &&
@@ -1866,7 +1866,7 @@ int qat_sw_poll()
                                              rsa4k_pub_previous_time,
                                              current_time) == 1) {
             process_RSA_pub_reqs(mb_tlv, RSA_4K_LENGTH);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &rsa4k_pub_previous_time);
+            clock_gettime(clock_id, &rsa4k_pub_previous_time);
         }
     }
 #endif
@@ -1878,7 +1878,7 @@ int qat_sw_poll()
             process_sm3_init_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM3_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_init_previous_time);
+        clock_gettime(clock_id, &sm3_init_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM3_MAX_BATCH &&
@@ -1886,7 +1886,7 @@ int qat_sw_poll()
                                                  sm3_init_previous_time,
                                                  current_time) == 1) {
             process_sm3_init_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_init_previous_time);
+            clock_gettime(clock_id, &sm3_init_previous_time);
         }
     }
 
@@ -1897,7 +1897,7 @@ int qat_sw_poll()
             process_sm3_update_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM3_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_update_previous_time);
+        clock_gettime(clock_id, &sm3_update_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM3_MAX_BATCH &&
@@ -1905,7 +1905,7 @@ int qat_sw_poll()
                                                  sm3_update_previous_time,
                                                  current_time) == 1) {
             process_sm3_update_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_update_previous_time);
+            clock_gettime(clock_id, &sm3_update_previous_time);
         }
     }
     /* Deal with SM3 Final requests */
@@ -1915,7 +1915,7 @@ int qat_sw_poll()
             process_sm3_final_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM3_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_final_previous_time);
+        clock_gettime(clock_id, &sm3_final_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM3_MAX_BATCH &&
@@ -1923,7 +1923,7 @@ int qat_sw_poll()
                                                  sm3_final_previous_time,
                                                  current_time) == 1) {
             process_sm3_final_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm3_final_previous_time);
+            clock_gettime(clock_id, &sm3_final_previous_time);
         }
     }
 #endif
@@ -1936,7 +1936,7 @@ int qat_sw_poll()
             process_mb_sm4_cbc_cipher_enc_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_cbc_cipher_previous_time);
+        clock_gettime(clock_id, &sm4_cbc_cipher_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
@@ -1944,7 +1944,7 @@ int qat_sw_poll()
                                                  sm4_cbc_cipher_previous_time,
                                                  current_time) == 1) {
             process_mb_sm4_cbc_cipher_enc_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_cbc_cipher_previous_time);
+            clock_gettime(clock_id, &sm4_cbc_cipher_previous_time);
         }
     }
 
@@ -1955,7 +1955,7 @@ int qat_sw_poll()
             process_mb_sm4_cbc_cipher_dec_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_cbc_cipher_dec_previous_time);
+        clock_gettime(clock_id, &sm4_cbc_cipher_dec_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
@@ -1963,7 +1963,7 @@ int qat_sw_poll()
                                                  sm4_cbc_cipher_dec_previous_time,
                                                  current_time) == 1) {
             process_mb_sm4_cbc_cipher_dec_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_cbc_cipher_dec_previous_time);
+            clock_gettime(clock_id, &sm4_cbc_cipher_dec_previous_time);
         }
     }
 #endif
@@ -1976,7 +1976,7 @@ int qat_sw_poll()
             process_mb_sm4_gcm_encrypt_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_gcm_encrypt_previous_time);
+        clock_gettime(clock_id, &sm4_gcm_encrypt_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
@@ -1984,7 +1984,7 @@ int qat_sw_poll()
                                                  sm4_gcm_encrypt_previous_time,
                                                  current_time) == 1) {
             process_mb_sm4_gcm_encrypt_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_gcm_encrypt_previous_time);
+            clock_gettime(clock_id, &sm4_gcm_encrypt_previous_time);
         }
     }
 
@@ -1995,7 +1995,7 @@ int qat_sw_poll()
             process_mb_sm4_gcm_decrypt_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_gcm_decrypt_previous_time);
+        clock_gettime(clock_id, &sm4_gcm_decrypt_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
@@ -2003,7 +2003,7 @@ int qat_sw_poll()
                                                  sm4_gcm_decrypt_previous_time,
                                                  current_time) == 1) {
             process_mb_sm4_gcm_decrypt_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_gcm_decrypt_previous_time);
+            clock_gettime(clock_id, &sm4_gcm_decrypt_previous_time);
         }
     }
 #endif
@@ -2016,7 +2016,7 @@ int qat_sw_poll()
             process_mb_sm4_ccm_encrypt_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_encrypt_previous_time);
+        clock_gettime(clock_id, &sm4_ccm_encrypt_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
@@ -2024,7 +2024,7 @@ int qat_sw_poll()
                                                  sm4_ccm_encrypt_previous_time,
                                                  current_time) == 1) {
             process_mb_sm4_ccm_encrypt_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_encrypt_previous_time);
+            clock_gettime(clock_id, &sm4_ccm_encrypt_previous_time);
         }
     }
 
@@ -2035,7 +2035,7 @@ int qat_sw_poll()
             process_mb_sm4_ccm_decrypt_reqs(mb_tlv);
             snapshot_num_reqs -= MULTIBUFF_SM4_MIN_BATCH;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_decrypt_previous_time);
+        clock_gettime(clock_id, &sm4_ccm_decrypt_previous_time);
     } else {
         if (snapshot_num_reqs > 0 &&
                 snapshot_num_reqs < MULTIBUFF_SM4_MAX_BATCH &&
@@ -2043,7 +2043,7 @@ int qat_sw_poll()
                                                  sm4_ccm_decrypt_previous_time,
                                                  current_time) == 1) {
             process_mb_sm4_ccm_decrypt_reqs(mb_tlv);
-            clock_gettime(CLOCK_MONOTONIC_RAW, &sm4_ccm_decrypt_previous_time);
+            clock_gettime(clock_id, &sm4_ccm_decrypt_previous_time);
         }
     }
 #endif
