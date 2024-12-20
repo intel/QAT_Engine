@@ -82,6 +82,7 @@ static int no_of_inst = 0;
 static int qat_keep_polling = 0;
 pthread_t *testapp_polling_threads;
 pthread_t *testapp_heartbeat_threads;
+int insecure_algorithms_enabled = 0;
 
 char *sw_algo_bitmap = NULL;
 char *hw_algo_bitmap = NULL;
