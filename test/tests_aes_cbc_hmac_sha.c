@@ -1133,6 +1133,9 @@ static int run_aes_cbc_hmac_sha(void *pointer)
         for (i = 0; i < ntls; i++) {
             ti.tls = (tls_v *)&test_tls[i];
 #ifdef QAT_OPENSSL_PROVIDER
+# ifdef QAT_INSECURE_ALGO
+    insecure_algorithms_enabled = 1;
+# endif
             if (
                 /*
                  * Running the test with SW implementation to check if
@@ -1142,28 +1145,37 @@ static int run_aes_cbc_hmac_sha(void *pointer)
                 (test_auth_header(&ti, USE_SW) != 1) ||
                 (test_auth_pkt(&ti, USE_SW) != 1) ||
                 (
-                    /*
-                    * Perform these tests only if engine
-                    * is present.
-                    */
-                    (test_encrypted_buffer(&ti) != 1) ||
-                    (test_no_hmac_key_set(&ti) != 1) ||
-                    (test_crypto_op(&ti, USE_ENGINE, USE_SW) != 1) ||
-                    (test_crypto_op(&ti, USE_SW, USE_ENGINE) != 1) ||
-                    (test_crypto_op(&ti, USE_ENGINE, USE_ENGINE) != 1) ||
-                    (test_auth_header(&ti, USE_ENGINE) != 1) ||
-                    (test_auth_pkt(&ti, USE_ENGINE) != 1) ||
-                    (test_multi_op(&ti) != 1)
-                    /*
-                    * 1. cipher pipeline feature is not support in
-                    *    qatprovider due to limitation.
-                    * 2. small package offloading is support in qat-
-                    *    provider, but there's no relevant API to set
-                    *    threshold in OpenSSL 3.0, so this testcase is
-                    *    also deactiaved.
-                    */
-                )
-               ) {
+		   /*
+		    * Perform these tests only if engine is present.
+		    *
+		    * When QAT insecure algorithms are disabled, AES128_CBC_HMAC_SHA256
+		    * implementation uses only OpenSSL.
+		    *
+		    * USE_SW refers OpenSSL implementation.
+		    * USE_ENGINE refers QAT_Engine implementation.
+		    */
+                    (insecure_algorithms_enabled ||
+		        args->type != TEST_AES128_CBC_HMAC_SHA256) &&
+                    (
+                        (test_encrypted_buffer(&ti) != 1) ||
+                        (test_no_hmac_key_set(&ti) != 1) ||
+                        (test_crypto_op(&ti, USE_ENGINE, USE_SW) != 1) ||
+                        (test_crypto_op(&ti, USE_SW, USE_ENGINE) != 1) ||
+                        (test_crypto_op(&ti, USE_ENGINE, USE_ENGINE) != 1) ||
+                        (test_auth_header(&ti, USE_ENGINE) != 1) ||
+                        (test_auth_pkt(&ti, USE_ENGINE) != 1)
+                    )
+                ) ||
+                (test_multi_op(&ti) != 1)
+                /*
+                 * 1. cipher pipeline feature is not support in
+                 *    qatprovider due to limitation.
+                 * 2. small package offloading is support in qat-
+                 *    provider, but there's no relevant API to set
+                 *    threshold in OpenSSL 3.0, so this testcase is
+                 *    also deactiaved.
+                 */
+            ) {
 #else
             if (
                 /*

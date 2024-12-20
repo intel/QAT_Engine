@@ -44,6 +44,8 @@
 #include <openssl/provider.h>
 #endif
 
+extern int insecure_algorithms_enabled;
+
 enum {
     R_RSA_512, R_RSA_1024, R_RSA_2048, R_RSA_3072, R_RSA_4096, R_RSA_8192,
     R_RSA_7680, R_RSA_15360, RSA_NUM
