@@ -495,4 +495,5 @@ int qat_digest_ecdsa_get_approved_nid(const EVP_MD *md);
 int qat_ec_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect);
 
 OSSL_LIB_CTX *qat_ec_key_get_libctx(const EC_KEY *key);
+
 #endif  /* QAT_PROV_EC_H */

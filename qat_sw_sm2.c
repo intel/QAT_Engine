@@ -110,16 +110,6 @@ typedef struct evp_signature_st {
     OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
 } QAT_EVP_SIGNATURE /* EVP_SIGNATURE for QAT Provider sm2 */;
 
-struct bignum_st {
-    BN_ULONG *d;                /* Pointer to an array of 'BN_BITS2' bit
-                                 * chunks. */
-    int top;                    /* Index of last used d +1. */
-    /* The next are internal book keeping for bn_expand. */
-    int dmax;                   /* Size of the d array. */
-    int neg;                    /* one if the number is negative */
-    int flags;
-};
-
 static QAT_EVP_SIGNATURE get_default_signature_sm2()
 {
     static QAT_EVP_SIGNATURE s_signature;
