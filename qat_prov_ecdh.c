@@ -190,9 +190,6 @@ static void QAT_ECDH_KEY_free(EC_KEY *r)
         r->group->meth->keyfinish(r);
 
     CRYPTO_free_ex_data(CRYPTO_EX_INDEX_EC_KEY, r, &r->ex_data);
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_THREAD_lock_free(r->lock);
-# endif
     EC_GROUP_free(r->group);
     EC_POINT_free(r->pub_key);
     BN_clear_free(r->priv_key);

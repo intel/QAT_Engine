@@ -59,11 +59,14 @@
 #include <openssl/core_names.h>
 #include <openssl/evp.h>
 #include <openssl/param_build.h>
+#include <assert.h>
+
 #include "qat_provider.h"
 #include "qat_prov_ec.h"
 #include "qat_utils.h"
 #include "qat_evp.h"
 #include "e_qat.h"
+#include "qat_prov_kmgmt_ec_utils.h"
 
 #ifdef QAT_HW
 # include "qat_hw_ec.h"
@@ -73,192 +76,25 @@
 # include "qat_sw_ec.h"
 #endif
 
-#define COPY_INT_PARAM(params, key, val)                                       \
-p = OSSL_PARAM_locate_const(params, key);                                      \
-if (p != NULL && !OSSL_PARAM_get_int(p, &val))                                 \
-    goto err;
-
-#define COPY_UTF8_PARAM(params, key, val)                                      \
-p = OSSL_PARAM_locate_const(params, key);                                      \
-if (p != NULL) {                                                               \
-    if (p->data_type != OSSL_PARAM_UTF8_STRING)                                \
-        goto err;                                                              \
-    OPENSSL_free(val);                                                         \
-    val = OPENSSL_strdup(p->data);                                             \
-    if (val == NULL)                                                           \
-        goto err;                                                              \
-}
-
-#define COPY_OCTET_PARAM(params, key, val, len)                                \
-p = OSSL_PARAM_locate_const(params, key);                                      \
-if (p != NULL) {                                                               \
-    if (p->data_type != OSSL_PARAM_OCTET_STRING)                               \
-        goto err;                                                              \
-    OPENSSL_free(val);                                                         \
-    len = p->data_size;                                                        \
-    val = OPENSSL_memdup(p->data, p->data_size);                               \
-    if (val == NULL)                                                           \
-        goto err;                                                              \
-}
-
-#define COPY_BN_PARAM(params, key, bn)                                         \
-p = OSSL_PARAM_locate_const(params, key);                                      \
-if (p != NULL) {                                                               \
-    if (bn == NULL)                                                            \
-        bn = BN_new();                                                         \
-    if (bn == NULL || !OSSL_PARAM_get_BN(p, &bn))                              \
-        goto err;                                                              \
-}
-
-typedef struct{
-    int id; /* libcrypto internal */
-    int name_id;
-# if OPENSSL_VERSION_NUMBER >= 0x30300000
-    /* NID for the legacy alg if there is one */
-    int legacy_alg;
-# endif
-    char *type_name;
-    const char *description;
-    OSSL_PROVIDER *prov;
-
-    QAT_CRYPTO_REF_COUNT references;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-#endif
-    /* Constructor(s), destructor, information */
-    OSSL_FUNC_keymgmt_new_fn *new;
-    OSSL_FUNC_keymgmt_free_fn *free;
-    OSSL_FUNC_keymgmt_get_params_fn *get_params;
-    OSSL_FUNC_keymgmt_gettable_params_fn *gettable_params;
-    OSSL_FUNC_keymgmt_set_params_fn *set_params;
-    OSSL_FUNC_keymgmt_settable_params_fn *settable_params;
-
-    /* Generation, a complex constructor */
-    OSSL_FUNC_keymgmt_gen_init_fn *gen_init;
-    OSSL_FUNC_keymgmt_gen_set_template_fn *gen_set_template;
-# if OPENSSL_VERSION_NUMBER >= 0x30400000
-    OSSL_FUNC_keymgmt_gen_get_params_fn *gen_get_params;
-    OSSL_FUNC_keymgmt_gen_gettable_params_fn *gen_gettable_params;
-# endif
-    OSSL_FUNC_keymgmt_gen_set_params_fn *gen_set_params;
-    OSSL_FUNC_keymgmt_gen_settable_params_fn *gen_settable_params;
-    OSSL_FUNC_keymgmt_gen_fn *gen;
-    OSSL_FUNC_keymgmt_gen_cleanup_fn *gen_cleanup;
-    OSSL_FUNC_keymgmt_load_fn *load;
-
-    /* Key object checking */
-    OSSL_FUNC_keymgmt_query_operation_name_fn *query_operation_name;
-    OSSL_FUNC_keymgmt_has_fn *has;
-    OSSL_FUNC_keymgmt_validate_fn *validate;
-    OSSL_FUNC_keymgmt_match_fn *match;
-
-    /* Import and export routines */
-    OSSL_FUNC_keymgmt_import_fn *import;
-    OSSL_FUNC_keymgmt_import_types_fn *import_types;
-# if OPENSSL_VERSION_NUMBER >= 0x30200000
-    OSSL_FUNC_keymgmt_import_types_ex_fn *import_types_ex;
-# endif
-    OSSL_FUNC_keymgmt_export_fn *export;
-    OSSL_FUNC_keymgmt_export_types_fn *export_types;
-# if OPENSSL_VERSION_NUMBER >= 0x30200000
-    OSSL_FUNC_keymgmt_export_types_ex_fn *export_types_ex;
-# endif
-    OSSL_FUNC_keymgmt_dup_fn *dup;
-
-} QAT_EC_KEYMGMT;
-
-typedef struct {
-    OSSL_LIB_CTX *libctx;
-    char *group_name;
-    char *encoding;
-    char *pt_format;
-    char *group_check;
-    char *field_type;
-    BIGNUM *p, *a, *b, *order, *cofactor;
-    unsigned char *gen, *seed;
-    size_t gen_len, seed_len;
-    int selection;
-    int ecdh_mode;
-    EC_GROUP *gen_group;
-}QAT_EC_GEN_CTX;
-
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
-static QAT_EC_KEYMGMT get_default_keymgmt()
-{
-    static QAT_EC_KEYMGMT s_keymgmt;
-    static int initialized = 0;
-    if (!initialized) {
-        QAT_EC_KEYMGMT *keymgmt = (QAT_EC_KEYMGMT *)EVP_KEYMGMT_fetch(NULL, "EC", "provider=default");
-        if (keymgmt) {
-            s_keymgmt = *keymgmt;
-            EVP_KEYMGMT_free((EVP_KEYMGMT *)keymgmt);
-            initialized = 1;
-        } else {
-            WARN("EVP_KEYMGMT_fetch from default provider failed");
-        }
-    }
-    return s_keymgmt;
-}
-
-EC_KEY *qat_ec_key_new(OSSL_LIB_CTX *libctx, const char *propq)
-{
-    EC_KEY *ret = OPENSSL_zalloc(sizeof(*ret));
-
-    if (ret == NULL) {
-        QATerr(ERR_LIB_EC, QAT_R_MALLOC_FAILURE);
-        return NULL;
-    }
-
-    ret->libctx = libctx;
-    if (propq != NULL) {
-        ret->propq = OPENSSL_strdup(propq);
-        if (ret->propq == NULL) {
-            QATerr(ERR_LIB_EC, QAT_R_MALLOC_FAILURE);
-            goto err;
-        }
-    }
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-
-    ret->lock = CRYPTO_THREAD_lock_new();
-    if (ret->lock == NULL) {
-        QATerr(ERR_LIB_EC, QAT_R_MALLOC_FAILURE);
-        goto err;
-    }
-# endif
-    ret->references.val = 1;
-    ret->meth = EC_KEY_get_default_method();
-
-    ret->conv_form = POINT_CONVERSION_UNCOMPRESSED;
-
-    if (!CRYPTO_new_ex_data(CRYPTO_EX_INDEX_EC_KEY, ret, &ret->ex_data)) {
-        goto err;
-    }
-
-    if (ret->meth->init != NULL && ret->meth->init(ret) == 0) {
-        QATerr(ERR_LIB_EC, QAT_R_INIT_FAIL);
-        goto err;
-    }
-    return ret;
-
- err:
-    EC_KEY_free(ret);
-    return NULL;
-}
 
 static void *qat_keymgmt_ec_newdata(void *provctx)
 {
     if (!qat_prov_is_running())
         return NULL;
-    return qat_ec_key_new(prov_libctx_of(provctx), NULL);
+    return EC_KEY_new_ex(prov_libctx_of(provctx), NULL);
 }
 
-static const char *qat_keymgmt_ec_query_operation_name(int operation_id)
+static
+const char *qat_keymgmt_ec_query_operation_name(int operation_id)
 {
-    typedef const char* (*fun_ptr)(int);
-    fun_ptr fun = get_default_keymgmt().query_operation_name;
-    if (!fun)
-        return NULL;
-    return fun(operation_id);
+    switch (operation_id) {
+    case OSSL_OP_KEYEXCH:
+        return "ECDH";
+    case OSSL_OP_SIGNATURE:
+        return "ECDSA";
+    }
+    return NULL;
 }
 
 static int qat_keymgmt_ec_gen_set_params(void *genctx, const OSSL_PARAM params[])
@@ -287,55 +123,35 @@ static int qat_keymgmt_ec_gen_set_params(void *genctx, const OSSL_PARAM params[]
                      gctx->seed_len);
     COPY_OCTET_PARAM(params, OSSL_PKEY_PARAM_EC_GENERATOR, gctx->gen,
                      gctx->gen_len);
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    COPY_OCTET_PARAM(params, OSSL_PKEY_PARAM_DHKEM_IKM, gctx->dhkem_ikm,
+                     gctx->dhkem_ikmlen);
+# endif
 
     ret = 1;
 err:
     return ret;
 }
 
-static void *qat_keymgmt_ec_gen_init(void *provctx, int selection,
-                         const OSSL_PARAM params[])
+static void *qat_keymgmt_ec_gen_init(void *provctx, int selection, const OSSL_PARAM params[])
 {
-    OSSL_LIB_CTX *libctx = prov_libctx_of(provctx);
-    QAT_EC_GEN_CTX *gctx = NULL;
+    if (!qat_prov_is_running() || (selection & EC_POSSIBLE_SELECTIONS) == 0)
+        return NULL;
 
-    if (qat_sw_ecdh_offload) {
-        if (!qat_prov_is_running() || (selection & (OSSL_KEYMGMT_SELECT_ALL)) == 0)
-            return NULL;
+    QAT_EC_GEN_CTX *gctx = OPENSSL_zalloc(sizeof(*gctx));
+    if (gctx == NULL)
+        return NULL;
 
-        if ((gctx = OPENSSL_zalloc(sizeof(*gctx))) != NULL) {
-             gctx->libctx = libctx;
-             gctx->selection = selection;
-             gctx->ecdh_mode = 0;
+    gctx->libctx = prov_libctx_of(provctx);
+    gctx->selection = selection;
+    gctx->ecdh_mode = 0;
 
-            if (!qat_keymgmt_ec_gen_set_params(gctx, params)) {
-                OPENSSL_free(gctx);
-                gctx = NULL;
-            }
-        }
-    } else {
-        typedef void * (*fun_ptr)(void *, int, const OSSL_PARAM *);
-        fun_ptr fun = get_default_keymgmt().gen_init;
-        if (!fun)
-            return NULL;
-        return fun(provctx, selection, params);
+    if (!qat_keymgmt_ec_gen_set_params(gctx, params)) {
+        OPENSSL_free(gctx);
+        return NULL;
     }
+
     return gctx;
-}
-
-static int qat_ec_gen_set_group(void *genctx, const EC_GROUP *src)
-{
-    QAT_EC_GEN_CTX *gctx = genctx;
-    EC_GROUP *group;
-
-    group = EC_GROUP_dup(src);
-    if (group == NULL) {
-        QATerr(ERR_LIB_PROV, QAT_R_INVALID_CURVE);
-        return 0;
-    }
-    EC_GROUP_free(gctx->gen_group);
-    gctx->gen_group = group;
-    return 1;
 }
 
 static int qat_keymgmt_ec_gen_set_template(void *genctx, void *templ)
@@ -368,201 +184,13 @@ static const OSSL_PARAM *qat_keymgmt_ec_gen_settable_params(ossl_unused void *ge
         OSSL_PARAM_BN(OSSL_PKEY_PARAM_EC_ORDER, NULL, 0),
         OSSL_PARAM_BN(OSSL_PKEY_PARAM_EC_COFACTOR, NULL, 0),
         OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_EC_SEED, NULL, 0),
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+        OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_DHKEM_IKM, NULL, 0),
+# endif
         OSSL_PARAM_END
     };
 
     return settable;
-}
-
-static int qat_ec_gen_assign_group(EC_KEY *ec, EC_GROUP *group)
-{
-    if (group == NULL) {
-        QATerr(ERR_LIB_PROV, QAT_R_NO_PARAMETERS_SET);
-        return 0;
-    }
-    return EC_KEY_set_group(ec, group) > 0;
-}
-
-/* Mapping between a flag and a name */
-static const OSSL_ITEM qat_encoding_nameid_map[] = {
-    { OPENSSL_EC_EXPLICIT_CURVE, OSSL_PKEY_EC_ENCODING_EXPLICIT },
-    { OPENSSL_EC_NAMED_CURVE, OSSL_PKEY_EC_ENCODING_GROUP },
-};
-
-static const OSSL_ITEM qat_check_group_type_nameid_map[] = {
-    { 0, OSSL_PKEY_EC_GROUP_CHECK_DEFAULT },
-    { EC_FLAG_CHECK_NAMED_GROUP, OSSL_PKEY_EC_GROUP_CHECK_NAMED },
-    { EC_FLAG_CHECK_NAMED_GROUP_NIST, OSSL_PKEY_EC_GROUP_CHECK_NAMED_NIST },
-};
-
-static const OSSL_ITEM qat_format_nameid_map[] = {
-    { (int)POINT_CONVERSION_UNCOMPRESSED,
-           OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_UNCOMPRESSED },
-    { (int)POINT_CONVERSION_COMPRESSED,
-           OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_COMPRESSED },
-    { (int)POINT_CONVERSION_HYBRID, OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_HYBRID },
-};
-
-int qat_ec_encoding_name2id(const char *name)
-{
-    size_t i, sz;
-
-    /* Return the default value if there is no name */
-    if (name == NULL)
-        return OPENSSL_EC_NAMED_CURVE;
-
-    for (i = 0, sz = OSSL_NELEM(qat_encoding_nameid_map); i < sz; i++) {
-        if (OPENSSL_strcasecmp(name, qat_encoding_nameid_map[i].ptr) == 0)
-            return qat_encoding_nameid_map[i].id;
-    }
-    return -1;
-}
-
-int qat_ec_pt_format_name2id(const char *name)
-{
-    size_t i, sz;
-
-    /* Return the default value if there is no name */
-    if (name == NULL)
-        return (int)POINT_CONVERSION_UNCOMPRESSED;
-
-    for (i = 0, sz = OSSL_NELEM(qat_format_nameid_map); i < sz; i++) {
-        if (OPENSSL_strcasecmp(name, qat_format_nameid_map[i].ptr) == 0)
-            return qat_format_nameid_map[i].id;
-    }
-    return -1;
-}
-
-static int qat_ec_check_group_type_name2id(const char *name)
-{
-    size_t i, sz;
-
-    /* Return the default value if there is no name */
-    if (name == NULL)
-        return 0;
-
-    for (i = 0, sz = OSSL_NELEM(qat_check_group_type_nameid_map); i < sz; i++) {
-        if (OPENSSL_strcasecmp(name, qat_check_group_type_nameid_map[i].ptr) == 0)
-            return qat_check_group_type_nameid_map[i].id;
-    }
-    return -1;
-}
-
-static int qat_ec_gen_set_group_from_params(QAT_EC_GEN_CTX *gctx)
-{
-    int ret = 0;
-    OSSL_PARAM_BLD *bld;
-    OSSL_PARAM *params = NULL;
-    EC_GROUP *group = NULL;
-
-    bld = OSSL_PARAM_BLD_new();
-    if (bld == NULL)
-        return 0;
-
-    if (gctx->encoding != NULL
-        && !OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_EC_ENCODING,
-                                            gctx->encoding, 0))
-        goto err;
-
-    if (gctx->pt_format != NULL
-        && !OSSL_PARAM_BLD_push_utf8_string(bld,
-                                            OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT,
-                                            gctx->pt_format, 0))
-        goto err;
-
-    if (gctx->group_name != NULL) {
-        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_GROUP_NAME,
-                                             gctx->group_name, 0))
-            goto err;
-        /* Ignore any other parameters if there is a group name */
-        goto build;
-    } else if (gctx->field_type != NULL) {
-        if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_PKEY_PARAM_EC_FIELD_TYPE,
-                                             gctx->field_type, 0))
-            goto err;
-    } else {
-        goto err;
-    }
-    if (gctx->p == NULL
-        || gctx->a == NULL
-        || gctx->b == NULL
-        || gctx->order == NULL
-        || !OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_EC_P, gctx->p)
-        || !OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_EC_A, gctx->a)
-        || !OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_EC_B, gctx->b)
-        || !OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_EC_ORDER, gctx->order))
-        goto err;
-
-    if (gctx->cofactor != NULL
-        && !OSSL_PARAM_BLD_push_BN(bld, OSSL_PKEY_PARAM_EC_COFACTOR,
-                                   gctx->cofactor))
-        goto err;
-
-    if (gctx->seed != NULL
-        && !OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_EC_SEED,
-                                             gctx->seed, gctx->seed_len))
-        goto err;
-
-    if (gctx->gen == NULL
-        || !OSSL_PARAM_BLD_push_octet_string(bld, OSSL_PKEY_PARAM_EC_GENERATOR,
-                                             gctx->gen, gctx->gen_len))
-        goto err;
-build:
-    params = OSSL_PARAM_BLD_to_param(bld);
-    if (params == NULL)
-        goto err;
-    group = EC_GROUP_new_from_params(params, gctx->libctx, NULL);
-    if (group == NULL)
-        goto err;
-
-    EC_GROUP_free(gctx->gen_group);
-    gctx->gen_group = group;
-
-    ret = 1;
-err:
-    OSSL_PARAM_free(params);
-    OSSL_PARAM_BLD_free(bld);
-    return ret;
-}
-
-int qat_ec_set_ecdh_cofactor_mode(EC_KEY *ec, int mode)
-{
-    const EC_GROUP *ecg = EC_KEY_get0_group(ec);
-    const BIGNUM *cofactor;
-    /*
-     * mode can be only 0 for disable, or 1 for enable here.
-     *
-     * This is in contrast with the same parameter on an ECDH EVP_PKEY_CTX that
-     * also supports mode == -1 with the meaning of "reset to the default for
-     * the associated key".
-     */
-    if (mode < 0 || mode > 1)
-        return 0;
-
-    if ((cofactor = EC_GROUP_get0_cofactor(ecg)) == NULL )
-        return 0;
-
-    /* ECDH cofactor mode has no effect if cofactor is 1 */
-    if (BN_is_one(cofactor))
-        return 1;
-
-    if (mode == 1)
-        EC_KEY_set_flags(ec, EC_FLAG_COFACTOR_ECDH);
-    else if (mode == 0)
-        EC_KEY_clear_flags(ec, EC_FLAG_COFACTOR_ECDH);
-
-    return 1;
-}
-
-int qat_ec_set_check_group_type_from_name(EC_KEY *ec, const char *name)
-{
-    int flags = qat_ec_check_group_type_name2id(name);
-
-    if (flags == -1)
-        return 0;
-    EC_KEY_clear_flags(ec, EC_FLAG_CHECK_NAMED_GROUP_MASK);
-    EC_KEY_set_flags(ec, flags);
-    return 1;
 }
 
 static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
@@ -573,7 +201,7 @@ static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg
 
     if (!qat_prov_is_running()
         || gctx == NULL
-        || (ec = qat_ec_key_new(gctx->libctx, NULL)) == NULL)
+        || (ec = EC_KEY_new_ex(gctx->libctx, NULL)) == NULL)
         return NULL;
 
     if (gctx->gen_group == NULL) {
@@ -599,22 +227,22 @@ static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg
     /* We must always assign a group, no matter what */
     ret = qat_ec_gen_assign_group(ec, gctx->gen_group);
 
-#if ENABLE_QAT_HW_ECDH
-    if (qat_hw_ecdh_offload)
-        ret = ret && qat_ecdh_generate_key(ec);
+    if ((gctx->selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0) {
+#if defined(ENABLE_QAT_HW_ECDH)
+        if (qat_hw_ecdh_offload) {
+            ret = ret && qat_ecdh_generate_key(ec);
+	}
 #endif
-
-#if ENABLE_QAT_SW_ECDH
-    if (qat_sw_ecdh_offload) {
-        ret = ret && mb_ecdh_generate_key(ec);
-    } else {
-      typedef void * (*fun_ptr)(void *, OSSL_CALLBACK *, void *);
-      fun_ptr fun = get_default_keymgmt().gen;
-      if (!fun)
-          return NULL;
-      return fun(genctx, osslcb, cbarg);
+#ifdef ENABLE_QAT_SW_ECDH
+        if (qat_sw_ecdh_offload) {
+            ret = ret && mb_ecdh_generate_key(ec);
+	}
+#endif
+        if (!qat_hw_ecdh_offload && !qat_sw_ecdh_offload) {
+            ret = ret && EC_KEY_generate_key(ec);
+        }    
     }
-#endif
+
     if (gctx->ecdh_mode != -1)
         ret = ret && qat_ec_set_ecdh_cofactor_mode(ec, gctx->ecdh_mode);
 
@@ -629,40 +257,164 @@ err:
     return NULL;
 }
 
+static int common_get_params(void *key, OSSL_PARAM params[], int sm2)
+{
+    if (key == NULL || params == NULL)
+        return 0;
+
+    EC_KEY *eck = key;
+    const EC_GROUP *ecg = EC_KEY_get0_group(eck);
+    if (ecg == NULL)
+        return 0;
+
+    OSSL_LIB_CTX *libctx = qat_keymgmt_ec_key_get_libctx(eck);
+    const char *propq = qat_ec_key_get0_propq(eck);
+    BN_CTX *bnctx = BN_CTX_new_ex(libctx);
+    if (bnctx == NULL)
+        return 0;
+
+    BN_CTX_start(bnctx);
+    int ret = 0;
+
+    /* Set maximum size */
+    OSSL_PARAM *p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_MAX_SIZE);
+    if (p != NULL && !OSSL_PARAM_set_int(p, ECDSA_size(eck)))
+        goto cleanup;
+
+    /* Set key bits */
+    p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_BITS);
+    if (p != NULL && !OSSL_PARAM_set_int(p, EC_GROUP_order_bits(ecg)))
+        goto cleanup;
+
+    /* Set security bits */
+    p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_SECURITY_BITS);
+    if (p != NULL) {
+        int ecbits = EC_GROUP_order_bits(ecg);
+        int sec_bits = (ecbits >= 512) ? 256 :
+                       (ecbits >= 384) ? 192 :
+                       (ecbits >= 256) ? 128 :
+                       (ecbits >= 224) ? 112 :
+                       (ecbits >= 160) ? 80 : ecbits / 2;
+
+        if (!OSSL_PARAM_set_int(p, sec_bits))
+            goto cleanup;
+    }
+
+    /* Set explicit parameters flag */
+    p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_EC_DECODED_FROM_EXPLICIT_PARAMS);
+    if (p != NULL) {
+        int explicitparams = EC_KEY_decoded_from_explicit_params(eck);
+        if (explicitparams < 0 || !OSSL_PARAM_set_int(p, explicitparams))
+            goto cleanup;
+    }
+
+    /* Set default digest */
+    p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_DEFAULT_DIGEST);
+    if (p != NULL) {
+        const char *default_md = sm2 ? SM2_DEFAULT_MD : EC_DEFAULT_MD;
+        if (!OSSL_PARAM_set_utf8_string(p, default_md))
+            goto cleanup;
+    }
+
+    /* Set cofactor ECDH mode (if not SM2) */
+    if (!sm2) {
+        p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_USE_COFACTOR_ECDH);
+        if (p != NULL) {
+            int ecdh_cofactor_mode = (EC_KEY_get_flags(eck) & EC_FLAG_COFACTOR_ECDH) ? 1 : 0;
+            if (!OSSL_PARAM_set_int(p, ecdh_cofactor_mode))
+                goto cleanup;
+        }
+    }
+
+    /* Set encoded public key */
+    p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY);
+    if (p != NULL) {
+        const EC_POINT *ecp = EC_KEY_get0_public_key(eck);
+        if (ecp == NULL)
+            goto cleanup;
+
+        p->return_size = EC_POINT_point2oct(ecg, ecp, POINT_CONVERSION_UNCOMPRESSED,
+                                            p->data, p->data_size, bnctx);
+        if (p->return_size == 0)
+            goto cleanup;
+    }
+
+    /* Get additional parameters */
+    ret = qat_ec_get_ecm_params(ecg, params) &&
+          qat_ec_group_todata(ecg, NULL, params, libctx, propq, bnctx, NULL) &&
+          qat_key_to_params(eck, NULL, params, 1, NULL) &&
+          qat_otherparams_to_params(eck, NULL, params);
+
+cleanup:
+    BN_CTX_end(bnctx);
+    BN_CTX_free(bnctx);
+    return ret;
+}
+
 static int qat_keymgmt_ec_get_params(void *key, OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *, OSSL_PARAM *);
-    fun_ptr fun = get_default_keymgmt().get_params;
-    if (!fun)
+    return common_get_params(key, params, 0);
+}
+
+static const OSSL_PARAM qat_keymgmt_ec_gettable_params[] = {
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_BITS, NULL),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_SECURITY_BITS, NULL),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_MAX_SIZE, NULL),
+    OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_DEFAULT_DIGEST, NULL, 0),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_USE_COFACTOR_ECDH, NULL),                   \
+    OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY, NULL, 0),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_EC_DECODED_FROM_EXPLICIT_PARAMS, NULL),
+    EC_IMEXPORTABLE_DOM_PARAMETERS,
+    EC2M_GETTABLE_DOM_PARAMS
+    EC_IMEXPORTABLE_PUBLIC_KEY,
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_EC_PUB_X, NULL, 0),
+    OSSL_PARAM_BN(OSSL_PKEY_PARAM_EC_PUB_Y, NULL, 0),
+    EC_IMEXPORTABLE_PRIVATE_KEY,
+    EC_IMEXPORTABLE_OTHER_PARAMETERS,
+    OSSL_PARAM_END
+};
+
+static const OSSL_PARAM qat_keymgmt_ec_settable_params[] = {
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_USE_COFACTOR_ECDH, NULL),
+    OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY, NULL, 0),
+    OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_EC_ENCODING, NULL, 0),
+    OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_EC_POINT_CONVERSION_FORMAT, NULL, 0),
+    OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_EC_SEED, NULL, 0),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_EC_INCLUDE_PUBLIC, NULL),
+    OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_EC_GROUP_CHECK_TYPE, NULL, 0),
+    OSSL_PARAM_END
+};
+
+static
+int qat_keymgmt_ec_set_params(void *key, const OSSL_PARAM params[])
+{
+    EC_KEY *eck = key;
+    const OSSL_PARAM *p;
+
+    if (key == NULL)
         return 0;
-    return fun(key, params);
-}
+    if (params == NULL)
+        return 1;
 
-static const OSSL_PARAM *qat_keymgmt_ec_gettable_params(void *provctx)
-{
-    typedef const OSSL_PARAM* (*fun_ptr)(void *);
-    fun_ptr fun = get_default_keymgmt().gettable_params;
-    if (!fun)
-        return NULL;
-    return fun(provctx);
-}
 
-static const OSSL_PARAM *qat_keymgmt_ec_settable_params(void *provctx)
-{
-    typedef const OSSL_PARAM* (*fun_ptr)(void *);
-    fun_ptr fun = get_default_keymgmt().settable_params;
-    if (!fun)
-        return NULL;
-    return fun(provctx);
-}
-
-static int qat_keymgmt_ec_set_params(void *key, const OSSL_PARAM params[])
-{
-    typedef int (*fun_ptr)(void *,const OSSL_PARAM *);
-    fun_ptr fun = get_default_keymgmt().set_params;
-    if (!fun)
+    if (!qat_ec_group_set_params((EC_GROUP *)EC_KEY_get0_group(key), params))
         return 0;
-    return fun(key,params);
+
+    p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY);
+    if (p != NULL) {
+        BN_CTX *ctx = BN_CTX_new_ex(qat_keymgmt_ec_key_get_libctx(key));
+        int ret = 1;
+
+        if (ctx == NULL
+                || p->data_type != OSSL_PARAM_OCTET_STRING
+                || !EC_KEY_oct2key(key, p->data, p->data_size, ctx))
+            ret = 0;
+        BN_CTX_free(ctx);
+        if (!ret)
+            return 0;
+    }
+
+    return qat_ec_key_otherparams_fromdata(eck, params);
 }
 
 static void qat_keymgmt_ec_freedata(void *keydata)
@@ -670,59 +422,167 @@ static void qat_keymgmt_ec_freedata(void *keydata)
 #ifdef ENABLE_QAT_FIPS
     QAT_EC_KEY_free(keydata);
 #else
-    typedef void (*fun_ptr)(void *);
-    fun_ptr fun = get_default_keymgmt().free;
-    if (!fun)
-        return;
-    fun(keydata);
+    EC_KEY_free(keydata);
 #endif
 }
 
-static int qat_keymgmt_ec_has(const void *keydata, int selection)
+static
+int qat_keymgmt_ec_has(const void *keydata, int selection)
 {
-    typedef int (*fun_ptr)(const void *,int);
-    fun_ptr fun = get_default_keymgmt().has;
-    if (!fun)
+    const EC_KEY *ec = keydata;
+    int ok = 1;
+
+    if (!qat_prov_is_running() || ec == NULL)
         return 0;
-    return fun(keydata,selection);
+    if ((selection & EC_POSSIBLE_SELECTIONS) == 0)
+        return 1; /* the selection is not missing */
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
+        ok = ok && (EC_KEY_get0_public_key(ec) != NULL);
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+        ok = ok && (EC_KEY_get0_private_key(ec) != NULL);
+    if ((selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) != 0)
+        ok = ok && (EC_KEY_get0_group(ec) != NULL);
+    /*
+     * We consider OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS to always be
+     * available, so no extra check is needed other than the previous one
+     * against EC_POSSIBLE_SELECTIONS.
+     */
+    return ok;
 }
 
-static int qat_keymgmt_ec_import(void *keydata, int selection,
-                                 const OSSL_PARAM params[])
+static int common_import(void *keydata, int selection, const OSSL_PARAM params[], int sm2_wanted)
 {
-    typedef int (*fun_ptr)(void *, int, const OSSL_PARAM*);
-    fun_ptr fun = get_default_keymgmt().import;
-    if (!fun)
+    if (!qat_prov_is_running() || keydata == NULL || (selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) == 0)
         return 0;
-    return fun(keydata,selection,params);
+
+    EC_KEY *ec = keydata;
+    int include_private = (selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0;
+    int ok = 1;
+
+    /* Import domain parameters */
+    ok = ok && qat_ec_group_fromdata(ec, params);
+
+    /* Check if key is SM2 and matches the expected type */
+    if (!qat_common_check_sm2(ec, sm2_wanted))
+        return 0;
+
+    /* Import keypair if requested */
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0)
+        ok = ok && qat_ec_key_fromdata(ec, params, include_private);
+
+    /* Import other parameters if requested */
+    if ((selection & OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS) != 0)
+        ok = ok && qat_ec_key_otherparams_fromdata(ec, params);
+
+    return ok;
+}
+
+static
+int qat_keymgmt_ec_import(void *keydata, int selection, const OSSL_PARAM params[])
+{
+    return common_import(keydata, selection, params, 0);
+}
+
+static ossl_inline
+const OSSL_PARAM *qat_ec_imexport_types(int selection)
+{
+    int type_select = 0;
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+        type_select += 1;
+    if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
+        type_select += 2;
+    if ((selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) != 0)
+        type_select += 4;
+    if ((selection & OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS) != 0)
+        type_select += 8;
+    return ec_types[type_select];
 }
 
 static const OSSL_PARAM *qat_keymgmt_ec_import_types(int selection)
 {
-    typedef const OSSL_PARAM* (*fun_ptr)(int);
-    fun_ptr fun = get_default_keymgmt().import_types;
-    if (!fun)
-        return NULL;
-    return fun(selection);
+    return qat_ec_imexport_types(selection);
 }
 
-static int qat_keymgmt_ec_export(void *keydata, int selection,
-              OSSL_CALLBACK *param_cb, void *cbarg)
+static
+int qat_keymgmt_ec_export(void *keydata, int selection, OSSL_CALLBACK *param_cb, void *cbarg)
 {
-    typedef int (*fun_ptr)(void *, int, OSSL_CALLBACK *, void *);
-    fun_ptr fun = get_default_keymgmt().export;
-    if (!fun)
+    if (!qat_prov_is_running() || keydata == NULL)
         return 0;
-    return fun(keydata,selection,param_cb,cbarg);
+
+    EC_KEY *ec = keydata;
+    int ok = 1;
+    OSSL_PARAM_BLD *tmpl = NULL;
+    OSSL_PARAM *params = NULL;
+    unsigned char *pub_key = NULL, *genbuf = NULL;
+    BN_CTX *bnctx = NULL;
+
+    /* Validate selection: must always have domain parameters, and private key requires public key */
+    if ((selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) == 0)
+        return 0;
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0 &&
+        (selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) == 0)
+        return 0;
+
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL)
+        return 0;
+
+    /* Export domain parameters */
+    if ((selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) != 0) {
+        bnctx = BN_CTX_new_ex(qat_keymgmt_ec_key_get_libctx(ec));
+        if (bnctx == NULL) {
+            ok = 0;
+            goto cleanup;
+        }
+        BN_CTX_start(bnctx);
+        ok = qat_ec_group_todata(EC_KEY_get0_group(ec), tmpl, NULL,
+                                 qat_keymgmt_ec_key_get_libctx(ec),
+                                 qat_ec_key_get0_propq(ec),
+                                 bnctx, &genbuf);
+        if (!ok)
+            goto cleanup;
+    }
+
+    /* Export keypair (public/private) */
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0) {
+        int include_private = (selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) ? 1 : 0;
+        ok = qat_key_to_params(ec, tmpl, NULL, include_private, &pub_key);
+        if (!ok)
+            goto cleanup;
+    }
+
+    /* Export other parameters */
+    if ((selection & OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS) != 0) {
+        ok = qat_otherparams_to_params(ec, tmpl, NULL);
+        if (!ok)
+            goto cleanup;
+    }
+
+    params = OSSL_PARAM_BLD_to_param(tmpl);
+    if (params == NULL) {
+        ok = 0;
+        goto cleanup;
+    }
+
+    ok = param_cb(params, cbarg);
+    OSSL_PARAM_free(params);
+
+cleanup:
+    OSSL_PARAM_BLD_free(tmpl);
+    OPENSSL_free(pub_key);
+    OPENSSL_free(genbuf);
+    if (bnctx) {
+        BN_CTX_end(bnctx);
+        BN_CTX_free(bnctx);
+    }
+    return ok;
 }
 
 static const OSSL_PARAM *qat_keymgmt_ec_export_types(int selection)
 {
-    typedef const OSSL_PARAM* (*fun_ptr)(int);
-    fun_ptr fun = get_default_keymgmt().export_types;
-    if (!fun)
-        return NULL;
-    return fun(selection);
+    return qat_ec_imexport_types(selection);
 }
 
 static void qat_keymgmt_ec_gen_cleanup(void *genctx)
@@ -732,6 +592,7 @@ static void qat_keymgmt_ec_gen_cleanup(void *genctx)
     if (gctx == NULL)
         return;
 
+    OPENSSL_clear_free(gctx->dhkem_ikm, gctx->dhkem_ikmlen);
     EC_GROUP_free(gctx->gen_group);
     BN_free(gctx->p);
     BN_free(gctx->a);
@@ -747,48 +608,205 @@ static void qat_keymgmt_ec_gen_cleanup(void *genctx)
     OPENSSL_free(gctx);
 }
 
+static void *common_load(const void *reference, size_t reference_sz,
+                         int sm2_wanted)
+{
+    EC_KEY *ec = NULL;
+
+    if (reference_sz == sizeof(ec)) {
+        /* The contents of the reference is the address to our object */
+        ec = *(EC_KEY **)reference;
+
+        if (!qat_common_check_sm2(ec, sm2_wanted))
+            return NULL;
+
+        /* We grabbed, so we detach it */
+        *(EC_KEY **)reference = NULL;
+        return ec;
+    }
+    return NULL;
+}
+
 static void *qat_keymgmt_ec_load(const void *reference, size_t reference_sz)
 {
-    typedef void* (*fun_ptr)(const void *, size_t);
-    fun_ptr fun = get_default_keymgmt().load;
-    if (!fun)
-        return NULL;
-    return fun(reference,reference_sz);
+    return common_load(reference, reference_sz, 0);
+}
 
+EC_KEY *qat_ec_key_dup(const EC_KEY *src, int selection)
+{
+    EC_KEY *ret;
+
+    if (src == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return NULL;
+    }
+
+    if ((ret = qat_ec_key_new_method_int(src->libctx, src->propq)) == NULL)
+        return NULL;
+
+    /* copy the parameters */
+    if (src->group != NULL
+        && (selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) != 0) {
+        ret->group = qat_ec_group_new_ex(src->libctx, src->propq,
+                                          src->group->meth);
+        if (ret->group == NULL
+            || !EC_GROUP_copy(ret->group, src->group))
+            goto err;
+
+        if (src->meth != NULL)
+            ret->meth = src->meth;
+    }
+
+    /*  copy the public key */
+    if (src->pub_key != NULL
+        && (selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0) {
+        if (ret->group == NULL)
+            /* no parameter-less keys allowed */
+            goto err;
+        ret->pub_key = EC_POINT_new(ret->group);
+        if (ret->pub_key == NULL
+            || !EC_POINT_copy(ret->pub_key, src->pub_key))
+                goto err;
+    }
+
+    /* copy the private key */
+    if (src->priv_key != NULL
+        && (selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
+        if (ret->group == NULL)
+            /* no parameter-less keys allowed */
+            goto err;
+        ret->priv_key = BN_new();
+        if (ret->priv_key == NULL || !BN_copy(ret->priv_key, src->priv_key))
+            goto err;
+        if (ret->group->meth->keycopy
+            && ret->group->meth->keycopy(ret, src) == 0)
+            goto err;
+    }
+
+    /* copy the rest */
+    if ((selection & OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS) != 0) {
+        ret->enc_flag = src->enc_flag;
+        ret->conv_form = src->conv_form;
+    }
+
+    ret->version = src->version;
+    ret->flags = src->flags;
+
+    if (!CRYPTO_dup_ex_data(CRYPTO_EX_INDEX_EC_KEY,
+                            &ret->ex_data, &src->ex_data))
+        goto err;
+
+    if (ret->meth != NULL && ret->meth->copy != NULL) {
+        if ((selection
+             & OSSL_KEYMGMT_SELECT_KEYPAIR) != OSSL_KEYMGMT_SELECT_KEYPAIR)
+            goto err;
+        if (ret->meth->copy(ret, src) == 0)
+            goto err;
+    }
+
+    return ret;
+ err:
+    EC_KEY_free(ret);
+    return NULL;
 }
 
 static void *qat_keymgmt_ec_dup(const void *keydata_from, int selection)
 {
-    typedef void* (*fun_ptr)(const void *, int);
-    fun_ptr fun = get_default_keymgmt().dup;
-    if (!fun)
-        return NULL;
-    return fun(keydata_from, selection);
-
+    if (qat_prov_is_running())
+        return qat_ec_key_dup(keydata_from, selection);
+    return NULL;
 }
 
-static int qat_keymgmt_ec_validate(const void *keydata, int selection,
-                                   int checktype)
+static
+int qat_keymgmt_ec_validate(const void *keydata, int selection, int checktype)
 {
-    typedef int (*fun_ptr)(const void *, int, int);
-    fun_ptr fun = get_default_keymgmt().validate;
-    if (!fun)
-	return 0;
-    return fun(keydata, selection, checktype);
+    const EC_KEY *eck = keydata;
+    int ok = 1;
+    BN_CTX *ctx = NULL;
 
-}
-
-static int qat_keymgmt_ec_match(const void *keydata1, const void *keydata2,
-                                int selection)
-{
-    typedef int (*fun_ptr)(const void *, const void *, int);
-    fun_ptr fun = get_default_keymgmt().match;
-    if (!fun)
+    if (!qat_prov_is_running())
         return 0;
-    return fun(keydata1, keydata2, selection);
 
+    if ((selection & EC_POSSIBLE_SELECTIONS) == 0)
+        return 1; /* nothing to validate */
+
+    ctx = BN_CTX_new_ex(qat_keymgmt_ec_key_get_libctx(eck));
+    if  (ctx == NULL)
+        return 0;
+
+    if ((selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) != 0) {
+        int flags = EC_KEY_get_flags(eck);
+
+        if ((flags & EC_FLAG_CHECK_NAMED_GROUP) != 0)
+            ok = ok && EC_GROUP_check_named_curve(EC_KEY_get0_group(eck),
+                           (flags & EC_FLAG_CHECK_NAMED_GROUP_NIST) != 0, ctx) > 0;
+        else
+            ok = ok && EC_GROUP_check(EC_KEY_get0_group(eck), ctx);
+    }
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0) {
+        if (checktype == OSSL_KEYMGMT_VALIDATE_QUICK_CHECK)
+            ok = ok && qat_ec_key_public_check_quick(eck, ctx);
+        else
+            ok = ok && qat_ec_key_public_check(eck, ctx);
+    }
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
+        ok = ok && qat_ec_key_private_check(eck);
+
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) == OSSL_KEYMGMT_SELECT_KEYPAIR)
+        ok = ok && qat_ec_key_pairwise_check(eck, ctx);
+
+    BN_CTX_free(ctx);
+    return ok;
 }
 
+static int qat_keymgmt_ec_match(const void *keydata1, const void *keydata2, int selection)
+{
+    const EC_KEY *ec1 = keydata1;
+    const EC_KEY *ec2 = keydata2;
+    const EC_GROUP *group_a = EC_KEY_get0_group(ec1);
+    const EC_GROUP *group_b = EC_KEY_get0_group(ec2);
+    BN_CTX *ctx = NULL;
+    int ok = 1;
+
+    if (!qat_prov_is_running())
+        return 0;
+
+    ctx = BN_CTX_new_ex(qat_keymgmt_ec_key_get_libctx(ec1));
+    if (ctx == NULL)
+        return 0;
+
+    if ((selection & OSSL_KEYMGMT_SELECT_DOMAIN_PARAMETERS) != 0)
+        ok = ok && group_a != NULL && group_b != NULL
+            && EC_GROUP_cmp(group_a, group_b, ctx) == 0;
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0) {
+        int key_checked = 0;
+
+        if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0) {
+            const EC_POINT *pa = EC_KEY_get0_public_key(ec1);
+            const EC_POINT *pb = EC_KEY_get0_public_key(ec2);
+
+            if (pa != NULL && pb != NULL) {
+                ok = ok && EC_POINT_cmp(group_b, pa, pb, ctx) == 0;
+                key_checked = 1;
+            }
+        }
+        if (!key_checked
+            && (selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
+            const BIGNUM *pa = EC_KEY_get0_private_key(ec1);
+            const BIGNUM *pb = EC_KEY_get0_private_key(ec2);
+
+            if (pa != NULL && pb != NULL) {
+                ok = ok && BN_cmp(pa, pb) == 0;
+                key_checked = 1;
+            }
+        }
+        ok = ok && key_checked;
+    }
+    BN_CTX_free(ctx);
+    return ok;
+}
 #endif
 
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)

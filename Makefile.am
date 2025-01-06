@@ -22,6 +22,7 @@ if QAT_PROVIDER
                 qat_prov_exch_ecx.c       \
                 qat_prov_ciphers.c        \
                 qat_prov_kmgmt_ec.c       \
+                qat_prov_kmgmt_ec_utils.c \
                 qat_prov_ecdsa.c          \
                 qat_prov_ecdh.c           \
                 qat_prov_dsa.c            \
