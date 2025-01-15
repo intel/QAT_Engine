@@ -57,21 +57,13 @@
 # include <semaphore.h>
 # include <sched.h>
 
-#ifndef QAT_BORINGSSL
-# include <openssl/async.h>
-#endif
-
-#ifdef QAT_BORINGSSL
-# include "qat_bssl.h"
-#endif /* QAT_BORINGSSL */
-
-# ifdef QAT_OPENSSL_3
-#  include "qat_prov_err.h"
-# elif defined(QAT_BORINGSSL)
+# ifdef QAT_BORINGSSL
+#  include "qat_bssl.h"
 #  include "qat_bssl_err.h"
 # else
-#  include "e_qat_err.h"
-# endif
+#  include "qat_err.h"
+#  include <openssl/async.h>
+#endif /* QAT_BORINGSSL */
 
 # ifdef QAT_HW
 #  include "cpa.h"

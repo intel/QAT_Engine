@@ -9,7 +9,8 @@ if !QAT_BORINGSSL
                   qat_fork.c   \
                   qat_events.c \
                   qat_utils.c  \
-                  qat_evp.c
+                  qat_evp.c    \
+                  qat_err.c
 
 if QAT_PROVIDER
  QAT_PROV_SRC = qat_prov_init.c           \
@@ -51,12 +52,6 @@ if QAT_FIPS
                 qat_prov_sha2.c           \
                 qat_sw_sha2.c
 endif
-endif
-
-if QAT_OPENSSL_3
-QAT_ERR_SRC = qat_prov_err.c
-else
-QAT_ERR_SRC = e_qat_err.c
 endif
 
 if QAT_HW
@@ -113,9 +108,8 @@ if QAT_BORINGSSL
                   qat_fork.c   \
                   qat_events.c \
                   qat_evp.c    \
-                  qat_bssl.c
-
-QAT_ERR_SRC = qat_bssl_err.c
+                  qat_bssl.c   \
+                  qat_bssl_err.c
 
 if QAT_HW
  QAT_HW_SRC = qat_hw_init.c        \
@@ -141,7 +135,6 @@ endif
 @LIBQATNAME@_la_SOURCES = ${QAT_COMMON_SRC}   \
                           ${QAT_PROV_SRC}     \
                           ${QAT_FIPS_SRC}     \
-                          ${QAT_ERR_SRC}      \
                           ${QAT_HW_SRC}       \
                           ${QAT_SW_SRC}       \
                           ${QAT_SW_IPSEC_SRC} \
@@ -223,13 +216,8 @@ MAKE = make err-files && make
 endif
 
 err-files:
-if QAT_OPENSSL_3
-	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf qat_prov.ec \
-         -rebuild -reindex `ls *.c | sed "s/qat_bssl_err.c//"`
-else
-	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf e_qat.ec \
-         -rebuild -reindex `ls *.c | sed "s/qat_bssl_err.c//"`
-endif
+	perl -I$(with_openssl_dir) $(with_openssl_dir)/util/mkerr.pl -conf qat.ec \
+         -rebuild -reindex `ls *.c`
 
 if QAT_FIPS
 intkat:
