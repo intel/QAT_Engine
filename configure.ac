@@ -354,7 +354,7 @@ then
       AC_CHECK_FILE(${with_openssl_install_dir}/lib/libcrypto.so,
                    [AC_SUBST([QAT_BORINGSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -ldecrepit -lcrypto -lssl"])],
                    [AC_MSG_ERROR([BoringSSL libraries not found in the path $(with_openssl_install_dir)/lib !])])
-      AS_IF([test -d "$with_openssl_install_dir/crypto"], [AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL -DBSSL_SOURCE"])])
+      AS_IF([test -d "$with_openssl_install_dir/crypto"], [AC_SUBST([cflags_boringssl], ["-DQAT_BORINGSSL -DBSSL_SOURCE -DOPENSSL_NO_ERR"])])
       AC_SUBST([with_openssl_dir], [""]) #Err files are updated manually for BoringSSL
       AC_SUBST([LIBQATNAME], "libqatengine")
     fi
