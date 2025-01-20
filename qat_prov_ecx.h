@@ -58,13 +58,17 @@
 typedef struct{
     int id; /* libcrypto internal */
     int name_id;
+# if OPENSSL_VERSION_NUMBER >= 0x30300000
+    /* NID for the legacy alg if there is one */
+    int legacy_alg;
+# endif
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
     CRYPTO_REF_COUNT references;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
+# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-#endif
+# endif
     OSSL_FUNC_keymgmt_new_fn *new;
     OSSL_FUNC_keymgmt_free_fn *free;
     OSSL_FUNC_keymgmt_get_params_fn *get_params;
@@ -73,6 +77,10 @@ typedef struct{
     OSSL_FUNC_keymgmt_settable_params_fn *settable_params;
     OSSL_FUNC_keymgmt_gen_init_fn *gen_init;
     OSSL_FUNC_keymgmt_gen_set_template_fn *gen_set_template;
+# if OPENSSL_VERSION_NUMBER >= 0x30400000
+    OSSL_FUNC_keymgmt_gen_get_params_fn *gen_get_params;
+    OSSL_FUNC_keymgmt_gen_gettable_params_fn *gen_gettable_params;
+# endif
     OSSL_FUNC_keymgmt_gen_set_params_fn *gen_set_params;
     OSSL_FUNC_keymgmt_gen_settable_params_fn *gen_settable_params;
     OSSL_FUNC_keymgmt_gen_fn *gen;

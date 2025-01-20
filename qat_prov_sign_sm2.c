@@ -358,7 +358,9 @@ static int qat_sm2sig_digest_signverify_init(void *vpsm2ctx, const char *mdname,
         && qat_DER_w_algorithmIdentifier_SM2_with_MD(&pkt, -1, ctx->ec, md_nid)
         && QAT_WPACKET_finish(&pkt)) {
         QAT_WPACKET_get_total_written(&pkt, &ctx->aid_len);
+#if OPENSSL_VERSION_NUMBER < 0x30400000
         ctx->aid = QAT_WPACKET_get_curr(&pkt);
+#endif
     }
     QAT_WPACKET_cleanup(&pkt);
 
@@ -498,12 +500,12 @@ static int qat_sm2sig_get_ctx_params(void *vpsm2ctx, OSSL_PARAM *params)
 
     if (psm2ctx == NULL)
         return 0;
-
+#if OPENSSL_VERSION_NUMBER < 0x30400000
     p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_ALGORITHM_ID);
     if (p != NULL
         && !OSSL_PARAM_set_octet_string(p, psm2ctx->aid, psm2ctx->aid_len))
         return 0;
-
+#endif
     p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_DIGEST_SIZE);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, psm2ctx->mdsize))
         return 0;
