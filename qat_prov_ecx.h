@@ -55,6 +55,10 @@
 # define ED448_KEYLEN          57
 # define MAX_KEYLEN            57
 
+#define QAT_ECX_KEY_TYPES()                                                        \
+OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY, NULL, 0),                     \
+OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PRIV_KEY, NULL, 0)
+
 typedef struct{
     int id; /* libcrypto internal */
     int name_id;
@@ -145,9 +149,6 @@ typedef struct qat_ecx_key_st {
     size_t keylen;
     ECX_KEY_TYPE type;
     QAT_CRYPTO_REF_COUNT references;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-#endif
 }ECX_KEY;
 
 typedef struct {

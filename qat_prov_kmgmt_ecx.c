@@ -49,6 +49,7 @@
 #include <openssl/err.h>
 #include <openssl/core_names.h>
 #include <openssl/evp.h>
+#include <openssl/param_build.h>
 #include "qat_provider.h"
 #include "qat_prov_ecx.h"
 #include "qat_utils.h"
@@ -98,11 +99,6 @@ ECX_KEY *qat_ecx_key_new(OSSL_LIB_CTX *libctx, ECX_KEY_TYPE type, int haspubkey,
         if (ret->propq == NULL)
             goto err;
     }
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    ret->lock = CRYPTO_THREAD_lock_new();
-    if (ret->lock == NULL)
-        goto err;
-#endif
     return ret;
 err:
     QATerr(ERR_LIB_EC, ERR_R_MALLOC_FAILURE);
@@ -216,40 +212,137 @@ static void qat_ecx_gen_cleanup(void *genctx)
     OPENSSL_free(gctx);
 }
 
+static int qat_param_build_set_octet_string(OSSL_PARAM_BLD *bld, OSSL_PARAM *p,
+                                      const char *key,
+                                      const unsigned char *data,
+                                      size_t data_len)
+{
+    if (bld != NULL)
+        return OSSL_PARAM_BLD_push_octet_string(bld, key, data, data_len);
+
+    p = OSSL_PARAM_locate(p, key);
+    if (p != NULL)
+        return OSSL_PARAM_set_octet_string(p, data, data_len);
+    return 1;
+}
+
+static int qat_key_to_params(ECX_KEY *key, OSSL_PARAM_BLD *tmpl,
+                         OSSL_PARAM params[], int include_private)
+{
+    if (key == NULL)
+        return 0;
+
+    if (!qat_param_build_set_octet_string(tmpl, params,
+                                           OSSL_PKEY_PARAM_PUB_KEY,
+                                           key->pubkey, key->keylen))
+        return 0;
+
+    if (include_private
+        && key->privkey != NULL
+        && !qat_param_build_set_octet_string(tmpl, params,
+                                              OSSL_PKEY_PARAM_PRIV_KEY,
+                                              key->privkey, key->keylen))
+        return 0;
+
+    return 1;
+}
+
+static int qat_ecx_get_params(void *key, OSSL_PARAM params[], int bits, int secbits,
+                          int size)
+{
+    ECX_KEY *ecx = key;
+    OSSL_PARAM *p;
+
+    if ((p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_BITS)) != NULL
+        && !OSSL_PARAM_set_int(p, bits))
+        return 0;
+    if ((p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_SECURITY_BITS)) != NULL
+        && !OSSL_PARAM_set_int(p, secbits))
+        return 0;
+    if ((p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_MAX_SIZE)) != NULL
+        && !OSSL_PARAM_set_int(p, size))
+        return 0;
+    if ((p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY)) != NULL
+            && (ecx->type == ECX_KEY_TYPE_X25519
+                || ecx->type == ECX_KEY_TYPE_X448)) {
+        if (!OSSL_PARAM_set_octet_string(p, ecx->pubkey, ecx->keylen))
+            return 0;
+    }
+    return qat_key_to_params(ecx, NULL, params, 1);
+}
+
 static int qat_x25519_get_params(void *key, OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *key, OSSL_PARAM params[]);
-    fun_ptr fun = get_default_x25519_keymgmt().get_params;
-    if (!fun)
-        return 0;
-    return fun(key, params);
+    return qat_ecx_get_params(key, params, X25519_BITS, X25519_SECURITY_BITS,
+                          X25519_KEYLEN);
 }
 
-static const OSSL_PARAM *qat_x25519_gettable_params(void *provctx)
+static const OSSL_PARAM qat_kmgmt_ecx_gettable_params[] = {
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_BITS, NULL),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_SECURITY_BITS, NULL),
+    OSSL_PARAM_int(OSSL_PKEY_PARAM_MAX_SIZE, NULL),
+    OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_MANDATORY_DIGEST, NULL, 0),
+    OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY, NULL, 0),
+    QAT_ECX_KEY_TYPES(),
+    OSSL_PARAM_END
+};
+
+static const OSSL_PARAM *qat_ecx_gettable_params(void *provctx)
 {
-    typedef const OSSL_PARAM * (*fun_ptr)(void *provctx);
-    fun_ptr fun = get_default_x25519_keymgmt().gettable_params;
-    if (!fun)
-        return NULL;
-    return fun(provctx);
+    return qat_kmgmt_ecx_gettable_params;
 }
 
-static int qat_x25519_set_params(void *key, const OSSL_PARAM params[])
+static int qat_set_property_query(ECX_KEY *ecxkey, const char *propq)
 {
-    typedef int (*fun_ptr)(void *key, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_x25519_keymgmt().set_params;
-    if (!fun)
-        return 0;
-    return fun(key, params);
+    OPENSSL_free(ecxkey->propq);
+    ecxkey->propq = NULL;
+    if (propq != NULL) {
+        ecxkey->propq = OPENSSL_strdup(propq);
+        if (ecxkey->propq == NULL)
+            return 0;
+    }
+    return 1;
 }
 
-static const OSSL_PARAM *qat_x25519_settable_params(void *provctx)
+static int qat_ecx_set_params(void *key, const OSSL_PARAM params[])
 {
-    typedef const OSSL_PARAM * (*fun_ptr)(void *provctx);
-    fun_ptr fun = get_default_x25519_keymgmt().settable_params;
-    if (!fun)
-        return NULL;
-    return fun(provctx);
+    ECX_KEY *ecxkey = key;
+    const OSSL_PARAM *p;
+
+    if (params == NULL)
+        return 1;
+
+    p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY);
+    if (p != NULL) {
+        void *buf = ecxkey->pubkey;
+
+        if (p->data_size != ecxkey->keylen
+                || !OSSL_PARAM_get_octet_string(p, &buf, sizeof(ecxkey->pubkey),
+                                                NULL))
+            return 0;
+        OPENSSL_clear_free(ecxkey->privkey, ecxkey->keylen);
+        ecxkey->privkey = NULL;
+        ecxkey->haspubkey = 1;
+    }
+    p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_PROPERTIES);
+    if (p != NULL) {
+        if (p->data_type != OSSL_PARAM_UTF8_STRING
+            || !qat_set_property_query(ecxkey, p->data))
+            return 0;
+    }
+
+    return 1;
+}
+
+static const OSSL_PARAM qat_kmgmt_ecx_settable_params[] = {
+    OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_ENCODED_PUBLIC_KEY, NULL, 0),
+    OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_PROPERTIES, NULL, 0),
+    OSSL_PARAM_END
+};
+
+static const OSSL_PARAM *qat_ecx_settable_params(void *provctx)
+{
+    return qat_kmgmt_ecx_settable_params;
 }
 
 #ifdef ENABLE_QAT_HW_ECX
@@ -281,107 +374,118 @@ static void *qat_x448_new_key(void *provctx)
 
 static int qat_x448_get_params(void *key, OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *key, OSSL_PARAM params[]);
-    fun_ptr fun = get_default_x448_keymgmt().get_params;
-    if (!fun)
-        return 0;
-    return fun(key, params);
+    return qat_ecx_get_params(key, params, X448_BITS, X448_SECURITY_BITS,
+                          X448_KEYLEN);
 }
 
-static const OSSL_PARAM *qat_x448_gettable_params(void *provctx)
-{
-    typedef const OSSL_PARAM * (*fun_ptr)(void *provctx);
-    fun_ptr fun = get_default_x448_keymgmt().gettable_params;
-    if (!fun)
-        return NULL;
-    return fun(provctx);
-}
-
-static int qat_x448_set_params(void *key, const OSSL_PARAM params[])
-{
-    typedef int (*fun_ptr)(void *key, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_x448_keymgmt().set_params;
-    if (!fun)
-        return 0;
-    return fun(key, params);
-}
-
-static const OSSL_PARAM *qat_x448_settable_params(void *provctx)
-{
-    typedef const OSSL_PARAM * (*fun_ptr)(void *provctx);
-    fun_ptr fun = get_default_x448_keymgmt().settable_params;
-    if (!fun)
-        return NULL;
-    return fun(provctx);
-}
 #endif
-
-static int qat_ecx_match(const void *keydata1, const void *keydata2, int selection)
-{
-    typedef int (*fun_ptr)(const void *keydata1, const void *keydata2, int selection);
-    fun_ptr fun = get_default_x25519_keymgmt().match;
-    if (!fun)
-        return 0;
-    return fun(keydata1, keydata2, selection);
-}
-
-static int qat_ecx_import(void *keydata, int selection, const OSSL_PARAM params[])
-{
-    typedef int (*fun_ptr)(void *keydata, int selection, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_x25519_keymgmt().import;
-    if (!fun)
-        return 0;
-    return fun(keydata, selection, params);
-}
-
-static const OSSL_PARAM *qat_ecx_import_types(int selection)
-{
-    typedef const OSSL_PARAM * (*fun_ptr)(int selection);
-    fun_ptr fun = get_default_x25519_keymgmt().import_types;
-    if (!fun)
-        return NULL;
-    return fun(selection);
-}
-
-static const OSSL_PARAM *qat_ecx_export_types(int selection)
-{
-    typedef const OSSL_PARAM * (*fun_ptr)(int selection);
-    fun_ptr fun = get_default_x25519_keymgmt().export_types;
-    if (!fun)
-        return NULL;
-    return fun(selection);
-}
-
-static int qat_ecx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
-                          void *cbarg)
-{
-    typedef int (*fun_ptr)(void *keydata, int selection, OSSL_CALLBACK *param_cb,
-                           void *cbarg);
-    fun_ptr fun = get_default_x25519_keymgmt().export;
-    if (!fun)
-        return 0;
-    return fun(keydata, selection, param_cb, cbarg);
-}
 
 static int qat_ecx_gen_set_params(void *genctx, const OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *genctx, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_x25519_keymgmt().gen_set_params;
-    if (!fun)
+    QAT_GEN_CTX *gctx = genctx;
+    const OSSL_PARAM *p;
+
+    if (gctx == NULL)
         return 0;
-    return fun(genctx, params);
+
+    p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_GROUP_NAME);
+    if (p != NULL) {
+        const char *groupname = NULL;
+
+        /*
+         * We optionally allow setting a group name - but each algorithm only
+         * support one such name, so all we do is verify that it is the one we
+         * expected.
+         */
+        switch (gctx->type) {
+            case ECX_KEY_TYPE_X25519:
+                groupname = "x25519";
+                break;
+            case ECX_KEY_TYPE_X448:
+                groupname = "x448";
+                break;
+            default:
+                /* We only support this for key exchange at the moment */
+                break;
+        }
+        if (p->data_type != OSSL_PARAM_UTF8_STRING
+                || groupname == NULL
+                || OPENSSL_strcasecmp(p->data, groupname) != 0) {
+            ERR_raise(ERR_LIB_PROV, ERR_R_PASSED_INVALID_ARGUMENT);
+            return 0;
+        }
+    }
+    p = OSSL_PARAM_locate_const(params, OSSL_KDF_PARAM_PROPERTIES);
+    if (p != NULL) {
+        if (p->data_type != OSSL_PARAM_UTF8_STRING)
+            return 0;
+        OPENSSL_free(gctx->propq);
+        gctx->propq = OPENSSL_strdup(p->data);
+        if (gctx->propq == NULL)
+            return 0;
+    }
+    return 1;
 }
 
 static const OSSL_PARAM *qat_ecx_gen_settable_params(ossl_unused void *genctx,
                                                      ossl_unused void *provctx)
 {
-    typedef const OSSL_PARAM * (*fun_ptr)(ossl_unused void *genctx, 
-                                          ossl_unused void *provctx);
-    fun_ptr fun = get_default_x25519_keymgmt().gen_settable_params;
-    if (!fun)
-        return NULL;
-    return fun(genctx, provctx);
+    static OSSL_PARAM settable[] = {
+        OSSL_PARAM_utf8_string(OSSL_PKEY_PARAM_GROUP_NAME, NULL, 0),
+        OSSL_PARAM_utf8_string(OSSL_KDF_PARAM_PROPERTIES, NULL, 0),
+        OSSL_PARAM_END
+    };
+    return settable;
 }
+
+static int qat_ecx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
+                          void *cbarg)
+{
+    ECX_KEY *key = keydata;
+    OSSL_PARAM_BLD *tmpl;
+    OSSL_PARAM *params = NULL;
+    int ret = 0;
+
+    if (!qat_prov_is_running() || key == NULL)
+        return 0;
+
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) == 0)
+        return 0;
+
+    tmpl = OSSL_PARAM_BLD_new();
+    if (tmpl == NULL)
+        return 0;
+
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0) {
+        int include_private = ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0);
+
+        if (!qat_key_to_params(key, tmpl, NULL, include_private))
+            goto err;
+    }
+
+    params = OSSL_PARAM_BLD_to_param(tmpl);
+    if (params == NULL)
+        goto err;
+
+    ret = param_cb(params, cbarg);
+    OSSL_PARAM_free(params);
+err:
+    OSSL_PARAM_BLD_free(tmpl);
+    return ret;
+}
+
+static const OSSL_PARAM qat_ecx_key_types[] = {
+    QAT_ECX_KEY_TYPES(),
+    OSSL_PARAM_END
+};
+
+static const OSSL_PARAM *qat_ecx_export_types(int selection)
+{
+    if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0)
+        return qat_ecx_key_types;
+    return NULL;
+}
+
 
 unsigned char *qat_ecx_key_allocate_privkey(ECX_KEY *key)
 {
@@ -398,13 +502,6 @@ ECX_KEY *qat_ecx_key_dup(const ECX_KEY *key, int selection)
         QATerr(ERR_LIB_EC, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    ret->lock = CRYPTO_THREAD_lock_new();
-    if (ret->lock == NULL) {
-        OPENSSL_free(ret);
-        return NULL;
-    }
-#endif
     ret->libctx = key->libctx;
     ret->haspubkey = key->haspubkey;
     ret->keylen = key->keylen;
@@ -451,17 +548,14 @@ const OSSL_DISPATCH qat_X25519_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_GEN_CLEANUP, (void (*)(void)) qat_ecx_gen_cleanup},
     { OSSL_FUNC_KEYMGMT_LOAD, (void (*)(void)) qat_ecx_load},
     { OSSL_FUNC_KEYMGMT_GET_PARAMS, (void (*) (void))qat_x25519_get_params },
-    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))qat_x25519_gettable_params },
-    { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_x25519_set_params },
-    { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_x25519_settable_params },
-    { OSSL_FUNC_KEYMGMT_MATCH, (void (*)(void))qat_ecx_match },
-    { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_ecx_import },
-    { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_ecx_import_types },
-    { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_ecx_export },
-    { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_ecx_export_types },
+    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))qat_ecx_gettable_params },
+    { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_ecx_set_params },
+    { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_ecx_settable_params },
     { OSSL_FUNC_KEYMGMT_GEN_SET_PARAMS, (void (*)(void))qat_ecx_gen_set_params },
     { OSSL_FUNC_KEYMGMT_GEN_SETTABLE_PARAMS,
         (void (*)(void))qat_ecx_gen_settable_params },
+    { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_ecx_export },
+    { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_ecx_export_types },
     { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_ecx_dup },
     { 0, NULL }};
 #endif
@@ -476,14 +570,9 @@ const OSSL_DISPATCH qat_X448_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_GEN_CLEANUP, (void (*)(void)) qat_ecx_gen_cleanup},
     { OSSL_FUNC_KEYMGMT_LOAD, (void (*)(void)) qat_ecx_load},
     { OSSL_FUNC_KEYMGMT_GET_PARAMS, (void (*) (void))qat_x448_get_params },
-    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))qat_x448_gettable_params },
-    { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_x448_set_params },
-    { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_x448_settable_params },
-    { OSSL_FUNC_KEYMGMT_MATCH, (void (*)(void))qat_ecx_match },
-    { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_ecx_import },
-    { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_ecx_import_types },
-    { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_ecx_export },
-    { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_ecx_export_types },
+    { OSSL_FUNC_KEYMGMT_GETTABLE_PARAMS, (void (*) (void))qat_ecx_gettable_params },
+    { OSSL_FUNC_KEYMGMT_SET_PARAMS, (void (*) (void))qat_ecx_set_params },
+    { OSSL_FUNC_KEYMGMT_SETTABLE_PARAMS, (void (*) (void))qat_ecx_settable_params },
     { OSSL_FUNC_KEYMGMT_GEN_SET_PARAMS, (void (*)(void))qat_ecx_gen_set_params },
     { OSSL_FUNC_KEYMGMT_GEN_SETTABLE_PARAMS,
         (void (*)(void))qat_ecx_gen_settable_params },

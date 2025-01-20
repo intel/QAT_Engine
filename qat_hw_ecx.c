@@ -215,9 +215,6 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
      * count accordingly, otherwise it will trigger openssl's panic.
      */
 #if defined(QAT_OPENSSL_3) && defined(QAT_OPENSSL_PROVIDER)
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    key->lock = CRYPTO_THREAD_lock_new();
-# endif
     key->references.val = 1;
 # ifdef QAT_OPENSSL_PROVIDER
     key->type = gctx->type;
@@ -265,22 +262,12 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     default:
         WARN("Unsupported NID: %d\n", gctx->type);
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
-#ifdef QAT_OPENSSL_3
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-        CRYPTO_THREAD_lock_free(key->lock);
-# endif
-#endif
         OPENSSL_free(key);
         return 0;
     }
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode.\n");
-#ifdef QAT_OPENSSL_3
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-        CRYPTO_THREAD_lock_free(key->lock);
-# endif
-#endif
         OPENSSL_free(key);
 
         if (!is_ecx_448) {
@@ -303,11 +290,6 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
             goto err;
         } else {
             QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_INTERNAL_ERROR);
-#if defined(QAT_OPENSSL_3) && defined(QAT_OPENSSL_PROVIDER)
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-            CRYPTO_THREAD_lock_free(key->lock);
-# endif
-#endif
             OPENSSL_free(key);
             return 0;
         }
@@ -321,11 +303,6 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
     if (NULL == qat_ecx_op_data) {
         WARN("Failed to allocate memory for qat_ecx_op_data\n");
         QATerr(QAT_F_QAT_PKEY_ECX_KEYGEN, ERR_R_MALLOC_FAILURE);
-#if defined(QAT_OPENSSL_3) && defined(QAT_OPENSSL_PROVIDER)
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-        CRYPTO_THREAD_lock_free(key->lock);
-# endif
-#endif
         OPENSSL_free(key);
         return 0;
     }
@@ -572,11 +549,6 @@ err:
             privkey = NULL;
         }
         if (NULL != key) {
-#if defined(QAT_OPENSSL_3) && defined(QAT_OPENSSL_PROVIDER)
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-            CRYPTO_THREAD_lock_free(key->lock);
-# endif
-#endif
             OPENSSL_free(key);
             key = NULL;
         }
