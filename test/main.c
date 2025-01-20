@@ -3,7 +3,7 @@
  *
  *   BSD LICENSE
  *
- *   Copyright(c) 2021-2024 Intel Corporation.
+ *   Copyright(c) 2021-2025 Intel Corporation.
  *   All rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or without
@@ -1532,7 +1532,7 @@ int main(int argc, char *argv[])
         printf("Engine disabled! using software implementation\n");
 
     printf("\nQAT Engine Test Application\n");
-    printf("\n\tCopyright (C) 2021-2024 Intel Corporation\n");
+    printf("\n\tCopyright (C) 2021-2025 Intel Corporation\n");
     printf("\nTest Parameters:\n\n");
     printf("\tTest Type:            %s\n",
            enable_perf ? "Performance" : "Functional");
