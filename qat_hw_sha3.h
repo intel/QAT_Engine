@@ -148,10 +148,15 @@ int qat_sha3_copy(QAT_KECCAK1600_CTX *to, const QAT_KECCAK1600_CTX *from);
 # endif
 typedef struct {
     uint64_t A[5][5];
+#if OPENSSL_VERSION_NUMBER >= 0x30300000
+    unsigned char buf[KECCAK1600_WIDTH / 8 - 32];
+#endif
     size_t block_size;          /* SW cached ctx->digest->block_size */
     size_t md_size;             /* SW output length, variable in XOF */
     size_t num;                 /* SW used bytes in below buffer */
+#if OPENSSL_VERSION_NUMBER < 0x30300000
     unsigned char buf[KECCAK1600_WIDTH / 8 - 32];
+#endif
     unsigned char pad;
 } KECCAK1600_CTX;
 

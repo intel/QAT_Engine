@@ -73,7 +73,9 @@ typedef struct {
 
     /* The Algorithm Identifier of the combined signature algorithm */
     unsigned char aid_buf[OSSL_MAX_ALGORITHM_ID_SIZE];
+#if OPENSSL_VERSION_NUMBER < 0x30400000
     unsigned char *aid;
+#endif
     size_t  aid_len;
 
     /* main digest */
@@ -84,7 +86,6 @@ typedef struct {
     /* SM2 ID used for calculating the Z value */
     unsigned char *id;
     size_t id_len;
-
     const unsigned char *tbs;
     size_t tbs_len;
 } QAT_PROV_SM2_CTX;

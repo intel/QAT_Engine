@@ -3282,7 +3282,8 @@ err:
     if (ptext)
         OPENSSL_free(ptext);
 #endif
-    RSA_free(key);
+    if(size < 8192)
+        RSA_free(key);
     if (sig)
         OPENSSL_free(sig);
     if (verMsg)

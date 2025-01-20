@@ -65,6 +65,10 @@ typedef struct
 {
     int id; /* libcrypto internal */
     int name_id;
+# if OPENSSL_VERSION_NUMBER >= 0x30300000
+    /* NID for the legacy alg if there is one */
+    int legacy_alg;
+# endif
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
@@ -84,6 +88,10 @@ typedef struct
     /* Generation, a complex constructor */
     OSSL_FUNC_keymgmt_gen_init_fn *gen_init;
     OSSL_FUNC_keymgmt_gen_set_template_fn *gen_set_template;
+# if OPENSSL_VERSION_NUMBER >= 0x30400000
+    OSSL_FUNC_keymgmt_gen_get_params_fn *gen_get_params;
+    OSSL_FUNC_keymgmt_gen_gettable_params_fn *gen_gettable_params;
+# endif
     OSSL_FUNC_keymgmt_gen_set_params_fn *gen_set_params;
     OSSL_FUNC_keymgmt_gen_settable_params_fn *gen_settable_params;
     OSSL_FUNC_keymgmt_gen_fn *gen;
@@ -349,7 +357,12 @@ static void *qat_dh_dup(const void *keydata_from, int selection)
         return NULL;
     return fun(keydata_from, selection);
 }
-
+# if OPENSSL_VERSION_NUMBER >= 0x30400000
+static const char *qat_dh_query_operation_name(int operation_id)
+{
+    return "DH";
+}
+# endif
 const OSSL_DISPATCH qat_dh_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))qat_dh_newdata},
     {OSSL_FUNC_KEYMGMT_GEN_INIT, (void (*)(void))qat_dh_gen_init},
@@ -372,6 +385,10 @@ const OSSL_DISPATCH qat_dh_keymgmt_functions[] = {
     {OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_dh_import_types},
     {OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_dh_export},
     {OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_dh_export_types},
+# if OPENSSL_VERSION_NUMBER >= 0x30400000
+    { OSSL_FUNC_KEYMGMT_QUERY_OPERATION_NAME,
+      (void (*)(void))qat_dh_query_operation_name },
+# endif
     {OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_dh_dup},
     {0, NULL}};
 

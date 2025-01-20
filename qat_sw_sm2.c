@@ -76,8 +76,18 @@ typedef struct evp_signature_st {
     OSSL_FUNC_signature_newctx_fn *newctx;
     OSSL_FUNC_signature_sign_init_fn *sign_init;
     OSSL_FUNC_signature_sign_fn *sign;
+#if OPENSSL_VERSION_NUMBER >= 0x30400000
+    OSSL_FUNC_signature_sign_message_init_fn *sign_message_init;
+    OSSL_FUNC_signature_sign_message_update_fn *sign_message_update;
+    OSSL_FUNC_signature_sign_message_final_fn *sign_message_final;
+#endif
     OSSL_FUNC_signature_verify_init_fn *verify_init;
     OSSL_FUNC_signature_verify_fn *verify;
+#if OPENSSL_VERSION_NUMBER >= 0x30400000
+    OSSL_FUNC_signature_verify_message_init_fn *verify_message_init;
+    OSSL_FUNC_signature_verify_message_update_fn *verify_message_update;
+    OSSL_FUNC_signature_verify_message_final_fn *verify_message_final;
+#endif
     OSSL_FUNC_signature_verify_recover_init_fn *verify_recover_init;
     OSSL_FUNC_signature_verify_recover_fn *verify_recover;
     OSSL_FUNC_signature_digest_sign_init_fn *digest_sign_init;
