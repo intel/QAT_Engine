@@ -166,12 +166,12 @@ int qat_ecx_key_up_ref(ECX_KEY *key)
     if (QAT_CRYPTO_UP_REF(&key->references, &i) <= 0)
         return 0;
 
-    if(i < 2) {
+    if (i < 2) {
         WARN("refcount error");
         return 0;
     }
 
-    return ((i >1) ? 1 : 0);
+    return ((i > 1) ? 1 : 0);
 }
 
 void qat_ecx_key_free(ECX_KEY *key)
@@ -195,9 +195,6 @@ void qat_ecx_key_free(ECX_KEY *key)
 
     OPENSSL_free(key->propq);
     OPENSSL_secure_clear_free(key->privkey, key->keylen);
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_THREAD_lock_free(key->lock);
-#endif
     OPENSSL_free(key);
 #ifdef ENABLE_QAT_FIPS
     qat_fips_key_zeroize = 1;
@@ -260,11 +257,31 @@ static void qat_ecx_freectx(void *vecxctx)
 
 static void *qat_ecx_dupctx(void *vecxctx)
 {
-    typedef void * (*fun_ptr)(void *vecxctx);
-    fun_ptr fun = get_default_x25519_keyexch().dupctx;
-    if (!fun)
+    QAT_ECX_CTX *srcctx = (QAT_ECX_CTX *)vecxctx;
+    QAT_ECX_CTX *dstctx;
+
+    if (!qat_prov_is_running())
         return NULL;
-    return fun(vecxctx);
+
+    dstctx = OPENSSL_zalloc(sizeof(*srcctx));
+    if (dstctx == NULL)
+        return NULL;
+
+    *dstctx = *srcctx;
+    if (dstctx->key != NULL && !qat_ecx_key_up_ref(dstctx->key)) {
+        ERR_raise(ERR_LIB_PROV, ERR_R_INTERNAL_ERROR);
+        OPENSSL_free(dstctx);
+        return NULL;
+    }
+
+    if (dstctx->peerkey != NULL && !qat_ecx_key_up_ref(dstctx->peerkey)) {
+        ERR_raise(ERR_LIB_PROV, ERR_R_INTERNAL_ERROR);
+        qat_ecx_key_free(dstctx->key);
+        OPENSSL_free(dstctx);
+        return NULL;
+    }
+
+    return dstctx;
 }
 
 const OSSL_DISPATCH qat_X25519_keyexch_functions[] = {

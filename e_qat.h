@@ -941,13 +941,13 @@ static inline int QAT_CRYPTO_GET_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
     return 1;
 }
 
-static inline int QAT_CRYPTO_UP_REF(QAT_CRYPTO_REF_COUNT* refcnt, int* ret)
+static inline int QAT_CRYPTO_UP_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
 {
     *ret = atomic_fetch_add_explicit(&refcnt->val, 1, memory_order_relaxed) + 1;
     return 1;
 }
 
-static inline int QAT_CRYPTO_DOWN_REF(QAT_CRYPTO_REF_COUNT* refcnt, int* ret)
+static inline int QAT_CRYPTO_DOWN_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
 {
     *ret = atomic_fetch_sub_explicit(&refcnt->val, 1, memory_order_release) - 1;
     if (*ret == 0)

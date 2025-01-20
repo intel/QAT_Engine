@@ -54,6 +54,12 @@
 
 # define MAX_KEYLEN  57
 
+#  define X25519_BITS           253
+#  define X25519_SECURITY_BITS  128
+
+#  define X448_BITS             448
+#  define X448_SECURITY_BITS    224
+
 typedef struct {
     _Atomic int val;
 }QAT_CRYPTO_REF_COUNT;
