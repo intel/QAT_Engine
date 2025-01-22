@@ -1299,6 +1299,10 @@ int bind_qat(ENGINE *e, const char *id)
             DEBUG("QAT_HW GCM for Provider Enabled\n");
         }
 # endif
+# ifdef ENABLE_QAT_HW_CIPHERS
+        qat_hw_aes_cbc_hmac_sha_offload = 1;
+        INFO("QAT_HW CIPHERS for Provider Enabled\n");
+# endif
     }
 
     if (qat_sw_offload) {

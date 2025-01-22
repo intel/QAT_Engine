@@ -65,6 +65,8 @@
 
 #define AES_CBC_BLOCK_SIZE     64
 
+#define NUM_ENCRYPTION_ITERATIONS 6
+
 #define FAIL_MSG(fmt, args...)  WARN( "# FAIL " fmt, ##args)
 #define FAIL_MSG_END(fmt, args...)  INFO( "# FAIL " fmt, ##args)
 #define PASS_MSG(fmt, args...)  INFO( "# PASS " fmt, ##args)
@@ -358,8 +360,6 @@ static int perform_op(EVP_CIPHER_CTX *ctx, unsigned char **in,
 
     return 1;
 
-    OPENSSL_free(inb);
-
  err:
     return ret;
 }
@@ -518,6 +518,7 @@ static int encrypt_and_compare(const test_info *t, int *buflen)
     }
 
  err:
+    OPENSSL_free(textbuf);
     return ret;
 }
 
@@ -571,6 +572,7 @@ static int test_crypto_op(const test_info *t, int enc_imp, int dec_imp)
     ret = 1;
 
  err:
+    OPENSSL_free(textbuf);
     return ret;
 }
 
@@ -617,6 +619,7 @@ int test_no_hmac_key_set(const test_info *t)
 
  err:
     EVP_CIPHER_CTX_free(ctx);
+    OPENSSL_free(buf);
 
     return ret;
 }
@@ -634,9 +637,9 @@ int test_multi_op(const test_info *t)
     char msgstr[128];
     int i = 0;
     EVP_CIPHER_CTX *ctx = NULL;
-    unsigned char *buf[6] = { NULL };
-    unsigned char *ebuf[6] = { NULL };
-    int num_encbytes[6] = { 0 };
+    unsigned char *buf[NUM_ENCRYPTION_ITERATIONS] = { NULL };
+    unsigned char *ebuf[NUM_ENCRYPTION_ITERATIONS] = { NULL };
+    int num_encbytes[NUM_ENCRYPTION_ITERATIONS] = { 0 };
 
     /* str to append to message to distinguish test runs */
     snprintf(msgstr, 128, "[%s: multi op %s] ", t->c->name, t->tls->v_str);
@@ -650,7 +653,7 @@ int test_multi_op(const test_info *t)
     /* Compute the size of the buffer needed for this TLS use case */
     size = compute_buff_size(size, &ivlen, pad, t->tls->v, ctx);
 
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < NUM_ENCRYPTION_ITERATIONS; i++) {
         ret = perform_op(ctx, &buf[i], &ebuf[i], size,
                          &num_encbytes[i], t->tls->v);
         if (ret != 1) {
@@ -665,6 +668,9 @@ int test_multi_op(const test_info *t)
 
  err:
     EVP_CIPHER_CTX_free(ctx);
+    for (i = 0; i < NUM_ENCRYPTION_ITERATIONS; i++) {
+        OPENSSL_free(buf[i]);
+    }
     return ret;
 }
 
@@ -804,6 +810,8 @@ static int test_auth_header(const test_info *t, int impl)
 
 err:
     EVP_CIPHER_CTX_free(ctx);
+    OPENSSL_free(textbuf);
+
     return ret;
 }
 
@@ -852,6 +860,7 @@ static int test_auth_pkt(const test_info *t, int impl)
     ret = 1;
 
 err:
+    OPENSSL_free(textbuf);
     return ret;
 }
 #ifndef QAT_OPENSSL_PROVIDER

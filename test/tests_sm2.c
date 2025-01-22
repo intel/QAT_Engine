@@ -433,6 +433,7 @@ static int test_sm2(int count, int size, ENGINE *e, int print_output,
     }
     BIO_set_fp(out, stdout, BIO_NOCLOSE);
 
+    BIO_free(out);
     return test_sm2_sign_verify(count, size, e, print_output, verify, nid,
                                 curveName);
 }
