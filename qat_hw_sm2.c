@@ -1016,6 +1016,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
 #  endif
 # endif
     }
+    ECDSA_SIG_free(s);
     DEBUG("- FinishedP: %d\n", ret);
     return ret;
 }
@@ -1449,6 +1450,8 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
 #  endif
 # endif
     }
+    ECDSA_SIG_free(s);
+    OPENSSL_free(dgst);
     DEBUG("- Finished\n");
     return ret;
 }

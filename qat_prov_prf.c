@@ -208,6 +208,8 @@ static void qat_tls_prf_reset(void *vctx)
     OPENSSL_clear_free(ctx->sec, ctx->seclen);
     OPENSSL_cleanse(ctx->seed, ctx->seedlen);
     OPENSSL_cleanse(ctx->qat_userLabel, ctx->qat_userLabel_len);
+    OPENSSL_free(ctx->qat_userLabel);
+    ctx->qat_userLabel = NULL;
     memset(ctx, 0, sizeof(*ctx));
     ctx->provctx = provctx;
 }

@@ -2703,7 +2703,6 @@ static int run_rsa(void *args)
     /* setup input hash message */
     for (i = 0; i < HASH_DATA_SIZE_NO_PADDING_8192; i++)
         HashData[i] = i % 16;
-
     /* setup new RSA key */
     key = RSA_new();
 
@@ -3282,8 +3281,8 @@ err:
 #else
     if (ptext)
         OPENSSL_free(ptext);
-    RSA_free(key);
 #endif
+    RSA_free(key);
     if (sig)
         OPENSSL_free(sig);
     if (verMsg)

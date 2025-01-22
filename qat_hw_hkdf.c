@@ -308,6 +308,14 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
         QAT_MEM_FREE_NONZERO_BUFF(qat_hkdf_ctx->hkdf_op_data, qat_hkdf_ctx->qat_svm);
     }
     qat_hkdf_ctx->fallback = 0;
+#ifdef QAT_OPENSSL_PROVIDER
+    OPENSSL_free(qat_hkdf_ctx->prefix);
+    qat_hkdf_ctx->prefix = NULL;
+    OPENSSL_free(qat_hkdf_ctx->data);
+    qat_hkdf_ctx->data = NULL;
+    OPENSSL_free(qat_hkdf_ctx->label);
+    qat_hkdf_ctx->label = NULL;
+#endif
     OPENSSL_free(qat_hkdf_ctx);
     EVP_PKEY_CTX_set_data(ctx, NULL);
 

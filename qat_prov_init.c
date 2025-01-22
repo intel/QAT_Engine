@@ -163,6 +163,8 @@ QAT_PROV_PARAMS qat_params;
 static void qat_teardown(void *provctx)
 {
     DEBUG("qatprovider teardown\n");
+    qat_free_ciphers();
+    qat_free_digest_meth();
     qat_engine_finish_int(NULL, QAT_RESET_GLOBALS);
     ERR_unload_QAT_strings();
 
