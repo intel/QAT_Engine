@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [1.8.0], [])
+AC_INIT([qatengine], [1.8.1], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -172,7 +172,7 @@ AC_SUBST(enable_qat_sw)
 
 AC_ARG_ENABLE(qat_provider,
               AS_HELP_STRING([--enable-qat_provider],
-                             [Enable Provider Support for Openssl 3.0]))
+                             [Enable Provider Support for Openssl 3.x.x]))
 AC_SUBST(enable_qat_provider)
 
 # Parameter parsing for self tuning of the timeout in the qat_sw polling thread
@@ -338,7 +338,7 @@ then
   fi
 fi
 
-#OpenSSL 3.0 uses lib location based on ARCH
+#OpenSSL 3.x.x uses lib location based on ARCH
 AS_IF([test "$host_cpu" = "x86_64"], [AC_SUBST([openssl3_lib], "lib64")], [AC_SUBST([openssl3_lib], "lib")])
 
 # OpenSSL/BabaSSL/BoringSSL install dir or set system default if not provided
@@ -383,16 +383,16 @@ then
       libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
       AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
     else
-      #OPENSSL 3.0
+      #OPENSSL 3.x.x
       if test "x$enable_qat_provider" = "xyes"
       then
-        AC_MSG_NOTICE([Build QAT Provider against OpenSSL 3.0])
+        AC_MSG_NOTICE([Build QAT Provider against OpenSSL 3.x.x])
         libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/ossl-modules"
         AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED -DQAT_OPENSSL_PROVIDER"])
         AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
         AC_SUBST([LIBQATNAME], "qatprovider")
       else
-        AC_MSG_NOTICE([Build QAT Engine against OpenSSL 3.0])
+        AC_MSG_NOTICE([Build QAT Engine against OpenSSL 3.x.x])
         libdir="\$(with_openssl_install_dir)/\$(openssl3_lib)/engines-3"
         AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
         AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/\$(openssl3_lib) -L\$(with_openssl_install_dir)/\$(openssl3_lib) -lcrypto"])
@@ -412,13 +412,13 @@ else
   else
     if test "x$enable_qat_provider" = "xyes"
     then
-      AC_MSG_NOTICE([Build QAT Provider against system OpenSSL 3.0])
+      AC_MSG_NOTICE([Build QAT Provider against system OpenSSL 3.x.x])
       AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED -DQAT_OPENSSL_PROVIDER"])
       AC_SUBST([LIBQATNAME], "qatprovider")
       openssl3_lib="`pkg-config --variable=libdir libcrypto`"
       libdir="\$(openssl3_lib)/ossl-modules"
     else
-      AC_MSG_NOTICE([Build QAT Engine against system OpenSSL 3.0])
+      AC_MSG_NOTICE([Build QAT Engine against system OpenSSL 3.x.x])
       AC_SUBST([cflags_openssl_3], ["-DQAT_OPENSSL_3 -DOPENSSL_SUPPRESS_DEPRECATED"])
       libdir="`pkg-config --variable=enginesdir libcrypto`"
     fi

@@ -68,7 +68,7 @@ The following is a list of the options that can be used with the
     if there is any new error message added in the QAT Engine source files
     and the error files will get updated using the mkerr.pl script. The default
     if not provided will build QAT Engine from the existing error files
-    e_qat_err.c, e_qat_err.h & e_qat.txt in the QAT Engine dir which is
+    qat_err.c, qat_err.h & qat.txt in the QAT Engine dir which is
     generated from OpenSSL release mentioned in the github release page.
     For example if you cloned the OpenSSL* Github* repository from within `/`
     then you would use the following setting:

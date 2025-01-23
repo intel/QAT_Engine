@@ -61,7 +61,7 @@ Bitmap of each algorithm is defined below:
 | RSA | 0x00001 | Both (HW > SW) |
 | DSA | 0x00002 | HW |
 | DH | 0x00004 | HW |
-| ECDSA | 0x00008 | Both (HW > SW) |
+| ECDSA | 0x00008 | Both (SW > HW for P256) (HW > SW for other curves) |
 | ECDH | 0x00010 | Both (HW > SW) |
 | ECX25519 | 0x00020 | Both (HW > SW) |
 | ECX448 | 0x00040 | HW |
