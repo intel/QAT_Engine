@@ -13,14 +13,14 @@
 %endif
 
 Name:           qatengine
-Version:        1.8.0
+Version:        1.8.1
 Release:        1%{?dist}
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
 
 # Most of the source code is BSD, with the following exceptions:
-#  - e_qat.txt, e_qat_err.c, and e_qat_err.h are OpenSSL
-#  - qat_hw_config/* are (BSD or GPLv2), but are not used during compilation
-License:        BSD-3-Clause AND OpenSSL
+# - qat.txt, qat_err.h & qat_err.c files are Apache License 2.0
+# - qat_hw_config/* is (BSD or GPLv2) and not used during compilation
+License:        BSD-3-Clause
 URL:            https://github.com/intel/QAT_Engine
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz
 
@@ -79,6 +79,13 @@ openssl engine -v %{name}
 %endif
 
 %changelog
+* Thu Jan 23 2025 Yogaraj Alamenda <yogaraj.alamenda@intel.com> - 1.8.1-1
+- Update to qatengine v1.8.1
+- Update e_qat_err files license info
+
+* Sat Jan 18 2025 Fedora Release Engineering <releng@fedoraproject.org> - 1.8.0-2
+- Rebuilt for https://fedoraproject.org/wiki/Fedora_42_Mass_Rebuild
+
 * Thu Dec 5 2024 Jaya Naga Venkata Sudhakar <bavirisettyx.jaya.naga.venkata.sudhakar@intel.com> - 1.8.0-1
 - Update to qatengine v1.8.0
 
