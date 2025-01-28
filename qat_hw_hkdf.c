@@ -204,16 +204,11 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
 
 #ifndef QAT_OPENSSL_3
     /* Software Ctrl functions are called here */
-# ifdef QAT_KDF_SUPPORT
-    EVP_PKEY_meth_get_init((EVP_PKEY_METHOD *)sw_hkdf_pmeth, &sw_init_fn_ptr);
-    EVP_KDF_CTX *kctx = EVP_KDF_CTX_new_id(EVP_KDF_HKDF);
-    qat_hkdf_ctx->sw_hkdf_ctx_data = kctx;
-# else
     QAT_HKDF_PKEY_CTX *kctx;
     EVP_PKEY_meth_get_init((EVP_PKEY_METHOD *)sw_hkdf_pmeth, &sw_init_fn_ptr);
     kctx = OPENSSL_zalloc(sizeof(*kctx));
     qat_hkdf_ctx->sw_hkdf_ctx_data = kctx;
-# endif
+
     EVP_PKEY_CTX_set_data(ctx, qat_hkdf_ctx->sw_hkdf_ctx_data);
     ret = (*sw_init_fn_ptr)(ctx);
     if (ret != 1) {
@@ -223,7 +218,6 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx)
     }
     EVP_PKEY_CTX_set_data(ctx, qat_hkdf_ctx);
 #endif
-
     qat_hkdf_ctx->hkdf_op_data =
         (CpaCyKeyGenHKDFOpData *) qat_mem_alloc(sizeof(CpaCyKeyGenHKDFOpData),
                 qat_hkdf_ctx->qat_svm, __FILE__, __LINE__);

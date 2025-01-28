@@ -379,9 +379,7 @@ then
     if grep "define OPENSSL_VERSION_NUMBER  0x1010"  $with_openssl_install_dir/include/openssl/opensslv.h
     then
       #OPENSSL 1.1.1
-      AC_MSG_NOTICE([Build QAT engine against OpenSSL 1.1.1])
-      libdir="\$(with_openssl_install_dir)/lib/engines-1.1"
-      AC_SUBST([OPENSSL_LIB], ["-Wl,-rpath,\$(with_openssl_install_dir)/lib -L\$(with_openssl_install_dir)/lib -lcrypto"])
+      AC_MSG_ERROR([OpenSSL 1.1.1 is not supported])
     else
       #OPENSSL 3.x.x
       if test "x$enable_qat_provider" = "xyes"
@@ -408,7 +406,7 @@ else
   includes_openssl="`pkg-config --variable=includedir libcrypto`"
   if grep "define OPENSSL_VERSION_NUMBER  0x1010" $includes_openssl/openssl/opensslv.h
   then
-      AC_MSG_NOTICE([Build QAT Engine against system OpenSSL 1.1.1])
+      AC_MSG_ERROR([OpenSSL 1.1.1 is not supported])
   else
     if test "x$enable_qat_provider" = "xyes"
     then
@@ -633,20 +631,6 @@ then
     fi
 fi
 
-if test "x$cflags_qat_hw" != "x"
-then
-    AC_CHECK_FILE(${with_openssl_install_dir}/include/openssl/ossl_typ.h,
-              [with_kdf_support_h=yes],
-              [with_kdf_support_h=no])
-    if test "x$with_kdf_support_h" = "xyes"
-    then
-        if grep "struct evp_kdf_ctx_st EVP_KDF_CTX" $with_openssl_install_dir/include/openssl/ossl_typ.h
-        then
-          AC_SUBST([cflags_qat_hw], ["${cflags_qat_hw} -DQAT_KDF_SUPPORT"])
-          AC_MSG_NOTICE([KDF structure support available])
-        fi
-    fi
-fi
 #System OpenSSL
 if test "x$with_openssl_install_dir" = "x"
 then

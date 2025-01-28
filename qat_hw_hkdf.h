@@ -84,7 +84,6 @@ typedef struct {
 #endif
 } QAT_HKDF_CTX;
 
-#ifndef QAT_KDF_SUPPORT
 typedef struct {
     int mode;
     const EVP_MD *md;
@@ -95,7 +94,6 @@ typedef struct {
     unsigned char info[QAT_HKDF_INFO_MAXBUF];
     size_t info_len;
 } QAT_HKDF_PKEY_CTX;
-#endif
 
 /* Function Declarations */
 int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2);
