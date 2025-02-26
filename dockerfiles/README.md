@@ -35,7 +35,7 @@ in step 2 depending on the particular use case. Configure the required service o
 
 2. Set up the required crypto service(s)
 ```
-    for i in `lspci -D -d :4940| awk '{print $1}'`; do echo “sym;asym “ > /sys/bus/pci/devices/$i/qat/cfg_services;done
+    for i in `lspci -D -d :4940| awk '{print $1}'`; do echo “sym;asym“ > /sys/bus/pci/devices/$i/qat/cfg_services;done
 ```
 
 3. Bring up the QAT devices
@@ -55,13 +55,13 @@ in step 2 depending on the particular use case. Configure the required service o
 
 6. Add QAT group and Permission to the VF devices in the host
 ```
-    chown root.qat /dev/vfio/*
+    chown root:qat /dev/vfio/*
     chmod 660 /dev/vfio/*
 ```
 
 ### Image creation
 
-Docker images can be build using the below command with appropiate image name.
+Docker images can be built using the below command with appropriate image name.
 
 ```
 docker build --build-arg GID=$(getent group qat | cut -d ':' -f 3) -t <docker_image_name> <path-to-dockerfile> --no-cache
