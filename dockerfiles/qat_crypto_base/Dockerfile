@@ -3,7 +3,7 @@
 #                                                                         \
 #   BSD LICENSE                                                           \
 #                                                                         \
-#   Copyright(c) 2024-2025 Intel Corporation.                                  \
+#   Copyright(c) 2024-2025 Intel Corporation.                             \
 #   All rights reserved.                                                  \
 #                                                                         \
 #   Redistribution and use in source and binary forms, with or without    \
@@ -38,11 +38,11 @@
 ARG UBUNTU_BASE=ubuntu:22.04
 FROM ${UBUNTU_BASE} AS builder
 
-ARG OPENSSL_VERSION="openssl-3.0.15"
+ARG OPENSSL_VERSION="openssl-3.0.16"
 ARG QATLIB_VERSION="24.02.0"
-ARG QAT_ENGINE_VERSION="v1.8.1"
+ARG QAT_ENGINE_VERSION="v1.9.0"
 ARG IPSEC_MB_VERSION="v2.0"
-ARG IPP_CRYPTO_VERSION="v1.0.0"
+ARG IPP_CRYPTO_VERSION="v1.1.0"
 ARG GID
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -138,11 +138,14 @@ RUN apt-get purge -y linux-libc-dev
 
 FROM ${UBUNTU_BASE}
 
+RUN apt-get update && \
+    apt-get upgrade -y
+
 COPY --from=builder /usr/local/lib/libqat.so.4.2.0 /usr/lib/
 COPY --from=builder /usr/local/lib/libusdm.so.0.1.0 /usr/lib/
 COPY --from=builder /usr/local/lib/libIPSec_MB.so.2.0.0  /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/lib64/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/local/lib/libcrypto_mb.so.12.0 /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib/intel64/libcrypto_mb.so.12.1 /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/bin/openssl /usr/bin/
 COPY --from=builder /usr/local/lib64/engines-3/qatengine.so /usr/lib/x86_64-linux-gnu/engines-3/
 COPY --from=builder /etc/group /etc/group
