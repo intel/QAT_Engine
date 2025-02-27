@@ -1147,7 +1147,12 @@ int bind_qat(ENGINE *e, const char *id)
 #endif
     if (!qat_hw_offload) {
 # ifndef QAT_SW
+#  ifdef QAT_BORINGSSL
+        fprintf(stderr, "QAT_HW device not available & QAT_SW not enabled. Exiting!\n");
+        return ret;
+#  else
         fprintf(stderr, "QAT_HW device not available & QAT_SW not enabled. Using OpenSSL_SW!\n");
+#  endif
 # endif
     }
 #endif

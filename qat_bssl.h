@@ -209,7 +209,7 @@ typedef pthread_once_t bssl_once_t;
 # define EC_KEY_can_sign(ec_key)                        (1)
 
 # define bssl_engine_get_rsa_method()           \
-    ENGINE_get_RSA_method(ENGINE_QAT_PTR_GET())
+    (ENGINE_QAT_PTR_GET() ? ENGINE_get_RSA_method(ENGINE_QAT_PTR_GET()) : NULL)
 # define bssl_engine_get_ecdsa_method()         \
     ENGINE_get_ECDSA_method(ENGINE_QAT_PTR_GET())
 
