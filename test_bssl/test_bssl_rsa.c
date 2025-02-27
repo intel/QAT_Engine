@@ -267,6 +267,12 @@ int qat_rsa_sign_test(RSA_METHOD *meth, RSA *rsa, const uint8_t *in_data,
         return 1; /* error */
     }
 
+    if (!meth->sign_raw) {
+        T_ERROR("QAT RSA sign_raw function is NULL.\n");
+        OPENSSL_free(out_data);
+        return 1; /* error */
+    }
+
     /* Signing */
     T_DUMP_RSA_SIGN_INPUT(in_data, in_len);
     meth->sign_raw(rsa, &out_len, out_data, in_len, in_data, in_len,
