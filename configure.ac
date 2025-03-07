@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [1.8.1], [])
+AC_INIT([qatengine], [1.9.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -447,7 +447,7 @@ fi
 AM_CONDITIONAL([QAT_HW], [test "x$cflags_qat_hw" != "x"])
 case "$host_os" in
 linux*)
-    AS_IF([test `lspci -vnd 8086: | grep -c 4940` != "0"], [AC_SUBST([enable_qat20_oot], ["-DQAT20_OOT"])])
+    AS_IF([test `lspci -vnd 8086: | grep -c -E '4940|4942|4944|4946'` != "0"], [AC_SUBST([enable_qat20_oot], ["-DQAT20_OOT"])])
 esac
 AM_CONDITIONAL([QAT_4XXX], [test "x$enable_qat20_oot" != "x"])
 

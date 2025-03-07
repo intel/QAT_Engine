@@ -107,3 +107,5 @@
   behaviour is observed in OpenSSL_SW as well [OpenSSL#21833](https://github.com/openssl/openssl/issues/21833)
 * Performance scaling is not linear in QAT2.0 supported platforms for ECDSA and Chacha-Poly algorithms.
 * Performance drop observed with ECDSAP256 algorithm in the OpenSSL speed tests with FreeBSD 14 intree driver.
+* Performance drop observed in QAT Engine with [async-nginx](https://github.com/intel/asynch_mode_nginx/tree/master) on FreeBSD OS with asymmetric and symmetric ciphers.
+* BoringSSL on FreeBSD OS is validated functionally with limited performance validation on Nginx QUIC POC.

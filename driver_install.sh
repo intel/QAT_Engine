@@ -2,7 +2,7 @@
 
 #QAT_HW OOT driver Location
 QAT17_DRIVER=https://downloadmirror.intel.com/838409/QAT.L.4.27.0-00006.tar.gz
-QAT20_DRIVER=https://downloadmirror.intel.com/822703/QAT20.L.1.1.50-00003.tar.gz
+QAT20_DRIVER=https://downloadmirror.intel.com/843052/QAT20.L.1.2.30-00078.tar.gz
 
 #Supported Devices
 numC62xDevice=`lspci -vnd 8086: | grep -c "37c8\|37c9"`
@@ -10,7 +10,7 @@ numDh895xDevice=`lspci -vnd 8086: | grep -c "0435\|0443"`
 numC3xxxDevice=`lspci -vnd 8086: | grep -c "19e2\|19e3"`
 num200xxDevice=`lspci -vnd 8086: | grep -c "18ee\|18ef"`
 numC4xxxDevice=`lspci -vnd 8086: | grep -c "18a0\|18a1"`
-num4xxxDevice=`lspci -vnd 8086: | grep -c "4940"`
+num4xxxDevice=`lspci -vnd 8086: | grep -c "4940\|4942"`
 
 QAT_ENGINE_ROOT=$PWD
 
