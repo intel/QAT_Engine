@@ -12,27 +12,27 @@
 %global fullversion  %{major}.%{minor}.%{rev}
 
 %global ippcp_major        12
-%global ippcp_minor        0
+%global ippcp_minor        1
 %global ippcp              cryptography-primitives
-%global ippcpver           1.0.0
+%global ippcpver           1.1.0
 %global ippcpfull          %{ippcp}-%{ippcpver}
 %global ippcpfullversion   %{ippcp_major}.%{ippcp_minor}
 
-%global openssl            openssl-3.0.15
-%global qatdriver          QAT20.L.1.1.50-00003
+%global openssl            openssl-3.0.16
+%global qatdriver          QAT20.L.1.2.30-00078
 
 %global openssl_source     %{_builddir}/%{openssl}
 %global openssl_install    %{buildroot}/%{_prefix}/local/ssl
 
 Name:       QAT_Engine
-Version:    1.8.0
+Version:    1.9.0
 Release:    1%{?dist}
 Summary:    Intel QuickAssist Technology(QAT) OpenSSL Engine
 License:    BSD-3-Clause AND OpenSSL
 
 Source0:    https://github.com/intel/QAT_Engine/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
 Source1:    https://github.com/openssl/openssl/releases/download/%{openssl}/%{openssl}.tar.gz#/%{openssl}.tar.gz
-Source2:    https://downloadmirror.intel.com/822703/%{qatdriver}.tar.gz#/%{qatdriver}.tar.gz
+Source2:    https://downloadmirror.intel.com/843052/%{qatdriver}.tar.gz#/%{qatdriver}.tar.gz
 %if !0%{?suse_version}
 Source3:    https://github.com/intel/ipp-crypto/archive/refs/tags/v%{ippcpver}.tar.gz#/%{ippcp}-%{ippcpver}.tar.gz
 Source4:    https://github.com/intel/intel-ipsec-mb/archive/refs/tags/v%{ipsecver}.tar.gz#/%{ipsecfull}.tar.gz
@@ -121,7 +121,7 @@ autoreconf -ivf
 
 %if !0%{?suse_version}
 # Enable QAT_HW & QAT_SW Co-existence acceleration
-./configure --with-openssl_install_dir=%{openssl_install} --with-qat_hw_dir=%{_builddir}/%{qatdriver} --enable-qat_sw
+./configure --with-openssl_install_dir=%{openssl_install} --with-qat_hw_dir=%{_builddir}/%{qatdriver} --enable-qat_sw --with-qat_sw_crypto_mb_install_dir=%{buildroot}/%{_prefix}/local --with-qat_sw_ipsec_mb_install_dir=%{buildroot}/%{_prefix}
 %else
 # Enable QAT_HW acceleration for SUSE
 ./configure --with-openssl_install_dir=%{openssl_install} --with-qat_hw_dir=%{_builddir}/%{qatdriver}

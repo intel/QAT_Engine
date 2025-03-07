@@ -14,7 +14,7 @@ This document details the capabilities, interfaces and limitations of the Boring
 ## Limitations
 Some limitations specific for the current BoringSSL\* Library:
 * NIST Binary Curves and NIST Koblitz Curves are not supported by BoringSSL\.
-* Supports QAT_HW and QAT_SW on Linux. QAT_SW and QAT_HW FreeBSD is not supported.
+* QAT_HW and QAT_SW Co-existence is not supported.
 * `RSA_padding_add_PKCS1_OAEP` function is exported by BoringSSL\* `libdecrepit.so`,
 so it needs to be linked in the BoringSSL\* Library. It may cause linking error while
 building with the system lack of that library.

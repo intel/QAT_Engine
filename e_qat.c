@@ -169,13 +169,13 @@ int qat_fips_kat_test;
 const char *engine_qat_id = STR(QAT_ENGINE_ID);
 #if defined(QAT_HW) && defined(QAT_SW)
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.8.1";
+    "Reference implementation of QAT crypto engine(qat_hw & qat_sw) v1.9.0";
 #elif QAT_HW
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_hw) v1.8.1";
+    "Reference implementation of QAT crypto engine(qat_hw) v1.9.0";
 #else
 const char *engine_qat_name =
-    "Reference implementation of QAT crypto engine(qat_sw) v1.8.1";
+    "Reference implementation of QAT crypto engine(qat_sw) v1.9.0";
 #endif
 unsigned int engine_inited = 0;
 int fallback_to_openssl = 0;
@@ -1117,7 +1117,7 @@ int bind_qat(ENGINE *e, const char *id)
    int ret = 0;
 #ifdef QAT_HW
     char *config_section = NULL;
-# if !defined(QAT_HW_INTREE) && (defined(QAT20_OOT) || defined(__FreeBSD__))
+#ifdef ENABLE_QAT_HW_KPT
     Cpa32U dev_count = 0;
 # endif
 #endif
@@ -1132,7 +1132,7 @@ int bind_qat(ENGINE *e, const char *id)
 
     /* For QAT_HW, Check if the QAT_HW device is available */
 #ifdef QAT_HW
-# if !defined(QAT_HW_INTREE) && (defined(QAT20_OOT) || defined(__FreeBSD__))
+# ifdef ENABLE_QAT_HW_KPT
     if (icp_adf_get_numDevices(&dev_count) == CPA_STATUS_SUCCESS) {
         if (dev_count > 0) {
             qat_hw_offload = 1;
@@ -1144,7 +1144,7 @@ int bind_qat(ENGINE *e, const char *id)
         qat_hw_offload = 1;
         DEBUG("QAT HW device available\n");
     }
-#endif
+# endif
     if (!qat_hw_offload) {
 # ifndef QAT_SW
 #  ifdef QAT_BORINGSSL
