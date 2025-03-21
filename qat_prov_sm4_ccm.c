@@ -367,9 +367,11 @@ int qat_sm4_ccm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
         ctx->M = p->data_size;
         if (ctx->sw_ctx != NULL) {
             PROV_CCM_CTX *sctx = (PROV_CCM_CTX *) ctx->sw_ctx;
-            memcpy(sctx->buf, p->data, p->data_size);
             sctx->m = p->data_size;
-            sctx->tag_set = 1;
+            if (p->data != NULL) {
+                memcpy(sctx->buf, p->data, p->data_size);
+                sctx->tag_set = 1;
+            }
         }
     }
 
