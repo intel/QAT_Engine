@@ -748,10 +748,11 @@ then
   else
     AC_SUBST([with_ICP_API_DIR], ["\$(with_qat_hw_dir)/quickassist/include"])
     AC_SUBST([with_ICP_SAL_API_DIR], ["\$(with_qat_hw_dir)/quickassist/lookaside/access_layer/include"])
+    AC_SUBST([with_ICP_SAL_API_1x_DIR], ["\$(with_qat_hw_dir)/quickassist/include/icp"])
     AC_SUBST([with_ICP_LAC_API_DIR], ["\$(with_ICP_API_DIR)/lac"])
     AC_SUBST([with_ICP_DC_DIR], ["\$(with_qat_hw_dir)/quickassist/include/dc"])
     AC_SUBST([with_USDM_DIR], ["\$(with_qat_hw_dir)/quickassist/utilities/libusdm_drv"])
-    AC_SUBST([includes_qat_hw], ["-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR) -I\$(with_ICP_DC_DIR) -I\$(with_USDM_DIR)"])
+    AC_SUBST([includes_qat_hw], ["-I\$(with_ICP_API_DIR) -I\$(with_ICP_LAC_API_DIR) -I\$(with_ICP_SAL_API_DIR) -I\$(with_ICP_DC_DIR) -I\$(with_USDM_DIR) -I\$(with_ICP_SAL_API_1x_DIR)"])
   fi
 fi
 
