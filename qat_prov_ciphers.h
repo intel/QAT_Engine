@@ -126,6 +126,12 @@ typedef struct qat_evp_aes_cbc_cipher_st {
     OSSL_FUNC_cipher_update_fn *cupdate;
     OSSL_FUNC_cipher_final_fn *cfinal;
     OSSL_FUNC_cipher_cipher_fn *ccipher;
+# if OPENSSL_VERSION_NUMBER >= 0x30500000
+    OSSL_FUNC_cipher_pipeline_encrypt_init_fn *p_einit;
+    OSSL_FUNC_cipher_pipeline_decrypt_init_fn *p_dinit;
+    OSSL_FUNC_cipher_pipeline_update_fn *p_cupdate;
+    OSSL_FUNC_cipher_pipeline_final_fn *p_cfinal;
+# endif
     OSSL_FUNC_cipher_freectx_fn *freectx;
     OSSL_FUNC_cipher_dupctx_fn *dupctx;
     OSSL_FUNC_cipher_get_params_fn *get_params;
