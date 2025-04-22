@@ -119,6 +119,8 @@ static const BSSL_QAT_CTL_CMD bssl_qat_cmds_table[] ={
     {"SET_INTERNAL_POLL_INTERVAL", QAT_CMD_SET_INTERNAL_POLL_INTERVAL},
     {"ENABLE_SW_FALLBACK",         QAT_CMD_ENABLE_SW_FALLBACK},
     {BSSL_QAT_INIT_DEBUG_LOG,      ENGINE_CMD_INVALD},
+    {"HW_ALGO_BITMAP",             QAT_CMD_HW_ALGO_BITMAP},
+    {"SW_ALGO_BITMAP",             QAT_CMD_SW_ALGO_BITMAP},
     {NULL,                         ENGINE_CMD_INVALD}
 };
 
@@ -465,9 +467,7 @@ async_ctx *bssl_qat_async_start_job(void)
 #ifdef QAT_HW
     job->copy_op_done = bssl_qat_copy_op_done;
     job->free_op_done = bssl_qat_free_op_done;
-#endif /* QAT_HW */
-
-#ifdef QAT_SW
+#else
     job->copy_op_done = NULL;
     job->free_op_done = NULL;
 #endif /* QAT_SW */
@@ -510,7 +510,8 @@ static void bssl_qat_async_reset_fds(const async_ctx *ctx)
         wctx = ctx->currjob->waitctx;
         if (wctx->fds_reset == 0) {
             bssl_async_wait_ctx_reset_counts(wctx);
-            bssl_async_wait_ctx_clear_fd(wctx, wctx->fds->key);
+            if (wctx->fds != NULL)
+                bssl_async_wait_ctx_clear_fd(wctx, wctx->fds->key);
             wctx->fds_reset = 1;
         }
     }
@@ -556,11 +557,13 @@ int bssl_qat_async_ctx_copy_result(const async_ctx *ctx, unsigned char *buffer,
             ctx->currjob->status == ASYNC_JOB_COMPLETE) {
 #ifdef QAT_HW
             from = (CpaFlatBuffer *)ctx->currjob->waitctx->data;
-            bytes_len = from->dataLenInBytes;
-            bssl_memcpy(buffer, from->pData, bytes_len);
+	    if (from && ctx->currjob->op_buf_free) {
+                bytes_len = from->dataLenInBytes;
+                bssl_memcpy(buffer, from->pData, bytes_len);
 
-            /* Free output buffers allocated from build_decrypt_op_buf */
-            ctx->currjob->op_buf_free(NULL, from, ctx->currjob->qat_svm);
+                /* Free output buffers allocated from build_decrypt_op_buf */
+                ctx->currjob->op_buf_free(NULL, from, ctx->currjob->qat_svm);
+            }
 #endif /* QAT_HW */
 
 #ifdef QAT_SW

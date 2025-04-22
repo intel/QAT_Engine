@@ -55,6 +55,7 @@
 /* Local Includes */
 #include "qat_bssl.h"
 #include "qat_utils.h"
+#include "e_qat.h"
 #include "test_bssl_utils.h"
 #include "test_bssl_rsa.h"
 
@@ -238,9 +239,11 @@ int qat_rsa_test(const EVP_PKEY *pkey, int flag)
         return -1;
     }
 
-    if (flag & RSA_ASYNC_MODE) {
-        max_len = rsa_size;
-        qat_rsa_init_async_ctx();
+    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+        if (flag & RSA_ASYNC_MODE) {
+            max_len = rsa_size;
+            qat_rsa_init_async_ctx();
+        }
     }
 
     if (flag & RSA_DECRYPT_TEST) {
@@ -267,17 +270,23 @@ int qat_rsa_sign_test(RSA_METHOD *meth, RSA *rsa, const uint8_t *in_data,
         return 1; /* error */
     }
 
-    if (!meth->sign_raw) {
-        T_ERROR("QAT RSA sign_raw function is NULL.\n");
-        OPENSSL_free(out_data);
-        return 1; /* error */
+    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+        if (!meth->sign_raw) {
+            T_ERROR("QAT RSA sign_raw function is NULL.\n");
+            OPENSSL_free(out_data);
+            return 1; /* error */
+        }
     }
 
     /* Signing */
     T_DUMP_RSA_SIGN_INPUT(in_data, in_len);
-    meth->sign_raw(rsa, &out_len, out_data, in_len, in_data, in_len,
-                RSA_NO_PADDING);
-
+    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+        meth->sign_raw(rsa, &out_len, out_data, in_len, in_data, in_len,
+                       RSA_NO_PADDING);
+    } else {
+        RSA_sign_raw(rsa, &out_len, out_data, in_len, in_data, in_len,
+                     RSA_NO_PADDING);
+    }
     if (async_mode) {
         qat_rsa_wait_async_ctx(&out_len);
     }
@@ -338,9 +347,13 @@ int qat_rsa_decrypt_test(RSA_METHOD *meth, RSA *rsa, const uint8_t *in_data,
         return 1; /* error */
     }
     T_DUMP_RSA_DECRYPT_INPUT(enc_data, out_len);
-    meth->decrypt(rsa, &out_len, out_data, in_len, enc_data, in_len,
-                RSA_NO_PADDING);
-
+    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+        meth->decrypt(rsa, &out_len, out_data, in_len, enc_data, in_len,
+                      RSA_NO_PADDING);
+    } else {
+        RSA_decrypt(rsa, &out_len, out_data, in_len, enc_data, in_len,
+                    RSA_NO_PADDING);
+    }
     if (async_mode) {
         qat_rsa_wait_async_ctx(&out_len);
     }

@@ -68,6 +68,8 @@
 char *key_path = NULL;
 char *bin_name = NULL;
 int flag = 0;
+char *hw_algo_bitmap = NULL;
+char *sw_algo_bitmap = NULL;
 
 static void process_test_job(void);
 static int parse_private_key(void);
@@ -103,7 +105,8 @@ int parse_private_key(void)
 {
     int ret = -1;
     EVP_PKEY *pkey = NULL;
-
+    ENGINE *e = NULL;
+    e = ENGINE_new();
     if (NULL == (pkey = (EVP_PKEY *)qat_load_priv_key(key_path))) {
         T_ERROR("Failed to load private key\n");
         return ret;
@@ -112,11 +115,39 @@ int parse_private_key(void)
     switch(EVP_PKEY_id(pkey)) {
         case EVP_PKEY_RSA:
             ENGINE_load_qat();
+	    if (hw_algo_bitmap) {
+                if (!bssl_qat_send_ctrl_cmd(e, "HW_ALGO_BITMAP", 0,
+                                            hw_algo_bitmap, NULL, 0)) {
+                    WARN("# FAIL: Unable to set hw algorithm mask\n");
+                    return 0;
+                }
+	    }
+	    if (sw_algo_bitmap) {
+                if (!bssl_qat_send_ctrl_cmd(e, "SW_ALGO_BITMAP", 0,
+                                            sw_algo_bitmap, NULL, 0)) {
+                    WARN("# FAIL: Unable to set sw algorithm mask\n");
+                    return 0;
+                }
+	    }
             ret = qat_rsa_test(pkey, flag);
             ENGINE_unload_qat();
             break;
         case EVP_PKEY_EC:
             ENGINE_load_qat();
+	    if (hw_algo_bitmap) {
+                if (!bssl_qat_send_ctrl_cmd(e, "HW_ALGO_BITMAP", 0,
+                                            hw_algo_bitmap, NULL, 0)) {
+                    WARN("# FAIL: Unable to set hw algorithm mask\n");
+                    return 0;
+                }
+	    }
+	    if (sw_algo_bitmap) {
+                if (!bssl_qat_send_ctrl_cmd(e, "SW_ALGO_BITMAP", 0,
+                                            sw_algo_bitmap, NULL, 0)) {
+                    WARN("# FAIL: Unable to set sw algorithm mask\n");
+                    return 0;
+                }
+	    }
             ret = qat_ecdsa_test(pkey, flag);
             ENGINE_unload_qat();
             break;
@@ -125,6 +156,11 @@ int parse_private_key(void)
             break;
     }
 
+    if (e) {
+        /* Release the structural reference from ENGINE_new() */
+        ENGINE_free(e);
+    }
+    DEBUG("QAT Engine Freed ! \n");
     return ret;
 }
 
@@ -137,7 +173,7 @@ int parse_user_option(int argc, char *argv[])
         return 1;
     }
 
-    while ((input = getopt(argc, argv, "a::d::h::k:")) != -1) {
+    while ((input = getopt(argc, argv, "S:H:a::d::h::k:")) != -1) {
         switch (input) {
             case 'k':
                 {
@@ -165,6 +201,22 @@ int parse_user_option(int argc, char *argv[])
             case 'a':
                 flag |= RSA_ASYNC_MODE;
                 break;
+            case 'H':
+                if (hw_algo_bitmap == NULL)
+                    hw_algo_bitmap = strdup(optarg);
+                if (hw_algo_bitmap == NULL) {
+                    T_ERROR("Error: allocated memory failed\n");
+                    return 1;
+                }
+                break;
+            case 'S':
+                if (sw_algo_bitmap == NULL)
+                    sw_algo_bitmap = strdup(optarg);
+                if (sw_algo_bitmap == NULL) {
+                    T_ERROR("Error: allocated memory failed\n");
+                    return 1;
+                }
+		break;
             case '?':
                 T_WARN("Unknown option: -%c\n",(char)optopt);
                 print_test_help();
@@ -204,6 +256,8 @@ void print_test_help(void)
     printf("\t-d : \tTest on rsa private decrypt \n");
     printf("\t-h : \tPrint all available options\n");
     printf("\t-k : \tSet private key file path for test purpose e.g. /opt/rsa_key.pmem\n");
+    printf("\t-H : \tSet hw algorithm bitmap\n");
+    printf("\t-S : \tSet sw algorithm bitmap\n");
     printf("Test command lines for reference:\n");
     printf("\t./%s -k /opt/rsa_private_2k.key\n", bin_name);
     printf("\t./%s -k /opt/rsa_private_2k.key -a\n", bin_name);
