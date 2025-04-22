@@ -55,6 +55,7 @@
 /* Local Includes */
 #include "qat_bssl.h"
 #include "qat_utils.h"
+#include "e_qat.h"
 #include "test_bssl_utils.h"
 #include "test_bssl_ecdsa.h"
 
@@ -128,9 +129,12 @@ int qat_ecdsa_test(const EVP_PKEY *pkey, int flag)
     const EVP_PKEY *lpkey = pkey;
     EC_GROUP *group = NULL;
     int type;
+    async_ctx *actx = NULL;
 
-    if (flag & ECDSA_ASYNC_MODE) {
-        qat_ecdsa_init_async_ctx();
+    if (qat_hw_ecdsa_offload || qat_sw_ecdsa_offload) {
+        if (flag & ECDSA_ASYNC_MODE) {
+            actx = qat_ecdsa_init_async_ctx();
+        }
     }
 
     if ((ctx = EVP_MD_CTX_new()) == NULL) {
@@ -199,7 +203,8 @@ int qat_ecdsa_test(const EVP_PKEY *pkey, int flag)
         goto err;
     } else {
         if (flag & ECDSA_ASYNC_MODE) {
-            qat_ecdsa_wait_async_ctx();
+            if (actx != NULL && actx->currjob->status != ASYNC_JOB_OPER_COMPLETE)
+                qat_ecdsa_wait_async_ctx();
         }
         T_DEBUG("ECDSA Sign: OK\n");
         T_DUMP_ECDSA_SIGN_OUTPUT(sig_data, (unsigned int) sig_len);

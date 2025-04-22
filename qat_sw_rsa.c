@@ -81,6 +81,7 @@
  * software implementation.
  */
 
+#ifdef ENABLE_QAT_SW_RSA
 static inline int multibuff_rsa_range_check(int len)
 {
     if (len == RSA_2K_LENGTH || len == RSA_3K_LENGTH ||
@@ -1657,3 +1658,4 @@ void mb_bssl_rsa_priv_enc_callback_fn(void *async_ctx, unsigned char *out_buffer
     OPENSSL_free(rsa_async_ctx);
 }
 #endif /* QAT_BORINGSSL */
+#endif /* ENABLE_QAT_SW_RSA */

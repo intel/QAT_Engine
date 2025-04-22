@@ -2344,11 +2344,35 @@ int qat_ecdsa_sign_bssl(const uint8_t *digest, size_t digest_len, uint8_t *sig,
                         unsigned int *sig_len, EC_KEY *eckey) {
 
   int ret = 0;
+#ifdef ENABLE_QAT_SW_ECDSA
+  int curve_name;
+  const EC_GROUP *group = NULL;
+#endif
   DEBUG("Start qat_ecdsa_sign_bssl\n");
   ASYNC_JOB* current_job = (ASYNC_JOB*)ASYNC_get_current_job();
+
+#ifdef ENABLE_QAT_SW_ECDSA
+  group = EC_KEY_get0_group(eckey);
+  curve_name = EC_GROUP_get_curve_name(group);
+
+    if (qat_ecdsa_coexist) {
+        /* Use QAT SW if the curve is P256 or QAT device not enough.*/
+        if (curve_name == NID_X9_62_prime256v1 || qat_get_qat_offload_disabled()) {
+            DEBUG("- Switched to QAT_SW mode\n");
+            return mb_ecdsa_sign_bssl(digest, digest_len, sig, sig_len, eckey);
+	}
+    }
+#endif
   ECDSA_SIG *s = qat_ecdsa_do_sign(digest, digest_len, NULL, NULL, eckey);
 
   if (s == NULL) {
+#ifdef ENABLE_QAT_SW_ECDSA
+        /* Switch to QAT_SW only for P384 curve. */
+        if (qat_ecdsa_coexist && (curve_name == NID_secp384r1)) {
+            --qat_sw_ecdsa_sign_req;
+            return mb_ecdsa_sign_bssl(digest, digest_len, sig, sig_len, eckey);
+        }
+#endif
     *sig_len = 0;
     goto err;
   }
