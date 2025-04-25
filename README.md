@@ -139,9 +139,13 @@ Links to additional content is available [here](docs/apps.md).
 ## Troubleshooting
 Troubleshooting information is available [here](docs/troubleshooting.md).
 
-## Licensing Information
-Licensing information is available [here](docs/licensing.md).
+## Licensing
+* [BSD-3-Clause License](LICENSE)
 
 ## Legal
-Legal information is available [here](docs/legal.md).
+Intel, Intel Atom, and Xeon are trademarks of
+Intel Corporation in the U.S. and/or other countries.
 
+\*Other names and brands may be claimed as the property of others.
+
+Copyright &copy; 2016-2025, Intel Corporation. All rights reserved.

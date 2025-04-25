@@ -54,7 +54,7 @@ enabled Intel platforms.
 # Setup Source2 driver package manually
 mkdir -p %{_builddir}/%{qatdriver}
 tar -zxvf %{_sourcedir}/%{qatdriver}.tar.gz -C %{_builddir}/%{qatdriver}
-cp -rf %{_builddir}/%{name}-%{version}/fips/driver_install.sh %{_builddir}
+cp -rf %{_builddir}/%{name}-%{version}/update_config.sh %{_builddir}
 
 %build
 cd %{_builddir}/%{openssl}
@@ -78,7 +78,9 @@ cd %{_builddir}/%{qatdriver}
 unset ICP_ROOT
 unset ICP_BUILD_OUTPUT
 ./configure
-%make_build
+make uninstall
+make clean
+make install
 
 %if !0%{?suse_version}
 cd %{_builddir}/%{ippcpfull}/sources/ippcp/crypto_mb
@@ -132,17 +134,16 @@ install -d %{buildroot}/%{_prefix}/local/ssl/lib64/engines-3
 cp -rf %{_builddir}/%{name}-%{version}/.libs/qatengine.so %{buildroot}/%{_prefix}/local/ssl/lib64/engines-3
 
 install -d %{buildroot}/%{_libdir}/build
-cp -rf %{_builddir}/%{name}-%{version}/qat_hw_config/4xxx/multi_process/4xxx_dev0.conf %{buildroot}/%{_libdir}/build
 cp -rf %{_builddir}/%{qatdriver}/build/libusdm_drv_s.so %{buildroot}/%{_libdir}
 cp -rf %{_builddir}/%{qatdriver}/build/libqat_s.so %{buildroot}/%{_libdir}
 cp -rf %{_builddir}/%{qatdriver}/build %{buildroot}/%{_libdir}
-cp %{_builddir}/%{name}-%{version}/fips/driver_install.sh %{buildroot}/%{_libdir}
+cp %{_builddir}/%{name}-%{version}/update_config.sh %{buildroot}/%{_libdir}
 
 %post
    echo "RPM is getting installed"
 if (lspci | grep Co- >/dev/null )
 then
-   ./%{_libdir}/driver_install.sh
+   ./%{_libdir}/update_config.sh multi_process
 fi
 
 %clean
@@ -157,7 +158,7 @@ rm -rf %{buildroot}
 %{_libdir}/libqat_s.so
 %{_libdir}/libusdm_drv_s.so
 %{_libdir}/build
-%{_libdir}/driver_install.sh
+%{_libdir}/update_config.sh
 %license LICENSE*
 %doc README.md docs*
 
