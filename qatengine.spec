@@ -19,7 +19,6 @@ Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
 
 # Most of the source code is BSD, with the following exceptions:
 # - qat.txt, qat_err.h & qat_err.c files are Apache License 2.0
-# - qat_hw_config/* is (BSD or GPLv2) and not used during compilation
 License:        BSD-3-Clause
 URL:            https://github.com/intel/QAT_Engine
 Source0:        %{url}/archive/v%{version}/%{name}-%{version}.tar.gz

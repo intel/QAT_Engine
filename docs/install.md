@@ -168,42 +168,53 @@ make install
 ```
 
 <details>
-<summary>Copy the Intel® QuickAssist Technology driver config files</summary>
+<summary>Update the Intel® QAT driver config files</summary>
 
-This step is not needed when qatlib intree driver is used which is managed by `qatmgr`
-in the qatlib. QAT Engine built against OOT Driver needs Intel&reg; QAT Driver conf files
-with `[SHIM]` section instead of default `[SSL]`.
-The default section name in the QAT OpenSSL\* Engine can be modified if required
-by either using the engine ctrl command SET_CONFIGURATION_SECTION_NAME or by
-setting the environment variable "QAT_SECTION_NAME".
-The example conf files with `SHIM` section are located at `/path/to/qat_engine/qat_hw_config`
+```bash
+./update_config.sh <Mode> [<ServicesEnabled>] [<NumberCyInstances>] [<NumProcesses>] [<LimitDevAccess>]
+```
 
-The files are grouped by acceleration device(dh895xcc or c6xx or c3xxx
-or 200xx or c4xxx or 4xxx), please choose the files according to the
-QAT acceleration device type in the system
+Update the QAT device configuration file based on the provided input or default settings for either multi-process
+or multi-thread mode. This step is applicable only for the Out-of-Tree (OOT) driver, as the in-tree driver
+does not require configuration files and is instead managed through policy settings located in `/etc/sysconfig/qat`.
 
-The files are also split into `multi_process` and `multi_thread` based use cases.
+**Arguments**
 
-For event driven polling based application, change the parameter `Cy$nIsPolled=1`
-to `Cy$nIsPolled=2` for each instances($n) in the respective config file to use
-event driven polling support. Event driven config files are only supported in Linux.
-Once you have decided which config file you should use, or created your own you
-should follow the procedure below to install it:
+- **`-h` or `-help`:**
+    Print usage help.
 
-1. Stop the acceleration driver as described in the Section
-"Starting/Stopping the Acceleration software" from the
-Getting Started Guide available in [Intel&reg; QuickAssist Technology Driver](https://developer.intel.com/quickassist)
+- **`<Mode>`:**
+    - `multi_process`: Configure for multi-process mode.
+    - `multi_thread`: Configure for multi-thread mode.
 
-2. Copy the appropriate `.conf` file to `/etc` for n number of QAT devices
+- **`<ServicesEnabled>`:**
+    - For QAT Gen4 devices (4xxx, 401x, 402x):
+        `'asym;sym'`, `'asym'`, `'sym'`, `'asym;dc'`, or `'sym;dc'` (if compression co-exists).
+    - For other lower QAT Gen (37c8):
+        `'cy'`.
 
-3. Start the acceleration driver as described in the Section
-"Starting/Stopping the Acceleration software" from the
-Getting Started Guide available in [Intel&reg; QuickAssist Technology Driver](https://developer.intel.com/quickassist)
+- **`<NumberCyInstances>`:**
+    Number of CyInstances to configure in the driver configuration file.
+
+- **`<NumProcesses>`:**
+    Number of processes to configure in the driver configuration file.
+
+- **`<LimitDevAccess>`:**
+    LimitDevAccess configuration in the driver configuration file. Acceptable values: `[0, 1]`.
+
+**Examples**
+
+```bash
+./update_config.sh multi_process
+./update_config.sh multi_thread
+./update_config.sh multi_process asym 1 64 0
+```
+
 </details>
 
 Build steps for **qatlib intree driver** installed from source(/usr/local)
-and policies configured as in [qatlib install](https://github.com/intel/qatlib/blob/main/INSTALL)
-using the system OpenSSL.
+    and policies configured as in [qatlib install](https://github.com/intel/qatlib/blob/main/INSTALL)
+    using the system OpenSSL.
 
 ```
 cd /QAT_Engine

@@ -236,6 +236,7 @@ OpenSSL:
 if QAT_HW
 qat_hw_driver:
 	bash ./driver_install.sh $(with_qat_hw_dir)
+	bash ./update_config.sh multi_process
 if QAT_4XXX
 if !QAT_HW_INTREE
 cflags_qat_hw += "-DQAT20_OOT"

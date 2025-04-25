@@ -9,14 +9,14 @@ the console(Eg: OpenSSL Speed) or to a file depending on the application(Eg: Ngi
 would be on `path_to_nginx_install/logs/error.log`). If you prefer to write to a
 file use Eg:`--with-qat_debug_file=/opt/engine.log`.
 * When using qat_hw OOT driver package,  Has the correct driver config file
-from `qat_hw_config` been copied to `/etc`? Check it has a `[SHIM]` section and
-that the Intel&reg; QAT Driver was restarted so that it picked up the new
-config file. Otherwise below error would be reported during the test.
+ updated using `./update_config.sh`? Check it has a `[SHIM]` section and
+that the Intel&reg; QAT Devices are up using `adf_ctl status`.
+Otherwise below error would be reported during the test or use QAT_SW if co-ex is enabled.
 ```bash
 ADF_UIO_PROXY err: icp_adf_userProcessToStart: Error reading /dev/qat_dev_processes file
 QAT HW initialization Failed.
 ```
-* In case of qat_hw OOT driver, has the driver config file(`/etc/qatdev_id/conf`)
+* In case of qat_hw OOT driver, has the driver config file(`/etc/<qatdev_id>/conf`)
 is configured with enough number of process in the setting `NumProcesses = <n>`
 where n is the number of process your application would be using.  Otherwise
 the below error would be reported for the process that is not getting qat_hw
