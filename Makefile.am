@@ -42,7 +42,8 @@ if QAT_PROVIDER
                 qat_prov_sm4_ccm.c        \
                 qat_prov_sm4_cbc.c        \
                 qat_prov_sm3.c            \
-                qat_prov_aes_ccm.c
+                qat_prov_aes_ccm.c        \
+                qat_prov_kmgmt_rsa_utils.c
 
 
 if QAT_FIPS

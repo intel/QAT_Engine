@@ -66,6 +66,7 @@ void qat_prov_ctx_set_core_bio_method(QAT_PROV_CTX *ctx, QAT_BIO_METHOD *corebio
 
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 extern const OSSL_DISPATCH qat_rsa_keymgmt_functions[];
+extern const OSSL_DISPATCH qat_rsapss_keymgmt_functions[];
 extern const OSSL_DISPATCH qat_rsa_signature_functions[];
 #endif
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
@@ -278,6 +279,7 @@ static const OSSL_ALGORITHM qat_keyexch[] = {
 static const OSSL_ALGORITHM qat_keymgmt[] = {
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
     {"RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_keymgmt_functions, "QAT RSA Keymgmt implementation."},
+    {"RSA-PSS", QAT_DEFAULT_PROPERTIES, qat_rsapss_keymgmt_functions, "QAT RSA-PSS Keymgmt implementation."},
 #endif
 #if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keymgmt_functions, "QAT X25519 Keymgmt implementation."},
@@ -426,7 +428,8 @@ static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_
         prov_init = 1;
         /* qat provider takes the highest priority
          * and overwrite the openssl.cnf property. */
-        EVP_set_default_properties(NULL, "?provider=qatprovider");
+        if (qat_hw_offload || qat_sw_offload)
+	    EVP_set_default_properties(NULL, "?provider=qatprovider");
 #ifdef ENABLE_QAT_FIPS
         if (qat_operations(operation_id)) {
             prov_init++;

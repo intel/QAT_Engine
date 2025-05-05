@@ -54,51 +54,23 @@
 extern int qat_fips_key_zeroize;
 #endif
 
-void qat_rsa_multip_info_free_ex(RSA_PRIME_INFO *pinfo)
-{
-    /* free pp and pinfo only */
-    BN_clear_free(pinfo->pp);
-    OPENSSL_free(pinfo);
-}
-
-void qat_rsa_multip_info_free(RSA_PRIME_INFO *pinfo)
-{
-    /* free a RSA_PRIME_INFO structure */
-    BN_clear_free(pinfo->r);
-    BN_clear_free(pinfo->d);
-    BN_clear_free(pinfo->t);
-    qat_rsa_multip_info_free_ex(pinfo);
-}
-
-static int qat_prov_rsa_finish(RSA *rsa)
-{
-    int i;
-    RSA_PRIME_INFO *pinfo;
-
-    for (i = 0; i < sk_RSA_PRIME_INFO_num(rsa->prime_infos); i++) {
-        pinfo = sk_RSA_PRIME_INFO_value(rsa->prime_infos, i);
-        BN_MONT_CTX_free(pinfo->m);
-    }
-
-    BN_MONT_CTX_free(rsa->_method_mod_n);
-    BN_MONT_CTX_free(rsa->_method_mod_p);
-    BN_MONT_CTX_free(rsa->_method_mod_q);
-    return 1;
-}
-
-int QAT_RSA_bits(const RSA *r)
+int QAT_RSA_bits(const QAT_RSA *r)
 {
     return BN_num_bits(r->n);
 }
 
-int QAT_RSA_size(const RSA *r)
+int QAT_RSA_size(const QAT_RSA *r)
 {
     return BN_num_bytes(r->n);
 }
 
-int QAT_RSA_up_ref(RSA *r)
+int QAT_RSA_up_ref(QAT_RSA *r)
 {
-    int i;
+    int i = 0;
+
+    /* A refcount less than 2 indicates an unexpected state where the object
+     * may not have been properly initialized or referenced. This check
+     * ensures that the object is in a valid state before proceeding. */
     if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
         return 0;
 
@@ -110,7 +82,7 @@ int QAT_RSA_up_ref(RSA *r)
     return i > 1 ? 1 : 0;
 }
 
-void QAT_RSA_free(RSA *r)
+void QAT_RSA_free(QAT_RSA *r)
 {
 #ifdef ENABLE_QAT_FIPS
     qat_fips_key_zeroize = 0;
@@ -120,6 +92,7 @@ void QAT_RSA_free(RSA *r)
     if (r == NULL)
         return;
     QAT_CRYPTO_DOWN_REF(&r->references, &i);
+
     if (i > 0)
         return;
     if(i < 0)
@@ -128,15 +101,13 @@ void QAT_RSA_free(RSA *r)
         return;
     }
 
-    if (r->meth != NULL)
-        qat_prov_rsa_finish(r);
+    if (r->meth != NULL && r->meth->finish != NULL)
+	r->meth->finish(r);
 
-    CRYPTO_free_ex_data(CRYPTO_EX_INDEX_RSA, r, &r->ex_data);
-# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_THREAD_lock_free(r->lock);
-# endif
-    BN_free(r->n);
-    BN_free(r->e);
+
+    BN_clear_free(r->n);
+    BN_clear_free(r->e);
     BN_clear_free(r->d);
     BN_clear_free(r->p);
     BN_clear_free(r->q);
@@ -145,7 +116,6 @@ void QAT_RSA_free(RSA *r)
     BN_clear_free(r->iqmp);
 
     RSA_PSS_PARAMS_free(r->pss);
-    sk_RSA_PRIME_INFO_pop_free(r->prime_infos, qat_rsa_multip_info_free);
 
     BN_BLINDING_free(r->blinding);
     BN_BLINDING_free(r->mt_blinding);
@@ -157,37 +127,37 @@ void QAT_RSA_free(RSA *r)
 #endif
 }
 
-int QAT_RSA_test_flags(const RSA *r, int flags)
+int QAT_RSA_test_flags(const QAT_RSA *r, int flags)
 {
     return r->flags & flags;
 }
 
-void QAT_RSA_clear_flags(RSA *r, int flags)
+void QAT_RSA_clear_flags(QAT_RSA *r, int flags)
 {
     r->flags &= ~flags;
 }
 
-void QAT_RSA_set_flags(RSA *r, int flags)
+void QAT_RSA_set_flags(QAT_RSA *r, int flags)
 {
     r->flags |= flags;
 }
 
-const BIGNUM *QAT_RSA_get0_n(const RSA *r)
+const BIGNUM *QAT_RSA_get0_n(const QAT_RSA *r)
 {
     return r->n;
 }
 
-const BIGNUM *QAT_RSA_get0_e(const RSA *r)
+const BIGNUM *QAT_RSA_get0_e(const QAT_RSA *r)
 {
     return r->e;
 }
 
-const BIGNUM *QAT_RSA_get0_d(const RSA *r)
+const BIGNUM *QAT_RSA_get0_d(const QAT_RSA *r)
 {
     return r->d;
 }
 
-int QAT_RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
+int QAT_RSA_set0_factors(QAT_RSA *r, BIGNUM *p, BIGNUM *q)
 {
     /* If the fields p and q in r are NULL, the corresponding input
      * parameters MUST be non-NULL.
@@ -211,7 +181,7 @@ int QAT_RSA_set0_factors(RSA *r, BIGNUM *p, BIGNUM *q)
     return 1;
 }
 
-int QAT_RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
+int QAT_RSA_set0_crt_params(QAT_RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
 {
     /* If the fields dmp1, dmq1 and iqmp in r are NULL, the corresponding input
      * parameters MUST be non-NULL.
@@ -241,7 +211,7 @@ int QAT_RSA_set0_crt_params(RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp)
     return 1;
 }
 
-int QAT_RSA_set0_key(RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
+int QAT_RSA_set0_key(QAT_RSA *r, BIGNUM *n, BIGNUM *e, BIGNUM *d)
 {
     /* If the fields n and e in r are NULL, the corresponding input
      * parameters MUST be non-NULL for n and e.  d may be
