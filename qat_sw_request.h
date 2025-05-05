@@ -50,7 +50,6 @@
 # include <stdint.h>
 
 # include <openssl/bn.h>
-# include <openssl/rsa.h>
 # ifndef QAT_BORINGSSL
 # include <openssl/kdf.h>
 # endif /* QAT_BORINGSSL */

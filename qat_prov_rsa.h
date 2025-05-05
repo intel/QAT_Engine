@@ -60,20 +60,36 @@ typedef struct{
     int trailer_field;
 } QAT_RSA_PSS_PARAMS_30;
 
-struct rsa_st{
-    /*
-     * #legacy
-     * The first field is used to pickup errors where this is passed
-     * instead of an EVP_PKEY.  It is always zero.
-     * THIS MUST REMAIN THE FIRST FIELD.
-     */
+struct qat_rsa_gen_ctx {
+    OSSL_LIB_CTX *libctx;
+    const char *propq;
+
+    int rsa_type;
+
+    size_t nbits;
+    BIGNUM *pub_exp;
+    size_t primes;
+
+    /* For PSS */
+    QAT_RSA_PSS_PARAMS_30 pss_params;
+    int pss_defaults_set;
+
+    /* For generation callback */
+    OSSL_CALLBACK *cb;
+    void *cbarg;
+};
+typedef struct qat_rsa_gen_ctx QAT_RSA_GEN_CTX;
+
+struct rsa_st {
+    /* dummy value to adhere to OpenSSL RSA structure guidelines */
     int dummy_zero;
 
     OSSL_LIB_CTX *libctx;
     int32_t version;
     const RSA_METHOD *meth;
-    /* functional reference if 'meth' is ENGINE-provided */
+    /* Currently unused but retained to maintain OpenSSL compatibility */
     ENGINE *engine;
+    /* Key RSA params */
     BIGNUM *n;
     BIGNUM *e;
     BIGNUM *d;
@@ -83,35 +99,33 @@ struct rsa_st{
     BIGNUM *dmq1;
     BIGNUM *iqmp;
 
-    /*
-     * If a PSS only key this contains the parameter restrictions.
-     * There are two structures for the same thing, used in different cases.
-     */
-    /* This is used uniquely by OpenSSL provider implementations. */
     QAT_RSA_PSS_PARAMS_30 pss_params;
 
+#ifndef QAT_ENABLE_FIPS
     /* This is used uniquely by rsa_ameth.c and rsa_pmeth.c. */
     RSA_PSS_PARAMS *pss;
-    /* for multi-prime RSA, defined in RFC 8017 */
+    /* for multi-prime RSA, defined in RFC 8017. Currently unused. */
     STACK_OF(RSA_PRIME_INFO) *prime_infos;
-    /* Be careful using this if the RSA structure is shared */
+    /* Currently unused but retained to maintain OpenSSL compatibility */
     CRYPTO_EX_DATA ex_data;
-    QAT_CRYPTO_REF_COUNT references; //QAT_CRYPTO_REF_COUNT references;
+#endif
+    QAT_CRYPTO_REF_COUNT references;
     int flags;
+
     /* Used to cache montgomery values */
     BN_MONT_CTX *_method_mod_n;
     BN_MONT_CTX *_method_mod_p;
     BN_MONT_CTX *_method_mod_q;
     BN_BLINDING *blinding;
     BN_BLINDING *mt_blinding;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
-#endif
 
     int dirty_cnt;
 };
 
-typedef struct rsa_st RSA;
+typedef struct rsa_st QAT_RSA;
+
+extern const QAT_RSA_PSS_PARAMS_30 default_RSASSA_PSS_params;
 
 struct rsa_meth_st {
     char *name;
@@ -164,7 +178,7 @@ typedef struct rsa_meth_st RSA_METHOD;
 
 typedef struct {
     OSSL_LIB_CTX *libctx;
-    RSA *rsa;
+    QAT_RSA *rsa;
     int pad_mode;
     int operation;
     /* OAEP message digest */
@@ -178,14 +192,19 @@ typedef struct {
     unsigned int client_version;
     unsigned int alt_version;
     /* PKCS#1 v1.5 decryption mode */
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
     unsigned int implicit_rejection;
+# endif
 } QAT_PROV_RSA_ENC_DEC_CTX;
 
 typedef struct {
     OSSL_LIB_CTX *libctx;
     char *propq;
-    RSA *rsa;
+    QAT_RSA *rsa;
     int operation;
+
+    /*Unused but retained to remain compatible with OpenSSL */
+    unsigned int flag_sigalg : 1;
 
     /*
      * Flag to determine if the hash function can be changed (1) or not (0)
@@ -195,6 +214,10 @@ typedef struct {
      */
     unsigned int flag_allow_md : 1;
     unsigned int mgf1_md_set : 1;
+
+    unsigned int flag_allow_update : 1;
+    unsigned int flag_allow_final : 1;
+    unsigned int flag_allow_oneshot : 1;
 
     /* main digest */
     EVP_MD *md;
@@ -207,11 +230,14 @@ typedef struct {
     /* message digest for MGF1 */
     EVP_MD *mgf1_md;
     int mgf1_mdnid;
-    char mgf1_mdname[50]; /* Purely informational */
+    char mgf1_mdname[50];
     /* PSS salt length */
     int saltlen;
     /* Minimum salt length or -1 if no PSS parameter restriction */
     int min_saltlen;
+
+    unsigned char *sig;
+    size_t siglen;
 
     /* Temp buffer */
     unsigned char *tbuf;
@@ -220,7 +246,6 @@ typedef struct {
     /* OAEP label */
     unsigned char *oaep_label;
     size_t oaep_labellen;
-    /* TLS padding */
     unsigned int client_version;
     unsigned int alt_version;
 } QAT_PROV_RSA_CTX;
@@ -236,8 +261,6 @@ typedef struct rsa_prime_info_st {
 
 DEFINE_STACK_OF(RSA_PRIME_INFO)
 
-void qat_rsa_multip_info_free_ex(RSA_PRIME_INFO *pinfo);
-void qat_rsa_multip_info_free(RSA_PRIME_INFO *pinfo);
 int QAT_RSA_bits(const RSA *r);
 int QAT_RSA_size(const RSA *r);
 void QAT_RSA_set_flags(RSA *r, int flags);

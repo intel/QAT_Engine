@@ -840,7 +840,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals);
 #ifdef ENABLE_QAT_HW_KPT
 /******************************************************************************
 * function:
-*         qat_engine_load_privkey(ENGINE *e, const char *key_id, 
+*         qat_engine_load_privkey(ENGINE *e, const char *key_id,
 *                          UI_METHOD *ui_method, void *callback_data)
 *
 * @param e             [IN] - OpenSSL engine pointer
@@ -850,7 +850,7 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals);
 *
 * description:
 *   Qat engine load private key function.
-*   This function will be hooked by openssl and used to load WPK file 
+*   This function will be hooked by openssl and used to load WPK file
 *   in KPT scenario.
 ******************************************************************************/
 EVP_PKEY *qat_engine_load_privkey(ENGINE *e, const char *key_id,

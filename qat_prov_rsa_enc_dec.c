@@ -159,18 +159,26 @@ static void *qat_prov_rsa_newctx(void *provctx)
     return ctx;
 }
 
-int qat_rsa_check_key(OSSL_LIB_CTX * ctx, const RSA *rsa, int operation)
+int qat_rsa_check_key(const RSA *rsa, int operation, int *outprotect)
 {
     int protect = 0;
 
     switch (operation) {
     case EVP_PKEY_OP_SIGN:
+#if OPENSSL_VERSION_NUMBER >= 0x30400000
+    case EVP_PKEY_OP_SIGNMSG:
+#endif
         protect = 1;
+        /* fallthrough */
     case EVP_PKEY_OP_VERIFY:
-        break;
+#if OPENSSL_VERSION_NUMBER >= 0x30400000
+    case EVP_PKEY_OP_VERIFYMSG:
+#endif
+	break;
     case EVP_PKEY_OP_ENCAPSULATE:
     case EVP_PKEY_OP_ENCRYPT:
         protect = 1;
+        /* fallthrough */
     case EVP_PKEY_OP_VERIFYRECOVER:
     case EVP_PKEY_OP_DECAPSULATE:
     case EVP_PKEY_OP_DECRYPT:
@@ -186,21 +194,102 @@ int qat_rsa_check_key(OSSL_LIB_CTX * ctx, const RSA *rsa, int operation)
         return 0;
     }
 
-# if !defined(OPENSSL_NO_FIPS_SECURITYCHECKS)
-    if (qat_securitycheck_enabled(ctx)) {
-        int sz = QAT_RSA_bits(rsa);
-
-        if (protect ? (sz < 2048) : (sz < 1024)) {
-            QATerr(ERR_LIB_PROV, QAT_R_INVALID_KEY_LENGTH);
-            return 0;
-        }
-    }
-# else
-    (void)protect;
-# endif                         /* OPENSSL_NO_FIPS_SECURITYCHECKS */
+    *outprotect = protect;
     return 1;
 }
 
+/**
+ * @brief Checks and removes PKCS#1 v1.5 padding for TLS RSA decryption.
+ *
+ * This function validates and strips PKCS#1 type 2 (v1.5) padding from an RSA-encrypted
+ * pre-master secret as used in TLS. It ensures the decrypted data conforms to the expected
+ * format, checks the client version, and provides constant-time fallback to random data
+ * if the padding or version is invalid, as required by the TLS protocol to prevent
+ * side-channel attacks.
+ *
+ * @param libctx          OpenSSL library context (for random generation).
+ * @param to              Output buffer for the pre-master secret.
+ * @param tlen            Length of the output buffer.
+ * @param from            Input buffer containing the decrypted data.
+ * @param flen            Length of the input buffer.
+ * @param client_version  Expected client version (from ClientHello).
+ * @param alt_version     Alternate version to accept (may be 0).
+ *
+ * @return Length of the pre-master secret on success, -1 on failure.
+ */
+int RSA_padding_check_PKCS1_type_2_TLS(OSSL_LIB_CTX *libctx,
+                                       unsigned char *to,
+				       size_t tlen,
+                                       const unsigned char *from,
+				       size_t flen,
+				       int client_version,
+				       int alt_version)
+{
+
+    int i;
+    int good = 0;
+    unsigned char *p;
+    int plen;
+    unsigned char rand_premaster[SSL_MAX_MASTER_KEY_LENGTH];
+    int premaster_len = SSL_MAX_MASTER_KEY_LENGTH;
+
+    if (flen < 11 || tlen < premaster_len)
+	goto err;
+
+    p = (unsigned char *)from;
+    if (p[0] != 0x00 || p[1] != 0x02)
+	goto err;
+
+    for (i = 2; i < flen; i++) {
+	if (p[i] == 0x00)
+	    break;
+    }
+    if (i == flen || i < 10)
+	goto err;
+    plen = flen - (i + 1);
+    if (plen != premaster_len)
+	goto err;
+    memcpy(to, p + i + 1, premaster_len);
+    good = (to[0] == (client_version >> 8) &&
+	    to[1] == (client_version & 0xff));
+    if (!good && alt_version > 0)
+	good = (to[0] == (alt_version >> 8)
+		&& to[1] ==
+		(alt_version & 0xff));
+    if (!good) {
+	if (RAND_bytes_ex(libctx, rand_premaster, premaster_len, 0) <= 0)
+	    goto err;
+	memcpy(to, rand_premaster, premaster_len);
+    }
+
+    OPENSSL_cleanse(rand_premaster, premaster_len);
+    return premaster_len;
+err:
+    if (RAND_bytes_ex(libctx, rand_premaster, premaster_len, 0) > 0)
+	memcpy(to, rand_premaster, premaster_len);
+    OPENSSL_cleanse(rand_premaster, premaster_len);
+    return -1;
+}
+
+/**
+ * @brief Adds PKCS#1 OAEP padding with MGF1 to input data for RSA encryption.
+ *
+ * This function applies PKCS#1 OAEP (Optimal Asymmetric Encryption Padding) with MGF1
+ * to the input data, preparing it for RSA encryption. It supports custom hash algorithms
+ * for both the OAEP digest and the MGF1 mask generation function.
+ *
+ * @param libctx   OpenSSL library context (may be NULL).
+ * @param to       Output buffer for the padded data.
+ * @param tlen     Length of the output buffer.
+ * @param from     Input data to be padded.
+ * @param flen     Length of the input data.
+ * @param param    Optional OAEP label (may be NULL).
+ * @param plen     Length of the OAEP label.
+ * @param md       Digest method for OAEP (if NULL, SHA-1 is used).
+ * @param mgf1md   Digest method for MGF1 (if NULL, md is used).
+ *
+ * @return 1 on success, 0 on failure.
+ */
 int qat_rsa_padding_add_PKCS1_OAEP_mgf1_ex(OSSL_LIB_CTX * libctx,
                                            unsigned char *to, int tlen,
                                            const unsigned char *from, int flen,
@@ -351,6 +440,23 @@ static int qat_rsa_private_decrypt(int flen, const unsigned char *from,
     return ret;
 }
 
+/**
+ * @brief Performs RSA encryption using the QAT provider context.
+ *
+ * This function encrypts the input data using the RSA key and padding mode specified
+ * in the QAT_PROV_RSA_ENC_DEC_CTX context. It supports both hardware and software
+ * offload, as well as fallback to the default OpenSSL provider if QAT offload is not enabled.
+ * For OAEP padding, it applies the appropriate padding before encryption.
+ *
+ * @param vprsactx  Pointer to the QAT_PROV_RSA_ENC_DEC_CTX encryption context.
+ * @param out       Output buffer for the encrypted data.
+ * @param outlen    Pointer to the length of the output buffer; set to the actual output length.
+ * @param outsize   Size of the output buffer.
+ * @param in        Input data to encrypt.
+ * @param inlen     Length of the input data.
+ *
+ * @return 1 on success, 0 on failure, or a negative value on error.
+ */
 static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
                                 size_t *outlen, size_t outsize,
                                 const unsigned char *in, size_t inlen)
@@ -399,7 +505,8 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
             return 0;
         }
 	if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-            ret = qat_rsa_public_encrypt(rsasize, tbuf, out, ctx->rsa, RSA_NO_PADDING);
+            ret = qat_rsa_public_encrypt(rsasize, tbuf, out, ctx->rsa,
+					 RSA_NO_PADDING);
         } else {
             typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
                                    size_t *outlen, size_t outsize,
@@ -429,74 +536,23 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
     return 1;
 }
 
-int qat_rsa_padding_check_PKCS1_type_2_TLS(OSSL_LIB_CTX * libctx,
-                                           unsigned char *to, size_t tlen,
-                                           const unsigned char *from,
-                                           size_t flen, int client_version,
-                                           int alt_version)
-{
-    unsigned int i, good, version_good;
-    unsigned char rand_premaster_secret[SSL_MAX_MASTER_KEY_LENGTH];
-
-    /*
-     * If these checks fail then either the message in publicly invalid, or
-     * we've been called incorrectly. We can fail immediately.
-     */
-    if (flen < RSA_PKCS1_PADDING_SIZE + SSL_MAX_MASTER_KEY_LENGTH
-        || tlen < SSL_MAX_MASTER_KEY_LENGTH) {
-        QATerr(ERR_LIB_RSA, QAT_R_PKCS_DECODING_ERROR);
-        return -1;
-    }
-
-    /*
-     * Generate a random premaster secret to use in the event that we fail
-     * to decrypt.
-     */
-    if (RAND_priv_bytes_ex(libctx, rand_premaster_secret,
-                           sizeof(rand_premaster_secret), 0) <= 0) {
-        QATerr(ERR_LIB_RSA, QAT_R_INTERNAL_ERROR);
-        return -1;
-    }
-
-    good = qat_constant_time_is_zero(from[0]);
-    good &= qat_constant_time_eq(from[1], 2);
-
-    for (i = 2; i < flen - SSL_MAX_MASTER_KEY_LENGTH - 1; i++)
-        good &= ~qat_constant_time_is_zero_8(from[i]);
-    good &=
-        qat_constant_time_is_zero_8(from[flen - SSL_MAX_MASTER_KEY_LENGTH - 1]);
-
-    version_good =
-        qat_constant_time_eq(from[flen - SSL_MAX_MASTER_KEY_LENGTH],
-                             (client_version >> 8) & 0xff);
-    version_good &=
-        qat_constant_time_eq(from[flen - SSL_MAX_MASTER_KEY_LENGTH + 1],
-                             client_version & 0xff);
-
-    if (alt_version > 0) {
-        unsigned int workaround_good;
-
-        workaround_good =
-            qat_constant_time_eq(from[flen - SSL_MAX_MASTER_KEY_LENGTH],
-                                 (alt_version >> 8) & 0xff);
-        workaround_good &=
-            qat_constant_time_eq(from[flen - SSL_MAX_MASTER_KEY_LENGTH + 1],
-                                 alt_version & 0xff);
-        version_good |= workaround_good;
-    }
-
-    good &= version_good;
-
-    for (i = 0; i < SSL_MAX_MASTER_KEY_LENGTH; i++) {
-        to[i] =
-            qat_constant_time_select_8(good,
-                                       from[flen - SSL_MAX_MASTER_KEY_LENGTH +
-                                            i], rand_premaster_secret[i]);
-    }
-
-    return SSL_MAX_MASTER_KEY_LENGTH;
-}
-
+/**
+ * @brief Performs RSA decryption using the QAT provider context.
+ *
+ * This function decrypts the input data using the RSA key and padding mode specified
+ * in the QAT_PROV_RSA_ENC_DEC_CTX context. It supports both hardware and software
+ * offload, as well as fallback to the default OpenSSL provider if QAT offload is not enabled.
+ * For OAEP padding, it removes the padding after decryption.
+ *
+ * @param vprsactx  Pointer to the QAT_PROV_RSA_ENC_DEC_CTX decryption context.
+ * @param out       Output buffer for the decrypted data.
+ * @param outlen    Pointer to the length of the output buffer; set to the actual output length.
+ * @param outsize   Size of the output buffer.
+ * @param in        Input data to decrypt.
+ * @param inlen     Length of the input data.
+ *
+ * @return 1 on success, 0 on failure, or a negative value on error.
+ */
 static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
                                 size_t *outlen, size_t outsize,
                                 const unsigned char *in, size_t inlen)
@@ -510,14 +566,15 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
 
     if (ctx->pad_mode == RSA_PKCS1_WITH_TLS_PADDING) {
         if (out == NULL) {
-            *outlen = SSL_MAX_MASTER_KEY_LENGTH;
-            return 1;
-        }
-        if (outsize < SSL_MAX_MASTER_KEY_LENGTH) {
-            QATerr(ERR_LIB_PROV, QAT_R_BAD_LENGTH);
-            return 0;
-        }
-    } else {
+	    *outlen = SSL_MAX_MASTER_KEY_LENGTH;
+	    return 1;
+	}
+	if (outsize < SSL_MAX_MASTER_KEY_LENGTH) {
+	    QATerr(ERR_LIB_PROV, PROV_R_BAD_LENGTH);
+	    return 0;
+	}
+    }
+    else {
         if (out == NULL) {
             if (len == 0) {
                 QATerr(ERR_LIB_PROV, QAT_R_INVALID_KEY);
@@ -533,7 +590,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
         }
     }
     if (ctx->pad_mode == RSA_PKCS1_OAEP_PADDING
-        || ctx->pad_mode == RSA_PKCS1_WITH_TLS_PADDING) {
+	    || ctx->pad_mode == RSA_PKCS1_WITH_TLS_PADDING) {
         unsigned char *tbuf;
 
         if ((tbuf = OPENSSL_malloc(len)) == NULL) {
@@ -541,7 +598,8 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
             return 0;
         }
         if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-            ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa, RSA_NO_PADDING);
+            ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa,
+		                          RSA_NO_PADDING);
         } else {
             typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
                                 size_t *outlen, size_t outsize,
@@ -561,7 +619,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
             return 0;
         }
         if (ctx->pad_mode == RSA_PKCS1_OAEP_PADDING) {
-            if (ctx->oaep_md == NULL) {
+    	    if (ctx->oaep_md == NULL) {
                 ctx->oaep_md = EVP_MD_fetch(ctx->libctx, "SHA-1", NULL);
                 if (ctx->oaep_md == NULL) {
                     OPENSSL_free(tbuf);
@@ -574,19 +632,23 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
                                                     ctx->oaep_label,
                                                     ctx->oaep_labellen,
                                                     ctx->oaep_md, ctx->mgf1_md);
-        } else {
-            if (ctx->client_version <= 0) {
-                QATerr(ERR_LIB_PROV, QAT_R_BAD_TLS_CLIENT_VERSION);
-                OPENSSL_free(tbuf);
-                return 0;
-            }
-            ret =
-                qat_rsa_padding_check_PKCS1_type_2_TLS(ctx->libctx, out,
-                                                       outsize, tbuf, len,
-                                                       ctx->client_version,
-                                                       ctx->alt_version);
-        }
-        OPENSSL_free(tbuf);
+	    }
+	    else {
+	        /* RSA_PKCS1_WITH_TLS_PADDING */
+	        if (ctx->client_version <= 0) {
+		    QATerr(ERR_LIB_PROV, PROV_R_BAD_TLS_CLIENT_VERSION);
+		    OPENSSL_free(tbuf);
+		    return 0;
+		}
+		ret = RSA_padding_check_PKCS1_type_2_TLS(ctx->libctx,
+							 out,
+							 outsize,
+							 tbuf,
+							 len,
+							 ctx->client_version,
+							 ctx->alt_version);
+	    }
+	    OPENSSL_free(tbuf);
     } else {
         if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
             ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
@@ -650,6 +712,19 @@ static void *qat_prov_rsa_dupctx(void *vprsactx)
     return dstctx;
 }
 
+/**
+ * @brief Retrieves context parameters for the QAT RSA encryption/decryption context.
+ *
+ * This function populates the provided OSSL_PARAM array with the current settings
+ * from the QAT_PROV_RSA_ENC_DEC_CTX context, such as padding mode, OAEP digest,
+ * MGF1 digest, and OAEP label. It is used by OpenSSL to query the state of the
+ * RSA asymmetric cipher context.
+ *
+ * @param vprsactx  Pointer to the QAT_PROV_RSA_ENC_DEC_CTX context.
+ * @param params    Array of OSSL_PARAM to be populated with context parameters.
+ *
+ * @return 1 on success, 0 on failure.
+ */
 static int qat_prov_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM * params)
 {
     QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
@@ -713,11 +788,14 @@ static int qat_prov_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM * params)
     if (p != NULL && !OSSL_PARAM_set_uint(p, ctx->client_version))
         return 0;
 
-    p = OSSL_PARAM_locate(params,
-                          OSSL_ASYM_CIPHER_PARAM_TLS_NEGOTIATED_VERSION);
+    p = OSSL_PARAM_locate(params, OSSL_ASYM_CIPHER_PARAM_TLS_NEGOTIATED_VERSION);
     if (p != NULL && !OSSL_PARAM_set_uint(p, ctx->alt_version))
         return 0;
-
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    p = OSSL_PARAM_locate(params, OSSL_ASYM_CIPHER_PARAM_IMPLICIT_REJECTION);
+    if (p != NULL && !OSSL_PARAM_set_uint(p, ctx->implicit_rejection))
+        return 0;
+#endif
     return 1;
 }
 
@@ -729,6 +807,9 @@ static const OSSL_PARAM qat_rsa_known_gettable_ctx_params[] = {
                     NULL, 0),
     OSSL_PARAM_uint(OSSL_ASYM_CIPHER_PARAM_TLS_CLIENT_VERSION, NULL),
     OSSL_PARAM_uint(OSSL_ASYM_CIPHER_PARAM_TLS_NEGOTIATED_VERSION, NULL),
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    OSSL_PARAM_uint(OSSL_ASYM_CIPHER_PARAM_IMPLICIT_REJECTION, NULL),
+# endif
     OSSL_PARAM_END
 };
 
@@ -740,6 +821,19 @@ static const OSSL_PARAM *qat_prov_rsa_gettable_ctx_params(ossl_unused void
     return qat_rsa_known_gettable_ctx_params;
 }
 
+/**
+ * @brief Sets context parameters for the QAT RSA encryption/decryption context.
+ *
+ * This function updates the QAT_PROV_RSA_ENC_DEC_CTX context with new settings
+ * provided in the OSSL_PARAM array, such as padding mode, OAEP digest, MGF1 digest,
+ * and OAEP label. It is used by OpenSSL to configure the RSA asymmetric cipher context
+ * before performing encryption or decryption operations.
+ *
+ * @param vprsactx  Pointer to the QAT_PROV_RSA_ENC_DEC_CTX context.
+ * @param params    Array of OSSL_PARAM containing the parameters to set.
+ *
+ * @return 1 on success, 0 on failure.
+ */
 static int qat_prov_rsa_set_ctx_params(void *vprsactx,
                                        const OSSL_PARAM params[])
 {
@@ -846,25 +940,34 @@ static int qat_prov_rsa_set_ctx_params(void *vprsactx,
     }
 
     p = OSSL_PARAM_locate_const(params,
-                                OSSL_ASYM_CIPHER_PARAM_TLS_CLIENT_VERSION);
+				OSSL_ASYM_CIPHER_PARAM_TLS_CLIENT_VERSION);
     if (p != NULL) {
         unsigned int client_version;
 
-        if (!OSSL_PARAM_get_uint(p, &client_version))
-            return 0;
-        ctx->client_version = client_version;
+	if (!OSSL_PARAM_get_uint(p, &client_version))
+	    return 0;
+	ctx->client_version = client_version;
     }
 
     p = OSSL_PARAM_locate_const(params,
-                                OSSL_ASYM_CIPHER_PARAM_TLS_NEGOTIATED_VERSION);
+				OSSL_ASYM_CIPHER_PARAM_TLS_NEGOTIATED_VERSION);
     if (p != NULL) {
-        unsigned int alt_version;
+	unsigned int alt_version;
 
-        if (!OSSL_PARAM_get_uint(p, &alt_version))
-            return 0;
-        ctx->alt_version = alt_version;
+	if (!OSSL_PARAM_get_uint(p, &alt_version))
+	    return 0;
+	ctx->alt_version = alt_version;
     }
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    p = OSSL_PARAM_locate_const(params, OSSL_ASYM_CIPHER_PARAM_IMPLICIT_REJECTION);
+    if (p != NULL) {
+        unsigned int implicit_rejection;
 
+	if (!OSSL_PARAM_get_uint(p, &implicit_rejection))
+	    return 0;
+        ctx->implicit_rejection = implicit_rejection;
+    }
+#endif
     return 1;
 }
 
@@ -876,6 +979,9 @@ static const OSSL_PARAM qat_rsa_known_settable_ctx_params[] = {
     OSSL_PARAM_octet_string(OSSL_ASYM_CIPHER_PARAM_OAEP_LABEL, NULL, 0),
     OSSL_PARAM_uint(OSSL_ASYM_CIPHER_PARAM_TLS_CLIENT_VERSION, NULL),
     OSSL_PARAM_uint(OSSL_ASYM_CIPHER_PARAM_TLS_NEGOTIATED_VERSION, NULL),
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    OSSL_PARAM_uint(OSSL_ASYM_CIPHER_PARAM_IMPLICIT_REJECTION, NULL),
+# endif
     OSSL_PARAM_END
 };
 
@@ -887,15 +993,33 @@ static const OSSL_PARAM *qat_prov_rsa_settable_ctx_params(ossl_unused void
     return qat_rsa_known_settable_ctx_params;
 }
 
+/**
+ * @brief Initializes the QAT RSA encryption/decryption context.
+ *
+ * This function sets up the QAT_PROV_RSA_ENC_DEC_CTX context for an encryption or decryption
+ * operation. It checks the validity of the RSA key, sets the operation type, manages reference
+ * counting, and applies default padding mode based on the key type. It also applies any context
+ * parameters provided.
+ *
+ * @param vprsactx   Pointer to the QAT_PROV_RSA_ENC_DEC_CTX context.
+ * @param vrsa       Pointer to the QAT_RSA key structure.
+ * @param params     Optional OSSL_PARAM array of context parameters.
+ * @param operation  Operation type (EVP_PKEY_OP_ENCRYPT or EVP_PKEY_OP_DECRYPT).
+ *
+ * @return 1 on success, 0 on failure.
+ */
 static int qat_prov_rsa_init(void *vprsactx, void *vrsa,
-                             const OSSL_PARAM params[], int operation)
+                             const OSSL_PARAM params[],
+			     int operation)
 {
+    DEBUG("");
     QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
+    int protect = 0;
 
     if (!qat_prov_is_running() || ctx == NULL || vrsa == NULL)
         return 0;
 
-    if (!qat_rsa_check_key(ctx->libctx, vrsa, operation))
+    if (!qat_rsa_check_key(vrsa, operation, &protect))
         return 0;
 
     if (!QAT_RSA_up_ref(vrsa))
@@ -947,4 +1071,4 @@ const OSSL_DISPATCH qat_rsa_asym_cipher_functions[] = {
      (void (*)(void))qat_prov_rsa_settable_ctx_params},
     {0, NULL}
 };
-#endif                          /* ENABLE_QAT_HW_RSA */
+#endif
