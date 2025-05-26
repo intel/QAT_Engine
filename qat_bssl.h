@@ -53,11 +53,9 @@
 # include <openssl/mem.h>
 # include <openssl/bn.h>
 # include <openssl/err.h>
-#ifdef BSSL_SOURCE
-#include "../crypto/fipsmodule/ec/internal.h"
-#else
+# include <openssl/ec.h>
+# include <openssl/ex_data.h>
 # include <openssl/ec_key.h>
-#endif /* BSSL_SOURCE */
 
 /* From engine.h in OpenSSL */
 # define ENGINE_CMD_BASE                        200
@@ -84,6 +82,7 @@ ENGINE_QAT_PTR_EXPORT
 #define OSSL_ASYNC_FD                           int
 #define OSSL_BAD_ASYNC_FD                       -1
 #endif
+# define BORINGSSL_API_VERSION_23 23
 
 typedef struct async_wait_ctx_st ASYNC_WAIT_CTX;
 typedef struct async_job_st ASYNC_JOB;
@@ -122,7 +121,71 @@ struct async_ctx_st {;
     int *currjob_status;
 };
 
-#ifndef BSSL_SOURCE
+#if BORINGSSL_API_VERSION > BORINGSSL_API_VERSION_23
+typedef struct crypto_mutex_st {
+  char padding;
+} QAT_CRYPTO_MUTEX;
+
+typedef struct bn_blinding_st BN_BLINDING;
+
+struct rsa_st {
+  RSA_METHOD *meth;
+
+  BIGNUM *n;
+  BIGNUM *e;
+  BIGNUM *d;
+  BIGNUM *p;
+  BIGNUM *q;
+  BIGNUM *dmp1;
+  BIGNUM *dmq1;
+  BIGNUM *iqmp;
+
+  /* be careful using this if the RSA structure is shared */
+  CRYPTO_EX_DATA ex_data;
+  CRYPTO_refcount_t references;
+  int flags;
+
+  QAT_CRYPTO_MUTEX lock;
+  /*
+   * Used to cache montgomery values. The creation of these values is protected
+   * by |lock|.
+   */
+  BN_MONT_CTX *mont_n;
+  BN_MONT_CTX *mont_p;
+  BN_MONT_CTX *mont_q;
+  /*
+   * The following fields are copies of |d|, |dmp1|, and |dmq1|, respectively,
+   * but with the correct widths to prevent side channels. These must use
+   * separate copies due to threading concerns caused by OpenSSL's API
+   * mistakes. See https://github.com/openssl/openssl/issues/5158 and
+   * the |freeze_private_key| implementation.
+   */
+  BIGNUM *d_fixed, *dmp1_fixed, *dmq1_fixed;
+
+  /* iqmp_mont is q^-1 mod p in Montgomery form, using |mont_p|. */
+  BIGNUM *iqmp_mont;
+  /*
+   * num_blindings contains the size of the |blindings| and |blindings_inuse|
+   * arrays. This member and the |blindings_inuse| array are protected by
+   * |lock|.
+   */
+  size_t num_blindings;
+  /*
+   * blindings is an array of BN_BLINDING structures that can be reserved by a
+   * thread by locking |lock| and changing the corresponding element in
+   * |blindings_inuse| from 0 to 1.
+   */
+  BN_BLINDING **blindings;
+  unsigned char *blindings_inuse;
+
+  uint64_t blinding_fork_generation;
+  /*
+   * private_key_frozen is one if the key has been used for a private key
+   * operation and may no longer be mutated.
+   */
+  unsigned private_key_frozen:1;
+};
+#endif
 struct ec_key_st {
   /* porting from boringssl/crypto/fipsmodule/ec/internal.h */
   EC_GROUP *group;
@@ -142,7 +205,6 @@ struct ec_key_st {
 
   CRYPTO_EX_DATA ex_data;
 } /* EC_KEY */;
-#endif /* BSSL_SOURCE */
 
 typedef pthread_once_t bssl_once_t;
 #define BSSL_ONCE_INIT PTHREAD_ONCE_INIT
