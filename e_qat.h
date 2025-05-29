@@ -258,7 +258,11 @@ typedef struct {
             } while(0)
 
 # define QAT_CONFIG_SECTION_NAME_SIZE 64
-# define QAT_MAX_CRYPTO_INSTANCES 256
+/*
+ * Crypto instances value is set to 2048 to accommodate
+ * up to 32 QAT devices, each with a maximum of 64 instances
+ */
+# define QAT_MAX_CRYPTO_INSTANCES 2048
 # define QAT_MAX_CRYPTO_ACCELERATORS 512
 
 /*
