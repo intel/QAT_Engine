@@ -121,7 +121,7 @@ typedef struct{
     const char *description;
     OSSL_PROVIDER *prov;
 
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif
@@ -218,16 +218,14 @@ EC_KEY *qat_ec_key_new(OSSL_LIB_CTX *libctx, const char *propq)
         }
     }
 # if OPENSSL_VERSION_NUMBER < 0x30200000
-    ret->references = 1;
 
     ret->lock = CRYPTO_THREAD_lock_new();
     if (ret->lock == NULL) {
         QATerr(ERR_LIB_EC, QAT_R_MALLOC_FAILURE);
         goto err;
     }
-# else
-    ret->references.val = 1;
 # endif
+    ret->references.val = 1;
     ret->meth = EC_KEY_get_default_method();
 
     ret->conv_form = POINT_CONVERSION_UNCOMPRESSED;

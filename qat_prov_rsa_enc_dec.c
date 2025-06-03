@@ -111,7 +111,7 @@ typedef struct qat_evp_asym_cipher_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REF_COUNT refcnt;
+    QAT_CRYPTO_REF_COUNT refcnt;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif

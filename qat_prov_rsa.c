@@ -99,13 +99,8 @@ int QAT_RSA_size(const RSA *r)
 int QAT_RSA_up_ref(RSA *r)
 {
     int i;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
-        return 0;
-# else
     if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
         return 0;
-# endif
 
     if(i < 2)
     {
@@ -124,11 +119,7 @@ void QAT_RSA_free(RSA *r)
 
     if (r == NULL)
         return;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_DOWN_REF(&r->references, &i, r->lock);
-# else
     QAT_CRYPTO_DOWN_REF(&r->references, &i);
-# endif
     if (i > 0)
         return;
     if(i < 0)

@@ -73,7 +73,7 @@ struct evp_signature_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif
@@ -142,13 +142,8 @@ static void qat_ffc_params_cleanup(FFC_PARAMS *params)
 static int qat_DSA_up_ref(DSA *r)
 {
     int i;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
-        return 0;
-# else
     if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
         return 0;
-# endif
 
     if (i < 2)
     {
@@ -167,11 +162,8 @@ void qat_DSA_free(DSA *r)
 
     if (r == NULL)
         return;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_DOWN_REF(&r->references, &i, r->lock);
-# else
     QAT_CRYPTO_DOWN_REF(&r->references, &i);
-# endif
+
     if (i > 0)
         return;
     if (i < 0)

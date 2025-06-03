@@ -56,6 +56,7 @@
 # include <string.h>
 # include <semaphore.h>
 # include <sched.h>
+# include <stdatomic.h>
 
 # ifdef QAT_BORINGSSL
 #  include "qat_bssl.h"
@@ -927,39 +928,33 @@ int qat_sw_cpu_support(void);
 # endif
 
 # ifdef QAT_OPENSSL_PROVIDER
-# if OPENSSL_VERSION_NUMBER < 0x30200000
 
-static __inline__ int CRYPTO_UP_REF(int *val, int *ret, ossl_unused void *lock)
+static inline int QAT_CRYPTO_NEW_REF(QAT_CRYPTO_REF_COUNT *refcnt, int n)
 {
-    *ret = __atomic_fetch_add(val, 1, __ATOMIC_RELAXED) + 1;
+    refcnt->val = n;
     return 1;
 }
 
-static __inline__ int CRYPTO_DOWN_REF(int *val, int *ret,
-		                      ossl_unused void *lock)
+static inline int QAT_CRYPTO_GET_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
 {
-    *ret = __atomic_fetch_sub(val, 1, __ATOMIC_RELAXED) - 1;
+    *ret = atomic_load_explicit(&refcnt->val, memory_order_acquire);
+    return 1;
+}
+
+static inline int QAT_CRYPTO_UP_REF(QAT_CRYPTO_REF_COUNT* refcnt, int* ret)
+{
+    *ret = atomic_fetch_add_explicit(&refcnt->val, 1, memory_order_relaxed) + 1;
+    return 1;
+}
+
+static inline int QAT_CRYPTO_DOWN_REF(QAT_CRYPTO_REF_COUNT* refcnt, int* ret)
+{
+    *ret = atomic_fetch_sub_explicit(&refcnt->val, 1, memory_order_release) - 1;
     if (*ret == 0)
-	__atomic_thread_fence(__ATOMIC_ACQUIRE);
+        atomic_thread_fence(memory_order_acquire);
     return 1;
 }
 
-# else
-
-static __inline__ int QAT_CRYPTO_UP_REF(CRYPTO_REF_COUNT *refcnt, int *ret)
-{
-    *ret = __atomic_fetch_add(&refcnt->val, 1, __ATOMIC_RELAXED) + 1;
-    return 1;
-}
-
-static __inline__ int QAT_CRYPTO_DOWN_REF(CRYPTO_REF_COUNT *refcnt, int *ret)
-{
-    *ret = __atomic_fetch_sub(&refcnt->val, 1, __ATOMIC_RELAXED) - 1;
-    if (*ret == 0)
-        __atomic_thread_fence(__ATOMIC_ACQUIRE);
-    return 1;
-}
-# endif
 # endif
 
 #endif   /* E_QAT_H */

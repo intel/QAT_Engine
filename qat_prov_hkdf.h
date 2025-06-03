@@ -70,7 +70,7 @@ typedef void CRYPTO_RWLOCK;
 
 struct kdf_data_st {
     OSSL_LIB_CTX *libctx;
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif
@@ -115,7 +115,7 @@ struct evp_kdf_st {
     int name_id;
     char *type_name;
     const char *description;
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif
