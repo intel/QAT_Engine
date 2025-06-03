@@ -124,7 +124,7 @@ struct dh_st
     BIGNUM *priv_key; /* x */
     int flags;
     BN_MONT_CTX *method_mont_p;
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #ifndef FIPS_MODULE
     CRYPTO_EX_DATA ex_data;
     ENGINE *engine;

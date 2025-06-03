@@ -400,7 +400,7 @@ struct ec_key_st {
     BIGNUM *priv_key;
     unsigned int enc_flag;
     point_conversion_form_t conv_form;
-    CRYPTO_REF_COUNT references; /*CRYPTO_REF_COUNT references;*/
+    QAT_CRYPTO_REF_COUNT references; /*QAT_CRYPTO_REF_COUNT references;*/
     int flags;
 # ifndef FIPS_MODULE
     CRYPTO_EX_DATA ex_data;
@@ -467,7 +467,7 @@ typedef struct qat_evp_keyexch_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif

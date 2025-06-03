@@ -96,7 +96,7 @@ struct rsa_st{
     STACK_OF(RSA_PRIME_INFO) *prime_infos;
     /* Be careful using this if the RSA structure is shared */
     CRYPTO_EX_DATA ex_data;
-    CRYPTO_REF_COUNT references; //CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references; //QAT_CRYPTO_REF_COUNT references;
     int flags;
     /* Used to cache montgomery values */
     BN_MONT_CTX *_method_mod_n;

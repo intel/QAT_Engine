@@ -77,7 +77,7 @@ typedef struct
     const char *description;
     OSSL_PROVIDER *prov;
 
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif

@@ -216,11 +216,9 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
      */
 #if defined(QAT_OPENSSL_3) && defined(QAT_OPENSSL_PROVIDER)
 # if OPENSSL_VERSION_NUMBER < 0x30200000
-    key->references = 1;
     key->lock = CRYPTO_THREAD_lock_new();
-# else
-    key->references.val = 1;
 # endif
+    key->references.val = 1;
 # ifdef QAT_OPENSSL_PROVIDER
     key->type = gctx->type;
 # endif

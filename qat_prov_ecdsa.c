@@ -77,7 +77,7 @@ typedef struct evp_signature_st {
     char *type_name;
     const char *description;
     OSSL_PROVIDER *prov;
-    CRYPTO_REF_COUNT references;
+    QAT_CRYPTO_REF_COUNT references;
 #if OPENSSL_VERSION_NUMBER < 0x30200000
     CRYPTO_RWLOCK *lock;
 #endif
@@ -142,13 +142,8 @@ static const OSSL_PARAM settable_ctx_params_no_digest[] = {
 int QAT_EC_KEY_up_ref(EC_KEY *r)
 {
     int i;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    if (CRYPTO_UP_REF(&r->references, &i, r->lock) <= 0)
-        return 0;
-# else
     if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
         return 0;
-# endif
 
     if(i < 2){
         WARN("refcount error");
@@ -166,11 +161,7 @@ void QAT_EC_KEY_free(EC_KEY *r)
 
     if (r == NULL)
         return;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_DOWN_REF(&r->references, &i, r->lock);
-# else
     QAT_CRYPTO_DOWN_REF(&r->references, &i);
-# endif
 
     if (i > 0)
         return;

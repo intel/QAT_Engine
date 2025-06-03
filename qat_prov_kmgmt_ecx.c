@@ -91,11 +91,7 @@ ECX_KEY *qat_ecx_key_new(OSSL_LIB_CTX *libctx, ECX_KEY_TYPE type, int haspubkey,
          break;
     }
     ret->type = type;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    ret->references = 1;
-#else
     ret->references.val = 1;
-#endif
 
     if (propq != NULL) {
         ret->propq = OPENSSL_strdup(propq);
@@ -413,11 +409,7 @@ ECX_KEY *qat_ecx_key_dup(const ECX_KEY *key, int selection)
     ret->haspubkey = key->haspubkey;
     ret->keylen = key->keylen;
     ret->type = key->type;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    ret->references = 1;
-#else
     ret->references.val = 1;
-#endif
 
     if (key->propq != NULL) {
         ret->propq = OPENSSL_strdup(key->propq);
