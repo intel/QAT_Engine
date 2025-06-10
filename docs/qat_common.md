@@ -4,8 +4,8 @@ Intel&reg; QAT OpenSSL\* Engine supports Provider interface for OpenSSL 3.0.
 The qatprovider support can be enabled using configure flag `--enable-qat_provider`
 and the default if not specified will use engine interface.
 
-This support is added as an experimental feature and tested with
-OpenSSL Speed and testapp only and not tested with any application.
+This support is added as an experimental feature and with limited functional
+testing with real time application like Nginx and Haproxy.
 
 Example OpenSSL Speed command to test using qatprovider:
 
