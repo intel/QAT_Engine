@@ -502,6 +502,7 @@ int qat_hw_init(ENGINE *e)
     int instNum, err;
     CpaStatus status = CPA_STATUS_SUCCESS;
     int ret_pthread_sigmask;
+    int ret_pthread_cond_init = 0;
     Cpa32U package_id = 0;
 
     DEBUG("QAT_HW initialization:\n");
@@ -729,6 +730,13 @@ int qat_hw_init(ENGINE *e)
                 qat_hw_finish_int(e, QAT_RESET_GLOBALS);
                 return 0;
             }
+            ret_pthread_cond_init = pthread_cond_init(&qat_poll_condition, NULL);
+            if (ret_pthread_cond_init != 0) {
+		WARN("pthread_cond_init error\n");
+		QATerr(QAT_F_QAT_HW_INIT, QAT_R_POLLING_THREAD_COND_INIT_FAILURE);
+		qat_hw_finish_int(e, QAT_RESET_GLOBALS);
+		return 0;
+	    }
         }
 
         if (sem_init(&hw_polling_thread_sem, 0, 0) != 0) {
