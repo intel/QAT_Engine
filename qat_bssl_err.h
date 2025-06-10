@@ -512,5 +512,6 @@ void ERR_QAT_error(int function, int reason, char *file, int line);
 # define QAT_R_X_Y_Z_MALLOC_FAILURE                       429
 # define QAT_R_ZALLOC_FAILURE                             430
 # define QAT_R_Z_ALLOCATE_FAILURE                         431
+# define QAT_R_POLLING_THREAD_COND_INIT_FAILURE           432
 
 #endif
