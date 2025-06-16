@@ -1323,8 +1323,8 @@ int bind_qat(ENGINE *e, const char *id)
 
 # ifdef ENABLE_QAT_SW_ECDSA
         if (!qat_hw_ecdsa_offload &&
-            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) &&
-            mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384)) {
+            (mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) ||
+             mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
             qat_sw_ecdsa_offload = 1;
             INFO("QAT_SW ECDSA for Provider Enabled\n");
         }
@@ -1332,8 +1332,8 @@ int bind_qat(ENGINE *e, const char *id)
 
 # ifdef ENABLE_QAT_SW_ECDH
         if (!qat_hw_ecdh_offload &&
-            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) &&
-            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384)) {
+            (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) ||
+            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384))) {
             qat_sw_ecdh_offload = 1;
             INFO("QAT_SW ECDH for Provider Enabled\n");
         }
