@@ -438,6 +438,24 @@ static const OSSL_PARAM *qat_ecx_gen_settable_params(ossl_unused void *genctx,
     return settable;
 }
 
+static int qat_ecx_import(void *keydata, int selection, const OSSL_PARAM params[])
+{
+    typedef int (*fun_ptr)(void *keydata, int selection, const OSSL_PARAM params[]);
+    fun_ptr fun = get_default_x25519_keymgmt().import;
+    if (!fun)
+        return 0;
+    return fun(keydata, selection, params);
+}
+
+static const OSSL_PARAM* qat_ecx_import_types(int selection)
+{
+    typedef const OSSL_PARAM* (*fun_ptr)(int selection);
+    fun_ptr fun = get_default_x25519_keymgmt().import_types;
+    if (!fun)
+        return NULL;
+    return fun(selection);
+}
+
 static int qat_ecx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,
                           void *cbarg)
 {
@@ -554,6 +572,8 @@ const OSSL_DISPATCH qat_X25519_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_GEN_SET_PARAMS, (void (*)(void))qat_ecx_gen_set_params },
     { OSSL_FUNC_KEYMGMT_GEN_SETTABLE_PARAMS,
         (void (*)(void))qat_ecx_gen_settable_params },
+    { OSSL_FUNC_KEYMGMT_IMPORT, (void (*)(void))qat_ecx_import },
+    { OSSL_FUNC_KEYMGMT_IMPORT_TYPES, (void (*)(void))qat_ecx_import_types },
     { OSSL_FUNC_KEYMGMT_EXPORT, (void (*)(void))qat_ecx_export },
     { OSSL_FUNC_KEYMGMT_EXPORT_TYPES, (void (*)(void))qat_ecx_export_types },
     { OSSL_FUNC_KEYMGMT_DUP, (void (*)(void))qat_ecx_dup },
