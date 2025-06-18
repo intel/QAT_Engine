@@ -50,8 +50,6 @@
 # define _GNU_SOURCE
 #endif
 
-#include <openssl/engine.h>
-
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
 #define COPY_INT_PARAM(params, key, val)                                       \
 p = OSSL_PARAM_locate_const(params, key);                                      \
@@ -180,58 +178,6 @@ struct bignum_st {
     int dmax;                   /* Size of the d array. */
     int neg;                    /* one if the number is negative */
     int flags;
-};
-
-typedef void (*ENGINE_DYNAMIC_ID)(void);
-
-/*
- * This is a structure for storing implementations of various crypto
- * algorithms and functions.
- */
-struct engine_st {
-    const char *id;
-    const char *name;
-    const RSA_METHOD *rsa_meth;
-    const DSA_METHOD *dsa_meth;
-    const DH_METHOD *dh_meth;
-    const EC_KEY_METHOD *ec_meth;
-    const RAND_METHOD *rand_meth;
-    /* Cipher handling is via this callback */
-    ENGINE_CIPHERS_PTR ciphers;
-    /* Digest handling is via this callback */
-    ENGINE_DIGESTS_PTR digests;
-    /* Public key handling via this callback */
-    ENGINE_PKEY_METHS_PTR pkey_meths;
-    /* ASN1 public key handling via this callback */
-    ENGINE_PKEY_ASN1_METHS_PTR pkey_asn1_meths;
-    ENGINE_GEN_INT_FUNC_PTR destroy;
-    ENGINE_GEN_INT_FUNC_PTR init;
-    ENGINE_GEN_INT_FUNC_PTR finish;
-    ENGINE_CTRL_FUNC_PTR ctrl;
-    ENGINE_LOAD_KEY_PTR load_privkey;
-    ENGINE_LOAD_KEY_PTR load_pubkey;
-    ENGINE_SSL_CLIENT_CERT_PTR load_ssl_client_cert;
-    const ENGINE_CMD_DEFN *cmd_defns;
-    int flags;
-    /* reference count on the structure itself */
-    QAT_CRYPTO_REF_COUNT struct_ref;
-    /*
-     * reference count on usability of the engine type. NB: This controls the
-     * loading and initialisation of any functionality required by this
-     * engine, whereas the previous count is simply to cope with
-     * (de)allocation of this structure. Hence, running_ref <= struct_ref at
-     * all times.
-     */
-    int funct_ref;
-    /* A place to store per-ENGINE data */
-    CRYPTO_EX_DATA ex_data;
-    /* Used to maintain the linked-list of engines. */
-    struct engine_st *prev;
-    struct engine_st *next;
-    /* Used to maintain the linked-list of dynamic engines. */
-    struct engine_st *prev_dyn;
-    struct engine_st *next_dyn;
-    ENGINE_DYNAMIC_ID dynamic_id;
 };
 
 /*
