@@ -226,11 +226,25 @@ make install
 
 ### Build QAT Engine for QAT_SW
 
-Build steps for crypto_mb and intel_ipsec_mb installed to its default location
-`/usr/local/lib` and `/usr/lib` respectively with system OpenSSL.
-If Crypto_mb and intel_ipsec_mb is installed using the prefix option then pass
-the corresponding paths using the configure flags
-`--with-qat_sw_crypto_mb_install_dir` and `--with-qat_sw_ipsec_mb_dir`.
+When building the QAT Engine with `crypto_mb` and `intel_ipsec_mb` installed
+in their default locations (`/usr/local/lib` for `crypto_mb` and `/usr/lib`
+for `intel_ipsec_mb`) and using the system OpenSSL, follow these steps:
+
+- In newer versions of the `crypto_mb` library, the libraries are
+  installed to `/usr/local/lib/intel64` by default.
+- You must manually copy these libraries to `/usr/local/lib`
+  so that the QAT Engine can link to them correctly during
+  the build process.
+- If you do not copy the libraries, the QAT Engine will fail
+  to build against the `crypto_mb` library.
+
+If you installed `crypto_mb` and `intel_ipsec_mb` using a custom `prefix`,
+provide the corresponding paths using the configure flags:
+- `--with-qat_sw_crypto_mb_install_dir`
+- `--with-qat_sw_ipsec_mb_dir`
+
+For newer versions of the `crypto_mb` library, also copy the libraries
+from `prefix/lib/intel64` to `prefix/lib` to ensure proper linking.
 
 ```
 cd /QAT_Engine
