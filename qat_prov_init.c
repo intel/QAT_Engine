@@ -252,7 +252,7 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 
 static OSSL_ALGORITHM qat_exported_ciphers[OSSL_NELEM(qat_deflt_ciphers)];
 
-static const OSSL_ALGORITHM qat_keyexch[] = {
+static OSSL_ALGORITHM qat_keyexch[] = {
 #if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keyexch_functions, "QAT X25519 keyexch implementation."},
 #endif
@@ -301,7 +301,7 @@ static const OSSL_ALGORITHM qat_keymgmt[] = {
 #endif
     {NULL, NULL, NULL}};
 
-static const OSSL_ALGORITHM qat_signature[] = {
+static OSSL_ALGORITHM qat_signature[] = {
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
     {"RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_signature_functions, "QAT RSA Signature implementation."},
 #endif
@@ -331,7 +331,7 @@ static const OSSL_ALGORITHM qat_kdfs[] = {
 #endif
 
 #if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SHA2) || defined(ENABLE_QAT_HW_SM3) || defined(ENABLE_QAT_SW_SM3)
-static const OSSL_ALGORITHM qat_digests[] = {
+static OSSL_ALGORITHM qat_digests[] = {
 #if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
 # ifdef QAT_INSECURE_ALGO
     { QAT_NAMES_SHA2_224, QAT_DEFAULT_PROPERTIES, qat_sha224_functions },
@@ -360,6 +360,64 @@ static const OSSL_ALGORITHM qat_asym_cipher[] = {
     { NULL, NULL, NULL }
 };
 #endif
+/******************************************************************************
+* function:
+*         qat_disable_algorithm(OSSL_ALGORITHM *dispatch_table,
+*                               const char *qat_algo_name)
+*
+* @param dispatch_table  [IN]  - Pointer to the algorithm dispatch table.
+* @param qat_algo_name   [IN]  - Name of the algorithm to disable (e.g.,"RSA").
+*
+* description:
+*   Searches the given dispatch table for an entry matching the specified
+*   algorithm name. If found, the function logs a warning and clears the
+*   corresponding OSSL_ALGORITHM entry by setting all fields to NULL.
+*
+*   This prevents the algorithm from being registered with the OpenSSL core,
+*   allowing fallback to software default provider.
+*
+******************************************************************************/
+void qat_disable_algorithm(OSSL_ALGORITHM *dispatch_table, const char *qat_algo_name)
+{
+    if (dispatch_table == NULL || qat_algo_name == NULL) {
+        WARN("Invalid parameters: dispatch_table or qat_algo_name is NULL.\n");
+        return;
+    }
+    for (int i = 0; dispatch_table[i].algorithm_names != NULL; i++) {
+        if (strcmp(dispatch_table[i].algorithm_names, qat_algo_name) == 0) {
+            WARN("%s support not available — Fetching %s implementation from SW!!\n",
+                 qat_algo_name, qat_algo_name);
+            dispatch_table[i] = (OSSL_ALGORITHM){NULL, NULL, NULL};
+            break;
+        }
+    }
+}
+
+/*
+ * Wrapper to disable a signature algorithm using the qat_signature dispatch table.
+ */
+void qat_disable_signature(const char *qat_algo_name)
+{
+    qat_disable_algorithm(qat_signature, qat_algo_name);
+}
+
+/*
+ * Wrapper to disable a key exchange algorithm using the qat_keyexch dispatch table.
+ */
+void qat_disable_keyexch(const char *qat_algo_name)
+{
+    qat_disable_algorithm(qat_keyexch, qat_algo_name);
+}
+
+/*
+ * Wrapper to disable a digest algorithm using the qat_keyexch dispatch table.
+ */
+void qat_disable_digest(const char *qat_algo_name)
+{
+#if defined(ENABLE_QAT_HW_SM3) || defined(ENABLE_QAT_SW_SM3)
+    qat_disable_algorithm(qat_digests, qat_algo_name);
+#endif
+}
 
 #ifdef ENABLE_QAT_FIPS
 int qat_operations(int operation_id)

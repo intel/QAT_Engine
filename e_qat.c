@@ -86,7 +86,6 @@
 #include "qat_fork.h"
 #include "qat_evp.h"
 #include "qat_utils.h"
-
 #ifdef QAT_HW
 #ifndef QAT_BORINGSSL
 # include "qat_hw_ciphers.h"
@@ -280,7 +279,6 @@ unsigned int qat_map_sym_inst[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
 unsigned int qat_map_asym_inst[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
 unsigned int qat_map_svm_inst[QAT_MAX_CRYPTO_INSTANCES] = {'\0'};
 #endif
-
 #ifdef QAT_SW
 /* RSA */
 BIGNUM *e_check = NULL;
@@ -1308,6 +1306,10 @@ int bind_qat(ENGINE *e, const char *id)
         qat_hw_aes_cbc_hmac_sha_offload = 1;
         INFO("QAT_HW CIPHERS for Provider Enabled\n");
 # endif
+# ifdef ENABLE_QAT_HW_SM2
+        qat_hw_sm2_offload = 1;
+        INFO("QAT_HW SM2 for Provider Enabled\n");
+# endif
     }
 
     if (qat_sw_offload) {
@@ -1440,6 +1442,47 @@ int bind_qat(ENGINE *e, const char *id)
         strncpy(qat_config_section_name, config_section, QAT_CONFIG_SECTION_NAME_SIZE - 1);
         qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE - 1]   = '\0';
     }
+#endif
+#ifdef QAT_OPENSSL_PROVIDER
+/*
+ * Disable individual signature algorithms when neither a hardware
+ * nor a software offload implementation is available.
+ */
+    if (!qat_hw_sm2_offload && !qat_sw_sm2_offload)
+        qat_disable_signature("SM2");
+    if (!qat_hw_dsa_offload)
+        qat_disable_signature("DSA");
+    if (!qat_hw_ecdsa_offload && !qat_sw_ecdsa_offload)
+        qat_disable_signature("ECDSA");
+    if (!qat_hw_rsa_offload && !qat_sw_rsa_offload)
+        qat_disable_signature("RSA");
+
+/*
+ * Disable individual keyexch algorithms when neither a hardware
+ * nor a software offload implementation is available.
+ */
+    if (!qat_hw_ecx_offload)
+        qat_disable_keyexch("X448");
+    if (!qat_hw_dh_offload)
+        qat_disable_keyexch("DH");
+    if (!qat_hw_sm2_offload && !qat_sw_sm2_offload)
+# if defined(TONGSUO_VERSION_NUMBER)
+        qat_disable_keyexch("SM2DH");
+# else
+        qat_disable_keyexch("SM2");
+# endif
+# ifndef TONGSUO_VERSION_NUMBER
+    if (!qat_hw_ecdh_offload && !qat_sw_ecdh_offload)
+        qat_disable_keyexch("ECDH");
+    if (!qat_hw_ecx_offload && !qat_sw_ecx_offload)
+        qat_disable_keyexch("X25519");
+# endif
+/*
+ * Disable individual digest algorithms when neither a hardware
+ * nor a software offload implementation is available.
+ */
+    if (!qat_hw_sm3_offload && !qat_sw_sm3_offload)
+        qat_disable_digest("SM3:1.2.156.10197.1.401");
 #endif
     ret = 1;
     return ret;

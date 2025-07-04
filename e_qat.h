@@ -954,7 +954,10 @@ static inline int QAT_CRYPTO_DOWN_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
         atomic_thread_fence(memory_order_acquire);
     return 1;
 }
-
+void qat_disable_signature(const char *);
+void qat_disable_keyexch(const char *);
+void qat_disable_digest(const char *);
+void qat_disable_algorithm(OSSL_ALGORITHM *, const char *);
 # endif
 
 #endif   /* E_QAT_H */
