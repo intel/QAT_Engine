@@ -580,7 +580,7 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
                          size_t inlen, void *out, size_t *outlen))
 {
     unsigned char *sec = NULL;
-    size_t seclen;
+    size_t seclen = 0;
     if (eckey->meth->compute_key == NULL) {
         QATerr(ERR_LIB_EC, EC_R_OPERATION_NOT_SUPPORTED);
         return 0;

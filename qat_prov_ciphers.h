@@ -158,6 +158,7 @@ typedef struct qat_gcm_ctx_st {
     unsigned char* calculated_tag;
     unsigned int   tag_calculated;
 #endif
+    int nid;
 #ifdef ENABLE_QAT_HW_GCM
     int inst_num;
     CpaCySymSessionSetupData* session_data;
