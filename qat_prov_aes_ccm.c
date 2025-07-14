@@ -236,15 +236,20 @@ static void *qat_aes_ccm_newctx(void *provctx, size_t keybits, int nid)
         return NULL;
 
     ctx = OPENSSL_zalloc(sizeof(*ctx));
+    if (ctx == NULL)
+        return NULL;
+
     cipher = OPENSSL_zalloc(sizeof(QAT_EVP_CIPHER));
+    if (cipher == NULL) {
+        OPENSSL_clear_free(ctx, sizeof(*ctx));
+        return NULL;
+    }
 
     cipher->nid = nid;
     ctx->cipher = cipher;
     ctx->base.nid = nid;
 
-    if (ctx != NULL) {
-        qat_aes_ccm_init_ctx(provctx, &ctx->base, keybits, AES_CCM_IV_MIN_SIZE);
-    }
+    qat_aes_ccm_init_ctx(provctx, &ctx->base, keybits, AES_CCM_IV_MIN_SIZE);
 
     return ctx;
 }
@@ -708,6 +713,13 @@ static void qat_aes_ccm_freectx(void *vctx)
         if (ctx->cipher) {
             OPENSSL_free(ctx->cipher);
             ctx->cipher = NULL;
+        }
+
+        if (ctx->base.sw_ctx) {
+            QAT_EVP_CIPHER sw_aes_ccm_cipher = get_default_cipher_aes_ccm(ctx->base.nid);
+            if (sw_aes_ccm_cipher.freectx)
+                sw_aes_ccm_cipher.freectx(ctx->base.sw_ctx);
+            ctx->base.sw_ctx = NULL;
         }
 
         if (qat_hw_aes_ccm_offload)

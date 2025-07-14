@@ -593,11 +593,11 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
 	    || ctx->pad_mode == RSA_PKCS1_WITH_TLS_PADDING) {
         unsigned char *tbuf;
 
-        if ((tbuf = OPENSSL_malloc(len)) == NULL) {
-            QATerr(ERR_LIB_PROV, QAT_R_MALLOC_FAILURE);
-            return 0;
-        }
         if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
+            if ((tbuf = OPENSSL_malloc(len)) == NULL) {
+                QATerr(ERR_LIB_PROV, QAT_R_MALLOC_FAILURE);
+                return 0;
+            }
             ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa,
 		                          RSA_NO_PADDING);
         } else {

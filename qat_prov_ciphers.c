@@ -123,14 +123,21 @@ static void *qat_aes_gcm_newctx(void *provctx, size_t keybits, int nid)
         return NULL;
 
     ctx = OPENSSL_zalloc(sizeof(*ctx));
+    if (ctx == NULL)
+        return NULL;
+
     cipher = OPENSSL_zalloc(sizeof(QAT_EVP_CIPHER));
+    if (cipher == NULL) {
+        OPENSSL_clear_free(ctx, sizeof(*ctx));
+        return NULL;
+    }
 
     cipher->nid = nid;
     ctx->cipher = cipher;
+    ctx->base.nid = nid;
 
-    if (ctx != NULL)
-        qat_gcm_initctx(provctx, &ctx->base, keybits,
-                        AES_GCM_IV_MIN_SIZE);
+    qat_gcm_initctx(provctx, &ctx->base, keybits, AES_GCM_IV_MIN_SIZE);
+
     return ctx;
 }
 
@@ -607,6 +614,14 @@ static void qat_aes_gcm_freectx(void *vctx)
         OPENSSL_free(ctx->cipher);
         ctx->cipher = NULL;
     }
+
+    if (ctx->base.sw_ctx) {
+        QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(ctx->base.nid);
+        if (sw_aes_gcm_cipher.freectx)
+            sw_aes_gcm_cipher.freectx(ctx->base.sw_ctx);
+        ctx->base.sw_ctx = NULL;
+    }
+
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload)
         qat_aes_gcm_cleanup((QAT_GCM_CTX *)ctx);
