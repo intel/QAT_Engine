@@ -48,6 +48,69 @@
 static OSSL_FUNC_cipher_encrypt_init_fn qat_aes_einit;
 static OSSL_FUNC_cipher_decrypt_init_fn qat_aes_dinit;
 static OSSL_FUNC_cipher_freectx_fn qat_aes_cbc_hmac_sha1_freectx;
+
+# ifndef QAT_INSECURE_ALGO
+/* Fallback functions for software implementation */
+static int qat_aes_einit_fallback(PROV_CIPHER_CTX *ctx, const unsigned char *key,
+                                  size_t keylen, const unsigned char *iv, size_t ivlen)
+{
+    const OSSL_PARAM ps[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+    PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
+    if (ctx->sw_ctx || (ctx->sw_ctx = sw_aes_cbc_cipher.newctx(ctx)))
+        return sw_aes_cbc_cipher.einit(ctx->sw_ctx, key, keylen, iv, ivlen, ps);
+    return 0;
+}
+
+static int qat_aes_dinit_fallback(PROV_CIPHER_CTX *ctx, const unsigned char *key,
+                                  size_t keylen, const unsigned char *iv, size_t ivlen)
+{
+    const OSSL_PARAM ps[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+    PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
+    if (ctx->sw_ctx || (ctx->sw_ctx = sw_aes_cbc_cipher.newctx(ctx)))
+        return sw_aes_cbc_cipher.dinit(ctx->sw_ctx, key, keylen, iv, ivlen, ps);
+    return 0;
+}
+
+static int qat_aes_get_ctx_params_fallback(PROV_CIPHER_CTX *ctx, OSSL_PARAM params[])
+{
+    PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
+    ctx->sw_ctx = sw_aes_cbc_cipher.newctx(ctx);
+    if (ctx->sw_ctx)
+        return sw_aes_cbc_cipher.get_ctx_params(ctx->sw_ctx, params);
+    return 0;
+}
+
+static int qat_aes_set_ctx_params_fallback(PROV_CIPHER_CTX *ctx, const OSSL_PARAM params[])
+{
+    if (ctx->sw_ctx) {
+        PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
+        return sw_aes_cbc_cipher.set_ctx_params(ctx->sw_ctx, params);
+    }
+    return 0;
+}
+
+static int qat_aes_cbc_cipher_do_cipher_fallback(PROV_CIPHER_CTX *ctx, unsigned char *out,
+                                                 size_t *outl, size_t outsize,
+                                                 const unsigned char *in, size_t inl)
+{
+    if (ctx->sw_ctx) {
+        PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
+        return sw_aes_cbc_cipher.cupdate(ctx->sw_ctx, out, outl, outsize, in, inl);
+    }
+    return 0;
+}
+
+static int qat_cipher_generic_stream_update_fallback(PROV_CIPHER_CTX *ctx, unsigned char *out,
+                                                     size_t *outl, size_t outsize,
+                                                     const unsigned char *in, size_t inl)
+{
+    if (ctx->sw_ctx) {
+        PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
+        return sw_aes_cbc_cipher.cupdate(ctx->sw_ctx, out, outl, outsize, in, inl);
+    }
+    return 0;
+}
+# endif
 static OSSL_FUNC_cipher_freectx_fn qat_aes_cbc_hmac_sha256_freectx;
 static OSSL_FUNC_cipher_get_ctx_params_fn qat_aes_get_ctx_params;
 static OSSL_FUNC_cipher_gettable_ctx_params_fn qat_aes_gettable_ctx_params;
@@ -125,7 +188,7 @@ static int qat_aes_einit(void *vctx, const unsigned char *key, size_t keylen,
         return 0;
 # ifndef QAT_INSECURE_ALGO
     if (ctx->nid == NID_aes_128_cbc_hmac_sha256)
-        goto end;
+        return qat_aes_einit_fallback(ctx, key, keylen, iv, ivlen);
 # endif
     if (key != NULL && !qat_chained_ciphers_init(ctx, key, keylen, iv, ivlen, 1)){
         WARN("qat_chained_ciphers_init failed\n");
@@ -155,14 +218,6 @@ static int qat_aes_einit(void *vctx, const unsigned char *key, size_t keylen,
     }
 
     return qat_aes_set_ctx_params(ctx, params);
-#ifndef QAT_INSECURE_ALGO
-end:
-    const OSSL_PARAM ps[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
-    PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
-    if (ctx->sw_ctx || (ctx->sw_ctx = sw_aes_cbc_cipher.newctx(ctx)))
-        return sw_aes_cbc_cipher.einit(ctx->sw_ctx, key, keylen, iv, ivlen, ps);
-    return 0;
-#endif
 }
 
 static int qat_aes_dinit(void *vctx, const unsigned char *key, size_t keylen,
@@ -176,7 +231,7 @@ static int qat_aes_dinit(void *vctx, const unsigned char *key, size_t keylen,
     ctx->enc = 0;
 # ifndef QAT_INSECURE_ALGO
     if (ctx->nid == NID_aes_128_cbc_hmac_sha256)
-        goto end;
+        return qat_aes_dinit_fallback(ctx, key, keylen, iv, ivlen);
 # endif
     if (!qat_prov_is_running())
         return 0;
@@ -209,14 +264,6 @@ static int qat_aes_dinit(void *vctx, const unsigned char *key, size_t keylen,
     }
 
     return qat_aes_set_ctx_params(ctx, params);
-#ifndef QAT_INSECURE_ALGO
-end:
-    const OSSL_PARAM ps[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
-    PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
-    if (ctx->sw_ctx || (ctx->sw_ctx = sw_aes_cbc_cipher.newctx(ctx)))
-        return sw_aes_cbc_cipher.dinit(ctx->sw_ctx, key, keylen, iv, ivlen, ps);
-    return 0;
-#endif
 }
 
 static const OSSL_PARAM cipher_aes_known_settable_ctx_params[] = {
@@ -250,7 +297,7 @@ static int qat_aes_set_ctx_params(void *vctx, const OSSL_PARAM params[])
         return 1;
 # ifndef QAT_INSECURE_ALGO
     if (ctx->base.nid == NID_aes_128_cbc_hmac_sha256)
-        goto end;
+        return qat_aes_set_ctx_params_fallback(&ctx->base, params);
 # endif
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_MAC_KEY);
     if (p != NULL) {
@@ -380,14 +427,6 @@ static int qat_aes_set_ctx_params(void *vctx, const OSSL_PARAM params[])
         sw_aes_cbc_cipher.set_ctx_params(ctx->base.sw_ctx, params);
     }
     return ret;
-#ifndef QAT_INSECURE_ALGO
-end:
-    if (ctx->base.sw_ctx) {
-        PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->base.nid);
-        return sw_aes_cbc_cipher.set_ctx_params(ctx->base.sw_ctx, params);
-    }
-    return 0;
-#endif
 }
 
 static int qat_aes_get_ctx_params(void *vctx, OSSL_PARAM params[])
@@ -396,7 +435,7 @@ static int qat_aes_get_ctx_params(void *vctx, OSSL_PARAM params[])
     OSSL_PARAM *p;
 # ifndef QAT_INSECURE_ALGO
     if (ctx->base.nid == NID_aes_128_cbc_hmac_sha256)
-        goto end;
+        return qat_aes_get_ctx_params_fallback(&ctx->base, params);
 # endif
 # if !defined(OPENSSL_NO_MULTIBLOCK)
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK_MAX_BUFSIZE);
@@ -454,15 +493,6 @@ static int qat_aes_get_ctx_params(void *vctx, OSSL_PARAM params[])
         return 0;
     }
     return 1;
-#ifndef QAT_INSECURE_ALGO
-end:
-    PROV_EVP_CIPHER sw_aes_cbc_cipher =
-            get_default_cipher_aes_cbc(ctx->base.nid);
-    ctx->base.sw_ctx = sw_aes_cbc_cipher.newctx(ctx);
-    if (ctx->base.sw_ctx)
-        return sw_aes_cbc_cipher.get_ctx_params(ctx->base.sw_ctx, params);
-    return 0;
-#endif
 }
 
 static const OSSL_PARAM cipher_aes_known_gettable_ctx_params[] = {
@@ -662,7 +692,7 @@ int qat_aes_cbc_cipher_do_cipher(void *vctx, unsigned char *out, size_t *outl,
     PROV_CIPHER_CTX *ctx = (PROV_CIPHER_CTX *)vctx;
 # ifndef QAT_INSECURE_ALGO
     if (ctx->nid == NID_aes_128_cbc_hmac_sha256)
-        goto end;
+        return qat_aes_cbc_cipher_do_cipher_fallback(ctx, out, outl, outsize, in, inl);
 # endif
     if (!qat_prov_is_running())
         return 0;
@@ -679,14 +709,6 @@ int qat_aes_cbc_cipher_do_cipher(void *vctx, unsigned char *out, size_t *outl,
 
     *outl = inl;
     return 1;
-#ifndef QAT_INSECURE_ALGO
-end:
-    if (ctx->sw_ctx) {
-        PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
-        return sw_aes_cbc_cipher.cupdate(ctx->sw_ctx, out, outl, outsize, in, inl);
-    }
-    return 0;
-#endif
 }
 
 int qat_cipher_generic_stream_final(void *vctx, unsigned char *out,
@@ -717,7 +739,7 @@ int qat_cipher_generic_stream_update(void *vctx, unsigned char *out,
 
 # ifndef QAT_INSECURE_ALGO
     if (ctx->nid == NID_aes_128_cbc_hmac_sha256)
-        goto end;
+        return qat_cipher_generic_stream_update_fallback(ctx, out, outl, outsize, in, inl);
 # endif
     if (inl == 0) {
         *outl = 0;
@@ -769,14 +791,6 @@ int qat_cipher_generic_stream_update(void *vctx, unsigned char *out,
     }
 
     return 1;
-#ifndef QAT_INSECURE_ALGO
-end:
-    if (ctx->sw_ctx) {
-        PROV_EVP_CIPHER sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
-        return sw_aes_cbc_cipher.cupdate(ctx->sw_ctx, out, outl, outsize, in, inl);
-    }
-    return 0;
-#endif
 }
 
 static const OSSL_PARAM cipher_known_gettable_params[] = {
