@@ -87,6 +87,12 @@ static inline int multibuff_rsa_range_check(int len)
     if (len == RSA_2K_LENGTH || len == RSA_3K_LENGTH ||
         len == RSA_4K_LENGTH) {
         return 1;
+#ifdef QAT_BORINGSSL
+    } else if (len == RSA_8K_LENGTH) {
+        WARN("QAT_SW does not support RSA-8K key length. Switch to sync mode to use BoringSSL software implementation.\n");
+        QATerr(QAT_F_MULTIBUFF_RSA_RANGE_CHECK, QAT_R_UNSUPPORTED_RSA_KEY_SIZE);
+        return -1;
+#endif /* QAT_BORINGSSL */
     } else {
         return 0;
     }
@@ -599,6 +605,7 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
                            unsigned char *to, RSA *rsa, int padding)
 {
     int sts = -1;
+    int ret = -1;
     ASYNC_JOB *job;
     int rsa_len = 0, rsa_bits = 0;
     rsa_priv_op_data *rsa_priv_req = NULL;
@@ -679,13 +686,17 @@ int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
-    if (!multibuff_rsa_range_check(rsa_bits)) {
+    if ((ret = multibuff_rsa_range_check(rsa_bits)) == 0) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
 #ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
 #else
+        OPENSSL_cleanse(to, rsa_len);
         return sts;
 #endif
+    } else if (ret == -1) {
+        OPENSSL_cleanse(to, rsa_len);
+        return sts;
     }
 
     tlv = mb_check_thread_local();
@@ -903,6 +914,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
                            unsigned char *to, RSA *rsa, int padding)
 {
     int sts = -1;
+    int ret = -1;
     ASYNC_JOB *job;
     int rsa_len = 0, rsa_bits = 0;
     rsa_priv_op_data *rsa_priv_req = NULL;
@@ -980,13 +992,17 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
-    if (!multibuff_rsa_range_check(rsa_bits)) {
+    if ((ret = multibuff_rsa_range_check(rsa_bits)) == 0) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
 #ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
 #else
+        OPENSSL_cleanse(to, rsa_len);
         return sts;
 #endif
+    } else if (ret == -1) {
+        OPENSSL_cleanse(to, rsa_len);
+        return sts;
     }
 
     tlv = mb_check_thread_local();
@@ -1184,6 +1200,7 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
                           RSA *rsa, int padding)
 {
     int sts = -1;
+    int ret = -1;
     ASYNC_JOB *job;
     int rsa_len = 0, rsa_bits = 0;
     rsa_pub_op_data *rsa_pub_req = NULL;
@@ -1244,13 +1261,17 @@ int multibuff_rsa_pub_enc(int flen, const unsigned char *from, unsigned char *to
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
-    if (!multibuff_rsa_range_check(rsa_bits)) {
+    if ((ret = multibuff_rsa_range_check(rsa_bits)) == 0) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
 #ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
 #else
+        OPENSSL_cleanse(to, rsa_len);
         return sts;
 #endif
+    } else if (ret == -1) {
+        OPENSSL_cleanse(to, rsa_len);
+        return sts;
     }
 
     tlv = mb_check_thread_local();
@@ -1392,6 +1413,7 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
                           RSA *rsa, int padding)
 {
     int sts = -1;
+    int ret = -1;
     ASYNC_JOB *job;
     int rsa_len = 0, rsa_bits = 0;
     rsa_pub_op_data *rsa_pub_req = NULL;
@@ -1449,13 +1471,17 @@ int multibuff_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to
     rsa_bits = RSA_bits((const RSA*)rsa);
 
     /* Check if the request key size is supported */
-    if (!multibuff_rsa_range_check(rsa_bits)) {
+    if ((ret = multibuff_rsa_range_check(rsa_bits)) == 0) {
         DEBUG("Requested key size not supported, use sw method %d\n", rsa_bits);
 #ifndef ENABLE_QAT_FIPS
         goto use_sw_method;
 #else
+        OPENSSL_cleanse(to, rsa_len);
         return sts;
 #endif
+    } else if (ret == -1) {
+        OPENSSL_cleanse(to, rsa_len);
+        return sts;
     }
 
     tlv = mb_check_thread_local();

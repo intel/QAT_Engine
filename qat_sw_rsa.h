@@ -53,6 +53,7 @@
 # define RSA_2K_LENGTH 2048
 # define RSA_3K_LENGTH 3072
 # define RSA_4K_LENGTH 4096
+# define RSA_8K_LENGTH 8192
 
 #ifdef ENABLE_QAT_SW_RSA /* ENABLE_QAT_SW_RSA */
 
