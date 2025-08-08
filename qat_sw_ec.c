@@ -127,6 +127,19 @@ static inline int mb_ec_check_curve(int curve_type)
             ret = EC_SM2;
         break;
 #endif /* QAT_BORINGSSL */
+#ifdef QAT_BORINGSSL
+    case NID_secp521r1:
+        /* Report failure for P-521 running in async mode - not supported by QAT_SW */
+        {
+        ASYNC_JOB *job = ASYNC_get_current_job();
+        if (job != NULL) {
+            WARN("QAT_SW does not support ECDSA P-521. Switch to sync mode to use BoringSSL software implementation.\n");
+            QATerr(QAT_F_MULTIBUFF_EC_RANGE_CHECK, QAT_R_CURVE_NOT_SUPPORTED);
+            ret = -1;
+        }
+        }
+        break;
+#endif /* QAT_BORINGSSL */
     default:
         break;
     }
@@ -934,6 +947,8 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 #else
         goto use_sw_method;
 #endif
+    } else if (bit_len == -1) {
+        return ret;
     }
 
 #ifdef ENABLE_QAT_FIPS
@@ -1293,6 +1308,8 @@ int mb_ecdsa_sign_setup(EC_KEY *eckey, BN_CTX *ctx_in,
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
         goto use_sw_method;
+    } else if (bit_len == -1) {
+        return ret;
     }
 
     /* Check if we are running asynchronously */
@@ -1464,6 +1481,8 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
         goto use_sw_method;
+    } else if (bit_len == -1) {
+        return ret;
     }
 
     /* Check if we are running asynchronously */
@@ -1796,6 +1815,8 @@ int mb_ecdsa_do_verify(const unsigned char *dgst,
 #else
         goto use_sw_method;
 #endif
+    } else if (bit_len == -1) {
+        return ret;
     }
 
     /* Check if we are running asynchronously */
@@ -2022,6 +2043,8 @@ int mb_ecdh_generate_key(EC_KEY *ecdh)
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
         goto use_sw_method;
+    } else if (curve == -1) {
+        return ret;
     }
 
     /* Check if we are running asynchronously */
@@ -2247,6 +2270,8 @@ int mb_ecdh_compute_key(unsigned char **out,
 #else
         goto use_sw_method;
 #endif
+    } else if (curve == -1) {
+        return ret;
     }
 
     /* Check if we are running asynchronously */
