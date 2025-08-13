@@ -1001,10 +1001,6 @@ static int qat_rsa_setup_md(QAT_PROV_RSA_CTX *ctx, const char *mdname,
                 WARN("%s could not be fetched", mdname);
                 QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST);
 	    }
-	    if (md_nid <= 0) {
-                WARN("digest=%s", mdname);
-                QATerr(ERR_LIB_PROV, PROV_R_DIGEST_NOT_ALLOWED);
-	    }
 	    if (mdname_len >= sizeof(ctx->mdname)) {
                 WARN("%s exceeds name buffer length", mdname);
                 QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST);
@@ -2531,91 +2527,11 @@ static void *qat_signature_rsa_dupctx(void *vprsactx)
  */
 static int qat_signature_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM *params)
 {
-    DEBUG("%s\n", __func__);
-    QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
-    OSSL_PARAM *p;
-
-    if (prsactx == NULL)
+    typedef int (*rsa_get_ctx_params_fn)(void *rvprsact, OSSL_PARAM *params);
+    rsa_get_ctx_params_fn get_ctx_params_func = get_default_rsa_signature().get_ctx_params;
+    if (!get_ctx_params_func)
         return 0;
-
-    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_PAD_MODE);
-    if (p != NULL) {
-        switch (p->data_type) {
-	case OSSL_PARAM_INTEGER:
-	    if (!OSSL_PARAM_set_int(p, prsactx->pad_mode))
-	        return 0;
-	    break;
-        case OSSL_PARAM_UTF8_STRING:
-	{
-	    int i;
-	    const char *word = NULL;
-
-	    for (i = 0; padding_item[i].id != 0; i++) {
-	         if (prsactx->pad_mode == (int)padding_item[i].id) {
-		     word = padding_item[i].ptr;
-		     break;
-		 }
-	    }
-
-	    if (word != NULL) {
-	        if (!OSSL_PARAM_set_utf8_string(p, word))
-	            return 0;
-	    } else {
-	        QATerr(ERR_LIB_PROV, ERR_R_INTERNAL_ERROR);
-	    }
-	}
-	    break;
-	default:
-	    return 0;
-	}
-    }
-
-        p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_DIGEST);
-        if (p != NULL && !OSSL_PARAM_set_utf8_string(p, prsactx->mdname))
-	    return 0;
-
-        p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_MGF1_DIGEST);
-        if (p != NULL && !OSSL_PARAM_set_utf8_string(p, prsactx->mgf1_mdname))
-	    return 0;
-
-        p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_PSS_SALTLEN);
-        if (p != NULL) {
-	    if (p->data_type == OSSL_PARAM_INTEGER) {
-		if (!OSSL_PARAM_set_int(p, prsactx->saltlen))
-		    return 0;
-	    } else if (p->data_type == OSSL_PARAM_UTF8_STRING) {
-	        const char *value = NULL;
-
-	        switch (prsactx->saltlen) {
-		case RSA_PSS_SALTLEN_DIGEST:
-		    value = OSSL_PKEY_RSA_PSS_SALT_LEN_DIGEST;
-		    break;
-		case RSA_PSS_SALTLEN_MAX:
-		    value = OSSL_PKEY_RSA_PSS_SALT_LEN_MAX;
-		    break;
-		case RSA_PSS_SALTLEN_AUTO:
-		    value = OSSL_PKEY_RSA_PSS_SALT_LEN_AUTO;
-		    break;
-		case RSA_PSS_SALTLEN_AUTO_DIGEST_MAX:
-		    value = OSSL_PKEY_RSA_PSS_SALT_LEN_AUTO_DIGEST_MAX;
-		    break;
-		default:
-		    {
-		        int len = BIO_snprintf(p->data, p->data_size, "%d",
-			                       prsactx->saltlen);
-
-		        if (len <= 0)
-		            return 0;
-		        p->return_size = len;
-		        break;
-		    }
-                }
-	        if (value != NULL
-		        && !OSSL_PARAM_set_utf8_string(p, value))
-		    return 0;
-	    }
-        }
-    return 1;
+    return get_ctx_params_func(vprsactx, params);
 }
 
 /**
