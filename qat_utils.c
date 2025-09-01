@@ -265,10 +265,10 @@ void rdtsc_prof_print(rdtsc_prof_t *p, char *name)
 
 # ifdef QAT_CPU_CYCLE_MEASUREMENT_COST
             fprintf(qatDebugLogFile,
-                    "\n%s - avg cycles per job (mca ENABLED):  %.1f - number of samples = %ld\n",
+                    "\n%s - avg cycles per job (mca ENABLED):  %.1f - number of samples = %lu\n",
                     name, avg_c, p->clk_avgc);
 # else
-            fprintf(qatDebugLogFile, "%s,%.1f,%ld\n", name, avg_c, p->clk_avgc);
+            fprintf(qatDebugLogFile, "%s,%.1f,%lu\n", name, avg_c, p->clk_avgc);
 # endif
             if (p->bytes > 0) {
                 double avg_pb = avg_c / ((double)p->bytes);

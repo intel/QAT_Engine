@@ -348,7 +348,7 @@ static void read_stat (int init)
          if (strncmp(line, "cpu", 3))
              continue;
 
-         if (sscanf(line, "%s %d %d %d %d %d %d %d",
+         if (sscanf(line, "%9s %d %d %d %d %d %d %d",
                  tag,
                  &tmp.user,
                  &tmp.nice,

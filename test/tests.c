@@ -596,8 +596,7 @@ ENGINE *tests_initialise_engine(char *engine_id, int enable_external_polling,
                 if (-1 == epoll_ctl(efd, EPOLL_CTL_ADD, crypto_fd,
                                     &event[instance_no])) {
                     WARN("# FAIL: Error adding fd to epoll\n");
-                    if (eng_poll_event)
-                        free(eng_poll_event);
+                    free(eng_poll_event);
                     goto err;
                 }
                 eng_poll_event = NULL;
@@ -666,8 +665,7 @@ void tests_cleanup_engine(ENGINE * e, char *engine_id, int enable_async,
                                         &event[i])) {
                         WARN("# FAIL: Error removing fd from epoll\n");
                     }
-                    if (eng_poll_event)
-                        free(eng_poll_event);
+                    free(eng_poll_event);
                 }
             }
 #endif

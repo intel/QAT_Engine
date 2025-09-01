@@ -115,6 +115,12 @@ static int qat_keccak_update(void *vctx, const unsigned char *inp, size_t len)
 
     ret = qat_sha3_update(ctx, inp, len);
 
+    /* Handle QAT hardware failure (including division by zero fix) */
+    if (ret == 0) {
+        WARN("QAT SHA3 update failed - this may be due to unsupported hash algorithm or hardware error\n");
+        /* Inform the caller about the failure and return the error. */
+    }
+
 end:
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 0;

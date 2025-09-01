@@ -259,6 +259,8 @@ static int encrypt_buff(const test_info *t, int impl,
     char msgstr[128];
     EVP_CIPHER_CTX *ctx = NULL;
 
+    snprintf(msgstr, sizeof(msgstr), "encrypt_buff %s", impl == USE_ENGINE ? "engine" : "sw");
+
     ctx = setup_ctx(t, ENC, impl);
 
     if (ctx == NULL) {
@@ -288,6 +290,7 @@ static int decrypt_buff(const test_info *t, int impl, unsigned char **encbuf,
     int num_decbytes = 0;
 #if defined(QAT_WARN) || defined(QAT_DEBUG)
     char msgstr[128];
+    snprintf(msgstr, sizeof(msgstr), "decrypt_buff %s", impl == USE_ENGINE ? "engine" : "sw");
 #endif
     EVP_CIPHER_CTX *ctx = NULL;
 
@@ -391,6 +394,9 @@ static int test_crypto_op(const test_info *t, int enc_imp, int dec_imp)
     int num_encbytes;
 #if defined(QAT_WARN) || defined(QAT_DEBUG)
     char msgstr[128];
+    snprintf(msgstr, sizeof(msgstr), "test_crypto_op enc:%s dec:%s",
+             enc_imp == USE_ENGINE ? "engine" : "sw",
+             dec_imp == USE_ENGINE ? "engine" : "sw");
 #endif
     unsigned char *textbuf = NULL;
     unsigned char *encbuf = NULL;
@@ -436,6 +442,8 @@ static int test_multi_op(const test_info *t)
     char msgstr[128];
     int i = 0;
     EVP_CIPHER_CTX *ctx = NULL;
+
+    snprintf(msgstr, sizeof(msgstr), "test_multi_op");
     unsigned char *buf[6] = { NULL };
     unsigned char *ebuf[6] = { NULL };
     int num_encbytes[6] = { 0 };
@@ -474,6 +482,8 @@ static int test_performance_encrypt(const test_info *t)
     char msgstr[128];
     int i = 0;
     EVP_CIPHER_CTX *ctx = NULL;
+
+    snprintf(msgstr, sizeof(msgstr), "test_performance_encrypt");
     unsigned char *buf = NULL;
     unsigned char *ebuf = NULL;
     int num_encbytes = 0;
@@ -532,6 +542,7 @@ static int test_small_pkt_offload(const test_info *t)
 #if defined(QAT_WARN) || defined(QAT_DEBUG)
     int run = 0;
     char msgstr[128];
+    snprintf(msgstr, sizeof(msgstr), "test_small_pkt_offload");
 #endif
     int buflen = 0;
     int status = 0;
@@ -616,7 +627,7 @@ static int run_sm4_cbc(void *pointer)
     int cnt;
     int ret = 1;
     test_info ti;
-    char msg[128];
+    char msg[128] = "";
     TEST_PARAMS *args = (TEST_PARAMS *) pointer;
     ti.bufsz = args->size;
     ti.count = *(args->count);
@@ -657,7 +668,7 @@ static int run_sm4_cbc(void *pointer)
 
     if (args->performance)
         return test_performance_encrypt(&ti);
-    
+
     /* If the inner run fails, abandon test */
     for (cnt = 0; ret && cnt < *(args->count); cnt++) {
         if (

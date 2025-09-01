@@ -1856,7 +1856,7 @@ static int rsa_verify_directly(QAT_PROV_RSA_CTX *prsactx,
 			       const unsigned char *sig, size_t siglen,
 			       const unsigned char *tbs, size_t tbslen)
 {
-    size_t rslen;
+    size_t rslen = 0;
     int ret = 0;
 
     if (!qat_prov_is_running())
