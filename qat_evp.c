@@ -1649,9 +1649,10 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
 
 #ifdef ENABLE_QAT_SW_ECDSA
     if (qat_sw_offload && !qat_hw_ecdsa_offload &&
-        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA) &&
-        (mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) ||
-         mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDSA)) {
+        qat_sw_ecp256 = mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) ? 1 : 0;
+        qat_sw_ecp384 = mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384) ? 1 : 0;
+
 #ifndef QAT_BORINGSSL
         EC_KEY_METHOD_set_sign(qat_ec_method,
                                mb_ecdsa_sign,
@@ -1676,7 +1677,7 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
                                  mb_ecdsa_verify,
                                  mb_ecdsa_do_verify);
 #endif
-        qat_sw_ecdsa_offload = 1;
+        qat_sw_ecdsa_offload = (qat_sw_ecp256 || qat_sw_ecp384);
         DEBUG("QAT SW ECDSA registration succeeded\n");
     } else {
         qat_sw_ecdsa_offload = 0;
@@ -1726,12 +1727,14 @@ EC_KEY_METHOD *qat_get_EC_methods(void)
 
 # ifdef ENABLE_QAT_SW_ECDH
     if (qat_sw_offload && !qat_hw_ecdh_offload &&
-        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDH) &&
-        (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) ||
-         mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384))) {
+        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_ECDH)) {
+
+        qat_sw_ecp256 = mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) ? 1 : 0;
+        qat_sw_ecp384 = mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) ? 1 : 0;
+
         EC_KEY_METHOD_set_keygen(qat_ec_method, mb_ecdh_generate_key);
         EC_KEY_METHOD_set_compute_key(qat_ec_method, mb_ecdh_compute_key);
-        qat_sw_ecdh_offload = 1;
+        qat_sw_ecdh_offload = (qat_sw_ecp256 || qat_sw_ecp384);
         DEBUG("QAT SW ECDH registration succeeded\n");
     } else {
         qat_sw_ecdh_offload = 0;

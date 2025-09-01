@@ -114,16 +114,16 @@ static inline int mb_ec_check_curve(int curve_type)
 
     switch (curve_type) {
     case NID_X9_62_prime256v1:
-        if (mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256))
+        if (qat_sw_ecp256)
             ret = EC_P256;
         break;
     case NID_secp384r1:
-        if (mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))
+        if (qat_sw_ecp384)
             ret = EC_P384;
         break;
 #ifndef QAT_BORINGSSL
     case NID_sm2:
-        if (mbx_get_algo_info(MBX_ALGO_EC_SM2))
+        if (qat_sw_ecsm2)
             ret = EC_SM2;
         break;
 #endif /* QAT_BORINGSSL */

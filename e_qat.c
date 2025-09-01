@@ -224,6 +224,9 @@ int qat_hw_keep_polling = 1;
 int qat_sw_keep_polling = 1;
 int enable_external_polling = 0;
 int enable_heuristic_polling = 0;
+int qat_sw_ecp256 = 0;
+int qat_sw_ecp384 = 0;
+int qat_sw_ecsm2 = 0;
 pthread_mutex_t qat_engine_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t qat_polling_thread;
 sem_t hw_polling_thread_sem;
@@ -1324,21 +1327,25 @@ int bind_qat(ENGINE *e, const char *id)
 # endif
 
 # ifdef ENABLE_QAT_SW_ECDSA
-        if (!qat_hw_ecdsa_offload &&
-            (mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) ||
-             mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384))) {
-            qat_sw_ecdsa_offload = 1;
-            INFO("QAT_SW ECDSA for Provider Enabled\n");
-        }
+    if (!qat_hw_ecdsa_offload) {
+        qat_sw_ecp256 = mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) ? 1 : 0;
+        qat_sw_ecp384 = mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384) ? 1 : 0;
+        qat_sw_ecdsa_offload = (qat_sw_ecp256 || qat_sw_ecp384);
+        if (qat_sw_ecdsa_offload)
+            INFO("QAT_SW ECDSA Support for Provider Enabled: P256=%d P384=%d\n",
+                 qat_sw_ecp256, qat_sw_ecp384);
+    }
 # endif
 
 # ifdef ENABLE_QAT_SW_ECDH
-        if (!qat_hw_ecdh_offload &&
-            (mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) ||
-            mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384))) {
-            qat_sw_ecdh_offload = 1;
-            INFO("QAT_SW ECDH for Provider Enabled\n");
-        }
+    if (!qat_hw_ecdh_offload) {
+        qat_sw_ecp256 = mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) ? 1 : 0;
+        qat_sw_ecp384 = mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) ? 1 : 0;
+        qat_sw_ecdh_offload = (qat_sw_ecp256 || qat_sw_ecp384);
+        if (qat_sw_ecdh_offload)
+            INFO("QAT_SW ECDH Support for Provider Enabled: P256=%d P384=%d\n",
+                 qat_sw_ecp256, qat_sw_ecp384);
+    }
 # endif
 
 # ifdef ENABLE_QAT_SW_ECX
@@ -1352,9 +1359,10 @@ int bind_qat(ENGINE *e, const char *id)
 # ifdef ENABLE_QAT_SW_SM2
     if (!qat_hw_sm2_offload &&
         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM2) &&
-         mbx_get_algo_info(MBX_ALGO_EC_SM2)) {
-         qat_sw_sm2_offload = 1;
-         INFO("QAT_SW SM2 for Provider Enabled\n");
+        mbx_get_algo_info(MBX_ALGO_EC_SM2)) {
+        qat_sw_sm2_offload = 1;
+        qat_sw_ecsm2 = 1;
+        INFO("QAT_SW SM2 for Provider Enabled\n");
     }
 # endif
 
