@@ -439,6 +439,10 @@ extern int qat_sw_sm2_offload;
 extern int qat_hw_sm2_offload;
 extern int qat_hw_sha_offload;
 extern int qat_hw_sm3_offload;
+extern int qat_sw_ecp256;
+extern int qat_sw_ecp384;
+extern int qat_sw_ecsm2;
+
 # ifdef ENABLE_QAT_FIPS
 extern int qat_sw_sha_offload;
 # endif
