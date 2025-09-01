@@ -604,6 +604,10 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
     if (KDF != NULL) {
         KDF(sec, seclen, out, &outlen);
     } else {
+        if (sec == NULL) {
+            QATerr(ERR_LIB_EC, QAT_R_PROV_EC_SEC_NULL);
+            return 0;
+        }
         if (outlen > seclen)
             outlen = seclen;
         memcpy(out, sec, outlen);

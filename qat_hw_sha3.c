@@ -1135,6 +1135,16 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     data_size = qat_get_sha3_data_size(EVP_MD_CTX_type(ctx));
 #endif
 
+    /* Check for unsupported hash algorithm that returns zero data_size */
+    if (data_size == 0) {
+        WARN("Invalid data_size: unsupported hash algorithm, falling back to software\n");
+#ifdef QAT_OPENSSL_PROVIDER
+        return 0;
+#else
+        return EVP_MD_meth_get_update(GET_SW_SHA3_DIGEST(ctx))(ctx, in, len);
+#endif
+    }
+
     n = sha3_ctx->num;
 
 #ifndef QAT_OPENSSL_PROVIDER

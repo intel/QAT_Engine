@@ -468,7 +468,7 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
 {
     QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
     int ret = 0;
-    unsigned int sltmp;
+    unsigned int sltmp = 0;
     size_t ecsize = ECDSA_size(ctx->ec);
 #ifdef ENABLE_QAT_FIPS
     if (!qat_fips_ec_check_approved_curve(ctx->ec))

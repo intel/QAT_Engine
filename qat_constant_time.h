@@ -110,7 +110,10 @@ static inline unsigned int qat_constant_time_ge(unsigned int a,
 static inline unsigned char qat_constant_time_ge_8(unsigned int a,
                                                    unsigned int b)
 {
-    return (unsigned char)(qat_constant_time_ge(a, b));
+    /* Avoid potential overflow issues by implementing directly
+     * If a >= b: qat_constant_time_lt(a,b) = 0, select 0xFF (true)
+     * If a < b:  qat_constant_time_lt(a,b) = 0xFF, select 0 (false) */
+    return (unsigned char)qat_constant_time_select_8(qat_constant_time_lt(a, b), 0, 0xFF);
 }
 
 static inline unsigned int qat_constant_time_is_zero(unsigned int a)

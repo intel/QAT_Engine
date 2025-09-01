@@ -123,7 +123,7 @@ QATEngine option: --enable-qat_debug\n");
 # define T_DUMP_ECDSA_SIGN_OUTPUT(data, size)                  \
     do {                                                       \
         printf("=========================\n");                 \
-        printf("ECDSA Sign Output(Bytes: %d):\n", size);       \
+        printf("ECDSA Sign Output(Bytes: %u):\n", size);       \
         qat_hex_dump2(data, size);                             \
         printf("=========================\n");                 \
         fflush(stdout);                                        \

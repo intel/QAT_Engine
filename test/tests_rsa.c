@@ -3093,6 +3093,10 @@ static int run_rsa(void *args)
              if (size == rsa_keys[testnum].bits)
                  break;
         }
+        if (testnum >= 5) {
+            WARN("RSA key size %d not found in test data\n", size);
+            return 0;
+        }
         const unsigned char *R = rsa_keys[testnum].data;
         if (size == 8192) {
             rsa_key=EVP_PKEY_new();

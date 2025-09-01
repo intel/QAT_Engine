@@ -1393,6 +1393,20 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         outb = &qctx->p_out[pipe][0];
         buflen = qctx->p_inlen[pipe];
 
+        /* Check if input buffer is valid */
+        if (qctx->p_in[pipe] == NULL) {
+            WARN("Input buffer for pipe %d is NULL\n", pipe);
+            error = 1;
+            break;
+        }
+
+        /* Check if output buffer is valid */
+        if (qctx->p_out[pipe] == NULL) {
+            WARN("Output buffer for pipe %d is NULL\n", pipe);
+            error = 1;
+            break;
+        }
+
         if (vtls >= TLS1_1_VERSION) {
             /*
              * Note: The OpenSSL framework assumes that the IV field will be part
