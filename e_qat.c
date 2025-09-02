@@ -1317,8 +1317,7 @@ int bind_qat(ENGINE *e, const char *id)
 
     if (qat_sw_offload) {
 # ifdef ENABLE_QAT_SW_RSA
-        if (!qat_hw_rsa_offload &&
-            mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
+        if (mbx_get_algo_info(MBX_ALGO_RSA_2K) &&
             mbx_get_algo_info(MBX_ALGO_RSA_3K) &&
             mbx_get_algo_info(MBX_ALGO_RSA_4K)) {
             qat_sw_rsa_offload = 1;
@@ -1327,30 +1326,25 @@ int bind_qat(ENGINE *e, const char *id)
 # endif
 
 # ifdef ENABLE_QAT_SW_ECDSA
-    if (!qat_hw_ecdsa_offload) {
         qat_sw_ecp256 = mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P256) ? 1 : 0;
         qat_sw_ecp384 = mbx_get_algo_info(MBX_ALGO_ECDSA_NIST_P384) ? 1 : 0;
         qat_sw_ecdsa_offload = (qat_sw_ecp256 || qat_sw_ecp384);
         if (qat_sw_ecdsa_offload)
             INFO("QAT_SW ECDSA Support for Provider Enabled: P256=%d P384=%d\n",
                  qat_sw_ecp256, qat_sw_ecp384);
-    }
 # endif
 
 # ifdef ENABLE_QAT_SW_ECDH
-    if (!qat_hw_ecdh_offload) {
         qat_sw_ecp256 = mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P256) ? 1 : 0;
         qat_sw_ecp384 = mbx_get_algo_info(MBX_ALGO_ECDHE_NIST_P384) ? 1 : 0;
         qat_sw_ecdh_offload = (qat_sw_ecp256 || qat_sw_ecp384);
         if (qat_sw_ecdh_offload)
             INFO("QAT_SW ECDH Support for Provider Enabled: P256=%d P384=%d\n",
                  qat_sw_ecp256, qat_sw_ecp384);
-    }
 # endif
 
 # ifdef ENABLE_QAT_SW_ECX
-        if (!qat_hw_ecx_offload &&
-            mbx_get_algo_info(MBX_ALGO_X25519)) {
+        if (mbx_get_algo_info(MBX_ALGO_X25519)) {
             qat_sw_ecx_offload = 1;
             INFO("QAT_SW X25519 for Provider Enabled\n");
         }
@@ -1380,6 +1374,22 @@ int bind_qat(ENGINE *e, const char *id)
         }
 # endif
     }
+
+    /* For co-existence */
+    if(qat_hw_offload && qat_sw_offload) {
+        if(qat_hw_rsa_offload && qat_sw_rsa_offload)
+            qat_rsa_coexist = 1;
+
+        if(qat_hw_ecdsa_offload && qat_sw_ecdsa_offload)
+            qat_ecdsa_coexist = 1;
+
+        if(qat_hw_ecdh_offload && qat_sw_ecdh_offload)
+            qat_ecdh_coexist = 1;
+
+        if(qat_hw_ecx_offload && qat_sw_ecx_offload)
+            qat_ecx_coexist = 1;
+    }
+
     /* Create static structures for ciphers now
      * as this function will be called by a single thread. */
     qat_create_ciphers();
