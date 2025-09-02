@@ -2015,7 +2015,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
     int bitlen = 0;
 #endif
 
-    DEBUG("QAT HW ECDSA Started\n");
+    DEBUG("QAT HW ECDSA Verify Started\n");
 #ifdef ENABLE_QAT_FIPS
     qat_fips_get_approved_status();
 #endif
