@@ -71,6 +71,9 @@
 #  include "cpa_types.h"
 #  include "cpa_cy_common.h"
 #  include "qat_hw_usdm_inf.h"
+#  ifdef QAT_HW_INTREE
+    #include "icp_sal_congestion_mgmt.h"
+#  endif
 # endif
 
 # ifdef QAT_SW
@@ -300,6 +303,15 @@ typedef struct {
  * are in-flight.
  */
 # define QAT_EVENT_TIMEOUT_IN_SEC 1
+
+/*
+ * The default percentage threshold for co-existence offload mode.
+ * The offload mode changes from QAT_HW to QAT_SW when this threshold is reached.
+ */
+# ifndef QAT_COEX_THRESHOLD
+#  define QAT_COEX_THRESHOLD  50
+# endif
+
 #endif
 
 #ifdef QAT_SW

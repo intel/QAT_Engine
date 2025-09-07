@@ -96,6 +96,11 @@
 #define PADDING    1
 
 #ifdef ENABLE_QAT_HW_RSA
+
+#ifdef QAT_HW_INTREE
+# define QAT_HW_LOAD_PERCENTAGE (QAT_COEX_THRESHOLD / 100.0)
+#endif
+
 /*
  * The RSA range check is performed so that if the op sizes are not in the
  * range supported by QAT engine then fall back to software
@@ -282,36 +287,36 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
         if (sts == CPA_STATUS_RETRY) {
             DEBUG("cpaCyRsaDecrypt Retry \n");
             if (qat_rsa_coexist) {
-                START_RDTSC(&qat_hw_rsa_dec_req_retry);
                 ++num_rsa_priv_retry;
+# ifndef QAT_HW_INTREE
+                START_RDTSC(&qat_hw_rsa_dec_req_retry);
                 qat_sw_rsa_priv_req += QAT_SW_SWITCH_MB8;
                 *fallback = 1;
                 qat_cleanup_op_done(&op_done);
                 STOP_RDTSC(&qat_hw_rsa_dec_req_retry, 1, "[QAT HW RSA: retry]");
                 return 0;
-            } else {
-                if (op_done.job == NULL) {
-                    usleep(ulPollInterval + qatPerformOpRetries);
-                    qatPerformOpRetries++;
-                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                        if (qatPerformOpRetries >= iMsgRetry) {
-                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                            break;
-                        }
-                    }
-                } else {
-# ifndef QAT_BORINGSSL
-                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                        WARN("qat_wake_job or qat_pause_job failed\n");
+# endif
+            }
+            if (op_done.job == NULL) {
+                usleep(ulPollInterval + qatPerformOpRetries);
+                qatPerformOpRetries++;
+                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
-# endif
                 }
+            } else {
+# ifndef QAT_BORINGSSL
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    break;
+                }
+# endif
             }
         }
-    }
-    while (sts == CPA_STATUS_RETRY);
+    } while (sts == CPA_STATUS_RETRY);
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", sts);
@@ -696,21 +701,21 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
             } else {
                 if (qat_rsa_coexist) {
                     ++num_rsa_pub_retry;
+#ifndef QAT_HW_INTREE
                     qat_sw_rsa_pub_req += QAT_SW_SWITCH_MB8;
                     *fallback = 1;
                     qat_cleanup_op_done(&op_done);
                     return 0;
-                } else {
-                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                        WARN("qat_wake_job or qat_pause_job failed\n");
-                        break;
-                    }
+#endif
+                }
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    break;
                 }
             }
         }
-    }
-    while (sts == CPA_STATUS_RETRY);
+    } while (sts == CPA_STATUS_RETRY);
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to submit request to qat - status = %d\n", sts);
@@ -993,6 +998,10 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     int lenstra_ret = -1;
     int memcmp_ret = -1;
 # endif
+# ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+# endif
 
 #ifdef ENABLE_QAT_HW_KPT
     if (rsa && qat_check_rsa_wpk(rsa) > 0) {
@@ -1054,6 +1063,18 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
             return 0;
         }
     }
+
+#ifdef QAT_HW_INTREE
+    if (qat_rsa_coexist) {
+	icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests))
+            qat_sw_rsa_priv_req += QAT_SW_SWITCH_MB8;
+    }
+#endif
+
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     if (1 != build_decrypt_op_buf(flen, from, to, rsa, padding,
@@ -1202,6 +1223,10 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     unsigned char temp_buf[RSA_QAT_RANGE_MAX];
     unsigned char *select_ptr = NULL;
     int rsa_priv_dec_sts = -1;
+# ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+# endif
 
 #ifdef ENABLE_QAT_HW_KPT
     if (rsa && qat_check_rsa_wpk(rsa) > 0) {
@@ -1254,6 +1279,18 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
             return 0;
         }
     }
+
+#ifdef QAT_HW_INTREE
+    if (qat_rsa_coexist) {
+	icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests))
+            qat_sw_rsa_priv_req += QAT_SW_SWITCH_MB8;
+    }
+#endif
+
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     if (1 != build_decrypt_op_buf(flen, from, to, rsa, padding,
@@ -1435,6 +1472,10 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
     int sts = 1, fallback = 0;
     int inst_num = QAT_INVALID_INSTANCE;
     int qat_svm = QAT_INSTANCE_ANY;
+#ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+#endif
 
     DEBUG("QAT HW RSA Started.\n");
 
@@ -1474,6 +1515,18 @@ int qat_rsa_pub_enc(int flen, const unsigned char *from,
             return 0;
         }
     }
+
+#ifdef QAT_HW_INTREE
+    if (qat_rsa_coexist) {
+	icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests))
+            qat_sw_rsa_pub_req += QAT_SW_SWITCH_MB8;
+    }
+#endif
+
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     if (1 != build_encrypt_op_buf(flen, from, to, rsa, padding,
@@ -1565,6 +1618,10 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
     unsigned char temp_buf[RSA_QAT_RANGE_MAX];
     unsigned char *select_ptr = NULL;
     int rsa_pub_dec_sts = -1;
+#ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+#endif
 
     DEBUG("QAT HW RSA Started.\n");
 #ifdef ENABLE_QAT_FIPS
@@ -1607,6 +1664,18 @@ int qat_rsa_pub_dec(int flen, const unsigned char *from, unsigned char *to,
             return 0;
         }
     }
+
+#ifdef QAT_HW_INTREE
+    if (qat_rsa_coexist) {
+	icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests))
+            qat_sw_rsa_pub_req += QAT_SW_SWITCH_MB8;
+    }
+#endif
+
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     if (1 != build_encrypt_op_buf(flen, from, to, rsa, padding,

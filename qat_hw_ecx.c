@@ -75,6 +75,9 @@
 #include "cpa_cy_key.h"
 #include "cpa_cy_ec.h"
 #include "qat_common.h"
+#ifdef QAT_HW_INTREE
+# define QAT_HW_LOAD_PERCENTAGE (QAT_COEX_THRESHOLD / 100.0)
+#endif
 
 #ifdef ENABLE_QAT_HW_ECX
 
@@ -167,6 +170,10 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
 
     int ret = 0;
     int job_ret = 0;
+#ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+#endif
     CpaStatus status = CPA_STATUS_FAIL;
     CpaBoolean multiplyStatus = CPA_TRUE;
     CpaFlatBuffer *pXk = NULL;
@@ -295,6 +302,17 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
         }
     }
 
+#ifdef QAT_HW_INTREE
+    if (!is_ecx_448 && qat_ecx_coexist) {
+        icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests))
+            qat_sw_ecx_keygen_req += QAT_SW_SWITCH_MB8;
+    }
+#endif
+
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     qat_ecx_op_data = (CpaCyEcMontEdwdsPointMultiplyOpData *)
@@ -406,29 +424,30 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
                 if (op_done.job) {
                     DEBUG("cpaCyEcMontEdwdsPointMultiply Retry \n");
                     ++num_ecx_keygen_retry;
+#ifndef QAT_HW_INTREE
                     qat_sw_ecx_keygen_req += QAT_SW_SWITCH_MB8;
                     fallback = 1;
                     qat_cleanup_op_done(&op_done);
                     goto err;
+#endif
                 }
-            } else {
-                if (op_done.job == NULL) {
-                    usleep(ulPollInterval +
-                        (qatPerformOpRetries %
-                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                    qatPerformOpRetries++;
-                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                        if (qatPerformOpRetries >= iMsgRetry) {
-                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                            break;
-                        }
-                    }
-                } else {
-                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                        WARN("qat_wake_job or qat_pause_job failed\n");
+            }
+            if (op_done.job == NULL) {
+                usleep(ulPollInterval +
+                    (qatPerformOpRetries %
+                        QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                qatPerformOpRetries++;
+                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
+                }
+            } else {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    break;
                 }
             }
         }
@@ -676,6 +695,10 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
 #endif
     int ret = 0;
     int job_ret = 0;
+#ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+#endif
     CpaStatus status = CPA_STATUS_FAIL;
     CpaBoolean multiplyStatus = CPA_TRUE;
     CpaFlatBuffer *pXk = NULL;
@@ -732,6 +755,17 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
             return 0;
         }
     }
+
+#ifdef QAT_HW_INTREE
+    if (qat_ecx_coexist) {
+	icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests))
+            qat_sw_ecx_derive_req += QAT_SW_SWITCH_MB8;
+    }
+#endif
 
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
@@ -845,33 +879,34 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
         if (status == CPA_STATUS_RETRY) {
             if (qat_ecx_coexist) {
                 if (op_done.job) {
-                    START_RDTSC(&qat_hw_ecx_derive_req_retry);
-                    DEBUG("cpaCyEcMontEdwdsPointMultiply Retry \n");
                     ++num_ecx_derive_retry;
+                    DEBUG("cpaCyEcMontEdwdsPointMultiply Retry \n");
+#ifndef QAT_HW_INTREE
+                    START_RDTSC(&qat_hw_ecx_derive_req_retry);
                     qat_sw_ecx_derive_req += QAT_SW_SWITCH_MB8;
                     fallback = 1;
                     qat_cleanup_op_done(&op_done);
                     STOP_RDTSC(&qat_hw_ecx_derive_req_retry, 1, "[QAT HW ECX: retry]");
                     goto err;
+#endif
                 }
-            } else {
-                if (op_done.job == NULL) {
-                    usleep(ulPollInterval +
-                        (qatPerformOpRetries %
-                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                    qatPerformOpRetries++;
-                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                        if (qatPerformOpRetries >= iMsgRetry) {
-                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                            break;
-                        }
-                    }
-                } else {
-                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                        WARN("qat_wake_job or qat_pause_job failed\n");
+            }
+            if (op_done.job == NULL) {
+                usleep(ulPollInterval +
+                    (qatPerformOpRetries %
+                        QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                qatPerformOpRetries++;
+                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
+                }
+            } else {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    break;
                 }
             }
         }

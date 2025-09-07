@@ -100,6 +100,10 @@ static const unsigned char kvalue[] = {
 # endif
 #endif
 
+# ifdef QAT_HW_INTREE
+#  define QAT_HW_LOAD_PERCENTAGE (QAT_COEX_THRESHOLD / 100.0)
+# endif
+
 CpaCyEcFieldType qat_get_field_type(const EC_GROUP *group)
 {
     /* For BoringSSL,EC_METHOD_get_field_type only support NID_X9_62_prime_field
@@ -152,6 +156,10 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
     int inst_num = QAT_INVALID_INSTANCE;
     BIGNUM *xP = NULL, *yP = NULL;
 
+#ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+#endif
     CpaBoolean bEcStatus = 0;
     CpaFlatBuffer *pResultX = NULL;
     CpaFlatBuffer *pResultY = NULL;
@@ -211,9 +219,27 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
             return ret;
         }
     }
-    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     curve_name = EC_GROUP_get_curve_name(group);
+
+    qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+
+# ifdef QAT_HW_INTREE
+    if (qat_ecdh_coexist &&
+        ((curve_name == NID_X9_62_prime256v1) ||
+        (curve_name == NID_secp384r1))) {
+        icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests)) {
+            if (outY)
+                qat_sw_ecdh_keygen_req += QAT_SW_SWITCH_MB8;
+            else
+                qat_sw_ecdh_derive_req += QAT_SW_SWITCH_MB8;
+        }
+    }
+# endif
 
 # if defined(QAT20_OOT) || defined(QAT_HW_INTREE)
 #  ifdef ENABLE_QAT_HW_SM2
@@ -543,6 +569,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
 # endif
         STOP_RDTSC(&qat_hw_ecdh_derive_req_submit, 1, "[QAT HW ECDH: submit]");
         if (status == CPA_STATUS_RETRY) {
+# ifndef QAT_HW_INTREE
             if (qat_ecdh_coexist &&
                 ((curve_name == NID_X9_62_prime256v1) ||
                 (curve_name == NID_secp384r1))) {
@@ -561,24 +588,24 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
                     STOP_RDTSC(&qat_hw_ecdh_derive_req_retry, 1, "[QAT HW ECDH: retry]");
                     goto err;
                 }
-            } else {
-                if (op_done.job == NULL) {
-                    usleep(ulPollInterval +
-                           (qatPerformOpRetries %
-                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                    qatPerformOpRetries++;
-                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                        if (qatPerformOpRetries >= iMsgRetry) {
-                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                            break;
-                        }
-                    }
-                } else {
-                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                        WARN("qat_wake_job or qat_pause_job failed\n");
+            }
+# endif
+            if (op_done.job == NULL) {
+                usleep(ulPollInterval +
+                       (qatPerformOpRetries %
+                        QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                qatPerformOpRetries++;
+                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
+                }
+            } else {
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    break;
                 }
             }
         }
@@ -829,8 +856,8 @@ exit:
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
 #ifdef ENABLE_QAT_SW_ECDH
         int curve_name = EC_GROUP_get_curve_name(group);
-        if (qat_ecdh_coexist && 
-            ((curve_name == NID_X9_62_prime256v1) || 
+        if (qat_ecdh_coexist &&
+            ((curve_name == NID_X9_62_prime256v1) ||
              (curve_name == NID_secp384r1))) {
             DEBUG("- Switched to QAT_SW mode\n");
             if (qat_sw_ecdh_derive_req > 0)
@@ -1034,8 +1061,8 @@ exit:
     if (fallback == 1) {
 #ifdef ENABLE_QAT_SW_ECDH
         int curve_name = EC_GROUP_get_curve_name(group);
-        if (qat_ecdh_coexist && 
-            ((curve_name == NID_X9_62_prime256v1) || 
+        if (qat_ecdh_coexist &&
+            ((curve_name == NID_X9_62_prime256v1) ||
              (curve_name == NID_secp384r1))) {
             DEBUG("- Switched to QAT_SW mode\n");
             if (qat_sw_ecdh_keygen_req > 0)
@@ -1285,6 +1312,10 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
 
     CpaFlatBuffer *pResultR = NULL;
     CpaFlatBuffer *pResultS = NULL;
+#ifdef QAT_HW_INTREE
+    Cpa32U maxInflightRequests = 0;
+    Cpa32U currentInflightRequests = 0;
+#endif
 #ifdef QAT_BORINGSSL
     CpaFlatBuffer *ret_sig = NULL;
     op_done_t *op_done_bssl = NULL;
@@ -1385,6 +1416,18 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
     qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
 
     curve_name = EC_GROUP_get_curve_name(group);
+
+#ifdef QAT_HW_INTREE
+    if (curve_name == NID_secp384r1 && qat_ecdsa_coexist) {
+        icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
+                                        &maxInflightRequests,
+                                        &currentInflightRequests);
+
+        if (currentInflightRequests >= (QAT_HW_LOAD_PERCENTAGE * maxInflightRequests))
+            qat_sw_ecdsa_sign_req += QAT_SW_SWITCH_MB8;
+    }
+#endif
+
     if ((ec_point = EC_GROUP_get0_generator(group)) == NULL) {
         WARN("Failure to retrieve ec_point\n");
         QATerr(QAT_F_QAT_ECDSA_DO_SIGN, QAT_R_EC_POINT_RETRIEVE_FAILURE);
@@ -1689,34 +1732,35 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
         if (status == CPA_STATUS_RETRY) {
             DEBUG("cpaCyEcdsaSignRS Retry \n");
             if (qat_ecdsa_coexist && (curve_name == NID_secp384r1)) {
-                START_RDTSC(&qat_hw_ecdsa_sign_req_retry);
                 ++num_ecdsa_sign_retry;
+#ifndef QAT_HW_INTREE
+                START_RDTSC(&qat_hw_ecdsa_sign_req_retry);
                 qat_sw_ecdsa_sign_req += QAT_SW_SWITCH_MB8;
                 fallback = 1;
                 qat_cleanup_op_done(&op_done);
                 STOP_RDTSC(&qat_hw_ecdsa_sign_req_retry, 1, "[QAT HW ECDSA: retry]");
                 goto err;
-            } else {
-                if (op_done.job == NULL) {
-                    usleep(ulPollInterval +
-                            (qatPerformOpRetries %
-                            QAT_RETRY_BACKOFF_MODULO_DIVISOR));
-                    qatPerformOpRetries++;
-                    if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
-                        if (qatPerformOpRetries >= iMsgRetry) {
-                            WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
-                            break;
-                        }
-                    }
-                } else {
-#ifndef QAT_BORINGSSL
-                    if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
-                        (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
-                        WARN("qat_wake_job or qat_pause_job failed\n");
+#endif
+            }
+            if (op_done.job == NULL) {
+                usleep(ulPollInterval +
+                        (qatPerformOpRetries %
+                        QAT_RETRY_BACKOFF_MODULO_DIVISOR));
+                qatPerformOpRetries++;
+                if (iMsgRetry != QAT_INFINITE_MAX_NUM_RETRIES) {
+                    if (qatPerformOpRetries >= iMsgRetry) {
+                        WARN("No. of retries exceeded max retry : %d\n", iMsgRetry);
                         break;
                     }
-#endif
                 }
+            } else {
+#ifndef QAT_BORINGSSL
+                if ((qat_wake_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0) ||
+                    (qat_pause_job(op_done.job, ASYNC_STATUS_EAGAIN) == 0)) {
+                    WARN("qat_wake_job or qat_pause_job failed\n");
+                    break;
+                }
+#endif
             }
         }
     }
