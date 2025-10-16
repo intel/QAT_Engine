@@ -250,7 +250,7 @@ end:
 #endif
     return ret;
 #ifndef QAT_INSECURE_ALGO
-fallback:
+fallback:;
     QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
     if (ctx->sw_ctx || (ctx->sw_ctx = sw_aes_gcm_cipher.newctx(ctx)))
         return sw_aes_gcm_cipher.get_ctx_params(ctx->sw_ctx, params);
@@ -392,7 +392,7 @@ int qat_gcm_einit(void *vctx, const unsigned char* inkey,
 #endif
     return sts;
 # ifndef QAT_INSECURE_ALGO
-fallback:
+fallback:;
     OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
     QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
     if (ctx->sw_ctx || (ctx->sw_ctx = sw_aes_gcm_cipher.newctx(ctx)))
@@ -422,12 +422,12 @@ int qat_gcm_dinit(void *vctx, const unsigned char* inkey,
 #endif
    return sts;
 #ifndef QAT_INSECURE_ALGO
-fallback:
+fallback:;
     OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
     QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
+    unsigned int pad = 0;
     if (!ctx->sw_ctx)
         ctx->sw_ctx = sw_aes_gcm_cipher.newctx(ctx);
-    unsigned int pad = 0;
     params[0] = OSSL_PARAM_construct_uint(OSSL_CIPHER_PARAM_PADDING, &pad);
     return sw_aes_gcm_cipher.dinit(ctx->sw_ctx, inkey, keylen, iv, ivlen, params);
 #endif
@@ -483,13 +483,13 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
 #endif
     ret = 1;
 
-end:
+end:;
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 0;
 #endif
     return ret;
 #ifndef QAT_INSECURE_ALGO
-fallback:
+fallback:;
     QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
     if (sw_aes_gcm_cipher.cupdate == NULL)
         return 0;
@@ -536,13 +536,13 @@ int ret = 0;
     *outl = 0;
     ret = 1;
 
-end:
+end:;
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 0;
 #endif
     return ret;
 #ifndef QAT_INSECURE_ALGO
-fallback:
+fallback:;
     QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
     if (sw_aes_gcm_cipher.cfinal == NULL)
         return 0;
@@ -591,13 +591,13 @@ int qat_gcm_cipher(void *vctx, unsigned char *out,
     *outl = inl;
     ret = 1;
 
-end:
+end:;
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 0;
 #endif
     return ret;
 #ifndef QAT_INSECURE_ALGO
-fallback:
+fallback:;
     QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
     if (sw_aes_gcm_cipher.cupdate == NULL)
         return 0;
