@@ -64,6 +64,7 @@ else
   num420xxDevice=`lspci -vnd 8086: | egrep -c "4946"`
   numC4xxxDevice=`lspci -vnd 8086: | grep -c "18a0"`
   num200xxDevice=`lspci -vnd 8086: | grep -c "18ee"`
+  num300xxDevice=`lspci -vnd 8086: | grep -c "578a"`
   numC62xDevice=`lspci -vnd 8086: | grep -c "37c8"`
   num4xxxDeviceVF=`lspci -vnd 8086: | egrep -c "4941|4943|4945"`
   num420xxDeviceVF=`lspci -vnd 8086: | egrep -c "4947"`
@@ -140,6 +141,15 @@ elif [[ "$numC62xDevice" -gt 0 ]]; then
   config_file="c6xx_dev0.conf"
   qat_version="QAT1.7"
   num_devices=$numC62xDevice
+  service_default="cy"
+  cy_default=$([[ "$mode" == "multi_thread" ]] && echo "8" || echo "1")
+  process_default=$([[ "$mode" == "multi_thread" ]] && echo "1" || echo "16")
+  limit_dev_default=$([[ "$mode" == "multi_thread" ]] && echo "0" || echo "1")
+elif [[ "$num300xxDevice" -gt 0 ]]; then
+  dev_type="300xx"
+  config_file="300xx_dev0.conf"
+  qat_version="QAT1.9"
+  num_devices=$num300xxDevice
   service_default="cy"
   cy_default=$([[ "$mode" == "multi_thread" ]] && echo "8" || echo "1")
   process_default=$([[ "$mode" == "multi_thread" ]] && echo "1" || echo "16")
