@@ -112,8 +112,8 @@ extern const OSSL_DISPATCH qat_dh_keyexch_functions[];
 # ifdef QAT_INSECURE_ALGO
 extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha1_functions[];
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha1_functions[];
-# endif
 extern const OSSL_DISPATCH qat_aes128cbc_hmac_sha256_functions[];
+# endif
 extern const OSSL_DISPATCH qat_aes256cbc_hmac_sha256_functions[];
 #endif /* ENABLE_QAT_HW_CIPHERS */
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
@@ -232,8 +232,8 @@ static const OSSL_ALGORITHM_CAPABLE qat_deflt_ciphers[] = {
 # ifdef QAT_INSECURE_ALGO
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA1, qat_aes128cbc_hmac_sha1_functions),
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA1, qat_aes256cbc_hmac_sha1_functions),
-# endif
     ALG(QAT_NAMES_AES_128_CBC_HMAC_SHA256, qat_aes128cbc_hmac_sha256_functions),
+# endif
     ALG(QAT_NAMES_AES_256_CBC_HMAC_SHA256, qat_aes256cbc_hmac_sha256_functions),
 #endif
 # ifdef ENABLE_QAT_HW_CHACHAPOLY
