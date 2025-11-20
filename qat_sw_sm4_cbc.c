@@ -270,7 +270,7 @@ int qat_sw_sm4_cbc_key_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
     void *sw_ctx_cipher_data = NULL;
 #endif
     int sts = 0;
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#if defined(ENABLE_QAT_HW_SM4_CBC) && !defined(QAT_OPENSSL_PROVIDER)
     sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
 #endif
 
@@ -392,7 +392,7 @@ int qat_sw_sm4_cbc_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int8u *in_iv = NULL;
     sm4_key *in_key = NULL;
     int in_enc;
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#if defined(ENABLE_QAT_HW_SM4_CBC) && !defined(QAT_OPENSSL_PROVIDER)
     sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
 #endif
 
@@ -583,7 +583,7 @@ int qat_sw_sm4_cbc_cleanup(EVP_CIPHER_CTX *ctx)
     SM4_CBC_CTX *sm4_cbc_ctx = NULL;
     void *sw_ctx_cipher_data = NULL;
 #endif
-#ifdef ENABLE_QAT_HW_SM4_CBC
+#if defined(ENABLE_QAT_HW_SM4_CBC) && !defined(QAT_OPENSSL_PROVIDER)
     sm4cbc_coexistence_ctx *sm4cbc_hw_sw_ctx = NULL;
 #endif
 

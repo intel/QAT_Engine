@@ -59,7 +59,11 @@
 #ifdef ENABLE_QAT_HW_CCM
 static OSSL_FUNC_cipher_freectx_fn qat_aes_ccm_freectx;
 
-# ifndef QAT_INSECURE_ALGO
+#if QAT1X_PLATFORM || !defined(QAT_INSECURE_ALGO)
+# define ENABLE_CCM_FALLBACK 1
+#endif
+
+# if ENABLE_CCM_FALLBACK
 /* Fallback functions for software implementation */
 static int qat_aes_ccm_einit_fallback(QAT_PROV_CCM_CTX *qctx, void *ctx,
                                       const unsigned char *inkey, size_t keylen,

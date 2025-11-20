@@ -108,6 +108,7 @@ typedef struct evp_signature_st {
     OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
 } QAT_EVP_SIGNATURE /* EVP_SIGNATURE for QAT Provider ECDSA */;
 
+#if ENABLE_QAT_SW_ECDSA
 static QAT_EVP_SIGNATURE get_default_ECDSA_signature()
 {
     static QAT_EVP_SIGNATURE s_signature;
@@ -124,7 +125,14 @@ static QAT_EVP_SIGNATURE get_default_ECDSA_signature()
     }
     return s_signature;
 }
+#endif
 
+static const OSSL_PARAM known_gettable_ctx_params[] = {
+    OSSL_PARAM_octet_string(OSSL_SIGNATURE_PARAM_ALGORITHM_ID, NULL, 0),
+    OSSL_PARAM_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, NULL, 0),
+    OSSL_PARAM_size_t(OSSL_SIGNATURE_PARAM_DIGEST_SIZE, NULL),
+    OSSL_PARAM_END
+};
 
 static const OSSL_PARAM settable_ctx_params[] = {
     OSSL_PARAM_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, NULL, 0),
@@ -771,69 +779,90 @@ static void *qat_ecdsa_dupctx(void *vctx)
 
 static int qat_ecdsa_get_ctx_params(void *vctx, OSSL_PARAM *params)
 {
-    typedef int (*fun_ptr)(void *vctx, OSSL_PARAM *params);
-    fun_ptr fun = get_default_ECDSA_signature().get_ctx_params;
-    if (!fun)
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+    OSSL_PARAM *p;
+
+    if (ctx == NULL)
         return 0;
-    return fun(vctx, params);
+    if (params == NULL)
+        return 1;
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_ALGORITHM_ID);
+    if (p != NULL
+        && !OSSL_PARAM_set_octet_string(p, ctx->aid, ctx->aid_len))
+        return 0;
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_DIGEST);
+    if (p != NULL && !OSSL_PARAM_set_utf8_string(p, ctx->md == NULL
+                                                    ? ctx->mdname
+                                                    : EVP_MD_get0_name(ctx->md)))
+        return 0;
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_DIGEST_SIZE);
+    if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->mdsize))
+        return 0;
+
+    return 1;
 }
 
 static const OSSL_PARAM *qat_ecdsa_gettable_ctx_params(void *vctx,
                                                    void *provctx)
 {
-    typedef const OSSL_PARAM * (*fun_ptr)(void *vctx,
-                                          void *provctx);
-    fun_ptr fun = get_default_ECDSA_signature().gettable_ctx_params;
-    if (!fun)
-        return NULL;
-    return fun(vctx, provctx);
+    return known_gettable_ctx_params;
 }
 
 static const OSSL_PARAM *qat_ecdsa_settable_ctx_params(void *vctx,
                                                    void *provctx)
 {
-    typedef const OSSL_PARAM * (*fun_ptr)(void *vctx,
-                                          void *provctx);
-    fun_ptr fun = get_default_ECDSA_signature().settable_ctx_params;
-    if (!fun)
-        return NULL;
-    return fun(vctx, provctx);
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+
+    if (ctx != NULL && !ctx->flag_allow_md)
+        return settable_ctx_params_no_digest;
+    return settable_ctx_params;
 }
 
 static int qat_ecdsa_get_ctx_md_params(void *vctx, OSSL_PARAM *params)
 {
-    typedef int (*fun_ptr)(void *vctx, OSSL_PARAM *params);
-    fun_ptr fun = get_default_ECDSA_signature().get_ctx_md_params;
-    if (!fun)
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+
+    if (ctx == NULL)
         return 0;
-    return fun(vctx, params);
+    if (ctx->mdctx == NULL)
+        return 0;
+
+    return EVP_MD_CTX_get_params(ctx->mdctx, params);
 }
 
 static const OSSL_PARAM *qat_ecdsa_gettable_ctx_md_params(void *vctx)
 {
-    typedef const OSSL_PARAM * (*fun_ptr)(void *vctx);
-    fun_ptr fun = get_default_ECDSA_signature().gettable_ctx_md_params;
-    if (!fun)
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+
+    if (ctx == NULL || ctx->mdctx == NULL)
         return NULL;
-    return fun(vctx);
+
+    return EVP_MD_gettable_ctx_params(ctx->md);
 }
 
 static int qat_ecdsa_set_ctx_md_params(void *vctx, const OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *vctx, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_ECDSA_signature().set_ctx_md_params;
-    if (!fun)
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+
+    if (ctx == NULL)
         return 0;
-    return fun(vctx, params);
+    if (ctx->mdctx == NULL)
+        return 0;
+
+    return EVP_MD_CTX_set_params(ctx->mdctx, params);
 }
 
 static const OSSL_PARAM *qat_ecdsa_settable_ctx_md_params(void *vctx)
 {
-    typedef const OSSL_PARAM * (*fun_ptr)(void *vctx);
-    fun_ptr fun = get_default_ECDSA_signature().settable_ctx_md_params;
-    if (!fun)
+    QAT_PROV_ECDSA_CTX *ctx = (QAT_PROV_ECDSA_CTX *)vctx;
+
+    if (ctx->md == NULL)
         return 0;
-    return fun(vctx);
+
+    return EVP_MD_settable_ctx_params(ctx->md);
 }
 
 const OSSL_DISPATCH qat_ecdsa_signature_functions[] = {

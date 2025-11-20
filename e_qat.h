@@ -123,6 +123,10 @@
 # define QAT_ATOMIC_DEC(qat_int)              \
             (__sync_sub_and_fetch(&(qat_int), 1))
 
+/* A platform is QAT1.x if it is NOT any QAT2.x or FreeBSD intree/outtree variant */
+#define QAT1X_PLATFORM ( !defined(QAT20_OOT) && !defined(QAT_HW_INTREE) && \
+                      !defined(QAT_HW_FBSD_OOT) && !defined(QAT_HW_FBSD_INTREE))
+
 extern clock_t clock_id;
 # ifdef QAT_HW
 typedef struct {
