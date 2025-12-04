@@ -183,21 +183,40 @@ const char *qat_ccm_cipher_name(int nid)
 
 QAT_EVP_CIPHER get_default_cipher_aes_ccm(int nid)
 {
-    static QAT_EVP_CIPHER ccm_cipher;
-    static int initialized = 0;
-    if (!initialized) {
-        QAT_EVP_CIPHER *cipher =
-            (QAT_EVP_CIPHER *) EVP_CIPHER_fetch(NULL, qat_ccm_cipher_name(nid),
-                                                "provider=default");
-        if (cipher) {
-            ccm_cipher = *cipher;
-            EVP_CIPHER_free((EVP_CIPHER *)cipher);
-            initialized = 1;
-        } else {
-            WARN("EVP_CIPHER_fetch from default provider failed");
+    static struct {
+        int nid;
+        int initialized;
+        QAT_EVP_CIPHER cipher;
+    } cache[] = {
+        { NID_aes_128_ccm, 0, {0} },
+        { NID_aes_192_ccm, 0, {0} },
+        { NID_aes_256_ccm, 0, {0} },
+    };
+#define CACHE_SIZE (sizeof(cache) / sizeof(cache[0]))
+    static const QAT_EVP_CIPHER empty_cipher = {0};
+    size_t i;
+
+    for (i = 0; i < CACHE_SIZE; i++) {
+        if (cache[i].nid == nid) {
+            if (!cache[i].initialized) {
+                QAT_EVP_CIPHER *fetched = (QAT_EVP_CIPHER *)
+                    EVP_CIPHER_fetch(NULL, qat_ccm_cipher_name(nid),
+                                     "provider=default");
+                if (fetched) {
+                    cache[i].cipher = *fetched;
+                    cache[i].initialized = 1;
+                    EVP_CIPHER_free((EVP_CIPHER *)fetched);
+                } else {
+                    WARN("EVP_CIPHER_fetch from default provider failed for nid %d\n", nid);
+                    return empty_cipher;
+                }
+            }
+            return cache[i].cipher;
         }
     }
-    return ccm_cipher;
+
+    WARN("Invalid nid %d\n", nid);
+    return empty_cipher;
 }
 
 static int qat_aes_ccm_tls_init(QAT_PROV_CCM_CTX *ctx, unsigned char *aad, size_t alen)
