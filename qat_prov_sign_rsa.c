@@ -900,6 +900,7 @@ int qat_digest_get_approved_nid(const EVP_MD *md)
         { NID_sha3_256,  OSSL_DIGEST_NAME_SHA3_256  },
         { NID_sha3_384,  OSSL_DIGEST_NAME_SHA3_384  },
         { NID_sha3_512,  OSSL_DIGEST_NAME_SHA3_512  },
+        { NID_md5_sha1,  OSSL_DIGEST_NAME_MD5_SHA1  },
     };
 
     return qat_digest_md_to_nid(md, name_to_nid, OSSL_NELEM(name_to_nid));
