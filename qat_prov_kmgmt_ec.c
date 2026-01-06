@@ -231,11 +231,13 @@ static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg
 #if defined(ENABLE_QAT_HW_ECDH)
         if (qat_hw_ecdh_offload) {
             ret = ret && qat_ecdh_generate_key(ec);
+            goto end;
 	}
 #endif
 #ifdef ENABLE_QAT_SW_ECDH
         if (qat_sw_ecdh_offload) {
             ret = ret && mb_ecdh_generate_key(ec);
+            goto end;
 	}
 #endif
         if (!qat_hw_ecdh_offload && !qat_sw_ecdh_offload) {
@@ -243,6 +245,7 @@ static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg
         }    
     }
 
+end:
     if (gctx->ecdh_mode != -1)
         ret = ret && qat_ec_set_ecdh_cofactor_mode(ec, gctx->ecdh_mode);
 
