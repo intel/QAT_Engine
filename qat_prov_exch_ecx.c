@@ -104,7 +104,7 @@ static int qat_ecx_derive25519(void *vecxctx, unsigned char *secret,
     int ret = 0;
 #ifdef ENABLE_QAT_HW_ECX
     if (qat_hw_ecx_offload)
-        ret = qat_pkey_ecx_derive25519(vecxctx,secret,secretlen,outlen);
+        return qat_pkey_ecx_derive25519(vecxctx,secret,secretlen,outlen);
 #endif
 #ifdef ENABLE_QAT_SW_ECX
     if (qat_sw_ecx_offload) {
@@ -117,8 +117,8 @@ static int qat_ecx_derive25519(void *vecxctx, unsigned char *secret,
           return 0;
       return fun(vecxctx, secret, secretlen, outlen);
     }
-
 #endif
+
     return ret;
 }
 

@@ -224,13 +224,14 @@ static int qat_rsa_private_encrypt(int flen, const unsigned char *from,
     int ret = 0;
 #ifdef ENABLE_QAT_HW_RSA
     if (qat_hw_rsa_offload)
-        ret = qat_rsa_priv_enc(flen, from, to, rsa, padding);
+        return qat_rsa_priv_enc(flen, from, to, rsa, padding);
 #endif
 
 #ifdef ENABLE_QAT_SW_RSA
     if (qat_sw_rsa_offload)
         ret = multibuff_rsa_priv_enc(flen, from, to, rsa, padding);
 #endif
+
     return ret;
 }
 
@@ -241,13 +242,14 @@ static int qat_rsa_public_decrypt(int flen, const unsigned char *from,
     int ret = 0;
 #ifdef ENABLE_QAT_HW_RSA
     if (qat_hw_rsa_offload)
-        ret = qat_rsa_pub_dec(flen, from, to, rsa, padding);
+        return qat_rsa_pub_dec(flen, from, to, rsa, padding);
 #endif
 
 #ifdef ENABLE_QAT_SW_RSA
     if (qat_sw_rsa_offload)
         ret = multibuff_rsa_pub_dec(flen, from, to, rsa, padding);
 #endif
+
     return ret;
 }
 
