@@ -171,6 +171,23 @@ static void *qat_x25519_gen_init(void *provctx, int selection,
 static void *qat_x25519_gen(void *genctx, OSSL_CALLBACK *osslcb,
                             void *cbarg)
 {
+    QAT_GEN_CTX *gctx = (QAT_GEN_CTX *)genctx;
+
+    /* Check if this is parameter generation vs key generation */
+    if (gctx && (gctx->selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) &&
+        !(gctx->selection & OSSL_KEYMGMT_SELECT_KEYPAIR)) {
+        ECX_KEY *pkey = OPENSSL_zalloc(sizeof(*pkey));
+        if (pkey == NULL) {
+            return NULL;
+        }
+
+        pkey->keylen = X25519_KEYLEN;
+        pkey->references.val = 1;
+        pkey->type = ECX_KEY_TYPE_X25519;
+        pkey->haspubkey = 0;  // No actual key material for paramgen
+        return pkey;
+    }
+
 #ifdef ENABLE_QAT_HW_ECX
     if (qat_hw_ecx_offload)
         return qat_pkey_ecx25519_keygen(genctx,osslcb,cbarg);
@@ -201,6 +218,22 @@ static void *qat_x448_gen_init(void *provctx, int selection,
 static void *qat_x448_gen(void *genctx, OSSL_CALLBACK *osslcb,
                           void *cbarg)
 {
+    QAT_GEN_CTX *gctx = (QAT_GEN_CTX *)genctx;
+
+    /* Check if this is parameter generation vs key generation */
+    if (gctx && (gctx->selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) &&
+        !(gctx->selection & OSSL_KEYMGMT_SELECT_KEYPAIR)) {
+        ECX_KEY *pkey = OPENSSL_zalloc(sizeof(*pkey));
+        if (pkey == NULL) {
+            return NULL;
+        }
+
+        pkey->keylen = X448_KEYLEN;
+        pkey->references.val = 1;
+        pkey->type = ECX_KEY_TYPE_X448;
+        pkey->haspubkey = 0;
+        return pkey;
+    }
     return qat_pkey_ecx448_keygen(genctx,osslcb,cbarg);
 }
 #endif
