@@ -247,11 +247,6 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
         OPENSSL_free(key);
         return 0;
     }
-
-    if (qat_sw_ecx_keygen_req > 0 || qat_get_qat_offload_disabled()) {
-        fallback = 1;
-        goto err;
-    }
 #else
     switch (gctx->type) {
     case ECX_KEY_TYPE_X25519:
@@ -272,22 +267,13 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
         OPENSSL_free(key);
         return 0;
     }
-
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode.\n");
-        OPENSSL_free(key);
-
-        if (!is_ecx_448) {
-            typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
-            sw_prov_fun_ptr sw_fn_ptr = get_default_x25519_keymgmt().gen;
-            return sw_fn_ptr(ctx, osslcb, cbarg);
-        } else if (is_ecx_448) {
-            typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
-            sw_prov_fun_ptr sw_fn_ptr = get_default_x448_keymgmt().gen;
-            return sw_fn_ptr(ctx, osslcb, cbarg);
-        }
-    }
 #endif
+
+    if (qat_sw_ecx_keygen_req > 0 || qat_get_qat_offload_disabled()) {
+        fallback = 1;
+        goto err;
+    }
+
     if ((inst_num = get_instance(QAT_INSTANCE_ASYM, QAT_INSTANCE_ANY))
             == QAT_INVALID_INSTANCE) {
         WARN("Failed to get an instance\n");
@@ -301,7 +287,6 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
             return 0;
         }
     }
-
 #ifdef QAT_HW_INTREE
     if (!is_ecx_448 && qat_ecx_coexist) {
         icp_sal_AsymGetInflightRequests(qat_instance_handles[inst_num],
@@ -575,6 +560,19 @@ err:
 
     if (fallback) {
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+#ifdef ENABLE_QAT_SW_ECX
+        if (qat_ecx_coexist && !is_ecx_448) {
+            DEBUG("- Switched to QAT_SW mode\n");
+            if (qat_sw_ecx_keygen_req > 0)
+                --qat_sw_ecx_keygen_req;
+# ifdef QAT_OPENSSL_PROVIDER
+            return multibuff_x25519_keygen(ctx, osslcb, cbarg);
+# else
+            return multibuff_x25519_keygen(ctx, pkey);
+# endif
+        }
+#endif
+        WARN("- Fallback to software mode.\n");
 #ifdef QAT_OPENSSL_PROVIDER
         if (is_ecx_448 == 0) {
             typedef void* (*sw_prov_fun_ptr)(void *, OSSL_CALLBACK*, void*);
@@ -586,15 +584,6 @@ err:
                 return sw_fun_ptr(ctx, osslcb, cbarg);
         }
 #else
-#ifdef ENABLE_QAT_SW_ECX
-        if (qat_ecx_coexist && !is_ecx_448) {
-            DEBUG("- Switched to QAT_SW mode\n");
-            if (qat_sw_ecx_keygen_req > 0)
-                --qat_sw_ecx_keygen_req;
-            return multibuff_x25519_keygen(ctx, pkey);
-        }
-#endif
-        WARN("- Fallback to software mode.\n");
         EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)
                                 (is_ecx_448 ? sw_x448_pmeth : sw_x25519_pmeth),
                                 NULL, &sw_fn_ptr);
@@ -721,19 +710,10 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
         return 0;
     }
 
-#ifdef QAT_OPENSSL_PROVIDER
-    if (qat_get_qat_offload_disabled()) {
-        DEBUG("- Switched to software mode.\n");
-        typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
-        sw_prov_fun_ptr sw_fun_ptr = get_default_x25519_keyexch().derive;
-        return sw_fun_ptr(ctx, key, keylen, outlen);
-    }
-#else
     if (qat_sw_ecx_derive_req > 0 || qat_get_qat_offload_disabled()) {
         fallback = 1;
         goto err;
     }
-#endif
 
     if (!qat_validate_ecx_derive(ctx, &privkey, &pubkey))
         return 0;
@@ -1026,20 +1006,28 @@ err:
 
     if (fallback) {
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+
+#ifdef ENABLE_QAT_SW_ECX
+        /* For co-existence mode, try QAT_SW first before falling back to OpenSSL SW */
+        if (qat_ecx_coexist) {
+            DEBUG("- Switched to QAT_SW mode\n");
+            if (qat_sw_ecx_derive_req > 0)
+                --qat_sw_ecx_derive_req;
+#ifdef QAT_OPENSSL_PROVIDER
+            return multibuff_x25519_derive(ctx, key, keylen, outlen);
+#else
+            return multibuff_x25519_derive(ctx, key, keylen);
+#endif
+        }
+#endif
+
+        /* If QAT_SW is not available or co-existence is disabled, use OpenSSL SW */
+        WARN("- Fallback to software mode.\n");
 #ifdef QAT_OPENSSL_PROVIDER
         typedef int (*sw_prov_fun_ptr)(void *, unsigned char*, size_t*, size_t);
         sw_prov_fun_ptr sw_fun_ptr = get_default_x25519_keyexch().derive;
         return sw_fun_ptr(ctx, key, keylen, outlen);
 #else
-#ifdef ENABLE_QAT_SW_ECX
-        if (qat_ecx_coexist) {
-            DEBUG("- Switched to QAT_SW mode\n");
-            if (qat_sw_ecx_derive_req > 0)
-                --qat_sw_ecx_derive_req;
-            return multibuff_x25519_derive(ctx, key, keylen);
-        }
-#endif
-        WARN("- Fallback to software mode.\n");
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
 #endif
