@@ -977,6 +977,8 @@ static inline int QAT_CRYPTO_DOWN_REF(QAT_CRYPTO_REF_COUNT *refcnt, int *ret)
 void qat_disable_signature(const char *);
 void qat_disable_keyexch(const char *);
 void qat_disable_digest(const char *);
+void qat_disable_keymgmt(const char *);
+void qat_disable_asym_cipher(const char *);
 void qat_disable_algorithm(OSSL_ALGORITHM *, const char *);
 # endif
 
