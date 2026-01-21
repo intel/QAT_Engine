@@ -1501,6 +1501,32 @@ int bind_qat(ENGINE *e, const char *id)
  */
     if (!qat_hw_sm3_offload && !qat_sw_sm3_offload)
         qat_disable_digest("SM3:1.2.156.10197.1.401");
+
+/*
+ * Disable individual keymgmt algorithms when neither a hardware
+ * nor a software offload implementation is available.
+ */
+    if (!qat_hw_rsa_offload && !qat_sw_rsa_offload) {
+        qat_disable_keymgmt("RSA");
+        qat_disable_keymgmt("RSA-PSS");
+    }
+    if (!qat_hw_ecx_offload && !qat_sw_ecx_offload)
+        qat_disable_keymgmt("X25519");
+    if (!qat_hw_ecdh_offload && !qat_sw_ecdh_offload &&
+        !qat_hw_ecdsa_offload && !qat_sw_ecdsa_offload) {
+        qat_disable_keymgmt("EC");
+    }
+    if (!qat_hw_dsa_offload)
+        qat_disable_keymgmt("DSA");
+    if (!qat_hw_dh_offload)
+        qat_disable_keymgmt("DH");
+    if (!qat_hw_ecx_offload)
+        qat_disable_keymgmt("X448");
+    if (!qat_hw_sm2_offload && !qat_sw_sm2_offload)
+        qat_disable_keymgmt("SM2");
+
+    if (!qat_hw_rsa_offload && !qat_sw_rsa_offload)
+        qat_disable_asym_cipher("RSA");
 #endif
     ret = 1;
     return ret;

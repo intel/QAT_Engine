@@ -76,7 +76,7 @@
 # include "qat_sw_ec.h"
 #endif
 
-#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
 
 static void *qat_keymgmt_ec_newdata(void *provctx)
 {
@@ -812,7 +812,7 @@ static int qat_keymgmt_ec_match(const void *keydata1, const void *keydata2, int 
 }
 #endif
 
-#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
 const OSSL_DISPATCH qat_ecdh_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))qat_keymgmt_ec_newdata },
     { OSSL_FUNC_KEYMGMT_GEN_INIT, (void (*)(void))qat_keymgmt_ec_gen_init },

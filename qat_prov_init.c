@@ -38,7 +38,6 @@
 #include "qat_fips.h"
 #include "qat_prov_cmvp.h"
 
-OSSL_PROVIDER *prov = NULL;
 #ifdef ENABLE_QAT_FIPS
 # define SM_KEY 0x00102F
 void *sm_ptr;
@@ -73,7 +72,6 @@ extern const OSSL_DISPATCH qat_rsa_signature_functions[];
 extern const OSSL_DISPATCH qat_rsa_asym_cipher_functions[];
 #endif
 #if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
-extern const OSSL_DISPATCH qat_ecdsa_keymgmt_functions[];
 extern const OSSL_DISPATCH qat_ecdsa_signature_functions[];
 #endif
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
@@ -179,7 +177,6 @@ static void qat_teardown(void *provctx)
         QAT_PROV_CTX *qat_ctx = (QAT_PROV_CTX *)provctx;
         BIO_meth_free(ossl_prov_ctx_get0_core_bio_method(qat_ctx));
         OPENSSL_free(qat_ctx);
-        OSSL_PROVIDER_unload(prov);
     }
 }
 
@@ -276,7 +273,7 @@ static OSSL_ALGORITHM qat_keyexch[] = {
 #endif
     {NULL, NULL, NULL}};
 
-static const OSSL_ALGORITHM qat_keymgmt[] = {
+static OSSL_ALGORITHM qat_keymgmt[] = {
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
     {"RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_keymgmt_functions, "QAT RSA Keymgmt implementation."},
     {"RSA-PSS", QAT_DEFAULT_PROPERTIES, qat_rsapss_keymgmt_functions, "QAT RSA-PSS Keymgmt implementation."},
@@ -284,7 +281,7 @@ static const OSSL_ALGORITHM qat_keymgmt[] = {
 #if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keymgmt_functions, "QAT X25519 Keymgmt implementation."},
 #endif
-#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
     {"EC", QAT_DEFAULT_PROPERTIES, qat_ecdh_keymgmt_functions, "QAT EC Keymgmt implementation."},
 #endif
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
@@ -355,7 +352,7 @@ static OSSL_ALGORITHM qat_digests[] = {
 #endif
 
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
-static const OSSL_ALGORITHM qat_asym_cipher[] = {
+static OSSL_ALGORITHM qat_asym_cipher[] = {
     { "RSA", QAT_DEFAULT_PROPERTIES, qat_rsa_asym_cipher_functions },
     { NULL, NULL, NULL }
 };
@@ -383,11 +380,39 @@ void qat_disable_algorithm(OSSL_ALGORITHM *dispatch_table, const char *qat_algo_
         WARN("Invalid parameters: dispatch_table or qat_algo_name is NULL.\n");
         return;
     }
-    for (int i = 0; dispatch_table[i].algorithm_names != NULL; i++) {
+    for (int i = 0; ; i++) {
+        /* Check for end of table - last entry has all fields NULL */
+        if (dispatch_table[i].algorithm_names == NULL &&
+            dispatch_table[i].property_definition == NULL &&
+            dispatch_table[i].implementation == NULL) {
+            DEBUG("qat_disable_algorithm: Reached end of table \
+		     at index %d for '%s'\n", i, qat_algo_name);
+            break;
+        }
+        /* Skip already disabled entries (algorithm_names starts with underscore) */
+        if (dispatch_table[i].algorithm_names != NULL &&
+            dispatch_table[i].algorithm_names[0] == '_') {
+            DEBUG("qat_disable_algorithm: Skipping already disabled entry at \
+		     index %d for '%s'\n", i, qat_algo_name);
+            continue;
+        }
+        if (dispatch_table[i].algorithm_names == NULL) {
+            WARN("Table corruption detected at index %d - algorithm_names is \
+                    NULL but entry not end-of-table\n", i);
+            continue;
+        }
+        DEBUG("qat_disable_algorithm: Checking index %d: '%s' vs '%s'\n",
+                 i, dispatch_table[i].algorithm_names, qat_algo_name);
         if (strcmp(dispatch_table[i].algorithm_names, qat_algo_name) == 0) {
             WARN("%s support not available — Fetching %s implementation from SW!!\n",
-                 qat_algo_name, qat_algo_name);
-            dispatch_table[i] = (OSSL_ALGORITHM){NULL, NULL, NULL};
+                    qat_algo_name, qat_algo_name);
+            /* Set a dummy algorithm name that will never match
+             * We use a name starting with underscore which is invalid for algorithm names.
+             * This allows OpenSSL to properly iterate through the table without getting
+             * confused by NULL entries in the middle of the table. */
+            dispatch_table[i].algorithm_names = "_DISABLED_";
+            DEBUG("qat_disable_algorithm: Successfully disabled '%s' at index %d\n",
+		     qat_algo_name, i);
             break;
         }
     }
@@ -410,12 +435,30 @@ void qat_disable_keyexch(const char *qat_algo_name)
 }
 
 /*
- * Wrapper to disable a digest algorithm using the qat_keyexch dispatch table.
+ * Wrapper to disable a digest algorithm using the qat_digests dispatch table.
  */
 void qat_disable_digest(const char *qat_algo_name)
 {
 #if defined(ENABLE_QAT_HW_SM3) || defined(ENABLE_QAT_SW_SM3)
     qat_disable_algorithm(qat_digests, qat_algo_name);
+#endif
+}
+
+/*
+ * Wrapper to disable a keymgmt algorithm using the qat_keymgmt dispatch table.
+ */
+void qat_disable_keymgmt(const char *qat_algo_name)
+{
+    qat_disable_algorithm((OSSL_ALGORITHM *)qat_keymgmt, qat_algo_name);
+}
+
+/*
+ * Wrapper to disable an asymmetric cipher algorithm using the qat_asym_cipher dispatch table.
+ */
+void qat_disable_asym_cipher(const char *qat_algo_name)
+{
+#if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
+    qat_disable_algorithm((OSSL_ALGORITHM *)qat_asym_cipher, qat_algo_name);
 #endif
 }
 
@@ -438,7 +481,6 @@ int qat_operations(int operation_id)
 static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_cache)
 {
     static int prov_init = 0;
-    prov = OSSL_PROVIDER_load(NULL, "default");
 
 #ifdef ENABLE_QAT_FIPS
     /*
@@ -536,8 +578,9 @@ static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_
         case OSSL_OP_ASYM_CIPHER:
             return qat_asym_cipher;
 #endif
-        }
-        return OSSL_PROVIDER_query_operation(prov, operation_id, no_cache);
+        default:
+            return NULL;
+	}
 #ifdef ENABLE_QAT_FIPS
     }
     else {
