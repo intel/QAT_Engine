@@ -537,10 +537,11 @@ int QAT_RSA_sign(void *prsactx, int type, const unsigned char *m, unsigned int m
 			       size_t *sigLen, size_t sigsize,
 			       const unsigned char *m,
 			       size_t m_len);
-	fun_ptr fun = get_default_rsa_signature().sign;
-	if (!fun)
-	    goto err;
-	return fun(prsactx, sigret, sigLen, sigsize, m, m_len);
+        fun_ptr fun = get_default_rsa_signature().sign;
+        if (!fun)
+            goto err;
+        OPENSSL_clear_free(tmps, encoded_len);
+        return fun(prsactx, sigret, sigLen, sigsize, m, m_len);
     }
 
     if (encrypt_len <= 0)
@@ -1296,6 +1297,17 @@ int QAT_RSA_verify(void *prsactx, int type, const unsigned char *m,
         return 0;
     }
 
+    /* Use default implementation if offload is disabled */
+    if (!qat_hw_rsa_offload && !qat_sw_rsa_offload) {
+        typedef int (*fun_ptr)(void *prsactx, const unsigned char *sigbuf,
+			       size_t siglen, const unsigned char *m,
+			       size_t m_len);
+        fun_ptr fun = get_default_rsa_signature().verify;
+        if (!fun)
+            return 0;
+        return fun(prsactx, sigbuf, siglen, m, m_len);
+    }
+
     /* Recover the encoded digest. */
     decrypt_buf = OPENSSL_malloc(siglen);
     if (decrypt_buf == NULL) {
@@ -1303,19 +1315,8 @@ int QAT_RSA_verify(void *prsactx, int type, const unsigned char *m,
         goto err;
     }
 
-    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-	len = qat_rsa_public_decrypt((int)siglen, sigbuf, decrypt_buf, rsa,
-                                     RSA_PKCS1_PADDING);
-    }
-    else {
-        typedef int (*fun_ptr)(void *prsactx, const unsigned char *sigbuf,
-			       size_t siglen, const unsigned char *m,
-			       size_t m_len);
-        fun_ptr fun = get_default_rsa_signature().verify;
-        if (!fun)
-	    return 0;
-        return fun(prsactx, sigbuf, siglen, m, m_len);
-    }
+    len = qat_rsa_public_decrypt((int)siglen, sigbuf, decrypt_buf, rsa,
+                                 RSA_PKCS1_PADDING);
     if (len <= 0)
         goto err;
     decrypt_len = len;
