@@ -308,7 +308,7 @@ AC_CHECK_FILE(${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h,
 	      [with_icp_sal_versions_h=no])
 if test "x$with_icp_sal_versions_h" = "xyes" -a "x$enable_qat_hw" != "xno"
 then
-  if grep "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"" ${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h
+  if grep -E "define SAL_INFO2_DRIVER_SW_VERSION_TYPE \"in-tree\"|#include.*qat_library_version\.h" "${qat_hw_dir_prefix}/include/qat/icp_sal_versions.h"
   then
     AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_INTREE"])
     AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
@@ -323,6 +323,9 @@ then
       AC_SUBST([cflags_qat_hw_intree], ["-DQAT_HW_FBSD_INTREE"])
       AC_SUBST([with_qat_hw_dir], ["${qat_hw_dir_prefix}"])
       AC_MSG_NOTICE([QAT in-tree driver using FBSD QATlib in ${with_qat_hw_dir}])
+      # SM2 is not supported on FreeBSD in-tree builds
+      AC_SUBST([enable_qat_hw_sm2], ["no"])
+      AC_MSG_NOTICE([SM2 disabled for FreeBSD in-tree driver (not supported)])
     fi
   fi
 fi
