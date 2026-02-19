@@ -13,7 +13,7 @@ and QAT_SW with software versions mentioned in [software_requirements](../docs/s
 This contains QAT_HW and QAT_SW co-existence build and works as defined in [co-existence section](../docs/qat_coex.md#qat_hw-and-qat_sw-co-existence)
 
 ## Haproxy with QAT crypto base
-This Dockerfile(haproxy/Dockerfile) is built with Haproxy release version v2.8.0 along
+This Dockerfile(haproxy/Dockerfile) is built with Haproxy release version v3.3.0 along
 with QAT crypto base mentioned above. Sample Haproxy configuration file is located at `haproxy/haproxy.cfg`
 which can be modified as per the required use case and to be mounted from the host to the container using
 `-v /usr/local/etc/haproxy/haproxy.cfg`.
