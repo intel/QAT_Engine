@@ -791,8 +791,11 @@ int QAT_AES_CIPHER_CTX_encrypting(QAT_GCM_CTX *qctx)
  * @param in      [IN]  - input buffer
  * @param len     [IN]  - length of input buffer
  *
- * @retval -1      function failed
- * @retval  1      function succeeded
+ * @retval -1   Operation failed
+ *
+ * Success return values differ due to OpenSSL API conventions:
+ *   Engine API:   returns output byte count (>=0)
+ *   Provider API: returns 1; output length via *padlen
  *
  * description:
  *    This function performs the cryptographic transform according to the
@@ -944,8 +947,11 @@ int aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx,
  * @param in     [IN]  - input buffer
  * @param len    [IN]  - length of input buffer
  *
- * @retval -1      function failed
- * @retval 0,1     function succeeded
+ * @retval -1   Operation failed
+ *
+ * Success return values differ due to OpenSSL API conventions:
+ *   Engine API:   returns output byte count (>=0)
+ *   Provider API: returns 1; output length via *padlen
  *
  * description:
  *    This function performs the cryptographic transform according to the
@@ -1085,7 +1091,7 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
                 qctx->tag_calculated = 1;
             }
 
-#ifdef ENABLE_QAT_FIPS
+#ifdef QAT_OPENSSL_PROVIDER
             memcpy(qctx->tag, qctx->buf, qctx->tag_len);
             qctx->tag_set = 1;
 #endif
@@ -1101,7 +1107,7 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
             if (qctx->tag_set) {
                 DEBUG("Decrypt - GCM Tag Set so calling memcmp\n");
                 if (memcmp(qctx->calculated_tag, qctx->tag, qctx->tag_len) == 0) {
-#ifdef ENABLE_QAT_FIPS
+#ifdef QAT_OPENSSL_PROVIDER
                     return 1;
 #else
                     return 0;

@@ -345,6 +345,17 @@ static int run_aesgcm256_update(void *args)
          goto err;
     }
 
+    /*
+     * EVP_DecryptFinal_ex() performs the GCM tag verification.
+     * For provider mode it must return 1 on success.
+     */
+    ret = EVP_DecryptFinal_ex(dec_ctx, dec_cipher + dec_cipher_len, &tmpout_len);
+    if (ret != 1) {
+        INFO("# FAIL: [%s] --- EVP_DecryptFinal_ex() failed with correct tag: ret %d\n",
+             __func__, ret);
+        goto err;
+    }
+
     if (print_output)
         tests_hexdump("AES-GCM 256 tag:", tag, EVP_GCM_TLS_TAG_LEN);
 
@@ -361,12 +372,102 @@ static int run_aesgcm256_update(void *args)
             tests_hexdump("AES256GCM actual  :", dec_cipher, dec_cipher_len);
             tests_hexdump("AES256GCM expected:", plaintext, size);
         }
-        else
+        else {
             INFO("# PASS verify for AES256 GCM update\n");
+            INFO("# PASS verify for AES256 GCM decrypt-final correct tag\n");
+        }
     }
 
     EVP_CIPHER_CTX_free(dec_ctx);
     dec_ctx = NULL;
+
+#ifdef QAT_OPENSSL_PROVIDER
+    /* ---- Negative test: Decryption with MODIFIED tag (expect failure) ---- */
+    {
+        unsigned char bad_tag[EVP_GCM_TLS_TAG_LEN];
+        int bad_tmpout_len = 0;
+        int bad_dec_len = 0;
+
+        memcpy(bad_tag, tag, EVP_GCM_TLS_TAG_LEN);
+        bad_tag[0] ^= 0xFF;  /* Corrupt the first byte of the tag */
+
+        dec_ctx = EVP_CIPHER_CTX_new();
+        if (dec_ctx == NULL) {
+            INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_new() failed for bad-tag test\n",
+                 __func__);
+            goto err;
+        }
+
+        ret = EVP_DecryptInit(dec_ctx, EVP_aes_256_gcm(), NULL, NULL);
+        if (ret != 1) {
+            INFO("# FAIL: [%s] --- EVP_DecryptInit() failed (bad tag test): ret %d\n",
+                 __func__, ret);
+            goto err;
+        }
+
+        ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof(iv),
+                                  NULL);
+        if (ret != 1) {
+            INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl(SET_IVLEN) failed (bad tag test): ret %d\n",
+                 __func__, ret);
+            goto err;
+        }
+
+        ret = EVP_DecryptInit(dec_ctx, NULL, key, iv);
+        if (ret != 1) {
+            INFO("# FAIL: [%s] --- EVP_DecryptInit(key,iv) failed (bad tag test): ret %d\n",
+                 __func__, ret);
+            goto err;
+        }
+
+        ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_GCM_SET_TAG,
+                                  EVP_GCM_TLS_TAG_LEN, bad_tag);
+        if (ret != 1) {
+            INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl(SET_TAG) failed (bad tag test): ret %d\n",
+                 __func__, ret);
+            goto err;
+        }
+
+        ret = EVP_DecryptUpdate(dec_ctx, NULL, &bad_tmpout_len, aad, sizeof(aad));
+        if (ret != 1) {
+            INFO("# FAIL: [%s] --- EVP_DecryptUpdate(aad) failed (bad tag test): ret %d\n",
+                 __func__, ret);
+            goto err;
+        }
+
+        ret = EVP_DecryptUpdate(dec_ctx, dec_cipher, &bad_dec_len, ciphertext,
+                                ciphertext_len);
+        if (ret != 1) {
+            INFO("# FAIL: [%s] --- EVP_DecryptUpdate(ciphertext) failed (bad tag test): ret %d\n",
+                 __func__, ret);
+            goto err;
+        }
+
+        ret = EVP_CIPHER_CTX_ctrl(dec_ctx, EVP_CTRL_GCM_SET_TAG,
+                                  EVP_GCM_TLS_TAG_LEN, bad_tag);
+        if (ret != 1) {
+            INFO("# FAIL: [%s] --- EVP_CIPHER_CTX_ctrl(SET_TAG) failed (bad tag test): ret %d\n",
+                 __func__, ret);
+            goto err;
+        }
+
+        /* DecryptFinal must FAIL with a corrupted tag */
+        ret = EVP_DecryptFinal_ex(dec_ctx, dec_cipher + bad_dec_len,
+                                  &bad_tmpout_len);
+        if (ret > 0) {
+            INFO("# FAIL: [%s] --- EVP_DecryptFinal_ex() should have failed "
+                 "with bad tag but returned: %d\n", __func__, ret);
+            ret = 0;
+            goto err;
+        }
+
+        INFO("# PASS verify for AES256 GCM decrypt-final bad tag\n");
+        ret = 1;
+
+        EVP_CIPHER_CTX_free(dec_ctx);
+        dec_ctx = NULL;
+    }
+#endif /* QAT_OPENSSL_PROVIDER */
 
     if (input != NULL)
         OPENSSL_free(input);
