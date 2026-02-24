@@ -309,9 +309,7 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             return 0;
         }
         ctx->tag_len = sz;
-#ifdef ENABLE_QAT_HW_GCM
         ctx->tag_set = 1;
-#endif
     }
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_IVLEN);

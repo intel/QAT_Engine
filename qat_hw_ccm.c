@@ -1126,8 +1126,11 @@ static int qat_aes_ccm_session_init(EVP_CIPHER_CTX *ctx, int *fallback)
 * @param in      [IN]  - input buffer
 * @param len     [IN]  - length of input buffer
 *
-* @retval 0      function failed
-* @retval 1      function succeeded
+* @retval -1   Operation failed
+*
+* Success return values differ due to OpenSSL API conventions:
+*   Engine API:   returns output byte count (>=0)
+*   Provider API: returns 1; output length via *padlen
 *
 * description:
 *    This function performs the cryptographic transform according to the
@@ -1501,8 +1504,11 @@ int qat_aes_ccm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 * @param in         [IN]  - input buffer
 * @param len        [IN]  - length of input buffer
 *
-* @retval -1      function failed
-* @retval len     function succeeded
+* @retval -1   Operation failed
+*
+* Success return values differ due to OpenSSL API conventions:
+*   Engine API:   returns output byte count (>=0)
+*   Provider API: returns 1; output length via *padlen
 *
 * description:
 *    This function performs the cryptographic transform according to the

@@ -1178,6 +1178,32 @@ err:
     return sts;
 }
 
+/******************************************************************************
+ * function:
+ *    qat_sw_sm4_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+ *                              size_t *padlen, const unsigned char *in,
+ *                              size_t len, int8u enc)
+ *
+ * @param ctx     [IN]  - pointer to existing context
+ * @param out     [OUT] - output buffer for transform result
+ * @param padlen  [OUT] - pointer to output length (Provider only)
+ * @param in      [IN]  - input buffer
+ * @param len     [IN]  - length of input buffer
+ * @param enc     [IN]  - 1 = encrypt, 0 = decrypt
+ *
+ * @retval -1   Operation failed
+ *
+ * Success return values differ due to OpenSSL API conventions:
+ *   Engine API:   returns output byte count (>=0)
+ *   Provider API: returns 1; output length via *padlen
+ *
+ * description:
+ *    This function performs the cryptographic transform according to the
+ *  parameters setup during initialisation.
+ *
+ *  This is the function used in the TLS case.
+ *
+ ******************************************************************************/
 #ifdef QAT_OPENSSL_PROVIDER
 static int qat_sw_sm4_gcm_tls_cipher(void *ctx, unsigned char *out,
                                      size_t *padlen, size_t outsize,
@@ -1285,6 +1311,29 @@ err:
 #endif
 }
 
+/******************************************************************************
+ * function:
+ *    qat_sw_sm4_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
+ *                          size_t *padlen, const unsigned char *in,
+ *                          size_t len)
+ *
+ * @param ctx     [IN]  - pointer to existing context
+ * @param out     [OUT] - output buffer for transform result
+ * @param padlen  [OUT] - pointer to output length (Provider only)
+ * @param in      [IN]  - input buffer
+ * @param len     [IN]  - length of input buffer
+ *
+ * @retval -1   Operation failed
+ *
+ * Success return values differ due to OpenSSL API conventions:
+ *   Engine API:   returns output byte count (>=0)
+ *   Provider API: returns 1; output length via *padlen
+ *
+ * description:
+ *    This function performs the cryptographic transform according to the
+ *  parameters setup during initialisation.
+ *
+ ******************************************************************************/
 #ifdef QAT_OPENSSL_PROVIDER
 int qat_sw_sm4_gcm_cipher(void *ctx, unsigned char *out, size_t *padlen,
                           size_t outsize, const unsigned char *in, size_t len)
