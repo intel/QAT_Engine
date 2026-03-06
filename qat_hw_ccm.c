@@ -1230,8 +1230,10 @@ int qat_aes_ccm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             goto err;
         }
     } else {
-        memcpy(&qctx->OpData.pAdditionalAuthData[QAT_CCM_AAD_WRITE_BUFFER],
-               qctx->aad, qctx->tls_aad_len);
+        if (qctx->aad != NULL && qctx->tls_aad_len > 0) {
+            memcpy(&qctx->OpData.pAdditionalAuthData[QAT_CCM_AAD_WRITE_BUFFER],
+                   qctx->aad, qctx->tls_aad_len);
+        }
     }
 
     /* Encryption: generate explicit IV and write to start of buffer.

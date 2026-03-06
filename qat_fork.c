@@ -116,6 +116,7 @@ void engine_init_child_at_fork_handler(void)
     if (NULL == prov) {
         WARN("Provider pointer is NULL\n");
         QATerr(QAT_F_ENGINE_INIT_CHILD_AT_FORK_HANDLER, QAT_R_ENGINE_NULL);
+        OPENSSL_free(ctx);
         return;
     }
     if (qat_engine_init(NULL) != 1) {
@@ -152,6 +153,7 @@ void engine_finish_before_fork_handler(void)
     if (NULL == prov) {
         WARN("Provider pointer is NULL\n");
         QATerr(QAT_F_ENGINE_FINISH_BEFORE_FORK_HANDLER, QAT_R_ENGINE_NULL);
+        OPENSSL_free(ctx);
         return;
     }
     qat_engine_finish_int(NULL, QAT_RETAIN_GLOBALS);

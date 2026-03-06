@@ -1148,8 +1148,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
 #ifdef QAT_BORINGSSL
     job->tlv_destructor(NULL);
     return 1;
-#endif /* QAT_BORINGSSL */
-#ifndef QAT_BORINGSSL
+#else
     DEBUG("Pausing: %p status = %d\n", rsa_priv_req, sts);
 #ifdef ENABLE_QAT_FIPS
     if (job != NULL) {
@@ -1176,7 +1175,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     OPENSSL_cleanse(select_ptr, rsa_len);
 
     return sts;
-#endif /* QAT_BORINGSSL */
+#endif
 
 use_sw_method:
     sts = RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);

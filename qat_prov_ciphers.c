@@ -166,7 +166,9 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
     OSSL_PARAM *p;
     size_t sz;
+#ifdef ENABLE_QAT_HW_GCM
     int ret = 1;
+#endif
 #if defined(ENABLE_QAT_HW_GCM) || (defined(ENABLE_QAT_SW_GCM) \
                 && !defined(QAT_INSECURE_ALGO))
     nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
@@ -267,8 +269,8 @@ end:
         QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
         ret = sw_aes_gcm_cipher.get_ctx_params(ctx->sw_ctx, params);
     }
-#endif
     return ret;
+#endif
 #ifndef QAT_INSECURE_ALGO
 fallback:;
     QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
