@@ -141,9 +141,9 @@ static void *qat_tls_prf_new(void *provctx)
 {
     QAT_TLS_PRF *ctx;
     QAT_EVP_KDF sw_prf_kdf;
-    sw_prf_kdf = get_default_tls12_kdf();
     if (!qat_prov_is_running())
         return NULL;
+    sw_prf_kdf = get_default_tls12_kdf();
 
     if ((ctx = OPENSSL_zalloc(sizeof(*ctx))) == NULL) {
         QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
@@ -154,13 +154,18 @@ static void *qat_tls_prf_new(void *provctx)
     ctx->pctx = OPENSSL_zalloc(sizeof(EVP_PKEY_CTX));
     if (ctx->pctx == NULL){
         WARN("Malloc for EVP_PKEY_CTX error.\n");
+        OPENSSL_free(ctx);
         return NULL;
     }
-    if (!ctx->sw_ctx)
+    if (!ctx->sw_ctx && sw_prf_kdf.newctx)
          ctx->sw_ctx = sw_prf_kdf.newctx(ctx);
     if (!qat_tls1_prf_init(ctx->pctx)){
         if (!qat_get_sw_fallback_enabled()) {
             WARN("EVP_PKEY_CTX init failed.\n");
+            if (ctx->sw_ctx && sw_prf_kdf.freectx)
+                sw_prf_kdf.freectx(ctx->sw_ctx);
+            OPENSSL_free(ctx->pctx);
+            OPENSSL_free(ctx);
             return NULL;
         }
     }
@@ -180,7 +185,9 @@ static void qat_tls_prf_free(void *vctx)
 
     if (ctx != NULL) {
         if (ctx->sw_ctx) {
-            OPENSSL_free(ctx->sw_ctx);
+            QAT_EVP_KDF sw_prf_kdf = get_default_tls12_kdf();
+            if (sw_prf_kdf.freectx)
+                sw_prf_kdf.freectx(ctx->sw_ctx);
             ctx->sw_ctx = NULL;
         }
         qat_prf_cleanup(ctx->pctx);
@@ -194,7 +201,8 @@ end:
     if (fallback) {
         typedef void(*sw_fun_ptr)(void *);
         sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().freectx;
-        default_prov_tls12_kdf_fun(ctx->sw_ctx);
+        if (default_prov_tls12_kdf_fun)
+            default_prov_tls12_kdf_fun(ctx->sw_ctx);
     }
 }
 

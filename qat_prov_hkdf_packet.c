@@ -578,6 +578,7 @@ int qat_DER_w_algorithmIdentifier_SM2_with_MD(qat_WPACKET *pkt, int cont,
     case NID_sm3:
         precompiled = qat_der_oid_sm2_with_SM3;
         precompiled_sz = sizeof(qat_der_oid_sm2_with_SM3);
+        break;
     default:
         return 0;
     }

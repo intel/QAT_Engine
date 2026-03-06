@@ -157,7 +157,7 @@ int QAT_EC_KEY_up_ref(EC_KEY *r)
         WARN("refcount error");
         return 0;
     }
-    return i > 1 ? 1 : 0;
+    return 1;
 }
 
 void QAT_EC_KEY_free(EC_KEY *r)

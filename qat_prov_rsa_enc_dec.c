@@ -662,8 +662,12 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
             return fun(vprsactx, out, outlen, outsize, in, inlen);
         }
     }
-    *outlen =
-        qat_constant_time_select_s(qat_constant_time_msb_s(ret), *outlen, ret);
+    {
+        size_t ret_len = (ret > 0) ? (size_t)ret : 0;
+        size_t mask = (ret > 0) ? 0 : (size_t)-1;
+        *outlen =
+            qat_constant_time_select_s(mask, *outlen, ret_len);
+    }
     ret = qat_constant_time_select_int(qat_constant_time_msb(ret), 0, 1);
     return ret;
 }
