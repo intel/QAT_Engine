@@ -1277,7 +1277,8 @@ int qat_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
 #ifdef ENABLE_QAT_SW_ECDSA
         /* Switch to QAT_SW only for P384 curve. */
         if (qat_ecdsa_coexist && (curve_name == NID_secp384r1)) {
-            --qat_sw_ecdsa_sign_req;
+            if (qat_sw_ecdsa_sign_req > 0)
+                --qat_sw_ecdsa_sign_req;
             return mb_ecdsa_sign(type, dgst, dlen, sig, siglen, kinv, r, eckey);
         }
 #endif

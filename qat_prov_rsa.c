@@ -79,7 +79,7 @@ int QAT_RSA_up_ref(QAT_RSA *r)
         WARN("refcount error");
         return 0;
     }
-    return i > 1 ? 1 : 0;
+    return 1;
 }
 
 void QAT_RSA_free(QAT_RSA *r)

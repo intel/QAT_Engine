@@ -472,7 +472,10 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(QAT_RSA *rsa, unsigned char *EM,
 
  err:
     EVP_MD_CTX_free(ctx);
-    OPENSSL_clear_free(salt, (size_t)sLen); /* salt != NULL implies sLen > 0 */
+    if (salt != NULL && sLen > 0)
+        OPENSSL_clear_free(salt, (size_t)sLen);
+    else
+        OPENSSL_free(salt);
 
     return ret;
 

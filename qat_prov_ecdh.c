@@ -164,7 +164,7 @@ static int QAT_ECDH_KEY_up_ref(EC_KEY *r)
         WARN("refcount error");
         return 0;
     }
-    return i > 1 ? 1 : 0;
+    return 1;
 }
 
 static void QAT_ECDH_KEY_free(EC_KEY *r)

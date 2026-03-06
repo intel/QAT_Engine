@@ -171,7 +171,7 @@ int qat_ecx_key_up_ref(ECX_KEY *key)
         return 0;
     }
 
-    return ((i > 1) ? 1 : 0);
+    return 1;
 }
 
 void qat_ecx_key_free(ECX_KEY *key)

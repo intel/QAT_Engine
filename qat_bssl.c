@@ -210,8 +210,14 @@ static void *bssl_qat_copy_op_done(const void *op_done, unsigned int size,
                             void (*buffers_free)(void *in_buf, void *out_buf, int qat_svm))
 {
     op_done_t *op_done_dup = OPENSSL_memdup(op_done, size);
-    volatile ASYNC_JOB *job = op_done_dup->job;
-    job->op_buf_free = buffers_free;
+    volatile ASYNC_JOB *job;
+
+    if (op_done_dup == NULL)
+        return NULL;
+
+    job = op_done_dup->job;
+    if (job != NULL)
+        job->op_buf_free = buffers_free;
 
     return op_done_dup;
 }

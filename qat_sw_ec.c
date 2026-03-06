@@ -889,7 +889,10 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
                   unsigned char *sig, unsigned int *siglen,
                   const BIGNUM *kinv, const BIGNUM *r, EC_KEY *eckey)
 {
-    int ret = 0, len = 0, job_ret = 0, sts = 0, alloc_buf = 0, bit_len = 0;
+    int ret = 0, len = 0, alloc_buf = 0, bit_len = 0;
+#ifndef QAT_BORINGSSL
+    int job_ret = 0, sts = 0;
+#endif
     BN_CTX *ctx = NULL;
     ECDSA_SIG *s;
     ASYNC_JOB *job;
@@ -1182,11 +1185,10 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         }
     }
 #ifdef QAT_BORINGSSL
-    if (job) {
-        job->tlv_destructor(NULL);
-        return -1;
-    }
+    job->tlv_destructor(NULL);
+    return -1;
 #endif
+#ifndef QAT_BORINGSSL
     DEBUG("Pausing: %p status = %d\n", ecdsa_sign_req, sts);
 #ifdef ENABLE_QAT_FIPS
     if (job != NULL) {
@@ -1223,6 +1225,7 @@ int mb_ecdsa_sign(int type, const unsigned char *dgst, int dlen,
         QATerr(QAT_F_MB_ECDSA_SIGN, QAT_R_ECDSA_SIGN_FAILURE);
         goto err;
     }
+#endif /* QAT_BORINGSSL */
 
 err:
     if (!ret) {
@@ -1241,9 +1244,6 @@ err:
 #ifdef QAT_BORINGSSL
     if (alloc_sig) {
         OPENSSL_free(sig);
-    }
-    if (ecdsa_async_ctx) {
-        OPENSSL_free(ecdsa_async_ctx);
     }
 #endif /* QAT_BORINGSSL */
     return ret;
