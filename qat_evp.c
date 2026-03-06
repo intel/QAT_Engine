@@ -224,6 +224,7 @@ typedef struct _digest_data {
 
 } digest_data;
 
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_HW_SM3)
 static digest_data digest_info[] = {
 #ifdef ENABLE_QAT_HW_SHA3
 # ifdef QAT_INSECURE_ALGO
@@ -237,6 +238,7 @@ static digest_data digest_info[] = {
     { NID_sm3,  NULL, NID_sm3WithRSAEncryption},
 #endif
 };
+#endif /* ENABLE_QAT_HW_SHA3 || ENABLE_QAT_SW_SM3 || ENABLE_QAT_HW_SM3 */
 
 /* QAT Hash Algorithm register */
 int qat_digest_nids[] = {
@@ -401,13 +403,15 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 ******************************************************************************/
 void qat_create_digest_meth(void)
 {
-    int i;
-
     /* free the old method while algorithm reload */
     if (qat_reload_algo)
         qat_free_digest_meth();
 
-    for (i = 0; i < num_digest_nids; i++) {
+    if (num_digest_nids == 0)
+        return;
+
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_HW_SM3)
+    for (int i = 0; i < num_digest_nids; i++) {
         if (digest_info[i].md == NULL) {
             switch (digest_info[i].m_type) {
 #ifdef ENABLE_QAT_HW_SHA3
@@ -440,14 +444,14 @@ void qat_create_digest_meth(void)
             }
         }
     }
+#endif /* ENABLE_QAT_HW_SHA3 || ENABLE_QAT_SW_SM3 || ENABLE_QAT_HW_SM3 */
 
 }
 
 void qat_free_digest_meth(void)
 {
-    int i;
-
-    for (i = 0; i < num_digest_nids; i++) {
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_HW_SM3)
+    for (int i = 0; i < num_digest_nids; i++) {
         if (digest_info[i].md != NULL) {
             switch (digest_info[i].m_type) {
 #ifdef ENABLE_QAT_HW_SHA3
@@ -478,6 +482,7 @@ void qat_free_digest_meth(void)
             digest_info[i].md = NULL;
         }
     }
+#endif /* ENABLE_QAT_HW_SHA3 || ENABLE_QAT_SW_SM3 || ENABLE_QAT_HW_SM3 */
     qat_hw_sha_offload = 0;
     qat_sw_sm3_offload = 0;
     qat_hw_sm3_offload = 0;
@@ -502,7 +507,6 @@ void qat_free_digest_meth(void)
 int qat_digest_methods(ENGINE *e, const EVP_MD **md,
                        const int **nids, int nid)
 {
-    int i;
     if (md == NULL) {
         if (unlikely(nids == NULL)) {
             WARN("Invalid input params.\n");
@@ -512,7 +516,8 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
         return num_digest_nids;
     }
 
-    for (i = 0; i < num_digest_nids; i++) {
+#if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_HW_SM3)
+    for (int i = 0; i < num_digest_nids; i++) {
         if (nid == qat_digest_nids[i]) {
             if (digest_info[i].md == NULL)
                 qat_create_digest_meth();
@@ -520,6 +525,7 @@ int qat_digest_methods(ENGINE *e, const EVP_MD **md,
             return 1;
         }
     }
+#endif /* ENABLE_QAT_HW_SHA3 || ENABLE_QAT_SW_SM3 || ENABLE_QAT_HW_SM3 */
 
     WARN("NID %d not supported\n", nid);
     *md = NULL;

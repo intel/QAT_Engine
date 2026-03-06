@@ -59,10 +59,6 @@
 # include "cpa_types.h"
 # include "cpa_cy_sym.h"
 
-#ifdef QAT_OPENSSL_PROVIDER
-#include "qat_prov_cbc.h"
-#endif
-
 # define AES_IV_LEN                 16
 # define AES_KEY_SIZE_256           32
 # define AES_KEY_SIZE_128           16

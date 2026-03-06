@@ -76,6 +76,9 @@
 #include "cpa_cy_sym.h"
 #include "qat_hw_ciphers.h"
 #include "qat_constant_time.h"
+#ifdef QAT_OPENSSL_PROVIDER
+# include "qat_prov_cbc.h"
+#endif
 
 #ifdef ENABLE_QAT_FIPS
 # include "qat_prov_cmvp.h"
