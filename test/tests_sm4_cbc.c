@@ -1142,8 +1142,8 @@ void tests_run_sm4_cbc(TEST_PARAMS *args)
     args->additional_args = NULL;
 
 #if (defined ENABLE_QAT_SW_SM4_CBC) && (defined ENABLE_QAT_HW_SM4_CBC)
-    int sw_bitmap = strtol(sw_algo_bitmap, NULL, 16);
-    int hw_bitmap = strtol(hw_algo_bitmap, NULL, 16);
+    int sw_bitmap = sw_algo_bitmap ? strtol(sw_algo_bitmap, NULL, 16) : 0;
+    int hw_bitmap = hw_algo_bitmap ? strtol(hw_algo_bitmap, NULL, 16) : 0;
 
     if(((hw_bitmap & ALGO_ENABLE_MASK_SM4) == 0)
         && ((sw_bitmap & ALGO_ENABLE_MASK_SM4) != 0)) {
