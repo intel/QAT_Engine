@@ -1,6 +1,6 @@
 # QAT_HW and QAT_SW Co-existence
 
-Intel&reg; QAT OpenSSL\* Engine supports QAT_HW and QAT_SW Co-existence
+Intel&reg; QAT OpenSSL\* Engine and Provider support QAT_HW and QAT_SW Co-existence
 when both QAT_HW flag `--with-qat_hw_dir=/path/to/QAT_Driver`
 and QAT_SW flag `--enable-qat_sw` configured in the build configure
 option to provide acceleration from both QAT_HW and QAT_SW combined.
@@ -16,13 +16,59 @@ flags (eg:--enable-qat_sw_rsa) in which case the individual algorithms enabled
 (either qat_hw or qat_sw) in the build configure will get accelerated.
 
 For the algorithms RSA2K/3K/4K, ECDHP256/P384/X25519 & ECDSAP384 to reach
-better performance, QAT Engine uses both QAT_HW and QAT_SW for acceleration
-when QAT_HW capacity is reached with co-existence build. The Control flow is
-mentioned in the Figure below.
+better performance, QATEngine uses both QAT_HW and QAT_SW for acceleration
+when QAT_HW capacity is reached with co-existence build. The mechanism by which
+QAT_HW capacity is detected differs between the two driver modes:
 
-<p align=center>
-<img src="images/qat_coex.png" alt="drawing" width="300"/>
-</p>
+**OOT (Out-of-Tree) driver:** QAT_HW signals capacity via a `RETRY` status
+returned from the driver. When a `RETRY` is received, the request is transparently
+rerouted to QAT_SW. The control flow for this mode is illustrated below.
+
+```mermaid
+flowchart TD
+    A([Crypto Request]) --> B[Submit to QAT_HW]
+    B --> C{QAT_HW\nResponse?}
+    C -- Success  --> D([Return Result])
+    C -- RETRY    --> E[Route to QAT_SW]
+    E --> F[Process via\nQAT_SW multibuffer]
+    F --> D
+
+    style A fill:#dae8fc,stroke:#6c8ebf,color:#000000
+    style D fill:#dae8fc,stroke:#6c8ebf,color:#000000
+    style B fill:#fff2cc,stroke:#d6b656,color:#000000
+    style E fill:#fff2cc,stroke:#d6b656,color:#000000
+    style F fill:#fff2cc,stroke:#d6b656,color:#000000
+    style C fill:#f8cecc,stroke:#b85450,color:#000000
+```
+
+**Intree driver (`QAT_HW_INTREE`):** Instead of relying on `RETRY`, the
+`icp_sal_AsymGetInflightRequests()` API provided by the intree driver is invoked
+to query the number of in-flight requests currently outstanding on the QAT_HW
+device. When this count reaches a configured threshold, subsequent requests are
+offloaded to QAT_SW rather than being submitted to QAT_HW, achieving co-existence
+without needing to wait for an explicit `RETRY` response from the hardware.
+
+```mermaid
+flowchart TD
+    A([Crypto Request]) --> B[icp_sal_AsymGetInflightRequests]
+    B --> C{Inflight count\n< threshold?}
+    C -- Yes --> D[Submit to QAT_HW]
+    C -- No  --> E[Route to QAT_SW]
+    D --> F{QAT_HW\nComplete?}
+    F -- Success --> G([Return Result])
+    F -- Error   --> E
+    E --> H[Process via\nQAT_SW multibuffer]
+    H --> G
+
+    style A fill:#dae8fc,stroke:#6c8ebf,color:#000000
+    style G fill:#dae8fc,stroke:#6c8ebf,color:#000000
+    style B fill:#fff2cc,stroke:#d6b656,color:#000000
+    style D fill:#fff2cc,stroke:#d6b656,color:#000000
+    style E fill:#fff2cc,stroke:#d6b656,color:#000000
+    style H fill:#fff2cc,stroke:#d6b656,color:#000000
+    style C fill:#f8cecc,stroke:#b85450,color:#000000
+    style F fill:#f8cecc,stroke:#b85450,color:#000000
+```
 
 ## Recommended settings and working mechanism
 
@@ -33,10 +79,14 @@ mentioned in the Figure below.
    request will be offloaded to QAT_HW first, and after QAT_HW capacity is
    reached, it will be processed through QAT_SW. These algorithms include:
    `RSA-2K/3K/4K`, `ECDSA-P384`, `ECDH-P256/P384/X25519`, `SM4-CBC(2048-16384 bytes)`.
+
+   > **Note:** `SM4-CBC` co-existence (HW + SW) is supported with the **OOT driver only**.
+   > It relies on the QAT_HW `RETRY` mechanism to trigger QAT_SW fallback.
+   > SM4-CBC co-existence is **not supported** with the intree driver (`QAT_HW_INTREE`).
 3. It is recommended to set "LimitDevAccess" to 0 in QAT_HW driver config file to
    utilize all the available device per process for Co-existence mode to fully
    utilize QAT_HW first and then utilize QAT_SW.
-4. For SM4-CBC, It is recommended to set "CyNumConcurrentSymRequests" to be
+4. For SM4-CBC (**OOT driver only**), It is recommended to set "CyNumConcurrentSymRequests" to be
    smaller to trigger QAT HW `RETRY`. And The number of async jobs should be
    appropriate, Number of async requests has to be maintained properly to
    achieve optimal performance. The following is a best known configuration(
@@ -52,6 +102,10 @@ mentioned in the Figure below.
    | 16384 bytes | 48 async jobs  | 88 async jobs  | 152 async jobs  | 176 async jobs  |
 
 ## Run time configuration using HW & SW algorithm bitmap
+
+> **Note:** This section is applicable to the **QAT Engine** (`qatengine`) module only
+> and does not apply to the QAT Provider (`qatprovider`).
+
 Intel&reg; QAT OpenSSL\* Engine supports a runtime mechanism to dynamically choose
 the QAT_HW or QAT_SW or both for each algorithm using the ENGINE ctrl commands:
 **HW_ALGO_BITMAP** & **SW_ALGO_BITMAP**,
@@ -68,10 +122,10 @@ Bitmap of each algorithm is defined below:
 | PRF | 0x00080 | HW |
 | HKDF | 0x00100 | HW |
 | SM2(ECDSA) | 0x00200 | HW > SW |
-| AES_GCM | 0x00400 | Both (SW > HW) |
-| AES_CBC_HMAC_SHA | 0x00800 | HW |
-| SM4_CBC | 0x01000 | Both (HW > SW) |
-| CHACHA_POLY | 0x02000 | HW |
+| AES-GCM | 0x00400 | Both (SW > HW) |
+| AES-CBC-HMAC-SHA | 0x00800 | HW |
+| SM4-CBC | 0x01000 | Both (HW > SW) |
+| CHACHA-POLY | 0x02000 | HW |
 | SHA3 | 0x04000 | HW |
 | SM3 | 0x08000 | SW |
 | SM4-GCM | 0x10000 | SW |
@@ -84,7 +138,7 @@ If one algorithm is expected to be enabled, the preconditions are:
 1. Supported in configuration, e.g., `--enable-qat_hw_gcm`.
 2. Enabled in [default algorithm] directive, e.g., `RSA/EC/DH/DSA/CIPHER/PKEY/DIGEST/ALL`.
 
-Algorithms that are enabled in HW_ALGO_BITMAP will gets accelerated via QAT_HW method and algorithms that are enabled in SW_ALGO_BITMAP will gets accelerated via QAT_SW method. If an algorithm is enabled in both HW_ALGO_BITMAP and SW_ALGO_BITMAP then the one that has highest priority (listed above) will be accelerated. If none is enabled, OpenSSL SW will be used.
+Algorithms that are enabled in HW_ALGO_BITMAP will be accelerated via QAT_HW method and algorithms that are enabled in SW_ALGO_BITMAP will be accelerated via QAT_SW method. If an algorithm is enabled in both HW_ALGO_BITMAP and SW_ALGO_BITMAP then the one that has highest priority (listed above) will be accelerated. If none is enabled, OpenSSL SW will be used.
 
 **Note:** 
 1. The default HW_ALGO_BITMAP and SW_ALGO_BITMAP value for each algorithm are set to 0xFFFF, which means all algorithms are enabled by default. If both HW&SW bitmap aren't set, QAT_Engine will offload the algorithm depending on the configuration and [default algorithm] setup.

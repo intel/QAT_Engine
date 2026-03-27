@@ -39,6 +39,7 @@ libtool and pkg-config) installed in the system.
 - [Build QAT Engine for QAT_HW](#build-qat-engine-for-qat_hw)
 - [Build QAT Engine for QAT_SW](#build-qat-engine-for-qat_sw)
 - [Build QAT Engine with QAT_HW & QAT_SW Co-existence ](#build-qat-engine-with-qat_hw--qat_sw-co-existence)
+- [Build with QAT Provider Interface](#build-with-qat-provider-interface)
 - [Build Instructions for BoringSSL Library](bssl_support.md)
 
 ### Install with make depend target
@@ -100,7 +101,16 @@ at OpenSSL\*
 ```
 export OPENSSL_ENGINES=/usr/local/ssl/lib64/engines-3
 ```
-Load/Initialize Engine using the the OpenSSL conf file is located [here](openssl_config.md)
+
+For the QAT Provider, the `qatprovider.so` module must be placed in the OpenSSL\*
+modules directory. Set `OPENSSL_MODULES` if the module is installed outside the
+default location (e.g. `<openssl-install>/lib64/ossl-modules/`):
+
+```
+export OPENSSL_MODULES=/usr/local/ssl/lib64/ossl-modules
+```
+
+Load/Initialize Engine or Provider using the OpenSSL conf file is located [here](openssl_config.md)
 
 ### Install QAT_HW & QAT_SW dependencies
 
@@ -276,7 +286,25 @@ make install
 The default behaviour and working mechanism of co-existence is described
 [here](qat_coex.md#qat_hw-and-qat_sw-co-existence)
 
-### Build Instructions for BoringSSL Library
+### Build with QAT Provider Interface
+
+The QAT Provider (`qatprovider`) is the recommended interface for OpenSSL 3.x
+applications. Add `--enable-qat_provider` to any of the build configurations
+above to build `qatprovider.so` instead of (or alongside) the engine.
+
+After installation, `qatprovider.so` is placed in the OpenSSL\* modules
+directory (`<openssl-install>/lib64/ossl-modules/`). Set `OPENSSL_MODULES`
+if using a non-default path:
+
+```
+export OPENSSL_MODULES=/usr/local/ssl/lib64/ossl-modules
+```
+
+Refer to [OpenSSL\* Configuration File](openssl_config.md) for loading the
+provider via `openssl.cnf`, and to [qat_common.md](qat_common.md#openssl-v3-provider-support)
+for test commands and further details. Note that when `qatprovider` is activated via
+`openssl.cnf`, the `default` provider is not loaded automatically — ensure it is also
+listed in the providers section to avoid "unknown algorithm" errors.
 
 Refer [BoringSSL section](bssl_support.md)
 for steps to build the  Intel® QAT Engine for BoringSSL\* library

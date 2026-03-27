@@ -17,6 +17,8 @@ Some limitations specific for the current BoringSSL\* Library:
 * `RSA_padding_add_PKCS1_OAEP` function is exported by BoringSSL\* `libdecrepit.so`,
 so it needs to be linked in the BoringSSL\* Library. It may cause linking error while
 building with the system lack of that library.
+* The QAT Provider (`qatprovider`) is not supported with BoringSSL\*. Only the QAT
+Engine interface is available for BoringSSL\* builds.
 
 ## Requirements
 - [Hardware Requirements](hardware_requirements.md)

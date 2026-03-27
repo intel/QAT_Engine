@@ -31,7 +31,7 @@ deprecated it should not be relied upon for future use.
 
 For further details on using the OPENSSL_init_crypto function please see the
 OpenSSL\* online documentation located at:
-<https://www.openssl.org/docs/man1.1.1/man3/OPENSSL_init_crypto.html>
+<https://www.openssl.org/docs/man3.0/man3/OPENSSL_init_crypto.html>
 
 In order to start using the openssl.cnf file it needs some additional lines
 adding. You should add the following statement in the global section (this is
@@ -115,6 +115,62 @@ For further details on using the OpenSSL\* configuration file please see the
 OpenSSL\* online documentation located at:
 <https://www.openssl.org/docs/man3.0/man5/config.html>
 
-By setting up the configuration file as above it is possible for instance to run
-the OpenSSL\* speed application to use the Intel&reg; QAT OpenSSL\* Engine
-without needing to specify `-engine qatengine` as a command line option.
+# Using the OpenSSL\* Configuration File to Load/Initialize Providers
+
+OpenSSL\* 3.x introduced a provider model as the successor to the engine
+interface. The Intel&reg; QAT Provider (`qatprovider`) can be loaded via the
+`openssl.cnf` file in the same way as engines, using the `providers`
+configuration module instead of `engines`. The same application initialization
+requirement applies: `OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL)` must
+be called before any OpenSSL\* library call, as described in the engine section
+above.
+
+As with engines, the global section of `openssl.cnf` must reference the
+initialization section:
+
+    openssl_conf = openssl_init
+
+The `openssl_init` section should register the `providers` module:
+
+    [ openssl_init ]
+    providers = provider_section
+
+The `provider_section` lists the providers to be loaded. Both `qatprovider` and
+the built-in `default` provider should be activated so that algorithms not
+offloaded by QAT remain available:
+
+    [ provider_section ]
+    qatprovider = qat_prov_section
+    default = default_sect
+
+The `qat_prov_section` contains the settings for the Intel&reg; QAT Provider:
+
+    [ qat_prov_section ]
+    module = /usr/local/lib64/ossl-modules/qatprovider.so
+    activate = 1
+
+Where `module` is the path to the loadable shared library implementing the
+provider. There is no need to specify this line if the provider module is
+located within the standard OpenSSL\* modules directory (typically
+`<openssl-install>/lib64/ossl-modules/`).
+
+Where `activate = 1` instructs OpenSSL\* to load and initialise the provider.
+
+The default provider section should also be activated to ensure software
+fallback for any algorithms not handled by the QAT Provider:
+
+    [ default_sect ]
+    activate = 1
+
+For further details on using the OpenSSL\* configuration file please see the
+OpenSSL\* online documentation located at:
+<https://www.openssl.org/docs/man3.0/man5/config.html>
+
+## TLS Application Integration
+
+Once `openssl.cnf` is configured to load either the Intel&reg; QAT Engine or
+the Intel&reg; QAT Provider as described above, TLS applications such as async
+mode NGINX\*, HAProxy\*, and the OpenSSL\* speed utility will automatically
+benefit from QAT acceleration without requiring explicit `-engine qatengine` or
+`-provider qatprovider` flags on the command line or in application-specific
+configuration.
