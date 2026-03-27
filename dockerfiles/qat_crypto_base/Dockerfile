@@ -67,6 +67,8 @@ RUN apt-get upgrade -y && \
     git \
     nasm \
     autoconf \
+    autoconf-archive \
+    libnuma-dev \
     automake \
     cmake \
     ca-certificates \
@@ -141,11 +143,13 @@ FROM ${UBUNTU_BASE}
 RUN apt-get update && \
     apt-get upgrade -y
 
-COPY --from=builder /usr/local/lib/libqat.so.4.2.0 /usr/lib/
-COPY --from=builder /usr/local/lib/libusdm.so.0.1.0 /usr/lib/
-COPY --from=builder /usr/local/lib/libIPSec_MB.so.2.0.0  /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/local/lib64/libcrypto.so.3 /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/local/lib/intel64/libcrypto_mb.so.12.2 /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib/libqat.so* /usr/local/lib/
+COPY --from=builder /usr/local/lib/libusdm.so* /usr/local/lib/
+COPY --from=builder /usr/local/lib/libIPSec_MB.so*  /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib64/libcrypto.so* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib64/libssl.so* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/lib/x86_64-linux-gnu/libnuma.so* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib/intel64/libcrypto_mb.so* /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/bin/openssl /usr/bin/
 COPY --from=builder /usr/local/lib64/engines-3/qatengine.so /usr/lib/x86_64-linux-gnu/engines-3/
 COPY --from=builder /etc/group /etc/group

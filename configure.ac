@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.68])
-AC_INIT([qatengine], [2.0.0], [])
+AC_INIT([qatengine], [2.1.0], [])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([.])
@@ -458,41 +458,22 @@ then
   if test "x$with_qat_sw_crypto_mb_install_dir" != "x"
   then
     AC_MSG_NOTICE([QAT_SW enabled for PKE with crypto_mb from user provided path])
+    AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
     AC_SUBST([includes_qat_sw_crypto_mb], ["-I\${with_qat_sw_crypto_mb_install_dir}/include"])
-    crypto_mb_base_path="${with_qat_sw_crypto_mb_install_dir}"
+    AC_CHECK_FILE(${with_qat_sw_crypto_mb_install_dir}/lib/intel64/libcrypto_mb.so,
+                 [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,${with_qat_sw_crypto_mb_install_dir}/lib/intel64 -L\${with_qat_sw_crypto_mb_install_dir}/lib/intel64 -lcrypto_mb"])],
+                 [AC_CHECK_FILE(${with_qat_sw_crypto_mb_install_dir}/lib/libcrypto_mb.so,
+                               [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,${with_qat_sw_crypto_mb_install_dir}/lib -L\${with_qat_sw_crypto_mb_install_dir}/lib -lcrypto_mb"])],
+                               [AC_MSG_ERROR([$with_qat_sw_crypto_mb_install_dir/lib/intel64/libcrypto_mb.so or $with_qat_sw_crypto_mb_install_dir/lib/libcrypto_mb.so not found. Install it and try again.])])])
   else
+    AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
     AC_SUBST([includes_qat_sw_crypto_mb], ["-I/usr/local/include -I/usr/include"])
-    crypto_mb_base_path="/usr/local"
-    AC_CHECK_LIB(crypto_mb, mbx_getversion)
-    if test "x$ac_cv_lib_crypto_mb_mbx_getversion" = "xyes"
-    then
-      crypto_mb_rpm="yes"
-    fi
+    AC_CHECK_FILE(/usr/local/lib/intel64/libcrypto_mb.so,
+                 [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib/intel64 -L/usr/local/lib/intel64 -lcrypto_mb"])],
+                 [AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so,
+                               [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib -L/usr/local/lib -lcrypto_mb"])],
+                               [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])])])
   fi
-
-  # Check crypto_mb version to determine lib path
-  crypto_mb_lib_path="${crypto_mb_base_path}/lib"
-  if test -f "${crypto_mb_base_path}/include/crypto_mb/version.h"; then
-    crypto_mb_major=$(grep "^#define MBX_VER_MAJOR" "${crypto_mb_base_path}/include/crypto_mb/version.h" | awk '{print $3}')
-    crypto_mb_minor=$(grep "^#define MBX_VER_MINOR" "${crypto_mb_base_path}/include/crypto_mb/version.h" | awk '{print $3}')
-    if test "x$crypto_mb_major" != "x" -a "x$crypto_mb_minor" != "x"; then
-      if test "$crypto_mb_major" -gt 1 -o \( "$crypto_mb_major" -eq 1 -a "$crypto_mb_minor" -ge 1 \); then
-        crypto_mb_lib_path="${crypto_mb_base_path}/lib/intel64"
-        AC_MSG_NOTICE([crypto_mb version $crypto_mb_major.$crypto_mb_minor.x detected (>=1.1.0), using intel64 lib path])
-      fi
-    fi
-  fi
-
-  AC_SUBST([cflags_qat_sw], ["-DQAT_SW"])
-  # Configure library linking
-  AC_CHECK_FILE(${crypto_mb_lib_path}/libcrypto_mb.so,
-               [AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,${crypto_mb_lib_path} -L${crypto_mb_lib_path} -lcrypto_mb"])],
-               [missing_crypto_lib="yes"; if test "x$crypto_mb_rpm" = "xyes"; then
-                  # For RPM Package linking from system default
-                  AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-lcrypto_mb"])
-                else
-                  AC_MSG_WARN([${crypto_mb_lib_path}/libcrypto_mb.so not found. Install it and try again.])
-                fi])
 
 #IPSEC_MB install path provided
   if test "x$with_qat_sw_ipsec_mb_install_dir" != "x"
@@ -831,12 +812,16 @@ then
   if test "x$with_qat_sw_crypto_mb_install_dir" = "x"
   then
     AC_CHECK_LIB(crypto_mb, mbx_getversion)
-    AC_CHECK_FILE(${crypto_mb_lib_path}/libcrypto_mb.so)
-    if test "x$ac_cv_file_usr_local_lib_intel64_libcrypto_mb_so" != "xyes" -a "x$ac_cv_lib_crypto_mb_mbx_getversion" != "xyes"
+    AC_CHECK_FILE(/usr/local/lib/intel64/libcrypto_mb.so)
+    if test "x$ac_cv_file__usr_local_lib_intel64_libcrypto_mb_so" != "xyes"
     then
-      echo "libcrypto_mb.so not found in /usr/local/lib/intel64 or in system default. Install it & try again or proceed with 'make depend' target to install dependencies"
-      # Setting it for make depend target
-      AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,${crypto_mb_lib_path} -L${crypto_mb_lib_path} -lcrypto_mb"])
+      AC_CHECK_FILE(/usr/local/lib/libcrypto_mb.so)
+      if test "x$ac_cv_file__usr_local_lib_libcrypto_mb_so" != "xyes" -a "x$ac_cv_lib_crypto_mb_mbx_getversion" != "xyes"
+      then
+        echo "libcrypto_mb.so not found in /usr/local/lib/intel64, /usr/local/lib or in system default. Install it & try again or proceed with 'make depend' target to install dependencies"
+        # Setting it for make depend target
+        AC_SUBST([QAT_SW_CRYPTO_MB_LIB], ["-Wl,-rpath,/usr/local/lib/intel64 -L/usr/local/lib/intel64 -lcrypto_mb"])
+      fi
     fi
   fi
   if test "x$with_qat_sw_ipsec_mb_install_dir" = "x"
@@ -849,7 +834,3 @@ echo "==========================================================================
 # Output files from the configure
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
-
-if test "x$missing_crypto_lib" = "xyes"; then
-  AC_MSG_ERROR([libcrypto_mb.so not found in  ${crypto_mb_lib_path} or in system default. Install it & try again !!])
-fi
