@@ -1,34 +1,215 @@
-# OpenSSL 3.0 Provider Support
+# OpenSSL Provider Support
 
-Intel&reg; QAT OpenSSL\* Engine supports Provider interface for OpenSSL 3.0.
-The qatprovider support can be enabled using configure flag `--enable-qat_provider`
-and the default if not specified will use engine interface.
+Intel&reg; QAT OpenSSL\* Engine supports both the legacy Engine interface and the
+OpenSSL 3.x Provider interface (`qatprovider`) in production environments.
+The Provider interface is the recommended integration point for OpenSSL 3.x
+applications and offers the same QAT acceleration capabilities as the Engine
+interface. Provider support can be enabled using the configure flag
+`--enable-qat_provider`; the default, if not specified, is the Engine interface.
 
-This support is added as an experimental feature and with limited functional
-testing with real time application like Nginx and Haproxy.
+Example commands to test using qatprovider:
 
-Example OpenSSL Speed command to test using qatprovider:
+> **Note:** If `qatprovider.so` is not installed in the default OpenSSL\* modules
+> directory (`<openssl-install>/lib64/ossl-modules/`), add
+> `-provider-path /path/to/ossl-modules` before `-provider qatprovider` in all
+> commands below.
+
+> **Note:** When loading `qatprovider` explicitly, always also load the OpenSSL\*
+> `default` provider (add `-provider default` to command-line invocations, or
+> activate `[default_sect]` in `openssl.cnf`). The `default` provider supplies
+> algorithms not offloaded by QAT (e.g. certificate parsing, key encoding,
+> digest algorithms used internally). Omitting it can cause unexpected failures.
+
+> **Note:** When QAT HW or SW offload is supported and enabled on the platform,
+> `qatprovider` takes the highest priority over all other stacked providers for
+> the algorithms it offloads.
 
 * QAT_HW
      ./openssl speed -provider qatprovider -elapsed -async_jobs 72 rsa2048
 * QAT_SW
      ./openssl speed -provider qatprovider -elapsed -async_jobs 8 rsa2048
 
+**RSA Sign/Verify:**
+```
+./openssl genrsa -provider qatprovider -out rsa_key.pem 2048
+./openssl dgst -provider qatprovider -sha256 -sign rsa_key.pem -out sig.bin plain.txt
+./openssl dgst -provider qatprovider -sha256 -verify <(./openssl rsa -in rsa_key.pem -pubout) -signature sig.bin plain.txt
+```
+
+**ECDSA Sign/Verify (P-256):**
+```
+./openssl genpkey -provider qatprovider -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out ec_key.pem
+./openssl dgst -provider qatprovider -sha256 -sign ec_key.pem -out ec_sig.bin plain.txt
+./openssl dgst -provider qatprovider -sha256 -verify <(./openssl pkey -in ec_key.pem -pubout) -signature ec_sig.bin plain.txt
+```
+
+**AES-GCM Encrypt/Decrypt:**
+```
+./openssl enc -provider qatprovider -aes-256-gcm -pbkdf2 -in plain.txt -out enc.bin
+./openssl enc -provider qatprovider -aes-256-gcm -pbkdf2 -d -in enc.bin -out dec.txt
+```
+
+**TLS Handshake (s_server / s_client):**
+```
+# Server
+./openssl s_server -provider qatprovider -cert server.crt -key server.key -port 4433 &
+# Client
+./openssl s_client -provider qatprovider -connect localhost:4433
+```
+
+## Interoperability with OpenSSL Default Provider for Hybrid PQC
+
+`qatprovider` supports hybrid post-quantum cryptography (PQC) by stacking with a second
+provider that supplies PQC algorithms. QAT accelerates the classical component
+(e.g. ECDH P-256/P-384, RSA, AES-GCM) while the PQC provider supplies the
+post-quantum component (ML-KEM, ML-DSA). Two configurations have been tested:
+
+| Configuration | OpenSSL Version | PQC Provider |
+| :--- | :---: | :--- |
+| [OpenSSL 3.5.x built-in](#option-1-openssl-35x-built-in-default-provider) | 3.5.x | Built-in `default` provider (ML-KEM, ML-DSA) |
+| [liboqs + oqs-provider](#option-2-openssl-34x-with-liboqs--oqs-provider) | 3.x (≤3.4.x) | [`oqs-provider`](https://github.com/open-quantum-safe/oqs-provider) backed by [`liboqs`](https://github.com/open-quantum-safe/liboqs) |
+
+---
+
+### Option 1: OpenSSL 3.5.x built-in default provider
+
+OpenSSL 3.5.x ships ML-KEM and ML-DSA natively in its `default` provider — no
+additional libraries are needed.
+
+**openssl.cnf — stacked provider configuration:**
+```ini
+openssl_conf = openssl_init
+
+[openssl_init]
+providers = provider_section
+
+[provider_section]
+qatprovider = qat_prov_section
+default     = default_sect
+
+[qat_prov_section]
+module   = /usr/local/lib64/ossl-modules/qatprovider.so
+activate = 1
+
+[default_sect]
+activate = 1
+```
+
+**Test hybrid KEM speed:**
+```bash
+./openssl speed -provider qatprovider -provider default \
+    -elapsed X25519MLKEM768 p256_mlkem768
+```
+
+**TLS handshake with hybrid KEM groups:**
+```bash
+# Server
+./openssl s_server \
+    -provider qatprovider -provider default \
+    -cert server.crt -key server.key -port 4433 \
+    -groups X25519MLKEM768:p256_mlkem768:X25519 &
+
+# Client
+./openssl s_client \
+    -provider qatprovider -provider default \
+    -connect localhost:4433 \
+    -groups X25519MLKEM768:p256_mlkem768:X25519
+```
+
+**Generate a hybrid key and self-signed certificate (hybrid signatures):**
+```bash
+./openssl genpkey \
+    -provider qatprovider -provider default \
+    -algorithm p256_mldsa44 -out hybrid_key.pem
+
+./openssl req -new -x509 \
+    -provider qatprovider -provider default \
+    -key hybrid_key.pem -out hybrid_cert.pem \
+    -subj "/CN=QAT Hybrid Test"
+```
+
+**TLS handshake with hybrid signature authentication:**
+```bash
+# Server
+./openssl s_server \
+    -provider qatprovider -provider default \
+    -cert hybrid_cert.pem -key hybrid_key.pem -port 4433 &
+
+# Client
+./openssl s_client \
+    -provider qatprovider -provider default \
+    -connect localhost:4433 \
+    -CAfile hybrid_cert.pem
+```
+
+---
+
+### Option 2: OpenSSL 3.4.x with liboqs + oqs-provider
+
+For OpenSSL versions prior to 3.5.x, use [`liboqs`](https://github.com/open-quantum-safe/liboqs)
+and [`oqs-provider`](https://github.com/open-quantum-safe/oqs-provider) to supply PQC algorithms.
+Build and install them following the [oqs-provider build instructions](https://github.com/open-quantum-safe/oqs-provider#building-and-installing).
+
+**openssl.cnf — stacked provider configuration:**
+```ini
+openssl_conf = openssl_init
+
+[openssl_init]
+providers = provider_section
+
+[provider_section]
+qatprovider = qat_prov_section
+oqsprovider  = oqs_prov_section
+default      = default_sect
+
+[qat_prov_section]
+module   = /usr/local/lib64/ossl-modules/qatprovider.so
+activate = 1
+
+[oqs_prov_section]
+module   = /usr/local/lib64/ossl-modules/oqsprovider.so
+activate = 1
+
+[default_sect]
+activate = 1
+```
+
+**Test hybrid KEM speed:**
+```bash
+./openssl speed -provider qatprovider -provider oqsprovider -provider default \
+    -elapsed X25519_kyber768 p256_kyber768
+```
+
+**TLS handshake with hybrid KEM groups:**
+```bash
+# Server
+./openssl s_server \
+    -provider qatprovider -provider oqsprovider -provider default \
+    -cert server.crt -key server.key -port 4433 \
+    -groups X25519_kyber768:p256_kyber768:X25519 &
+
+# Client
+./openssl s_client \
+    -provider qatprovider -provider oqsprovider -provider default \
+    -connect localhost:4433 \
+    -groups X25519_kyber768:p256_kyber768:X25519
+```
+
 # FIPS 140-3 Certification
 
 Intel&reg; QAT OpenSSL\* Engine contains changes to comply with FIPS 140-3 Level-1
 Certification requirements using QAT Provider against OpenSSL 3.0.8. The FIPS
 support can be enabled using the configure flag `--enable-qat_fips` only with
-OpenSSL 3.0 using provider interface which needs to be enabled using `--enable-qat_provider`.
+OpenSSL 3.0.8 using the provider interface, which must be enabled using `--enable-qat_provider`.
 
-When FIPS flag is enabled along with provider for OpenSSL3.0, it will run
-self tests, integrity tests and will satisfy other FIPS 140-3 CMVP & CAVP
-requirements. The FIPS is build as RPM using the specfile fips/qatengine_fips.spec
-with QAT_HW & QAT_SW Coexistence enabled along with other flags enabled.
+When the FIPS flag is enabled along with the provider for OpenSSL 3.0.8, it will run
+self-tests and integrity tests and will satisfy other FIPS 140-3 CMVP & CAVP
+requirements. The FIPS build is packaged as an RPM using the specfile `fips/qatengine_fips.spec`
+with QAT_HW & QAT_SW Co-existence enabled along with other required flags.
 
-Please note that the version v1.3.1 is only satisfying FIPS 140-3 Level-1
-certification requirements and not FIPS certified yet.
-The FIPS 140-3 certification is under process.
+The Intel&reg; QAT OpenSSL\* Engine (version v1.3.1) has obtained FIPS 140-3
+Level-1 certification. The certificate is available at the
+[NIST CMVP Certificate #5032](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5032).
 
 ## Support Algorithms in FIPS mode
 
@@ -45,7 +226,7 @@ with default Kernel and other dependent packages from the system default.
 The RPM is generated using QAT2.0 OOT driver with QAT_SW Co-existence which means
 it will accelerate via QAT_HW for asymmetic PKE and QAT_SW for AES-GCM and supported only on
 [Intel® Xeon® Scalable Processor family with Intel® QAT Gen4/Gen4m][1] with default build configuration
-in QAT Engine against OpenSSL 3.0 engine and can be build using `make rpm` target.
+in QAT Engine against OpenSSL 3.0 engine and can be built using the `make rpm_oot` target.
 Dependent library versions used for building binary package are mentioned in Software requirements section.
 
 Example commands below to install and uninstall RPM Package

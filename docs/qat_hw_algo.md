@@ -1,6 +1,6 @@
 # QAT_HW Algorithms list, its supported platforms and default behaviour
 
-| QAT_HW Algorithms | v1.7 | v1.8 | v2.0 | qatlib(intree) |
+| QAT_HW Algorithms | v1.7 | v1.8 | v2.x | qatlib(intree) |
 | :---: | :---: | :---: | :---: | :---: |
 | RSA Key size < 2048 | ** | ** | ** | ** |
 | RSA Key size >= 2048 <= 4096 | * | * | * | * |

@@ -18,7 +18,7 @@ maximum of 32 pipelines (buffer chunks) with a maximum size of 16,384 bytes for
 each pipeline. When pipelines are used, they are always accelerated to the
 Hardware accelerator ignoring the small packet offload threshold.  Please refer
 to the OpenSSL\* manual for more information about pipelining.
-<https://www.openssl.org/docs/man1.1.0/ssl/SSL_CTX_set_split_send_fragment.html>
+<https://www.openssl.org/docs/man3.0/man3/SSL_CTX_set_split_send_fragment.html>
 
 # Intel&reg; QAT OpenSSL\* Engine Software Fallback
 
@@ -55,7 +55,7 @@ a potential slow down in performance until the acceleration device comes back on
 ### Requirements:
  1. This Intel&reg; QAT OpenSSL\* Engine supports the Intel&reg; QAT Driver
 Heartbeat feature on the following QAT Enabled Devices or Platforms using
-the driver Linux Hardware v1.7, v1.8, v2.0(qatlib intree) and FreeBSD Hardware
+the driver Linux Hardware v1.7, v1.8, v2.x(qatlib intree) and FreeBSD Hardware
 v2.0(OOT package)
 
     * [Intel&reg; Xeon&reg; with Intel&reg; C62X Series Chipset][1]
@@ -76,8 +76,8 @@ support software Fallback.
 Pre-Requisites:  Build QAT Driver using `./configure --enable-icp-hb-fail-sim` flag
 and change the driver config files `/etc/<device>.conf` to have
 `AutoResetOnError = 1` as mentioned above. Driver needs to be built with same
-version of OpenSSL as the application, to meet OpenSSL's requirement of version compatibility
-between OpenSSL 1.1.1 and 3.x. Set the below envs to compile Driver against same version of OpenSSL if needed.
+version of OpenSSL as the application, to meet OpenSSL's requirement of version compatibility.
+Set the below envs to compile Driver against the same version of OpenSSL if needed.
 
    * `setenv LDFLAGS "-L<installed OpenSSL path>/lib"`
    * `setenv CPPFLAGS "-I<installed OpenSSL path>/include"`

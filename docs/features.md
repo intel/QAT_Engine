@@ -22,7 +22,7 @@
     * AES128-GCM, AES256-GCM.
     * ChaCha20-Poly1305
     * SM4-CBC
-* Key Derivation 
+* Key Derivation
     * PRF
     * HKDF
 * Hashing
@@ -33,32 +33,42 @@
 * [Intel&reg; QAT OpenSSL\* Engine Software Fallback](qat_hw.md#intel-qat-openssl-engine-software-fallback-feature)
 * [Key Protection Technology (KPT) Support using QAT_HW driver v2.0](qat_hw_kpt.md)
 
-Please refer [here](qat_hw_algo.md) for applicable QAT Hardware versions and algorithms enabled by default.
+> **Algorithm default status:**
+> - **Enabled by default:** RSA (2048–4096 on all platforms; up to 8192 on QAT Gen4/v2.x and intree),
+>   ECDH/ECDSA (curves ≥256-bit, X25519/X448), PRF,
+>   AES-256-CBC-HMAC-SHA256, AES-256-CCM (v2.x/intree only).
+> - **Insecure — disabled by default** (enable with `--enable-qat_insecure_algorithms`):
+>   RSA (<2048), DSA, DH (all key sizes), ECDH/ECDSA on curves <256-bit (Binary/Koblitz),
+>   AES-128-GCM, AES-128/192-CCM, AES-128/256-CBC-HMAC-SHA1, AES-128-CBC-HMAC-SHA256, SHA3-224.
+> - **Experimental — disabled by default** (enable with corresponding `--enable-qat_hw_*` flag):
+>   AES-256-GCM, HKDF, SHA3-256/384/512, ChaCha20-Poly1305, SM2, SM3.
+> - **Tongsuo/BabaSSL only — disabled by default:** SM4-CBC.
+>
+> See [qat_hw_algo.md](qat_hw_algo.md) for the full per-platform default status and configure flags.
 
 ## qat_sw Features
-* [Intel&reg; QAT Software Acceleration](qat_sw.md)
-* Asymmetric PKE
-    * RSA for Key size 2048, 3072, 4096
-    * ECDH for the following curves:
-        * Montgomery EC Curve: X25519
-        * NIST Prime Curves: P-256/P-384
-        * SM2
-    * ECDSA for the following curves:
-        * NIST Prime Curves: P-256/P-384
-        * SM2
-* Symmetric Ciphers
-    * AES128-GCM, AES192-GCM and AES256-GCM
-    * SM4-CBC using 16 Multibuffer requests (Tongsuo only)
-    * SM4-GCM using 16 Multibuffer requests (Tongsuo only)
-    * SM4-CCM using 16 Multibuffer requests (Tongsuo only)
-* Hashing
-    * SM3 Hash using 16 Multibuffer requests (Experimental)
+[Intel&reg; QAT Software Acceleration](qat_sw.md) provides multi-buffer based acceleration
+for the following algorithms:
+
+| QAT_SW Algorithm | Status |
+| :--- | :---: |
+| RSA 2048/3072/4096 | \* |
+| ECDH X25519, P-256/P-384, SM2 | \* |
+| ECDSA P-256/P-384, SM2 | \* |
+| AES128-GCM, AES192-GCM, AES256-GCM | \* |
+| SM4-CBC, SM4-GCM, SM4-CCM (16 multibuffer requests) | \# |
+| SM3 (16 multibuffer requests) | \*\* |
+
+\* Enabled by default in the standard build.<br>
+\# Disabled by default; applicable to Tongsuo/BabaSSL builds only.<br>
+\*\* Disabled by default due to performance degradation in multithreaded scenarios; see [Known Issues](limitations.md#known-issues).
 
 ## Common Features to qat_hw & qat_sw
 * [BoringSSL Support](bssl_support.md)
-* [OpenSSL 3.0 Provider Support](qat_common.md#openssl-30-provider-support)
+* [OpenSSL Provider Support](qat_common.md#openssl-provider-support)
 * [QAT_HW & QAT_SW Co-existence](qat_coex.md#qat-hw-and-qat-sw-co-existence)
 * [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification)
+* [Hybrid PQC Interoperability](qat_common.md#interoperability-with-openssl-default-provider-for-hybrid-pqc)
 
 Note: RSA Padding schemes are handled by OpenSSL\* or BoringSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL\* or BoringSSL\* does natively.

@@ -35,11 +35,20 @@ Intel&reg; QAT Driver software has been started.
 for provider was copied to the correct location? Check they really are there.
 * Has the environment variable `OPENSSL_ENGINES` been correctly defined and
 exported to the shell? Also check it is really pointing to the correct location.
+* For the QAT Provider, has the environment variable `OPENSSL_MODULES` been
+correctly defined and exported to point to the directory containing
+`qatprovider.so`? The default location is `<openssl-install>/lib64/ossl-modules/`.
+If not set, OpenSSL\* will only search the compiled-in default modules path.
+* When using `qatprovider`, ensure the OpenSSL\* `default` provider is also
+explicitly activated — either via `-provider default` on the command line or
+`activate = 1` under `[default_sect]` in `openssl.cnf`. Without it, algorithms
+not handled by `qatprovider` (e.g. certificate parsing, internal digest
+operations) will fail with `unknown algorithm` or `no provider` errors.
 * If building from OpenSSL prebuilt RPM Package, has the OpenSSL development
 packages (openssl-devel for Redhat\* based distribution and libssl-devel
 for Debian\* based distribution) been installed ?
-* In case of qat_sw acceleration, has the dependent libraries are installed in
-the default path or provide the path via `--with-qat_sw_crypto_mb_install_dir`
+* In case of qat_sw acceleration, check that the dependent libraries are installed
+in the default path or provide the path via `--with-qat_sw_crypto_mb_install_dir`
 (for crypto_mb) and `--with-qat_sw_ipsec_mb_install_dir` (for ipsec_mb) if
 installed in the path other than default.
 * On certain systems, it might be possible that `qatengine.so` or `qatprovider.so`
@@ -56,3 +65,17 @@ desired value if it is low.
 considered insecure and disabled by default at QAT_HW driver and QAT Engine.
 If you prefer to use these algorithms, Rebuild QAT_HW using `--enable-legacy-algorithms`
 and QAT Engine using `--enable-qat_insecure_algorithms` configure option.
+* **System-wide `openssl.cnf` changes affect all OpenSSL applications including OpenSSH.**
+When `qatprovider` or `qatengine` is activated in the system `openssl.cnf`, every
+OpenSSL-based application on the host — including `sshd` and `ssh` — will load and
+use QAT for its crypto operations. QAT hardware has a finite number of crypto instances;
+SSH sessions consuming those instances can leave your target application (e.g. NGINX,
+HAProxy) with fewer available instances, causing performance degradation or
+`QAT HW initialization Failed` errors that appear unrelated to SSH activity.
+
+  To avoid this, prefer scoping the configuration to your application rather than
+  modifying the system-wide `openssl.cnf`:
+  ```bash
+  # Set per-application via environment variable instead of system openssl.cnf
+  export OPENSSL_CONF=/path/to/your/app-specific/openssl.cnf
+  ```

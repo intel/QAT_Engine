@@ -11,7 +11,10 @@ Tongsuo(BabaSSL)\*, BoringSSL\*, etc. OpenSSL\* is a toolkit for TLS/SSL protoco
 has developed a modular system to plugin device-specific engines and provider.
 Depending on the particular use case, the QAT_Engine can be configured to accelerate
 via the QAT Hardware or QAT Software or both based on the platform to meet your specific
-acceleration needs.
+acceleration needs. QAT_Engine supports both the **Engine** interface (all OpenSSL versions)
+and the **Provider** interface (`qatprovider`, recommended for OpenSSL 3.x). Use
+`--enable-qat_provider` at build time to enable the Provider interface; see
+[OpenSSL v3 Provider Support](docs/qat_common.md#openssl-v3-provider-support) for details.
 
 <p align=center>
 <img src="docs/images/qat_engine.png" alt="drawing" width="300"/>
@@ -28,16 +31,17 @@ Limitations and known issues for the QAT_Engine are described [here](docs/limita
 - [Software Requirements](docs/software_requirements.md)
 
 ## Installation Instructions
-Installation instructions are described [here](docs/install.md)
+Installation instructions, including build steps for the Engine and Provider
+interfaces across QAT_HW, QAT_SW and Co-existence configurations, are described [here](docs/install.md)
 
 ## Testing
-</details>
 <details>
-<summary>Test using OpenSSL Engine command </summary>
+<summary>Verify QAT Engine and Provider loading</summary>
 
-### Test using OpenSSL\* Engine command
+### Verify QAT Engine loading
+
 Run this command to verify the Intel&reg; QAT OpenSSL\* Engine is loaded
-correctly: This should not be used to determine QAT Engine capabilities as
+correctly. This should not be used to determine QAT Engine capabilities as
 it will not display all the algorithms that are supported in QAT Engine.
 
 ```text
@@ -72,12 +76,30 @@ qat_sw target output will be:
 
 Detailed information about the engine specific messages is available [here](docs/engine_specific_messages.md).
 Also `./openssl engine -t -c -vvvv qatengine` gives brief description about each ctrl command.
-<br>
+
+### Verify QAT Provider loading
+
+When built with `--enable-qat_provider`, run the following to verify `qatprovider` is
+loaded correctly. Always load the `default` provider alongside `qatprovider` to ensure
+complete algorithm coverage.
+
+```text
+cd /path/to/openssl_install/bin
+./openssl list -providers -provider qatprovider -provider default
+```
+
+Expected output will list `qatprovider` with its name, version and loaded status.
+
+> **Note:** Always activate the `default` provider alongside `qatprovider` — either via
+> `-provider default` on the command line or by adding it to your `openssl.cnf`.
+> See [OpenSSL Provider Support](docs/qat_common.md#openssl-provider-support) for details.
 </details>
 <details>
-<summary>Test using OpenSSL speed utility</summary>
+<summary>Test using OpenSSL* speed utility</summary>
 
 ### Test using OpenSSL\* speed utility
+
+**QAT Engine (`-engine qatengine`)**
 
 ```text
 cd /path/to/openssl_install/bin
@@ -110,14 +132,47 @@ qat_sw
 * AES-128-GCM
   taskset -c 1 ./openssl speed -engine qatengine -elapsed -evp aes-128-gcm
 ```
-Note: Run the test without "-engine qatengine" for each algorithm to see the performance against OpenSSL.
-This only covers key algorithms, additional algorithms can be tested by changing algo parameter.
 
+**QAT Provider (`-provider qatprovider -provider default`)**
+
+```text
+cd /path/to/openssl_install/bin
+
+qat_hw
+
+* RSA 2K Sign/Verify
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 72 rsa2048
+* ECDH P-256 Compute Key
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 72 ecdhp256
+* ECDSA P-256 Sign/Verify
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 72 ecdsap256
+* AES-256-GCM
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 72 -evp aes-256-gcm
+
+qat_sw
+
+* RSA 2K Sign/Verify
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 8 rsa2048
+* ECDH X25519 Compute Key
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 8 ecdhx25519
+* ECDSA P-256 Sign/Verify
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 8 ecdsap256
+* AES-256-GCM
+  taskset -c 1 ./openssl speed -provider qatprovider -provider default -elapsed -evp aes-256-gcm
+```
+
+Note: Run the test without `-engine qatengine` or `-provider qatprovider` for each algorithm to
+compare against OpenSSL\* software. This covers key algorithms; additional algorithms can be tested
+by changing the algo parameter. Additional provider test commands are described in
+[docs/qat_common.md](docs/qat_common.md#openssl-provider-support).
 </details>
 <details>
 <summary>Test using inbuilt testapp utility</summary>
 
-## Test using inbuilt testapp utility</summary>
+### Test using inbuilt testapp utility
+
+> **Note:** The `testapp` utility supports the QAT Engine (`qatengine`) interface only.
+> It does not support the QAT Provider (`qatprovider`) interface.
 
 ```text
 cd /path/to/qat_engine

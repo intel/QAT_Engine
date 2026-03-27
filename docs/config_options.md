@@ -29,10 +29,9 @@ The following is a list of the options that can be used with the
     `/usr/local/ssl` then you would use the following setting:
     --with-openssl_install_dir=/usr/local/ssl
 
-    If your system already includes OpenSSL 1.1.1 library and devel package this
-    option is not required.
-    In this case qatengine.so is installed in the system enginesdir
-    (eg: /usr/lib64/engine-1.1).
+    If using the system OpenSSL, this option is not required.
+    In this case qatengine.so is installed in the system engines directory
+    (e.g., `/usr/lib64/engines-3` for OpenSSL 3.x).
 
 ```
 ### qat_sw options
@@ -108,15 +107,19 @@ The following is a list of the options that can be used with the
     is different from the default.
 
 --enable-qat_provider
-    Enables Provider support instead of engine for OpenSSL. Valid only
-    when built against OpenSSL 3.0, default if not specified will use engine
-    interface. Currently RSA, ECDSA, ECDH, ECX and AES-GCM algorithms are
-    only supported (disabled by default).
+    Enables the QAT Provider (`qatprovider`) interface for OpenSSL 3.x.
+    The default, if not specified, is the Engine interface.
+```
+Refer to [OpenSSL Provider Support](qat_common.md#openssl-provider-support) for supported algorithms and test examples.
+```
 
 --enable-qat_fips
     Enables FIPS support when provider is enabled. Valid only
-    when built against OpenSSL 3.0 along with the flag `--enable-qat_provider`,
+    when built against OpenSSL 3.0.8 along with the flag `--enable-qat_provider`,
     (disabled by default).
+```
+Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for more details.
+```
 
 --disable-qat_hw_rsa/--enable-qat_hw_rsa
     Disable/Enable Intel(R) QAT Hardware RSA acceleration (enabled by default).
