@@ -2,6 +2,8 @@
 
 # Build as an OpenSSL provider instead of as an engine
 %bcond provider %[0%{?fedora} >= 41 || 0%{?rhel} >= 10]
+# Build as an engine (inverse of provider)
+%bcond engine %[!%{with provider}]
 # QAT_HW only acceleration for RHEL
 %bcond sw %{undefined rhel}
 
@@ -49,7 +51,7 @@ enabled Intel platforms.
 
 %build
 autoreconf -ivf
-%configure %{?with_sw:--enable-qat_sw} %{?with_provider:--enable-qat_provider}
+%configure %{?with_sw:--enable-qat_sw} %{?with_engine:--enable-qat_engine}
 %make_build
 
 %install
