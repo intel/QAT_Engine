@@ -62,41 +62,79 @@
 extern int qat_fips_key_zeroize;
 #endif
 
-QAT_EVP_KEYEXCH get_default_x25519_keyexch()
+ECX_KEY *ecx_sw_keygen(OSSL_LIB_CTX *libctx, const char *propq,
+                            ECX_KEY_TYPE type)
 {
-    static QAT_EVP_KEYEXCH s_keyexch;
-    static int initialized = 0;
-    if (!initialized) {
-        QAT_EVP_KEYEXCH *keyexch = (QAT_EVP_KEYEXCH *)EVP_KEYEXCH_fetch(NULL,"X25519","provider=default");
-        if (keyexch) {
-           s_keyexch = *keyexch;
-           EVP_KEYEXCH_free((EVP_KEYEXCH *)keyexch);
-           initialized = 1;
-        } else {
-           WARN("EVP_KEYEXCH_fetch from default provider failed");
-        }
-    }
-    return s_keyexch;
+    const char *algname = (type == ECX_KEY_TYPE_X25519) ? "X25519" : "X448";
+    size_t keylen = (type == ECX_KEY_TYPE_X25519) ? X25519_KEYLEN : X448_KEYLEN;
+    /* Explicitly use the default provider to avoid re-entering qatprovider. */
+    EVP_PKEY *pkey = EVP_PKEY_Q_keygen(libctx, "provider=default", algname);
+    if (pkey == NULL)
+        return NULL;
+
+    ECX_KEY *key = qat_ecx_key_new(libctx, type, 1, propq);
+    if (key == NULL)
+        goto err;
+
+    size_t pub_len = keylen, priv_len = keylen;
+    if (!EVP_PKEY_get_raw_public_key(pkey, key->pubkey, &pub_len))
+        goto err;
+    if ((key->privkey = OPENSSL_secure_zalloc(keylen)) == NULL)
+        goto err;
+    if (!EVP_PKEY_get_raw_private_key(pkey, key->privkey, &priv_len))
+        goto err;
+
+    EVP_PKEY_free(pkey);
+    return key;
+err:
+    qat_ecx_key_free(key);
+    EVP_PKEY_free(pkey);
+    return NULL;
 }
 
-#ifdef ENABLE_QAT_HW_ECX
-QAT_EVP_KEYEXCH get_default_x448_keyexch()
+int ecx_sw_derive(QAT_ECX_CTX *ecxctx, unsigned char *secret,
+                      size_t *secretlen, size_t outlen, ECX_KEY_TYPE type)
 {
-    static QAT_EVP_KEYEXCH s_keyexch;
-    static int initialized = 0;
-    if (!initialized) {
-        QAT_EVP_KEYEXCH *keyexch = (QAT_EVP_KEYEXCH *)EVP_KEYEXCH_fetch(NULL,"X448","provider=default");
-        if (keyexch) {
-           s_keyexch = *keyexch;
-           EVP_KEYEXCH_free((EVP_KEYEXCH *)keyexch);
-           initialized = 1;
-        } else {
-           WARN("EVP_KEYEXCH_fetch from default provider failed");
-        }
+    if (ecxctx == NULL || ecxctx->key == NULL || ecxctx->key->privkey == NULL
+        || ecxctx->peerkey == NULL)
+        return 0;
+
+    const char *algname = (type == ECX_KEY_TYPE_X25519) ? "X25519" : "X448";
+    OSSL_LIB_CTX *libctx = ecxctx->key->libctx;
+    /* Explicitly use the default provider to avoid re-entering qatprovider. */
+    EVP_PKEY *priv = EVP_PKEY_new_raw_private_key_ex(libctx, algname, "provider=default",
+                                                     ecxctx->key->privkey,
+                                                     ecxctx->key->keylen);
+    EVP_PKEY *peer = EVP_PKEY_new_raw_public_key_ex(libctx, algname, "provider=default",
+                                                    ecxctx->peerkey->pubkey,
+                                                    ecxctx->peerkey->keylen);
+    EVP_PKEY_CTX *pctx = NULL;
+    int ret = 0;
+
+    if (priv == NULL || peer == NULL)
+        goto err;
+    pctx = EVP_PKEY_CTX_new_from_pkey(libctx, priv, "provider=default");
+    if (pctx == NULL
+        || EVP_PKEY_derive_init(pctx) <= 0
+        || EVP_PKEY_derive_set_peer(pctx, peer) <= 0)
+        goto err;
+    /* Size query: let EVP_PKEY_derive fill *secretlen */
+    if (secret == NULL) {
+        if (EVP_PKEY_derive(pctx, NULL, secretlen) <= 0)
+            goto err;
+    } else {
+        /* outlen is the caller's buffer size; pass it as *secretlen */
+        *secretlen = outlen;
+        if (EVP_PKEY_derive(pctx, secret, secretlen) <= 0)
+            goto err;
     }
-    return s_keyexch;
+    ret = 1;
+err:
+    EVP_PKEY_CTX_free(pctx);
+    EVP_PKEY_free(priv);
+    EVP_PKEY_free(peer);
+    return ret;
 }
-#endif
 
 static int qat_ecx_derive25519(void *vecxctx, unsigned char *secret,
                                size_t *secretlen, size_t outlen)
@@ -108,14 +146,7 @@ static int qat_ecx_derive25519(void *vecxctx, unsigned char *secret,
 #endif
 #ifdef ENABLE_QAT_SW_ECX
     if (qat_sw_ecx_offload) {
-        ret = multibuff_x25519_derive(vecxctx,secret,secretlen,outlen);
-    } else {
-      typedef int (*fun_ptr)(void *vecxctx, unsigned char *secret,
-                             size_t *secretlen, size_t outlen);
-      fun_ptr fun = get_default_x25519_keyexch().derive;
-      if (!fun)
-          return 0;
-      return fun(vecxctx, secret, secretlen, outlen);
+        ret = multibuff_x25519_derive(vecxctx, secret, secretlen, outlen);
     }
 #endif
 
