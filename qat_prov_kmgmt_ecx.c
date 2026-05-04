@@ -56,23 +56,6 @@
 #include "e_qat.h"
 
 #if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
-QAT_ECX_KEYMGMT get_default_x25519_keymgmt()
-{
-    static QAT_ECX_KEYMGMT s_keymgmt;
-    static int initialized = 0;
-    if (!initialized) {
-        QAT_ECX_KEYMGMT *keymgmt = (QAT_ECX_KEYMGMT *)EVP_KEYMGMT_fetch(NULL,"X25519","provider=default");
-        if (keymgmt) {
-           s_keymgmt = *keymgmt;
-           EVP_KEYMGMT_free((EVP_KEYMGMT *)keymgmt);
-           initialized = 1;
-        } else {
-           WARN("EVP_KEYMGMT_fetch from default provider failed");
-        }
-    }
-    return s_keymgmt;
-}
-
 ECX_KEY *qat_ecx_key_new(OSSL_LIB_CTX *libctx, ECX_KEY_TYPE type, int haspubkey,
                          const char *propq)
 {
@@ -176,36 +159,19 @@ static void *qat_x25519_gen(void *genctx, OSSL_CALLBACK *osslcb,
     /* Check if this is parameter generation vs key generation */
     if (gctx && (gctx->selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) &&
         !(gctx->selection & OSSL_KEYMGMT_SELECT_KEYPAIR)) {
-        ECX_KEY *pkey = OPENSSL_zalloc(sizeof(*pkey));
-        if (pkey == NULL) {
-            return NULL;
-        }
-
-        pkey->keylen = X25519_KEYLEN;
-        pkey->references.val = 1;
-        pkey->type = ECX_KEY_TYPE_X25519;
-        pkey->haspubkey = 0;  // No actual key material for paramgen
-        return pkey;
+        return qat_ecx_key_new(gctx->libctx, ECX_KEY_TYPE_X25519, 0, gctx->propq);
     }
 
 #ifdef ENABLE_QAT_HW_ECX
     if (qat_hw_ecx_offload)
-        return qat_pkey_ecx25519_keygen(genctx,osslcb,cbarg);
+        return qat_pkey_ecx25519_keygen(genctx, osslcb, cbarg);
 #endif
 #ifdef ENABLE_QAT_SW_ECX
     if (qat_sw_ecx_offload) {
-        return multibuff_x25519_keygen(genctx,osslcb,cbarg);
-    } else {
-      typedef void* (*fun_ptr)(void *genctx, OSSL_CALLBACK *osslcb,
-                               void *cbarg);
-      fun_ptr fun = get_default_x25519_keymgmt().gen;
-      if (!fun)
-          return NULL;
-      return fun(genctx, osslcb, cbarg);
+        return multibuff_x25519_keygen(genctx, osslcb, cbarg);
     }
-
 #endif
-    return 0;
+    return NULL;
 }
 
 #ifdef ENABLE_QAT_HW_ECX
@@ -223,18 +189,9 @@ static void *qat_x448_gen(void *genctx, OSSL_CALLBACK *osslcb,
     /* Check if this is parameter generation vs key generation */
     if (gctx && (gctx->selection & OSSL_KEYMGMT_SELECT_ALL_PARAMETERS) &&
         !(gctx->selection & OSSL_KEYMGMT_SELECT_KEYPAIR)) {
-        ECX_KEY *pkey = OPENSSL_zalloc(sizeof(*pkey));
-        if (pkey == NULL) {
-            return NULL;
-        }
-
-        pkey->keylen = X448_KEYLEN;
-        pkey->references.val = 1;
-        pkey->type = ECX_KEY_TYPE_X448;
-        pkey->haspubkey = 0;
-        return pkey;
+        return qat_ecx_key_new(gctx->libctx, ECX_KEY_TYPE_X448, 0, gctx->propq);
     }
-    return qat_pkey_ecx448_keygen(genctx,osslcb,cbarg);
+    return qat_pkey_ecx448_keygen(genctx, osslcb, cbarg);
 }
 #endif
 
@@ -379,23 +336,6 @@ static const OSSL_PARAM *qat_ecx_settable_params(void *provctx)
 }
 
 #ifdef ENABLE_QAT_HW_ECX
-QAT_ECX_KEYMGMT get_default_x448_keymgmt()
-{
-    static QAT_ECX_KEYMGMT s_keymgmt;
-    static int initialized = 0;
-    if (!initialized) {
-        QAT_ECX_KEYMGMT *keymgmt = (QAT_ECX_KEYMGMT *)EVP_KEYMGMT_fetch(NULL,"X448","provider=default");
-        if (keymgmt) {
-           s_keymgmt = *keymgmt;
-           EVP_KEYMGMT_free((EVP_KEYMGMT *)keymgmt);
-           initialized = 1;
-        } else {
-           WARN("EVP_KEYMGMT_fetch from default provider failed");
-        }
-    }
-    return s_keymgmt;
-}
-
 static void *qat_x448_new_key(void *provctx)
 {
     if (!qat_prov_is_running())
@@ -473,11 +413,60 @@ static const OSSL_PARAM *qat_ecx_gen_settable_params(ossl_unused void *genctx,
 
 static int qat_ecx_import(void *keydata, int selection, const OSSL_PARAM params[])
 {
-    typedef int (*fun_ptr)(void *keydata, int selection, const OSSL_PARAM params[]);
-    fun_ptr fun = get_default_x25519_keymgmt().import;
-    if (!fun)
+    ECX_KEY *key = keydata;
+    const OSSL_PARAM *p;
+    size_t len;
+
+    if (key == NULL)
         return 0;
-    return fun(keydata, selection, params);
+
+    /*
+     * Always import the public key if present in params, regardless of the
+     * selection bits.  The default provider's ossl_ecx_key_fromdata() does the
+     * same thing: callers such as mlx_kmgmt use minimal_selection which omits
+     * OSSL_KEYMGMT_SELECT_PUBLIC_KEY even when supplying a public-key param.
+     */
+    p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_PUB_KEY);
+    if (p != NULL) {
+        void *buf = key->pubkey;
+        if (!OSSL_PARAM_get_octet_string(p, &buf, sizeof(key->pubkey), &len)
+            || len != key->keylen)
+            return 0;
+        key->haspubkey = 1;
+    }
+
+    if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
+        p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_PRIV_KEY);
+        if (p != NULL) {
+            if (key->privkey == NULL
+                && (key->privkey = OPENSSL_secure_zalloc(key->keylen)) == NULL)
+                return 0;
+            void *buf = key->privkey;
+            if (!OSSL_PARAM_get_octet_string(p, &buf, key->keylen, &len)
+                || len != key->keylen)
+                return 0;
+
+            /* If no public key was supplied, derive it from the private key. */
+            if (!key->haspubkey) {
+                const char *algname = (key->type == ECX_KEY_TYPE_X25519)
+                                      ? "X25519" : "X448";
+                EVP_PKEY *pkey = EVP_PKEY_new_raw_private_key_ex(
+                                     key->libctx, algname, "provider=default",
+                                     key->privkey, key->keylen);
+                if (pkey == NULL)
+                    return 0;
+                size_t pub_len = key->keylen;
+                if (!EVP_PKEY_get_raw_public_key(pkey, key->pubkey, &pub_len)) {
+                    EVP_PKEY_free(pkey);
+                    return 0;
+                }
+                EVP_PKEY_free(pkey);
+                key->haspubkey = 1;
+            }
+        }
+    }
+
+    return 1;
 }
 
 static int qat_ecx_export(void *keydata, int selection, OSSL_CALLBACK *param_cb,

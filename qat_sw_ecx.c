@@ -207,8 +207,6 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
     int sts = 0, job_ret = 0;
     x25519_keygen_op_data *x25519_keygen_req = NULL;
 #ifdef QAT_OPENSSL_PROVIDER
-    typedef void* (*sw_prov_fn_ptr)(void *, OSSL_CALLBACK*, void*);
-    sw_prov_fn_ptr sw_fn_ptr = get_default_x25519_keymgmt().gen;
     ECX_KEY *key = NULL;
 #else
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
@@ -365,6 +363,8 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 
     if (sts) {
 #ifdef QAT_OPENSSL_PROVIDER
+       key->haspubkey = 1;
+       key->type = ECX_KEY_TYPE_X25519;
        return key;
 #else
        EVP_PKEY_assign(pkey, EVP_PKEY_X25519, key);
@@ -396,7 +396,10 @@ err:
 use_sw_method:
 # ifdef QAT_OPENSSL_PROVIDER
     DEBUG("SW Finished\n");
-    return sw_fn_ptr(ctx, osslcb, cbarg);
+    {
+        QAT_GEN_CTX *gctx = (QAT_GEN_CTX *)ctx;
+        return ecx_sw_keygen(gctx->libctx, gctx->propq, ECX_KEY_TYPE_X25519);
+    }
 # else
     EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)sw_x25519_pmeth,
                              NULL, &sw_fn_ptr);
@@ -469,8 +472,7 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
     int sts = 0, job_ret = 0;
     x25519_derive_op_data *x25519_derive_req = NULL;
 #ifdef QAT_OPENSSL_PROVIDER
-    typedef int (*sw_prov_fn_ptr)(void *, unsigned char*, size_t*, size_t);
-    sw_prov_fn_ptr sw_fn_ptr = get_default_x25519_keyexch().derive;
+    /* sw fallback handled via ecx_sw_derive() at use_sw_method */
 #else
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
 #endif
@@ -603,7 +605,7 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
 use_sw_method:
 # ifdef QAT_OPENSSL_PROVIDER
     DEBUG("SW Finished\n");
-    return sw_fn_ptr(ctx, key, keylen, outlen);
+    return ecx_sw_derive((QAT_ECX_CTX *)ctx, key, keylen, outlen, ECX_KEY_TYPE_X25519);
 # else
     EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
     sts = (*sw_fn_ptr)(ctx, key, keylen);

@@ -59,80 +59,6 @@
 OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PUB_KEY, NULL, 0),                     \
 OSSL_PARAM_octet_string(OSSL_PKEY_PARAM_PRIV_KEY, NULL, 0)
 
-typedef struct{
-    int id; /* libcrypto internal */
-    int name_id;
-# if OPENSSL_VERSION_NUMBER >= 0x30300000
-    /* NID for the legacy alg if there is one */
-    int legacy_alg;
-# endif
-    char *type_name;
-    const char *description;
-    OSSL_PROVIDER *prov;
-    QAT_CRYPTO_REF_COUNT references;
-# if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-# endif
-    OSSL_FUNC_keymgmt_new_fn *new;
-    OSSL_FUNC_keymgmt_free_fn *free;
-    OSSL_FUNC_keymgmt_get_params_fn *get_params;
-    OSSL_FUNC_keymgmt_gettable_params_fn *gettable_params;
-    OSSL_FUNC_keymgmt_set_params_fn *set_params;
-    OSSL_FUNC_keymgmt_settable_params_fn *settable_params;
-    OSSL_FUNC_keymgmt_gen_init_fn *gen_init;
-    OSSL_FUNC_keymgmt_gen_set_template_fn *gen_set_template;
-# if OPENSSL_VERSION_NUMBER >= 0x30400000
-    OSSL_FUNC_keymgmt_gen_get_params_fn *gen_get_params;
-    OSSL_FUNC_keymgmt_gen_gettable_params_fn *gen_gettable_params;
-# endif
-    OSSL_FUNC_keymgmt_gen_set_params_fn *gen_set_params;
-    OSSL_FUNC_keymgmt_gen_settable_params_fn *gen_settable_params;
-    OSSL_FUNC_keymgmt_gen_fn *gen;
-    OSSL_FUNC_keymgmt_gen_cleanup_fn *gen_cleanup;
-    OSSL_FUNC_keymgmt_load_fn *load;
-    OSSL_FUNC_keymgmt_query_operation_name_fn *query_operation_name;
-    OSSL_FUNC_keymgmt_has_fn *has;
-    OSSL_FUNC_keymgmt_validate_fn *validate;
-    OSSL_FUNC_keymgmt_match_fn *match;
-    OSSL_FUNC_keymgmt_import_fn *import;
-    OSSL_FUNC_keymgmt_import_types_fn *import_types;
-# if OPENSSL_VERSION_NUMBER >= 0x30200000
-    OSSL_FUNC_keymgmt_import_types_ex_fn *import_types_ex;
-# endif
-    OSSL_FUNC_keymgmt_export_fn *export;
-    OSSL_FUNC_keymgmt_export_types_fn *export_types;
-# if OPENSSL_VERSION_NUMBER >= 0x30200000
-    OSSL_FUNC_keymgmt_export_types_ex_fn *export_types_ex;
-# endif
-    OSSL_FUNC_keymgmt_dup_fn *dup;
-} QAT_ECX_KEYMGMT;
-
-typedef struct evp_keyexch_st {
-    int name_id;
-    char *type_name;
-    const char *description;
-    OSSL_PROVIDER *prov;
-    QAT_CRYPTO_REF_COUNT references;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-#endif
-    OSSL_FUNC_keyexch_newctx_fn *newctx;
-    OSSL_FUNC_keyexch_init_fn *init;
-    OSSL_FUNC_keyexch_set_peer_fn *set_peer;
-    OSSL_FUNC_keyexch_derive_fn *derive;
-    OSSL_FUNC_keyexch_freectx_fn *freectx;
-    OSSL_FUNC_keyexch_dupctx_fn *dupctx;
-    OSSL_FUNC_keyexch_set_ctx_params_fn *set_ctx_params;
-    OSSL_FUNC_keyexch_settable_ctx_params_fn *settable_ctx_params;
-    OSSL_FUNC_keyexch_get_ctx_params_fn *get_ctx_params;
-    OSSL_FUNC_keyexch_gettable_ctx_params_fn *gettable_ctx_params;
-} QAT_EVP_KEYEXCH;
-
-QAT_ECX_KEYMGMT get_default_x25519_keymgmt();
-QAT_ECX_KEYMGMT get_default_x448_keymgmt();
-QAT_EVP_KEYEXCH get_default_x25519_keyexch();
-QAT_EVP_KEYEXCH get_default_x448_keyexch();
-
 typedef enum {
     ECX_KEY_TYPE_X25519,
     ECX_KEY_TYPE_X448,
@@ -168,8 +94,14 @@ typedef struct ecx_gen_ctx {
 # endif
 }QAT_GEN_CTX;
 
+ECX_KEY *qat_ecx_key_new(OSSL_LIB_CTX *libctx, ECX_KEY_TYPE type, int haspubkey,
+                         const char *propq);
 int qat_ecx_key_up_ref(ECX_KEY *key);
 void qat_ecx_key_free(ECX_KEY *key);
+ECX_KEY *ecx_sw_keygen(OSSL_LIB_CTX *libctx, const char *propq,
+                       ECX_KEY_TYPE type);
+int ecx_sw_derive(QAT_ECX_CTX *ecxctx, unsigned char *secret,
+                      size_t *secretlen, size_t outlen, ECX_KEY_TYPE type);
 int qat_pkey_ecx_derive25519(void *ctx, unsigned char *key, size_t *keylen,
                              size_t outlen);
 int qat_pkey_ecx_derive448(void *ctx, unsigned char *key, size_t *keylen,
