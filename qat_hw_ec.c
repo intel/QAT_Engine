@@ -1034,10 +1034,12 @@ int qat_ecdh_generate_key(EC_KEY *ecdh)
         QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
         goto err;
     }
-    if (!EC_KEY_set_public_key(ecdh, pub_key)) {
-        WARN("Error setting pub_key\n");
-        QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
-        goto err;
+    if (alloc_pub) {
+        if (!EC_KEY_set_public_key(ecdh, pub_key)) {
+            WARN("Error setting pub_key\n");
+            QATerr(QAT_F_QAT_ECDH_GENERATE_KEY, ERR_R_INTERNAL_ERROR);
+            goto err;
+        }
     }
     ok = 1;
 

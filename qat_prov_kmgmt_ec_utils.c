@@ -109,12 +109,24 @@ static const OSSL_ITEM qat_format_nameid_map[] = {
 
 OSSL_LIB_CTX *qat_keymgmt_ec_key_get_libctx(const EC_KEY *key)
 {
-    return key->libctx;
+    /*
+     * EC_KEY_get0_libctx() is an internal OpenSSL API, not available in the
+     * public headers.  Return NULL so callers fall back to the default library
+     * context.
+     *
+     * TODO: wrap EC_KEY in a provider-owned keydata struct that carries
+     * libctx/propq (similar to how the ECX keymgmt uses ECX_KEY) so that
+     * operations on keys created in a non-default OSSL_LIB_CTX work correctly.
+     */
+    (void)key;
+    return NULL;
 }
 
 const char *qat_ec_key_get0_propq(const EC_KEY *key)
 {
-    return key->propq;
+    /* See comment in qat_keymgmt_ec_key_get_libctx(). */
+    (void)key;
+    return NULL;
 }
 
 int qat_ec_gen_set_group(void *genctx, const EC_GROUP *src)
@@ -600,7 +612,7 @@ int qat_ec_group_todata(const EC_GROUP *group, OSSL_PARAM_BLD *tmpl,
 
     if (!qat_param_build_set_int(tmpl, params,
                                   OSSL_PKEY_PARAM_EC_DECODED_FROM_EXPLICIT_PARAMS,
-                                  group->decoded_from_explicit_params))
+                                  EC_GROUP_get_curve_name(group) == NID_undef ? 1 : 0))
         return 0;
 
     curve_nid = EC_GROUP_get_curve_name(group);
@@ -944,13 +956,6 @@ int qat_ec_key_group_check_fromdata(EC_KEY *ec, const OSSL_PARAM params[])
     return 1;
 }
 
-void QAT_EC_KEY_set_conv_form(EC_KEY *key, point_conversion_form_t cform)
-{
-    key->conv_form = cform;
-    if (key->group != NULL)
-        EC_GROUP_set_point_conversion_form(key->group, cform);
-}
-
 int qat_ec_key_point_format_fromdata(EC_KEY *ec, const OSSL_PARAM params[])
 {
     const OSSL_PARAM *p;
@@ -961,7 +966,7 @@ int qat_ec_key_point_format_fromdata(EC_KEY *ec, const OSSL_PARAM params[])
         if (!qat_ec_pt_format_param2id(p, &format)) {
             return 0;
         }
-        QAT_EC_KEY_set_conv_form(ec, format);
+        EC_KEY_set_conv_form(ec, format);
     }
     return 1;
 }
@@ -1190,92 +1195,6 @@ cleanup:
     return ok;
 }
 
-EC_KEY *qat_ec_key_new_method_int(OSSL_LIB_CTX *libctx, const char *propq)
-{
-    EC_KEY *ret = OPENSSL_zalloc(sizeof(*ret));
-
-    if (ret == NULL)
-        return NULL;
-
-    if (!QAT_CRYPTO_NEW_REF(&ret->references, 1)) {
-        OPENSSL_free(ret);
-        return NULL;
-    }
-
-
-    ret->libctx = libctx;
-    if (propq != NULL) {
-        ret->propq = OPENSSL_strdup(propq);
-        if (ret->propq == NULL)
-            goto err;
-    }
-    ret->meth = EC_KEY_get_default_method();
-    ret->version = 1;
-    ret->conv_form = POINT_CONVERSION_UNCOMPRESSED;
-
-/* No ex_data inside the FIPS provider */
-    if (!CRYPTO_new_ex_data(CRYPTO_EX_INDEX_EC_KEY, ret, &ret->ex_data)) {
-        ERR_raise(ERR_LIB_EC, ERR_R_CRYPTO_LIB);
-        goto err;
-    }
-
-    if (ret->meth->init != NULL && ret->meth->init(ret) == 0) {
-        ERR_raise(ERR_LIB_EC, ERR_R_INIT_FAIL);
-        goto err;
-    }
-    return ret;
-
- err:
-    EC_KEY_free(ret);
-    return NULL;
-}
-
-EC_GROUP *qat_ec_group_new_ex(OSSL_LIB_CTX *libctx, const char *propq,
-                               const EC_METHOD *meth)
-{
-    EC_GROUP *ret;
-
-    if (meth == NULL) {
-        ERR_raise(ERR_LIB_EC, EC_R_SLOT_FULL);
-        return NULL;
-    }
-    if (meth->group_init == 0) {
-        ERR_raise(ERR_LIB_EC, ERR_R_SHOULD_NOT_HAVE_BEEN_CALLED);
-        return NULL;
-    }
-
-    ret = OPENSSL_zalloc(sizeof(*ret));
-    if (ret == NULL)
-        return NULL;
-
-    ret->libctx = libctx;
-    if (propq != NULL) {
-        ret->propq = OPENSSL_strdup(propq);
-        if (ret->propq == NULL)
-            goto err;
-    }
-    ret->meth = meth;
-    if ((ret->meth->flags & EC_FLAGS_CUSTOM_CURVE) == 0) {
-        ret->order = BN_new();
-        if (ret->order == NULL)
-            goto err;
-        ret->cofactor = BN_new();
-        if (ret->cofactor == NULL)
-            goto err;
-    }
-    ret->asn1_flag = OPENSSL_EC_EXPLICIT_CURVE;
-    ret->asn1_form = POINT_CONVERSION_UNCOMPRESSED;
-    if (!meth->group_init(ret))
-        goto err;
-    return ret;
-
- err:
-    BN_free(ret->order);
-    BN_free(ret->cofactor);
-    OPENSSL_free(ret->propq);
-    OPENSSL_free(ret);
-    return NULL;
-}
 
 /*
  * Check the range of the EC public key.
@@ -1291,24 +1210,33 @@ int qat_ec_key_public_range_check(BN_CTX *ctx, const EC_KEY *key)
     int ret = 0;
     BIGNUM *x, *y;
 
+    if (key == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+
+    const EC_GROUP *group = EC_KEY_get0_group(key);
+    const EC_POINT *pub_key = EC_KEY_get0_public_key(key);
+
     BN_CTX_start(ctx);
     x = BN_CTX_get(ctx);
     y = BN_CTX_get(ctx);
     if (y == NULL)
         goto err;
 
-    if (!EC_POINT_get_affine_coordinates(key->group, key->pub_key, x, y, ctx))
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, x, y, ctx))
         goto err;
 
-    if (EC_GROUP_get_field_type(key->group) == NID_X9_62_prime_field) {
+    if (EC_GROUP_get_field_type(group) == NID_X9_62_prime_field) {
+        const BIGNUM *field = EC_GROUP_get0_field(group);
         if (BN_is_negative(x)
-            || BN_cmp(x, key->group->field) >= 0
+            || BN_cmp(x, field) >= 0
             || BN_is_negative(y)
-            || BN_cmp(y, key->group->field) >= 0) {
+            || BN_cmp(y, field) >= 0) {
             goto err;
         }
     } else {
-        int m = EC_GROUP_get_degree(key->group);
+        int m = EC_GROUP_get_degree(group);
         if (BN_num_bits(x) > m || BN_num_bits(y) > m) {
             goto err;
         }
@@ -1325,13 +1253,21 @@ err:
  */
 int qat_ec_key_public_check_quick(const EC_KEY *eckey, BN_CTX *ctx)
 {
-    if (eckey == NULL || eckey->group == NULL || eckey->pub_key == NULL) {
+    if (eckey == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+
+    const EC_GROUP *group = EC_KEY_get0_group(eckey);
+    const EC_POINT *pub_key = EC_KEY_get0_public_key(eckey);
+
+    if (group == NULL || pub_key == NULL) {
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
 
     /* 5.6.2.3.3 (Step 1): Q != infinity */
-    if (EC_POINT_is_at_infinity(eckey->group, eckey->pub_key)) {
+    if (EC_POINT_is_at_infinity(group, pub_key)) {
         ERR_raise(ERR_LIB_EC, EC_R_POINT_AT_INFINITY);
         return 0;
     }
@@ -1343,7 +1279,7 @@ int qat_ec_key_public_check_quick(const EC_KEY *eckey, BN_CTX *ctx)
     }
 
     /* 5.6.2.3.3 (Step 3) is the pub_key on the elliptic curve */
-    if (EC_POINT_is_on_curve(eckey->group, eckey->pub_key, ctx) <= 0) {
+    if (EC_POINT_is_on_curve(group, pub_key, ctx) <= 0) {
         ERR_raise(ERR_LIB_EC, EC_R_POINT_IS_NOT_ON_CURVE);
         return 0;
     }
@@ -1359,31 +1295,38 @@ int qat_ec_key_public_check(const EC_KEY *eckey, BN_CTX *ctx)
     int ret = 0;
     EC_POINT *point = NULL;
     const BIGNUM *order = NULL;
-    const BIGNUM *cofactor = EC_GROUP_get0_cofactor(eckey->group);
+    const EC_GROUP *group = NULL;
+    const EC_POINT *pub_key = NULL;
+    const BIGNUM *cofactor = NULL;
 
     if (!qat_ec_key_public_check_quick(eckey, ctx))
         return 0;
+
+    /* eckey is non-NULL after the quick check above. */
+    group = EC_KEY_get0_group(eckey);
+    pub_key = EC_KEY_get0_public_key(eckey);
+    cofactor = EC_GROUP_get0_cofactor(group);
 
     if (cofactor != NULL && BN_is_one(cofactor)) {
         /* Skip the unnecessary expensive computation for curves with cofactor of 1. */
         return 1;
     }
 
-    point = EC_POINT_new(eckey->group);
+    point = EC_POINT_new(group);
     if (point == NULL)
         return 0;
 
-    order = eckey->group->order;
+    order = EC_GROUP_get0_order(group);
     if (BN_is_zero(order)) {
         ERR_raise(ERR_LIB_EC, EC_R_INVALID_GROUP_ORDER);
         goto err;
     }
     /* 5.6.2.3.3 (Step 4) : pub_key * order is the point at infinity. */
-    if (!EC_POINT_mul(eckey->group, point, NULL, eckey->pub_key, order, ctx)) {
+    if (!EC_POINT_mul(group, point, NULL, pub_key, order, ctx)) {
         ERR_raise(ERR_LIB_EC, ERR_R_EC_LIB);
         goto err;
     }
-    if (!EC_POINT_is_at_infinity(eckey->group, point)) {
+    if (!EC_POINT_is_at_infinity(group, point)) {
         ERR_raise(ERR_LIB_EC, EC_R_WRONG_ORDER);
         goto err;
     }
@@ -1400,12 +1343,23 @@ err:
  */
 int qat_ec_key_private_check(const EC_KEY *eckey)
 {
-    if (eckey == NULL || eckey->group == NULL || eckey->priv_key == NULL) {
+    const EC_GROUP *group = NULL;
+    const BIGNUM *priv_key = NULL;
+
+    if (eckey == NULL) {
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
-    if (BN_cmp(eckey->priv_key, BN_value_one()) < 0
-        || BN_cmp(eckey->priv_key, eckey->group->order) >= 0) {
+
+    group = EC_KEY_get0_group(eckey);
+    priv_key = EC_KEY_get0_private_key(eckey);
+
+    if (group == NULL || priv_key == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+    if (BN_cmp(priv_key, BN_value_one()) < 0
+        || BN_cmp(priv_key, EC_GROUP_get0_order(group)) >= 0) {
         ERR_raise(ERR_LIB_EC, EC_R_INVALID_PRIVATE_KEY);
         return 0;
     }
@@ -1421,25 +1375,33 @@ int qat_ec_key_pairwise_check(const EC_KEY *eckey, BN_CTX *ctx)
 {
     int ret = 0;
     EC_POINT *point = NULL;
+    const EC_GROUP *group = NULL;
+    const EC_POINT *pub_key = NULL;
+    const BIGNUM *priv_key = NULL;
 
-    if (eckey == NULL
-       || eckey->group == NULL
-       || eckey->pub_key == NULL
-       || eckey->priv_key == NULL) {
+    if (eckey == NULL) {
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
 
-    point = EC_POINT_new(eckey->group);
+    group = EC_KEY_get0_group(eckey);
+    pub_key = EC_KEY_get0_public_key(eckey);
+    priv_key = EC_KEY_get0_private_key(eckey);
+
+    if (group == NULL || pub_key == NULL || priv_key == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+
+    point = EC_POINT_new(group);
     if (point == NULL)
         goto err;
 
-
-    if (!EC_POINT_mul(eckey->group, point, eckey->priv_key, NULL, NULL, ctx)) {
+    if (!EC_POINT_mul(group, point, priv_key, NULL, NULL, ctx)) {
         ERR_raise(ERR_LIB_EC, ERR_R_EC_LIB);
         goto err;
     }
-    if (EC_POINT_cmp(eckey->group, point, eckey->pub_key, ctx) != 0) {
+    if (EC_POINT_cmp(group, point, pub_key, ctx) != 0) {
         ERR_raise(ERR_LIB_EC, EC_R_INVALID_PRIVATE_KEY);
         goto err;
     }

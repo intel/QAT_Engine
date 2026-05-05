@@ -218,12 +218,18 @@ int qat_fips_dh_safe_group(const DH *dh)
 
 int qat_fips_ec_key_private_check(const EC_KEY *eckey)
 {
-    if (eckey == NULL || eckey->group == NULL || eckey->priv_key == NULL) {
+    if (eckey == NULL) {
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
-    if (BN_cmp(eckey->priv_key, BN_value_one()) < 0
-        || BN_cmp(eckey->priv_key, eckey->group->order) >= 0) {
+    const EC_GROUP *group = EC_KEY_get0_group(eckey);
+    const BIGNUM *priv_key = EC_KEY_get0_private_key(eckey);
+    if (group == NULL || priv_key == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+    if (BN_cmp(priv_key, BN_value_one()) < 0
+        || BN_cmp(priv_key, EC_GROUP_get0_order(group)) >= 0) {
         ERR_raise(ERR_LIB_EC, EC_R_INVALID_PRIVATE_KEY);
         return 0;
     }
@@ -235,22 +241,27 @@ int qat_fips_ec_key_pairwise_check(const EC_KEY *eckey, BN_CTX *ctx)
     int ret = 0;
     EC_POINT *point = NULL;
 
-    if (eckey == NULL
-        || eckey->group == NULL
-        || eckey->pub_key == NULL || eckey->priv_key == NULL) {
+    if (eckey == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+    const EC_GROUP *group = EC_KEY_get0_group(eckey);
+    const EC_POINT *pub_key = EC_KEY_get0_public_key(eckey);
+    const BIGNUM *priv_key = EC_KEY_get0_private_key(eckey);
+    if (group == NULL || pub_key == NULL || priv_key == NULL) {
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
 
-    point = EC_POINT_new(eckey->group);
+    point = EC_POINT_new(group);
     if (point == NULL)
         goto err;
 
-    if (!EC_POINT_mul(eckey->group, point, eckey->priv_key, NULL, NULL, ctx)) {
+    if (!EC_POINT_mul(group, point, priv_key, NULL, NULL, ctx)) {
         ERR_raise(ERR_LIB_EC, ERR_R_EC_LIB);
         goto err;
     }
-    if (EC_POINT_cmp(eckey->group, point, eckey->pub_key, ctx) != 0) {
+    if (EC_POINT_cmp(group, point, pub_key, ctx) != 0) {
         ERR_raise(ERR_LIB_EC, EC_R_INVALID_PRIVATE_KEY);
         goto err;
     }
@@ -265,23 +276,31 @@ int qat_fips_ec_key_public_range_check(BN_CTX *ctx, const EC_KEY *key)
     int ret = 0;
     BIGNUM *x, *y;
 
+    if (key == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+    const EC_GROUP *group = EC_KEY_get0_group(key);
+    const EC_POINT *pub_key = EC_KEY_get0_public_key(key);
+
     BN_CTX_start(ctx);
     x = BN_CTX_get(ctx);
     y = BN_CTX_get(ctx);
     if (y == NULL)
         goto err;
 
-    if (!EC_POINT_get_affine_coordinates(key->group, key->pub_key, x, y, ctx))
+    if (!EC_POINT_get_affine_coordinates(group, pub_key, x, y, ctx))
         goto err;
 
-    if (EC_GROUP_get_field_type(key->group) == NID_X9_62_prime_field) {
+    if (EC_GROUP_get_field_type(group) == NID_X9_62_prime_field) {
+        const BIGNUM *field = EC_GROUP_get0_field(group);
         if (BN_is_negative(x)
-            || BN_cmp(x, key->group->field) >= 0 || BN_is_negative(y)
-            || BN_cmp(y, key->group->field) >= 0) {
+            || BN_cmp(x, field) >= 0 || BN_is_negative(y)
+            || BN_cmp(y, field) >= 0) {
             goto err;
         }
     } else {
-        int m = EC_GROUP_get_degree(key->group);
+        int m = EC_GROUP_get_degree(group);
         if (BN_num_bits(x) > m || BN_num_bits(y) > m) {
             goto err;
         }
@@ -294,13 +313,19 @@ int qat_fips_ec_key_public_range_check(BN_CTX *ctx, const EC_KEY *key)
 
 int qat_fips_ec_key_public_check_quick(const EC_KEY *eckey, BN_CTX *ctx)
 {
-    if (eckey == NULL || eckey->group == NULL || eckey->pub_key == NULL) {
+    if (eckey == NULL) {
+        ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+    const EC_GROUP *group = EC_KEY_get0_group(eckey);
+    const EC_POINT *pub_key = EC_KEY_get0_public_key(eckey);
+    if (group == NULL || pub_key == NULL) {
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
 
     /* Test Q != infinity */
-    if (EC_POINT_is_at_infinity(eckey->group, eckey->pub_key)) {
+    if (EC_POINT_is_at_infinity(group, pub_key)) {
         ERR_raise(ERR_LIB_EC, EC_R_POINT_AT_INFINITY);
         return 0;
     }
@@ -312,7 +337,7 @@ int qat_fips_ec_key_public_check_quick(const EC_KEY *eckey, BN_CTX *ctx)
     }
 
     /* Test is the pub_key on the elliptic curve */
-    if (EC_POINT_is_on_curve(eckey->group, eckey->pub_key, ctx) <= 0) {
+    if (EC_POINT_is_on_curve(group, pub_key, ctx) <= 0) {
         ERR_raise(ERR_LIB_EC, EC_R_POINT_IS_NOT_ON_CURVE);
         return 0;
     }
@@ -328,21 +353,25 @@ int qat_fips_ec_key_public_check(const EC_KEY *eckey, BN_CTX *ctx)
     if (!qat_fips_ec_key_public_check_quick(eckey, ctx))
         return 0;
 
-    point = EC_POINT_new(eckey->group);
+    /* eckey is non-NULL after the quick check above. */
+    const EC_GROUP *group = EC_KEY_get0_group(eckey);
+    const EC_POINT *pub_key = EC_KEY_get0_public_key(eckey);
+
+    point = EC_POINT_new(group);
     if (point == NULL)
         return 0;
 
-    order = eckey->group->order;
+    order = EC_GROUP_get0_order(group);
     if (BN_is_zero(order)) {
         ERR_raise(ERR_LIB_EC, EC_R_INVALID_GROUP_ORDER);
         goto err;
     }
     /* Test pub_key * order is the point at infinity. */
-    if (!EC_POINT_mul(eckey->group, point, NULL, eckey->pub_key, order, ctx)) {
+    if (!EC_POINT_mul(group, point, NULL, pub_key, order, ctx)) {
         ERR_raise(ERR_LIB_EC, ERR_R_EC_LIB);
         goto err;
     }
-    if (!EC_POINT_is_at_infinity(eckey->group, point)) {
+    if (!EC_POINT_is_at_infinity(group, point)) {
         ERR_raise(ERR_LIB_EC, EC_R_WRONG_ORDER);
         goto err;
     }
@@ -361,13 +390,13 @@ int qat_fips_ec_key_simple_check_key(const EC_KEY *eckey)
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
-    if ((ctx = BN_CTX_new_ex(eckey->libctx)) == NULL)
+    if ((ctx = BN_CTX_new_ex(NULL)) == NULL)
         return 0;
 
     if (!qat_fips_ec_key_public_check(eckey, ctx))
         goto err;
 
-    if (eckey->priv_key != NULL) {
+    if (EC_KEY_get0_private_key(eckey) != NULL) {
         if (!qat_fips_ec_key_private_check(eckey)
             || !qat_fips_ec_key_pairwise_check(eckey, ctx))
             goto err;
