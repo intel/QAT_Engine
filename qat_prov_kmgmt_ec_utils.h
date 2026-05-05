@@ -403,7 +403,6 @@ int qat_ec_set_check_group_type_from_param(EC_KEY *ec, const OSSL_PARAM *p);
 
 int qat_ec_key_group_check_fromdata(EC_KEY *ec, const OSSL_PARAM params[]);
 
-void QAT_EC_KEY_set_conv_form(EC_KEY *key, point_conversion_form_t cform);
 
 int qat_ec_key_point_format_fromdata(EC_KEY *ec, const OSSL_PARAM params[]);
 
@@ -427,10 +426,6 @@ BIGNUM *qat_bn_wexpand(BIGNUM *a, int words);
 
 int qat_ec_key_fromdata(EC_KEY *ec, const OSSL_PARAM params[], int include_private);
 
-EC_KEY *qat_ec_key_new_method_int(OSSL_LIB_CTX *libctx, const char *propq);
-
-EC_GROUP *qat_ec_group_new_ex(OSSL_LIB_CTX *libctx, const char *propq,
-                               const EC_METHOD *meth);
 
 int qat_ec_key_public_range_check(BN_CTX *ctx, const EC_KEY *key);
 

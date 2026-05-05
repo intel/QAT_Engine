@@ -1440,7 +1440,7 @@ ECDSA_SIG *mb_ecdsa_sign_sig(const unsigned char *dgst, int dlen,
 {
     int ok = 0, len = 0, job_ret = 0, sts = 0, alloc_buf = 0,  bit_len = 0;
     BN_CTX *ctx = NULL;
-    ECDSA_SIG *ret;
+    ECDSA_SIG *ret = NULL;
     ASYNC_JOB *job;
     size_t buflen;
     static __thread int req_num = 0;

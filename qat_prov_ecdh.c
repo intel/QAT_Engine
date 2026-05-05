@@ -117,23 +117,6 @@ static OSSL_FUNC_keyexch_settable_ctx_params_fn qat_keyexch_ecdh_settable_ctx_pa
 static OSSL_FUNC_keyexch_get_ctx_params_fn qat_keyexch_ecdh_get_ctx_params;
 static OSSL_FUNC_keyexch_gettable_ctx_params_fn qat_keyexch_ecdh_gettable_ctx_params;
 
-QAT_EVP_ECDH_KEYEXCH get_default_ecdh_keyexch()
-{
-    static QAT_EVP_ECDH_KEYEXCH s_keyexch;
-    static int initialized = 0;
-    if (!initialized) {
-        QAT_EVP_ECDH_KEYEXCH *keyexch = (QAT_EVP_ECDH_KEYEXCH *)EVP_KEYEXCH_fetch(NULL,"ECDH","provider=default");
-        if (keyexch) {
-           s_keyexch = *keyexch;
-           EVP_KEYEXCH_free((EVP_KEYEXCH *)keyexch);
-           initialized = 1;
-        } else {
-           WARN("EVP_KEYEXCH_fetch from default provider failed");
-        }
-    }
-    return s_keyexch;
-}
-
 static const OSSL_PARAM known_settable_ctx_params[] = {
     OSSL_PARAM_int(OSSL_EXCHANGE_PARAM_EC_ECDH_COFACTOR_MODE, NULL),
     OSSL_PARAM_utf8_string(OSSL_EXCHANGE_PARAM_KDF_TYPE, NULL, 0),
@@ -153,50 +136,6 @@ static const OSSL_PARAM known_gettable_ctx_params[] = {
                     NULL, 0),
     OSSL_PARAM_END
 };
-
-static int QAT_ECDH_KEY_up_ref(EC_KEY *r)
-{
-    int i;
-    if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
-        return 0;
-
-    if(i < 2){
-        WARN("refcount error");
-        return 0;
-    }
-    return 1;
-}
-
-static void QAT_ECDH_KEY_free(EC_KEY *r)
-{
-    int i;
-
-    if (r == NULL)
-        return;
-    QAT_CRYPTO_DOWN_REF(&r->references, &i);
-
-    if (i > 0)
-        return;
-
-    if(i < 0){
-        WARN("refcount error");
-        return;
-    }
-
-    if (r->meth != NULL && r->meth->finish != NULL)
-        r->meth->finish(r);
-
-    if (r->group && r->group->meth->keyfinish)
-        r->group->meth->keyfinish(r);
-
-    CRYPTO_free_ex_data(CRYPTO_EX_INDEX_EC_KEY, r, &r->ex_data);
-    EC_GROUP_free(r->group);
-    EC_POINT_free(r->pub_key);
-    BN_clear_free(r->priv_key);
-    OPENSSL_free(r->propq);
-
-    OPENSSL_clear_free((void *)r, sizeof(EC_KEY));
-}
 
 static int qat_ecdh_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect)
 {
@@ -275,9 +214,9 @@ static int qat_keyexch_ecdh_init(void *vpecdhctx, void *vecdh, const OSSL_PARAM 
     if (!qat_prov_is_running()
             || pecdhctx == NULL
             || vecdh == NULL
-            || !QAT_ECDH_KEY_up_ref(vecdh))
+            || !EC_KEY_up_ref(vecdh))
         return 0;
-    QAT_ECDH_KEY_free(pecdhctx->k);
+    EC_KEY_free(pecdhctx->k);
     pecdhctx->k = vecdh;
     pecdhctx->cofactor_mode = -1;
     pecdhctx->kdf_type = PROV_ECDH_KDF_NONE;
@@ -287,7 +226,10 @@ static int qat_keyexch_ecdh_init(void *vpecdhctx, void *vecdh, const OSSL_PARAM 
 
 OSSL_LIB_CTX *qat_ec_key_get_libctx(const EC_KEY *key)
 {
-    return key->libctx;
+    /* TODO: EC_KEY_get0_libctx() is not in the public API; return NULL to use
+     * the default library context until a struct-wrapping refactor is done. */
+    (void)key;
+    return NULL;
 }
 
 static int qat_keyexch_ecdh_match_params(const EC_KEY *priv, const EC_KEY *peer)
@@ -320,10 +262,10 @@ static int qat_keyexch_ecdh_set_peer(void *vpecdhctx, void *vecdh)
             || vecdh == NULL
             || !qat_keyexch_ecdh_match_params(pecdhctx->k, vecdh)
             || !qat_ecdh_check_key(pecdhctx->libctx, vecdh, 1)
-            || !QAT_ECDH_KEY_up_ref(vecdh))
+            || !EC_KEY_up_ref(vecdh))
         return 0;
 
-    QAT_ECDH_KEY_free(pecdhctx->peerk);
+    EC_KEY_free(pecdhctx->peerk);
     pecdhctx->peerk = vecdh;
     return 1;
 }
@@ -332,8 +274,8 @@ static void qat_keyexch_ecdh_freectx(void *vpecdhctx)
 {
     QAT_PROV_ECDH_CTX *pecdhctx = (QAT_PROV_ECDH_CTX *)vpecdhctx;
 
-    QAT_ECDH_KEY_free(pecdhctx->k);
-    QAT_ECDH_KEY_free(pecdhctx->peerk);
+    EC_KEY_free(pecdhctx->k);
+    EC_KEY_free(pecdhctx->peerk);
 
     EVP_MD_free(pecdhctx->kdf_md);
     OPENSSL_clear_free(pecdhctx->kdf_ukm, pecdhctx->kdf_ukmlen);
@@ -364,12 +306,12 @@ static void *qat_keyexch_ecdh_dupctx(void *vpecdhctx)
 
     /* up-ref all ref-counted objects referenced in dstctx */
 
-    if (srcctx->k != NULL && !QAT_ECDH_KEY_up_ref(srcctx->k))
+    if (srcctx->k != NULL && !EC_KEY_up_ref(srcctx->k))
         goto err;
     else
         dstctx->k = srcctx->k;
 
-    if (srcctx->peerk != NULL && !QAT_ECDH_KEY_up_ref(srcctx->peerk))
+    if (srcctx->peerk != NULL && !EC_KEY_up_ref(srcctx->peerk))
         goto err;
     else
         dstctx->peerk = srcctx->peerk;
@@ -581,10 +523,7 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
 {
     unsigned char *sec = NULL;
     size_t seclen = 0;
-    if (eckey->meth->compute_key == NULL) {
-        QATerr(ERR_LIB_EC, EC_R_OPERATION_NOT_SUPPORTED);
-        return 0;
-    }
+
     if (outlen > INT_MAX) {
         QATerr(ERR_LIB_EC, EC_R_INVALID_OUTPUT_LENGTH);
         return 0;
@@ -592,19 +531,15 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
 
 #ifdef ENABLE_QAT_HW_ECDH
     if (qat_hw_ecdh_offload) {
-        if(!qat_engine_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
+        if (!qat_engine_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
             return 0;
-        goto end;
     }
 #endif
 #ifdef ENABLE_QAT_SW_ECDH
     if (qat_sw_ecdh_offload) {
-        if(!mb_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
+        if (!mb_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
             return 0;
     }
-#endif
-#ifdef ENABLE_QAT_HW_ECDH
-end:
 #endif
     if (KDF != NULL) {
         KDF(sec, seclen, out, &outlen);
@@ -779,15 +714,6 @@ static int qat_keyexch_ecdh_derive(void *vpecdhctx, unsigned char *secret,
 
     qat_fips_service_indicator = 1;
 #endif
-    if (qat_sw_ecdh_offload != 1 && qat_hw_ecdh_offload != 1) {
-        typedef int (*fun_ptr)(void *, unsigned char *,
-                               size_t *, size_t);
-        fun_ptr fun = get_default_ecdh_keyexch().derive;
-        if (!fun)
-            return 0;
-        return fun(vpecdhctx, secret, psecretlen, outlen);
-    }
-
     switch (pecdhctx->kdf_type) {
     case PROV_ECDH_KDF_NONE:
         ret = qat_keyexch_ecdh_plain_derive(vpecdhctx, secret, psecretlen, outlen);

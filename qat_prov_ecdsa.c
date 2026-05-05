@@ -72,61 +72,6 @@
 extern int qat_fips_key_zeroize;
 #endif
 
-typedef struct evp_signature_st {
-    int name_id;
-    char *type_name;
-    const char *description;
-    OSSL_PROVIDER *prov;
-    QAT_CRYPTO_REF_COUNT references;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-#endif
-    OSSL_FUNC_signature_newctx_fn *newctx;
-    OSSL_FUNC_signature_sign_init_fn *sign_init;
-    OSSL_FUNC_signature_sign_fn *sign;
-    OSSL_FUNC_signature_verify_init_fn *verify_init;
-    OSSL_FUNC_signature_verify_fn *verify;
-    OSSL_FUNC_signature_verify_recover_init_fn *verify_recover_init;
-    OSSL_FUNC_signature_verify_recover_fn *verify_recover;
-    OSSL_FUNC_signature_digest_sign_init_fn *digest_sign_init;
-    OSSL_FUNC_signature_digest_sign_update_fn *digest_sign_update;
-    OSSL_FUNC_signature_digest_sign_final_fn *digest_sign_final;
-    OSSL_FUNC_signature_digest_sign_fn *digest_sign;
-    OSSL_FUNC_signature_digest_verify_init_fn *digest_verify_init;
-    OSSL_FUNC_signature_digest_verify_update_fn *digest_verify_update;
-    OSSL_FUNC_signature_digest_verify_final_fn *digest_verify_final;
-    OSSL_FUNC_signature_digest_verify_fn *digest_verify;
-    OSSL_FUNC_signature_freectx_fn *freectx;
-    OSSL_FUNC_signature_dupctx_fn *dupctx;
-    OSSL_FUNC_signature_get_ctx_params_fn *get_ctx_params;
-    OSSL_FUNC_signature_gettable_ctx_params_fn *gettable_ctx_params;
-    OSSL_FUNC_signature_set_ctx_params_fn *set_ctx_params;
-    OSSL_FUNC_signature_settable_ctx_params_fn *settable_ctx_params;
-    OSSL_FUNC_signature_get_ctx_md_params_fn *get_ctx_md_params;
-    OSSL_FUNC_signature_gettable_ctx_md_params_fn *gettable_ctx_md_params;
-    OSSL_FUNC_signature_set_ctx_md_params_fn *set_ctx_md_params;
-    OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
-} QAT_EVP_SIGNATURE /* EVP_SIGNATURE for QAT Provider ECDSA */;
-
-#if ENABLE_QAT_SW_ECDSA
-static QAT_EVP_SIGNATURE get_default_ECDSA_signature()
-{
-    static QAT_EVP_SIGNATURE s_signature;
-    static int initilazed = 0;
-    if (!initilazed) {
-        QAT_EVP_SIGNATURE *signature = (QAT_EVP_SIGNATURE *)EVP_SIGNATURE_fetch(NULL, "ECDSA", "provider=default");
-        if (signature) {
-            s_signature = *signature;
-            EVP_SIGNATURE_free((EVP_SIGNATURE *)signature);
-            initilazed = 1;
-        } else {
-            WARN("EVP_SIGNATURE_fetch from default provider failed");
-        }
-    }
-    return s_signature;
-}
-#endif
-
 static const OSSL_PARAM known_gettable_ctx_params[] = {
     OSSL_PARAM_octet_string(OSSL_SIGNATURE_PARAM_ALGORITHM_ID, NULL, 0),
     OSSL_PARAM_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, NULL, 0),
@@ -147,56 +92,16 @@ static const OSSL_PARAM settable_ctx_params_no_digest[] = {
     OSSL_PARAM_END
 };
 
-int QAT_EC_KEY_up_ref(EC_KEY *r)
-{
-    int i;
-    if (QAT_CRYPTO_UP_REF(&r->references, &i) <= 0)
-        return 0;
-
-    if(i < 2){
-        WARN("refcount error");
-        return 0;
-    }
-    return 1;
-}
-
 void QAT_EC_KEY_free(EC_KEY *r)
 {
 #ifdef ENABLE_QAT_FIPS
     qat_fips_key_zeroize = 0;
 #endif
-    int i;
-
-    if (r == NULL)
-        return;
-    QAT_CRYPTO_DOWN_REF(&r->references, &i);
-
-    if (i > 0)
-        return;
-
-    if(i < 0){
-        WARN("refcount error");
-        return;
-    }
-
-    if (r->meth != NULL && r->meth->finish != NULL)
-        r->meth->finish(r);
-
-    if (r->group && r->group->meth->keyfinish)
-        r->group->meth->keyfinish(r);
-
-    CRYPTO_free_ex_data(CRYPTO_EX_INDEX_EC_KEY, r, &r->ex_data);
-    EC_GROUP_free(r->group);
-    EC_POINT_free(r->pub_key);
-    BN_clear_free(r->priv_key);
-    OPENSSL_free(r->propq);
-
-    OPENSSL_clear_free((void *)r, sizeof(EC_KEY));
+    EC_KEY_free(r);
 #ifdef ENABLE_QAT_FIPS
     qat_fips_key_zeroize = 1;
     qat_fips_get_key_zeroize_status();
 #endif
-
 }
 
 /* Disable the security checks in the default provider and qat provider */
@@ -449,7 +354,7 @@ static int qat_signature_ecdsa_signverify_init(void *vctx, void *ec,
     if (!qat_prov_is_running()
             || ctx == NULL
             || ec == NULL
-            || !QAT_EC_KEY_up_ref(ec))
+            || !EC_KEY_up_ref(ec))
         return 0;
     QAT_EC_KEY_free(ctx->ec);
     ctx->ec = ec;
@@ -498,6 +403,7 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
 
     if (ctx->mdsize != 0 && tbslen != ctx->mdsize)
         goto end;
+
 #ifdef ENABLE_QAT_HW_ECDSA
     if (qat_hw_ecdsa_offload) {
         ret = qat_ecdsa_sign(0, tbs, tbslen, sig, &sltmp, ctx->kinv, ctx->r, ctx->ec);
@@ -516,14 +422,6 @@ static int qat_signature_ecdsa_sign(void *vctx, unsigned char *sig, size_t *sigl
             ret = 1;
             goto end; /* SW succeeded */
         }
-    } else {
-        /* SW compiled but disabled at runtime, use OpenSSL default */
-        typedef int (*fun_ptr)(void *, unsigned char *, size_t *,
-                               size_t , const unsigned char *, size_t);
-        fun_ptr fun = get_default_ECDSA_signature().sign;
-        if (!fun)
-            return 0;
-        return fun(vctx, sig, siglen, sigsize, tbs, tbslen);
     }
 #endif
 
@@ -561,13 +459,6 @@ static int qat_signature_ecdsa_verify(void *vctx, const unsigned char *sig, size
         ret = mb_ecdsa_verify(0, tbs, tbslen, sig, siglen, ctx->ec);
         if (ret > 0)
             goto end; /* SW succeeded */
-    } else {
-        typedef int (*fun_ptr)(void *, const unsigned char *, size_t,
-                               const unsigned char *, size_t);
-        fun_ptr fun = get_default_ECDSA_signature().verify;
-        if (!fun)
-            return 0;
-        return fun(vctx, sig, siglen, tbs, tbslen);
     }
 #endif
 
