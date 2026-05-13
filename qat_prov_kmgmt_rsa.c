@@ -75,68 +75,68 @@
     OSSL_PARAM_int(OSSL_PKEY_PARAM_RSA_PSS_SALTLEN, NULL)
 
 /**
- * @brief Allocates and initializes a new QAT_RSA structure for RSA key management.
+ * @brief Allocates and initializes a new RSA key object for RSA key management.
  *
- * This function creates a new QAT_RSA structure using the provided provider context,
+ * This function creates a new RSA key object using the provided provider context,
  * initializes its fields, and sets the key type flags for a standard RSA key.
- * It returns a pointer to the new QAT_RSA object, or NULL on failure.
+ * It returns a pointer to the new RSA key object, or NULL on failure.
  *
  * @param provctx  Pointer to the provider context.
  *
- * @return Pointer to the newly allocated QAT_RSA structure, or NULL on failure.
+ * @return Pointer to the newly allocated RSA key object, or NULL on failure.
  */
 static void *qat_keymgmt_rsa_newdata(void *provctx)
 {
     DEBUG("%s\n", __func__);
     OSSL_LIB_CTX *libctx = prov_libctx_of(provctx);
-    QAT_RSA *rsa;
+    RSA *rsa;
 
     if (!qat_prov_is_running())
         return NULL;
 
     rsa = qat_rsa_new_with_ctx(libctx);
     if (rsa != NULL) {
-        QAT_RSA_clear_flags(rsa, RSA_FLAG_TYPE_MASK);
-        QAT_RSA_set_flags(rsa, RSA_FLAG_TYPE_RSA);
+        RSA_clear_flags(rsa, RSA_FLAG_TYPE_MASK);
+        RSA_set_flags(rsa, RSA_FLAG_TYPE_RSA);
     }
     return rsa;
 }
 
 /**
- * @brief Allocates and initializes a new QAT_RSA structure for RSA-PSS key management.
+ * @brief Allocates and initializes a new RSA key object for RSA-PSS key management.
  *
- * This function creates a new QAT_RSA structure using the provided provider context,
+ * This function creates a new RSA key object using the provided provider context,
  * initializes its fields, and sets the key type flags for an RSA-PSS key.
- * It returns a pointer to the new QAT_RSA object, or NULL on failure.
+ * It returns a pointer to the new RSA key object, or NULL on failure.
  *
  * @param provctx  Pointer to the provider context.
  *
- * @return Pointer to the newly allocated QAT_RSA structure, or NULL on failure.
+ * @return Pointer to the newly allocated RSA key object, or NULL on failure.
  */
 static void *qat_keymgmt_rsapss_newdata(void *provctx)
 {
     OSSL_LIB_CTX *libctx = prov_libctx_of(provctx);
-    QAT_RSA *rsa;
+    RSA *rsa;
 
     if (!qat_prov_is_running())
 	return NULL;
 
     rsa = qat_rsa_new_with_ctx(libctx);
     if (rsa != NULL) {
-        QAT_RSA_clear_flags(rsa, RSA_FLAG_TYPE_MASK);
-        QAT_RSA_set_flags(rsa, RSA_FLAG_TYPE_RSASSAPSS);
+        RSA_clear_flags(rsa, RSA_FLAG_TYPE_MASK);
+        RSA_set_flags(rsa, RSA_FLAG_TYPE_RSASSAPSS);
     }
     return rsa;
 }
 
 /**
- * @brief Frees and cleans up a QAT_RSA key structure.
+ * @brief Frees and cleans up a RSA key object.
  *
- * This function releases all resources associated with a QAT_RSA structure,
+ * This function releases all resources associated with a RSA key object,
  * including any allocated memory and internal key components. It should be
  * called when the key data is no longer needed to prevent memory leaks.
  *
- * @param keydata  Pointer to the QAT_RSA structure to free.
+ * @param keydata  Pointer to the RSA key object to free.
  */
 static void qat_keymgmt_rsa_freedata(void *keydata)
 {
@@ -145,7 +145,7 @@ static void qat_keymgmt_rsa_freedata(void *keydata)
 }
 
 /**
- * @brief Checks if the QAT_RSA key structure contains the requested key components.
+ * @brief Checks if the RSA key object contains the requested key components.
  *
  * This function verifies the presence of required key components in the given QAT_RSA
  * structure based on the specified selection mask. It checks for the existence of
@@ -153,7 +153,7 @@ static void qat_keymgmt_rsa_freedata(void *keydata)
  * public key, and private key selections. Returns 1 if all requested components are present,
  * 0 otherwise.
  *
- * @param keydata    Pointer to the QAT_RSA structure to check.
+ * @param keydata    Pointer to the RSA key object to check.
  * @param selection  Bitmask specifying which key components to check for.
  *
  * @return 1 if all requested components are present, 0 otherwise.
@@ -161,7 +161,7 @@ static void qat_keymgmt_rsa_freedata(void *keydata)
 static int qat_keymgmt_rsa_has(const void *keydata, int selection)
 {
     DEBUG("%s\n", __func__);
-    const QAT_RSA *rsa = keydata;
+    const RSA *rsa = keydata;
     int ok = 1;
 
     if (rsa == NULL || !qat_prov_is_running())
@@ -171,24 +171,24 @@ static int qat_keymgmt_rsa_has(const void *keydata, int selection)
 
     /* OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS are always available even if empty */
     if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0)
-        ok = ok && (QAT_RSA_get0_n(rsa) != NULL);
+        ok = ok && (RSA_get0_n(rsa) != NULL);
     if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0)
-        ok = ok && (QAT_RSA_get0_e(rsa) != NULL);
+        ok = ok && (RSA_get0_e(rsa) != NULL);
     if ((selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0)
-        ok = ok && (QAT_RSA_get0_d(rsa) != NULL);
+        ok = ok && (RSA_get0_d(rsa) != NULL);
     return ok;
 }
 
 /**
- * @brief Imports RSA key components and parameters from an OSSL_PARAM array into a QAT_RSA structure.
+ * @brief Imports RSA key components and parameters from an OSSL_PARAM array into a RSA key object.
  *
- * This function populates the given QAT_RSA structure with key components and parameters
+ * This function populates the given RSA key object with key components and parameters
  * provided in the OSSL_PARAM array, according to the specified selection mask. It handles
  * both standard and PSS-specific parameters, and can import public and private key data.
  * The function ensures that the imported parameters are consistent with the key type and
  * applies any necessary defaults for PSS keys.
  *
- * @param keydata    Pointer to the QAT_RSA structure to populate.
+ * @param keydata    Pointer to the RSA key object to populate.
  * @param selection  Bitmask specifying which key components and parameters to import.
  * @param params     Array of OSSL_PARAM containing the key data and parameters.
  *
@@ -198,7 +198,7 @@ static int qat_keymgmt_rsa_import(void *keydata, int selection,
 	                          const OSSL_PARAM params[])
 {
     DEBUG("%s\n", __func__);
-    QAT_RSA *rsa = keydata;
+    RSA *rsa = keydata;
     int rsa_type;
     int ok = 1;
     int pss_defaults_set = 0;
@@ -209,7 +209,7 @@ static int qat_keymgmt_rsa_import(void *keydata, int selection,
     if ((selection & QAT_RSA_POSSIBLE_SELECTIONS) == 0)
         return 0;
 
-    rsa_type = QAT_RSA_test_flags(rsa, RSA_FLAG_TYPE_MASK);
+    rsa_type = RSA_test_flags(rsa, RSA_FLAG_TYPE_MASK);
 
     if ((selection & OSSL_KEYMGMT_SELECT_OTHER_PARAMETERS) != 0)
         ok = ok && qat_pss_params_fromdata(qat_rsa_get0_pss_params_30(rsa),
@@ -374,7 +374,7 @@ static const OSSL_PARAM *qat_keymgmt_rsapss_gen_settable_params(ossl_unused void
 /**
  * @brief Generates a new RSA or RSA-PSS key using the specified generation context.
  *
- * This function creates a new QAT_RSA key according to the parameters set in the QAT_RSA_GEN_CTX
+ * This function creates a new RSA key according to the parameters set in the QAT_RSA_GEN_CTX
  * context, including modulus size, public exponent, number of primes, and (for PSS keys) PSS parameters.
  * It performs all necessary checks for key type and parameter restrictions, generates the key using
  * software routines, and copies any PSS parameters to the resulting key structure.
@@ -383,13 +383,13 @@ static const OSSL_PARAM *qat_keymgmt_rsapss_gen_settable_params(ossl_unused void
  * @param osslcb    Optional OpenSSL callback for progress reporting (may be NULL).
  * @param cbarg     Optional argument for the callback (may be NULL).
  *
- * @return Pointer to the newly generated QAT_RSA key, or NULL on failure.
+ * @return Pointer to the newly generated RSA key, or NULL on failure.
  */
 static void *qat_keymgmt_rsa_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg)
 {
     DEBUG("%s\n", __func__);
     QAT_RSA_GEN_CTX *gctx = genctx;
-    QAT_RSA *rsa = NULL, *rsa_tmp = NULL;
+    RSA *rsa = NULL, *rsa_tmp = NULL;
     BN_GENCB *gencb = NULL;
 
     if (!qat_prov_is_running() || gctx == NULL)
@@ -427,8 +427,8 @@ static void *qat_keymgmt_rsa_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbar
                                     &gctx->pss_params))
         goto err;
 
-    QAT_RSA_clear_flags(rsa_tmp, RSA_FLAG_TYPE_MASK);
-    QAT_RSA_set_flags(rsa_tmp, gctx->rsa_type);
+    RSA_clear_flags(rsa_tmp, RSA_FLAG_TYPE_MASK);
+    RSA_set_flags(rsa_tmp, gctx->rsa_type);
 
     rsa = rsa_tmp;
     rsa_tmp = NULL;
@@ -459,33 +459,33 @@ static void qat_keymgmt_rsa_gen_cleanup(void *genctx)
 }
 
 /**
- * @brief Loads a QAT_RSA key object from a reference pointer.
+ * @brief Loads a RSA key object from a reference pointer.
  *
- * This function retrieves a QAT_RSA key object from a reference pointer, validating
+ * This function retrieves a RSA key object from a reference pointer, validating
  * the reference size and ensuring the key type matches the expected RSA type (standard or PSS).
  * If the reference is valid, the function detaches the object from the reference pointer
  * and returns it; otherwise, it returns NULL.
  *
- * @param reference     Pointer to the reference containing the QAT_RSA object address.
- * @param reference_sz  Size of the reference (should match sizeof(QAT_RSA *)).
+ * @param reference     Pointer to the reference containing the RSA key object address.
+ * @param reference_sz  Size of the reference (should match sizeof(RSA *)).
  * @param rsa_type      Expected RSA key type (e.g., RSA_FLAG_TYPE_RSA or RSA_FLAG_TYPE_RSASSAPSS).
  *
- * @return Pointer to the loaded QAT_RSA object, or NULL on failure.
+ * @return Pointer to the loaded RSA key object, or NULL on failure.
  */
 static void *common_load(const void *reference, size_t reference_sz,
 	                 int rsa_type)
 {
-    QAT_RSA *rsa = NULL;
+    RSA *rsa = NULL;
 
     if (qat_prov_is_running() && reference_sz == sizeof(rsa)) {
 	/* The contents of the reference is the address to our object */
-        rsa = *(QAT_RSA **)reference;
+        rsa = *(RSA **)reference;
 
-        if (QAT_RSA_test_flags(rsa, RSA_FLAG_TYPE_MASK) != rsa_type)
+        if (RSA_test_flags(rsa, RSA_FLAG_TYPE_MASK) != rsa_type)
             return NULL;
 
         /* We grabbed, so we detach it */
-        *(QAT_RSA **)reference = NULL;
+        *(RSA **)reference = NULL;
         return rsa;
     }
     return NULL;
@@ -502,14 +502,14 @@ static void *qat_keymgmt_rsapss_load(const void *reference, size_t reference_sz)
 }
 
 /**
- * @brief Retrieves key parameters from a QAT_RSA structure and populates an OSSL_PARAM array.
+ * @brief Retrieves key parameters from a RSA key object and populates an OSSL_PARAM array.
  *
  * This function fills the provided OSSL_PARAM array with key parameters from the given QAT_RSA
  * structure, such as modulus size, security bits, maximum size, and default or mandatory digest.
  * For RSA-PSS keys, it also exports PSS parameters if present. The function ensures that only
  * valid and available parameters are set in the output array.
  *
- * @param key      Pointer to the QAT_RSA structure.
+ * @param key      Pointer to the RSA key object.
  * @param params   Array of OSSL_PARAM to be populated with key parameters.
  *
  * @return 1 on success, 0 on failure.
@@ -517,16 +517,16 @@ static void *qat_keymgmt_rsapss_load(const void *reference, size_t reference_sz)
 static int qat_keymgmt_rsa_get_params(void *key, OSSL_PARAM params[])
 {
     DEBUG("%s\n", __func__);
-    QAT_RSA *rsa = key;
+    RSA *rsa = key;
     const QAT_RSA_PSS_PARAMS_30 *pss_params = qat_rsa_get0_pss_params_30(rsa);
-    int rsa_type = QAT_RSA_test_flags(rsa, RSA_FLAG_TYPE_MASK);
+    int rsa_type = RSA_test_flags(rsa, RSA_FLAG_TYPE_MASK);
     OSSL_PARAM *p;
-    int empty = QAT_RSA_get0_n(rsa) == NULL;
+    int empty = RSA_get0_n(rsa) == NULL;
     int ret = 0;
 
     DEBUG("n is empty: %d\n", empty);
     if ((p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_BITS)) != NULL) {
-	if (empty || !OSSL_PARAM_set_int(p, QAT_RSA_bits(rsa)))
+	if (empty || !OSSL_PARAM_set_int(p, RSA_bits(rsa)))
             return 0;
     }
 
@@ -535,7 +535,7 @@ static int qat_keymgmt_rsa_get_params(void *key, OSSL_PARAM params[])
         return 0;
 
     if ((p = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_MAX_SIZE)) != NULL
-        && (empty || !OSSL_PARAM_set_int(p, QAT_RSA_size(rsa))))
+        && (empty || !OSSL_PARAM_set_int(p, RSA_size(rsa))))
         return 0;
     /*
      * For restricted RSA-PSS keys, we ignore the default digest request.
@@ -583,14 +583,14 @@ static const OSSL_PARAM *qat_keymgmt_rsa_gettable_params(void *provctx)
 }
 
 /**
- * @brief Exports RSA key components and parameters from a QAT_RSA structure.
+ * @brief Exports RSA key components and parameters from a RSA key object.
  *
- * This function serializes the key components and parameters of the given QAT_RSA structure
+ * This function serializes the key components and parameters of the given RSA key object
  * into an OSSL_PARAM array using an OSSL_PARAM_BLD builder, according to the specified
  * selection mask. It handles both standard and PSS-specific parameters, and can export
  * public and private key data. The resulting parameters are passed to the provided callback.
  *
- * @param keydata        Pointer to the QAT_RSA structure to export.
+ * @param keydata        Pointer to the RSA key object to export.
  * @param selection      Bitmask specifying which key components and parameters to export.
  * @param param_callback Callback function to receive the exported parameters.
  * @param cbarg          Argument to pass to the callback function.
@@ -602,7 +602,7 @@ static int qat_keymgmt_rsa_export(void *keydata, int selection,
 	                          void *cbarg)
 {
     DEBUG("%s\n", __func__);
-    QAT_RSA *rsa = keydata;
+    RSA *rsa = keydata;
     const QAT_RSA_PSS_PARAMS_30 *pss_params = qat_rsa_get0_pss_params_30(rsa);
     OSSL_PARAM_BLD *tmpl;
     OSSL_PARAM *params = NULL;
@@ -657,15 +657,15 @@ static const OSSL_PARAM *qat_keymgmt_rsa_export_types(int selection)
 }
 
 /**
- * @brief Compares two QAT_RSA key structures for equality based on the selection mask.
+ * @brief Compares two RSA key objects for equality based on the selection mask.
  *
- * This function checks whether the two provided QAT_RSA key structures match according to
+ * This function checks whether the two provided RSA key objects match according to
  * the specified selection mask. It compares the public exponent, modulus, and private exponent
  * as required by the selection. The function returns 1 if all selected components match,
  * and 0 otherwise.
  *
- * @param keydata1   Pointer to the first QAT_RSA structure.
- * @param keydata2   Pointer to the second QAT_RSA structure.
+ * @param keydata1   Pointer to the first RSA key object.
+ * @param keydata2   Pointer to the second RSA key object.
  * @param selection  Bitmask specifying which key components to compare.
  *
  * @return 1 if all selected components match, 0 otherwise.
@@ -674,8 +674,8 @@ static int qat_keymgmt_rsa_match(const void *keydata1, const void *keydata2,
 	                         int selection)
 {
     DEBUG("%s\n", __func__);
-    const QAT_RSA *rsa1 = keydata1;
-    const QAT_RSA *rsa2 = keydata2;
+    const RSA *rsa1 = keydata1;
+    const RSA *rsa2 = keydata2;
 
     int ok = 1;
 
@@ -683,12 +683,12 @@ static int qat_keymgmt_rsa_match(const void *keydata1, const void *keydata2,
         return 0;
 
     /* There is always an |e| */
-    ok = ok && BN_cmp(QAT_RSA_get0_e(rsa1), QAT_RSA_get0_e(rsa2)) == 0;
+    ok = ok && BN_cmp(RSA_get0_e(rsa1), RSA_get0_e(rsa2)) == 0;
     if ((selection & OSSL_KEYMGMT_SELECT_KEYPAIR) != 0) {
         int key_checked = 0;
         if ((selection & OSSL_KEYMGMT_SELECT_PUBLIC_KEY) != 0) {
-            const BIGNUM *pa = QAT_RSA_get0_n(rsa1);
-            const BIGNUM *pb = QAT_RSA_get0_n(rsa2);
+            const BIGNUM *pa = RSA_get0_n(rsa1);
+            const BIGNUM *pb = RSA_get0_n(rsa2);
             if (pa != NULL && pb != NULL) {
                 ok = ok && BN_cmp(pa, pb) == 0;
                 key_checked = 1;
@@ -696,8 +696,8 @@ static int qat_keymgmt_rsa_match(const void *keydata1, const void *keydata2,
         }
         if (!key_checked
             && (selection & OSSL_KEYMGMT_SELECT_PRIVATE_KEY) != 0) {
-            const BIGNUM *pa = QAT_RSA_get0_d(rsa1);
-            const BIGNUM *pb = QAT_RSA_get0_d(rsa2);
+            const BIGNUM *pa = RSA_get0_d(rsa1);
+            const BIGNUM *pb = RSA_get0_d(rsa2);
             if (pa != NULL && pb != NULL) {
                 ok = ok && BN_cmp(pa, pb) == 0;
 	            key_checked = 1;

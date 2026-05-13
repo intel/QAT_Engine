@@ -218,7 +218,7 @@ static const OSSL_PARAM known_gettable_ctx_params[] = {
 };
 
 static int qat_rsa_private_encrypt(int flen, const unsigned char *from,
-                                   unsigned char *to, QAT_RSA *rsa,
+                                   unsigned char *to, RSA *rsa,
 				   int padding)
 {
     int ret = 0;
@@ -236,7 +236,7 @@ static int qat_rsa_private_encrypt(int flen, const unsigned char *from,
 }
 
 static int qat_rsa_public_decrypt(int flen, const unsigned char *from,
-		                  unsigned char *to, QAT_RSA *rsa,
+		                  unsigned char *to, RSA *rsa,
 		                  int padding)
 {
     int ret = 0;
@@ -264,7 +264,7 @@ static int setup_tbuf(QAT_PROV_RSA_CTX *ctx)
 {
     if (ctx->tbuf != NULL)
         return 1;
-    if ((ctx->tbuf = OPENSSL_malloc(QAT_RSA_size(ctx->rsa))) == NULL) {
+    if ((ctx->tbuf = OPENSSL_malloc(RSA_size(ctx->rsa))) == NULL) {
         QATerr(ERR_LIB_PROV, ERR_R_MALLOC_FAILURE);
         return 0;
     }
@@ -274,7 +274,7 @@ static int setup_tbuf(QAT_PROV_RSA_CTX *ctx)
 static void clean_tbuf(QAT_PROV_RSA_CTX *ctx)
 {
     if (ctx->tbuf != NULL)
-        OPENSSL_cleanse(ctx->tbuf, QAT_RSA_size(ctx->rsa));
+        OPENSSL_cleanse(ctx->tbuf, RSA_size(ctx->rsa));
 }
 
 static void free_tbuf(QAT_PROV_RSA_CTX *ctx)
@@ -361,7 +361,7 @@ static int qat_fips_check_rsa_key_size(size_t rsasize, int is_sign)
  * custom hash algorithms for both the main digest and the MGF1 mask generation function,
  * and allows for variable salt lengths as required by the PSS scheme.
  *
- * @param rsa      Pointer to the QAT_RSA key structure.
+ * @param rsa      Pointer to the RSA key object.
  * @param EM       Output buffer for the encoded message (should be at least RSA_size(rsa) bytes).
  * @param mHash    Input message hash to be padded.
  * @param Hash     Digest method for the main hash.
@@ -370,11 +370,12 @@ static int qat_fips_check_rsa_key_size(size_t rsasize, int is_sign)
  *
  * @return 1 on success, 0 on failure.
  */
-int QAT_RSA_padding_add_PKCS1_PSS_mgf1(QAT_RSA *rsa, unsigned char *EM,
+int QAT_RSA_padding_add_PKCS1_PSS_mgf1(RSA *rsa, unsigned char *EM,
                                        const unsigned char *mHash,
                                        const EVP_MD *Hash,
 		                       const EVP_MD *mgf1Hash,
-                                       int *sLenOut)
+                                       int *sLenOut,
+                                       OSSL_LIB_CTX *libctx)
 {
     int i;
     int ret = 0;
@@ -405,8 +406,8 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(QAT_RSA *rsa, unsigned char *EM,
         goto err;
     }
 
-    MSBits = (BN_num_bits(rsa->n) - 1) & 0x7;
-    emLen = QAT_RSA_size(rsa);
+    MSBits = (BN_num_bits(RSA_get0_n(rsa)) - 1) & 0x7;
+    emLen = RSA_size(rsa);
     if (MSBits == 0) {
         *EM++ = 0;
         emLen--;
@@ -427,7 +428,7 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(QAT_RSA *rsa, unsigned char *EM,
             QATerr(ERR_LIB_RSA, ERR_R_MALLOC_FAILURE);
             goto err;
         }
-        if (RAND_bytes_ex(rsa->libctx, salt, sLen, 0) <= 0)
+        if (RAND_bytes_ex(libctx, salt, sLen, 0) <= 0)
             goto err;
     }
     maskedDBLen = emLen - hLen - 1;
@@ -487,7 +488,7 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(QAT_RSA *rsa, unsigned char *EM,
  * @brief Signs a message digest using RSA and PKCS#1 v1.5 padding.
  *
  * This function creates an RSA signature for the given message digest using the specified
- * digest type and the provided QAT_RSA key. It encodes the digest using the appropriate
+ * digest type and the provided RSA key. It encodes the digest using the appropriate
  * ASN.1 DigestInfo structure (unless the digest type is NID_md5_sha1), applies PKCS#1 v1.5
  * padding, and performs the RSA private key operation.
  *
@@ -497,13 +498,13 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(QAT_RSA *rsa, unsigned char *EM,
  * @param m_len    Length of the message digest.
  * @param sigret   Output buffer for the resulting signature.
  * @param siglen   Pointer to an unsigned int to receive the signature length.
- * @param rsa      Pointer to the QAT_RSA key structure.
+ * @param rsa      Pointer to the RSA key object.
  *
  * @return 1 on success, 0 on failure.
  */
 int QAT_RSA_sign(void *prsactx, int type, const unsigned char *m, unsigned int m_len,
                  unsigned char *sigret, size_t *sigLen, size_t sigsize, unsigned int *siglen,
-	         QAT_RSA *rsa)
+	         RSA *rsa)
 {
     int encrypt_len, ret = 0;
     size_t encoded_len = 0;
@@ -529,7 +530,7 @@ int QAT_RSA_sign(void *prsactx, int type, const unsigned char *m, unsigned int m
         encoded = tmps;
     }
 
-    if (encoded_len + RSA_PKCS1_PADDING_SIZE > (size_t)QAT_RSA_size(rsa)) {
+    if (encoded_len + RSA_PKCS1_PADDING_SIZE > (size_t)RSA_size(rsa)) {
         QATerr(ERR_LIB_RSA, RSA_R_DIGEST_TOO_BIG_FOR_RSA_KEY);
         goto err;
     }
@@ -564,7 +565,7 @@ static int rsa_sign_directly(QAT_PROV_RSA_CTX *prsactx, unsigned char *sig,
 			     size_t *siglen, size_t sigsize,
 			     const unsigned char *tbs, size_t tbslen)
 {
-    size_t rsasize = QAT_RSA_size(prsactx->rsa);
+    size_t rsasize = RSA_size(prsactx->rsa);
     size_t mdsize = rsa_get_md_size(prsactx);
     int ret = 0;
 
@@ -590,9 +591,9 @@ static int rsa_sign_directly(QAT_PROV_RSA_CTX *prsactx, unsigned char *sig,
 
 	switch (prsactx->pad_mode) {
         case RSA_X931_PADDING:
-	    if ((size_t)QAT_RSA_size(prsactx->rsa) < tbslen + 1) {
+	    if ((size_t)RSA_size(prsactx->rsa) < tbslen + 1) {
 	        WARN("RSA key size = %d, expected minimum = %zu",
-		      QAT_RSA_size(prsactx->rsa), tbslen + 1);
+		      RSA_size(prsactx->rsa), tbslen + 1);
 	        QATerr(ERR_LIB_PROV, QAT_R_PROV_KEY_SIZE_TOO_SMALL);
 		return 0;
 	    }
@@ -667,7 +668,8 @@ static int rsa_sign_directly(QAT_PROV_RSA_CTX *prsactx, unsigned char *sig,
 						    prsactx->tbuf, tbs,
 						    prsactx->md,
 						    prsactx->mgf1_md,
-						    &saltlen)) {
+						    &saltlen,
+						    prsactx->libctx)) {
 		QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
 		return 0;
 	    }
@@ -797,9 +799,10 @@ static int rsa_sign_message_final(void *vprsactx, unsigned char *sig,
     return rsa_sign_directly(prsactx, sig, siglen, sigsize, digest, dlen);
 }
 
-QAT_RSA_PSS_PARAMS_30 *qat_rsa_get0_pss_params_30(QAT_RSA *r)
+QAT_RSA_PSS_PARAMS_30 *qat_rsa_get0_pss_params_30(RSA *r)
 {
-    return &r->pss_params;
+    qat_rsa_pss_params_ex_init();
+    return (QAT_RSA_PSS_PARAMS_30 *)RSA_get_ex_data(r, qat_rsa_pss_params_ex_idx());
 }
 
 int qat_rsa_pss_params_30_is_unrestricted(const QAT_RSA_PSS_PARAMS_30 *rsa_pss_params)
@@ -1047,8 +1050,8 @@ static int qat_rsa_check_parameters(QAT_PROV_RSA_CTX *prsactx, int min_saltlen)
         int max_saltlen;
 
         /* See if minimum salt length exceeds maximum possible */
-        max_saltlen = QAT_RSA_size(prsactx->rsa) - EVP_MD_size(prsactx->md);
-        if ((QAT_RSA_bits(prsactx->rsa) & 0x7) == 1)
+        max_saltlen = RSA_size(prsactx->rsa) - EVP_MD_size(prsactx->md);
+        if ((RSA_bits(prsactx->rsa) & 0x7) == 1)
             max_saltlen--;
         if (min_saltlen < 0 || min_saltlen > max_saltlen) {
             QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
@@ -1128,7 +1131,7 @@ int QAT_PKCS1_MGF1(unsigned char *mask, long len, const unsigned char *seed,
  * algorithms and salt length. It supports automatic and explicit salt length handling,
  * and performs all necessary decoding and comparison steps as described in PKCS#1.
  *
- * @param rsa      Pointer to the QAT_RSA key structure.
+ * @param rsa      Pointer to the RSA key object.
  * @param mHash    Input message hash to verify.
  * @param Hash     Digest method for the main hash.
  * @param mgf1Hash Digest method for the MGF1 mask generation function (if NULL, Hash is used).
@@ -1137,7 +1140,7 @@ int QAT_PKCS1_MGF1(unsigned char *mask, long len, const unsigned char *seed,
  *
  * @return 1 on successful verification, 0 on failure.
  */
-int QAT_RSA_verify_PKCS1_PSS_mgf1(QAT_RSA *rsa, const unsigned char *mHash,
+int QAT_RSA_verify_PKCS1_PSS_mgf1(RSA *rsa, const unsigned char *mHash,
                                   const EVP_MD *Hash, const EVP_MD *mgf1Hash,
                                   const unsigned char *EM, int *sLenout)
 {
@@ -1173,8 +1176,8 @@ int QAT_RSA_verify_PKCS1_PSS_mgf1(QAT_RSA *rsa, const unsigned char *mHash,
         goto err;
     }
 
-    MSBits = (BN_num_bits(rsa->n) - 1) & 0x7;
-    emLen = QAT_RSA_size(rsa);
+    MSBits = (BN_num_bits(RSA_get0_n(rsa)) - 1) & 0x7;
+    emLen = RSA_size(rsa);
     if (EM[0] & (0xFF << MSBits)) {
         QATerr(ERR_LIB_RSA, RSA_R_FIRST_OCTET_INVALID);
         goto err;
@@ -1282,7 +1285,7 @@ static int digest_sz_from_nid(int nid)
  * @param prm_len   Pointer to a size_t to receive the length of the recovered digest (may be NULL).
  * @param sigbuf    Input buffer containing the signature to verify.
  * @param siglen    Length of the signature buffer.
- * @param rsa       Pointer to the QAT_RSA key structure.
+ * @param rsa       Pointer to the RSA key object.
  *
  * @return 1 on successful verification, 0 on failure.
  */
@@ -1290,14 +1293,14 @@ int QAT_RSA_verify(void *prsactx, int type, const unsigned char *m,
 		   unsigned int m_len, unsigned char *rm,
 		   size_t *prm_len,
                    const unsigned char *sigbuf,
-		   size_t siglen, QAT_RSA *rsa)
+		   size_t siglen, RSA *rsa)
 {
     DEBUG("%s\n", __func__);
     int len, ret = 0;
     size_t decrypt_len, encoded_len = 0;
     unsigned char *decrypt_buf = NULL, *encoded = NULL;
 
-    if (siglen != (size_t)QAT_RSA_size(rsa)) {
+    if (siglen != (size_t)RSA_size(rsa)) {
         QATerr(ERR_LIB_RSA, RSA_R_WRONG_SIGNATURE_LENGTH);
         return 0;
     }
@@ -1541,7 +1544,7 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
         case RSA_X931_PADDING:
             err_extra_text = "X.931 padding not allowed with RSA-PSS";
         cont:
-            if (QAT_RSA_test_flags(prsactx->rsa,
+            if (RSA_test_flags(prsactx->rsa,
                                RSA_FLAG_TYPE_MASK) == RSA_FLAG_TYPE_RSA)
                 break;
             /* FALLTHRU */
@@ -1772,7 +1775,7 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
         return 0;
 
     if (rout == NULL) {
-        *routlen = QAT_RSA_size(prsactx->rsa);
+        *routlen = RSA_size(prsactx->rsa);
         return 1;
     }
 
@@ -2044,7 +2047,7 @@ static int rsa_verify_message_final(void *vprsactx)
  * subsequent signing or verification steps.
  *
  * @param prsactx   Pointer to the QAT_PROV_RSA_CTX context to initialize.
- * @param vrsa      Pointer to the QAT_RSA key structure (may be NULL if already set).
+ * @param vrsa      Pointer to the RSA key object (may be NULL if already set).
  * @param params    Optional OSSL_PARAM array of context parameters.
  * @param operation Operation type (e.g., EVP_PKEY_OP_SIGN, EVP_PKEY_OP_VERIFY).
  *
@@ -2062,7 +2065,7 @@ static int qat_rsa_signverify_init(QAT_PROV_RSA_CTX *prsactx, void *vrsa,
         return 0;
 
     if (vrsa != NULL) {
-        if (!QAT_RSA_up_ref(vrsa))
+        if (!RSA_up_ref(vrsa))
 	        return 0;
 	    QAT_RSA_free(prsactx->rsa);
 	    prsactx->rsa = vrsa;
@@ -2076,7 +2079,7 @@ static int qat_rsa_signverify_init(QAT_PROV_RSA_CTX *prsactx, void *vrsa,
     prsactx->saltlen = RSA_PSS_SALTLEN_AUTO;
     prsactx->min_saltlen = -1;
 
-    switch (QAT_RSA_test_flags(prsactx->rsa, RSA_FLAG_TYPE_MASK)) {
+    switch (RSA_test_flags(prsactx->rsa, RSA_FLAG_TYPE_MASK)) {
     case RSA_FLAG_TYPE_RSA:
         prsactx->pad_mode = RSA_PKCS1_PADDING;
         break;
@@ -2178,7 +2181,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
     QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
 
 #ifdef ENABLE_QAT_FIPS
-    size_t rsasize = QAT_RSA_size(prsactx->rsa);
+    size_t rsasize = RSA_size(prsactx->rsa);
     if (!qat_fips_check_rsa_key_size(rsasize, 1))
 	return 0;
 #endif
@@ -2248,7 +2251,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
     QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
 
 #ifdef ENABLE_QAT_FIPS
-    size_t rsasize = QAT_RSA_size(prsactx->rsa);
+    size_t rsasize = RSA_size(prsactx->rsa);
     if (!qat_fips_check_rsa_key_size(rsasize, 0))
 	return 0;
 #endif
@@ -2288,7 +2291,7 @@ static const OSSL_PARAM *qat_signature_rsa_settable_ctx_params(void *vprsactx,
  *
  * @param vprsactx   Pointer to the QAT_PROV_RSA_CTX context.
  * @param mdname     Name of the digest algorithm to use (may be NULL).
- * @param vrsa       Pointer to the QAT_RSA key structure.
+ * @param vrsa       Pointer to the RSA key object.
  * @param params     Optional OSSL_PARAM array of context parameters.
  * @param operation  Operation type (e.g., EVP_PKEY_OP_SIGN, EVP_PKEY_OP_VERIFY).
  *
@@ -2490,7 +2493,7 @@ static void *qat_signature_rsa_dupctx(void *vprsactx)
     dstctx->tbuf = NULL;
     dstctx->propq = NULL;
 
-    if (srcctx->rsa != NULL && !QAT_RSA_up_ref(srcctx->rsa))
+    if (srcctx->rsa != NULL && !RSA_up_ref(srcctx->rsa))
         goto err;
     dstctx->rsa = srcctx->rsa;
 

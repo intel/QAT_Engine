@@ -56,11 +56,11 @@ OSSL_PARAM_BN(OSSL_PKEY_PARAM_RSA_EXPONENT1, NULL, 0),                         \
 OSSL_PARAM_BN(OSSL_PKEY_PARAM_RSA_EXPONENT2, NULL, 0),                         \
 OSSL_PARAM_BN(OSSL_PKEY_PARAM_RSA_COEFFICIENT1, NULL, 0),
 
-QAT_RSA *qat_rsa_new_with_ctx(OSSL_LIB_CTX *libctx);
+RSA *qat_rsa_new_with_ctx(OSSL_LIB_CTX *libctx);
 int qat_pss_params_fromdata(QAT_RSA_PSS_PARAMS_30 *pss_params, int *defaults_set,
                             const OSSL_PARAM params[], int rsa_type,
                             OSSL_LIB_CTX *libctx);
-int qat_rsa_todata(QAT_RSA *rsa, OSSL_PARAM_BLD *bld, OSSL_PARAM params[],
+int qat_rsa_todata(RSA *rsa, OSSL_PARAM_BLD *bld, OSSL_PARAM params[],
                    int include_private);
 int qat_rsa_pss_params_30_todata(const QAT_RSA_PSS_PARAMS_30 *pss,
                                  OSSL_PARAM_BLD *bld, OSSL_PARAM params[]);
@@ -69,18 +69,16 @@ const char *qat_rsa_oaeppss_nid2name(int md);
 int qat_rsa_oaeppss_md2nid(const EVP_MD *md);
 int qat_rsa_pss_params_30_copy(QAT_RSA_PSS_PARAMS_30 *to,
                                 const QAT_RSA_PSS_PARAMS_30 *from);
-int import_rsa_private_key(QAT_RSA *rsa, const OSSL_PARAM params[], int include_private);
-OSSL_LIB_CTX *qat_rsa_get0_libctx(QAT_RSA *r);
-QAT_RSA_PSS_PARAMS_30 *qat_rsa_get0_pss_params_30(QAT_RSA *r);
+int import_rsa_private_key(RSA *rsa, const OSSL_PARAM params[], int include_private);
+OSSL_LIB_CTX *qat_rsa_get0_libctx(RSA *r);
+QAT_RSA_PSS_PARAMS_30 *qat_rsa_get0_pss_params_30(RSA *r);
 const char *nid2name(int meth, const OSSL_ITEM *items, size_t items_n);
 int qat_rsa_pss_params_30_is_unrestricted(const QAT_RSA_PSS_PARAMS_30 *rsa_pss_params);
 int qat_rsa_gen_set_params(void *genctx, const OSSL_PARAM params[]);
 int qat_rsa_gencb(int p, int n, BN_GENCB *cb);
 int qat_rsa_pss_params_30_maskgenhashalg(const QAT_RSA_PSS_PARAMS_30 *rsa_pss_params);
 int qat_rsa_pss_params_30_saltlen(const QAT_RSA_PSS_PARAMS_30 *rsa_pss_params);
-int QAT_RSA_set0_factors(QAT_RSA *r, BIGNUM *p, BIGNUM *q);
-int QAT_RSA_set0_crt_params(QAT_RSA *r, BIGNUM *dmp1, BIGNUM *dmq1, BIGNUM *iqmp);
 const OSSL_PARAM *qat_rsa_imexport_types(int selection);
-int RSA_generate_swkey(QAT_RSA *rsa, int nbits, BIGNUM *efixed, BN_GENCB *cb);
+int RSA_generate_swkey(RSA *rsa, int nbits, BIGNUM *efixed, BN_GENCB *cb);
 
 #endif /*QAT_PROVIDER_KMGMT_RSA_UTILS_H*/
