@@ -182,7 +182,7 @@ int qat_rsa_check_key(const RSA *rsa, int operation, int *outprotect)
     case EVP_PKEY_OP_VERIFYRECOVER:
     case EVP_PKEY_OP_DECAPSULATE:
     case EVP_PKEY_OP_DECRYPT:
-        if (QAT_RSA_test_flags(rsa,
+        if (RSA_test_flags(rsa,
                                RSA_FLAG_TYPE_MASK) == RSA_FLAG_TYPE_RSASSAPSS) {
             QATerr(ERR_LIB_PROV,
                    QAT_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE);
@@ -468,7 +468,7 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
         return 0;
 
     if (out == NULL) {
-        size_t len = QAT_RSA_size(ctx->rsa);
+        size_t len = RSA_size(ctx->rsa);
 
         if (len == 0) {
             QATerr(ERR_LIB_PROV, QAT_R_INVALID_KEY);
@@ -478,7 +478,7 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
         return 1;
     }
     if (ctx->pad_mode == RSA_PKCS1_OAEP_PADDING) {
-        int rsasize = QAT_RSA_size(ctx->rsa);
+        int rsasize = RSA_size(ctx->rsa);
         unsigned char *tbuf;
 
         if ((tbuf = OPENSSL_malloc(rsasize)) == NULL) {
@@ -559,7 +559,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
 {
     QAT_PROV_RSA_ENC_DEC_CTX *ctx = (QAT_PROV_RSA_ENC_DEC_CTX *) vprsactx;
     int ret;
-    size_t len = QAT_RSA_size(ctx->rsa);
+    size_t len = RSA_size(ctx->rsa);
 
     if (!qat_prov_is_running())
         return 0;
@@ -695,7 +695,7 @@ static void *qat_prov_rsa_dupctx(void *vprsactx)
         return NULL;
 
     *dstctx = *srcctx;
-    if (dstctx->rsa != NULL && !QAT_RSA_up_ref(dstctx->rsa)) {
+    if (dstctx->rsa != NULL && !RSA_up_ref(dstctx->rsa)) {
         OPENSSL_free(dstctx);
         return NULL;
     }
@@ -1006,7 +1006,7 @@ static const OSSL_PARAM *qat_prov_rsa_settable_ctx_params(ossl_unused void
  * parameters provided.
  *
  * @param vprsactx   Pointer to the QAT_PROV_RSA_ENC_DEC_CTX context.
- * @param vrsa       Pointer to the QAT_RSA key structure.
+ * @param vrsa       Pointer to the RSA key object.
  * @param params     Optional OSSL_PARAM array of context parameters.
  * @param operation  Operation type (EVP_PKEY_OP_ENCRYPT or EVP_PKEY_OP_DECRYPT).
  *
@@ -1026,13 +1026,13 @@ static int qat_prov_rsa_init(void *vprsactx, void *vrsa,
     if (!qat_rsa_check_key(vrsa, operation, &protect))
         return 0;
 
-    if (!QAT_RSA_up_ref(vrsa))
+    if (!RSA_up_ref(vrsa))
         return 0;
     QAT_RSA_free(ctx->rsa);
     ctx->rsa = vrsa;
     ctx->operation = operation;
 
-    switch (QAT_RSA_test_flags(ctx->rsa, RSA_FLAG_TYPE_MASK)) {
+    switch (RSA_test_flags(ctx->rsa, RSA_FLAG_TYPE_MASK)) {
     case RSA_FLAG_TYPE_RSA:
         ctx->pad_mode = RSA_PKCS1_PADDING;
         break;

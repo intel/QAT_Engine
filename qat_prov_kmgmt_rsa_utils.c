@@ -311,100 +311,99 @@ int qat_pss_params_fromdata(QAT_RSA_PSS_PARAMS_30 *pss_params, int *defaults_set
     return 1;
 }
 
+/* Ex data index for storing OSSL_LIB_CTX in RSA objects */
+static int qat_rsa_libctx_ex_data_idx = -1;
+static CRYPTO_ONCE qat_rsa_libctx_ex_data_once = CRYPTO_ONCE_STATIC_INIT;
+
+static void qat_rsa_libctx_ex_data_init_once(void)
+{
+    /* NULL dup/free: libctx is borrowed, not owned */
+    qat_rsa_libctx_ex_data_idx = RSA_get_ex_new_index(0, NULL, NULL, NULL, NULL);
+}
+
+static void qat_rsa_libctx_ex_data_init(void)
+{
+    CRYPTO_THREAD_run_once(&qat_rsa_libctx_ex_data_once,
+                           qat_rsa_libctx_ex_data_init_once);
+}
+
 DEFINE_STACK_OF(BIGNUM)
 DEFINE_SPECIAL_STACK_OF_CONST(BIGNUM_const, BIGNUM)
 
 /**
- * @brief Allocates and initializes a new QAT_RSA structure with a given OpenSSL library context.
+ * @brief Allocates and initializes a new RSA key object with a given OpenSSL library context.
  *
- * This function creates a new QAT_RSA structure, initializes its fields, sets up the reference
+ * This function creates a new RSA key object, initializes its fields, sets up the reference
  * count and locking, assigns the provided OpenSSL library context, and sets the default RSA method
  * and flags. If initialization of the RSA method fails, it cleans up and returns NULL.
  *
- * @param libctx  Pointer to the OpenSSL library context to associate with the new QAT_RSA structure.
+ * @param libctx  Pointer to the OpenSSL library context to associate with the new RSA key object.
  *
- * @return Pointer to the newly allocated QAT_RSA structure, or NULL on failure.
+ * @return Pointer to the newly allocated RSA key object, or NULL on failure.
  */
-QAT_RSA *qat_rsa_new_with_ctx(OSSL_LIB_CTX *libctx)
+RSA *qat_rsa_new_with_ctx(OSSL_LIB_CTX *libctx)
 {
-    QAT_RSA *ret = OPENSSL_zalloc(sizeof(*ret));
+    RSA *ret = RSA_new();
 
     if (ret == NULL)
         return NULL;
 
-    ret->lock = CRYPTO_THREAD_lock_new();
-    if (ret->lock == NULL) {
-        QATerr(ERR_LIB_RSA, ERR_R_CRYPTO_LIB);
-	OPENSSL_free(ret);
-	return NULL;
+    /* Initialize and store PSS params in ex_data */
+    qat_rsa_pss_params_ex_init();
+    if (qat_rsa_pss_params_ex_idx() < 0) {
+        RSA_free(ret);
+        return NULL;
+    }
+    {
+        QAT_RSA_PSS_PARAMS_30 *pss = OPENSSL_zalloc(sizeof(*pss));
+        if (pss == NULL) {
+            RSA_free(ret);
+            return NULL;
+        }
+        if (!RSA_set_ex_data(ret, qat_rsa_pss_params_ex_idx(), pss)) {
+            OPENSSL_free(pss);
+            RSA_free(ret);
+            return NULL;
+        }
     }
 
-    if (!QAT_CRYPTO_NEW_REF(&ret->references, 1)) {
-	OPENSSL_free(ret);
-	return NULL;
-    }
-
-    ret->libctx = libctx;
-    ret->meth = RSA_get_default_method();
-    ret->flags = ret->meth->flags & ~RSA_FLAG_NON_FIPS_ALLOW;
-
-    if ((ret->meth->init != NULL) && !ret->meth->init(ret)) {
-        QATerr(ERR_LIB_RSA, ERR_R_INIT_FAIL);
-        goto err;
+    /* Store libctx (borrowed reference, no free callback) */
+    qat_rsa_libctx_ex_data_init();
+    if (qat_rsa_libctx_ex_data_idx >= 0) {
+        if (!RSA_set_ex_data(ret, qat_rsa_libctx_ex_data_idx, libctx)) {
+            RSA_free(ret);
+            return NULL;
+        }
     }
 
     return ret;
-err:
-    QAT_RSA_free(ret);
-    return NULL;
 }
 
-OSSL_LIB_CTX *qat_rsa_get0_libctx(QAT_RSA *r)
+OSSL_LIB_CTX *qat_rsa_get0_libctx(RSA *r)
 {
-    return r->libctx;
+    qat_rsa_libctx_ex_data_init();
+    if (qat_rsa_libctx_ex_data_idx < 0)
+        return NULL;
+    return (OSSL_LIB_CTX *)RSA_get_ex_data(r, qat_rsa_libctx_ex_data_idx);
 }
 
-static const BIGNUM *QAT_RSA_get0_p(const RSA *r)
-{
-    return r->p;
-}
-
-static const BIGNUM *QAT_RSA_get0_q(const RSA *r)
-{
-    return r->q;
-}
-
-static const BIGNUM *QAT_RSA_get0_dmp1(const RSA *r)
-{
-    return r->dmp1;
-}
-
-static const BIGNUM *QAT_RSA_get0_dmq1(const RSA *r)
-{
-    return r->dmq1;
-}
-
-static const BIGNUM *QAT_RSA_get0_iqmp(const RSA *r)
-{
-    return r->iqmp;
-}
 
 /**
  * @brief Collects all CRT-related RSA parameters into separate stacks.
  *
  * This function pushes the prime factors (p, q), exponents (dmp1, dmq1),
- * and coefficient (iqmp) from the given QAT_RSA structure into the provided
+ * and coefficient (iqmp) from the given RSA key object into the provided
  * stacks. If the key does not have CRT parameters (i.e., p is NULL), the
  * function returns 1 without modifying the stacks.
  *
- * @param r        Pointer to the QAT_RSA structure.
+ * @param r        Pointer to the RSA key object.
  * @param primes   Stack to receive the prime factors (p, q).
  * @param exps     Stack to receive the exponents (dmp1, dmq1).
  * @param coeffs   Stack to receive the coefficient (iqmp).
  *
  * @return 1 on success, 0 on failure.
  */
-static int qat_rsa_get0_all_params(QAT_RSA *r, STACK_OF(BIGNUM_const) *primes,
+static int qat_rsa_get0_all_params(RSA *r, STACK_OF(BIGNUM_const) *primes,
                                    STACK_OF(BIGNUM_const) *exps,
                                    STACK_OF(BIGNUM_const) *coeffs)
 {
@@ -415,33 +414,43 @@ static int qat_rsa_get0_all_params(QAT_RSA *r, STACK_OF(BIGNUM_const) *primes,
     if (RSA_get0_p(r) == NULL)
         return 1;
 
-    sk_BIGNUM_const_push(primes, QAT_RSA_get0_p(r));
-    sk_BIGNUM_const_push(primes, QAT_RSA_get0_q(r));
-    sk_BIGNUM_const_push(exps, QAT_RSA_get0_dmp1(r));
-    sk_BIGNUM_const_push(exps, QAT_RSA_get0_dmq1(r));
-    sk_BIGNUM_const_push(coeffs, QAT_RSA_get0_iqmp(r));
+    sk_BIGNUM_const_push(primes, RSA_get0_p(r));
+    sk_BIGNUM_const_push(primes, RSA_get0_q(r));
+    sk_BIGNUM_const_push(exps, RSA_get0_dmp1(r));
+    sk_BIGNUM_const_push(exps, RSA_get0_dmq1(r));
+    sk_BIGNUM_const_push(coeffs, RSA_get0_iqmp(r));
 
     return 1;
 }
 
 /**
- * @brief Derives and sets the CRT parameters (dmp1, dmq1, iqmp) for the given QAT_RSA structure.
+ * @brief Derives and sets the CRT parameters (dmp1, dmq1, iqmp) for the given RSA key object.
  *
  * This function computes the CRT parameters based on the prime factors (p, q) and the private exponent (d)
  * of the RSA key. It uses a BN_CTX for efficient BIGNUM operations and sets the computed parameters in the
- * QAT_RSA structure. If any required parameter is missing or an error occurs during computation, it returns 0.
+ * RSA key object. If any required parameter is missing or an error occurs during computation, it returns 0.
  *
- * @param rsa Pointer to the QAT_RSA structure containing the RSA key.
+ * @param rsa Pointer to the RSA key object containing the RSA key.
  * @param ctx Pointer to a BN_CTX for BIGNUM operations.
  *
  * @return 1 on success, 0 on failure.
  */
-int derive_and_set_crt_params(QAT_RSA *rsa, BN_CTX *ctx)
+int derive_and_set_crt_params(RSA *rsa, BN_CTX *ctx)
 {
     BIGNUM *p1 = NULL, *q1 = NULL, *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
     int ret = 0;
+    const BIGNUM *p, *q, *d;
 
-    if (rsa == NULL || rsa->p == NULL || rsa->q == NULL || rsa->d == NULL) {
+    if (rsa == NULL) {
+        QATerr(ERR_LIB_RSA, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+    }
+
+    p = RSA_get0_p(rsa);
+    q = RSA_get0_q(rsa);
+    d = RSA_get0_d(rsa);
+
+    if (p == NULL || q == NULL || d == NULL) {
         QATerr(ERR_LIB_RSA, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
@@ -460,37 +469,44 @@ int derive_and_set_crt_params(QAT_RSA *rsa, BN_CTX *ctx)
     }
 
     /* Compute p-1 and q-1 */
-    if (!BN_sub(p1, rsa->p, BN_value_one()) || !BN_sub(q1, rsa->q, BN_value_one())) {
+    if (!BN_sub(p1, p, BN_value_one()) || !BN_sub(q1, q, BN_value_one())) {
         QATerr(ERR_LIB_RSA, ERR_R_BN_LIB);
         goto err;
     }
 
     /* Compute dP = d mod (p-1) */
-    if (!BN_mod(dmp1, rsa->d, p1, ctx)) {
+    if (!BN_mod(dmp1, d, p1, ctx)) {
         QATerr(ERR_LIB_RSA, ERR_R_BN_LIB);
         goto err;
     }
 
     /* Compute dQ = d mod (q-1) */
-    if (!BN_mod(dmq1, rsa->d, q1, ctx)) {
+    if (!BN_mod(dmq1, d, q1, ctx)) {
         QATerr(ERR_LIB_RSA, ERR_R_BN_LIB);
         goto err;
     }
 
     /* Compute qInv = q^(-1) mod p */
-    if (!BN_mod_inverse(iqmp, rsa->q, rsa->p, ctx)) {
+    if (!BN_mod_inverse(iqmp, q, p, ctx)) {
         QATerr(ERR_LIB_RSA, ERR_R_BN_LIB);
         goto err;
     }
 
     /* Set the CRT parameters in the RSA structure */
-    if (!RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp)) {
-        QATerr(ERR_LIB_RSA, ERR_R_INTERNAL_ERROR);
-        goto err;
+    {
+        BIGNUM *cdmp1 = BN_dup(dmp1);
+        BIGNUM *cdmq1 = BN_dup(dmq1);
+        BIGNUM *ciqmp = BN_dup(iqmp);
+        if (cdmp1 == NULL || cdmq1 == NULL || ciqmp == NULL ||
+            !RSA_set0_crt_params(rsa, cdmp1, cdmq1, ciqmp)) {
+            BN_free(cdmp1);
+            BN_free(cdmq1);
+            BN_free(ciqmp);
+            QATerr(ERR_LIB_RSA, ERR_R_INTERNAL_ERROR);
+            goto err;
+        }
     }
 
-    /* Ownership of dmp1, dmq1, and iqmp is transferred to rsa */
-    dmp1 = dmq1 = iqmp = NULL;
     ret = 1;
 
 err:
@@ -500,20 +516,20 @@ err:
 }
 
 /**
- * @brief Imports an RSA private key from an OSSL_PARAM array into a QAT_RSA structure.
+ * @brief Imports an RSA private key from an OSSL_PARAM array into a RSA key object.
  *
  * This function extracts the RSA key components (modulus n, public exponent e, private exponent d,
  * and optionally prime factors p and q) from the provided OSSL_PARAM array and sets them in the
- * given QAT_RSA structure. If private key components are included, it also derives and sets the
+ * given RSA key object. If private key components are included, it also derives and sets the
  * CRT parameters (dmp1, dmq1, iqmp) required for efficient RSA operations.
  *
- * @param rsa             Pointer to the QAT_RSA structure to populate.
+ * @param rsa             Pointer to the RSA key object to populate.
  * @param params          Array of OSSL_PARAM containing the key components.
  * @param include_private Nonzero if private key components (p, q, d, etc.) should be imported.
  *
  * @return 1 on success, 0 on failure.
  */
-int import_rsa_private_key(QAT_RSA *rsa, const OSSL_PARAM params[],
+int import_rsa_private_key(RSA *rsa, const OSSL_PARAM params[],
 	                   int include_private)
 {
     DEBUG("%s\n", __func__);
@@ -548,7 +564,7 @@ int import_rsa_private_key(QAT_RSA *rsa, const OSSL_PARAM params[],
     if (include_private) {
 	/* Extract prime factors (p, q) */
 	DEBUG("include_private set.\n");
-	ctx = BN_CTX_new_ex(rsa->libctx);
+	ctx = BN_CTX_new();
 	if (ctx == NULL)
 	    goto err;
 	param_p = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_RSA_FACTOR1);
@@ -688,21 +704,21 @@ static int qat_param_build_set_multi_key_bn(OSSL_PARAM_BLD *bld,
 }
 
 /**
- * @brief Serializes a QAT_RSA key into an OSSL_PARAM array or builder.
+ * @brief Serializes a RSA key into an OSSL_PARAM array or builder.
  *
- * This function exports the components of the given QAT_RSA structure (modulus n,
+ * This function exports the components of the given RSA key object (modulus n,
  * public exponent e, private exponent d, and optionally CRT parameters and factors)
  * into an OSSL_PARAM_BLD or OSSL_PARAM array for use with OpenSSL key export or
  * parameter passing. If include_private is nonzero, private key components are included.
  *
- * @param rsa            Pointer to the QAT_RSA structure to serialize.
+ * @param rsa            Pointer to the RSA key object to serialize.
  * @param bld            Optional OSSL_PARAM_BLD builder (may be NULL).
  * @param params         Optional OSSL_PARAM array to populate (may be NULL).
  * @param include_private Nonzero to include private key components.
  *
  * @return 1 on success, 0 on failure.
  */
-int qat_rsa_todata(QAT_RSA *rsa, OSSL_PARAM_BLD *bld, OSSL_PARAM params[],
+int qat_rsa_todata(RSA *rsa, OSSL_PARAM_BLD *bld, OSSL_PARAM params[],
                    int include_private)
 {
     DEBUG("%s\n", __func__);
@@ -865,25 +881,27 @@ int qat_rsa_pss_params_30_todata(const QAT_RSA_PSS_PARAMS_30 *pss,
 }
 
 /**
- * @brief Generates a new RSA keypair in software and populates a QAT_RSA structure.
+ * @brief Generates a new RSA keypair in software and populates a RSA key object.
  *
  * This function generates a new RSA keypair of the specified bit length, using the provided
  * public exponent (or 65537 if efixed is NULL), and fills in all key components in the
- * given QAT_RSA structure, including CRT parameters. The function ensures the generated
+ * given RSA key object, including CRT parameters. The function ensures the generated
  * key meets minimum security requirements and uses secure memory for private values.
  *
- * @param rsa      Pointer to the QAT_RSA structure to populate.
+ * @param rsa      Pointer to the RSA key object to populate.
  * @param nbits    Number of bits for the modulus (must be >= 2048).
  * @param efixed   Optional public exponent (BIGNUM), or NULL to use 65537.
  * @param cb       Optional BN_GENCB callback for progress reporting.
  *
  * @return 1 on success, 0 on failure.
  */
-int RSA_generate_swkey(QAT_RSA *rsa, int nbits, BIGNUM *efixed, BN_GENCB *cb)
+int RSA_generate_swkey(RSA *rsa, int nbits, BIGNUM *efixed, BN_GENCB *cb)
 {
     int ret = 0;
     BN_CTX *ctx = NULL;
-    BIGNUM *e = NULL, *p1 = NULL, *q1 = NULL, *lcm = NULL;
+    BIGNUM *e = NULL, *p = NULL, *q = NULL, *n = NULL, *d = NULL;
+    BIGNUM *dmp1 = NULL, *dmq1 = NULL, *iqmp = NULL;
+    BIGNUM *p1 = NULL, *q1 = NULL, *lcm = NULL;
 
     ctx = BN_CTX_new();
     if (ctx == NULL)
@@ -902,25 +920,27 @@ int RSA_generate_swkey(QAT_RSA *rsa, int nbits, BIGNUM *efixed, BN_GENCB *cb)
 	    goto err;
     } else {
         DEBUG("public exponent found in genctx.\n");
-	e = (BIGNUM *)efixed;
+	e = BN_dup(efixed);
+	if (e == NULL)
+	    goto err;
     }
 
-    rsa->p = BN_secure_new();
-    rsa->q = BN_secure_new();
-    if (rsa->p == NULL || rsa->q == NULL)
+    p = BN_secure_new();
+    q = BN_secure_new();
+    if (p == NULL || q == NULL)
 	goto err;
 
-    if (!BN_generate_prime_ex(rsa->p, nbits / 2, 0, NULL, NULL, cb) ||
-	    !BN_generate_prime_ex(rsa->q, nbits / 2, 0, NULL, NULL, cb))
+    if (!BN_generate_prime_ex(p, nbits / 2, 0, NULL, NULL, cb) ||
+	    !BN_generate_prime_ex(q, nbits / 2, 0, NULL, NULL, cb))
         goto err;
 
-    if (BN_cmp(rsa->p, rsa->q) < 0) {
-        BIGNUM *tmp = rsa->p;
-	rsa->p = rsa->q;
-	rsa->q = tmp;
+    if (BN_cmp(p, q) < 0) {
+        BIGNUM *tmp = p;
+	p = q;
+	q = tmp;
     }
 
-    if (!BN_sub(p1, rsa->p, BN_value_one()) || !BN_sub(q1, rsa->q, BN_value_one()))
+    if (!BN_sub(p1, p, BN_value_one()) || !BN_sub(q1, q, BN_value_one()))
         goto err;
 
     /* Allocate a temporary BIGNUM for GCD */
@@ -935,46 +955,49 @@ int RSA_generate_swkey(QAT_RSA *rsa, int nbits, BIGNUM *efixed, BN_GENCB *cb)
     if (!BN_mul(lcm, p1, q1, ctx) || !BN_div(lcm, NULL, lcm, gcd, ctx))
         goto err;
 
-    rsa->e = BN_dup(e);
-    if (rsa->e == NULL)
+    d = BN_secure_new();
+    if (d == NULL || !BN_mod_inverse(d, e, lcm, ctx))
         goto err;
 
-    rsa->d = BN_secure_new();
-    if (rsa->d == NULL || !BN_mod_inverse(rsa->d, e, lcm, ctx))
-        goto err;
-
-    if (BN_num_bits(rsa->d) <= (nbits >> 1))
+    if (BN_num_bits(d) <= (nbits >> 1))
 	goto err;
 
-    rsa->n = BN_new();
-    if (rsa->n == NULL || !BN_mul(rsa->n, rsa->p, rsa->q, ctx))
+    n = BN_new();
+    if (n == NULL || !BN_mul(n, p, q, ctx))
         goto err;
 
-    rsa->dmp1 = BN_secure_new();
-    rsa->dmq1 = BN_secure_new();
-    rsa->iqmp = BN_secure_new();
-    if (rsa->dmp1 == NULL || rsa->dmq1 == NULL || rsa->iqmp == NULL)
+    dmp1 = BN_secure_new();
+    dmq1 = BN_secure_new();
+    iqmp = BN_secure_new();
+    if (dmp1 == NULL || dmq1 == NULL || iqmp == NULL)
         goto err;
 
-    if (!BN_mod(rsa->dmp1, rsa->d, p1, ctx) ||
-		!BN_mod(rsa->dmq1, rsa->d, q1, ctx) ||
-		!BN_mod_inverse(rsa->iqmp, rsa->q, rsa->p, ctx))
+    if (!BN_mod(dmp1, d, p1, ctx) ||
+		!BN_mod(dmq1, d, q1, ctx) ||
+		!BN_mod_inverse(iqmp, q, p, ctx))
 	goto err;
+
+    /* Set key components using public APIs */
+    if (!RSA_set0_key(rsa, n, e, d)) goto err;
+    n = NULL; e = NULL; d = NULL; /* ownership transferred */
+    if (!RSA_set0_factors(rsa, p, q)) goto err;
+    p = NULL; q = NULL; /* ownership transferred */
+    if (!RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp)) goto err;
+    dmp1 = NULL; dmq1 = NULL; iqmp = NULL; /* ownership transferred */
 
     ret = 1;
     DEBUG("%s complete.\n", __func__);
 err:
     if (ret != 1) {
-	BN_free(rsa->n);
-	BN_free(rsa->d);
-	BN_free(rsa->dmp1);
-	BN_free(rsa->dmq1);
-	BN_free(rsa->iqmp);
-	BN_free(rsa->p);
-	BN_free(rsa->q);
+	BN_free(n);
+	BN_free(d);
+	BN_free(dmp1);
+	BN_free(dmq1);
+	BN_free(iqmp);
+	BN_free(p);
+	BN_free(q);
     }
-    if (efixed == NULL)
-     	BN_free(e);
+    BN_free(e);
     BN_CTX_end(ctx);
     BN_CTX_free(ctx);
     return ret;
