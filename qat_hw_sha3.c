@@ -82,7 +82,7 @@
     qat_sha3_sw_impl(EVP_MD_CTX_type((ctx)) )
 
 #ifdef ENABLE_QAT_HW_SHA3
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static int qat_sha3_init(EVP_MD_CTX *ctx);
 static int qat_sha3_cleanup(EVP_MD_CTX *ctx);
 static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len);
@@ -115,7 +115,7 @@ static inline const EVP_MD *qat_sha3_sw_impl(int nid)
     }
 }
 
-#if defined(ENABLE_QAT_HW_SHA3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(ENABLE_QAT_HW_SHA3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 int qat_sha3_md_methods(EVP_MD *c, int blocksize, int statesize)
 {
     int res = 1;
@@ -135,7 +135,7 @@ int qat_sha3_md_methods(EVP_MD *c, int blocksize, int statesize)
 
 const EVP_MD *qat_create_sha3_meth(int nid , int key_type)
 {
-#if defined(ENABLE_QAT_HW_SHA3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(ENABLE_QAT_HW_SHA3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     EVP_MD *c = NULL;
     int res = 1;
     int blocksize,statesize = 0;
@@ -209,7 +209,7 @@ static const CpaCySymOpData template_opData = {
     .pAdditionalAuthData = NULL
 };
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static int qat_get_sha3_block_size(int nid)
 {
     switch (nid) {
@@ -366,13 +366,13 @@ static int qat_sha3_session_data_init(EVP_MD_CTX *ctx,
 ******************************************************************************/
 #ifdef QAT_OPENSSL_PROVIDER
 int qat_sha3_init(QAT_KECCAK1600_CTX *ctx)
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
 static int qat_sha3_init(EVP_MD_CTX *ctx)
 #endif
 {
 
     qat_sha3_ctx* sha3_ctx = NULL;
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int sts = 0;
 #endif
 
@@ -381,7 +381,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
         return 0;
     }
 
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     if (qat_openssl3_sha_fallback == 1) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
@@ -430,7 +430,7 @@ static int qat_sha3_init(EVP_MD_CTX *ctx)
 
     return 1;
 
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 use_sw_method:
     sts = EVP_MD_meth_get_init(GET_SW_SHA3_DIGEST(ctx))(ctx);
     DEBUG("SW Finished %p\n", ctx);
@@ -454,7 +454,7 @@ use_sw_method:
 *    This function is a generic control interface provided by the EVP API.
 *
 ******************************************************************************/
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static int qat_sha3_ctrl(EVP_MD_CTX *ctx, int type, int p1, void *p2)
 {
     qat_sha3_ctx *sha3_ctx = NULL;
@@ -931,7 +931,7 @@ err:
 
 #ifdef QAT_OPENSSL_PROVIDER
 int qat_sha3_copy(QAT_KECCAK1600_CTX *to, const QAT_KECCAK1600_CTX *from)
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
 static int qat_sha3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
 #endif
 {
@@ -995,12 +995,12 @@ static int qat_sha3_copy(EVP_MD_CTX *to, const EVP_MD_CTX *from)
 ******************************************************************************/
 #ifdef QAT_OPENSSL_PROVIDER
 int qat_sha3_final(QAT_KECCAK1600_CTX *ctx, unsigned char *md)
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
 static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
 #endif
 {
     qat_sha3_ctx *sha3_ctx = NULL;
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int sts = 0;
 #endif
 
@@ -1014,7 +1014,7 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
         return -1;
     }
 
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     if (qat_openssl3_sha_fallback == 1) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
@@ -1033,7 +1033,7 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
     DEBUG("QAT HW SHA3 final, ctx %p, md %p len %d\n", ctx, md, sha3_ctx->num);
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (sha3_ctx->num <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT
         && sha3_ctx->sw_offload) {
@@ -1059,7 +1059,7 @@ static int qat_sha3_final(EVP_MD_CTX *ctx, unsigned char *md)
     }
 #endif
     return 1;
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 use_sw_method:
     sts = EVP_MD_meth_get_final(GET_SW_SHA3_DIGEST(ctx)) (ctx, md);
     DEBUG("SW Finished %p\n", ctx);
@@ -1086,7 +1086,7 @@ use_sw_method:
 ******************************************************************************/
 #ifdef QAT_OPENSSL_PROVIDER
 int qat_sha3_update(QAT_KECCAK1600_CTX *ctx, const void *in, size_t len)
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
 static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 #endif
 {
@@ -1095,7 +1095,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     unsigned char *p;
     size_t n;
     unsigned int data_size = 0;
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int sts = 0;
 #endif
 
@@ -1109,7 +1109,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         return -1;
     }
 
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     if (qat_openssl3_sha_fallback == 1) {
         DEBUG("- Switched to software mode\n");
         goto use_sw_method;
@@ -1140,14 +1140,16 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
         WARN("Invalid data_size: unsupported hash algorithm, falling back to software\n");
 #ifdef QAT_OPENSSL_PROVIDER
         return 0;
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
         return EVP_MD_meth_get_update(GET_SW_SHA3_DIGEST(ctx))(ctx, in, len);
+#else
+        return 0;
 #endif
     }
 
     n = sha3_ctx->num;
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (sha3_ctx->sw_offload ||
        (len <= CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT)) {
@@ -1207,7 +1209,7 @@ static int qat_sha3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     }
 
     return 1;
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 use_sw_method:
     return EVP_MD_meth_get_update(GET_SW_SHA3_DIGEST(ctx))
                   (ctx, in, len);

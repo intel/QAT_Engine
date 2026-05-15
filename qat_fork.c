@@ -90,7 +90,7 @@ typedef  cpuset_t  qat_cpuset;
 void engine_init_child_at_fork_handler(void)
 {
 #ifndef DISABLE_QAT_AUTO_ENGINE_INIT_ON_FORK
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     /* Reinitialise the engine */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (NULL == e) {
@@ -107,7 +107,7 @@ void engine_init_child_at_fork_handler(void)
 #ifdef QAT_BORINGSSL
     ENGINE_QAT_PTR_RESET();
 #endif /* QAT_BORINGSSL */
-# else
+# elif defined(QAT_OPENSSL_PROVIDER)
     QAT_PROV_CTX *ctx;
     OSSL_PROVIDER *prov;
     const char *prov_name = "qatprovider";
@@ -131,7 +131,7 @@ void engine_init_child_at_fork_handler(void)
 
 void engine_finish_before_fork_handler(void)
 {
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     /* Reset the engine preserving the value of global variables */
     ENGINE* e = ENGINE_by_id(engine_qat_id);
     if (NULL == e) {
@@ -144,7 +144,7 @@ void engine_finish_before_fork_handler(void)
     ENGINE_free(e);
     ENGINE_QAT_PTR_RESET();
 
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
     QAT_PROV_CTX *ctx;
     OSSL_PROVIDER *prov;
     const char *prov_name = "qatprovider";

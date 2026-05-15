@@ -155,15 +155,18 @@ extern const EVP_PKEY_METHOD *sw_sm2_pmeth;
 EVP_PKEY_METHOD *qat_create_sm2_pmeth(void);
 # endif
 
+#ifndef OPENSSL_NO_ENGINE
 int qat_pkey_methods(ENGINE *e, EVP_PKEY_METHOD **pmeth,
                      const int **nids, int nid);
 EVP_PKEY_METHOD *qat_prf_pmeth(void);
 EVP_PKEY_METHOD *qat_hkdf_pmeth(void);
 EVP_PKEY_METHOD *qat_x25519_pmeth(void);
 EVP_PKEY_METHOD *qat_x448_pmeth(void);
+#endif
 
 void qat_create_digest_meth(void);
 void qat_free_digest_meth(void);
+#ifndef OPENSSL_NO_ENGINE
 int qat_digest_methods(ENGINE *e, const EVP_MD **md,
                        const int **nids, int nid);
 
@@ -173,6 +176,7 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids,
                 int nid);
 const EVP_CIPHER *qat_create_gcm_cipher_meth(int nid, int keylen);
 const EVP_CIPHER *qat_create_ccm_cipher_meth(int nid, int keylen);
+#endif
 const EVP_CIPHER *qat_gcm_cipher_sw_impl(int nid);
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
 #  define CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT 2048

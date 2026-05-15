@@ -128,7 +128,7 @@ int qat_use_signals(void)
        been initialised then there will be a further check within
        qat_engine_init inside a mutex to prevent a race condition. */
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     if (unlikely(!engine_inited)) {
         ENGINE* e = ENGINE_by_id(engine_qat_id);
 
@@ -228,7 +228,7 @@ int get_instance(int inst_type, int mem_type)
 
     unsigned int inst_count = 0;
     thread_local_variables_t * tlv = NULL;
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     /* See qat_use_signals() above for more info on why it is safe to
        check engine_inited outside of a mutex in this case. */
     if (unlikely(!engine_inited)) {
@@ -497,7 +497,11 @@ static int qat_remap_instances()
     return 1;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 int qat_hw_init(ENGINE *e)
+#else
+int qat_hw_init(void *e)
+#endif
 {
     int instNum, err;
     CpaStatus status = CPA_STATUS_SUCCESS;
@@ -797,7 +801,11 @@ int qat_hw_init(ENGINE *e)
     return 1;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 int qat_hw_finish_int(ENGINE *e, int reset_globals)
+#else
+int qat_hw_finish_int(void *e, int reset_globals)
+#endif
 {
     int i;
     int ret = 1;

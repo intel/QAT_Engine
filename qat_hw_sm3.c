@@ -456,7 +456,7 @@ int qat_hw_sm3_init(EVP_MD_CTX *ctx)
 {
 #ifndef QAT_OPENSSL_PROVIDER
     memset(QAT_SM3_GET_CTX(ctx), 0, sizeof(QAT_SM3_CTX));
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     if (qat_openssl3_sm3_fallback == 1) {
         DEBUG("- Switched to software mode\n");
 
@@ -515,7 +515,7 @@ int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
 #endif
 {
     const unsigned char *data = in;
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int sts = 0;
     int (*sw_fn_ptr)(EVP_MD_CTX *, const void *, size_t) = NULL;
 #endif
@@ -616,18 +616,21 @@ int qat_hw_sm3_update(EVP_MD_CTX *ctx, const void *in, size_t len)
     return 1;
 
 fallback:
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     sw_fn_ptr = EVP_MD_meth_get_update((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, in, len);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
-# else
+# elif defined(QAT_OPENSSL_PROVIDER)
     if (!EVP_DigestUpdate(qat_sm3_ctx->sw_md_ctx, in, len)) {
         WARN("Software calculate failed \n");
         return 0;
     }
     DEBUG("SW Update Finished %p\n", qat_sm3_ctx);
     return 1;
+# else
+    WARN("Software fallback not available without provider or engine support\n");
+    return 0;
 # endif
 }
 
@@ -689,7 +692,7 @@ int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
 #endif
 {
     QAT_SM3_CTX *qat_sm3_ctx = NULL;
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int sts = 0;
     int (*sw_fn_ptr)(EVP_MD_CTX *, unsigned char *) = NULL;
 #endif
@@ -720,7 +723,7 @@ int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
         /* Software calculation can start from init, because SPO threshold will
            always small than context buffer and all data are stored in context
            buffer */
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         int (*sw_init_ptr)(EVP_MD_CTX *);
         int (*sw_update_ptr)(EVP_MD_CTX *, const void *, size_t);
         int (*sw_final_ptr)(EVP_MD_CTX *, unsigned char *);
@@ -770,18 +773,21 @@ int qat_hw_sm3_final(EVP_MD_CTX *ctx, unsigned char *md)
     return 1;
 
 fallback:
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     sw_fn_ptr = EVP_MD_meth_get_final((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, md);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
-# else
+# elif defined(QAT_OPENSSL_PROVIDER)
     if (!EVP_DigestFinal_ex(qat_sm3_ctx->sw_md_ctx, md, NULL)) {
         WARN("Software calculate failed \n");
         return 0;
     }
     DEBUG("SW Final Finished %p\n", qat_sm3_ctx);
     return 1;
+# else
+    WARN("Software fallback not available without provider or engine support\n");
+    return 0;
 # endif
 }
 
@@ -882,6 +888,7 @@ int qat_hw_sm3_cleanup(EVP_MD_CTX *ctx)
     return ret_val;
 }
 
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 int qat_hw_sm3_md_methods(EVP_MD *c)
 {
     int res = 1;
@@ -893,18 +900,18 @@ int qat_hw_sm3_md_methods(EVP_MD *c)
     res &= EVP_MD_meth_set_app_datasize(c, sizeof(EVP_MD *) +
                         sizeof(SM3_CTX) + sizeof(QAT_SM3_CTX));
     res &= EVP_MD_meth_set_flags(c, EVP_MD_CTX_FLAG_REUSE);
-#ifndef QAT_OPENSSL_PROVIDER
     res &= EVP_MD_meth_set_init(c, qat_hw_sm3_init);
     res &= EVP_MD_meth_set_update(c, qat_hw_sm3_update);
     res &= EVP_MD_meth_set_final(c, qat_hw_sm3_final);
     res &= EVP_MD_meth_set_copy(c, qat_hw_sm3_copy);
     res &= EVP_MD_meth_set_cleanup(c, qat_hw_sm3_cleanup);
-#endif
     return res;
 }
+#endif
 
 const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
 {
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int res = 1;
     EVP_MD *qat_hw_sm3_meth = NULL;
 
@@ -931,7 +938,7 @@ const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
     } else {
         qat_hw_sm3_offload = 0;
         DEBUG("QAT HW SM3 is disabled, using OpenSSL SW\n");
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+# if defined(QAT_OPENSSL_3)
         qat_openssl3_sm3_fallback = 1;
         res = qat_hw_sm3_md_methods(qat_hw_sm3_meth);
         if (0 == res) {
@@ -948,6 +955,15 @@ const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
 #  endif
 # endif
     }
+#else
+    qat_hw_sm3_offload = 0;
+    DEBUG("QAT HW SM3 is disabled, using OpenSSL SW\n");
+# ifdef OPENSSL_NO_SM2_SM3
+    return NULL;
+# else
+    return (EVP_MD *)EVP_sm3();
+# endif
+#endif
 }
 
 #endif                          /* ENABLE_QAT_HW_SM3 */

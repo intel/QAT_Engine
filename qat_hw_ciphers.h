@@ -48,7 +48,7 @@
 
 # ifdef QAT_HW
 
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 #  include <openssl/engine.h>
 # endif
 # include <openssl/ssl.h>

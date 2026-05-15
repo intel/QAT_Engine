@@ -209,7 +209,9 @@ int multibuff_x25519_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 #ifdef QAT_OPENSSL_PROVIDER
     ECX_KEY *key = NULL;
 #else
+# if !defined(OPENSSL_NO_ENGINE)
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, EVP_PKEY *) = NULL;
+# endif
     QAT_SW_ECX_KEY *key = NULL;
 #endif
     unsigned char *privkey = NULL, *pubkey = NULL;
@@ -400,11 +402,14 @@ use_sw_method:
         QAT_GEN_CTX *gctx = (QAT_GEN_CTX *)ctx;
         return ecx_sw_keygen(gctx->libctx, gctx->propq, ECX_KEY_TYPE_X25519);
     }
-# else
+# elif !defined(OPENSSL_NO_ENGINE)
     EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)sw_x25519_pmeth,
                              NULL, &sw_fn_ptr);
     sts = (*sw_fn_ptr)(ctx, pkey);
     DEBUG("SW Finished\n");
+    return sts;
+# else
+    WARN("Software fallback not available without provider or engine support\n");
     return sts;
 # endif
 }
@@ -474,7 +479,9 @@ int multibuff_x25519_derive(EVP_PKEY_CTX *ctx,
 #ifdef QAT_OPENSSL_PROVIDER
     /* sw fallback handled via ecx_sw_derive() at use_sw_method */
 #else
+# if !defined(OPENSSL_NO_ENGINE)
     int (*sw_fn_ptr)(EVP_PKEY_CTX *, unsigned char *, size_t *) = NULL;
+# endif
 #endif
     const unsigned char *privkey = NULL, *pubkey = NULL;
     mb_thread_data *tlv = NULL;
@@ -606,15 +613,18 @@ use_sw_method:
 # ifdef QAT_OPENSSL_PROVIDER
     DEBUG("SW Finished\n");
     return ecx_sw_derive((QAT_ECX_CTX *)ctx, key, keylen, outlen, ECX_KEY_TYPE_X25519);
-# else
+# elif !defined(OPENSSL_NO_ENGINE)
     EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
     sts = (*sw_fn_ptr)(ctx, key, keylen);
     DEBUG("SW Finished\n");
     return sts;
+# else
+    WARN("Software fallback not available without provider or engine support\n");
+    return sts;
 # endif
 }
 
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 int multibuff_x25519_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
 {
     /* Only need to handle peer key for derivation */

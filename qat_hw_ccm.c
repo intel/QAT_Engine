@@ -352,14 +352,14 @@ int qat_aes_ccm_init(EVP_CIPHER_CTX *ctx,
 
  end:
     if (fallback) {
-#  ifndef QAT_OPENSSL_PROVIDER
+#  if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         /* Run the software init function */
         ret =
             EVP_CIPHER_meth_get_init(GET_SW_AES_CCM_CIPHER(ctx)) (ctx, inkey, iv,
                                                               enc);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
-#  else
+#  elif defined(QAT_OPENSSL_PROVIDER)
         OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
         sw_aes_ccm_cipher = get_default_cipher_aes_ccm(qctx->nid);
 
@@ -417,13 +417,15 @@ int qat_aes_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 {
 # ifdef QAT_OPENSSL_PROVIDER
     QAT_PROV_CCM_CTX *qctx = (QAT_PROV_CCM_CTX *) ctx;
-# else
+# elif !defined(OPENSSL_NO_ENGINE)
     qat_ccm_ctx *qctx = NULL;
     int ret_sw = 0;
     int fallback = 0;
 #  ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     int nid = EVP_CIPHER_CTX_nid(ctx);
 #  endif
+# else
+    qat_ccm_ctx *qctx = NULL;
 # endif
     unsigned int plen = 0;
     int enc = 0;
@@ -676,7 +678,7 @@ int qat_aes_ccm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     }
 
  end:
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 # ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (type == EVP_CTRL_INIT
         || qctx->packet_size <= qat_pkt_threshold_table_get_threshold(nid))
@@ -1483,7 +1485,7 @@ int qat_aes_ccm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                       len);
         if (!ret_val)
             return 0;
-#  else
+#  elif !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         ret_val = EVP_CIPHER_meth_get_do_cipher(GET_SW_AES_CCM_CIPHER(ctx))
             (ctx, out, in, len);
@@ -2022,7 +2024,7 @@ end:
 
         if (!ret_val)
             return RET_FAIL;
-# else
+# elif !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         ret_val = EVP_CIPHER_meth_get_do_cipher(GET_SW_AES_CCM_CIPHER(ctx)) (ctx,
                                                                    out, in, len);

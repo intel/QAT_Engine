@@ -412,7 +412,11 @@ err:
     return NULL;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 int qat_sw_init(ENGINE *e)
+#else
+int qat_sw_init(void *e)
+#endif
 {
     int err = 0;
 
@@ -441,7 +445,11 @@ int qat_sw_init(ENGINE *e)
     return 1;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 int qat_sw_finish_int(ENGINE *e, int reset_globals)
+#else
+int qat_sw_finish_int(void *e, int reset_globals)
+#endif
 {
     int ret = 1;
     mb_thread_data *tlv;
