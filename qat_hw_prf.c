@@ -72,6 +72,7 @@
 extern int qat_fips_key_zeroize;
 #endif
 
+#ifndef OPENSSL_NO_ENGINE
 static EVP_PKEY_METHOD *_hidden_prf_pmeth = NULL;
 
 #ifndef QAT_OPENSSL_3
@@ -153,6 +154,7 @@ EVP_PKEY_METHOD *qat_prf_pmeth(void)
 
     return _hidden_prf_pmeth;
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 #ifdef ENABLE_QAT_HW_PRF
 /******************************************************************************

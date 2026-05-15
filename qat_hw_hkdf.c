@@ -87,6 +87,8 @@ extern int qat_fips_key_zeroize;
 /* Only for OpenSSL 1.1.1. For OpenSSL 3, we use the default provider for SW fallback */
 static const EVP_PKEY_METHOD *sw_hkdf_pmeth = NULL;
 #endif
+
+#ifndef OPENSSL_NO_ENGINE
 static EVP_PKEY_METHOD *_hidden_hkdf_pmeth = NULL;
 
 #ifdef ENABLE_QAT_HW_HKDF
@@ -160,6 +162,7 @@ EVP_PKEY_METHOD *qat_hkdf_pmeth(void)
     }
     return _hidden_hkdf_pmeth;
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 #ifdef ENABLE_QAT_HW_HKDF
 /******************************************************************************

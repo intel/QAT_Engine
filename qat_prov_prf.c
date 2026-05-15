@@ -333,12 +333,14 @@ static int qat_prov_set_macctx(EVP_MAC_CTX *macctx,
             }
         }
         if (engine == NULL) {
+#ifndef OPENSSL_NO_ENGINE
             if ((p = OSSL_PARAM_locate_const(params, OSSL_ALG_PARAM_ENGINE))
                     != NULL) {
                 if (p->data_type != OSSL_PARAM_UTF8_STRING)
                     return 0;
                 engine = p->data;
             }
+#endif
         }
     }
 

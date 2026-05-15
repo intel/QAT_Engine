@@ -304,14 +304,14 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
     }
 
     if (qat_get_sw_fallback_enabled()) {
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         /* Run the software init function */
         ret =
             EVP_CIPHER_meth_get_init(GET_SW_AES_GCM_CIPHER(ctx)) (ctx, inkey, iv,
                                                               enc);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
         OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
         sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
 
@@ -475,9 +475,11 @@ int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 {
 #ifdef QAT_OPENSSL_PROVIDER
     QAT_GCM_CTX* qctx = NULL;
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
     qat_gcm_ctx *qctx = NULL;
     int ret_sw = 0;
+#else
+    qat_gcm_ctx *qctx = NULL;
 #endif
     unsigned int plen = 0;
     int enc = 0;
@@ -798,7 +800,7 @@ int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     }
 
  sw_ctrl:
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     if (qat_get_sw_fallback_enabled()) {
         if (type != EVP_CTRL_GCM_SET_IV_INV && type != EVP_CTRL_GCM_IV_GEN)
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
@@ -1523,12 +1525,12 @@ err:
     if (fallback) {
         WARN("- Fallback to software mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         ret_val = EVP_CIPHER_meth_get_do_cipher(GET_SW_AES_GCM_CIPHER(ctx))
             (ctx, out, in, len);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
         sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
         if (sw_aes_gcm_cipher.cupdate == NULL)
             return 0;
@@ -2012,12 +2014,12 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     }
 err:
     if (fallback) {
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         ret_val = EVP_CIPHER_meth_get_do_cipher(GET_SW_AES_GCM_CIPHER(ctx))
             (ctx, out, in, len);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
         sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
         if (sw_aes_gcm_cipher.cupdate == NULL)
             return 0;

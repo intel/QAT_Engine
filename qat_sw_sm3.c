@@ -264,7 +264,7 @@ int qat_sw_sm3_init(QAT_SM3_CTX_mb *ctx)
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     sm3_init_op_data *sm3_init_req = NULL;
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int (*sw_fn_ptr)(EVP_MD_CTX *) = NULL;
 #endif
     mb_thread_data *tlv = NULL;
@@ -372,18 +372,21 @@ int qat_sw_sm3_init(QAT_SM3_CTX_mb *ctx)
     }
 
 use_sw_method:
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     sw_fn_ptr = EVP_MD_meth_get_init((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
     if (!EVP_DigestInit_ex2(sm3_ctx->sw_md_ctx, sm3_ctx->sw_md, NULL)) {
         WARN("Software calculate failed \n");
         return 0;
     }
     DEBUG("SW Init Finished %p\n", sm3_ctx);
     return 1;
+#else
+    WARN("Software fallback not available without provider or engine support\n");
+    return 0;
 #endif
 }
 
@@ -396,7 +399,7 @@ int qat_sw_sm3_update(QAT_SM3_CTX_mb *ctx, const void *in, size_t len)
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     sm3_update_op_data *sm3_update_req = NULL;
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int (*sw_fn_ptr)(EVP_MD_CTX *, const void *, size_t) = NULL;
 #endif
     mb_thread_data *tlv = NULL;
@@ -500,18 +503,21 @@ int qat_sw_sm3_update(QAT_SM3_CTX_mb *ctx, const void *in, size_t len)
     }
 
 use_sw_method:
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     sw_fn_ptr = EVP_MD_meth_get_update((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, in, len);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
     if (!EVP_DigestUpdate(sm3_ctx->sw_md_ctx, in, len)) {
         WARN("Software calculate failed \n");
         return 0;
     }
     DEBUG("SW Update Finished %p\n", sm3_ctx);
     return 1;
+#else
+    WARN("Software fallback not available without provider or engine support\n");
+    return 0;
 #endif
 }
 
@@ -524,7 +530,7 @@ int qat_sw_sm3_final(QAT_SM3_CTX_mb *ctx, unsigned char *md)
     ASYNC_JOB *job;
     int sts = 0, job_ret = 0;
     sm3_final_op_data *sm3_final_req = NULL;
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int (*sw_fn_ptr)(EVP_MD_CTX *, unsigned char *) = NULL;
 #endif
     mb_thread_data *tlv = NULL;
@@ -627,17 +633,20 @@ int qat_sw_sm3_final(QAT_SM3_CTX_mb *ctx, unsigned char *md)
     }
 
 use_sw_method:
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     sw_fn_ptr = EVP_MD_meth_get_final((EVP_MD *)EVP_sm3());
     sts = (*sw_fn_ptr)(ctx, md);
     DEBUG("SW Finished %p\n", ctx);
     return sts;
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
     if (!EVP_DigestFinal_ex(sm3_ctx->sw_md_ctx, md, NULL)) {
         WARN("Software calculate failed \n");
         return 0;
     }
     DEBUG("SW Final Finished %p\n", sm3_ctx);
     return 1;
+#else
+    WARN("Software fallback not available without provider or engine support\n");
+    return 0;
 #endif
 }

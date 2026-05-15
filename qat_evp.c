@@ -126,6 +126,7 @@ typedef struct _chained_info {
     const int keylen;
 } chained_info;
 
+#ifndef OPENSSL_NO_ENGINE
 static chained_info info[] = {
 #ifdef ENABLE_QAT_HW_CIPHERS
 # ifdef QAT_INSECURE_ALGO
@@ -195,6 +196,7 @@ int qat_cipher_nids[] = {
     NID_aes_256_ccm,
 #endif
 };
+#endif /* !OPENSSL_NO_ENGINE */
 
 /* Supported EVP nids */
 int qat_evp_nids[] = {
@@ -302,7 +304,7 @@ static int pkt_threshold_table_size =
 # endif
 #endif /* QAT_BORINGSSL */
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static EC_KEY_METHOD *qat_ec_method = NULL;
 static RSA_METHOD *qat_rsa_method = NULL;
 #endif
@@ -312,7 +314,7 @@ static EC_KEY_METHOD null_ecdsa_method = {.common={.is_static = 1}};
 #endif /* QAT_BORINGSSL */
 
 #ifndef QAT_BORINGSSL
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static EVP_PKEY_METHOD *_hidden_x25519_pmeth = NULL;
 static EVP_PKEY_METHOD *_hidden_x448_pmeth = NULL;
 # endif
@@ -323,11 +325,13 @@ const EVP_PKEY_METHOD *sw_x25519_pmeth = NULL;
 const EVP_PKEY_METHOD *sw_x448_pmeth = NULL;
 
 #if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static EVP_PKEY_METHOD *_hidden_sm2_pmeth = NULL;
+# endif
 const EVP_PKEY_METHOD *sw_sm2_pmeth = NULL;
 #endif
 
-#if defined(ENABLE_QAT_SW_SM3)
+#if defined(ENABLE_QAT_SW_SM3) && !defined(OPENSSL_NO_ENGINE)
 int qat_sw_sm3_md_methods(EVP_MD *c)
 {
     int res = 1;
@@ -346,7 +350,7 @@ int qat_sw_sm3_md_methods(EVP_MD *c)
 
 const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 {
-#ifdef ENABLE_QAT_SW_SM3
+#if defined(ENABLE_QAT_SW_SM3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int res = 1;
     EVP_MD *qat_sw_sm3_meth = NULL;
 
@@ -370,7 +374,7 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
     } else {
         qat_sw_sm3_offload = 0;
         DEBUG("QAT SW SM3 is disabled, using OpenSSL SW\n");
-# if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+# if defined(QAT_OPENSSL_3)
         qat_openssl3_sm3_fallback = 1;
         res = qat_sw_sm3_md_methods(qat_sw_sm3_meth);
         if (0 == res) {
@@ -453,6 +457,7 @@ void qat_free_digest_meth(void)
 #if defined(ENABLE_QAT_HW_SHA3) || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_HW_SM3)
     for (int i = 0; i < num_digest_nids; i++) {
         if (digest_info[i].md != NULL) {
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
             switch (digest_info[i].m_type) {
 #ifdef ENABLE_QAT_HW_SHA3
 #  ifdef QAT_INSECURE_ALGO
@@ -479,6 +484,7 @@ void qat_free_digest_meth(void)
                 break;
 #endif
             }
+#endif /* !QAT_OPENSSL_PROVIDER && !OPENSSL_NO_ENGINE */
             digest_info[i].md = NULL;
         }
     }
@@ -503,7 +509,7 @@ void qat_free_digest_meth(void)
  * description:
  *   QAT engine digest operations register.
 ******************************************************************************/
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 int qat_digest_methods(ENGINE *e, const EVP_MD **md,
                        const int **nids, int nid)
 {
@@ -568,7 +574,7 @@ int qat_ecx448_paramgen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey)
 #endif
 
 #ifdef ENABLE_QAT_SW_ECX
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static void qat_ecx25519_pkey_methods(void)
 {
         EVP_PKEY_meth_set_keygen(_hidden_x25519_pmeth, NULL, multibuff_x25519_keygen);
@@ -582,7 +588,7 @@ static void qat_ecx25519_pkey_methods(void)
 # endif
 #endif
 
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 EVP_PKEY_METHOD *qat_x25519_pmeth(void)
 {
     if (_hidden_x25519_pmeth) {
@@ -828,6 +834,7 @@ const EVP_CIPHER *qat_ccm_cipher_sw_impl(int nid)
 }
 #endif
 
+#ifndef OPENSSL_NO_ENGINE
 /******************************************************************************
  * function:
  *         qat_create_gcm_cipher_meth(int nid, int keylen)
@@ -1304,13 +1311,15 @@ EVP_PKEY_METHOD *qat_create_sm2_pmeth(void)
 # if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     if (_hidden_sm2_pmeth && (qat_hw_sm2_offload || qat_sw_sm2_offload || 
                               qat_openssl3_sm2_fallback)) {
-#else
+# elif !defined(QAT_OPENSSL_PROVIDER)
     if (_hidden_sm2_pmeth && (qat_hw_sm2_offload || qat_sw_sm2_offload)) {
-#endif
+# endif
+# ifndef QAT_OPENSSL_PROVIDER
         if (!qat_reload_algo)
             return _hidden_sm2_pmeth;
         EVP_PKEY_meth_free(_hidden_sm2_pmeth);
     }
+# endif
 
 #ifndef QAT_OPENSSL_PROVIDER
     if (sw_sm2_pmeth && !qat_hw_sm2_offload && !qat_reload_algo)
@@ -1381,8 +1390,10 @@ EVP_PKEY_METHOD *qat_create_sm2_pmeth(void)
 #  endif
     }
 # endif /* ENABLE_QAT_SW_SM2 */
-#endif    /* QAT_OPENSSL_PROVIDER */
     return _hidden_sm2_pmeth;
+#else  /* QAT_OPENSSL_PROVIDER */
+    return NULL;
+#endif /* QAT_OPENSSL_PROVIDER */
 }
 #endif
 
@@ -1543,6 +1554,7 @@ void qat_free_ciphers(void)
     qat_sw_sm4_ccm_offload = 0;
     qat_hw_aes_ccm_offload = 0;
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 /******************************************************************************
 * function:
@@ -1559,7 +1571,7 @@ void qat_free_ciphers(void)
 * description:
 *   Qat engine cipher operations registrar
 ******************************************************************************/
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
 {
     int i;
@@ -1594,7 +1606,7 @@ int qat_ciphers(ENGINE *e, const EVP_CIPHER **cipher, const int **nids, int nid)
 # endif
 #endif
 
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 EC_KEY_METHOD *qat_get_EC_methods(void)
 {
     if (qat_ec_method != NULL && !qat_reload_algo)

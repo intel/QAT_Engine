@@ -46,7 +46,7 @@
 #ifndef QAT_HW_SHA3_H
 # define QAT_HW_SHA3_H
 
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 #  include <openssl/engine.h>
 # endif
 # include <openssl/evp.h>

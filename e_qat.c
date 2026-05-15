@@ -352,7 +352,7 @@ clock_t clock_id = CLOCK_MONOTONIC_RAW;
 clock_t clock_id = CLOCK_MONOTONIC_PRECISE;
 #endif
 
-#if ! defined(QAT_BORINGSSL) && ! defined(QAT_OPENSSL_PROVIDER)
+#if !defined(QAT_BORINGSSL) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 const ENGINE_CMD_DEFN qat_cmd_defns[] = {
     {
         QAT_CMD_ENABLE_EXTERNAL_POLLING,
@@ -483,7 +483,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
 
     {0, NULL, NULL, 0}
 };
-#endif /* QAT_BORINGSSL */
+#endif /* !QAT_BORINGSSL && !QAT_OPENSSL_PROVIDER && !OPENSSL_NO_ENGINE */
 
 /******************************************************************************
 * function:
@@ -496,7 +496,7 @@ const ENGINE_CMD_DEFN qat_cmd_defns[] = {
 *   Cleanup all the method structures here.
 *
 ******************************************************************************/
-#if !defined(QAT_OPENSSL_PROVIDER)
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 static int qat_engine_destroy(ENGINE *e)
 {
     DEBUG("---- Destroying Engine...\n\n");
@@ -536,7 +536,7 @@ static int qat_engine_destroy(ENGINE *e)
     ERR_unload_QAT_strings();
     return 1;
 }
-#endif
+#endif /* !QAT_OPENSSL_PROVIDER && !OPENSSL_NO_ENGINE */
 
 #if defined(QAT_SW) || defined(QAT_SW_IPSEC)
 int qat_sw_cpu_support(void)
@@ -604,7 +604,11 @@ int qat_pthread_mutex_unlock(void)
     return ret;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 int qat_engine_init(ENGINE *e)
+#else
+int qat_engine_init(void *e)
+#endif
 {
     qat_pthread_mutex_lock();
     if (engine_inited) {
@@ -657,7 +661,11 @@ int qat_engine_init(ENGINE *e)
     return 1;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 int qat_engine_finish_int(ENGINE *e, int reset_globals)
+#else
+int qat_engine_finish_int(void *e, int reset_globals)
+#endif
 {
     int ret = 1;
 
@@ -726,7 +734,11 @@ int qat_engine_finish_int(ENGINE *e, int reset_globals)
  *   This is a wrapper for qat_engine_finish_int that always resets all the
  *   global variables used to store the engine configuration.
  ******************************************************************************/
+#ifndef OPENSSL_NO_ENGINE
 int qat_engine_finish(ENGINE *e)
+#else
+int qat_engine_finish(void *e)
+#endif
 {
     return qat_engine_finish_int(e, QAT_RESET_GLOBALS);
 }
@@ -752,7 +764,7 @@ int qat_engine_finish(ENGINE *e)
  *         ENGINE_init
  ******************************************************************************/
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
 {
     unsigned int retVal = 1;
@@ -1058,9 +1070,9 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void))
     }
     return retVal;
 }
-#endif /* QAT_OPENSSL_PROVIDER */
+#endif /* !QAT_OPENSSL_PROVIDER && !OPENSSL_NO_ENGINE */
 
-#ifdef ENABLE_QAT_HW_KPT
+#if defined(ENABLE_QAT_HW_KPT) && !defined(OPENSSL_NO_ENGINE)
 EVP_PKEY *qat_engine_load_privkey(ENGINE *e, const char *key_id, UI_METHOD *ui_method, void *callback_data)
 {
     EVP_PKEY *pkey = NULL;
@@ -1100,7 +1112,7 @@ error:
     WARN("Error in qat_engine_load_privkey\n");
     return NULL;
 }
-#endif
+#endif /* ENABLE_QAT_HW_KPT && !OPENSSL_NO_ENGINE */
 
 /******************************************************************************
  * function:
@@ -1113,7 +1125,11 @@ error:
  * description:
  *    Connect Qat engine to OpenSSL engine library
  ******************************************************************************/
+#ifndef OPENSSL_NO_ENGINE
 int bind_qat(ENGINE *e, const char *id)
+#else
+int bind_qat(void *e, const char *id)
+#endif
 {
    int ret = 0;
 #ifdef QAT_HW
@@ -1171,7 +1187,7 @@ int bind_qat(ENGINE *e, const char *id)
     }
 #endif
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already! %s - %s\n", id, engine_qat_id);
         return ret;
@@ -1250,7 +1266,7 @@ int bind_qat(ENGINE *e, const char *id)
         return ret;
     }
 # endif
-#endif /* QAT_OPENSSL_PROVIDER */
+#endif /* !QAT_OPENSSL_PROVIDER && !OPENSSL_NO_ENGINE */
 
 #ifdef QAT_OPENSSL_PROVIDER
    /* Set the corresponding algorithms offload for provider */
@@ -1392,7 +1408,9 @@ int bind_qat(ENGINE *e, const char *id)
 
     /* Create static structures for ciphers now
      * as this function will be called by a single thread. */
+#ifndef OPENSSL_NO_ENGINE
     qat_create_ciphers();
+#endif
     /* Initialize EVP_MD methods for supported digest algorithms.
      * This sets up the digest methods for both hardware and software digests. */
     qat_create_digest_meth();
@@ -1532,7 +1550,7 @@ int bind_qat(ENGINE *e, const char *id)
     return ret;
 }
 
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 #ifndef OPENSSL_NO_DYNAMIC_ENGINE
 IMPLEMENT_DYNAMIC_BIND_FN(bind_qat)
 IMPLEMENT_DYNAMIC_CHECK_FN()
@@ -1615,5 +1633,5 @@ void ENGINE_unload_qat(void)
     }
 }
 #endif /* QAT_BORINGSSL */
-#endif /* QAT_OPENSSL_PROVIDER */
+#endif /* !QAT_OPENSSL_PROVIDER && !OPENSSL_NO_ENGINE */
 #endif

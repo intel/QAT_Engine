@@ -581,7 +581,7 @@ err:
             QAT_GEN_CTX *gctx = (QAT_GEN_CTX *)ctx;
             return ecx_sw_keygen(gctx->libctx, gctx->propq, ECX_KEY_TYPE_X448);
         }
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
         EVP_PKEY_meth_get_keygen((EVP_PKEY_METHOD *)
                                 (is_ecx_448 ? sw_x448_pmeth : sw_x25519_pmeth),
                                 NULL, &sw_fn_ptr);
@@ -590,8 +590,10 @@ err:
     }
 #ifdef QAT_OPENSSL_PROVIDER
     return NULL;
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
     return ret;
+#else
+    return 0;
 #endif
 }
 
@@ -1023,7 +1025,7 @@ err:
         WARN("- Fallback to software mode.\n");
 #ifdef QAT_OPENSSL_PROVIDER
         return ecx_sw_derive((QAT_ECX_CTX *)ctx, key, keylen, outlen, ECX_KEY_TYPE_X25519);
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x25519_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
 #endif
@@ -1070,7 +1072,7 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
         DEBUG("- Switched to software mode.\n");
 #ifdef QAT_OPENSSL_PROVIDER
         return ecx_sw_derive((QAT_ECX_CTX *)ctx, key, keylen, outlen, ECX_KEY_TYPE_X448);
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x448_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
         if (ret != 1) {
@@ -1344,7 +1346,7 @@ err:
         CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
 #ifdef QAT_OPENSSL_PROVIDER
         ret = ecx_sw_derive((QAT_ECX_CTX *)ctx, key, keylen, outlen, ECX_KEY_TYPE_X448);
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
         EVP_PKEY_meth_get_derive((EVP_PKEY_METHOD *)sw_x448_pmeth, NULL, &sw_fn_ptr);
         ret = (*sw_fn_ptr)(ctx, key, keylen);
 #endif

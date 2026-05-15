@@ -46,7 +46,7 @@
 #ifndef QAT_SW_SM4_CCM_H
 # define QAT_SW_SM4_CCM_H
 
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
 #  include <openssl/engine.h>
 # endif
 # include <openssl/evp.h>

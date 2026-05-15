@@ -321,7 +321,7 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
         WARN("SM4-CBC key is NULL \n");
 
     qctx->fallback = 0;
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     const EVP_CIPHER *sw_cipher = EVP_sm4_cbc();
     unsigned int sw_size = EVP_CIPHER_impl_ctx_size(sw_cipher);
     if (sw_size != 0) {
@@ -348,7 +348,7 @@ int qat_sm4_cbc_init(EVP_CIPHER_CTX *ctx,
 # endif
     if (ret != 1)
         goto err;
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
     OSSL_PARAM params[2] = {OSSL_PARAM_END, OSSL_PARAM_END};
     sw_sm4_cbc_cipher = get_default_cipher_sm4_cbc();
 
@@ -574,7 +574,11 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     CpaBufferList *d_sgl = NULL;
     CpaFlatBuffer *s_fbuf = NULL;
     CpaFlatBuffer *d_fbuf = NULL;
+#if !defined(OPENSSL_NO_ENGINE) || defined(QAT_OPENSSL_PROVIDER)
     int retVal = 0, job_ret = 0;
+#else
+    int job_ret = 0;
+#endif
     op_done_t op_done;
     qat_sm4_ctx *qctx = NULL;
 #ifdef QAT_OPENSSL_PROVIDER
@@ -735,7 +739,7 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
 #ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
     if (len <= qat_pkt_threshold_table_get_threshold(nid)) {
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         retVal = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_cbc())(ctx, out, in, len);
         if (retVal)
@@ -749,7 +753,7 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #  else
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
 #  endif
-# else
+# elif defined(QAT_OPENSSL_PROVIDER)
         sw_sm4_cbc_cipher = get_default_cipher_sm4_cbc();
         if (sw_sm4_cbc_cipher.cupdate == NULL)
             return 0;
@@ -950,14 +954,14 @@ fallback:
     if (qctx->fallback == 1) {
         DEBUG("- Switched to OpenSSL SW mode.\n");
         CRYPTO_QAT_LOG("Resubmitting request to OpenSSL SW - %s\n", __func__);
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         retVal = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_cbc())(ctx, out, in, len);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
 
         if (retVal)
             outlen = len;
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
         sw_sm4_cbc_cipher = get_default_cipher_sm4_cbc();
         if (sw_sm4_cbc_cipher.cupdate == NULL)
             return 0;

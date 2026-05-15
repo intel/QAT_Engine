@@ -41,7 +41,9 @@
 #include <string.h>
 
 #include <openssl/evp.h>
+#ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
+#endif
 #include <openssl/ssl.h>
 #include <openssl/tls1.h>
 #include <openssl/kdf.h>

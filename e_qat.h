@@ -46,7 +46,7 @@
 #ifndef E_QAT_H
 # define E_QAT_H
 
-# ifndef QAT_OPENSSL_PROVIDER
+# if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE) && !defined(QAT_BORINGSSL)
 #  include <openssl/engine.h>
 # endif
 # include <openssl/ec.h>
@@ -61,6 +61,12 @@
 # ifdef QAT_BORINGSSL
 #  include "qat_bssl.h"
 #  include "qat_bssl_err.h"
+/* BoringSSL headers define OPENSSL_NO_ENGINE but QATEngine provides
+ * ENGINE compatibility through qat_bssl.h. Clear it so engine code
+ * paths compile correctly for BoringSSL builds. */
+#  ifdef OPENSSL_NO_ENGINE
+#   undef OPENSSL_NO_ENGINE
+#  endif
 # else
 #  include "qat_err.h"
 #  include <openssl/async.h>
@@ -629,6 +635,7 @@ extern mb_req_rates mb_sm3_update_req_rates;
 extern mb_req_rates mb_sm3_final_req_rates;
 # endif
 
+#ifndef OPENSSL_NO_ENGINE
 # define QAT_CMD_ENABLE_EXTERNAL_POLLING ENGINE_CMD_BASE
 # define QAT_CMD_POLL (ENGINE_CMD_BASE + 1)
 # define QAT_CMD_SET_INSTANCE_FOR_THREAD (ENGINE_CMD_BASE + 2)
@@ -652,13 +659,14 @@ extern mb_req_rates mb_sm3_final_req_rates;
 # define QAT_CMD_HW_ALGO_BITMAP (ENGINE_CMD_BASE + 20)
 # define QAT_CMD_SW_ALGO_BITMAP (ENGINE_CMD_BASE + 21)
 
-#ifndef QAT_BORINGSSL
-#ifndef ENGINE_QAT_PTR_DEFINE
-# define ENGINE_QAT_PTR_RESET()
-# define ENGINE_QAT_PTR_SET(pt)
-# define ENGINE_QAT_PTR_GET()       NULL
-#endif
-#endif /* QAT_BORINGSSL */
+# ifndef QAT_BORINGSSL
+#  ifndef ENGINE_QAT_PTR_DEFINE
+#   define ENGINE_QAT_PTR_RESET()
+#   define ENGINE_QAT_PTR_SET(pt)
+#   define ENGINE_QAT_PTR_GET()       NULL
+#  endif
+# endif /* QAT_BORINGSSL */
+#endif /* !OPENSSL_NO_ENGINE */
 
 # ifdef QAT_HW
 extern CpaStatus icp_adf_get_numDevices(Cpa32U *);
@@ -767,7 +775,11 @@ thread_local_variables_t * qat_check_create_local_variables(void);
  *   qat_hw init function, associated with
  *   Crypto memory setup and cpaStartInstance setups.
  ******************************************************************************/
+#  ifndef OPENSSL_NO_ENGINE
 int qat_hw_init(ENGINE *e);
+#  else
+int qat_hw_init(void *e);
+#  endif
 # endif
 
 /*****************************************************************************
@@ -782,7 +794,11 @@ int qat_hw_init(ENGINE *e);
  *   and other qat_hw and qat_sw intializaton.
  *
  *****************************************************************************/
+#ifndef OPENSSL_NO_ENGINE
 int bind_qat(ENGINE *e, const char *id);
+#else
+int bind_qat(void *e, const char *id);
+#endif
 
 /******************************************************************************
  * function:
@@ -793,7 +809,11 @@ int bind_qat(ENGINE *e, const char *id);
  * description:
  *   Qat Engine initialization
  ******************************************************************************/
+#ifndef OPENSSL_NO_ENGINE
 int qat_engine_init(ENGINE *e);
+#else
+int qat_engine_init(void *e);
+#endif
 
 /******************************************************************************
 * function:
@@ -815,8 +835,9 @@ int qat_engine_init(ENGINE *e);
 *    ---> ENGINE_ctrl_cmd(QAT_CMD_ENABLE_EXTERNAL_POLLING)
 *         ENGINE_init
 ******************************************************************************/
-
+#ifndef OPENSSL_NO_ENGINE
 int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void));
+#endif
 
 /******************************************************************************
  * function:
@@ -827,8 +848,11 @@ int qat_engine_ctrl(ENGINE *e, int cmd, long i, void *p, void (*f) (void));
  * description:
  *   Qat finish function associated with qat crypto memory free
  ******************************************************************************/
-
+#ifndef OPENSSL_NO_ENGINE
 int qat_hw_finish_int(ENGINE *e, int reset_globals);
+#else
+int qat_hw_finish_int(void *e, int reset_globals);
+#endif
 
 /******************************************************************************
  * function:
@@ -839,8 +863,11 @@ int qat_hw_finish_int(ENGINE *e, int reset_globals);
  * description:
  *   Qat engine finish function.
  ******************************************************************************/
-
+#ifndef OPENSSL_NO_ENGINE
 int qat_engine_finish(ENGINE *e);
+#else
+int qat_engine_finish(void *e);
+#endif
 
 
 /******************************************************************************
@@ -855,9 +882,13 @@ int qat_engine_finish(ENGINE *e);
  *   The value of reset_globals should be either QAT_RESET_GLOBALS or
  *   QAT_RETAIN_GLOBALS
  ******************************************************************************/
+#ifndef OPENSSL_NO_ENGINE
 int qat_engine_finish_int(ENGINE *e, int reset_globals);
+#else
+int qat_engine_finish_int(void *e, int reset_globals);
+#endif
 
-#ifdef ENABLE_QAT_HW_KPT
+#if defined(ENABLE_QAT_HW_KPT) && !defined(OPENSSL_NO_ENGINE)
 /******************************************************************************
 * function:
 *         qat_engine_load_privkey(ENGINE *e, const char *key_id,
@@ -906,7 +937,11 @@ int qat_pthread_mutex_unlock(void);
  * description:
  *   QAT_SW init function, associated with memory setup.
  ******************************************************************************/
+#  ifndef OPENSSL_NO_ENGINE
 int qat_sw_init(ENGINE *e);
+#  else
+int qat_sw_init(void *e);
+#  endif
 
 /******************************************************************************
  * function:
@@ -920,7 +955,11 @@ int qat_sw_init(ENGINE *e);
  *   The value of reset_globals should be either QAT_RESET_GLOBALS or
  *   QAT_RETAIN_GLOBALS
  ******************************************************************************/
+#  ifndef OPENSSL_NO_ENGINE
 int qat_sw_finish_int(ENGINE *e, int reset_globals);
+#  else
+int qat_sw_finish_int(void *e, int reset_globals);
+#  endif
 
 /******************************************************************************
  * function:

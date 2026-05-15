@@ -221,6 +221,7 @@ static inline void qat_chained_ciphers_free_qop(qat_op_params **pqop,
     }
 }
 
+#ifndef OPENSSL_NO_ENGINE
 const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
 {
     EVP_CIPHER *c = NULL;
@@ -265,6 +266,7 @@ const EVP_CIPHER *qat_create_cipher_meth(int nid, int keylen)
         return qat_chained_cipher_sw_impl(nid);
     }
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 /******************************************************************************
 * function:
@@ -540,10 +542,10 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
     int dlen;
     int ret = 0;
     int fallback = 0;
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     EVP_CIPHER *sw_cipher = NULL;
     unsigned int sw_size = 0;
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
     EVP_CIPHER_CTX *sw_ctx = NULL;
     PROV_EVP_CIPHER sw_aes_cbc_cipher;
 #endif
@@ -697,7 +699,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
 
  end:
     if (fallback) {
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         sw_cipher = (EVP_CIPHER *)GET_SW_CIPHER(ctx);
         sw_size = EVP_CIPHER_impl_ctx_size(sw_cipher);
         if (sw_size != 0) {
@@ -724,7 +726,7 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
             }
             return 0;
 	}
-#else
+#elif defined(QAT_OPENSSL_PROVIDER)
         OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
         sw_aes_cbc_cipher = get_default_cipher_aes_cbc(ctx->nid);
 
@@ -747,6 +749,9 @@ int qat_chained_ciphers_init(EVP_CIPHER_CTX *ctx,
         ctx->sw_ctx = sw_ctx;
         if (ret != 1)
             return 0;
+#else
+        WARN("Software fallback not available without provider or engine support\n");
+        return 0;
 #endif
     }
     return ret;
@@ -792,7 +797,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
     char *hdr = NULL;
     unsigned int len = 0;
     int retVal = 0;
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int retVal_sw = 0;
 #endif
     int fallback = qat_get_sw_fallback_enabled();
@@ -993,7 +998,7 @@ int qat_chained_ciphers_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
      * These multiple calls are always made to the s/w equivalent function.
      */
     if (fallback) {
-#ifndef QAT_OPENSSL_PROVIDER
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         retVal_sw = EVP_CIPHER_meth_get_ctrl(GET_SW_CIPHER(ctx))(ctx, type, arg, ptr);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
@@ -1149,7 +1154,9 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int error = 0;
     int outlen = -1;
     int fallback = 0;
+#if defined(QAT_OPENSSL_PROVIDER) || !defined(OPENSSL_NO_ENGINE)
     size_t original_len = len;
+#endif
     thread_local_variables_t *tlv = NULL;
 
     if (ctx == NULL) {
@@ -1306,7 +1313,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 goto cleanup;
             return sw_ret;
         }
-# else
+# elif !defined(OPENSSL_NO_ENGINE)
         if (len <=
             qat_pkt_threshold_table_get_threshold(EVP_CIPHER_CTX_nid(ctx))) {
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
@@ -1758,7 +1765,7 @@ fallback:
             if (!sw_ret)
                 return 0;
             outlen = sw_ret;
-#else
+#elif !defined(OPENSSL_NO_ENGINE)
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
             retVal = EVP_CIPHER_meth_get_do_cipher(GET_SW_CIPHER(ctx))
                 (ctx, out, in, original_len);
