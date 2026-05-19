@@ -52,70 +52,6 @@ static const unsigned char digestinfo_##name##_der[] = {                       \
 
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 
-struct evp_signature_st {
-    int name_id;
-    char *type_name;
-    const char *description;
-    OSSL_PROVIDER *prov;
-    QAT_CRYPTO_REF_COUNT references;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-#endif
-    OSSL_FUNC_signature_newctx_fn *newctx;
-    OSSL_FUNC_signature_sign_init_fn *sign_init;
-    OSSL_FUNC_signature_sign_fn *sign;
-#if OPENSSL_VERSION_NUMBER >= 0x30400000
-    OSSL_FUNC_signature_sign_message_init_fn *sign_message_init;
-    OSSL_FUNC_signature_sign_message_update_fn *sign_message_update;
-    OSSL_FUNC_signature_sign_message_final_fn *sign_message_final;
-#endif
-    OSSL_FUNC_signature_verify_init_fn *verify_init;
-    OSSL_FUNC_signature_verify_fn *verify;
-#if OPENSSL_VERSION_NUMBER >= 0x30400000
-    OSSL_FUNC_signature_verify_message_init_fn *verify_message_init;
-    OSSL_FUNC_signature_verify_message_update_fn *verify_message_update;
-    OSSL_FUNC_signature_verify_message_final_fn *verify_message_final;
-#endif
-    OSSL_FUNC_signature_verify_recover_init_fn *verify_recover_init;
-    OSSL_FUNC_signature_verify_recover_fn *verify_recover;
-    OSSL_FUNC_signature_digest_sign_init_fn *digest_sign_init;
-    OSSL_FUNC_signature_digest_sign_update_fn *digest_sign_update;
-    OSSL_FUNC_signature_digest_sign_final_fn *digest_sign_final;
-    OSSL_FUNC_signature_digest_sign_fn *digest_sign;
-    OSSL_FUNC_signature_digest_verify_init_fn *digest_verify_init;
-    OSSL_FUNC_signature_digest_verify_update_fn *digest_verify_update;
-    OSSL_FUNC_signature_digest_verify_final_fn *digest_verify_final;
-    OSSL_FUNC_signature_digest_verify_fn *digest_verify;
-    OSSL_FUNC_signature_freectx_fn *freectx;
-    OSSL_FUNC_signature_dupctx_fn *dupctx;
-    OSSL_FUNC_signature_get_ctx_params_fn *get_ctx_params;
-    OSSL_FUNC_signature_gettable_ctx_params_fn *gettable_ctx_params;
-    OSSL_FUNC_signature_set_ctx_params_fn *set_ctx_params;
-    OSSL_FUNC_signature_settable_ctx_params_fn *settable_ctx_params;
-    OSSL_FUNC_signature_get_ctx_md_params_fn *get_ctx_md_params;
-    OSSL_FUNC_signature_gettable_ctx_md_params_fn *gettable_ctx_md_params;
-    OSSL_FUNC_signature_set_ctx_md_params_fn *set_ctx_md_params;
-    OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
-} /* EVP_SIGNATURE */;
-
-static EVP_SIGNATURE get_default_rsa_signature()
-{
-    static EVP_SIGNATURE s_signature;
-    static int initilazed = 0;
-    if (!initilazed) {
-        EVP_SIGNATURE *signature = (EVP_SIGNATURE *)EVP_SIGNATURE_fetch(NULL, "RSA",
-									"provider=default");
-        if (signature) {
-            s_signature = *signature;
-            EVP_SIGNATURE_free((EVP_SIGNATURE *)signature);
-            initilazed = 1;
-        } else {
-            WARN("EVP_SIGNATURE_fetch from default provider failed");
-        }
-    }
-    return s_signature;
-}
-
 ENCODE_DIGESTINFO_SHA(sha256, 0x01, SHA256_DIGEST_LENGTH)
 ENCODE_DIGESTINFO_SHA(sha384, 0x02, SHA384_DIGEST_LENGTH)
 ENCODE_DIGESTINFO_SHA(sha512, 0x03, SHA512_DIGEST_LENGTH)
@@ -219,7 +155,7 @@ static const OSSL_PARAM known_gettable_ctx_params[] = {
 
 static int qat_rsa_private_encrypt(int flen, const unsigned char *from,
                                    unsigned char *to, RSA *rsa,
-				   int padding)
+                                   int padding)
 {
     int ret = 0;
 #ifdef ENABLE_QAT_HW_RSA
@@ -236,8 +172,8 @@ static int qat_rsa_private_encrypt(int flen, const unsigned char *from,
 }
 
 static int qat_rsa_public_decrypt(int flen, const unsigned char *from,
-		                  unsigned char *to, RSA *rsa,
-		                  int padding)
+                                  unsigned char *to, RSA *rsa,
+                                  int padding)
 {
     int ret = 0;
 #ifdef ENABLE_QAT_HW_RSA
@@ -373,7 +309,7 @@ static int qat_fips_check_rsa_key_size(size_t rsasize, int is_sign)
 int QAT_RSA_padding_add_PKCS1_PSS_mgf1(RSA *rsa, unsigned char *EM,
                                        const unsigned char *mHash,
                                        const EVP_MD *Hash,
-		                       const EVP_MD *mgf1Hash,
+                                       const EVP_MD *mgf1Hash,
                                        int *sLenOut,
                                        OSSL_LIB_CTX *libctx)
 {
@@ -504,7 +440,7 @@ int QAT_RSA_padding_add_PKCS1_PSS_mgf1(RSA *rsa, unsigned char *EM,
  */
 int QAT_RSA_sign(void *prsactx, int type, const unsigned char *m, unsigned int m_len,
                  unsigned char *sigret, size_t *sigLen, size_t sigsize, unsigned int *siglen,
-	         RSA *rsa)
+                 RSA *rsa)
 {
     int encrypt_len, ret = 0;
     size_t encoded_len = 0;
@@ -535,20 +471,8 @@ int QAT_RSA_sign(void *prsactx, int type, const unsigned char *m, unsigned int m
         goto err;
     }
 
-    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-        encrypt_len = qat_rsa_private_encrypt((int)encoded_len, encoded, sigret,
-					      rsa, RSA_PKCS1_PADDING);
-    } else {
-        typedef int (*fun_ptr)(void *prsactx, unsigned char *sigret,
-			       size_t *sigLen, size_t sigsize,
-			       const unsigned char *m,
-			       size_t m_len);
-        fun_ptr fun = get_default_rsa_signature().sign;
-        if (!fun)
-            goto err;
-        OPENSSL_clear_free(tmps, encoded_len);
-        return fun(prsactx, sigret, sigLen, sigsize, m, m_len);
-    }
+    encrypt_len = qat_rsa_private_encrypt((int)encoded_len, encoded, sigret,
+                                              rsa, RSA_PKCS1_PADDING);
 
     if (encrypt_len <= 0)
         goto err;
@@ -562,8 +486,8 @@ err:
 }
 
 static int rsa_sign_directly(QAT_PROV_RSA_CTX *prsactx, unsigned char *sig,
-			     size_t *siglen, size_t sigsize,
-			     const unsigned char *tbs, size_t tbslen)
+                             size_t *siglen, size_t sigsize,
+                             const unsigned char *tbs, size_t tbslen)
 {
     size_t rsasize = RSA_size(prsactx->rsa);
     size_t mdsize = rsa_get_md_size(prsactx);
@@ -580,141 +504,107 @@ static int rsa_sign_directly(QAT_PROV_RSA_CTX *prsactx, unsigned char *sig,
     if (sigsize < rsasize) {
         WARN("signature size is %zu, should be at least %zu", sigsize, rsasize);
         QATerr(ERR_LIB_PROV, PROV_R_INVALID_SIGNATURE_SIZE);
-	return 0;
+        return 0;
     }
 
     if (mdsize != 0) {
         if (tbslen != mdsize) {
             QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST_LENGTH);
-	    return 0;
-	}
+            return 0;
+        }
 
-	switch (prsactx->pad_mode) {
+        switch (prsactx->pad_mode) {
         case RSA_X931_PADDING:
-	    if ((size_t)RSA_size(prsactx->rsa) < tbslen + 1) {
-	        WARN("RSA key size = %d, expected minimum = %zu",
-		      RSA_size(prsactx->rsa), tbslen + 1);
-	        QATerr(ERR_LIB_PROV, QAT_R_PROV_KEY_SIZE_TOO_SMALL);
-		return 0;
-	    }
-	    if (!setup_tbuf(prsactx)) {
-		QATerr(ERR_LIB_PROV, QAT_R_PROV_INVALID_CTX_LIB);
-		return 0;
-	    }
-	    memcpy(prsactx->tbuf, tbs, tbslen);
-	    prsactx->tbuf[tbslen] = RSA_X931_hash_id(prsactx->mdnid);
-	    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-		ret = qat_rsa_private_encrypt(tbslen + 1, prsactx->tbuf,
-	                      		      sig, prsactx->rsa,
-					      RSA_X931_PADDING);
-	    } else {
-	        typedef int (*fun_ptr)(void *prsactx, unsigned char *sig,
-				       size_t *siglen, size_t sigsize,
-				       const unsigned char *tbs,
-				       size_t tbslen);
-	        fun_ptr fun = get_default_rsa_signature().sign;
-		if (!fun)
-		    return 0;
-		return fun(prsactx, sig, siglen, sigsize, tbs, tbslen);
-	    }
-	    clean_tbuf(prsactx);
-	    break;
+            if ((size_t)RSA_size(prsactx->rsa) < tbslen + 1) {
+                WARN("RSA key size = %d, expected minimum = %zu",
+                      RSA_size(prsactx->rsa), tbslen + 1);
+                QATerr(ERR_LIB_PROV, QAT_R_PROV_KEY_SIZE_TOO_SMALL);
+                return 0;
+            }
+            if (!setup_tbuf(prsactx)) {
+                QATerr(ERR_LIB_PROV, QAT_R_PROV_INVALID_CTX_LIB);
+                return 0;
+            }
+            memcpy(prsactx->tbuf, tbs, tbslen);
+            prsactx->tbuf[tbslen] = RSA_X931_hash_id(prsactx->mdnid);
+            ret = qat_rsa_private_encrypt(tbslen + 1, prsactx->tbuf,
+                                          sig, prsactx->rsa,
+                                          RSA_X931_PADDING);
+            clean_tbuf(prsactx);
+            break;
 
-	case RSA_PKCS1_PADDING:
-	{
-	    unsigned int sltmp = 0;
-   	    ret = QAT_RSA_sign(prsactx, prsactx->mdnid, tbs, tbslen, sig,
-			       siglen, sigsize, &sltmp,
-	 		       prsactx->rsa);
-	    if (ret <= 0) {
-		QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-		return 0;
-	    }
-	    ret = sltmp;
-	}
-	break;
+        case RSA_PKCS1_PADDING:
+        {
+            unsigned int sltmp = 0;
+            ret = QAT_RSA_sign(prsactx, prsactx->mdnid, tbs, tbslen, sig,
+                               siglen, sigsize, &sltmp,
+                               prsactx->rsa);
+            if (ret <= 0) {
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                return 0;
+            }
+            ret = sltmp;
+        }
+        break;
 
-	case RSA_PKCS1_PSS_PADDING:
-	{
-	    int saltlen = -1;
+        case RSA_PKCS1_PSS_PADDING:
+        {
+            int saltlen = -1;
 
-	    if (rsa_pss_restricted(prsactx)) {
-	        switch (prsactx->saltlen) {
-	        case RSA_PSS_SALTLEN_DIGEST:
-	            if (prsactx->min_saltlen > EVP_MD_get_size(prsactx->md)) {
+            if (rsa_pss_restricted(prsactx)) {
+                switch (prsactx->saltlen) {
+                case RSA_PSS_SALTLEN_DIGEST:
+                    if (prsactx->min_saltlen > EVP_MD_get_size(prsactx->md)) {
                         WARN("minimum salt length set to %d, but the digest only gives %d",
                              prsactx->min_saltlen, EVP_MD_get_size(prsactx->md));
                         QATerr(ERR_LIB_PROV, PROV_R_PSS_SALTLEN_TOO_SMALL);
-   		        return 0;
-		    }
-		/* FALLTHRU */
-	        default:
-		    if ((prsactx->saltlen >= 0)
-		        && (prsactx->saltlen < prsactx->min_saltlen)) {
-		        WARN("minimum salt length set to %d, but the actual salt length is only set to %d",
-			     prsactx->min_saltlen, prsactx->saltlen);
+                        return 0;
+                    }
+                /* FALLTHRU */
+                default:
+                    if ((prsactx->saltlen >= 0)
+                        && (prsactx->saltlen < prsactx->min_saltlen)) {
+                        WARN("minimum salt length set to %d, but the actual salt length is only set to %d",
+                             prsactx->min_saltlen, prsactx->saltlen);
                         QATerr(ERR_LIB_PROV, PROV_R_PSS_SALTLEN_TOO_SMALL);
-		        return 0;
-		    }
-		    break;
-	        }
-	    }
+                        return 0;
+                    }
+                    break;
+                }
+            }
 
-	    if (!setup_tbuf(prsactx))
-		return 0;
-	    saltlen = prsactx->saltlen;
+            if (!setup_tbuf(prsactx))
+                return 0;
+            saltlen = prsactx->saltlen;
 
-	    if (!QAT_RSA_padding_add_PKCS1_PSS_mgf1(prsactx->rsa,
-						    prsactx->tbuf, tbs,
-						    prsactx->md,
-						    prsactx->mgf1_md,
-						    &saltlen,
-						    prsactx->libctx)) {
-		QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-		return 0;
-	    }
-	    if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-	        ret = qat_rsa_private_encrypt(RSA_size(prsactx->rsa), prsactx->tbuf,
-			                      sig, prsactx->rsa, RSA_NO_PADDING);
-	    }
-	    else {
-	        typedef int (*fun_ptr)(void *prsactx, unsigned char *sig,
-				       size_t *siglen, size_t sigsize,
-				       const unsigned char *tbs,
-				       size_t tbslen);
-		fun_ptr fun = get_default_rsa_signature().sign;
-		if (!fun)
-		    return 0;
-		return fun(prsactx, sig, siglen, sigsize, tbs, tbslen);
-	    }
-	    clean_tbuf(prsactx);
-	}
-	break;
+            if (!QAT_RSA_padding_add_PKCS1_PSS_mgf1(prsactx->rsa,
+                                                    prsactx->tbuf, tbs,
+                                                    prsactx->md,
+                                                    prsactx->mgf1_md,
+                                                    &saltlen,
+                                                    prsactx->libctx)) {
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                return 0;
+            }
+            ret = qat_rsa_private_encrypt(RSA_size(prsactx->rsa), prsactx->tbuf,
+                                          sig, prsactx->rsa, RSA_NO_PADDING);
+            clean_tbuf(prsactx);
+        }
+        break;
 
-	default:
-	    WARN("Only X.931, PKCS#1 v1.5 or PSS padding allowed");
-	    QATerr(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE);
-	    return 0;
+        default:
+            WARN("Only X.931, PKCS#1 v1.5 or PSS padding allowed");
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE);
+            return 0;
         }
     } else {
-        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-	    ret = qat_rsa_private_encrypt(tbslen, tbs, sig, prsactx->rsa,
-	 			          prsactx->pad_mode);
-	} else {
-	    typedef int (*fun_ptr)(void *prsactx, unsigned char *sig,
-	  		           size_t *siglen, size_t sigsize,
-				   const unsigned char *tbs,
-				   size_t tbslen);
-	    fun_ptr fun = get_default_rsa_signature().sign;
-	    if (!fun)
-	        return 0;
-	    return fun(prsactx, sig, siglen, sigsize, tbs, tbslen);
-	}
+        ret = qat_rsa_private_encrypt(tbslen, tbs, sig, prsactx->rsa,
+                                     prsactx->pad_mode);
     }
 
     if (ret <= 0) {
-	QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-	return 0;
+        QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
+        return 0;
     }
 
     *siglen = ret;
@@ -742,11 +632,11 @@ static int rsa_signverify_message_update(void *vprsactx,
     QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
 
     if (prsactx == NULL || prsactx->mdctx == NULL)
-	return 0;
+        return 0;
 
     if (!prsactx->flag_allow_update) {
-	QATerr(ERR_LIB_PROV, QAT_R_PROV_UPDATE_CALL_OUT_OF_ORDER);
-	return 0;
+        QATerr(ERR_LIB_PROV, QAT_R_PROV_UPDATE_CALL_OUT_OF_ORDER);
+        return 0;
     }
     prsactx->flag_allow_oneshot = 0;
 
@@ -769,7 +659,7 @@ static int rsa_signverify_message_update(void *vprsactx,
  * @return 1 on success, 0 on failure.
  */
 static int rsa_sign_message_final(void *vprsactx, unsigned char *sig,
-			          size_t *siglen, size_t sigsize)
+                                  size_t *siglen, size_t sigsize)
 {
     DEBUG("%s\n", __func__);
     QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
@@ -777,23 +667,23 @@ static int rsa_sign_message_final(void *vprsactx, unsigned char *sig,
     unsigned int dlen = 0;
 
     if (!qat_prov_is_running() || prsactx == NULL)
-    	return 0;
+        return 0;
 
     if (prsactx->mdctx == NULL)
-	return 0;
+        return 0;
 
     if (!prsactx->flag_allow_final) {
-	QATerr(ERR_LIB_PROV, QAT_R_PROV_FINAL_CALL_OUT_OF_ORDER);
-	return 0;
+        QATerr(ERR_LIB_PROV, QAT_R_PROV_FINAL_CALL_OUT_OF_ORDER);
+        return 0;
     }
 
     if (sig != NULL) {
-	if (!EVP_DigestFinal_ex(prsactx->mdctx, digest, &dlen))
-   	    return 0;
+        if (!EVP_DigestFinal_ex(prsactx->mdctx, digest, &dlen))
+            return 0;
 
-	prsactx->flag_allow_update = 0;
-	prsactx->flag_allow_oneshot = 0;
-	prsactx->flag_allow_final = 0;
+        prsactx->flag_allow_update = 0;
+        prsactx->flag_allow_oneshot = 0;
+        prsactx->flag_allow_final = 0;
     }
 
     return rsa_sign_directly(prsactx, sig, siglen, sigsize, digest, dlen);
@@ -852,7 +742,7 @@ const char *qat_rsa_oaeppss_nid2name(int md)
 
 static int qat_rsa_check_padding(const QAT_PROV_RSA_CTX *prsactx,
                                  const char *mdname,
-				 const char *mgf1_mdname,
+                                 const char *mgf1_mdname,
                                  int mdnid)
 {
     switch(prsactx->pad_mode) {
@@ -875,7 +765,7 @@ static int qat_rsa_check_padding(const QAT_PROV_RSA_CTX *prsactx,
                 QATerr(ERR_LIB_PROV, PROV_R_DIGEST_NOT_ALLOWED);
                 return 0;
             }
-	}
+        }
         break;
     default:
         break;
@@ -958,8 +848,8 @@ static int qat_rsa_setup_mgf1_md(QAT_PROV_RSA_CTX *ctx, const char *mdname,
         if (mdnid <= 0) {
             WARN("digest=%s", mdname);
             QATerr(ERR_LIB_PROV, PROV_R_DIGEST_NOT_ALLOWED);
-	}
-	EVP_MD_free(md);
+        }
+        EVP_MD_free(md);
         return 0;
     }
     len = OPENSSL_strlcpy(ctx->mgf1_mdname, mdname, sizeof(ctx->mgf1_mdname));
@@ -1012,12 +902,12 @@ static int qat_rsa_setup_md(QAT_PROV_RSA_CTX *ctx, const char *mdname,
             if (md == NULL) {
                 WARN("%s could not be fetched", mdname);
                 QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST);
-	    }
-	    if (mdname_len >= sizeof(ctx->mdname)) {
+            }
+            if (mdname_len >= sizeof(ctx->mdname)) {
                 WARN("%s exceeds name buffer length", mdname);
                 QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST);
-	    }
-	    EVP_MD_free(md);
+            }
+            EVP_MD_free(md);
             return 0;
         }
 
@@ -1079,7 +969,7 @@ static int qat_rsa_check_parameters(QAT_PROV_RSA_CTX *prsactx, int min_saltlen)
  * @return 0 on success, -1 on failure.
  */
 int QAT_PKCS1_MGF1(unsigned char *mask, long len, const unsigned char *seed,
-		   long seedlen, const EVP_MD *dgst)
+                   long seedlen, const EVP_MD *dgst)
 {
     long i, outlen = 0;
     unsigned char cnt[4];
@@ -1290,10 +1180,10 @@ static int digest_sz_from_nid(int nid)
  * @return 1 on successful verification, 0 on failure.
  */
 int QAT_RSA_verify(void *prsactx, int type, const unsigned char *m,
-		   unsigned int m_len, unsigned char *rm,
-		   size_t *prm_len,
+                   unsigned int m_len, unsigned char *rm,
+                   size_t *prm_len,
                    const unsigned char *sigbuf,
-		   size_t siglen, RSA *rsa)
+                   size_t siglen, RSA *rsa)
 {
     DEBUG("%s\n", __func__);
     int len, ret = 0;
@@ -1303,17 +1193,6 @@ int QAT_RSA_verify(void *prsactx, int type, const unsigned char *m,
     if (siglen != (size_t)RSA_size(rsa)) {
         QATerr(ERR_LIB_RSA, RSA_R_WRONG_SIGNATURE_LENGTH);
         return 0;
-    }
-
-    /* Use default implementation if offload is disabled */
-    if (!qat_hw_rsa_offload && !qat_sw_rsa_offload) {
-        typedef int (*fun_ptr)(void *prsactx, const unsigned char *sigbuf,
-			       size_t siglen, const unsigned char *m,
-			       size_t m_len);
-        fun_ptr fun = get_default_rsa_signature().verify;
-        if (!fun)
-            return 0;
-        return fun(prsactx, sigbuf, siglen, m, m_len);
     }
 
     /* Recover the encoded digest. */
@@ -1439,7 +1318,7 @@ static int ossl_param_is_empty(const OSSL_PARAM params[])
  * @return 1 on success, 0 on failure.
  */
 static int qat_signature_rsa_set_ctx_params(void *vprsactx,
-					    const OSSL_PARAM params[])
+                                            const OSSL_PARAM params[])
 {
     DEBUG("%s\n", __func__);
     QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
@@ -1493,6 +1372,7 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
         case OSSL_PARAM_UTF8_STRING:
             {
                 int i;
+                int found = 0;
 
                 if (p->data == NULL)
                     return 0;
@@ -1500,8 +1380,17 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
                 for (i = 0; padding_item[i].id != 0; i++) {
                     if (strcmp(p->data, padding_item[i].ptr) == 0) {
                         pad_mode = padding_item[i].id;
+                        found = 1;
                         break;
                     }
+                }
+                if (!found) {
+                    /*
+                     * Unrecognised padding string — includes "oaep" which is
+                     * encryption-only and must not be accepted for signing.
+                     */
+                    QATerr(ERR_LIB_PROV, PROV_R_ILLEGAL_OR_UNSUPPORTED_PADDING_MODE);
+                    return 0;
                 }
             }
             break;
@@ -1519,22 +1408,22 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
             goto bad_pad;
         case RSA_PKCS1_PSS_PADDING:
 #if OPENSSL_VERSION_NUMBER >= 0x30400000
-	   if ((prsactx->operation
+            if ((prsactx->operation
                  & (EVP_PKEY_OP_SIGN | EVP_PKEY_OP_SIGNMSG
-		    | EVP_PKEY_OP_VERIFY | EVP_PKEY_OP_VERIFYMSG)) == 0) {
-              err_extra_text =
-	           "PSS padding only allowed for sign and verify operations";
-    	      goto bad_pad;
-	   }
-#else
-	    if ((prsactx->operation
-		& (EVP_PKEY_OP_SIGN | EVP_PKEY_OP_VERIFY)) == 0) {
+                    | EVP_PKEY_OP_VERIFY | EVP_PKEY_OP_VERIFYMSG)) == 0) {
                 err_extra_text =
-		    "PSS padding only allowed for sign and verify operations";
-	        goto bad_pad;
-	    }
+                    "PSS padding only allowed for sign and verify operations";
+                goto bad_pad;
+            }
+#else
+            if ((prsactx->operation
+                & (EVP_PKEY_OP_SIGN | EVP_PKEY_OP_VERIFY)) == 0) {
+                err_extra_text =
+                    "PSS padding only allowed for sign and verify operations";
+                goto bad_pad;
+            }
 #endif
- 	    break;
+            break;
         case RSA_PKCS1_PADDING:
             err_extra_text = "PKCS#1 padding not allowed with RSA-PSS";
             goto cont;
@@ -1553,7 +1442,7 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
             if (err_extra_text == NULL) {
                 QATerr(ERR_LIB_PROV,
                           PROV_R_ILLEGAL_OR_UNSUPPORTED_PADDING_MODE);
-	    } else {
+            } else {
                 WARN("%s", err_extra_text);
                 QATerr(ERR_LIB_PROV,
                            PROV_R_ILLEGAL_OR_UNSUPPORTED_PADDING_MODE);
@@ -1582,6 +1471,8 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
                 saltlen = RSA_PSS_SALTLEN_MAX;
             else if (strcmp(p->data, OSSL_PKEY_RSA_PSS_SALT_LEN_AUTO) == 0)
                 saltlen = RSA_PSS_SALTLEN_AUTO;
+            else if (strcmp(p->data, OSSL_PKEY_RSA_PSS_SALT_LEN_AUTO_DIGEST_MAX) == 0)
+                saltlen = RSA_PSS_SALTLEN_AUTO_DIGEST_MAX;
             else
                 saltlen = atoi(p->data);
             break;
@@ -1590,11 +1481,10 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
         }
 
         /*
-         * RSA_PSS_SALTLEN_MAX seems curiously named in this check.
-         * Contrary to what it's name suggests, it's the currently
-         * lowest saltlen number possible.
+         * RSA_PSS_SALTLEN_AUTO_DIGEST_MAX is the lowest valid sentinel value
+         * (-4).  Reject anything below it.
          */
-        if (saltlen < RSA_PSS_SALTLEN_MAX) {
+        if (saltlen < RSA_PSS_SALTLEN_AUTO_DIGEST_MAX) {
             QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
             return 0;
         }
@@ -1602,20 +1492,20 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
         if (rsa_pss_restricted(prsactx)) {
             switch (saltlen) {
             case RSA_PSS_SALTLEN_AUTO:
-	    case RSA_PSS_SALTLEN_AUTO_DIGEST_MAX:
-		if (prsactx->operation == EVP_PKEY_OP_VERIFY) {
+            case RSA_PSS_SALTLEN_AUTO_DIGEST_MAX:
+                if (prsactx->operation == EVP_PKEY_OP_VERIFY) {
                     WARN("Cannot use autodetected salt length");
                     QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
                     return 0;
                 }
 #if OPENSSL_VERSION_NUMBER >= 0x30400000
-               if (prsactx->operation == EVP_PKEY_OP_VERIFYMSG) {
+                if (prsactx->operation == EVP_PKEY_OP_VERIFYMSG) {
                     WARN("Cannot use autodetected salt length");
                     QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
                     return 0;
                 }
 #endif
-		break;
+                break;
             case RSA_PSS_SALTLEN_DIGEST:
                 if (prsactx->min_saltlen > EVP_MD_size(prsactx->md)) {
                     WARN("minimum salt length set to %d, but the digest only gives %d",
@@ -1784,19 +1674,9 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
         case RSA_X931_PADDING:
             if (!setup_tbuf(prsactx))
                 return 0;
-            if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-	        ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf,
-					     prsactx->rsa,
-                                             RSA_X931_PADDING);
-	    } else {
-	        typedef int (*fun_ptr)(void *prsactx, const unsigned char *sig,
-				       size_t siglen, const unsigned char *tbs,
-				       size_t tbslen);
-	        fun_ptr fun = get_default_rsa_signature().verify;
-	        if (!fun)
-		    return 0;
-	        return fun(prsactx, sig, siglen, NULL, 0);
-	    }
+            ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf,
+                                         prsactx->rsa,
+                                         RSA_X931_PADDING);
             if (ret < 1) {
                 QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
                 return 0;
@@ -1842,20 +1722,10 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
             return 0;
         }
     } else {
-        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-            ret = qat_rsa_public_decrypt(siglen, sig, rout, prsactx->rsa,
-                                         prsactx->pad_mode);
-	} else {
-	    typedef int (*fun_ptr)(void *prsactx, const unsigned char *sig,
-			           size_t siglen, const unsigned char *tbs,
-				   size_t tbslen);
-	    fun_ptr fun = get_default_rsa_signature().verify;
-	    if (!fun)
-	       return 0;
-	    return fun(prsactx, sig, siglen, NULL, 0);
-	}
+        ret = qat_rsa_public_decrypt(siglen, sig, rout, prsactx->rsa,
+                                     prsactx->pad_mode);
 
-	if (ret < 0) {
+        if (ret < 0) {
             QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
             return 0;
         }
@@ -1865,8 +1735,8 @@ static int qat_signature_rsa_verify_recover(void *vprsactx,
 }
 
 static int rsa_verify_directly(QAT_PROV_RSA_CTX *prsactx,
-			       const unsigned char *sig, size_t siglen,
-			       const unsigned char *tbs, size_t tbslen)
+                               const unsigned char *sig, size_t siglen,
+                               const unsigned char *tbs, size_t tbslen)
 {
     size_t rslen = 0;
     int ret = 0;
@@ -1874,92 +1744,72 @@ static int rsa_verify_directly(QAT_PROV_RSA_CTX *prsactx,
     if (!qat_prov_is_running())
         goto end;
     if (prsactx->md != NULL) {
-	switch (prsactx->pad_mode) {
-	case RSA_PKCS1_PADDING:
- 	    if (!QAT_RSA_verify(prsactx, prsactx->mdnid, tbs, tbslen, NULL, NULL,
-				sig, siglen, prsactx->rsa)) {
+        switch (prsactx->pad_mode) {
+        case RSA_PKCS1_PADDING:
+            if (!QAT_RSA_verify(prsactx, prsactx->mdnid, tbs, tbslen, NULL, NULL,
+                                sig, siglen, prsactx->rsa)) {
                 QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-	        goto end;
-	    }
-	    ret = 1;
-	    goto end;
-	case RSA_X931_PADDING:
-	    if (!setup_tbuf(prsactx))
-		return 0;
-	    if (qat_signature_rsa_verify_recover(prsactx, prsactx->tbuf, &rslen, 0,
-	 			                 sig, siglen) <= 0)
-		goto end;
-	    break;
-	case RSA_PKCS1_PSS_PADDING:
-	{
-	    int ret = 0;
-	    int saltlen = -1;
-	    size_t mdsize;
+                goto end;
+            }
+            ret = 1;
+            goto end;
+        case RSA_X931_PADDING:
+            if (!setup_tbuf(prsactx))
+                return 0;
+            if (qat_signature_rsa_verify_recover(prsactx, prsactx->tbuf, &rslen, 0,
+                                                 sig, siglen) <= 0)
+                goto end;
+            break;
+        case RSA_PKCS1_PSS_PADDING:
+        {
+            int ret = 0;
+            int saltlen = -1;
+            size_t mdsize;
 
-	    mdsize = rsa_get_md_size(prsactx);
-	    if (tbslen != mdsize) {
-		WARN("Should be %zu, but got %zu", mdsize, tbslen);
-		QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST_LENGTH);
-  	        goto end;
-	    }
+            mdsize = rsa_get_md_size(prsactx);
+            if (tbslen != mdsize) {
+                WARN("Should be %zu, but got %zu", mdsize, tbslen);
+                QATerr(ERR_LIB_PROV, PROV_R_INVALID_DIGEST_LENGTH);
+                goto end;
+            }
 
-	    if (!setup_tbuf(prsactx))
-	        goto end;
-            if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-                ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf,
-				             prsactx->rsa, RSA_NO_PADDING);
-	    } else {
-	        typedef int (*fun_ptr)(void *prsactx, const unsigned char *sig,
-			               size_t siglen, const unsigned char *tbs,
-				       size_t tbslen);
-	        fun_ptr fun = get_default_rsa_signature().verify;
-	        if (!fun)
-	           return 0;
-	        return fun(prsactx, sig, siglen, tbs, tbslen);
-	    }
+            if (!setup_tbuf(prsactx))
+                goto end;
+            ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf,
+                                         prsactx->rsa, RSA_NO_PADDING);
 
-	    if (ret <= 0) {
-		QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-		goto end;
-	    }
-	    saltlen = prsactx->saltlen;
-	    ret = QAT_RSA_verify_PKCS1_PSS_mgf1(prsactx->rsa, tbs,
-					        prsactx->md, prsactx->mgf1_md,
-						prsactx->tbuf, &saltlen);
-	    if (ret <= 0) {
-		QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-		goto end;
-	    }
-	    return 1;
-	}
-	default:
-	    WARN("Only X.931, PKCS#1 v1.5 or PSS padding allowed");
-	    QATerr(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE);
-	    goto end;
-	}
+            if (ret <= 0) {
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                goto end;
+            }
+            saltlen = prsactx->saltlen;
+            ret = QAT_RSA_verify_PKCS1_PSS_mgf1(prsactx->rsa, tbs,
+                                                prsactx->md, prsactx->mgf1_md,
+                                                prsactx->tbuf, &saltlen);
+            if (ret <= 0) {
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                goto end;
+            }
+            return 1;
+        }
+        default:
+            WARN("Only X.931, PKCS#1 v1.5 or PSS padding allowed");
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_PADDING_MODE);
+            goto end;
+        }
     } else {
-	int verify_ret = 0;
+        int verify_ret = 0;
 
-	if (!setup_tbuf(prsactx))
-	    goto end;
-	if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-	    verify_ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf,
-						prsactx->rsa,
-				                prsactx->pad_mode);
-	    if (verify_ret <= 0) {
-		QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
-		goto end;
-	    }
-	} else {
-	    typedef int (*fun_ptr)(void *prsactx, const unsigned char *sig,
-				   size_t siglen, const unsigned char *tbs,
-				   size_t tbslen);
-	    fun_ptr fun = get_default_rsa_signature().verify;
-	    if (!fun)
-		return 0;
-	    return fun(prsactx, sig, siglen, tbs, tbslen);
-	}
-	rslen = (size_t)verify_ret;
+        if (!setup_tbuf(prsactx))
+            goto end;
+        verify_ret = qat_rsa_public_decrypt(siglen, sig, prsactx->tbuf,
+                                                prsactx->rsa,
+                                                prsactx->pad_mode);
+        if (verify_ret <= 0) {
+                QATerr(ERR_LIB_PROV, ERR_R_RSA_LIB);
+                goto end;
+        }
+        rslen = (size_t)verify_ret;
     }
 
     if ((rslen != tbslen) || memcmp(tbs, prsactx->tbuf, rslen))
@@ -1971,15 +1821,15 @@ end:
 
 #if OPENSSL_VERSION_NUMBER >= 0x30400000
 static int rsa_verify_set_sig(void *vprsactx, const unsigned char *sig,
-			      size_t siglen)
+                              size_t siglen)
 {
     QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
     const OSSL_PARAM *p;
     OSSL_PARAM params[2];
 
     params[0] =
-	OSSL_PARAM_construct_octet_string(OSSL_SIGNATURE_PARAM_SIGNATURE,
-					  (unsigned char *)sig, siglen);
+        OSSL_PARAM_construct_octet_string(OSSL_SIGNATURE_PARAM_SIGNATURE,
+                                          (unsigned char *)sig, siglen);
     params[1] = OSSL_PARAM_construct_end();
 
     if (prsactx->operation == EVP_PKEY_OP_VERIFYMSG) {
@@ -2017,23 +1867,23 @@ static int rsa_verify_message_final(void *vprsactx)
     unsigned int dlen = 0;
 
     if (!qat_prov_is_running() || prsactx == NULL)
-	return 0;
+        return 0;
     if (prsactx->mdctx == NULL)
-	return 0;
+        return 0;
     if (!prsactx->flag_allow_final) {
-	QATerr(ERR_LIB_PROV, QAT_R_PROV_FINAL_CALL_OUT_OF_ORDER);
-	return 0;
+        QATerr(ERR_LIB_PROV, QAT_R_PROV_FINAL_CALL_OUT_OF_ORDER);
+        return 0;
     }
 
     if (!EVP_DigestFinal_ex(prsactx->mdctx, digest, &dlen))
-	return 0;
+        return 0;
 
     prsactx->flag_allow_update = 0;
     prsactx->flag_allow_final = 0;
     prsactx->flag_allow_oneshot = 0;
 
     return rsa_verify_directly(prsactx, prsactx->sig, prsactx->siglen,
-   			       digest, dlen);
+                               digest, dlen);
 }
 #endif
 
@@ -2066,9 +1916,9 @@ static int qat_rsa_signverify_init(QAT_PROV_RSA_CTX *prsactx, void *vrsa,
 
     if (vrsa != NULL) {
         if (!RSA_up_ref(vrsa))
-	        return 0;
-	    QAT_RSA_free(prsactx->rsa);
-	    prsactx->rsa = vrsa;
+                return 0;
+            QAT_RSA_free(prsactx->rsa);
+            prsactx->rsa = vrsa;
     }
     prsactx->operation = operation;
     prsactx->flag_allow_update = 1;
@@ -2147,7 +1997,7 @@ static int qat_rsa_signverify_init(QAT_PROV_RSA_CTX *prsactx, void *vrsa,
 }
 
 static int qat_signature_rsa_sign_init(void *vprsactx, void *vrsa,
-				       const OSSL_PARAM params[])
+                                       const OSSL_PARAM params[])
 {
     DEBUG("qat_rsa_sign_init.\n");
 
@@ -2183,7 +2033,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
 #ifdef ENABLE_QAT_FIPS
     size_t rsasize = RSA_size(prsactx->rsa);
     if (!qat_fips_check_rsa_key_size(rsasize, 1))
-	return 0;
+        return 0;
 #endif
 
     if (!qat_prov_is_running())
@@ -2191,7 +2041,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
 
     if (!prsactx->flag_allow_oneshot) {
         QATerr(ERR_LIB_PROV, QAT_R_PROV_ONESHOT_CALL_OUT_OF_ORDER);
-	return 0;
+        return 0;
     }
 
 #if OPENSSL_VERSION_NUMBER >= 0x30400000
@@ -2200,7 +2050,7 @@ static int qat_signature_rsa_sign(void *vprsactx, unsigned char *sig,
             return rsa_sign_message_final(prsactx, sig, siglen, sigsize);
 
         return rsa_signverify_message_update(prsactx, tbs, tbslen)
-		  && rsa_sign_message_final(prsactx, sig, siglen, sigsize);
+                  && rsa_sign_message_final(prsactx, sig, siglen, sigsize);
     }
 #endif
     return rsa_sign_directly(prsactx, sig, siglen, sigsize, tbs, tbslen);
@@ -2253,7 +2103,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
 #ifdef ENABLE_QAT_FIPS
     size_t rsasize = RSA_size(prsactx->rsa);
     if (!qat_fips_check_rsa_key_size(rsasize, 0))
-	return 0;
+        return 0;
 #endif
 
     if (!prsactx->flag_allow_oneshot) {
@@ -2264,7 +2114,7 @@ static int qat_signature_rsa_verify(void *vprsactx, const unsigned char *sig,
 #if OPENSSL_VERSION_NUMBER >= 0x30400000
     if (prsactx->operation == EVP_PKEY_OP_VERIFYMSG) {
         return rsa_verify_set_sig(prsactx, sig, siglen)
-	     && rsa_signverify_message_update(prsactx, tbs, tbslen)
+             && rsa_signverify_message_update(prsactx, tbs, tbslen)
              && rsa_verify_message_final(prsactx);
 
     }
@@ -2298,9 +2148,9 @@ static const OSSL_PARAM *qat_signature_rsa_settable_ctx_params(void *vprsactx,
  * @return 1 on success, 0 on failure.
  */
 static int qat_signature_rsa_digest_signverify_init(void *vprsactx,
-						    const char *mdname,
+                                                    const char *mdname,
                                                     void *vrsa,
-						    const OSSL_PARAM params[],
+                                                    const OSSL_PARAM params[],
                                                     int operation)
 {
     DEBUG("%s\n", __func__);
@@ -2387,7 +2237,7 @@ static int qat_signature_rsa_digest_sign_final(void *vprsactx, unsigned char *si
         return 0;
 
     if (rsa_sign_message_final(prsactx, sig, siglen, sigsize))
-	ret = 1;
+        ret = 1;
     /*
      * If sig is NULL then we're just finding out the sig size. Other fields
      * are ignored. Defer to rsa_sign.
@@ -2455,7 +2305,7 @@ int qat_signature_rsa_digest_verify_final(void *vprsactx, const unsigned char *s
         return 0;
 
     return rsa_verify_directly(prsactx, sig, siglen,
-   			       digest, dlen);
+                               digest, dlen);
 #endif
 }
 
@@ -2539,11 +2389,74 @@ static void *qat_signature_rsa_dupctx(void *vprsactx)
  */
 static int qat_signature_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM *params)
 {
-    typedef int (*rsa_get_ctx_params_fn)(void *rvprsact, OSSL_PARAM *params);
-    rsa_get_ctx_params_fn get_ctx_params_func = get_default_rsa_signature().get_ctx_params;
-    if (!get_ctx_params_func)
+    QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
+    OSSL_PARAM *p;
+    int i;
+
+    if (prsactx == NULL)
         return 0;
-    return get_ctx_params_func(vprsactx, params);
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_PAD_MODE);
+    if (p != NULL) {
+        const char *pad_mode_str = NULL;
+        for (i = 0; padding_item[i].id != 0; i++) {
+            if (padding_item[i].id == prsactx->pad_mode) {
+                pad_mode_str = padding_item[i].ptr;
+                break;
+            }
+        }
+        if (pad_mode_str == NULL || !OSSL_PARAM_set_utf8_string(p, pad_mode_str))
+            return 0;
+    }
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_DIGEST);
+    if (p != NULL && !OSSL_PARAM_set_utf8_string(p, prsactx->mdname))
+        return 0;
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_MGF1_DIGEST);
+    if (p != NULL) {
+        const char *mgf1_mdname = prsactx->mgf1_md == NULL
+                                  ? prsactx->mdname : prsactx->mgf1_mdname;
+        if (!OSSL_PARAM_set_utf8_string(p, mgf1_mdname))
+            return 0;
+    }
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_PSS_SALTLEN);
+    if (p != NULL) {
+        if (p->data_type == OSSL_PARAM_INTEGER) {
+            if (!OSSL_PARAM_set_int(p, prsactx->saltlen))
+                return 0;
+        } else if (p->data_type == OSSL_PARAM_UTF8_STRING) {
+            const char *value = NULL;
+            switch (prsactx->saltlen) {
+            case RSA_PSS_SALTLEN_DIGEST:
+                value = OSSL_PKEY_RSA_PSS_SALT_LEN_DIGEST;
+                break;
+            case RSA_PSS_SALTLEN_MAX:
+                value = OSSL_PKEY_RSA_PSS_SALT_LEN_MAX;
+                break;
+            case RSA_PSS_SALTLEN_AUTO:
+                value = OSSL_PKEY_RSA_PSS_SALT_LEN_AUTO;
+                break;
+            case RSA_PSS_SALTLEN_AUTO_DIGEST_MAX:
+                value = OSSL_PKEY_RSA_PSS_SALT_LEN_AUTO_DIGEST_MAX;
+                break;
+            default: {
+                char tmp[32];
+                if (BIO_snprintf(tmp, sizeof(tmp), "%d",
+                                 prsactx->saltlen) <= 0)
+                    return 0;
+                if (!OSSL_PARAM_set_utf8_string(p, tmp))
+                    return 0;
+                break;
+            }
+            }
+            if (value != NULL && !OSSL_PARAM_set_utf8_string(p, value))
+                return 0;
+        }
+    }
+
+    return 1;
 }
 
 /**
@@ -2581,12 +2494,12 @@ static const OSSL_PARAM *qat_signature_rsa_gettable_ctx_md_params(void *vprsactx
  * @return 1 on success, 0 on failure.
  */
 static int qat_signature_rsa_set_ctx_md_params(void *vprsactx,
-					       const OSSL_PARAM params[])
+                                               const OSSL_PARAM params[])
 {
-   QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
-   if (prsactx->mdctx == NULL)
-       return 0;
-   return EVP_MD_CTX_set_params(prsactx->mdctx, params);
+    QAT_PROV_RSA_CTX *prsactx = (QAT_PROV_RSA_CTX *)vprsactx;
+    if (prsactx->mdctx == NULL)
+        return 0;
+    return EVP_MD_CTX_set_params(prsactx->mdctx, params);
 }
 
 /**

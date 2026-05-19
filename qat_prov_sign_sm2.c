@@ -95,42 +95,6 @@ static OSSL_FUNC_signature_gettable_ctx_md_params_fn qat_sm2sig_gettable_ctx_md_
 static OSSL_FUNC_signature_set_ctx_md_params_fn qat_sm2sig_set_ctx_md_params;
 static OSSL_FUNC_signature_settable_ctx_md_params_fn qat_sm2sig_settable_ctx_md_params;
 
-typedef struct evp_signature_st {
-    int name_id;
-    char *type_name;
-    const char *description;
-    OSSL_PROVIDER *prov;
-    QAT_CRYPTO_REF_COUNT references;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-#endif
-    OSSL_FUNC_signature_newctx_fn *newctx;
-    OSSL_FUNC_signature_sign_init_fn *sign_init;
-    OSSL_FUNC_signature_sign_fn *sign;
-    OSSL_FUNC_signature_verify_init_fn *verify_init;
-    OSSL_FUNC_signature_verify_fn *verify;
-    OSSL_FUNC_signature_verify_recover_init_fn *verify_recover_init;
-    OSSL_FUNC_signature_verify_recover_fn *verify_recover;
-    OSSL_FUNC_signature_digest_sign_init_fn *digest_sign_init;
-    OSSL_FUNC_signature_digest_sign_update_fn *digest_sign_update;
-    OSSL_FUNC_signature_digest_sign_final_fn *digest_sign_final;
-    OSSL_FUNC_signature_digest_sign_fn *digest_sign;
-    OSSL_FUNC_signature_digest_verify_init_fn *digest_verify_init;
-    OSSL_FUNC_signature_digest_verify_update_fn *digest_verify_update;
-    OSSL_FUNC_signature_digest_verify_final_fn *digest_verify_final;
-    OSSL_FUNC_signature_digest_verify_fn *digest_verify;
-    OSSL_FUNC_signature_freectx_fn *freectx;
-    OSSL_FUNC_signature_dupctx_fn *dupctx;
-    OSSL_FUNC_signature_get_ctx_params_fn *get_ctx_params;
-    OSSL_FUNC_signature_gettable_ctx_params_fn *gettable_ctx_params;
-    OSSL_FUNC_signature_set_ctx_params_fn *set_ctx_params;
-    OSSL_FUNC_signature_settable_ctx_params_fn *settable_ctx_params;
-    OSSL_FUNC_signature_get_ctx_md_params_fn *get_ctx_md_params;
-    OSSL_FUNC_signature_gettable_ctx_md_params_fn *gettable_ctx_md_params;
-    OSSL_FUNC_signature_set_ctx_md_params_fn *set_ctx_md_params;
-    OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
-} QAT_EVP_SIGNATURE /* EVP_SIGNATURE for QAT Provider sm2 */;
-
 static int qat_sm2sig_set_mdname(QAT_PROV_SM2_CTX *psm2ctx, const char *mdname)
 {
     if (psm2ctx->md == NULL) /* We need an SM3 md to compare with */
