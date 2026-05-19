@@ -106,44 +106,6 @@ static const OSSL_PARAM *qat_prov_rsa_settable_ctx_params(ossl_unused void
                                                           *provctx);
 
 
-typedef struct qat_evp_asym_cipher_st {
-    int name_id;
-    char *type_name;
-    const char *description;
-    OSSL_PROVIDER *prov;
-    QAT_CRYPTO_REF_COUNT refcnt;
-#if OPENSSL_VERSION_NUMBER < 0x30200000
-    CRYPTO_RWLOCK *lock;
-#endif
-    OSSL_FUNC_asym_cipher_newctx_fn *newctx;
-    OSSL_FUNC_asym_cipher_encrypt_init_fn *encrypt_init;
-    OSSL_FUNC_asym_cipher_encrypt_fn *encrypt;
-    OSSL_FUNC_asym_cipher_decrypt_init_fn *decrypt_init;
-    OSSL_FUNC_asym_cipher_decrypt_fn *decrypt;
-    OSSL_FUNC_asym_cipher_freectx_fn *freectx;
-    OSSL_FUNC_asym_cipher_dupctx_fn *dupctx;
-    OSSL_FUNC_asym_cipher_get_ctx_params_fn *get_ctx_params;
-    OSSL_FUNC_asym_cipher_gettable_ctx_params_fn *gettable_ctx_params;
-    OSSL_FUNC_asym_cipher_set_ctx_params_fn *set_ctx_params;
-    OSSL_FUNC_asym_cipher_settable_ctx_params_fn *settable_ctx_params;
-} QAT_EVP_ASYM_CIPHER;
-
-static QAT_EVP_ASYM_CIPHER get_default_rsa_asym_cipher()
-{
-    static QAT_EVP_ASYM_CIPHER s_asym_cipher;
-    static int initilazed = 0;
-    if (!initilazed) {
-        QAT_EVP_ASYM_CIPHER *asym_cipher = (QAT_EVP_ASYM_CIPHER *)EVP_ASYM_CIPHER_fetch(NULL, "RSA", "provider=default");
-        if (asym_cipher) {
-            s_asym_cipher = *asym_cipher;
-            EVP_ASYM_CIPHER_free((EVP_ASYM_CIPHER *)asym_cipher);
-            initilazed = 1;
-        } else {
-            WARN("EVP_ASYM_CIPHER_fetch from default provider failed");
-        }
-    }
-    return s_asym_cipher;
-}
 
 static void *qat_prov_rsa_newctx(void *provctx)
 {
@@ -445,8 +407,7 @@ static int qat_rsa_private_decrypt(int flen, const unsigned char *from,
  *
  * This function encrypts the input data using the RSA key and padding mode specified
  * in the QAT_PROV_RSA_ENC_DEC_CTX context. It supports both hardware and software
- * offload, as well as fallback to the default OpenSSL provider if QAT offload is not enabled.
- * For OAEP padding, it applies the appropriate padding before encryption.
+ * offload. For OAEP padding, it applies the appropriate padding before encryption.
  *
  * @param vprsactx  Pointer to the QAT_PROV_RSA_ENC_DEC_CTX encryption context.
  * @param out       Output buffer for the encrypted data.
@@ -504,31 +465,11 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
             OPENSSL_free(tbuf);
             return 0;
         }
-	if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-            ret = qat_rsa_public_encrypt(rsasize, tbuf, out, ctx->rsa,
-					 RSA_NO_PADDING);
-        } else {
-            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
-                                   size_t *outlen, size_t outsize,
-                                   const unsigned char *in, size_t inlen);
-            fun_ptr fun = get_default_rsa_asym_cipher().encrypt;
-            if (!fun)
-                return 0;
-            return fun(vprsactx, out, outlen, outsize, in, inlen);
-        }
+	ret = qat_rsa_public_encrypt(rsasize, tbuf, out, ctx->rsa,
+				     RSA_NO_PADDING);
         OPENSSL_free(tbuf);
     } else {
-        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-            ret = qat_rsa_public_encrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
-        } else {
-            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
-                                   size_t *outlen, size_t outsize,
-                                   const unsigned char *in, size_t inlen);
-            fun_ptr fun = get_default_rsa_asym_cipher().encrypt;
-            if (!fun)
-                return 0;
-            return fun(vprsactx, out, outlen, outsize, in, inlen);
-        }
+        ret = qat_rsa_public_encrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
     }
     if (ret < 0)
         return ret;
@@ -541,8 +482,7 @@ static int qat_prov_rsa_encrypt(void *vprsactx, unsigned char *out,
  *
  * This function decrypts the input data using the RSA key and padding mode specified
  * in the QAT_PROV_RSA_ENC_DEC_CTX context. It supports both hardware and software
- * offload, as well as fallback to the default OpenSSL provider if QAT offload is not enabled.
- * For OAEP padding, it removes the padding after decryption.
+ * offload. For OAEP padding, it removes the padding after decryption.
  *
  * @param vprsactx  Pointer to the QAT_PROV_RSA_ENC_DEC_CTX decryption context.
  * @param out       Output buffer for the decrypted data.
@@ -593,22 +533,12 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
 	    || ctx->pad_mode == RSA_PKCS1_WITH_TLS_PADDING) {
         unsigned char *tbuf;
 
-        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-            if ((tbuf = OPENSSL_malloc(len)) == NULL) {
-                QATerr(ERR_LIB_PROV, QAT_R_MALLOC_FAILURE);
-                return 0;
-            }
-            ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa,
-		                          RSA_NO_PADDING);
-        } else {
-            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
-                                size_t *outlen, size_t outsize,
-                                const unsigned char *in, size_t inlen);
-            fun_ptr fun = get_default_rsa_asym_cipher().decrypt;
-            if (!fun)
-                return 0;
-            return fun(vprsactx, out, outlen, outsize, in, inlen);
+        if ((tbuf = OPENSSL_malloc(len)) == NULL) {
+            QATerr(ERR_LIB_PROV, QAT_R_MALLOC_FAILURE);
+            return 0;
         }
+        ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa,
+		                      RSA_NO_PADDING);
         /*
          * With no padding then, on success ret should be len, otherwise an
          * error occurred (non-constant time)
@@ -650,24 +580,11 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
 	    }
 	    OPENSSL_free(tbuf);
     } else {
-        if (qat_hw_rsa_offload || qat_sw_rsa_offload) {
-            ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
-        } else {
-            typedef int (*fun_ptr)(void *vprsactx, unsigned char *out,
-                                size_t *outlen, size_t outsize,
-                                const unsigned char *in, size_t inlen);
-            fun_ptr fun = get_default_rsa_asym_cipher().decrypt;
-            if (!fun)
-                return 0;
-            return fun(vprsactx, out, outlen, outsize, in, inlen);
-        }
+        ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
     }
-    {
-        size_t ret_len = (ret > 0) ? (size_t)ret : 0;
-        size_t mask = (ret > 0) ? 0 : (size_t)-1;
-        *outlen =
-            qat_constant_time_select_s(mask, *outlen, ret_len);
-    }
+    size_t ret_len = (ret > 0) ? (size_t)ret : 0;
+    size_t mask = (ret > 0) ? 0 : (size_t)-1;
+    *outlen = qat_constant_time_select_s(mask, *outlen, ret_len);
     ret = qat_constant_time_select_int(qat_constant_time_msb(ret), 0, 1);
     return ret;
 }
