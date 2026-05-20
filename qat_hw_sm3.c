@@ -911,6 +911,8 @@ int qat_hw_sm3_md_methods(EVP_MD *c)
 
 const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
 {
+    int hw_sm3_enabled = qat_hw_offload &&
+                         (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_SM3);
 #if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int res = 1;
     EVP_MD *qat_hw_sm3_meth = NULL;
@@ -921,7 +923,7 @@ const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
         return NULL;
     }
 
-    if (qat_hw_offload && (qat_hw_algo_enable_mask & ALGO_ENABLE_MASK_SM3)) {
+    if (hw_sm3_enabled) {
         res = qat_hw_sm3_md_methods(qat_hw_sm3_meth);
         if (0 == res) {
             WARN("Failed to set MD methods for nid %d\n", nid);
@@ -956,8 +958,13 @@ const EVP_MD *qat_hw_create_sm3_meth(int nid, int key_type)
 # endif
     }
 #else
-    qat_hw_sm3_offload = 0;
-    DEBUG("QAT HW SM3 is disabled, using OpenSSL SW\n");
+    if (hw_sm3_enabled) {
+        qat_hw_sm3_offload = 1;
+        DEBUG("QAT HW SM3 enabled for provider\n");
+    } else {
+        qat_hw_sm3_offload = 0;
+        DEBUG("QAT HW SM3 is disabled, using OpenSSL SW\n");
+    }
 # ifdef OPENSSL_NO_SM2_SM3
     return NULL;
 # else
