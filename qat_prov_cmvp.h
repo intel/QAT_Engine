@@ -78,7 +78,7 @@ int qat_fips_ec_check_approved_curve(const EC_KEY *eckey);
 #ifdef QAT_HW
 int qat_fips_dh_safe_group(const DH *dh);
 #endif
-int qat_fips_ec_key_simple_check_key(const EC_KEY *eckey);
+int qat_fips_ec_key_simple_check_key(const EC_KEY *eckey, OSSL_LIB_CTX *libctx);
 int qat_fips_get_key_zeroize_status(void);
 int qat_fips_get_approved_status(void);
 #ifdef QAT_HW

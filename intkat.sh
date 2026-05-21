@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 $SYS_OPENSSL_PATH/bin/openssl ecparam -name prime256v1 -genkey -noout -out private-key.pem
 if [ "$QAT_HW_ENABLED" = "1" ] && [ "$QAT_SW_ENABLED" = "1" ]
 then
@@ -14,7 +14,7 @@ $SYS_OPENSSL_PATH/bin/openssl dgst -sha256 -sign private-key.pem $OPENSSL_ENGINE
 $SYS_OPENSSL_PATH/bin/openssl dgst -sha256 -sign private-key.pem $OPENSSL_ENGINES/libcrypto_mb.so &> libcrypto_mb_signature.bin
 
 $SYS_OPENSSL_PATH/bin/openssl ec -in private-key.pem -text -noout &> ec_key.txt
-sed -n 7,14p ec_key.txt &> pub_key.txt
+sed -n '/^[[:space:]]*pub:/,/^[[:space:]]*ASN1/{/^[[:space:]]*ASN1/d;p;}' ec_key.txt > pub_key.txt
 
 objcopy --add-section .qat_sig=qat_signature.bin --set-section-flags .qat_sig=noload,readonly $OPENSSL_ENGINES/qatprovider.so
 objcopy --add-section .iqat_sig=intel_qat_signature.bin --set-section-flags .iqat_sig=noload,readonly $OPENSSL_ENGINES/qatprovider.so
@@ -60,7 +60,7 @@ $SYS_OPENSSL_PATH/bin/openssl dgst -sha256 -sign private-key.pem $OPENSSL_ENGINE
 fi
 
 $SYS_OPENSSL_PATH/bin/openssl ec -in private-key.pem -text -noout &> ec_key.txt
-sed -n 7,14p ec_key.txt &> pub_key.txt
+sed -n '/^[[:space:]]*pub:/,/^[[:space:]]*ASN1/{/^[[:space:]]*ASN1/d;p;}' ec_key.txt > pub_key.txt
 objcopy --add-section .qat_sig=qat_signature.bin --set-section-flags .qat_sig=noload,readonly $OPENSSL_ENGINES/qatprovider.so
 if [ "$QAT_HW_ENABLED" = "1" ]
 then

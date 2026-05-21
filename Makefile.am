@@ -223,7 +223,7 @@ err-files:
 
 if QAT_FIPS
 intkat:
-	$(shell ./intkat.sh)
+	./intkat.sh
 endif
 
 if QAT_HW

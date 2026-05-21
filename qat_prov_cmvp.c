@@ -381,7 +381,7 @@ int qat_fips_ec_key_public_check(const EC_KEY *eckey, BN_CTX *ctx)
     return ret;
 }
 
-int qat_fips_ec_key_simple_check_key(const EC_KEY *eckey)
+int qat_fips_ec_key_simple_check_key(const EC_KEY *eckey, OSSL_LIB_CTX *libctx)
 {
     int ok = 0;
     BN_CTX *ctx = NULL;
@@ -390,7 +390,7 @@ int qat_fips_ec_key_simple_check_key(const EC_KEY *eckey)
         ERR_raise(ERR_LIB_EC, ERR_R_PASSED_NULL_PARAMETER);
         return 0;
     }
-    if ((ctx = BN_CTX_new_ex(NULL)) == NULL)
+    if ((ctx = BN_CTX_new_ex(libctx)) == NULL)
         return 0;
 
     if (!qat_fips_ec_key_public_check(eckey, ctx))
