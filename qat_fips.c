@@ -448,19 +448,31 @@ int get_pub_key_from_file(char *in_name, unsigned char *out)
             if (!strcmp(word, "pub:")) {
                 flag = 1;
                 fp = fopen(pub_fname, "w+");
+                if (fp == NULL) {
+                    WARN("Can't open %s for writing.\n", pub_fname);
+                    flag = 0;
+                    fclose(in_file);
+                    return 3;
+                }
             }
             if (!strcmp(word, "ASN1")) {
                 flag = 0;
-                if (fp)
+                if (fp) {
                     fclose(fp);
+                    fp = NULL;
+                }
             }
-            if (flag && strcmp(word, "pub:")) {
+            if (flag && fp && strcmp(word, "pub:")) {
                 removeChar(word, ':');
                 fprintf(fp, "%s", word);
             }
 
         }
         fclose(in_file);
+        if (flag && fp) {
+            fclose(fp);
+            fp = NULL;
+        }
     }
 
     result = readFileToHexString(&msg, pub_fname, &msg_len);
@@ -1270,18 +1282,31 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
         params = OSSL_PARAM_BLD_to_param(bld);
 
         kctx = EVP_PKEY_CTX_new_from_name(NULL, t->algorithm, "");
-        if (kctx == NULL || params == NULL)
+        if (kctx == NULL || params == NULL) {
             WARN("Error in kctx creation..\n");
+            integrity_status = 0;
+            goto integrity_cleanup;
+        }
 
-        if (EVP_PKEY_fromdata_init(kctx) <= 0
-            || EVP_PKEY_fromdata(kctx, &pkey, EVP_PKEY_KEYPAIR, params) <= 0)
-            WARN("Error in EVP_PKEY_fromdata_init || EVP_PKEY_fromdata \n");
+        if (EVP_PKEY_fromdata_init(kctx) <= 0) {
+            WARN("Error in EVP_PKEY_fromdata_init\n");
+            integrity_status = 0;
+            goto integrity_cleanup;
+        }
+        if (EVP_PKEY_fromdata(kctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0) {
+            WARN("Error in EVP_PKEY_fromdata\n");
+            integrity_status = 0;
+            goto integrity_cleanup;
+        }
 
         /* Create a EVP_PKEY_CTX to use for the signing operation */
         sctx = EVP_PKEY_CTX_new_from_pkey(NULL, pkey, NULL);
 
-        if (sctx == NULL)
+        if (sctx == NULL) {
             WARN("Error in EVP_PKEY_CTX_new_from_pkey\n");
+            integrity_status = 0;
+            goto integrity_cleanup;
+        }
 
         /* set signature parameters */
         if (!OSSL_PARAM_BLD_push_utf8_string(bld, OSSL_SIGNATURE_PARAM_DIGEST,
@@ -1302,6 +1327,7 @@ int qat_fips_self_test(void *qatctx, int ondemand, int co_ex_enabled)
             integrity_status = 0;
         }
 
+integrity_cleanup:
         BIO_free(module_bio);
         OPENSSL_free(sigbuf);
         siglen = INTEGRITY_SIGLEN;

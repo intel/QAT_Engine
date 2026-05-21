@@ -131,7 +131,7 @@ int qat_ec_check_key(OSSL_LIB_CTX *ctx, const EC_KEY *ec, int protect)
     if (!qat_fips_ec_check_approved_curve(ec)) {
         return 0;
     }
-    if (!qat_fips_ec_key_simple_check_key(ec)) {
+    if (!qat_fips_ec_key_simple_check_key(ec, ctx)) {
         INFO("Invalid pub_key\n");
         return 0;
     }
