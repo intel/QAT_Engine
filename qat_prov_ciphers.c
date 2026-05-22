@@ -427,6 +427,7 @@ int qat_gcm_dinit(void *vctx, const unsigned char* inkey,
 {
     int sts = 0;
     QAT_GCM_CTX *ctx = (QAT_GCM_CTX *)vctx;
+    ctx->tag_verify_failed = 0;
 #ifndef QAT_INSECURE_ALGO
     nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
     if (nid == NID_aes_128_gcm)

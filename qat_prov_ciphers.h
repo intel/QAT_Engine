@@ -206,6 +206,9 @@ typedef struct qat_gcm_ctx_st {
     int            iv_len;
     unsigned int   iv_set;
     unsigned int   tag_set;
+    /* Set when QAT_HW reports a GCM tag mismatch during streaming decrypt;
+     * causes EVP_DecryptFinal_ex to fail per OpenSSL streaming semantics. */
+    unsigned int   tag_verify_failed;
     int            iv_gen;
     unsigned char* next_iv;
     unsigned char* iv;

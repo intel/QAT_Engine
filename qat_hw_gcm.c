@@ -1924,6 +1924,14 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             } else if (!enc && (CPA_TRUE == op_done.verifyResult)) {
                     ret_val = len;
                     DEBUG("Decryption succeeded\n");
+#ifdef QAT_OPENSSL_PROVIDER
+            } else if (!enc && op_done.status == CPA_STATUS_SUCCESS &&
+                       CPA_FALSE == op_done.verifyResult &&
+                       !qat_get_sw_fallback_enabled()) {
+                DEBUG("Decryption tag verify failed; deferring to Final\n");
+                qctx->tag_verify_failed = 1;
+                ret_val = len;
+#endif
             } else {
                 if (enc)
                     DEBUG("Encryption failed\n");
@@ -1989,9 +1997,17 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 fallback = 1;
             }
             DEBUG("Decrypt Final()\n");
-            /* The SW implem here compares the TAGs and returns -1 if they are different.
-             * Now the TAGs are checked when decrypting the payload so Final always return success
+            /* TAGs are checked during Update while decrypting the payload.
+             * Under QAT_OPENSSL_PROVIDER, if a tag mismatch is detected
+             * during Update, Final returns failure as OpenSSL expects.
              */
+#ifdef QAT_OPENSSL_PROVIDER
+            if (qctx->tag_verify_failed) {
+                qctx->tag_verify_failed = 0;
+                ret_val = RET_FAIL;
+                goto err;
+            }
+#endif
             ret_val = RET_SUCCESS;
             goto err;
         }
