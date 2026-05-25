@@ -1988,8 +1988,7 @@ int qat_aes_ccm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         if (!enc) {
 # if OPENSSL_VERSION_NUMBER < 0x30200000
             if (qctx->tag_len < 0) {
-                ret_val = RET_FAIL;
-                goto end;
+                return RET_FAIL;
             }
 # endif
             /* Don't reuse the IV */
