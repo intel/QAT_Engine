@@ -1944,11 +1944,12 @@ int qat_aes_ccm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 # ifdef QAT_OPENSSL_PROVIDER
                 memcpy(qctx->buf, qctx->dstFlatBuffer.pData + len, qctx->M);
                 DUMPL("TAG calculated by QAT", qctx->buf, qctx->M);
-# endif
+# else
                 memcpy(EVP_CIPHER_CTX_buf_noconst(ctx),
                        qctx->dstFlatBuffer.pData + len, qctx->M);
                 DUMPL("TAG calculated by QAT", EVP_CIPHER_CTX_buf_noconst(ctx),
-                      EVP_CCM_TLS_TAG_LEN);
+                      qctx->M);
+# endif
                 qctx->tag_len = qctx->M;
                 qctx->tag_set = 1;
             }

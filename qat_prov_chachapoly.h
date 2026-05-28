@@ -239,11 +239,12 @@ struct qat_evp_cipher_st{
     int key_len;
     int iv_len;
 
-    /* Legacy structure members */
     /* Various flags */
     unsigned long flags;
     /* How the EVP_CIPHER was created. */
     int origin;
+#if OPENSSL_VERSION_NUMBER < 0x40000000
+    /* Legacy structure members - removed in OpenSSL 4.0 */
     /* init key */
     int (*init) (EVP_CIPHER_CTX *ctx, const unsigned char *key,
                  const unsigned char *iv, int enc);
@@ -262,9 +263,8 @@ struct qat_evp_cipher_st{
     int (*ctrl) (EVP_CIPHER_CTX *, int type, int arg, void *ptr);
     /* Application data */
     void *app_data;
+#endif
 
-    /* New structure members */
-    /* Above comment to be removed when legacy has gone */
     int name_id;
     char *type_name;
     const char *description;
@@ -279,12 +279,12 @@ struct qat_evp_cipher_st{
     OSSL_FUNC_cipher_update_fn *cupdate;
     OSSL_FUNC_cipher_final_fn *cfinal;
     OSSL_FUNC_cipher_cipher_fn *ccipher;
-# if OPENSSL_VERSION_NUMBER >= 0x30500000
+#if OPENSSL_VERSION_NUMBER >= 0x30500000
     OSSL_FUNC_cipher_pipeline_encrypt_init_fn *p_einit;
     OSSL_FUNC_cipher_pipeline_decrypt_init_fn *p_dinit;
     OSSL_FUNC_cipher_pipeline_update_fn *p_cupdate;
     OSSL_FUNC_cipher_pipeline_final_fn *p_cfinal;
-# endif
+#endif
     OSSL_FUNC_cipher_freectx_fn *freectx;
     OSSL_FUNC_cipher_dupctx_fn *dupctx;
     OSSL_FUNC_cipher_get_params_fn *get_params;
@@ -293,26 +293,42 @@ struct qat_evp_cipher_st{
     OSSL_FUNC_cipher_gettable_params_fn *gettable_params;
     OSSL_FUNC_cipher_gettable_ctx_params_fn *gettable_ctx_params;
     OSSL_FUNC_cipher_settable_ctx_params_fn *settable_ctx_params;
+#if OPENSSL_VERSION_NUMBER >= 0x40000000
+    OSSL_FUNC_cipher_encrypt_skey_init_fn *einit_skey;
+    OSSL_FUNC_cipher_decrypt_skey_init_fn *dinit_skey;
+#endif
 } /* EVP_CIPHER */ ;
 
 struct evp_cipher_ctx_st {
     const EVP_CIPHER *cipher;
+#if OPENSSL_VERSION_NUMBER < 0x40000000
     ENGINE *engine;             /* functional reference if 'cipher' is
                                  * ENGINE-provided */
+#endif
     int encrypt;                /* encrypt or decrypt */
     int buf_len;                /* number we have left */
     unsigned char oiv[EVP_MAX_IV_LENGTH]; /* original iv */
+#if OPENSSL_VERSION_NUMBER >= 0x40000000
+    unsigned char iv[EVP_MAX_IV_LENGTH]; /* working iv */
+#else
     unsigned int iv[3]; /* working iv */
+#endif
     unsigned char buf[EVP_MAX_BLOCK_LENGTH]; /* saved partial block */
     int num;                    /* used by cfb/ofb/ctr mode */
     /* FIXME: Should this even exist? It appears unused */
     void *app_data;             /* application stuff */
     int key_len;                /* May change for variable length cipher */
+#if OPENSSL_VERSION_NUMBER >= 0x40000000
+    int iv_len;                 /* IV length */
+#endif
     unsigned long flags;        /* Various flags */
     void *cipher_data;          /* per EVP data */
     int final_used;
     int block_mask;
     unsigned char final[EVP_MAX_BLOCK_LENGTH]; /* possible final block */
+#if OPENSSL_VERSION_NUMBER >= 0x40000000
+    size_t numpipes;
+#endif
 
     /*
      * Opaque ctx returned from a providers cipher algorithm implementation

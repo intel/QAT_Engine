@@ -1349,6 +1349,20 @@ static int qat_prov_set_offload(void)
         qat_hw_sm2_offload = 1;
         INFO("QAT_HW SM2 for Provider Enabled\n");
 # endif
+# ifdef ENABLE_QAT_HW_CCM
+        qat_hw_aes_ccm_offload = 1;
+        DEBUG("QAT_HW AES-CCM for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_CHACHAPOLY
+        qat_hw_chacha_poly_offload = 1;
+        DEBUG("QAT_HW ChaCha20-Poly1305 for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_HW_SM4_CBC
+        if (!qat_sw_sm4_cbc_offload) {
+            qat_hw_sm4_cbc_offload = 1;
+            DEBUG("QAT_HW SM4-CBC for Provider Enabled\n");
+        }
+# endif
     }
 
     if (qat_sw_offload) {
@@ -1399,6 +1413,22 @@ static int qat_prov_set_offload(void)
 # ifdef ENABLE_QAT_SW_GCM
         qat_sw_gcm_offload = 1;
         DEBUG("QAT_SW GCM for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_SW_SM3
+        qat_sw_sm3_offload = 1;
+        DEBUG("QAT_SW SM3 for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_SW_SM4_GCM
+        qat_sw_sm4_gcm_offload = 1;
+        DEBUG("QAT_SW SM4-GCM for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_SW_SM4_CCM
+        qat_sw_sm4_ccm_offload = 1;
+        DEBUG("QAT_SW SM4-CCM for Provider Enabled\n");
+# endif
+# ifdef ENABLE_QAT_SW_SM4_CBC
+        qat_sw_sm4_cbc_offload = 1;
+        DEBUG("QAT_SW SM4-CBC for Provider Enabled\n");
 # endif
 
 # if defined(ENABLE_QAT_FIPS) && defined (ENABLE_QAT_SW_SHA2)

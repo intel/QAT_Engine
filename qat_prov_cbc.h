@@ -99,11 +99,12 @@ typedef struct evp_cipher_st {
     int key_len;
     int iv_len;
 
-    /* Legacy structure members */
     /* Various flags */
     unsigned long flags;
     /* How the EVP_CIPHER was created. */
     int origin;
+#if OPENSSL_VERSION_NUMBER < 0x40000000
+    /* Legacy structure members - removed in OpenSSL 4.0 */
     /* init key */
     int (*init) (EVP_CIPHER_CTX *ctx, const unsigned char *key,
                  const unsigned char *iv, int enc);
@@ -122,8 +123,7 @@ typedef struct evp_cipher_st {
     int (*ctrl) (EVP_CIPHER_CTX *, int type, int arg, void *ptr);
     /* Application data */
     void *app_data;
-    /* New structure members */
-    /* Above comment to be removed when legacy has gone */
+#endif
     int name_id;
     char *type_name;
     const char *description;
@@ -152,6 +152,10 @@ typedef struct evp_cipher_st {
     OSSL_FUNC_cipher_gettable_params_fn *gettable_params;
     OSSL_FUNC_cipher_gettable_ctx_params_fn *gettable_ctx_params;
     OSSL_FUNC_cipher_settable_ctx_params_fn *settable_ctx_params;
+#if OPENSSL_VERSION_NUMBER >= 0x40000000
+    OSSL_FUNC_cipher_encrypt_skey_init_fn *einit_skey;
+    OSSL_FUNC_cipher_decrypt_skey_init_fn *dinit_skey;
+#endif
 }PROV_EVP_CIPHER;
 
 struct prov_cipher_ctx_st {

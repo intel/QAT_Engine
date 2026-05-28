@@ -89,11 +89,12 @@ typedef struct qat_evp_cipher_st {
     int key_len;
     int iv_len;
 
-    /* Legacy structure members */
     /* Various flags */
     unsigned long flags;
     /* How the EVP_CIPHER was created. */
     int origin;
+#if OPENSSL_VERSION_NUMBER < 0x40000000
+    /* Legacy structure members - removed in OpenSSL 4.0 */
     /* init key */
     int (*init) (EVP_CIPHER_CTX *ctx, const unsigned char *key,
                  const unsigned char *iv, int enc);
@@ -112,8 +113,8 @@ typedef struct qat_evp_cipher_st {
     int (*ctrl) (EVP_CIPHER_CTX *, int type, int arg, void *ptr);
     /* Application data */
     void *app_data;
+#endif
     /* New structure members */
-    /* Above comment to be removed when legacy has gone */
     int name_id;
     char *type_name;
     const char *description;
@@ -128,6 +129,12 @@ typedef struct qat_evp_cipher_st {
     OSSL_FUNC_cipher_update_fn *cupdate;
     OSSL_FUNC_cipher_final_fn *cfinal;
     OSSL_FUNC_cipher_cipher_fn *ccipher;
+# if OPENSSL_VERSION_NUMBER >= 0x30500000
+    OSSL_FUNC_cipher_pipeline_encrypt_init_fn *p_einit;
+    OSSL_FUNC_cipher_pipeline_decrypt_init_fn *p_dinit;
+    OSSL_FUNC_cipher_pipeline_update_fn *p_cupdate;
+    OSSL_FUNC_cipher_pipeline_final_fn *p_cfinal;
+# endif
     OSSL_FUNC_cipher_freectx_fn *freectx;
     OSSL_FUNC_cipher_dupctx_fn *dupctx;
     OSSL_FUNC_cipher_get_params_fn *get_params;
@@ -136,6 +143,10 @@ typedef struct qat_evp_cipher_st {
     OSSL_FUNC_cipher_gettable_params_fn *gettable_params;
     OSSL_FUNC_cipher_gettable_ctx_params_fn *gettable_ctx_params;
     OSSL_FUNC_cipher_settable_ctx_params_fn *settable_ctx_params;
+#if OPENSSL_VERSION_NUMBER >= 0x40000000
+    OSSL_FUNC_cipher_encrypt_skey_init_fn *einit_skey;
+    OSSL_FUNC_cipher_decrypt_skey_init_fn *dinit_skey;
+#endif
 } QAT_EVP_CIPHER_SM4_CBC;
 
 typedef struct qat_prov_cbc_ctx_st {
