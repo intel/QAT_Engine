@@ -108,6 +108,9 @@ typedef struct evp_signature_st {
     OSSL_FUNC_signature_gettable_ctx_md_params_fn *gettable_ctx_md_params;
     OSSL_FUNC_signature_set_ctx_md_params_fn *set_ctx_md_params;
     OSSL_FUNC_signature_settable_ctx_md_params_fn *settable_ctx_md_params;
+#if OPENSSL_VERSION_NUMBER >= 0x30500000
+    OSSL_FUNC_signature_query_key_types_fn *query_key_types;
+#endif
 } QAT_EVP_SIGNATURE /* EVP_SIGNATURE for QAT Provider sm2 */;
 
 static QAT_EVP_SIGNATURE get_default_signature_sm2()
