@@ -1116,40 +1116,20 @@ error:
 
 /******************************************************************************
  * function:
- *         bind_qat(ENGINE *e,
- *                  const char *id)
- *
- * @param e  [IN] - OpenSSL engine pointer
- * @param id [IN] - engine id
+ *         qat_probe_hw(void)
  *
  * description:
- *    Connect Qat engine to OpenSSL engine library
+ *   Probe for QAT hardware and set qat_hw_offload accordingly.
+ *   Returns 0 only when no HW is present AND no SW fallback is available
+ *   (fatal — caller must abort bind).
+ *   Returns 1 in all other cases, including when HW is absent but the build
+ *   allows falling back to QAT_SW or OpenSSL software.
  ******************************************************************************/
-#ifndef OPENSSL_NO_ENGINE
-int bind_qat(ENGINE *e, const char *id)
-#else
-int bind_qat(void *e, const char *id)
-#endif
+static int qat_probe_hw(void)
 {
-   int ret = 0;
-#ifdef QAT_HW
-    char *config_section = NULL;
-#ifdef ENABLE_QAT_HW_KPT
-    Cpa32U dev_count = 0;
-# endif
-#endif
-    QAT_DEBUG_LOG_INIT();
-
-    WARN("QAT Warnings enabled.\n");
-    DEBUG("QAT Debug enabled.\n");
-    WARN("%s - %s \n", id, engine_qat_name);
-
-    /* Ensure the QAT error handling is set up */
-    ERR_load_QAT_strings();
-
-    /* For QAT_HW, Check if the QAT_HW device is available */
 #ifdef QAT_HW
 # ifdef ENABLE_QAT_HW_KPT
+    Cpa32U dev_count = 0;
     if (icp_adf_get_numDevices(&dev_count) == CPA_STATUS_SUCCESS) {
         if (dev_count > 0) {
             qat_hw_offload = 1;
@@ -1165,15 +1145,28 @@ int bind_qat(void *e, const char *id)
     if (!qat_hw_offload) {
 # ifndef QAT_SW
 #  ifdef QAT_BORINGSSL
-        fprintf(stderr, "QAT_HW device not available & QAT_SW not enabled. Exiting!\n");
-        return ret;
+        WARN("QAT_HW device not available & QAT_SW not enabled. Exiting!\n");
+        return 0;
 #  else
-        fprintf(stderr, "QAT_HW device not available & QAT_SW not enabled. Using OpenSSL_SW!\n");
+        WARN("QAT_HW device not available & QAT_SW not enabled. Using OpenSSL_SW!\n");
 #  endif
 # endif
     }
 #endif
+    return 1;
+}
 
+/******************************************************************************
+ * function:
+ *         qat_probe_sw(void)
+ *
+ * description:
+ *   Probe for QAT software (multi-buffer) availability and initialize.
+ *   Returns 0 only on fatal failure (e.g. IPSec_mb init fails when SW is
+ *   required), 1 otherwise.
+ ******************************************************************************/
+static int qat_probe_sw(void)
+{
 #if defined(QAT_SW) || defined(QAT_SW_IPSEC)
     /* For QAT_SW, check if we are running only on Intel CPU &
      * has the instruction set needed */
@@ -1182,24 +1175,39 @@ int bind_qat(void *e, const char *id)
 
 #ifdef ENABLE_QAT_SW_GCM
     if (qat_sw_offload && !vaesgcm_init_ipsec_mb_mgr()) {
-        fprintf(stderr, "QAT_SW IPSec_mb manager iInitialization failed\n");
-        return ret;
+        WARN("QAT_SW IPSec_mb manager Initialization failed\n");
+        return 0;
     }
 #endif
+    return 1;
+}
 
+/******************************************************************************
+ * function:
+ *         qat_register_engine(ENGINE *e, const char *id)
+ *
+ * description:
+ *   Engine-specific registration: sets ENGINE methods, ciphers, digests,
+ *   pkey methods, and lifecycle callbacks.
+ *   Only compiled when building as an OpenSSL engine (not provider).
+ ******************************************************************************/
 #if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
+static int qat_register_engine(ENGINE *e, const char *id)
+{
+    int ret = 0;
+
     if (id && (strcmp(id, engine_qat_id) != 0)) {
         WARN("ENGINE_id defined already! %s - %s\n", id, engine_qat_id);
         return ret;
     }
 
     if (!ENGINE_set_id(e, engine_qat_id)) {
-        fprintf(stderr, "ENGINE_set_id failed\n");
+        WARN("ENGINE_set_id failed\n");
         return ret;
     }
 
     if (!ENGINE_set_name(e, engine_qat_name)) {
-        fprintf(stderr, "ENGINE_set_name failed\n");
+        WARN("ENGINE_set_name failed\n");
         return ret;
     }
 
@@ -1262,13 +1270,27 @@ int bind_qat(void *e, const char *id)
 #endif
     ret &= ENGINE_set_cmd_defns(e, qat_cmd_defns);
     if (ret == 0) {
-        fprintf(stderr, "Engine failed to register init, finish or destroy functions\n");
+        WARN("Engine failed to register init, finish or destroy functions\n");
         return ret;
     }
 # endif
+
+    return ret;
+}
 #endif /* !QAT_OPENSSL_PROVIDER && !OPENSSL_NO_ENGINE */
 
+/******************************************************************************
+ * function:
+ *         qat_prov_set_offload(void)
+ *
+ * description:
+ *   Provider-specific algorithm offload detection and flag setup.
+ *   Probes HW/SW capabilities and sets the corresponding offload flags.
+ *   Returns 0 on fatal failure, 1 on success.
+ ******************************************************************************/
 #ifdef QAT_OPENSSL_PROVIDER
+static int qat_prov_set_offload(void)
+{
    /* Set the corresponding algorithms offload for provider */
     if (qat_hw_offload) {
 # ifdef ENABLE_QAT_HW_RSA
@@ -1294,8 +1316,6 @@ int bind_qat(void *e, const char *id)
 # ifdef ENABLE_QAT_HW_ECX
         qat_hw_ecx_offload = 1;
         INFO("QAT_HW ECX25519 for Provider Enabled\n");
-# endif
-# ifdef ENABLE_QAT_HW_ECX
         qat_hw_ecx_448_offload = 1;
         INFO("QAT_HW ECX448 for Provider Enabled\n");
 # endif
@@ -1380,6 +1400,7 @@ int bind_qat(void *e, const char *id)
         qat_sw_gcm_offload = 1;
         DEBUG("QAT_SW GCM for Provider Enabled\n");
 # endif
+
 # if defined(ENABLE_QAT_FIPS) && defined (ENABLE_QAT_SW_SHA2)
         qat_sw_sha_offload = 1;
         INFO("QAT_SW SHA2 for Provider Enabled\n");
@@ -1414,6 +1435,7 @@ int bind_qat(void *e, const char *id)
     /* Initialize EVP_MD methods for supported digest algorithms.
      * This sets up the digest methods for both hardware and software digests. */
     qat_create_digest_meth();
+
 # ifndef QAT_DEBUG
     if (qat_sw_gcm_offload && !qat_hw_gcm_offload)
         INFO("QAT_SW GCM for Provider Enabled\n");
@@ -1446,40 +1468,20 @@ int bind_qat(void *e, const char *id)
     if (qat_hw_aes_ccm_offload)
         INFO("QAT_HW AES-CCM for Provider Enabled\n");
 # endif
-#endif
 
-#ifndef QAT_BORINGSSL
-    pthread_atfork(engine_finish_before_fork_handler, NULL,
-                   engine_init_child_at_fork_handler);
-#else /* QAT_BORINGSSL */
-    /* Set handler to ENGINE_unload_qat and ENGINE_load_qat */
-    pthread_atfork(ENGINE_unload_qat, NULL, ENGINE_load_qat);
-#endif /* QAT_BORINGSSL */
+    return 1;
+}
 
-    /*
-     * If the QAT_SECTION_NAME environment variable is set, use that.
-     * Similar setting made through engine ctrl command takes precedence
-     * over this environment variable. It makes sense to use the environment
-     * variable because the container orchestrators pass down this
-     * configuration as environment variables.
-     */
-
-#ifdef QAT_HW
-# ifdef __GLIBC_PREREQ
-#  if __GLIBC_PREREQ(2, 17)
-    config_section = secure_getenv("QAT_SECTION_NAME");
-#  else
-    config_section = getenv("QAT_SECTION_NAME");
-#  endif
-# else
-    config_section = getenv("QAT_SECTION_NAME");
-# endif
-    if (validate_configuration_section_name(config_section)) {
-        strncpy(qat_config_section_name, config_section, QAT_CONFIG_SECTION_NAME_SIZE - 1);
-        qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE - 1]   = '\0';
-    }
-#endif
-#ifdef QAT_OPENSSL_PROVIDER
+/******************************************************************************
+ * function:
+ *         qat_prov_disable_unused(void)
+ *
+ * description:
+ *   Disable provider algorithms that have no HW or SW offload available.
+ *   This ensures OpenSSL doesn't route unsupported ops to our provider.
+ ******************************************************************************/
+static void qat_prov_disable_unused(void)
+{
 /*
  * Disable individual signature algorithms when neither a hardware
  * nor a software offload implementation is available.
@@ -1545,9 +1547,92 @@ int bind_qat(void *e, const char *id)
 
     if (!qat_hw_rsa_offload && !qat_sw_rsa_offload)
         qat_disable_asym_cipher("RSA");
+}
+#endif /* QAT_OPENSSL_PROVIDER */
+
+/******************************************************************************
+ * function:
+ *         bind_qat(ENGINE *e,
+ *                  const char *id)
+ *
+ * @param e  [IN] - OpenSSL engine pointer
+ * @param id [IN] - engine id
+ *
+ * description:
+ *    Connect Qat engine to OpenSSL engine library
+ ******************************************************************************/
+#ifndef OPENSSL_NO_ENGINE
+int bind_qat(ENGINE *e, const char *id)
+#else
+int bind_qat(void *e, const char *id)
 #endif
-    ret = 1;
-    return ret;
+{
+#ifdef QAT_HW
+    char *config_section = NULL;
+#endif
+
+    QAT_DEBUG_LOG_INIT();
+
+    WARN("QAT Warnings enabled.\n");
+    DEBUG("QAT Debug enabled.\n");
+    WARN("%s - %s \n", id ? id : "qatprovider", engine_qat_name);
+
+    /* Ensure the QAT error handling is set up */
+    ERR_load_QAT_strings();
+
+    if (!qat_probe_hw())
+        return 0;
+
+    if (!qat_probe_sw())
+        return 0;
+
+#if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
+    if (!qat_register_engine(e, id))
+        return 0;
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+    if (!qat_prov_set_offload())
+        return 0;
+#endif
+
+#ifndef QAT_BORINGSSL
+    pthread_atfork(engine_finish_before_fork_handler, NULL,
+                   engine_init_child_at_fork_handler);
+#else /* QAT_BORINGSSL */
+    /* Set handler to ENGINE_unload_qat and ENGINE_load_qat */
+    pthread_atfork(ENGINE_unload_qat, NULL, ENGINE_load_qat);
+#endif /* QAT_BORINGSSL */
+
+    /*
+     * If the QAT_SECTION_NAME environment variable is set, use that.
+     * Similar setting made through engine ctrl command takes precedence
+     * over this environment variable. It makes sense to use the environment
+     * variable because the container orchestrators pass down this
+     * configuration as environment variables.
+     */
+
+#ifdef QAT_HW
+# ifdef __GLIBC_PREREQ
+#  if __GLIBC_PREREQ(2, 17)
+    config_section = secure_getenv("QAT_SECTION_NAME");
+#  else
+    config_section = getenv("QAT_SECTION_NAME");
+#  endif
+# else
+    config_section = getenv("QAT_SECTION_NAME");
+# endif
+    if (validate_configuration_section_name(config_section)) {
+        strncpy(qat_config_section_name, config_section, QAT_CONFIG_SECTION_NAME_SIZE - 1);
+        qat_config_section_name[QAT_CONFIG_SECTION_NAME_SIZE - 1]   = '\0';
+    }
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+    qat_prov_disable_unused();
+#endif
+
+    return 1;
 }
 
 #if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
