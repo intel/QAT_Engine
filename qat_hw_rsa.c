@@ -111,19 +111,6 @@ static inline int qat_rsa_range_check(int plen)
     return ((plen >= RSA_QAT_RANGE_MIN) && (plen <= RSA_QAT_RANGE_MAX));
 }
 
-static RSA *copy_rsa_public_to_private_exponent(RSA *rsa)
-{
-    RSA *rsa_copy = NULL;
-    const BIGNUM *lenstra_n = NULL;
-    const BIGNUM *lenstra_e = NULL;
-    RSA_get0_key((const RSA *)rsa, &lenstra_n, &lenstra_e, NULL);
-    rsa_copy = RSA_new();
-    if (rsa_copy == NULL)
-        return NULL;
-    RSA_set0_key(rsa_copy, (BIGNUM *)lenstra_n, NULL, (BIGNUM *)lenstra_e);
-    return rsa_copy;
-}
-
 /******************************************************************************
 * function:
 *         qat_rsaCallbackFn(void *pCallbackTag, CpaStatus status,
@@ -189,7 +176,6 @@ rsa_decrypt_op_buf_free(CpaCyRsaDecryptOpData * dec_op_data,
     DEBUG("- Finished\n");
 }
 
-
 static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                            CpaFlatBuffer * output_buf, int * fallback, int inst_num, int qat_svm)
 {
@@ -234,6 +220,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
     }
 # endif
     STOP_RDTSC(&qat_hw_rsa_dec_req_prepare, 1, "[QAT HW RSA: prepare]");
+
     /*
      * cpaCyRsaDecrypt() is the function called for RSA Sign in the API.
      * For that particular case the dec_op_data [IN] contains both the
@@ -991,17 +978,17 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     int sts = 1, fallback = 0, dec_ret = 0;
     int inst_num = QAT_INVALID_INSTANCE;
     int qat_svm = QAT_INSTANCE_ANY;
-# ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
-    unsigned char *ver_msg = NULL;
-    const BIGNUM *d = NULL;
-    RSA *lenstra_rsa = NULL;
-    int lenstra_ret = -1;
-    int memcmp_ret = -1;
-# endif
 # ifdef QAT_HW_INTREE
     Cpa32U maxInflightRequests = 0;
     Cpa32U currentInflightRequests = 0;
 # endif
+# ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
+    unsigned char recovered[RSA_QAT_RANGE_MAX] = {0};
+    int recover_len = 0;
+    unsigned int len_ret = 0;
+    unsigned int cmp_ret = 0;
+    unsigned int lenstra_ret = 0;
+# endif /* DISABLE_QAT_HW_LENSTRA_PROTECTION */
 
 #ifdef ENABLE_QAT_HW_KPT
     if (rsa && qat_check_rsa_wpk(rsa) > 0) {
@@ -1115,44 +1102,38 @@ int qat_rsa_priv_enc(int flen, const unsigned char *from, unsigned char *to,
     if (!qat_svm)
         memcpy(to, output_buffer->pData, rsa_len);
 
+# ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
+#  ifdef ENABLE_QAT_HW_LENSTRA_VERIFY_HW
+    recover_len = qat_rsa_pub_dec(
+        rsa_len, (const unsigned char *)output_buffer->pData,
+        recovered, rsa, RSA_NO_PADDING);
+#  else
+    recover_len = RSA_meth_get_pub_dec(RSA_PKCS1_OpenSSL())
+        (rsa_len, (const unsigned char *)output_buffer->pData,
+         recovered, rsa, RSA_NO_PADDING);
+#  endif /* ENABLE_QAT_HW_LENSTRA_VERIFY_HW */
+
+    len_ret = qat_constant_time_eq((unsigned int)recover_len,
+                                   (unsigned int)rsa_len);
+    cmp_ret = qat_constant_time_is_zero(
+        (unsigned int)CRYPTO_memcmp(
+            dec_op_data->inputData.pData, recovered, rsa_len));
+    lenstra_ret = qat_constant_time_select(len_ret, cmp_ret, 0u);
+
+    if (!lenstra_ret) {
+        WARN("Lenstra verification failed: CRT fault detected, "
+             "falling back to SW\n");
+        rsa_decrypt_op_buf_free(dec_op_data, output_buffer, qat_svm);
+        dec_op_data = NULL;
+        output_buffer = NULL;
+        OPENSSL_cleanse(to, rsa_len);
+        return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
+                                    (flen, from, to, rsa, padding);
+    }
+# endif /* DISABLE_QAT_HW_LENSTRA_PROTECTION */
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer, qat_svm);
     dec_op_data = NULL;
     output_buffer = NULL;
-
-# ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
-    lenstra_rsa = copy_rsa_public_to_private_exponent(rsa);
-    if (lenstra_rsa != NULL)
-        d = RSA_get0_d((const RSA*)lenstra_rsa);
-
-    if (d != NULL) {
-        ver_msg = OPENSSL_zalloc(flen);
-        if (ver_msg == NULL) {
-            WARN("ver_msg zalloc failed.\n");
-            QATerr(QAT_F_QAT_RSA_PRIV_ENC, ERR_R_MALLOC_FAILURE);
-            sts = 0;
-            goto exit;
-        }
-#  ifdef ENABLE_QAT_HW_LENSTRA_VERIFY_HW
-        lenstra_ret = qat_rsa_pub_dec(rsa_len, (const unsigned char *)to,
-                                      ver_msg, rsa, padding);
-#  else
-        lenstra_ret = RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())
-                                           (rsa_len,
-                                           (const unsigned char *)to,
-                                           ver_msg, lenstra_rsa, padding);
-#  endif
-        memcmp_ret = CRYPTO_memcmp(from, ver_msg, flen);
-        if ((qat_constant_time_le_int(lenstra_ret, 0)) | (memcmp_ret != 0)) {
-            WARN("QAT RSA Verify failed - redoing sign operation in s/w\n");
-            OPENSSL_free(ver_msg);
-            return RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
-                                         (flen, from, to, rsa, padding);
-        }
-        OPENSSL_free(ver_msg);
-    }
-    if (lenstra_rsa != NULL)
-        RSA_free(lenstra_rsa);
-# endif
 
     DEBUG("- Finished\n");
     return rsa_len;
@@ -1213,13 +1194,6 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
     CpaFlatBuffer *output_buffer = NULL;
     int inst_num = QAT_INVALID_INSTANCE;
     int qat_svm = QAT_INSTANCE_ANY;
-# ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
-    unsigned char *ver_msg = NULL;
-    const BIGNUM *d = NULL;
-    RSA *lenstra_rsa = NULL;
-    int lenstra_ret = -1;
-    int memcmp_ret = -1;
-# endif
     unsigned char temp_buf[RSA_QAT_RANGE_MAX];
     unsigned char *select_ptr = NULL;
     int rsa_priv_dec_sts = -1;
@@ -1327,43 +1301,6 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         goto exit;
     }
 
-# ifndef DISABLE_QAT_HW_LENSTRA_PROTECTION
-    lenstra_rsa = copy_rsa_public_to_private_exponent(rsa);
-    if (lenstra_rsa != NULL)
-        d = RSA_get0_d((const RSA*)lenstra_rsa);
-
-    if (d != NULL) {
-        ver_msg = OPENSSL_zalloc(flen);
-        if (ver_msg == NULL) {
-            WARN("ver_msg zalloc failed.\n");
-            QATerr(QAT_F_QAT_RSA_PRIV_DEC, ERR_R_MALLOC_FAILURE);
-            sts = 0;
-            goto exit;
-        }
-#  ifdef ENABLE_QAT_HW_LENSTRA_VERIFY_HW
-        lenstra_ret = qat_rsa_pub_enc(rsa_len,
-                        (const unsigned char *)output_buffer->pData,
-                        ver_msg, rsa, RSA_NO_PADDING);
-#  else
-        lenstra_ret = RSA_meth_get_priv_enc(RSA_PKCS1_OpenSSL())
-                             (rsa_len,
-                             (const unsigned char *)output_buffer->pData,
-                             ver_msg, lenstra_rsa, RSA_NO_PADDING);
-#  endif
-        memcmp_ret = CRYPTO_memcmp(from, ver_msg, flen);
-        if ((qat_constant_time_le_int(lenstra_ret, 0)) | (memcmp_ret != 0)) {
-            WARN("- QAT RSA sign failed - redoing decrypt operation in s/w\n");
-            OPENSSL_free(ver_msg);
-            rsa_decrypt_op_buf_free(dec_op_data, output_buffer, qat_svm);
-            return RSA_meth_get_priv_dec(RSA_PKCS1_OpenSSL())(flen, from, to, rsa, padding);
-        }
-        OPENSSL_free(ver_msg);
-    }
-
-    if(lenstra_rsa != NULL)
-        RSA_free(lenstra_rsa);
-# endif
-
     switch (padding) {
     case RSA_PKCS1_PADDING:
         output_len =
@@ -1405,7 +1342,11 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
         break;
     }
 
-    rsa_priv_dec_sts = qat_constant_time_select_int((output_len < 0), 0, output_len);
+    /* Set return value based on padding check result */
+    rsa_priv_dec_sts = qat_constant_time_select_int(
+        qat_constant_time_msb((unsigned int)output_len),
+        0, output_len);
+
     rsa_decrypt_op_buf_free(dec_op_data, output_buffer, qat_svm);
     dec_op_data = NULL;
     output_buffer = NULL;
