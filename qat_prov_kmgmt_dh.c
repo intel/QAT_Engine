@@ -79,6 +79,9 @@ typedef struct
 #endif
     /* Constructor(s), destructor, information */
     OSSL_FUNC_keymgmt_new_fn *new;
+#if OPENSSL_VERSION_NUMBER >= 0x40000000
+    OSSL_FUNC_keymgmt_new_ex_fn *new_ex;
+#endif
     OSSL_FUNC_keymgmt_free_fn *free;
     OSSL_FUNC_keymgmt_get_params_fn *get_params;
     OSSL_FUNC_keymgmt_gettable_params_fn *gettable_params;
