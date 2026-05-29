@@ -533,6 +533,7 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
     if (qat_hw_ecdh_offload) {
         if (!qat_engine_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
             return 0;
+        goto end;
     }
 #endif
 #ifdef ENABLE_QAT_SW_ECDH
@@ -540,6 +541,9 @@ int QAT_ECDH_compute_key(void *out, size_t outlen, const EC_POINT *pub_key,
         if (!mb_ecdh_compute_key(&sec, &seclen, pub_key, eckey))
             return 0;
     }
+#endif
+#ifdef ENABLE_QAT_HW_ECDH
+end:
 #endif
     if (KDF != NULL) {
         KDF(sec, seclen, out, &outlen);

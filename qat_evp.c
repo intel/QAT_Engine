@@ -350,6 +350,11 @@ int qat_sw_sm3_md_methods(EVP_MD *c)
 
 const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 {
+#if defined(ENABLE_QAT_SW_SM3)
+    int sw_sm3_enabled = qat_sw_offload &&
+                         (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM3) &&
+                         mbx_get_algo_info(MBX_ALGO_SM3);
+#endif
 #if defined(ENABLE_QAT_SW_SM3) && !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
     int res = 1;
     EVP_MD *qat_sw_sm3_meth = NULL;
@@ -358,9 +363,7 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
         WARN("Failed to allocate digest methods for nid %d\n", nid);
         return NULL;
     }
-    if (qat_sw_offload &&
-        (qat_sw_algo_enable_mask & ALGO_ENABLE_MASK_SM3) && mbx_get_algo_info(MBX_ALGO_SM3)) {
-
+    if (sw_sm3_enabled) {
         res = qat_sw_sm3_md_methods(qat_sw_sm3_meth);
         if (0 == res) {
             WARN("Failed to set MD methods for nid %d\n", nid);
@@ -388,8 +391,18 @@ const EVP_MD *qat_sw_create_sm3_meth(int nid , int key_type)
 # endif
     }
 #else
+# if defined(ENABLE_QAT_SW_SM3)
+    if (sw_sm3_enabled) {
+        qat_sw_sm3_offload = 1;
+        DEBUG("QAT SW SM3 enabled for provider\n");
+    } else {
+        qat_sw_sm3_offload = 0;
+        DEBUG("QAT SW SM3 is disabled, using OpenSSL SW\n");
+    }
+# else
     qat_sw_sm3_offload = 0;
     DEBUG("QAT SW SM3 is disabled, using OpenSSL SW\n");
+# endif
 # ifdef OPENSSL_NO_SM2_SM3
     return NULL;
 # else
