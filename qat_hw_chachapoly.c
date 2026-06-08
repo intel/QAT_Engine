@@ -1237,6 +1237,14 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
         }
         if (fallback && !cp_ctx->tag_set) {
 # ifdef QAT_OPENSSL_PROVIDER
+        /* OpenSSL 4.0+ SW chacha20_poly1305_final returns "tag not set"
+         * when decrypting without a tag. SW cupdate has already processed
+         * the data; since no expected tag was provided, skip the SW final
+         * to avoid the OpenSSL 4.0 error. */
+        if (!enc) {
+            *padlen = len;
+            return 1;
+        }
         sw_chachapoly_cipher = get_default_cipher_chachapoly();
         if (sw_chachapoly_cipher.cfinal == NULL)
             return -1;
