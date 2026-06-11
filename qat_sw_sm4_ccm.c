@@ -84,7 +84,15 @@ static inline const EVP_CIPHER *sm4_cipher_sw_impl(int nid)
 {
     switch (nid) {
     case NID_sm4_ccm:
-        return EVP_sm4_ccm();
+    {
+        static const EVP_CIPHER *sm4_ccm_cipher = NULL;
+        if (sm4_ccm_cipher == NULL) {
+            sm4_ccm_cipher = EVP_CIPHER_fetch(NULL, "SM4-CCM", NULL);
+            if (sm4_ccm_cipher == NULL)
+                WARN("EVP_CIPHER_fetch from default provider failed for SM4-CCM\n");
+        }
+        return sm4_ccm_cipher;
+    }
     default:
         WARN("Invalid nid %d\n", nid);
         return NULL;
