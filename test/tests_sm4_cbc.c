@@ -151,8 +151,10 @@ static inline int set_pkt_threshold(ENGINE *e, const char* cipher, int thr)
     char thr_str[128];
     int ret = 0;
     snprintf(thr_str, 128, "%s:%d", cipher, thr);
+#ifndef OPENSSL_NO_ENGINE
     ret = ENGINE_ctrl_cmd(e, "SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD",
                           0, (void *)thr_str, NULL, 0);
+#endif
     if (ret != 1)
         FAIL_MSG("Failed to set threshold %d for cipher %s\n", thr, cipher);
 
@@ -307,6 +309,7 @@ static int decrypt_buff(const test_info *t, int impl, unsigned char **encbuf,
     return ret;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 /*
  * encrypt_and_compare :
  *      Encrypt a test buffer using engine and openssl sw
@@ -378,6 +381,7 @@ static int encrypt_and_compare(const test_info *t, int *buflen)
     OPENSSL_free(textbuf);
     return ret;
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 /*
  * test_crypto_op :
@@ -431,6 +435,7 @@ static int test_crypto_op(const test_info *t, int enc_imp, int dec_imp)
     return ret;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 /*
  * test_multi_op :
  *          Perform the cipher operation multiple times with the same ctx.
@@ -474,6 +479,7 @@ static int test_multi_op(const test_info *t)
     }
     return ret;
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 static int test_performance_encrypt(const test_info *t)
 {
@@ -514,6 +520,7 @@ err:
     return ret;
 }
 
+#ifndef OPENSSL_NO_ENGINE
 /*
  * test_encrpted_buffer :
  *      Encrypty buffer using ENGINE and Openssl SW
@@ -620,6 +627,7 @@ end:
     set_pkt_threshold(t->e, t->c->name, 0);
     return status;
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 
 static int run_sm4_cbc(void *pointer)
@@ -644,6 +652,7 @@ static int run_sm4_cbc(void *pointer)
      * This relies on the engine we are testing being
      * set as the default engine.
      */
+#ifndef OPENSSL_NO_ENGINE
     ti.e = args->e;
 
     if (ti.e) {
@@ -665,6 +674,9 @@ static int run_sm4_cbc(void *pointer)
             return 0;
         }
     }
+#else
+    ti.e = NULL;
+#endif /* !OPENSSL_NO_ENGINE */
 
     if (args->performance)
         return test_performance_encrypt(&ti);
@@ -676,8 +688,9 @@ static int run_sm4_cbc(void *pointer)
             * Running the test with SW implementation to check if
             * the test logic is correct.
             */
-            (test_crypto_op(&ti, USE_SW, USE_SW) != 1) ||
-            ((ti.e != NULL) && (
+            (test_crypto_op(&ti, USE_SW, USE_SW) != 1)
+#ifndef OPENSSL_NO_ENGINE
+            || ((ti.e != NULL) && (
                 /* Perform these tests only if engine is present */
                 (test_encrypted_buffer(&ti) != 1) ||
                 (test_crypto_op(&ti, USE_ENGINE, USE_SW) != 1) ||
@@ -687,6 +700,7 @@ static int run_sm4_cbc(void *pointer)
                 (test_small_pkt_offload(&ti) != 1)
                 )
             )
+#endif
             ) {
             ret = 0;
             break;

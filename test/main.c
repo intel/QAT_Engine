@@ -112,7 +112,9 @@ static int curve = P_CURVE_256;  /* default curve is NIST Prime-Curve P-256 */
 static int kdf = 1;
 static int zero_copy = 0;
 static int cpu_core_info = 0;
+#ifndef OPENSSL_NO_ENGINE
 static int qatPerformOpRetries;
+#endif
 static char *engine_id;
 static ENGINE *engine = NULL;
 static char *default_tls_string = "TLSv1_2";
@@ -1076,9 +1078,11 @@ static void *thread_worker(void *arg)
 
      THREAD_INFO *info = (THREAD_INFO *) arg;
 
+#ifndef OPENSSL_NO_ENGINE
      if (enable_engine && !enable_external_polling){
          ENGINE_ctrl_cmd(engine,"SET_INSTANCE_FOR_THREAD",info->id,NULL,NULL,0);
      }
+#endif
 
      /* mutex lock for thread count */
      pthread_mutex_lock(&mutex);
@@ -1291,9 +1295,11 @@ static void performance_test(void)
     printf("Throughput     = %.2f (Mbps)\n", throughput);
 
     if (enable_engine){
+#ifndef OPENSSL_NO_ENGINE
         ENGINE_ctrl_cmd(engine, "GET_NUM_OP_RETRIES", 0,
                         &qatPerformOpRetries,NULL,0);
         printf("Retries        = %d\n", qatPerformOpRetries);
+#endif
     }
 
     printf("\nCSV summary:\n");
@@ -1507,6 +1513,7 @@ int main(int argc, char *argv[])
     }
 
     /* Load engine for workers */
+#ifndef OPENSSL_NO_ENGINE
     if (enable_engine) {
         ENGINE_load_builtin_engines();
         engine = tests_initialise_engine(engine_id, enable_external_polling,
@@ -1518,6 +1525,7 @@ int main(int argc, char *argv[])
             exit(EXIT_FAILURE);
         }
     }
+#endif
 #ifdef QAT_OPENSSL_PROVIDER
     else if(enable_provider) {
         provider = tests_initialise_provider(prov_id);
@@ -1575,10 +1583,12 @@ int main(int argc, char *argv[])
     else
         performance_test();
 
+#ifndef OPENSSL_NO_ENGINE
     if (engine)
         tests_cleanup_engine(engine, engine_id, enable_async,
                              enable_external_polling,
                              enable_event_driven_polling, sw_fallback);
+#endif
 #ifdef QAT_OPENSSL_PROVIDER
     if (provider)
         tests_cleanup_provider(provider);

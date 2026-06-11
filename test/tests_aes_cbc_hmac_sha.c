@@ -119,10 +119,6 @@ typedef struct _chained_alg_info {
 } chained_alg_info;
 
 static const chained_alg_info alg_i[] = {
-    {TEST_AES128_CBC_HMAC_SHA1, EVP_aes_128_cbc_hmac_sha1,
-     _key16, "AES-128-CBC-HMAC-SHA1"},
-    {TEST_AES256_CBC_HMAC_SHA1, EVP_aes_256_cbc_hmac_sha1,
-     _key32, "AES-256-CBC-HMAC-SHA1"},
     {TEST_AES128_CBC_HMAC_SHA256, EVP_aes_128_cbc_hmac_sha256,
      _key16, "AES-128-CBC-HMAC-SHA256"},
     {TEST_AES256_CBC_HMAC_SHA256, EVP_aes_256_cbc_hmac_sha256,
@@ -166,8 +162,10 @@ static inline int set_pkt_threshold(ENGINE *e, const char* cipher, int thr)
     char thr_str[128];
     int ret = 0;
     snprintf(thr_str, 128, "%s:%d", cipher, thr);
+#ifndef OPENSSL_NO_ENGINE
     ret = ENGINE_ctrl_cmd(e, "SET_CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD",
                           0, (void *)thr_str, NULL, 0);
+#endif
     if (ret != 1)
         PASS_MSG("threshold %d for cipher %s not supported\n", thr, cipher);
 
@@ -1104,6 +1102,7 @@ static int run_aes_cbc_hmac_sha(void *pointer)
      */
     ti.e = args->e;
 
+#ifndef OPENSSL_NO_ENGINE
     if (ti.e) {
         EVP_CIPHER *cipher = (EVP_CIPHER *)ENGINE_get_cipher(ti.e, NID_aes_256_cbc_hmac_sha256);
         /* Set Engine to NULL if this algorithm is disabled in configuration or
@@ -1123,6 +1122,9 @@ static int run_aes_cbc_hmac_sha(void *pointer)
             return 0;
         }
     }
+#else
+    ti.e = NULL;
+#endif /* !OPENSSL_NO_ENGINE */
 
     if (args->performance) {
         if(!strcmp(args->tls_version, "TLSv1"))

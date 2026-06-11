@@ -40,6 +40,9 @@
 #define __TESTS_H
 
 #include <openssl/async.h>
+#ifndef OPENSSL_NO_ENGINE
+#include <openssl/engine.h>
+#endif
 #ifdef QAT_OPENSSL_PROVIDER
 #include <openssl/provider.h>
 #endif
@@ -104,6 +107,7 @@ struct async_args_callback {
 };
 #endif
 
+#ifndef OPENSSL_NO_ENGINE
 ENGINE * tests_initialise_engine(char *engine_id, int enable_external_polling,
                                  int enable_event_driven_polling,
                                  int enable_async, int zero_copy,
@@ -112,6 +116,7 @@ void tests_cleanup_engine(ENGINE *e, char *engine_id, int enable_async,
                           int enable_external_polling,
                           int enable_event_driven_polling,
                           int sw_fallback);
+#endif
 
 #ifdef QAT_OPENSSL_PROVIDER
 OSSL_PROVIDER *tests_initialise_provider(const char *prov_id);

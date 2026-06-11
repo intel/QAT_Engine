@@ -45,7 +45,9 @@
 #include <openssl/err.h>
 #include <openssl/async.h>
 #include <openssl/objects.h>
+#ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
+#endif
 #include <openssl/bio.h>
 
 #include "tests.h"
@@ -127,6 +129,9 @@ static int run_sm4gcm_update(void *args)
 
     EVP_CIPHER_CTX *ctx = NULL;
     EVP_CIPHER_CTX *dec_ctx = NULL;
+#ifdef QAT_OPENSSL_PROVIDER
+    EVP_CIPHER *cipher = NULL;
+#endif
 
 #ifndef QAT_OPENSSL_PROVIDER
     if (!temp_args->enable_async) {
@@ -155,9 +160,23 @@ static int run_sm4gcm_update(void *args)
 
     /* Initialize encryption context for sm4-gcm */
 #ifdef QAT_OPENSSL_PROVIDER
-    ret = EVP_EncryptInit(ctx, EVP_sm4_gcm(), NULL, NULL);
+    cipher = EVP_CIPHER_fetch(NULL, "SM4-GCM", NULL);
+    if (cipher == NULL) {
+        INFO("# FAIL: [%s] --- EVP_CIPHER_fetch() failed for SM4-GCM\n",
+             __func__);
+        goto err;
+    }
+    ret = EVP_EncryptInit(ctx, cipher, NULL, NULL);
 #else
-    ret = EVP_EncryptInit_ex(ctx, EVP_sm4_gcm() , e, NULL, NULL);
+    {
+        const EVP_CIPHER *eng_cipher = ENGINE_get_cipher(e, NID_sm4_gcm);
+        if (eng_cipher == NULL) {
+            INFO("# FAIL: [%s] --- ENGINE_get_cipher() returned NULL for SM4-GCM\n",
+                 __func__);
+            goto err;
+        }
+        ret = EVP_EncryptInit_ex(ctx, eng_cipher, e, NULL, NULL);
+    }
 #endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_EncryptInit_ex() failed: ret %d\n",
@@ -252,9 +271,17 @@ static int run_sm4gcm_update(void *args)
 
     /* Initialize decryption context for sm4-gcm */
 #ifdef QAT_OPENSSL_PROVIDER
-    ret = EVP_DecryptInit(dec_ctx, EVP_sm4_gcm(), NULL, NULL);
+    ret = EVP_DecryptInit(dec_ctx, cipher, NULL, NULL);
 #else
-    ret = EVP_DecryptInit_ex(dec_ctx, EVP_sm4_gcm(), e, NULL, NULL);
+    {
+        const EVP_CIPHER *eng_cipher = ENGINE_get_cipher(e, NID_sm4_gcm);
+        if (eng_cipher == NULL) {
+            INFO("# FAIL: [%s] --- ENGINE_get_cipher() returned NULL for SM4-GCM\n",
+                 __func__);
+            goto err;
+        }
+        ret = EVP_DecryptInit_ex(dec_ctx, eng_cipher, e, NULL, NULL);
+    }
 #endif
     if (ret != 1) {
         INFO("# FAIL: [%s] --- EVP_DecryptInit_ex() failed: ret %d\n",
@@ -348,6 +375,10 @@ static int run_sm4gcm_update(void *args)
     EVP_CIPHER_CTX_free(dec_ctx);
     dec_ctx = NULL;
 
+#ifdef QAT_OPENSSL_PROVIDER
+    EVP_CIPHER_free(cipher);
+    cipher = NULL;
+#endif
     if (ciphertext)
         OPENSSL_free(ciphertext);
     if (dec_cipher)
@@ -360,6 +391,9 @@ err:
         EVP_CIPHER_CTX_free(ctx);
     if (dec_ctx != NULL)
         EVP_CIPHER_CTX_free(dec_ctx);
+#ifdef QAT_OPENSSL_PROVIDER
+    EVP_CIPHER_free(cipher);
+#endif
 
     return ret;
 }
