@@ -99,6 +99,17 @@ QAT_EVP_CIPHER_SM4_GCM get_default_cipher_sm4_gcm()
     }
     return sm4_cipher;
 }
+# else
+static const EVP_CIPHER *qat_sw_get_sm4_gcm_cipher(void)
+{
+    static const EVP_CIPHER *sm4_gcm_cipher = NULL;
+    if (sm4_gcm_cipher == NULL) {
+        sm4_gcm_cipher = EVP_CIPHER_fetch(NULL, "SM4-GCM", NULL);
+        if (sm4_gcm_cipher == NULL)
+            WARN("EVP_CIPHER_fetch from default provider failed for SM4-GCM\n");
+    }
+    return sm4_gcm_cipher;
+}
 # endif
 
 void process_mb_sm4_gcm_decrypt_reqs(mb_thread_data *tlv)
@@ -413,7 +424,7 @@ int qat_sw_sm4_gcm_init(EVP_CIPHER_CTX *ctx, const unsigned char *key,
         }
 
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
-        sts = EVP_CIPHER_meth_get_init(EVP_sm4_gcm())(ctx, key, iv, enc);
+        sts = EVP_CIPHER_meth_get_init(qat_sw_get_sm4_gcm_cipher())(ctx, key, iv, enc);
         if (sts != 1) {
             QATerr(QAT_F_QAT_SW_SM4_GCM_INIT, QAT_R_FALLBACK_INIT_FAILURE);
             WARN("Failed to init the openssl sw cipher context.\n");
@@ -565,7 +576,7 @@ int qat_sw_sm4_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
         }
 
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
-        ret_val = EVP_CIPHER_meth_get_ctrl(EVP_sm4_gcm())(ctx, type, arg, ptr);
+        ret_val = EVP_CIPHER_meth_get_ctrl(qat_sw_get_sm4_gcm_cipher())(ctx, type, arg, ptr);
         if (ret_val != 1) {
             QATerr(QAT_F_QAT_SW_SM4_GCM_CTRL, QAT_R_FALLBACK_INIT_FAILURE);
             WARN("Failed to init the openssl sw cipher context.\n");
@@ -1008,7 +1019,7 @@ use_sw_method:
         goto err;
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, sw_ctx_cipher_data);
-    sts = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_gcm())(ctx, out, in, len);
+    sts = EVP_CIPHER_meth_get_do_cipher(qat_sw_get_sm4_gcm_cipher())(ctx, out, in, len);
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
     DEBUG("SW Decryption Finished sts=%d\n", sts);
@@ -1161,7 +1172,7 @@ use_sw_method:
         goto err;
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, sw_ctx_cipher_data);
-    sts = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_gcm())(ctx, out, in, len);
+    sts = EVP_CIPHER_meth_get_do_cipher(qat_sw_get_sm4_gcm_cipher())(ctx, out, in, len);
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
     DEBUG("SW Encryption Finished sts=%d\n", sts);
@@ -1500,7 +1511,7 @@ use_sw_method:
         goto err;
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, sw_ctx_cipher_data);
-    sts = EVP_CIPHER_meth_get_do_cipher(EVP_sm4_gcm())(ctx, out, in, len);
+    sts = EVP_CIPHER_meth_get_do_cipher(qat_sw_get_sm4_gcm_cipher())(ctx, out, in, len);
 
     EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
     DEBUG("SW Offload Finished sts=%d\n", sts);

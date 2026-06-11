@@ -1208,7 +1208,7 @@ const EVP_CIPHER *qat_create_sm4_gcm_cipher_meth(int nid, int keylen)
     } else {
         qat_sw_sm4_gcm_offload = 0;
         DEBUG("OpenSSL SW SM4 GCM registration\n");
-        return (const EVP_CIPHER *)EVP_sm4_gcm();
+        return (const EVP_CIPHER *)EVP_CIPHER_fetch(NULL, "SM4-GCM", NULL);
     }
     return c;
 }
@@ -1270,7 +1270,7 @@ const EVP_CIPHER *qat_create_sm4_ccm_cipher_meth(int nid, int keylen)
     if (!qat_sw_sm4_ccm_offload) {
         DEBUG("OpenSSL SW SM4 CCM registration\n");
         EVP_CIPHER_meth_free(c);
-        return (const EVP_CIPHER *)EVP_sm4_ccm();
+        return (const EVP_CIPHER *)EVP_CIPHER_fetch(NULL, "SM4-CCM", NULL);
     }
     return c;
 }
@@ -1516,12 +1516,16 @@ void qat_free_ciphers(void)
             case NID_sm4_gcm:
                 if (qat_sw_sm4_gcm_offload)
                     EVP_CIPHER_meth_free(info[i].cipher);
+                else
+                    EVP_CIPHER_free(info[i].cipher);
                 break;
 #endif
 #ifdef ENABLE_QAT_SW_SM4_CCM
             case NID_sm4_ccm:
                 if (qat_sw_sm4_ccm_offload)
                     EVP_CIPHER_meth_free(info[i].cipher);
+                else
+                    EVP_CIPHER_free(info[i].cipher);
                 break;
 #endif
 #ifdef ENABLE_QAT_HW_CHACHAPOLY
