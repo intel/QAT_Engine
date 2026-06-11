@@ -44,7 +44,9 @@
 #include <openssl/sha.h>
 #include <openssl/err.h>
 #include <openssl/async.h>
+#ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
+#endif
 #include <openssl/des.h>
 #include <openssl/rand.h>
 #ifdef QAT_OPENSSL_PROVIDER
@@ -61,6 +63,7 @@
 #include "../qat_utils.h"
 
 # include <fcntl.h>
+#ifndef OPENSSL_NO_ENGINE
 # ifndef __FreeBSD__
 #  include <sys/epoll.h>
 # endif
@@ -82,11 +85,13 @@ static int no_of_inst = 0;
 static int qat_keep_polling = 0;
 pthread_t *testapp_polling_threads;
 pthread_t *testapp_heartbeat_threads;
+#endif /* !OPENSSL_NO_ENGINE */
 int insecure_algorithms_enabled = 0;
 
 char *sw_algo_bitmap = NULL;
 char *hw_algo_bitmap = NULL;
 
+#ifndef OPENSSL_NO_ENGINE
 static int eng_poll_handler(ENGINE *eng, int *poll_status)
 {
     /* Poll for 0 means process all packets on the instance */
@@ -205,6 +210,7 @@ static void *heartbeat_poll_loop(void *engine)
     }
     return NULL;
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 
 #ifdef QAT_OPENSSL_3
@@ -227,7 +233,9 @@ static int test_callback(void *arg)
 int start_async_job(TEST_PARAMS *args, int (*func)(void *))
 {
     int ret = 0;
+#ifndef OPENSSL_NO_ENGINE
     int poll_status = 0;
+#endif
     int jobs_inprogress = 0;
     int i = 0;
     OSSL_ASYNC_FD job_fd = 0;
@@ -242,7 +250,7 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
 #ifdef QAT_OPENSSL_3
     struct async_args_callback **ptr_async_args_callback = NULL;
 #endif
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(OPENSSL_NO_ENGINE)
     struct epoll_event *events = calloc(MAX_EVENTS, sizeof(struct epoll_event));
     if (events == NULL) {
         WARN("# FAIL: Error allocating memory events.\n");
@@ -340,6 +348,7 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
             }
 
             if (select_result == 0) {
+#ifndef OPENSSL_NO_ENGINE
                 if (args->e) {
                     if (strncmp(args->engine_id, QAT_ENGINE_ID,
                                 QAT_ENGINE_ID_LENGTH) == 0) {
@@ -357,6 +366,7 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
                         }
                     }
                 }
+#endif /* !OPENSSL_NO_ENGINE */
                 continue;
             }
 #ifdef QAT_OPENSSL_3
@@ -403,6 +413,7 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
                 break;
             }
         }
+#ifndef OPENSSL_NO_ENGINE
         if (args->e) {
             if (strncmp(args->engine_id, QAT_ENGINE_ID, QAT_ENGINE_ID_LENGTH)
                 == 0) {
@@ -418,8 +429,9 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
                 }
             }
         }
+#endif /* !OPENSSL_NO_ENGINE */
     } /* while (jobs_inprogress > 0) */
-#ifndef __FreeBSD__
+#if !defined(__FreeBSD__) && !defined(OPENSSL_NO_ENGINE)
     free(events);
 #endif
 #ifdef QAT_OPENSSL_3
@@ -475,6 +487,7 @@ err:
 }
 #endif
 
+#ifndef OPENSSL_NO_ENGINE
 /******************************************************************************
 * function:
 *   tests_initialise_engine(char *engine_id, int enable_external_polling,
@@ -685,6 +698,7 @@ void tests_cleanup_engine(ENGINE * e, char *engine_id, int enable_async,
     }
     DEBUG("QAT Engine Freed ! \n");
 }
+#endif /* !OPENSSL_NO_ENGINE */
 
 /******************************************************************************
 * function:
