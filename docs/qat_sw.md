@@ -7,7 +7,7 @@ Intel&reg; Crypto Multi-buffer library based on Intel&reg; AVX-512 Integer
 Fused Multiply Add (IFMA) operations.
 
 This Support, when enabled by the user using the
-[build instructions](install.md#build-qat-engine-for-qat_sw) for qat_sw target
+[build instructions](install.md#build-qat-provider-for-qat_sw) for qat_sw target
 performs operation by batching up multiple requests maintained in queues
 and uses the OpenSSL asynchronous infrastructure to submit the batched requests
 up to 8 to Crypto Multi-buffer API which processes them in parallel using AVX512

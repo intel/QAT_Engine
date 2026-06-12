@@ -66,27 +66,30 @@
 ## Known Issues
 
 ### Functional
-* AES-CBC-HMAC-SHA chained ciphers do not support the **pipeline feature** when built with
-  OpenSSL 3.x as the corresponding support is not available in OpenSSL 3.x -
+* AES-CBC-HMAC-SHA chained ciphers do not support the **pipeline feature** with the QAT
+  Engine on OpenSSL 3.x. This is due to the lack of required Engine framework support
+  in OpenSSL 3.x. As ENGINE support is deprecated in OpenSSL 3.x and removed in
+  OpenSSL 4.0, this limitation is not expected to be addressed upstream. Functionality
+  is unaffected, but pipeline-related performance optimizations are unavailable -
   [OpenSSL#18298](https://github.com/openssl/openssl/issues/18298)
-* There is an issue in the **sshd** daemon application when using QAT with the default OpenSSL.
-  sshd closes the file descriptors associated with the QAT engine and driver after
-  initialising OpenSSL. A similar issue previously prevented the ability to ssh out of
-  the system using the QAT engine in versions of the ssh application before OpenSSH 8.7.
-  The issue has been fixed with this commit [c9f7bba](https://github.com/openssh/openssh-portable/commit/c9f7bba2e6f70b7ac1f5ea190d890cb5162ce127).
-  This update can be applied to sshd to work around the issue.
 * Known issue with QAT_SW SM2 in `ntls` mode since QAT_SW SM2 doesn't have plain sign and
   verify operation support in engine. Disable QAT_SW SM2 to workaround the issue with ntls.
   No issues with TLS mode since it uses digestsign and digestverify which is supported.
 * Known issue in Software fallback with OpenSSL 3.x Engine (only) when disabled via co-existence
   algo bitmap for algorithms PRF, HKDF, SM2 & SM3. QAT_HW PRF and QAT_HW HKDF are
-  not accelerated in OpenSSL 3.x engine due to the issue [OpenSSL#21627](https://github.com/openssl/openssl/discussions/21627)
-* Known issue in Co-existence mode with QAT provider on OpenSSL 3.2 and above during QAT_SW offload
-  when QAT_HW modules are not present.
-* Known build issue with the latest commit of BoringSSL; hence, IPP Crypto 2021.10 should be used
+  not accelerated in OpenSSL 3.x engine due to the issues
+  [OpenSSL#21627](https://github.com/openssl/openssl/discussions/21627) and
+  [OpenSSL#19047](https://github.com/openssl/openssl/issues/19047)
+* Known issue in Co-existence mode with QAT provider on OpenSSL 3.2 and above when QAT_HW is
+  unavailable at runtime (driver not loaded or all devices in the `down` state), algorithms
+  that are QAT_HW-only in the co-existence build (e.g. `TLS1-PRF`) remain advertised by the
+  provider and requests fail instead of being served by OpenSSL software, since no QAT_SW
+  fallback exists for them. Algorithms that have a QAT_SW implementation (RSA, ECDSA, ECDH,
+  X25519, AES-GCM, HKDF, etc.) correctly offload via QAT_SW in this configuration.
+* Known build issue with the latest commit of BoringSSL; hence, IPP Crypto v2.1.0 should be used
   for the QAT engine with BoringSSL (use the BoringSSL commit mentioned in the Software requirements section).
-* Known undefined symbol linking error when enabling QAT HW SM2 via `--enable-qat_hw_sm2` with
-  either the Engine (`qatengine`) or the Provider (`qatprovider`) build.
+* Tongsuo (BabaSSL): QAT Provider `openssl speed` fails for `aes-256-ccm` decryption (sync and async) and
+  QAT Engine/QAT Provider SM2 `testapp` runs fail.
 ### Performance
 * There is a known performance scaling issue (performance drop with threads >32)
   with ECDSA ciphers in the QAT Software acceleration using multithread mode
@@ -110,7 +113,7 @@
 * Performance scaling is not linear in QAT2.0 supported platforms for ECDSA and Chacha-Poly algorithms.
 * Performance drop observed with ECDSAP256 algorithm in the OpenSSL speed tests with FreeBSD 14 intree driver.
 * Performance drop observed in QAT Engine with [async-nginx](https://github.com/intel/asynch_mode_nginx/tree/master) on FreeBSD OS with asymmetric and symmetric ciphers.
-* BoringSSL on FreeBSD OS is validated functionally with limited performance validation on Nginx QUIC POC.
+* BoringSSL on FreeBSD OS is validated functionally with limited performance validation on Nginx.
 * QAT_HW acceleration for **HKDF**, **ChaCha20-Poly1305**, and **AES-256-GCM** is experimental
   and not recommended for production performance use cases.
 * Performance drop observed with **ECDSA P-384** in QAT_HW and co-existence offload modes when using the Engine interface

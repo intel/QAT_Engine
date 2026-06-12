@@ -65,7 +65,7 @@ for the following algorithms:
 
 ## Common Features to qat_hw & qat_sw
 * [BoringSSL Support](bssl_support.md)
-* [OpenSSL Provider Support](qat_common.md#openssl-provider-support)
+* [QAT Provider Interface](qat_common.md#qat-provider-interface)
 * [QAT_HW & QAT_SW Co-existence](qat_coex.md#qat-hw-and-qat-sw-co-existence)
 * [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification)
 * [Hybrid PQC Interoperability](qat_common.md#interoperability-with-openssl-default-provider-for-hybrid-pqc)

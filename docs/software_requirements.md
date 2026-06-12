@@ -22,7 +22,7 @@ and also from the latest versions from the links below.
 * [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v2.0**
 
 ## Crypto Libraries:
-* [OpenSSL\*][9] 3.0.21, 3.2.6, 3.3.7, 3.4.6, 3.5.7, 3.6.3 & 4.0.1
+* [OpenSSL\*][9] 3.0.21, 3.5.7, 3.6.3 & 4.0.1
 * BoringSSL\* - [0.20250415.0][10]
 * [Tongsuo][11] - 8.4.0 (BabaSSL)
 

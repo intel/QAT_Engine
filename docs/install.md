@@ -22,7 +22,7 @@ Please refer [here](../dockerfiles/README.md) for more details.
 ## Installing from Source code.
 QAT Engine supports various crypto libraries and QAT generations with
 both hardware and software based accelerations. Follow the steps below
-to build qatengine for specific target.
+to build qatengine/qatprovider for specific target.
 
 Clone the the Intel&reg; QAT OpenSSL\* Engine Github Repo using:
 ```
@@ -36,10 +36,11 @@ libtool and pkg-config) installed in the system.
 
 - [Install with make depend target](#install-with-make-depend-target)
 - [Install Pre-requisites](#install-pre-requisites)
-- [Build QAT Engine for QAT_HW](#build-qat-engine-for-qat_hw)
-- [Build QAT Engine for QAT_SW](#build-qat-engine-for-qat_sw)
-- [Build QAT Engine with QAT_HW & QAT_SW Co-existence ](#build-qat-engine-with-qat_hw--qat_sw-co-existence)
 - [Build with QAT Provider Interface](#build-with-qat-provider-interface)
+- [Build QAT Provider for QAT_HW](#build-qat-provider-for-qat_hw)
+- [Build QAT Provider for QAT_SW](#build-qat-provider-for-qat_sw)
+- [Build QAT Provider with QAT_HW & QAT_SW Co-existence ](#build-qat-provider-with-qat_hw--qat_sw-co-existence)
+- [Build with QAT Engine Interface](#build-with-qat-engine-interface)
 - [Build Instructions for BoringSSL Library](bssl_support.md)
 
 ### Install with make depend target
@@ -64,7 +65,8 @@ make install
 
 Here `make depend` will clone the dependent libraries and install QAT_HW driver in /QAT
 and QAT_SW in the default path(`/usr/local` for cryptography-primitives & `/usr` for ipsec_mb).
-`qatengine.so` library will be installed in `/usr/local/ssl/lib64/engines-3` where
+By default `qatprovider.so` is installed to `/usr/local/ssl/lib64/ossl-modules`; if built
+with `--enable-qat_engine`, `qatengine.so` is installed to `/usr/local/ssl/lib64/engines-3`,
 openssl is also installed as mentioned in the openssl install flag.
 Please note make depend target is not supported in FreeBSD OS, Virtualized
 environment, BoringSSL, BabaSSL and qatlib dependency build.
@@ -76,8 +78,10 @@ Install QAT_HW and QAT_SW dependencies based on your acceleration choice the pla
 
 ### Install OpenSSL or Tongsuo
 This step is not required if building against system prebuilt OpenSSL\*.
-When using the prebuild system OpenSSL\* the qatengine shared library will
-be installed in the system OpenSSL engines directory.
+When using the prebuild system OpenSSL\* the qatprovider shared library will be
+installed in the system OpenSSL modules directory (`ossl-modules`); for
+`--enable-qat_engine` builds, `qatengine.so` is installed in the system OpenSSL
+engines directory (`engines-3`).
 
 ```
 git clone https://github.com/openssl/openssl.git
@@ -161,7 +165,27 @@ from [Crypto_MB README](https://github.com/intel/cryptography-primitives/tree/de
 and Intel® Multi-Buffer Crypto for IPsec Library using the instructions
 from the [intel-ipsec_mb README](https://github.com/intel/intel-ipsec-mb).
 
-### Build QAT Engine for QAT_HW
+### Build with QAT Provider Interface
+The QAT Provider (`qatprovider`) is the default and recommended interface for
+OpenSSL 3.x and later. `qatprovider.so` is built by default, and the
+`--enable-qat_provider` configure flag is deprecated.
+
+After installation, `qatprovider.so` is placed in the OpenSSL\* modules
+directory (`<openssl-install>/lib64/ossl-modules/`). Set `OPENSSL_MODULES`
+if using a non-default path:
+
+```
+export OPENSSL_MODULES=/usr/local/ssl/lib64/ossl-modules
+```
+
+Refer to [OpenSSL\* Configuration File](openssl_config.md) for loading the
+provider via `openssl.cnf`, and to [QAT Provider Interface](qat_common.md#qat-provider-interface)
+for test commands and further details. Note that when `qatprovider` is activated via
+`openssl.cnf`, the `default` provider is not loaded automatically — ensure it is also
+listed in the providers section to avoid "unknown algorithm" errors.
+
+
+### Build QAT Provider for QAT_HW
 
 Build steps for QAT1.x or QAT2.x **OOT driver** unpacked within /QAT using OpenSSL\*
 built from source and installed to `/usr/local/ssl`.  If System Openssl
@@ -234,19 +258,14 @@ make
 make install
 ```
 
-### Build QAT Engine for QAT_SW
+### Build QAT Provider for QAT_SW
 
-When building the QAT Engine with `crypto_mb` and `intel_ipsec_mb` installed
+When building the QAT Provider with `crypto_mb` and `intel_ipsec_mb` installed
 in their default locations (`/usr/local/lib` for `crypto_mb` and `/usr/lib`
 for `intel_ipsec_mb`) and using the system OpenSSL, follow these steps:
 
 - In newer versions of the `crypto_mb` library, the libraries are
-  installed to `/usr/local/lib/intel64` by default.
-- You must manually copy these libraries to `/usr/local/lib`
-  so that the QAT Engine can link to them correctly during
-  the build process.
-- If you do not copy the libraries, the QAT Engine will fail
-  to build against the `crypto_mb` library.
+  installed to `/usr/local/lib` by default.
 
 If you installed `crypto_mb` and `intel_ipsec_mb` using a custom `prefix`,
 provide the corresponding paths using the configure flags:
@@ -266,7 +285,7 @@ make install
 Note : If QAT_HW qatlib intree driver is installed in the system then configure `--disable-qat_hw`
 to use QAT_SW only acceleration.
 
-### Build QAT Engine with QAT_HW & QAT_SW Co-existence 
+### Build QAT Provider with QAT_HW & QAT_SW Co-existence
 
 Build steps for QAT_HW & QAT_SW Co-existence with QAT_HW 1.x or 2.0 OOT
 driver unpacked within `/QAT` and QAT_SW libraries installed to default path
@@ -286,26 +305,6 @@ make install
 The default behaviour and working mechanism of co-existence is described
 [here](qat_coex.md#qat_hw-and-qat_sw-co-existence)
 
-### Build with QAT Provider Interface
-
-The QAT Provider (`qatprovider`) is the recommended interface for OpenSSL 3.x
-applications. Add `--enable-qat_provider` to any of the build configurations
-above to build `qatprovider.so` instead of (or alongside) the engine.
-
-After installation, `qatprovider.so` is placed in the OpenSSL\* modules
-directory (`<openssl-install>/lib64/ossl-modules/`). Set `OPENSSL_MODULES`
-if using a non-default path:
-
-```
-export OPENSSL_MODULES=/usr/local/ssl/lib64/ossl-modules
-```
-
-Refer to [OpenSSL\* Configuration File](openssl_config.md) for loading the
-provider via `openssl.cnf`, and to [qat_common.md](qat_common.md#openssl-v3-provider-support)
-for test commands and further details. Note that when `qatprovider` is activated via
-`openssl.cnf`, the `default` provider is not loaded automatically — ensure it is also
-listed in the providers section to avoid "unknown algorithm" errors.
-
-Refer [BoringSSL section](bssl_support.md)
-for steps to build the  Intel® QAT Engine for BoringSSL\* library
-which supports RSA and ECDSA QAT Hardware and QAT Software Acceleration using BoringSSL.
+### Build with QAT Engine Interface
+To build the legacy Engine interface, configure QAT Engine with the
+`--enable-qat_engine` configure flag.
