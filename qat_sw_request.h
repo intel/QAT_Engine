@@ -98,6 +98,7 @@ typedef struct _rsa_priv_op_data {
     const BIGNUM *iqmp;
     RSA *rsa;
     int padding;
+    int implicit_rejection;
     ASYNC_JOB *job;
     int *sts;
     int disable_lenstra_check;

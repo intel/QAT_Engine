@@ -53,6 +53,9 @@
 #include <pthread.h>
 #include <openssl/rsa.h>
 #include <openssl/err.h>
+#include <openssl/hmac.h>
+#include <openssl/evp.h>
+#include <openssl/sha.h>
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
@@ -75,6 +78,7 @@
 #include "icp_sal_poll.h"
 #include "qat_evp.h"
 #include "qat_constant_time.h"
+#include "qat_rsa_ciphertext.h"
 
 #ifdef ENABLE_QAT_SW_RSA
 # include "qat_sw_rsa.h"
@@ -1173,19 +1177,23 @@ exit:
 *                          const unsigned char *from,
 *                          unsigned char *to,
 *                          RSA * rsa,
-*                          int padding)
+*                          int padding,
+*                          int implicit_rejection)
 *
-* @param flen    [IN]  - length in bytes of input
-* @param from    [IN]  - pointer to the input
-* @param to      [OUT] - pointer to output
-* @param rsa     [IN]  - pointer to the private key structure
-* @param padding [IN]  - Padding scheme
+* @param flen               [IN]  - length in bytes of input
+* @param from               [IN]  - pointer to the input
+* @param to                 [OUT] - pointer to output
+* @param rsa                [IN]  - pointer to the private key structure
+* @param padding            [IN]  - Padding scheme
+* @param implicit_rejection [IN]  - if non-zero, apply implicit rejection
+*                                   (Marvin workaround) for RSA_PKCS1_PADDING
 *
 * description:
 * description: Perform an RSA private decrypt. (RSA Decrypt)
 ******************************************************************************/
 int qat_rsa_priv_dec(int flen, const unsigned char *from,
-                     unsigned char *to, RSA *rsa, int padding)
+                     unsigned char *to, RSA *rsa, int padding,
+                     int implicit_rejection)
 {
     int rsa_len = 0;
     int output_len = -1;
@@ -1303,12 +1311,15 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
 
     switch (padding) {
     case RSA_PKCS1_PADDING:
-        output_len =
-            RSA_padding_check_PKCS1_type_2(to,
-                                           rsa_len,
-                                           output_buffer->pData,
-                                           output_buffer->dataLenInBytes,
-                                           rsa_len);
+#ifndef QAT_BORINGSSL
+        /* qat_rsa_pkcs1_type2_check() is not available in BoringSSL builds;
+         * BoringSSL always uses RSA_NO_PADDING for HW private decrypt so this
+         * case is unreachable there. */
+        output_len = qat_rsa_pkcs1_type2_check(from, flen, to, rsa, rsa_len,
+                                               output_buffer->pData,
+                                               output_buffer->dataLenInBytes,
+                                               implicit_rejection);
+#endif
         break;
     case RSA_PKCS1_OAEP_PADDING:
         output_len =
@@ -1368,7 +1379,8 @@ int qat_rsa_priv_dec(int flen, const unsigned char *from,
             DEBUG("- Switch to QAT_SW mode.\n");
             if (qat_sw_rsa_priv_req > 0)
                 --qat_sw_rsa_priv_req;
-            return multibuff_rsa_priv_dec(flen, from, to, rsa, padding);
+            return multibuff_rsa_priv_dec(flen, from, to, rsa, padding,
+                                          implicit_rejection);
         }
 #endif
         WARN("- Fallback to software mode.\n");
@@ -1802,7 +1814,7 @@ int qat_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
         return 0;
     }
 
-    len = qat_rsa_priv_dec(in_len, in, out, rsa, padding);
+    len = qat_rsa_priv_dec(in_len, in, out, rsa, padding, 0);
     if(0 >= len) {
         _ret = ASYNC_current_job_last_check_and_get();
         return 0;

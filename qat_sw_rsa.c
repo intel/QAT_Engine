@@ -61,6 +61,7 @@
 #include "crypto_mb/rsa.h"
 #include "e_qat.h"
 #include "qat_sw_rsa.h"
+#include "qat_rsa_ciphertext.h"
 #include "qat_events.h"
 #include "qat_fork.h"
 #include "qat_utils.h"
@@ -445,12 +446,30 @@ void process_RSA_priv_reqs(mb_thread_data *tlv, int rsa_bits)
             /* Remove Padding here if needed */
             if (*rsa_priv_req_array[req_num]->sts == 1 &&
                     rsa_priv_req_array[req_num]->type == RSA_MULTIBUFF_PRIV_DEC) {
-                *rsa_priv_req_array[req_num]->sts =
-                    multibuff_rsa_check_padding_priv_dec(
-                            rsa_priv_req_array[req_num]->padded_buf,
-                            rsa_priv_req_array[req_num]->flen,
-                            rsa_priv_req_array[req_num]->to,
-                            rsa_priv_req_array[req_num]->padding);
+#ifndef QAT_BORINGSSL
+                if (rsa_priv_req_array[req_num]->implicit_rejection &&
+                        rsa_priv_req_array[req_num]->padding == RSA_PKCS1_PADDING) {
+                    *rsa_priv_req_array[req_num]->sts =
+                        qat_rsa_pkcs1_type2_check(
+                                rsa_priv_req_array[req_num]->from,
+                                rsa_priv_req_array[req_num]->flen,
+                                rsa_priv_req_array[req_num]->to,
+                                rsa_priv_req_array[req_num]->rsa,
+                                rsa_priv_req_array[req_num]->flen,
+                                rsa_priv_req_array[req_num]->padded_buf,
+                                rsa_priv_req_array[req_num]->flen,
+                                1);
+                } else {
+#endif /* !QAT_BORINGSSL */
+                    *rsa_priv_req_array[req_num]->sts =
+                        multibuff_rsa_check_padding_priv_dec(
+                                rsa_priv_req_array[req_num]->padded_buf,
+                                rsa_priv_req_array[req_num]->flen,
+                                rsa_priv_req_array[req_num]->to,
+                                rsa_priv_req_array[req_num]->padding);
+#ifndef QAT_BORINGSSL
+                }
+#endif /* !QAT_BORINGSSL */
             }
             if (rsa_priv_req_array[req_num]->job) {
 #ifdef QAT_BORINGSSL
@@ -912,7 +931,8 @@ use_sw_method:
 }
 
 int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
-                           unsigned char *to, RSA *rsa, int padding)
+                           unsigned char *to, RSA *rsa, int padding,
+                           int implicit_rejection)
 {
     int sts = -1;
     int ret = -1;
@@ -1072,6 +1092,7 @@ int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
     rsa_priv_req->from = from;
     rsa_priv_req->rsa = rsa;
     rsa_priv_req->padding = padding;
+    rsa_priv_req->implicit_rejection = implicit_rejection;
     rsa_priv_req->job = job;
     rsa_priv_req->e = e;
     rsa_priv_req->n = n;
@@ -1650,7 +1671,7 @@ int mb_bssl_rsa_priv_decrypt(RSA *rsa, size_t *out_len, uint8_t *out,
         return 0;
     }
 
-    len = multibuff_rsa_priv_dec(in_len, in, out, rsa, padding);
+    len = multibuff_rsa_priv_dec(in_len, in, out, rsa, padding, 0);
     if(0 >= len) {
         _ret = ASYNC_current_job_last_check_and_get();
         return 0;
