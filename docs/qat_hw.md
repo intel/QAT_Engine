@@ -85,8 +85,9 @@ Set the below envs to compile Driver against the same version of OpenSSL if need
  1. Manually set the `enable_sw_fallback = 1` in the e_qat.c otherwise this needs to
  be turned on with Engine Ctrl messages at runtime from the application.
  2. Build QAT Engine as per the steps mentioned in the Example build in the Installation Instructions section.
- 3. Run OpenSSL speed application with qatengine from <path_to_OpenSSL_install>/bin
-    e.g., `./openssl speed -engine qatengine -elapsed rsa2048`
+ 3. Run OpenSSL speed application with qatengine/qatprovider from <path_to_OpenSSL_install>/bin
+    e.g., `./openssl speed -engine qatengine -elapsed rsa2048` (Engine build)
+    or   `./openssl speed -provider qatprovider -provider default -elapsed rsa2048` (Provider build)
  4. Inject device failure using the command.
        `sysctl dev.qat.0.heartbeat_sim_fail=1`
  5. Check device status(0 - device failure, 1 - device active).

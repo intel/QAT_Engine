@@ -9,6 +9,11 @@ protected within the QAT IP while in transport or in use.
 The QAT_Engine with KPT feature can expose the KPT2.0 asymmetric capability
 to the other applications e.g. Nginx, OpenSSL, etc.
 
+> **Note:** KPT is supported via the **Engine** interface (`qatengine`) only.
+> The QAT Provider (`qatprovider`) does not currently expose KPT functionality;
+> use `--enable-qat_engine` together with `--enable-qat_hw_kpt` to build with
+> KPT support.
+
 ### Supported Algorithms
 * Asymmetric Cryptography:
   * RSA 512/1024/2048/4096/8192

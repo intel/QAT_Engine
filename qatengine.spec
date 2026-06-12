@@ -17,7 +17,11 @@
 Name:           qatengine
 Version:        2.2.0
 Release:        1%{?dist}
+%if %{with provider}
+Summary:        Intel QuickAssist Technology (QAT) OpenSSL Provider
+%else
 Summary:        Intel QuickAssist Technology (QAT) OpenSSL Engine
+%endif
 
 # Most of the source code is BSD, with the following exceptions:
 # - qat.txt, qat_err.h & qat_err.c files are Apache License 2.0
@@ -41,10 +45,17 @@ BuildRequires:  intel-ipsec-mb-devel >= 2.0
 BuildRequires:  openssl
 
 %description
+%if %{with provider}
+This package provides the Intel QuickAssist Technology OpenSSL Provider
+(an OpenSSL Plug-In Provider) which provides cryptographic acceleration
+for both hardware and optimized software using Intel QuickAssist Technology
+enabled Intel platforms.
+%else
 This package provides the Intel QuickAssist Technology OpenSSL Engine
 (an OpenSSL Plug-In Engine) which provides cryptographic acceleration
 for both hardware and optimized software using Intel QuickAssist Technology
 enabled Intel platforms.
+%endif
 
 %prep
 %autosetup -n QAT_Engine-%{version}

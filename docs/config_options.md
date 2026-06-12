@@ -22,16 +22,20 @@ The following is a list of the options that can be used with the
 ```
 --with-openssl_install_dir=/path/to/openssl_install
     Specify the path to the top level directory where the OpenSSL* was installed to.
-    When this path is specified the qatengine.so engine library is copied
-    into the folder containing the other dynamic engines during the 'make install'.
+    When this path is specified the qatprovider.so library is copied into the
+    OpenSSL modules folder (`ossl-modules`) during 'make install'. For
+    `--enable-qat_engine` builds the qatengine.so library is copied into the
+    folder containing the other dynamic engines (`engines-3`) instead.
 
     For example if you installed OpenSSL* to its default location of
     `/usr/local/ssl` then you would use the following setting:
     --with-openssl_install_dir=/usr/local/ssl
 
     If using the system OpenSSL, this option is not required.
-    In this case qatengine.so is installed in the system engines directory
-    (e.g., `/usr/lib64/engines-3` for OpenSSL 3.x).
+    In this case qatprovider.so is installed in the system OpenSSL modules
+    directory (e.g., `/usr/lib64/ossl-modules`); for engine
+    builds qatengine.so is installed in the system engines directory
+    (e.g., `/usr/lib64/engines-3`).
 
 ```
 ### qat_sw options
@@ -107,16 +111,22 @@ The following is a list of the options that can be used with the
     is different from the default.
 
 --enable-qat_provider
-    Enables the QAT Provider (`qatprovider`) interface for OpenSSL 3.x.
-    The default, if not specified, is the Engine interface.
+    Deprecated. The QAT Provider (`qatprovider`) is enabled by default. This
+    option is retained for backward compatibility and has no effect.
+
+--enable-qat_engine
+    Enables the legacy QAT Engine interface. The QAT Engine is disabled by default. Specify
+    this option to build and enable the legacy QAT Engine.
+
 ```
-Refer to [OpenSSL Provider Support](qat_common.md#openssl-provider-support) for supported algorithms and test examples.
+Refer to [QAT Provider Interface](qat_common.md#qat-provider-interface) for supported algorithms and test examples.
 ```
 
 --enable-qat_fips
-    Enables FIPS support when provider is enabled. Valid only
-    when built against OpenSSL 3.0.8 along with the flag `--enable-qat_provider`,
-    (disabled by default).
+    Enables FIPS support for the qatprovider. It is supported when building
+    against OpenSSL 3.0.8 and later. While this option enables FIPS-compatible
+    functionality in the qatprovider, FIPS compliance can only be claimed when
+    it is used as part of a validated OpenSSL FIPS configuration.
 ```
 Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for more details.
 ```

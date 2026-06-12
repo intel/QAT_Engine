@@ -47,6 +47,7 @@ to query the number of in-flight requests currently outstanding on the QAT_HW
 device. When this count reaches a configured threshold, subsequent requests are
 offloaded to QAT_SW rather than being submitted to QAT_HW, achieving co-existence
 without needing to wait for an explicit `RETRY` response from the hardware.
+Note that in intree mode a QAT_HW failure is returned as an error to the caller.
 
 ```mermaid
 flowchart TD
@@ -56,12 +57,13 @@ flowchart TD
     C -- No  --> E[Route to QAT_SW]
     D --> F{QAT_HW\nComplete?}
     F -- Success --> G([Return Result])
-    F -- Error   --> E
+    F -- Error   --> I([Return Error])
     E --> H[Process via\nQAT_SW multibuffer]
     H --> G
 
     style A fill:#dae8fc,stroke:#6c8ebf,color:#000000
     style G fill:#dae8fc,stroke:#6c8ebf,color:#000000
+    style I fill:#f8cecc,stroke:#b85450,color:#000000
     style B fill:#fff2cc,stroke:#d6b656,color:#000000
     style D fill:#fff2cc,stroke:#d6b656,color:#000000
     style E fill:#fff2cc,stroke:#d6b656,color:#000000

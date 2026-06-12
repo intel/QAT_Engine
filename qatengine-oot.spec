@@ -27,7 +27,7 @@
 Name:       QAT_Engine
 Version:    2.2.0
 Release:    1%{?dist}
-Summary:    Intel QuickAssist Technology(QAT) OpenSSL Engine
+Summary:    Intel QuickAssist Technology(QAT) OpenSSL Provider
 License:    BSD-3-Clause AND OpenSSL
 
 Source0:    https://github.com/intel/QAT_Engine/archive/refs/tags/v%{version}.tar.gz#/%{name}-%{version}.tar.gz
@@ -39,8 +39,8 @@ Source4:    https://github.com/intel/intel-ipsec-mb/archive/refs/tags/v%{ipsecve
 %endif
 
 %description
-This package provides the Intel QuickAssist Technology OpenSSL Engine
-(an OpenSSL Plug-In Engine) which provides cryptographic acceleration
+This package provides the Intel QuickAssist Technology OpenSSL Provider
+(an OpenSSL Plug-In Provider) which provides cryptographic acceleration
 for both hardware and optimized software using Intel QuickAssist Technology
 enabled Intel platforms.
 
@@ -99,7 +99,7 @@ ln -sf libcrypto_mb.so.%{ippcpfullversion} libcrypto_mb.so
 
 cp -rf %{buildroot}/%{_libdir}/libcrypto_mb.so.%{ippcpfullversion} %{buildroot}/%{_prefix}/local/lib
 cp -rf %{buildroot}/%{_libdir}/libcrypto_mb.so.%{ippcp_major} %{buildroot}/%{_prefix}/local/lib
-cp -rf %{buildroot}/%{_libdir} libcrypto_mb.so %{buildroot}/%{_prefix}/local/lib
+cp -rf %{buildroot}/%{_libdir}/libcrypto_mb.so %{buildroot}/%{_prefix}/local/lib
 
 cd %{_builddir}/%{ipsecfull}
 cd lib
@@ -130,8 +130,8 @@ autoreconf -ivf
 %endif
 %make_build
 
-install -d %{buildroot}/%{_prefix}/local/ssl/lib64/engines-3
-cp -rf %{_builddir}/%{name}-%{version}/.libs/qatengine.so %{buildroot}/%{_prefix}/local/ssl/lib64/engines-3
+install -d %{buildroot}/%{_prefix}/local/ssl/lib64/ossl-modules
+cp -rf %{_builddir}/%{name}-%{version}/.libs/qatprovider.so %{buildroot}/%{_prefix}/local/ssl/lib64/ossl-modules
 
 install -d %{buildroot}/%{_libdir}/build
 cp -rf %{_builddir}/%{qatdriver}/build/libusdm_drv_s.so %{buildroot}/%{_libdir}
@@ -150,8 +150,6 @@ fi
 rm -rf %{buildroot}
 
 %files
-%exclude %{_prefix}/local/lib/lib64
-%{_prefix}/local/ssl/lib64/engines-3/qatengine.so
 %{_prefix}/local/ssl/lib64
 %{_prefix}/local/ssl/bin
 %{_prefix}/local/ssl/include
