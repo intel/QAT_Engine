@@ -54,7 +54,8 @@
 int qat_rsa_priv_enc(int flen, const unsigned char *from,
                             unsigned char *to, RSA *rsa, int padding);
 int qat_rsa_priv_dec(int flen, const unsigned char *from,
-                            unsigned char *to, RSA *rsa, int padding);
+                            unsigned char *to, RSA *rsa, int padding,
+                            int implicit_rejection);
 int qat_rsa_pub_enc(int flen, const unsigned char *from,
                            unsigned char *to, RSA *rsa, int padding);
 int qat_rsa_pub_dec(int flen, const unsigned char *from,

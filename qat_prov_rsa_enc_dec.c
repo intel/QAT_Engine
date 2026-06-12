@@ -69,6 +69,20 @@
 # define QAT_MAX_NAME_SIZE           50/* Algorithm name */
 # define QAT_MAX_PROPQUERY_SIZE     256/* Property query strings */
 
+/* Return the implicit_rejection flag from ctx.
+ * The struct field only exists on OpenSSL >= 3.2; on older builds the
+ * parameter cannot be set by any caller so 0 is always the correct value. */
+static inline int
+qat_ctx_implicit_rejection(const QAT_PROV_RSA_ENC_DEC_CTX *ctx)
+{
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    return (int)ctx->implicit_rejection;
+# else
+    (void)ctx;
+    return 0;
+# endif
+}
+
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
 
 static OSSL_ITEM qat_padding_item[] = {
@@ -387,17 +401,18 @@ static int qat_rsa_public_encrypt(int flen, const unsigned char *from,
  * - 0 or a negative value on error.
  ******************************************************************************/
 static int qat_rsa_private_decrypt(int flen, const unsigned char *from,
-                                    unsigned char *to, RSA *rsa, int padding)
+                                    unsigned char *to, RSA *rsa, int padding,
+                                    int implicit_rejection)
 {
     int ret = 0;
 #ifdef ENABLE_QAT_HW_RSA
     if (qat_hw_rsa_offload)
-        ret = qat_rsa_priv_dec(flen, from, to, rsa, padding);
+        ret = qat_rsa_priv_dec(flen, from, to, rsa, padding, implicit_rejection);
 #endif
 
 #ifdef ENABLE_QAT_SW_RSA
     if (qat_sw_rsa_offload)
-        ret = multibuff_rsa_priv_dec(flen, from, to, rsa, padding);
+        ret = multibuff_rsa_priv_dec(flen, from, to, rsa, padding, implicit_rejection);
 #endif
     return ret;
 }
@@ -538,7 +553,7 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
             return 0;
         }
         ret = qat_rsa_private_decrypt(inlen, in, tbuf, ctx->rsa,
-		                      RSA_NO_PADDING);
+                                      RSA_NO_PADDING, 0);
         /*
          * With no padding then, on success ret should be len, otherwise an
          * error occurred (non-constant time)
@@ -580,7 +595,8 @@ static int qat_prov_rsa_decrypt(void *vprsactx, unsigned char *out,
 	    }
 	    OPENSSL_free(tbuf);
     } else {
-        ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode);
+        ret = qat_rsa_private_decrypt(inlen, in, out, ctx->rsa, ctx->pad_mode,
+                                      qat_ctx_implicit_rejection(ctx));
     }
     size_t ret_len = (ret > 0) ? (size_t)ret : 0;
     size_t mask = (ret > 0) ? 0 : (size_t)-1;
@@ -948,6 +964,9 @@ static int qat_prov_rsa_init(void *vprsactx, void *vrsa,
     QAT_RSA_free(ctx->rsa);
     ctx->rsa = vrsa;
     ctx->operation = operation;
+# if OPENSSL_VERSION_NUMBER >= 0x30200000
+    ctx->implicit_rejection = 1;
+# endif
 
     switch (RSA_test_flags(ctx->rsa, RSA_FLAG_TYPE_MASK)) {
     case RSA_FLAG_TYPE_RSA:

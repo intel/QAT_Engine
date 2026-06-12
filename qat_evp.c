@@ -1805,6 +1805,36 @@ void qat_free_EC_methods(void)
 }
 
 
+#ifdef ENABLE_QAT_HW_RSA
+# ifndef QAT_BORINGSSL
+static int qat_rsa_priv_dec_legacy(int flen, const unsigned char *from,
+                                   unsigned char *to, RSA *rsa, int padding)
+{
+#  if defined(RSA_PKCS1_NO_IMPLICIT_REJECT_PADDING)
+    if (padding == RSA_PKCS1_NO_IMPLICIT_REJECT_PADDING)
+        return qat_rsa_priv_dec(flen, from, to, rsa, RSA_PKCS1_PADDING, 0);
+#  endif
+    return qat_rsa_priv_dec(flen, from, to, rsa, padding,
+                            padding == RSA_PKCS1_PADDING ? 1 : 0);
+}
+# endif /* !QAT_BORINGSSL */
+#endif /* ENABLE_QAT_HW_RSA */
+
+#ifdef ENABLE_QAT_SW_RSA
+# ifndef QAT_BORINGSSL
+static int multibuff_rsa_priv_dec_legacy(int flen, const unsigned char *from,
+                                         unsigned char *to, RSA *rsa, int padding)
+{
+#  if defined(RSA_PKCS1_NO_IMPLICIT_REJECT_PADDING)
+    if (padding == RSA_PKCS1_NO_IMPLICIT_REJECT_PADDING)
+        return multibuff_rsa_priv_dec(flen, from, to, rsa, RSA_PKCS1_PADDING, 0);
+#  endif
+    return multibuff_rsa_priv_dec(flen, from, to, rsa, padding,
+                                  padding == RSA_PKCS1_PADDING ? 1 : 0);
+}
+# endif /* !QAT_BORINGSSL */
+#endif /* ENABLE_QAT_SW_RSA */
+
 RSA_METHOD *qat_get_RSA_methods(void)
 {
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
@@ -1831,7 +1861,7 @@ RSA_METHOD *qat_get_RSA_methods(void)
         res &= RSA_meth_set_pub_enc(qat_rsa_method, qat_rsa_pub_enc);
         res &= RSA_meth_set_pub_dec(qat_rsa_method, qat_rsa_pub_dec);
         res &= RSA_meth_set_priv_enc(qat_rsa_method, qat_rsa_priv_enc);
-        res &= RSA_meth_set_priv_dec(qat_rsa_method, qat_rsa_priv_dec);
+        res &= RSA_meth_set_priv_dec(qat_rsa_method, qat_rsa_priv_dec_legacy);
         res &= RSA_meth_set_mod_exp(qat_rsa_method, qat_rsa_mod_exp);
         res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, BN_mod_exp_mont);
         res &= RSA_meth_set_init(qat_rsa_method, qat_rsa_init);
@@ -1874,7 +1904,7 @@ RSA_METHOD *qat_get_RSA_methods(void)
                                   mb_bssl_rsa_priv_decrypt);
 #else
         res &= RSA_meth_set_priv_enc(qat_rsa_method, multibuff_rsa_priv_enc);
-        res &= RSA_meth_set_priv_dec(qat_rsa_method, multibuff_rsa_priv_dec);
+        res &= RSA_meth_set_priv_dec(qat_rsa_method, multibuff_rsa_priv_dec_legacy);
         res &= RSA_meth_set_pub_enc(qat_rsa_method, multibuff_rsa_pub_enc);
         res &= RSA_meth_set_pub_dec(qat_rsa_method, multibuff_rsa_pub_dec);
         res &= RSA_meth_set_bn_mod_exp(qat_rsa_method, RSA_meth_get_bn_mod_exp(RSA_PKCS1_OpenSSL()));

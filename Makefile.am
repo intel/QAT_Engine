@@ -5,12 +5,13 @@ lib_LTLIBRARIES = @LIBQATNAME@.la
 bin_PROGRAMS =
 
 if !QAT_BORINGSSL
- QAT_COMMON_SRC = e_qat.c      \
-                  qat_fork.c   \
-                  qat_events.c \
-                  qat_utils.c  \
-                  qat_evp.c    \
-                  qat_err.c
+ QAT_COMMON_SRC = e_qat.c              \
+                  qat_fork.c           \
+                  qat_events.c         \
+                  qat_utils.c          \
+                  qat_evp.c            \
+                  qat_err.c            \
+                  qat_rsa_ciphertext.c
 
 if QAT_PROVIDER
  QAT_PROV_SRC = qat_prov_init.c           \

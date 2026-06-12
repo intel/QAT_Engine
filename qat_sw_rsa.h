@@ -72,7 +72,8 @@ void process_RSA_pub_reqs(mb_thread_data *tlv, int rsa_bits);
 int multibuff_rsa_priv_enc(int flen, const unsigned char *from,
                                   unsigned char *to, RSA *rsa, int padding);
 int multibuff_rsa_priv_dec(int flen, const unsigned char *from,
-                                  unsigned char *to, RSA *rsa, int padding);
+                                  unsigned char *to, RSA *rsa, int padding,
+                                  int implicit_rejection);
 int multibuff_rsa_pub_enc(int flen, const unsigned char *from,
                                  unsigned char *to, RSA *rsa, int padding);
 int multibuff_rsa_pub_dec(int flen, const unsigned char *from,
