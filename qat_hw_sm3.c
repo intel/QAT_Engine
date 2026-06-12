@@ -469,8 +469,9 @@ int qat_hw_sm3_init(EVP_MD_CTX *ctx)
     }
 # endif
 #else
+    QAT_SM3_CTX *qat_sm3_ctx = (QAT_SM3_CTX *) ctx;
+
     if ((!qat_hw_sm3_offload) || (qat_get_qat_offload_disabled())) {
-        QAT_SM3_CTX *qat_sm3_ctx = (QAT_SM3_CTX *) ctx;
         qat_sm3_ctx->sw_md_ctx = EVP_MD_CTX_new();
         if (qat_sm3_ctx->sw_md_ctx == NULL) {
             WARN("EVP_MD_CTX_new failed.\n");
@@ -487,6 +488,27 @@ int qat_hw_sm3_init(EVP_MD_CTX *ctx)
         DEBUG("SW Init Finished %p\n", qat_sm3_ctx);
         return 1;
     }
+
+    /* The provider keeps the algctx alive across EVP_DigestInit_ex2 calls
+     * (unlike the engine path which gets a fresh memset). Reset per-message
+     * state so a new digest doesn't inherit leftover data/length/partial-
+     * packet bookkeeping from the previous operation. Session-level state
+     * (inst_num, session_ctx, session_data, pOpData, pSrcBufferList,
+     * sw_md(_ctx), context_params_set) is intentionally preserved for reuse. */
+    if (qat_sm3_ctx->data_refs != NULL) {
+        if (*qat_sm3_ctx->data_refs > 0) {
+            (*qat_sm3_ctx->data_refs)--;
+        } else {
+            OPENSSL_free(qat_sm3_ctx->data);
+            OPENSSL_free(qat_sm3_ctx->data_refs);
+        }
+    }
+    qat_sm3_ctx->data        = NULL;
+    qat_sm3_ctx->data_refs   = NULL;
+    qat_sm3_ctx->num         = 0;
+    qat_sm3_ctx->rcv_count   = 0;
+    qat_sm3_ctx->qat_offloaded = 0;
+    qat_sm3_ctx->digest_data = NULL;
 #endif
     return 1;
 }

@@ -625,11 +625,29 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
     }
 # ifndef QAT_OPENSSL_PROVIDER
     QAT_SM2_PKEY_CTX *smctx = (QAT_SM2_PKEY_CTX *) EVP_PKEY_CTX_get_data(ctx);
-    if (!smctx->id_set) {
+    if (!smctx->id_set || smctx->id == NULL) {
         smctx->id_set = 1;
         smctx->id =
             (uint8_t *)OPENSSL_memdup(SM2_DEFAULT_USERID,
                                       SM2_DEFAULT_USERID_LEN);
+        if (smctx->id == NULL) {
+            WARN("Failed to allocate SM2 default user id\n");
+            QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_MALLOC_FAILURE);
+            return ret;
+        }
+        smctx->id_len = SM2_DEFAULT_USERID_LEN;
+    }
+# else
+    /* Apply the SM2 default USERID when the caller didn't set one. */
+    if (smctx->id == NULL) {
+        smctx->id =
+            (uint8_t *)OPENSSL_memdup(SM2_DEFAULT_USERID,
+                                      SM2_DEFAULT_USERID_LEN);
+        if (smctx->id == NULL) {
+            WARN("Failed to allocate SM2 default user id\n");
+            QATerr(QAT_F_QAT_SM2_SIGN, QAT_R_MALLOC_FAILURE);
+            return ret;
+        }
         smctx->id_len = SM2_DEFAULT_USERID_LEN;
     }
 # endif
@@ -1110,11 +1128,29 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
 
 # ifndef QAT_OPENSSL_PROVIDER
     QAT_SM2_PKEY_CTX *smctx = (QAT_SM2_PKEY_CTX *) EVP_PKEY_CTX_get_data(ctx);
-    if (!smctx->id_set) {
+    if (!smctx->id_set || smctx->id == NULL) {
         smctx->id_set = 1;
         smctx->id =
             (uint8_t *)OPENSSL_memdup(SM2_DEFAULT_USERID,
                                       SM2_DEFAULT_USERID_LEN);
+        if (smctx->id == NULL) {
+            WARN("Failed to allocate SM2 default user id\n");
+            QATerr(QAT_F_QAT_SM2_VERIFY, QAT_R_MALLOC_FAILURE);
+            return ret;
+        }
+        smctx->id_len = SM2_DEFAULT_USERID_LEN;
+    }
+# else
+    /* Apply the SM2 default USERID when the caller didn't set one. */
+    if (smctx->id == NULL) {
+        smctx->id =
+            (uint8_t *)OPENSSL_memdup(SM2_DEFAULT_USERID,
+                                      SM2_DEFAULT_USERID_LEN);
+        if (smctx->id == NULL) {
+            WARN("Failed to allocate SM2 default user id\n");
+            QATerr(QAT_F_QAT_SM2_VERIFY, QAT_R_MALLOC_FAILURE);
+            return ret;
+        }
         smctx->id_len = SM2_DEFAULT_USERID_LEN;
     }
 # endif
