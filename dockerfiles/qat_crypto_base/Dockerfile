@@ -38,11 +38,11 @@
 ARG UBUNTU_BASE=ubuntu:22.04
 FROM ${UBUNTU_BASE} AS builder
 
-ARG OPENSSL_VERSION="openssl-3.5.5"
+ARG OPENSSL_VERSION="openssl-3.5.7"
 ARG QATLIB_VERSION="26.02.0"
-ARG QAT_ENGINE_VERSION="v2.1.0"
+ARG QAT_ENGINE_VERSION="v2.2.0"
 ARG IPSEC_MB_VERSION="v2.0"
-ARG IPP_CRYPTO_VERSION="v1.3.0"
+ARG IPP_CRYPTO_VERSION="v2.1.0"
 ARG GID
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -149,9 +149,9 @@ COPY --from=builder /usr/local/lib/libIPSec_MB.so*  /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/lib64/libcrypto.so* /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/lib64/libssl.so* /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/lib/x86_64-linux-gnu/libnuma.so* /usr/lib/x86_64-linux-gnu/
-COPY --from=builder /usr/local/lib/intel64/libcrypto_mb.so* /usr/lib/x86_64-linux-gnu/
+COPY --from=builder /usr/local/lib/libcrypto_mb.so* /usr/lib/x86_64-linux-gnu/
 COPY --from=builder /usr/local/bin/openssl /usr/bin/
-COPY --from=builder /usr/local/lib64/engines-3/qatengine.so /usr/lib/x86_64-linux-gnu/engines-3/
+COPY --from=builder /usr/local/lib64/ossl-modules/qatprovider.so /usr/lib/x86_64-linux-gnu/ossl-modules/
 COPY --from=builder /etc/group /etc/group
 COPY --from=builder /etc/passwd /etc/passwd
 RUN ldconfig
@@ -162,7 +162,7 @@ EXPOSE 8080
 # Switch to non-root user
 USER appuser
 
-ENV OPENSSL_ENGINES="/usr/lib/x86_64-linux-gnu/engines-3/"
+ENV OPENSSL_MODULES="/usr/lib/x86_64-linux-gnu/ossl-modules/"
 ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/"
 ENV QAT_POLICY=1
 

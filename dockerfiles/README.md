@@ -1,4 +1,4 @@
-# Intel® QuickAssist Technology(QAT) OpenSSL\* Engine Container support
+# Intel® QuickAssist Technology(QAT) OpenSSL\* Provider Container support
 
 Supports below Dockerfiles which can be built into docker images on the platforms
 with [Intel® QuickAssist 4xxx Series](https://www.intel.com/content/www/us/en/products/details/processors/xeon/scalable.html)
@@ -8,12 +8,12 @@ QAT device.
 * [HAproxy with QAT crypto base](#haproxy-with-qat-crypto-base)
 
 ## QAT crypto base
-This Dockerfile(qat_crypto_base/Dockerfile) with qatengine is built on top of latest OpenSSL, QAT_HW(qatlib intree driver)
+This Dockerfile(qat_crypto_base/Dockerfile) with qatprovider is built on top of latest OpenSSL, QAT_HW(qatlib intree driver)
 and QAT_SW with software versions mentioned in [software_requirements](../docs/software_requirements.md) section.
 This contains QAT_HW and QAT_SW co-existence build and works as defined in [co-existence section](../docs/qat_coex.md#qat_hw-and-qat_sw-co-existence)
 
 ## Haproxy with QAT crypto base
-This Dockerfile(haproxy/Dockerfile) is built with Haproxy release version v3.3.0 along
+This Dockerfile(haproxy/Dockerfile) is built with Haproxy release version v3.4.0 along
 with QAT crypto base mentioned above. Sample Haproxy configuration file is located at `haproxy/haproxy.cfg`
 which can be modified as per the required use case and to be mounted from the host to the container using
 `-v /usr/local/etc/haproxy/haproxy.cfg`.
@@ -71,7 +71,7 @@ Note: GID is the group id of qat group in the host.
 ### Testing QAT Crypto base using OpenSSL\* speed utility
 
 ```
-docker run -it --cap-add=IPC_LOCK --security-opt seccomp=unconfined --security-opt apparmor=unconfined $(for i in `ls /dev/vfio/*`; do echo --device $i; done)  --cpuset-cpus  <2-n+1> --env QAT_POLICY=1 --ulimit memlock=524288000:524288000 < docker_image_name> openssl speed -engine qatengine -elapsed -async_jobs 72  -multi <n> <algo>
+docker run -it --cap-add=IPC_LOCK --security-opt seccomp=unconfined --security-opt apparmor=unconfined $(for i in `ls /dev/vfio/*`; do echo --device $i; done)  --cpuset-cpus  <2-n+1> --env QAT_POLICY=1 --ulimit memlock=524288000:524288000 < docker_image_name> openssl speed -provider qatprovider -provider default -elapsed -async_jobs 72  -multi <n> <algo>
 ```
 
 ### Testing Haproxy

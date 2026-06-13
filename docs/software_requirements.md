@@ -18,16 +18,16 @@ and also from the latest versions from the links below.
 * [Intel®  QATlib for FreeBSD with intree driver(FreeBSD 14)][8] - **FreeBSD QATlib 26.02.0** (FreeBSD 14)
 
 ## QAT_SW Libraries:
-* [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto v1.3.0**
+* [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto v2.1.0**
 * [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v2.0**
 
 ## Crypto Libraries:
-* [OpenSSL\*][9] 3.0.19, 3.2.6, 3.3.5, 3.4.3 & 3.5.5
+* [OpenSSL\*][9] 3.0.21, 3.2.6, 3.3.7, 3.4.6, 3.5.7, 3.6.3 & 4.0.1
 * BoringSSL\* - [0.20250415.0][10]
 * [Tongsuo][11] - 8.4.0 (BabaSSL)
 
 ## Applications:
-* [HAProxy\*][12] - **v3.3.0**
+* [HAProxy\*][12] - **v3.4.0**
 
 ## Optional Libraries (for Hybrid PQC interoperability):
 * [liboqs][13] - Open Quantum Safe library (required for `oqs-provider`)
@@ -44,6 +44,6 @@ and also from the latest versions from the links below.
 [9]:https://github.com/openssl/openssl
 [10]:https://github.com/google/boringssl/releases/tag/0.20250415.0
 [11]:https://github.com/Tongsuo-Project/Tongsuo
-[12]:https://github.com/haproxy/haproxy/releases/tag/v3.3.0
+[12]:https://github.com/haproxy/haproxy/releases/tag/v3.4.0
 [13]:https://github.com/open-quantum-safe/liboqs
 [14]:https://github.com/open-quantum-safe/oqs-provider
