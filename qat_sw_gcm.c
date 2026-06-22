@@ -248,14 +248,30 @@ int vaesgcm_ciphers_init(EVP_CIPHER_CTX *ctx,
         DEBUG("Setting IV length = %d\n", qctx->iv_len);
     }
 
-    /* If we have an IV passed in and have yet to allocate memory for the IV */
-    qctx->iv = OPENSSL_realloc(qctx->iv, qctx->iv_len);
-    DEBUG("Reallocated IV Buffer = %p, with size %d\n",
-           qctx->iv, qctx->iv_len);
+    /* Allocate IV buffer if needed; skip realloc when size is unchanged. */
+    if (qctx->iv == NULL || qctx->next_iv == NULL
+        || qctx->iv_alloc_len < qctx->iv_len) {
+        unsigned char *tmp;
 
-    qctx->next_iv = OPENSSL_realloc(qctx->next_iv, qctx->iv_len);
-    DEBUG("Reallocated Next_IV Buffer = %p, with size %d\n",
-           qctx->next_iv, qctx->iv_len);
+        if ((tmp = OPENSSL_realloc(qctx->iv, qctx->iv_len)) == NULL) {
+            WARN("Failed to allocate IV buffer\n");
+            QATerr(QAT_F_VAESGCM_CIPHERS_INIT, QAT_R_MALLOC_FAILURE);
+            return 0;
+        }
+        qctx->iv = tmp;
+
+        if ((tmp = OPENSSL_realloc(qctx->next_iv, qctx->iv_len)) == NULL) {
+            WARN("Failed to allocate next IV buffer\n");
+            QATerr(QAT_F_VAESGCM_CIPHERS_INIT, QAT_R_MALLOC_FAILURE);
+            /* iv keeps its new larger buffer; iv_alloc_len not bumped so
+             * next call re-enters and retries next_iv cleanly. */
+            return 0;
+        }
+        qctx->next_iv = tmp;
+        qctx->iv_alloc_len = qctx->iv_len;
+    }
+    DEBUG("IV Buffer = %p, with size %d (alloc=%d)\n",
+          qctx->iv, qctx->iv_len, qctx->iv_alloc_len);
 
     qctx->iv_set = 0;
 
@@ -272,9 +288,29 @@ int vaesgcm_ciphers_init(EVP_CIPHER_CTX *ctx,
 
     qctx->tls_aad_len = -1;
 
-    /* If we got a key passed in, inialize the key schedule */
-    if (inkey)
-        retval = vaesgcm_init_key(ctx, inkey);
+    /* Skip key expansion and GHASH precompute when the key is unchanged. */
+    if (inkey) {
+#ifdef QAT_OPENSSL_PROVIDER
+        int klen = (int)qctx->keylen;
+#else
+        int klen = EVP_CIPHER_CTX_key_length(ctx);
+#endif
+        if (klen <= 0 || klen > (int)sizeof(qctx->cached_key)) {
+            retval = vaesgcm_init_key(ctx, inkey);
+        } else if (qctx->cached_key_len == klen &&
+                   memcmp(qctx->cached_key, inkey, (size_t)klen) == 0) {
+            /* key_data already holds the precomputed schedule for this key */
+            qctx->ckey_set = 1;
+            retval = 1;
+        } else {
+            retval = vaesgcm_init_key(ctx, inkey);
+            if (retval == 1) {
+                OPENSSL_cleanse(qctx->cached_key, sizeof(qctx->cached_key));
+                memcpy(qctx->cached_key, inkey, (size_t)klen);
+                qctx->cached_key_len = klen;
+            }
+        }
+    }
 
     /* If both the cipher key and the IV have been set,
      * then init the gcm context */
@@ -727,18 +763,23 @@ int vaesgcm_ciphers_cleanup(EVP_CIPHER_CTX* ctx)
     if (qctx) {
         OPENSSL_cleanse(&qctx->key_data, sizeof(qctx->key_data));
 
+        /* Wipe cached key material for engine and provider contexts. */
+        OPENSSL_cleanse(qctx->cached_key, sizeof(qctx->cached_key));
+        qctx->cached_key_len = 0;
+
         if (qctx->iv) {
-            DEBUG("qctx->iv_len = %d\n", qctx->iv_len);
-            OPENSSL_clear_free(qctx->iv, qctx->iv_len);
+            DEBUG("qctx->iv_len = %d (alloc=%d)\n", qctx->iv_len, qctx->iv_alloc_len);
+            OPENSSL_clear_free(qctx->iv, qctx->iv_alloc_len);
             qctx->iv = NULL;
             qctx->iv_set = 0;
         }
 
         if (qctx->next_iv) {
-            OPENSSL_clear_free(qctx->next_iv, qctx->iv_len);
+            OPENSSL_clear_free(qctx->next_iv, qctx->iv_alloc_len);
             qctx->next_iv = NULL;
-	    qctx->iv_len = 0;
         }
+        qctx->iv_len = 0;
+        qctx->iv_alloc_len = 0;
 
         if (qctx->tls_aad) {
             DEBUG("qctx->tls_aad_len = %d\n", qctx->tls_aad_len);
@@ -857,7 +898,7 @@ int aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx,
     }
 #endif
 #ifdef QAT_OPENSSL_PROVIDER
-    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qctx->nid;
 #else
     nid = EVP_CIPHER_CTX_nid(ctx);
 #endif
@@ -1001,7 +1042,7 @@ int vaesgcm_ciphers_do_cipher(EVP_CIPHER_CTX*      ctx,
     }
 #ifdef QAT_OPENSSL_PROVIDER
     enc = QAT_AES_CIPHER_CTX_encrypting(qctx);
-    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)qctx);
+    nid = qctx->nid;
 #else
     enc = EVP_CIPHER_CTX_encrypting(ctx);
     nid = EVP_CIPHER_CTX_nid(ctx);
@@ -1183,7 +1224,7 @@ int vaesgcm_init_key(EVP_CIPHER_CTX *ctx, const unsigned char* inkey)
         return 0;
     }
 #ifdef QAT_OPENSSL_PROVIDER
-    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qctx->nid;
 #else
     nid = EVP_CIPHER_CTX_nid(ctx);
 #endif
@@ -1247,7 +1288,7 @@ int vaesgcm_init_gcm(EVP_CIPHER_CTX *ctx)
         return 0;
     }
 #ifdef QAT_OPENSSL_PROVIDER
-    nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
+    nid = qctx->nid;
 #else
     nid = EVP_CIPHER_CTX_nid(ctx);
 #endif

@@ -85,6 +85,12 @@ typedef struct vaesgcm_ctx_t {
     int            iv_len;
     unsigned int   iv_set;
     int            iv_gen;
+    /* Reuse IV allocations and cached AES-GCM key material
+     * to avoid realloc, key expansion, and GHASH precompute
+     * when re-initialized with the same key.*/
+    int            iv_alloc_len;
+    int            cached_key_len;
+    unsigned char  cached_key[32];
 }
 __attribute__((aligned(64))) vaesgcm_ctx;
 # pragma pack(pop)

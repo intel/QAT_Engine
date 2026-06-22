@@ -205,17 +205,23 @@ typedef struct qat_gcm_ctx_st {
 #endif
     EVP_CIPHER_CTX *sw_ctx;
     int sw_tls_ctrl;
-    int            tls_aad_len;
-    int            tag_len;
-    int            iv_len;
-    unsigned int   iv_set;
-    unsigned int   tag_set;
+    int tls_aad_len;
+    int tag_len;
+    int iv_len;
+    unsigned int iv_set;
+    unsigned int tag_set;
     /* Set when QAT_HW reports a GCM tag mismatch during streaming decrypt;
      * causes EVP_DecryptFinal_ex to fail per OpenSSL streaming semantics. */
-    unsigned int   tag_verify_failed;
-    int            iv_gen;
+    unsigned int tag_verify_failed;
+    int iv_gen;
     unsigned char* next_iv;
     unsigned char* iv;
+    /* Reuse IV allocations and cached AES-GCM key material
+     * to avoid realloc, key expansion, and GHASH precompute
+     * when re-initialized with the same key.*/
+    int iv_alloc_len;
+    int cached_key_len;
+    unsigned char cached_key[32];
     unsigned int mode;                     /* The mode that we are using */
     size_t keylen;
     size_t ivlen_min;
