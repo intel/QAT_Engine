@@ -677,7 +677,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     CpaStatus status = CPA_STATUS_FAIL;
     QAT_TLS1_PRF_CTX *qat_prf_ctx = NULL;
     CpaCySymHashAlgorithm hash_algo = CPA_CY_SYM_HASH_NONE;
-    int key_length = 0;
+    size_t key_length = 0;
     int md_nid = 0;
     op_done_t op_done;
     int qatPerformOpRetries = 0;
@@ -718,6 +718,14 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     memset(&prf_op_data, 0, sizeof(CpaCyKeyGenTlsOpData));
     key_length = *olen;
     md_nid = EVP_MD_type(qat_prf_ctx->qat_md);
+
+    /* Reject zero/oversized key lengths that cannot be DMA-offloaded - fallback to SW. */
+    if (key_length == 0 || key_length > QAT_TLS1_PRF_SECRET_MAXBUF) {
+        WARN("key_length %zu invalid (max %d) - fallback to SW\n",
+             key_length, QAT_TLS1_PRF_SECRET_MAXBUF);
+        fallback = 1;
+        goto err;
+    }
 #if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     if (qat_openssl3_prf_fallback == 1) {
         DEBUG("- Switched to software mode\n");
@@ -761,16 +769,20 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
     if ((inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY))
             == QAT_INVALID_INSTANCE) {
         WARN("Failed to get an instance\n");
-        if (qat_get_sw_fallback_enabled()) {
-            CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
-            fallback = 1;
-            goto err;
-        } else {
-            QATerr(QAT_F_QAT_PRF_TLS_DERIVE, ERR_R_INTERNAL_ERROR);
-            return 0;
-        }
+        CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
+        fallback = 1;
+        goto err;
     }
     qat_prf_ctx->qat_svm = !qat_instance_details[inst_num].qat_instance_info.requiresPhysicallyContiguousMemory;
+
+    /* Oversized user label would overflow the fixed qat_seed buffer - fallback to SW. */
+    if (qat_prf_ctx->qat_seedlen == 0 &&
+        qat_prf_ctx->qat_userLabel_len > QAT_TLS1_PRF_SEED_MAXBUF) {
+        WARN("userLabel_len %zu exceeds seed buffer %d - fallback to SW\n",
+             qat_prf_ctx->qat_userLabel_len, QAT_TLS1_PRF_SEED_MAXBUF);
+        fallback = 1;
+        goto err;
+    }
 
     /* ---- Tls Op Data ---- */
     if (!build_tls_prf_op_data(qat_prf_ctx, &prf_op_data)) {
