@@ -53,7 +53,7 @@ to use the option.
 ```
 cd /QAT_Engine
 git submodule update --init
-./autogen.sh \
+./autogen.sh
 ./configure \
 --with-qat_hw_dir=/QAT \  #For QAT_HW supported platforms, Needed only if platform supports QAT_HW
 --enable-qat_sw \ #For QAT_SW supported platforms, Needed only if platform supports QAT_SW
