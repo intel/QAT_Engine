@@ -839,6 +839,13 @@ static const char *qat_sm2_keymgmt_query_operation_name(int operation_id)
     switch (operation_id) {
     case OSSL_OP_SIGNATURE:
         return "SM2";
+    case OSSL_OP_KEYEXCH:
+        /* BabaSSL/Tongsuo registers SM2 keyexch as "SM2DH"; upstream uses "SM2". */
+# if defined(TONGSUO_VERSION_NUMBER)
+        return "SM2DH";
+# else
+        return "SM2";
+# endif
     }
     return NULL;
 }
