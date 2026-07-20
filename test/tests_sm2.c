@@ -285,9 +285,13 @@ static int test_sm2_sign_verify(int count, int size, ENGINE *e,
     }
 
     /* SM2 keys are generated as normal EC keys with a special curve */
+    /* BabaSSL/Tongsuo's set_ec_paramgen_curve_nid rejects SM2 pmeth; fall back to ctrl with keytype=-1 */
     if (((pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_SM2, NULL)) == NULL)
         || (EVP_PKEY_keygen_init(pctx) <= 0)
-        || (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, nid) <= 0)
+        || (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, nid) <= 0
+            && EVP_PKEY_CTX_ctrl(pctx, -1, EVP_PKEY_OP_TYPE_GEN,
+                                 EVP_PKEY_CTRL_EC_PARAMGEN_CURVE_NID,
+                                 nid, NULL) <= 0)
         || EVP_PKEY_keygen(pctx, &sm2_pkey) <= 0) {
         ret = -1;
         EVP_PKEY_CTX_free(pctx);

@@ -1400,9 +1400,10 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
     DEBUG("Verify Status %d\n", bSM2VerifyStatus);
     QAT_DEC_IN_FLIGHT_REQS(num_requests_in_flight, tlv);
 
-    if (op_done.verifyResult != CPA_TRUE) {
-        WARN("Verification of result failed\n");
-        if (qat_get_sw_fallback_enabled() && op_done.status == CPA_STATUS_FAIL) {
+    if (op_done.status != CPA_STATUS_SUCCESS) {
+        /* HW op failed - fallback if enabled, else raise a real error. */
+        if (qat_get_sw_fallback_enabled()
+            && op_done.status == CPA_STATUS_FAIL) {
             CRYPTO_QAT_LOG
                 ("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
                  inst_num,
@@ -1412,13 +1413,12 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
         } else {
             QATerr(QAT_F_QAT_SM2_VERIFY, ERR_R_INTERNAL_ERROR);
         }
-        qat_cleanup_op_done(&op_done);
-        goto err;
-    } else
-        DEBUG("Verification Status Success\n");
+    } else if (op_done.verifyResult == CPA_TRUE) {
+        ret = 1;
+    }
+    /* Otherwise: invalid signature - normal outcome, return ret = 0. */
 
     qat_cleanup_op_done(&op_done);
-    ret = 1;
 
  err:
     if (!ret) {
