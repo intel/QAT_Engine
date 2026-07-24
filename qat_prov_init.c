@@ -74,8 +74,11 @@ extern const OSSL_DISPATCH qat_rsa_asym_cipher_functions[];
 #if defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
 extern const OSSL_DISPATCH qat_ecdsa_signature_functions[];
 #endif
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || \
+    defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
+extern const OSSL_DISPATCH qat_ec_keymgmt_functions[];
+#endif
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
-extern const OSSL_DISPATCH qat_ecdh_keymgmt_functions[];
 extern const OSSL_DISPATCH qat_ecdh_keyexch_functions[];
 #endif
 #if defined(ENABLE_QAT_HW_ECX) || defined(ENABLE_QAT_SW_ECX)
@@ -284,7 +287,7 @@ static OSSL_ALGORITHM qat_keymgmt[] = {
     {"X25519", QAT_DEFAULT_PROPERTIES, qat_X25519_keymgmt_functions, "QAT X25519 Keymgmt implementation."},
 #endif
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
-    {"EC", QAT_DEFAULT_PROPERTIES, qat_ecdh_keymgmt_functions, "QAT EC Keymgmt implementation."},
+    {"EC", QAT_DEFAULT_PROPERTIES, qat_ec_keymgmt_functions, "QAT EC Keymgmt implementation."},
 #endif
 #if defined(ENABLE_QAT_HW_DSA) && defined(QAT_INSECURE_ALGO)
     {"DSA", QAT_DEFAULT_PROPERTIES, qat_dsa_keymgmt_functions, "QAT DSA Keymgmt implementation."},

@@ -590,7 +590,7 @@ else
   AC_SUBST([enable_qat_hw_dsa], ["no"])
   AC_SUBST([enable_qat_hw_dh], ["no"])
 fi
-AM_CONDITIONAL([QAT_INSECURE_ALGO], [test "enable_qat_insecure_algorithms" = "xyes"])
+AM_CONDITIONAL([QAT_INSECURE_ALGO], [test "x$enable_qat_insecure_algorithms" = "xyes"])
 
 # Enable QAT_HW Algorithms based on enable/disable Flags
 if test "x$cflags_qat_hw" != "x"
@@ -707,7 +707,7 @@ AS_IF([test "x$enable_qat_small_pkt_offload" = "xyes"],
 
 AS_IF([test "x$enable_qat_plock" = "xyes"],
       [cflags_common="${cflags_common} -DQAT_PLOCK"; AC_MSG_NOTICE([plock enabled])])
-AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" != "x"])
+AM_CONDITIONAL([QAT_PLOCK], [test "x$enable_qat_plock" = "xyes"])
 
 AS_IF([test "x$enable_qat_fips" = "xyes"],
       [cflags_common="${cflags_common} -DENABLE_QAT_FIPS"; AC_MSG_NOTICE([FIPS Support enabled])])

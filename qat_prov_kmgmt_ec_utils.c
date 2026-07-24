@@ -68,7 +68,9 @@
 
 #include "qat_prov_kmgmt_ec_utils.h"
 
-#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || \
+    defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA) || \
+    defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
 static const OSSL_ITEM format_nameid_map[] = {
     { (int)POINT_CONVERSION_UNCOMPRESSED, OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_UNCOMPRESSED },
     { (int)POINT_CONVERSION_COMPRESSED, OSSL_PKEY_EC_POINT_CONVERSION_FORMAT_COMPRESSED },
@@ -1410,4 +1412,6 @@ err:
     EC_POINT_free(point);
     return ret;
 }
-#endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) */
+#endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) ||
+    * defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA) ||
+    * defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2) */

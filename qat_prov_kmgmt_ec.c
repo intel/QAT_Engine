@@ -87,6 +87,8 @@ static void *qat_keymgmt_ec_newdata(void *provctx)
     return EC_KEY_new_ex(prov_libctx_of(provctx), NULL);
 }
 
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || \
+    defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
 static
 const char *qat_keymgmt_ec_query_operation_name(int operation_id)
 {
@@ -98,6 +100,7 @@ const char *qat_keymgmt_ec_query_operation_name(int operation_id)
     }
     return NULL;
 }
+#endif
 
 static int qat_keymgmt_ec_gen_set_params(void *genctx, const OSSL_PARAM params[])
 {
@@ -247,7 +250,9 @@ static void *qat_keymgmt_ec_gen(void *genctx, OSSL_CALLBACK *osslcb, void *cbarg
         }    
     }
 
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
 end:
+#endif
     if (gctx->ecdh_mode != -1)
         ret = ret && qat_ec_set_ecdh_cofactor_mode(ec, gctx->ecdh_mode);
 
@@ -364,10 +369,13 @@ cleanup:
     return ret;
 }
 
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || \
+    defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
 static int qat_keymgmt_ec_get_params(void *key, OSSL_PARAM params[])
 {
     return common_get_params(key, params, 0);
 }
+#endif
 
 static const OSSL_PARAM qat_keymgmt_ec_gettable_params[] = {
     OSSL_PARAM_int(OSSL_PKEY_PARAM_BITS, NULL),
@@ -803,7 +811,7 @@ static int qat_keymgmt_ec_match(const void *keydata1, const void *keydata2, int 
 #endif
 
 #if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA)
-const OSSL_DISPATCH qat_ecdh_keymgmt_functions[] = {
+const OSSL_DISPATCH qat_ec_keymgmt_functions[] = {
     { OSSL_FUNC_KEYMGMT_NEW, (void (*)(void))qat_keymgmt_ec_newdata },
     { OSSL_FUNC_KEYMGMT_GEN_INIT, (void (*)(void))qat_keymgmt_ec_gen_init },
     { OSSL_FUNC_KEYMGMT_GEN_SET_TEMPLATE,

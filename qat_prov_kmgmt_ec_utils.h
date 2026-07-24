@@ -50,7 +50,9 @@
 # define _GNU_SOURCE
 #endif
 
-#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH)
+#if defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) || \
+    defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA) || \
+    defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
 #define COPY_INT_PARAM(params, key, val)                                       \
 p = OSSL_PARAM_locate_const(params, key);                                      \
 if (p != NULL && !OSSL_PARAM_get_int(p, &val))                                 \
@@ -436,4 +438,6 @@ int qat_ec_key_public_check(const EC_KEY *eckey, BN_CTX *ctx);
 int qat_ec_key_private_check(const EC_KEY *eckey);
 
 int qat_ec_key_pairwise_check(const EC_KEY *eckey, BN_CTX *ctx);
-#endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) */
+#endif /* defined(ENABLE_QAT_HW_ECDH) || defined(ENABLE_QAT_SW_ECDH) ||
+        * defined(ENABLE_QAT_HW_ECDSA) || defined(ENABLE_QAT_SW_ECDSA) ||
+        * defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2) */
