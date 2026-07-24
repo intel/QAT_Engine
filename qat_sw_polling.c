@@ -197,7 +197,8 @@ mb_req_rates mb_sm4_ccm_decrypt_req_rates = { 0 };
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
     || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) \
     || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_SW_SM4_CBC) \
-    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM)
+    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM) \
+    || defined(ENABLE_QAT_SW_SM2)
 void multibuff_set_normalized_timespec(struct timespec *ts, time_t sec, long long  nsec)
 {
     while (nsec >= QAT_SW_NSEC_PER_SEC) {
@@ -414,7 +415,8 @@ void *multibuff_timer_poll_func(void *thread_ptr)
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
     || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) \
     || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_SW_SM4_CBC) \
-    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM)
+    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM) \
+    || defined(ENABLE_QAT_SW_SM2)
     unsigned int submission_count = 0;
 #endif
 
@@ -1396,7 +1398,8 @@ int qat_sw_poll()
 #if defined(ENABLE_QAT_SW_RSA) || defined(ENABLE_QAT_SW_ECX) \
     || defined(ENABLE_QAT_SW_ECDSA) || defined(ENABLE_QAT_SW_ECDH) \
     || defined(ENABLE_QAT_SW_SM3) || defined(ENABLE_QAT_SW_SM4_CBC) \
-    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM)
+    || defined(ENABLE_QAT_SW_SM4_GCM) || defined(ENABLE_QAT_SW_SM4_CCM) \
+    || defined(ENABLE_QAT_SW_SM2)
     int snapshot_num_reqs = 0;
 #endif
 
