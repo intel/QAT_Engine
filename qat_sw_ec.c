@@ -2265,11 +2265,7 @@ int mb_ecdh_compute_key(unsigned char **out,
     if ((curve = mb_ec_check_curve(EC_GROUP_get_curve_name(group))) == 0) {
         DEBUG("Curve type not supported, using SW Method %d\n",
                EC_GROUP_get_curve_name(group));
-#ifdef ENABLE_QAT_FIPS
-        return ret;
-#else
         goto use_sw_method;
-#endif
     } else if (curve == -1) {
         return ret;
     }

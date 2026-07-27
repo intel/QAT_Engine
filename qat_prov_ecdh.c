@@ -713,10 +713,8 @@ static int qat_keyexch_ecdh_derive(void *vpecdhctx, unsigned char *secret,
     int ret = 0;
     QAT_PROV_ECDH_CTX *pecdhctx = (QAT_PROV_ECDH_CTX *)vpecdhctx;
 #ifdef ENABLE_QAT_FIPS
-    if (!qat_fips_ec_check_approved_curve(pecdhctx->k))
-        goto end;
-
-    qat_fips_service_indicator = 1;
+    if (pecdhctx->k != NULL && qat_fips_ec_check_approved_curve(pecdhctx->k))
+        qat_fips_service_indicator = 1;
 #endif
     switch (pecdhctx->kdf_type) {
     case PROV_ECDH_KDF_NONE:
