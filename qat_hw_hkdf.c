@@ -420,17 +420,31 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             }
 #ifdef QAT_OPENSSL_3
             /* Setup the sw fallback parameters */
-            OPENSSL_cleanse(qat_hkdf_ctx->sw_ikm,
-                            QAT_KDF_MAX_KEY_SZ);
-            memcpy(qat_hkdf_ctx->sw_ikm, p2, p1);
-            qat_hkdf_ctx->sw_ikm_size = p1;
+            if (p1 <= SW_KDF_MAX_KEY_SZ) {
+                OPENSSL_cleanse(qat_hkdf_ctx->sw_ikm,
+                                SW_KDF_MAX_KEY_SZ);
+                memcpy(qat_hkdf_ctx->sw_ikm, p2, p1);
+                qat_hkdf_ctx->sw_ikm_size = (size_t)p1;
+            } else {
+                WARN("HKDF key size %d exceeds SW fallback buffer (%d)\n", p1,
+                     SW_KDF_MAX_KEY_SZ);
+                return 0;
+            }
 #endif
             OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->secret,
                             qat_hkdf_ctx->hkdf_op_data->secretLen);
             qat_hkdf_ctx->hkdf_op_data->secretLen = 0;
 
+            /* HW buffer is limited to CPA_CY_HKDF_KEY_MAX_SECRET_SZ */
+            if (p1 > CPA_CY_HKDF_KEY_MAX_SECRET_SZ) {
+                WARN("HKDF key size %d exceeds HW limit, fallback to SW\n", p1);
+                qat_hkdf_ctx->fallback = 1;
+                return 1;
+            }
+
             memcpy(qat_hkdf_ctx->hkdf_op_data->secret, p2, p1);
             qat_hkdf_ctx->hkdf_op_data->secretLen = p1;
+            qat_hkdf_ctx->fallback = 0;
             return 1;
 
         case EVP_PKEY_CTRL_HKDF_INFO:
@@ -621,9 +635,9 @@ static int qat_set_hkdf_mode(QAT_HKDF_CTX * qat_hkdf_ctx)
 
         case EVP_PKEY_HKDEF_MODE_EXPAND_ONLY:
 #ifdef QAT_OPENSSL_PROVIDER
-	    if (!strcmp((const char*)kdf_name, "HKDF"))
+	    if (qat_hkdf_ctx->kdf_name && !strcmp(qat_hkdf_ctx->kdf_name, "HKDF"))
 	        qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp = CPA_CY_HKDF_KEY_EXPAND;
-	    if(!strcmp((const char*)kdf_name, "TLS13-KDF"))
+	    else
                 qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp = CPA_CY_HKDF_KEY_EXPAND_LABEL;
 #else
                 qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp = CPA_CY_HKDF_KEY_EXPAND;
@@ -674,7 +688,11 @@ int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
     /* Fetch the key derivation function implementation */
     kdf = EVP_KDF_fetch(NULL, "HKDF", "provider=default");
 #else
-    kdf = EVP_KDF_fetch(NULL, "TLS13-KDF", "provider=default");
+    if (qat_hkdf_ctx->kdf_name == NULL) {
+        WARN("kdf_name is NULL in SW fallback path\n");
+        goto end;
+    }
+    kdf = EVP_KDF_fetch(NULL, qat_hkdf_ctx->kdf_name, "provider=default");
 #endif
     if (kdf == NULL) {
         fprintf(stderr, "EVP_KDF_fetch() returned NULL\n");
@@ -805,6 +823,11 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
 #endif
 
     DEBUG("QAT HW HKDF Started\n");
+
+    if (qat_hkdf_ctx->fallback == 1) {
+        DEBUG("- Fallback already set, switching to SW\n");
+        goto err;
+    }
 
     if (qat_get_qat_offload_disabled()) {
         DEBUG("- Switched to software mode\n");
