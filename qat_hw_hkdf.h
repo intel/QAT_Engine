@@ -34,7 +34,7 @@
 #ifdef QAT_OPENSSL_3
 # define QAT_KDF_MAX_INFO_SZ  80
 # define QAT_KDF_MAX_SEED_SZ  48
-# define QAT_KDF_MAX_KEY_SZ   80
+# define SW_KDF_MAX_KEY_SZ   1024
 #endif
 
 # define EVP_KDF_HKDF_MODE_EXPAND_LABEL         2
@@ -42,8 +42,6 @@
 #define EVP_PKEY_CTRL_HKDF_PREFIX    (EVP_PKEY_ALG_CTRL + 14)
 #define EVP_PKEY_CTRL_HKDF_LABEL      (EVP_PKEY_ALG_CTRL + 15)
 #define EVP_PKEY_CTRL_HKDF_DATA       (EVP_PKEY_ALG_CTRL + 16)
-
-extern char *kdf_name;
 
 /* QAT TLS  pkey context structure */
 typedef struct {
@@ -65,7 +63,7 @@ typedef struct {
      * default provider. */
 #ifdef QAT_OPENSSL_3
     /* input keying material */
-    unsigned char sw_ikm[QAT_KDF_MAX_KEY_SZ];
+    unsigned char sw_ikm[SW_KDF_MAX_KEY_SZ];
     size_t sw_ikm_size;
     /* application specific information */
     unsigned char sw_info[QAT_KDF_MAX_INFO_SZ];
@@ -81,6 +79,7 @@ typedef struct {
     size_t label_len;
     unsigned char *data;
     size_t data_len;
+    const char *kdf_name;
 #endif
 } QAT_HKDF_CTX;
 
@@ -101,8 +100,12 @@ int qat_hkdf_init(EVP_PKEY_CTX *ctx);
 void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx);
 #ifndef QAT_OPENSSL_PROVIDER
 int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen);
+int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
+                                 size_t olen);
 #else
 int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
                     const OSSL_PARAM params[]);
+int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
+                                 size_t olen, const OSSL_PARAM params[]);
 #endif
 #endif /* ENABLE_QAT_HW_HKDF */
