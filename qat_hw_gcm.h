@@ -159,6 +159,13 @@ typedef struct qat_aes_gcm_ctx_t
     /* Flag to keep track of key passed */
     int key_set;
 
+    /* Cache of the currently-allocated cipher_key buffer: length and which
+     * allocator (qat_svm vs qaeCryptoMem) it came from. Lets qat_session_data_init()
+     * skip the free+alloc churn (and, if the key bytes are unchanged, the memcpy
+     * too) when the same key is re-supplied on repeated init calls. */
+    int cipher_key_len;
+    int cipher_key_svm;
+
     int qat_svm;
     void *sw_ctx_cipher_data;
     int fallback;

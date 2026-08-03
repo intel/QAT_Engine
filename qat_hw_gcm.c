@@ -69,6 +69,22 @@
 #include <openssl/tls1.h>
 #include <openssl/ssl.h>
 
+/* Macro to check whether a SW dispatch context has been initialised.
+ * Provider path uses sw_ctx (EVP_CIPHER_CTX *); engine path uses sw_ctx_cipher_data (void *). */
+#ifdef QAT_OPENSSL_PROVIDER
+# define QAT_GCM_SW_CTX_READY(qctx) ((qctx)->sw_ctx != NULL)
+#else
+# define QAT_GCM_SW_CTX_READY(qctx) ((qctx)->sw_ctx_cipher_data != NULL)
+#endif
+
+/* In small-packet threshold mode (ENABLE_QAT_SMALL_PKT_OFFLOAD not set),
+ * SW path must always be ready so tiny packets can route directly to SW. */
+#ifdef ENABLE_QAT_SMALL_PKT_OFFLOAD
+# define QAT_GCM_NEEDS_SW_CTX() (qat_get_sw_fallback_enabled())
+#else
+# define QAT_GCM_NEEDS_SW_CTX() (1)
+#endif
+
 #ifdef ENABLE_QAT_FIPS
 # include "qat_prov_cmvp.h"
 #endif
@@ -127,38 +143,46 @@ static int qat_session_data_init(EVP_CIPHER_CTX *ctx,
     }
 
     if (key != NULL) {
-        if (qctx->qat_svm) {
-            if (qctx->cipher_key){
-                OPENSSL_free(qctx->cipher_key);
-                qctx->cipher_key = NULL;
-            }
 #ifdef QAT_OPENSSL_PROVIDER
-            qctx->cipher_key = OPENSSL_zalloc(keylen);
+        int cur_keylen = keylen;
 #else
-            qctx->cipher_key = OPENSSL_zalloc(EVP_CIPHER_CTX_key_length(ctx));
+        int cur_keylen = EVP_CIPHER_CTX_key_length(ctx);
 #endif
-        } else {
-            if (qctx->cipher_key) {
-                qaeCryptoMemFreeNonZero(qctx->cipher_key);
-                qctx->cipher_key = NULL;
-            }
-#ifdef QAT_OPENSSL_PROVIDER
-            qctx->cipher_key = qaeCryptoMemAlloc(keylen, __FILE__, __LINE__);
-#else
-            qctx->cipher_key = qaeCryptoMemAlloc(EVP_CIPHER_CTX_key_length(ctx), __FILE__, __LINE__);
-#endif
-        }
+        /* Skip the free+alloc churn through the QAT memory allocator when the
+         * existing cipher_key buffer already has the right size and came from
+         * the same allocator (qat_svm vs qaeCryptoMem). */
+        int need_alloc = (qctx->cipher_key == NULL) ||
+                          (qctx->cipher_key_len != cur_keylen) ||
+                          (qctx->cipher_key_svm != qctx->qat_svm);
 
-        if (qctx->cipher_key == NULL) {
-            WARN("Unable to allocate memory for qctx->cipher_key.\n");
-            QATerr(QAT_F_QAT_SESSION_DATA_INIT, QAT_R_KEY_MALLOC_FAILURE);
-            return 0;
+        if (need_alloc) {
+            if (qctx->cipher_key) {
+                if (qctx->cipher_key_svm)
+                    OPENSSL_free(qctx->cipher_key);
+                else
+                    qaeCryptoMemFreeNonZero(qctx->cipher_key);
+                qctx->cipher_key = NULL;
+            }
+
+            if (qctx->qat_svm) {
+                qctx->cipher_key = OPENSSL_zalloc(cur_keylen);
+            } else {
+                qctx->cipher_key = qaeCryptoMemAlloc(cur_keylen, __FILE__, __LINE__);
+            }
+
+            if (qctx->cipher_key == NULL) {
+                WARN("Unable to allocate memory for qctx->cipher_key.\n");
+                QATerr(QAT_F_QAT_SESSION_DATA_INIT, QAT_R_KEY_MALLOC_FAILURE);
+                return 0;
+            }
+            qctx->cipher_key_len = cur_keylen;
+            qctx->cipher_key_svm = qctx->qat_svm;
+            memcpy(qctx->cipher_key, key, cur_keylen);
+        } else if (memcmp(qctx->cipher_key, key, cur_keylen) != 0) {
+            /* Same buffer reused, but key bytes changed (key rotation):
+             * refresh contents in place without touching the allocator. */
+            memcpy(qctx->cipher_key, key, cur_keylen);
         }
-#ifdef QAT_OPENSSL_PROVIDER
-        memcpy(qctx->cipher_key, key, keylen);
-#else
-        memcpy(qctx->cipher_key, key, EVP_CIPHER_CTX_key_length(ctx));
-#endif
         qctx->key_set = 1;
     }
 
@@ -303,7 +327,14 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
 	return 0;
     }
 
-    if (qat_get_sw_fallback_enabled()) {
+#ifdef QAT_OPENSSL_PROVIDER
+    /* Clear any small-packet SW-dispatch state left over from a previous
+     * record. TLS 1.3 re-inits the cipher (IV only) for every record via
+     * EVP_CipherInit_ex(), so this must not leak across records. */
+    qctx->sw_record_dispatch = 0;
+#endif
+
+    if (QAT_GCM_NEEDS_SW_CTX()) {
 #if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         /* Run the software init function */
@@ -313,8 +344,22 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
 #elif defined(QAT_OPENSSL_PROVIDER)
         OSSL_PARAM params[2] = { OSSL_PARAM_END, OSSL_PARAM_END };
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+        if (qctx->sw_ctx) {
+            /* Re-init fast path: sw_ctx already exists, use cached fn ptrs to
+             * skip the 212-byte get_default_cipher_aes_gcm() struct copy. */
+            if (enc) {
+                ret = qctx->sw_einit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+                                     params);
+            } else {
+                unsigned int pad = 0;
+                params[0] = OSSL_PARAM_construct_uint(OSSL_CIPHER_PARAM_PADDING, &pad);
+                ret = qctx->sw_dinit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
+                                     params);
+            }
+        } else {
+# endif
         sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
-
         if (enc) {
             if (!qctx->sw_ctx)
                 qctx->sw_ctx = sw_aes_gcm_cipher.newctx(ctx);
@@ -331,9 +376,22 @@ int qat_aes_gcm_init(EVP_CIPHER_CTX *ctx,
                 sw_aes_gcm_cipher.dinit(qctx->sw_ctx, inkey, keylen, iv, ivlen,
                                         params);
         }
-#endif
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+        /* First init: cache all SW function pointers and threshold so every
+         * subsequent re-init avoids the 212-byte get_default_cipher_aes_gcm()
+         * struct copy and the qat_pkt_threshold_table_get_threshold() scan. */
+        qctx->sw_einit          = sw_aes_gcm_cipher.einit;
+        qctx->sw_dinit          = sw_aes_gcm_cipher.dinit;
+        qctx->sw_cupdate        = sw_aes_gcm_cipher.cupdate;
+        qctx->sw_cfinal         = sw_aes_gcm_cipher.cfinal;
+        qctx->sw_set_ctx_params = sw_aes_gcm_cipher.set_ctx_params;
+        qctx->sw_get_ctx_params = sw_aes_gcm_cipher.get_ctx_params;
+        qctx->sw_threshold      = qat_pkt_threshold_table_get_threshold(nid);
+        }
+# endif
         if (ret != 1)
             goto err;
+#endif
     }
 
     if (!inkey && !iv) {
@@ -522,7 +580,8 @@ int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
             qctx->tag_len = -1;
             qctx->tag_set = 0;
 #ifndef QAT_OPENSSL_PROVIDER
-            if (qctx->sw_ctx_cipher_data == NULL && qat_get_sw_fallback_enabled()) {
+            if (qctx->sw_ctx_cipher_data == NULL &&
+                QAT_GCM_NEEDS_SW_CTX()) {
                 unsigned int sw_size = 0;
                 sw_size = EVP_CIPHER_impl_ctx_size(GET_SW_AES_GCM_CIPHER(ctx));
                 qctx->sw_ctx_cipher_data = OPENSSL_zalloc(sw_size);
@@ -801,7 +860,7 @@ int qat_aes_gcm_ctrl(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr)
 
  sw_ctrl:
 #if !defined(QAT_OPENSSL_PROVIDER) && !defined(OPENSSL_NO_ENGINE)
-    if (qat_get_sw_fallback_enabled()) {
+    if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
         if (type != EVP_CTRL_GCM_SET_IV_INV && type != EVP_CTRL_GCM_IV_GEN)
             EVP_CIPHER_CTX_set_cipher_data(ctx, qctx->sw_ctx_cipher_data);
         ret_sw =
@@ -1023,7 +1082,7 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx, int *fallback)
      * initialised. */
     if ((1 != qctx->init_params_set) || (1 == qctx->is_session_init)) {
         WARN("Parameters not set or session already initialised\n");
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             *fallback = 1;
         }
         return 0;
@@ -1039,7 +1098,7 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx, int *fallback)
     qctx->inst_num = get_instance(QAT_INSTANCE_SYM, QAT_INSTANCE_ANY);
     if (qctx->inst_num == QAT_INVALID_INSTANCE) {
         WARN("Failed to get a QAT instance.\n");
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             CRYPTO_QAT_LOG("Failed to get an instance - fallback to SW - %s\n", __func__);
             *fallback = 1;
         }
@@ -1064,7 +1123,7 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx, int *fallback)
 
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("Failed to get SessionCtx size.\n");
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             *fallback = 1;
         }
         return 0;
@@ -1084,7 +1143,7 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx, int *fallback)
                               sessionSetupData,
                               pSessionCtx);
     if (sts == CPA_STATUS_SUCCESS) {
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             CRYPTO_QAT_LOG("Submit success qat inst_num %d device_id %d - %s\n",
                            qctx->inst_num,
                            qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
@@ -1115,7 +1174,7 @@ static int qat_aes_gcm_session_init(EVP_CIPHER_CTX *ctx, int *fallback)
     if (sts != CPA_STATUS_SUCCESS) {
         WARN("cpaCyBufferListGetBufferSize failed.\n");
         QAT_MEM_FREE_BUFF(pSessionCtx, qctx->qat_svm);
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             *fallback = 1;
             return 0;
         }
@@ -1223,10 +1282,15 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 {
 #ifdef QAT_OPENSSL_PROVIDER
     QAT_GCM_CTX *qctx = NULL;
+# ifdef ENABLE_QAT_SMALL_PKT_OFFLOAD
     int nid;
     QAT_EVP_CIPHER sw_aes_gcm_cipher;
+# endif
 #else
     qat_gcm_ctx *qctx = NULL;
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+    int nid;
+# endif
 #endif
     CpaStatus sts = 0;
     op_done_t op_done;
@@ -1258,7 +1322,9 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifdef QAT_OPENSSL_PROVIDER
     qctx = (QAT_GCM_CTX *)ctx;
     qctx->iv = (Cpa8U *)qctx->iv;
+# ifdef ENABLE_QAT_SMALL_PKT_OFFLOAD
     nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
+# endif
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
 #endif
@@ -1275,6 +1341,20 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #endif
     DEBUG("enc = %d - ctx = %p, out = %p, in = %p, len = %zu\n",
            enc, (void*)ctx, (void*)out, (void*)in, len);
+
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+    message_len = len - (EVP_GCM_TLS_EXPLICIT_IV_LEN + EVP_GCM_TLS_TAG_LEN);
+# ifdef QAT_OPENSSL_PROVIDER
+    if (message_len <= (unsigned int)qctx->sw_threshold) {
+# else
+    nid = EVP_CIPHER_CTX_nid(ctx);
+    if (message_len <= (unsigned int)qat_pkt_threshold_table_get_threshold(nid)) {
+# endif
+        DEBUG("Using OpenSSL SW for small packet size %u\n", message_len);
+        fallback = 1;
+        goto err;
+    }
+#endif
 
     /* The key has been set in the init function: no need to check it here*/
 
@@ -1326,7 +1406,7 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     /* If key or IV not set, throw error here and return. */
     if (!qctx->key_set || !qctx->iv_set) {
         WARN("Cipher key or IV not set.\n");
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             fallback = 1;
             goto err;
         }
@@ -1492,7 +1572,7 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
         else
           DEBUG("Decryption failed\n");
 
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             CRYPTO_QAT_LOG("Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
                            qctx->inst_num,
                            qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
@@ -1531,6 +1611,18 @@ err:
             (ctx, out, in, len);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
 #elif defined(QAT_OPENSSL_PROVIDER)
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+        /* Use the cached SW function pointers (populated in qat_aes_gcm_init())
+         * to avoid the 212-byte get_default_cipher_aes_gcm() struct copy on
+         * every small-packet TLS record. */
+        if (qctx->sw_cupdate == NULL)
+            return 0;
+        if (in != NULL)
+            ret_val = qctx->sw_cupdate(qctx->sw_ctx, out, padlen,
+                                       outsize, in, len);
+        else
+            ret_val = qctx->sw_cfinal(qctx->sw_ctx, out, padlen, outsize);
+# else
         sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
         if (sw_aes_gcm_cipher.cupdate == NULL)
             return 0;
@@ -1540,6 +1632,7 @@ err:
         else
             ret_val =
                 sw_aes_gcm_cipher.cfinal(qctx->sw_ctx, out, padlen, outsize);
+# endif
         *padlen = len;
         if (!ret_val)
             return 0;
@@ -1614,11 +1707,16 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifdef QAT_OPENSSL_PROVIDER
     QAT_GCM_CTX *qctx = NULL;
     const int RET_SUCCESS = 1;
+# ifdef ENABLE_QAT_SMALL_PKT_OFFLOAD
     int nid;
     QAT_EVP_CIPHER sw_aes_gcm_cipher;
+# endif
 #else
     qat_gcm_ctx *qctx = NULL;
     const int RET_SUCCESS = 0;
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+    int nid;
+# endif
 #endif
     CpaStatus sts = 0;
     op_done_t op_done;
@@ -1631,7 +1729,6 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     unsigned buffer_len = 0;
     int fallback = 0;
     thread_local_variables_t *tlv = NULL;
-
     CRYPTO_QAT_LOG("CIPHER - %s\n", __func__);
 
     if (NULL == ctx) {
@@ -1643,7 +1740,9 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifdef QAT_OPENSSL_PROVIDER
     qctx = (QAT_GCM_CTX *)ctx;
     qctx->iv = (Cpa8U *)qctx->iv;
+# ifdef ENABLE_QAT_SMALL_PKT_OFFLOAD
     nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
+# endif
 #else
     qctx = QAT_GCM_GET_CTX(ctx);
 #endif
@@ -1678,7 +1777,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     /* If either key or IV not set, throw error here. */
     if (!qctx->key_set || !qctx->iv_set) {
         WARN("Cipher key or IV not set.\n");
-        if (qat_get_sw_fallback_enabled()) {
+        if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
             fallback = 1;
             ret_val = RET_FAIL;
             WARN("- Fallback to software mode.\n");
@@ -1751,7 +1850,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             /* In this case no data is actually encrypted/decrypted.
              * The return value follows the standard rule of OpenSSL: success -> 1
              */
-            if (qat_get_sw_fallback_enabled()) {
+            if (QAT_GCM_NEEDS_SW_CTX()) {
                 fallback = 1;
                 ret_val = 1;
                 goto err;
@@ -1759,6 +1858,24 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             return 1;
         } else {
             /* The key has been set in the init function: no need to check it */
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+# ifdef QAT_OPENSSL_PROVIDER
+            if (len > 0 &&
+                        len <= (size_t)qctx->sw_threshold) {
+# else
+            nid = EVP_CIPHER_CTX_nid(ctx);
+            if (len > 0 &&
+                        len <= (size_t)qat_pkt_threshold_table_get_threshold(nid)) {
+# endif
+                DEBUG("Using OpenSSL SW for small packet size %zu\n", len);
+#ifdef QAT_OPENSSL_PROVIDER
+                *padlen = len;
+                qctx->sw_record_dispatch = 1;
+#endif
+                fallback = 1;
+                goto err;
+            }
+#endif
             if (0 == qctx->is_session_init) {
 #ifdef QAT_OPENSSL_PROVIDER
                 if (0 == qat_aes_gcm_session_init(qctx, &fallback)) {
@@ -1894,12 +2011,18 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                                    qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
                                    __func__);
                     fallback = 1;
+#ifdef QAT_OPENSSL_PROVIDER
+                    qctx->sw_record_dispatch = 1;
+#endif
                     WARN("- Fallback to software mode.\n");
                     CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
                 }
                 else if (sts == CPA_STATUS_UNSUPPORTED) {
                     WARN("Algorithm Unsupported in QAT_HW! Using OpenSSL SW\n");
                     fallback = 1;
+#ifdef QAT_OPENSSL_PROVIDER
+                    qctx->sw_record_dispatch = 1;
+#endif
                     CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
                 } else {
                     QATerr(QAT_F_QAT_AES_GCM_CIPHER, ERR_R_INTERNAL_ERROR);
@@ -1964,13 +2087,16 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 else
                     DEBUG("Decryption failed\n");
 
-                if (qat_get_sw_fallback_enabled()) {
+                if (qat_get_sw_fallback_enabled() || QAT_GCM_SW_CTX_READY(qctx)) {
                     CRYPTO_QAT_LOG(
                     "Verification of result failed for qat inst_num %d device_id %d - fallback to SW - %s\n",
                     qctx->inst_num,
                     qat_instance_details[qctx->inst_num].qat_instance_info.physInstId.packageId,
                     __func__);
                     fallback = 1; /* Probably already set anyway */
+#ifdef QAT_OPENSSL_PROVIDER
+                    qctx->sw_record_dispatch = 1;
+#endif
                     WARN("- Fallback to software mode.\n");
                     CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
                 }
@@ -2022,6 +2148,12 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             if (qat_get_sw_fallback_enabled() && !qctx->tag_set) {
                 fallback = 1;
             }
+#ifdef QAT_OPENSSL_PROVIDER
+            if (qctx->sw_record_dispatch) {
+                qctx->sw_record_dispatch = 0;
+                fallback = 1;
+            }
+#endif
             DEBUG("Decrypt Final()\n");
             /* TAGs are checked during Update while decrypting the payload.
              * Under QAT_OPENSSL_PROVIDER, if a tag mismatch is detected
@@ -2051,6 +2183,12 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
         if (qat_get_sw_fallback_enabled() && !qctx->tag_set)
             fallback = 1;
+#ifdef QAT_OPENSSL_PROVIDER
+        if (qctx->sw_record_dispatch) {
+            qctx->sw_record_dispatch = 0;
+            fallback = 1;
+        }
+#endif
 
         ret_val = RET_SUCCESS;
     }
@@ -2062,6 +2200,18 @@ err:
             (ctx, out, in, len);
         EVP_CIPHER_CTX_set_cipher_data(ctx, qctx);
 #elif defined(QAT_OPENSSL_PROVIDER)
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+        /* Use the cached SW function pointers (populated in qat_aes_gcm_init())
+         * to avoid the 212-byte get_default_cipher_aes_gcm() struct copy on
+         * every small-packet Update()/Final() call. */
+        if (qctx->sw_cupdate == NULL)
+            return 0;
+        if (in != NULL)
+            ret_val = qctx->sw_cupdate(qctx->sw_ctx, out, padlen,
+                                       outsize, in, len);
+        else
+            ret_val = qctx->sw_cfinal(qctx->sw_ctx, out, padlen, outsize);
+# else
         sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
         if (sw_aes_gcm_cipher.cupdate == NULL)
             return 0;
@@ -2071,6 +2221,7 @@ err:
         else
             ret_val =
                 sw_aes_gcm_cipher.cfinal(qctx->sw_ctx, out, padlen, outsize);
+# endif
         *padlen = len;
         if (!ret_val)
            return RET_FAIL;

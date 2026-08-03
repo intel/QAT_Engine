@@ -47,6 +47,7 @@
 #include "qat_prov_ciphers.h"
 #include "qat_utils.h"
 #include "e_qat.h"
+#include "qat_evp.h"
 
 #ifdef ENABLE_QAT_HW_GCM
 #include "qat_hw_gcm.h"
@@ -188,16 +189,15 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
             || ctx->tag_len == UNINITIALISED_SIZET) {
 #ifdef ENABLE_QAT_HW_GCM
             if (ctx->tag_set)
-                QATerr(ERR_LIB_PROV, PROV_R_INVALID_TAG);
-            ret = 0;
+                QATerr(ERR_LIB_PROV, QAT_R_INVALID_TAG);
             ctx->tag_set = 0;
-            goto end;
+            return 0;
 #else
             return 0;
 #endif
         }
         if (!OSSL_PARAM_set_octet_string(p, ctx->buf, sz)) {
-            QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
             return 0;
         }
 #ifdef ENABLE_QAT_HW_GCM
@@ -211,12 +211,12 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
 
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->iv_len)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_KEYLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->keylen)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_AEAD_TAGLEN);
@@ -225,7 +225,7 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
                          GCM_TAG_MAX_SIZE;
 
         if (!OSSL_PARAM_set_size_t(p, taglen)) {
-            QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
             return 0;
         }
     }
@@ -234,12 +234,12 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
         if (ctx->iv_set == IV_STATE_UNINITIALISED)
             return 0;
         if (ctx->iv_len > p->data_size) {
-            QATerr(ERR_LIB_PROV, PROV_R_INVALID_IV_LENGTH);
+            QATerr(ERR_LIB_PROV, QAT_R_INVALID_IV_LENGTH);
             return 0;
         }
         if (!OSSL_PARAM_set_octet_string(p, ctx->iv, ctx->iv_len)
             && !OSSL_PARAM_set_octet_ptr(p, &ctx->iv, ctx->iv_len)) {
-            QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
             return 0;
         }
     }
@@ -249,25 +249,30 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
         if (ctx->iv_set == IV_STATE_UNINITIALISED)
             return 0;
         if (ctx->iv_len > p->data_size) {
-            QATerr(ERR_LIB_PROV, PROV_R_INVALID_IV_LENGTH);
+            QATerr(ERR_LIB_PROV, QAT_R_INVALID_IV_LENGTH);
             return 0;
         }
         if (!OSSL_PARAM_set_octet_string(p, ctx->iv, ctx->iv_len)
             && !OSSL_PARAM_set_octet_ptr(p, &ctx->iv, ctx->iv_len)) {
-            QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
             return 0;
         }
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_AEAD_TLS1_AAD_PAD);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->tls_aad_pad_sz)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
-
     return 1;
 
 #ifdef ENABLE_QAT_HW_GCM
 end:
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+    if (ctx->sw_ctx && ctx->sw_get_ctx_params != NULL) {
+        ret = ctx->sw_get_ctx_params(ctx->sw_ctx, params);
+        return ret;
+    }
+#endif
     if (ctx->sw_ctx) {
         QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
         ret = sw_aes_gcm_cipher.get_ctx_params(ctx->sw_ctx, params);
@@ -309,11 +314,11 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     if (p != NULL) {
         vp = ctx->buf;
         if (!OSSL_PARAM_get_octet_string(p, &vp, EVP_GCM_TLS_TAG_LEN, &sz)) {
-            QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
         if (sz == 0 || ctx->enc) {
-            QATerr(ERR_LIB_PROV, PROV_R_INVALID_TAG);
+            QATerr(ERR_LIB_PROV, QAT_R_INVALID_TAG);
             return 0;
         }
         ctx->tag_len = sz;
@@ -323,11 +328,11 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_IVLEN);
     if (p != NULL) {
         if (!OSSL_PARAM_get_size_t(p, &sz)) {
-            QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
         if (sz == 0 || sz > ctx->iv_len) {
-            QATerr(ERR_LIB_PROV, PROV_R_INVALID_IV_LENGTH);
+            QATerr(ERR_LIB_PROV, QAT_R_INVALID_IV_LENGTH);
             return 0;
         }
         ctx->iv_len = sz;
@@ -336,7 +341,7 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_AAD);
     if (p != NULL) {
         if (p->data_type != OSSL_PARAM_OCTET_STRING) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
 #ifdef ENABLE_QAT_HW_GCM
@@ -348,16 +353,24 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             sz = vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_AEAD_TLS1_AAD, p->data_size, p->data);
 #endif
         if (sz == 0) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_INVALID_AAD);
+            QATerr(ERR_LIB_PROV, QAT_R_INVALID_AAD);
             return 0;
         }
         ctx->tls_aad_pad_sz = sz;
+#if defined(ENABLE_QAT_HW_GCM) && !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
+        if (ctx->sw_ctx != NULL && ctx->sw_set_ctx_params != NULL) {
+            if (!ctx->sw_set_ctx_params(ctx->sw_ctx, params)) {
+                QATerr(ERR_LIB_PROV, QAT_R_INVALID_AAD);
+                return 0;
+            }
+        }
+#endif
     }
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_IV_FIXED);
     if (p != NULL) {
         if (p->data_type != OSSL_PARAM_OCTET_STRING) {
-            ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
 #ifdef ENABLE_QAT_HW_GCM
@@ -365,7 +378,7 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 #else
         if (vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED, p->data_size, p->data) == 0) {
 #endif
-            ERR_raise(ERR_LIB_PROV, PROV_R_FAILED_TO_GET_PARAMETER);
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
     }
@@ -384,8 +397,15 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 
 #ifdef ENABLE_QAT_HW_GCM
     if (ctx->sw_ctx) {
-        QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
-        sw_aes_gcm_cipher.set_ctx_params(ctx->sw_ctx, params);
+#ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+        if (ctx->sw_set_ctx_params != NULL)
+            ctx->sw_set_ctx_params(ctx->sw_ctx, params);
+        else
+#endif
+        {
+            QAT_EVP_CIPHER sw_aes_gcm_cipher = get_default_cipher_aes_gcm(nid);
+            sw_aes_gcm_cipher.set_ctx_params(ctx->sw_ctx, params);
+        }
     }
 #endif
     return 1;
@@ -489,14 +509,23 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
     }
 #endif
 
+#if defined(ENABLE_QAT_HW_GCM) && !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
+    if (qat_hw_gcm_offload && ctx->sw_cupdate != NULL &&
+        out != NULL && inl > 0 && inl <= (size_t)ctx->sw_threshold) {
+        DEBUG("Provider: small packet %zu bytes, using SW fallback\n", inl);
+        ctx->sw_record_dispatch = 1;
+        ret = ctx->sw_cupdate(ctx->sw_ctx, out, outl, outsize, in, inl) > 0 ? 1 : 0;
+        goto end;
+    }
+#endif
     if (outsize < inl) {
-        QATerr(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
+        QATerr(ERR_LIB_PROV, QAT_R_OUTPUT_BUFFER_TOO_SMALL);
         goto end;
     }
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload) {
         if ((ret = qat_aes_gcm_cipher(ctx, out, outl, outsize, in, inl)) <= 0) {
-            QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
+            QATerr(ERR_LIB_PROV, QAT_R_CIPHER_OPERATION_FAILED);
             goto end;
         }
     }
@@ -505,7 +534,7 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
 #ifdef ENABLE_QAT_SW_GCM
     if (qat_sw_gcm_offload) {
         if ((ret = vaesgcm_ciphers_do_cipher(ctx, out, outl, in, inl)) <= 0) {
-            QATerr(ERR_LIB_PROV, PROV_R_CIPHER_OPERATION_FAILED);
+            QATerr(ERR_LIB_PROV, QAT_R_CIPHER_OPERATION_FAILED);
             goto end;
         }
     }
@@ -550,8 +579,20 @@ int ret = 0;
     if (!qat_prov_is_running())
         goto end;
 #ifdef ENABLE_QAT_HW_GCM
-    if (qat_hw_gcm_offload)
+    if (qat_hw_gcm_offload) {
+#if !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
+        QAT_GCM_CTX *gctx = ctx;
+        if ((!gctx->is_session_init || gctx->sw_record_dispatch) && ctx->sw_cfinal != NULL) {
+            i = ctx->sw_cfinal(ctx->sw_ctx, out, outl, outsize);
+            if (i > 0) {
+                *outl = 0;
+                ret = 1;
+            }
+            goto end;
+        }
+#endif
         i = qat_aes_gcm_cipher(ctx, out, outl, outsize, NULL, 0);
+    }
 #endif
 
 #ifdef ENABLE_QAT_SW_GCM
@@ -601,9 +642,20 @@ int qat_gcm_cipher(void *vctx, unsigned char *out,
         goto end;
 
     if (outsize < inl) {
-        QATerr(ERR_LIB_PROV, PROV_R_OUTPUT_BUFFER_TOO_SMALL);
+        QATerr(ERR_LIB_PROV, QAT_R_OUTPUT_BUFFER_TOO_SMALL);
         goto end;
     }
+#if defined(ENABLE_QAT_HW_GCM) && !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
+    /* See qat_gcm_stream_update(): only divert to SW when this call carries
+     * actual payload (out != NULL), not for AAD-only Update() calls. */
+    if (qat_hw_gcm_offload && ctx->sw_cupdate != NULL &&
+        out != NULL && inl > 0 && inl <= (size_t)ctx->sw_threshold) {
+        DEBUG("Provider TLS: small packet %zu bytes, using SW fallback\n", inl);
+        ctx->sw_record_dispatch = 1;
+        ret = ctx->sw_cupdate(ctx->sw_ctx, out, outl, outsize, in, inl) > 0 ? 1 : 0;
+        goto end;
+    }
+#endif
 #ifdef ENABLE_QAT_HW_GCM
     if (qat_hw_gcm_offload) {
         if (qat_aes_gcm_cipher(ctx, out, outl, outsize, in, inl) <= 0)
@@ -688,52 +740,52 @@ int qat_cipher_generic_get_params(OSSL_PARAM params[], unsigned int md,
 
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_MODE);
     if (p != NULL && !OSSL_PARAM_set_uint(p, md)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_AEAD);
     if (p != NULL
         && !OSSL_PARAM_set_int(p, (flags & PROV_CIPHER_FLAG_AEAD) != 0)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_CUSTOM_IV);
     if (p != NULL
         && !OSSL_PARAM_set_int(p, (flags & PROV_CIPHER_FLAG_CUSTOM_IV) != 0)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_CTS);
     if (p != NULL
         && !OSSL_PARAM_set_int(p, (flags & PROV_CIPHER_FLAG_CTS) != 0)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_TLS1_MULTIBLOCK);
     if (p != NULL
         && !OSSL_PARAM_set_int(p, (flags & PROV_CIPHER_FLAG_TLS1_MULTIBLOCK) != 0)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_HAS_RAND_KEY);
     if (p != NULL
         && !OSSL_PARAM_set_int(p, (flags & PROV_CIPHER_FLAG_RAND_KEY) != 0)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_KEYLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, kbits / 8)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_BLOCK_SIZE);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, blkbits / 8)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ivbits / 8)) {
-        QATerr(ERR_LIB_PROV, PROV_R_FAILED_TO_SET_PARAMETER);
+        QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
     }
     return 1;
