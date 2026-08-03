@@ -200,10 +200,31 @@ typedef struct qat_gcm_ctx_st {
     /* Flag to keep track of key passed */
     int key_set;
 
+    /* Cache of the currently-allocated cipher_key buffer: length and which
+     * allocator (qat_svm vs qaeCryptoMem) it came from. Lets qat_session_data_init()
+     * skip the free+alloc churn (and, if the key bytes are unchanged, the memcpy
+     * too) when the same key is re-supplied on repeated init calls. */
+    int cipher_key_len;
+    int cipher_key_svm;
+
     int qat_svm;
-    int fallback;
+    /* Latch indicating the current TLS record was dispatched through SW. */
+    int sw_record_dispatch;
 #endif
     EVP_CIPHER_CTX *sw_ctx;
+# ifndef ENABLE_QAT_SMALL_PKT_OFFLOAD
+    /* Cached SW function pointers: set once on first init, reused on every
+     * subsequent re-init and per-packet call.  Eliminates the 212-byte
+     * get_default_cipher_aes_gcm() struct copy and the linear threshold scan
+     * from every hot-path operation. */
+    OSSL_FUNC_cipher_encrypt_init_fn    *sw_einit;
+    OSSL_FUNC_cipher_decrypt_init_fn    *sw_dinit;
+    OSSL_FUNC_cipher_update_fn          *sw_cupdate;
+    OSSL_FUNC_cipher_final_fn           *sw_cfinal;
+    OSSL_FUNC_cipher_set_ctx_params_fn  *sw_set_ctx_params;
+    OSSL_FUNC_cipher_get_ctx_params_fn  *sw_get_ctx_params;
+    int                                  sw_threshold;
+# endif
     int sw_tls_ctrl;
     int tls_aad_len;
     int tag_len;

@@ -297,6 +297,13 @@ static PKT_THRESHOLD qat_pkt_threshold_table[] = {
     {NID_aes_192_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
     {NID_aes_256_ccm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_DEFAULT},
 # endif
+# ifdef ENABLE_QAT_HW_GCM
+#  ifdef QAT_INSECURE_ALGO
+    {NID_aes_128_gcm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_GCM},
+    {NID_aes_192_gcm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_GCM},
+#  endif
+    {NID_aes_256_gcm, CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_GCM},
+# endif
 };
 
 static int pkt_threshold_table_size =
