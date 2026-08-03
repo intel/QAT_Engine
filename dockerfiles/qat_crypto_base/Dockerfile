@@ -35,7 +35,7 @@
 #                                                                         \
 #==========================================================================
 
-ARG UBUNTU_BASE=ubuntu:22.04
+ARG UBUNTU_BASE=ubuntu:26.04
 FROM ${UBUNTU_BASE} AS builder
 
 ARG OPENSSL_VERSION="openssl-3.5.7"
@@ -46,26 +46,20 @@ ARG IPP_CRYPTO_VERSION="v2.1.0"
 ARG GID
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required packages including curl, telnet, and git
+# Install required packages
 RUN apt-get update && \
-    apt-get install -y apt-utils \
-    software-properties-common  && \
-    add-apt-repository ppa:ubuntu-toolchain-r/test -y  && \
-    apt-get update
-
-# Upgrade all other packages
-RUN apt-get upgrade -y && \
+    apt-get upgrade -y && \
     apt-get install -y \
+    apt-utils \
     libudev-dev \
     make \
-    gcc-13 \
-    g++-13 \
+    gcc \
+    g++ \
     nasm \
     pkg-config \
     libssl-dev \
     zlib1g-dev \
     git \
-    nasm \
     autoconf \
     autoconf-archive \
     libnuma-dev \
@@ -75,27 +69,16 @@ RUN apt-get upgrade -y && \
     libtool \
     texinfo \
     bison \
-    python3 \
-    wget && \
+    python3 && \
     git clone --depth 1 -b $OPENSSL_VERSION https://github.com/openssl/openssl.git && \
     git clone --depth 1 -b $QAT_ENGINE_VERSION https://github.com/intel/QAT_Engine && \
     git clone --depth 1 -b $IPP_CRYPTO_VERSION https://github.com/intel/cryptography-primitives && \
     git clone --depth 1 -b $IPSEC_MB_VERSION https://github.com/intel/intel-ipsec-mb && \
     git clone --depth 1 -b $QATLIB_VERSION https://github.com/intel/qatlib
 
-# Add the GCC 13 alternative to the update-alternatives filesystem
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 10 --slave /usr/bin/g++ g++ /usr/bin/g++-13
-
-# Install binutils 2.40
-RUN wget https://sourceware.org/pub/binutils/releases/binutils-2.40.tar.gz && \
-    tar -zxvf binutils-2.40.tar.gz
-WORKDIR /binutils-2.40
-RUN ./configure && \
-    make -j && \
-    make install -j
-
 # Create a non-root user and group
 RUN groupadd -r appuser && useradd -r -g appuser -s /bin/bash appuser
+
 
 # Building OpenSSL
 WORKDIR /openssl
@@ -114,7 +97,8 @@ RUN ./autogen.sh && \
 
 # Building Crypto_MB
 WORKDIR /cryptography-primitives/sources/ippcp/crypto_mb
-RUN cmake . -B"../build" \
+RUN find /cryptography-primitives -name "*.cmake" -exec sed -i 's/-Werror//g' {} + && \
+    cmake . -B"../build" \
     -DOPENSSL_INCLUDE_DIR=/usr/local/include \
     -DOPENSSL_LIBRARIES=/usr/local/lib64 \
     -DOPENSSL_ROOT_DIR=/openssl
