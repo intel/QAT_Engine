@@ -288,6 +288,19 @@ static const option_data sha2_choices[] = {
     {"sha2-512", 0, TEST_SHA2_512, 0, 0},
 };
 
+/* test_size carries the ML-DSA/ML-KEM parameter set (44/65/87, 512/768/1024) */
+static const option_data ml_dsa_choices[] = {
+    {"ml-dsa-44", 44, TEST_ML_DSA, 0, 0},
+    {"ml-dsa-65", 65, TEST_ML_DSA, 0, 0},
+    {"ml-dsa-87", 87, TEST_ML_DSA, 0, 0},
+};
+
+static const option_data ml_kem_choices[] = {
+    {"ml-kem-512", 512, TEST_ML_KEM, 0, 0},
+    {"ml-kem-768", 768, TEST_ML_KEM, 0, 0},
+    {"ml-kem-1024", 1024, TEST_ML_KEM, 0, 0},
+};
+
 /******************************************************************************
 * function:
 *    cpu_time_add (cpu_time_t *t1, cpu_time_t *t2, int subtract)
@@ -582,6 +595,10 @@ char *test_name(int test)
         return "SHA2-384";
     case TEST_SHA2_512:
         return "SHA2-512";
+    case TEST_ML_DSA:
+        return "ML-DSA";
+    case TEST_ML_KEM:
+        return "ML-KEM";
     case 0:
         return "all tests";
     default:
@@ -791,6 +808,12 @@ static void usage(char *program)
     printf("\tsha2-384    SHA2 384 test\n");
     printf("\tsha2-512    SHA2 512 test\n");
     printf("\tsm2         SM2 test\n\n");
+    printf("\tml-dsa-44   ML-DSA-44 Keygen/Sign/Verify test (qat_sw provider only)\n");
+    printf("\tml-dsa-65   ML-DSA-65 Keygen/Sign/Verify test (qat_sw provider only)\n");
+    printf("\tml-dsa-87   ML-DSA-87 Keygen/Sign/Verify test (qat_sw provider only)\n");
+    printf("\tml-kem-512  ML-KEM-512 Keygen/Encapsulate/Decapsulate test (qat_sw provider only)\n");
+    printf("\tml-kem-768  ML-KEM-768 Keygen/Encapsulate/Decapsulate test (qat_sw provider only)\n");
+    printf("\tml-kem-1024 ML-KEM-1024 Keygen/Encapsulate/Decapsulate test (qat_sw provider only)\n\n");
     printf("\nIf test algo is not specified, default tests"
            "(RSA, ECDH, ECDSA) will be executed.\n");
 
@@ -1002,6 +1025,32 @@ static void handle_option(int argc, char *argv[], int *index)
                     test_size = 4096;
                     break;
                 }
+    } else if (!strncmp(option, "ml-dsa", strlen("ml-dsa"))) {
+        size = sizeof(ml_dsa_choices) / sizeof(option_data);
+        for (i = 0; i < size; i++)
+            if (!strcmp(option, ml_dsa_choices[i].name)) {
+                test_size = ml_dsa_choices[i].test_size;
+                test_alg = ml_dsa_choices[i].test_alg;
+                break;
+            }
+        if (i == size) {
+            printf("\n# FAIL: Invalid ml-dsa option.\n");
+            usage(argv[0]);
+            exit(EXIT_FAILURE);
+        }
+    } else if (!strncmp(option, "ml-kem", strlen("ml-kem"))) {
+        size = sizeof(ml_kem_choices) / sizeof(option_data);
+        for (i = 0; i < size; i++)
+            if (!strcmp(option, ml_kem_choices[i].name)) {
+                test_size = ml_kem_choices[i].test_size;
+                test_alg = ml_kem_choices[i].test_alg;
+                break;
+            }
+        if (i == size) {
+            printf("\n# FAIL: Invalid ml-kem option.\n");
+            usage(argv[0]);
+            exit(EXIT_FAILURE);
+        }
     } else if (!strcmp(option, "-f"))
         parse_option(index, argc, argv, &kdf);
     else if (!strcmp(option, "-x"))
@@ -1474,8 +1523,8 @@ int main(int argc, char *argv[])
 
     for (i = 1; i < argc; i++) {
         /*
-         *  allow rsa, dsa, dh, aes, prf, hkdf, sha-3 , chachapoly & ecx options
-         *  without '-' prefix
+         *  allow rsa, dsa, dh, aes, prf, hkdf, sha-3 , chachapoly, ecx,
+         *  ml-dsa & ml-kem options without '-' prefix
          */
         if ((argv[i][0] != '-') &&
             (argv[i][0] != 'r') &&
@@ -1485,7 +1534,8 @@ int main(int argc, char *argv[])
             (argv[i][0] != 'p') &&
             (argv[i][0] != 'h') &&
             (argv[i][0] != 's') &&
-            (argv[i][0] != 'c'))
+            (argv[i][0] != 'c') &&
+            (argv[i][0] != 'm'))
             break;
 
         handle_option(argc, argv, &i);
@@ -1552,7 +1602,12 @@ int main(int argc, char *argv[])
     printf(")\n");
     printf("\tTest Count:           %d\n", test_count);
     printf("\tThread Count:         %d\n", thread_count);
-    printf("\tMessage Size:         %d\n", test_size);
+    /* test_size holds the ML-DSA/ML-KEM parameter set (44/65/87, 512/768/1024),
+     * not a byte length, so print it separately to avoid a misleading size. */
+    if (test_alg == TEST_ML_DSA || test_alg == TEST_ML_KEM)
+        printf("\tMessage Size:         N/A\n");
+    else
+        printf("\tMessage Size:         %d\n", test_size);
     printf("\tPrint Output:         %s\n", print_output ? "Yes" : "No");
     printf("\tCPU Core Affinity:    %s\n", cpu_affinity ? "Yes" : "No");
     printf("\tNumber of Cores:      %d\n", core_count);

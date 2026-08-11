@@ -147,6 +147,8 @@ void tests_run_sm4_gcm(TEST_PARAMS *args);
 void tests_run_sm4_ccm(TEST_PARAMS *args);
 void tests_run_sha2(TEST_PARAMS *args);
 void tests_run_sm2(TEST_PARAMS *args);
+void tests_run_ml_dsa(TEST_PARAMS *args);
+void tests_run_ml_kem(TEST_PARAMS *args);
 
 char *ecdh_curve_name(int type);
 char *test_name(int test);
@@ -186,6 +188,8 @@ enum test_algorithms {
     TEST_SHA2_256,
     TEST_SHA2_384,
     TEST_SHA2_512,
+    TEST_ML_DSA,
+    TEST_ML_KEM,
 };
 
 enum curve_name {
