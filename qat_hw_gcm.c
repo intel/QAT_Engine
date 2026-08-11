@@ -1627,7 +1627,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     int job_ret = 0;
     int enc = 0;
     size_t aad_len = 0;
-    int aad_buffer_len = 0;
+    size_t aad_buffer_len = 0;
     unsigned buffer_len = 0;
     int fallback = 0;
     thread_local_variables_t *tlv = NULL;
@@ -1707,9 +1707,22 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                 aad_buffer_len = aad_len;
                 if (aad_buffer_len % AES_BLOCK_SIZE) {
                     aad_buffer_len += AES_BLOCK_SIZE - (aad_buffer_len % AES_BLOCK_SIZE);
-                    DEBUG("Adjusting AAD buffer length = %d\n", aad_buffer_len);
+                    DEBUG("Adjusting AAD buffer length = %zu\n", aad_buffer_len);
                 }
                 if (!qctx->qat_svm) {
+                    /* Pre-check: skip USDM alloc if AAD exceeds driver limit. */
+                    if (aad_buffer_len > QAT_USDM_MAX_ALLOC) {
+                        WARN("AAD size %zu exceeds USDM max alloc %zu\n",
+                             aad_buffer_len, QAT_USDM_MAX_ALLOC);
+                        if (qat_get_sw_fallback_enabled()) {
+                            fallback = 1;
+                            WARN("- Fallback to software mode.\n");
+                            CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+                            goto err;
+                        }
+                        QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_INVALID_INPUT_LENGTH);
+                        goto err;
+                    }
                     qctx->aad = qaeCryptoMemAlloc(aad_buffer_len, __FILE__, __LINE__);
                     if (NULL == qctx->aad) {
                         WARN("Unable to allocate memory for AAD\n");
@@ -1770,6 +1783,19 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 
             /* Build request/response buffers */
             /* Allocate the memory of the FlatBuffer and copy the payload */
+            /* Pre-check: skip USDM alloc if buffer exceeds driver limit. */
+            if (!qctx->qat_svm && len > QAT_USDM_MAX_ALLOC) {
+                WARN("Buffer size %zu exceeds USDM max alloc %zu\n",
+                     len, QAT_USDM_MAX_ALLOC);
+                if (qat_get_sw_fallback_enabled()) {
+                    fallback = 1;
+                    WARN("- Fallback to software mode.\n");
+                    CRYPTO_QAT_LOG("Resubmitting request to SW - %s\n", __func__);
+                    goto err;
+                }
+                QATerr(QAT_F_QAT_AES_GCM_CIPHER, QAT_R_INVALID_INPUT_LENGTH);
+                return RET_FAIL;
+            }
             if (!qctx->qat_svm)
                qctx->srcFlatBuffer.pData = qaeCryptoMemAlloc(buffer_len, __FILE__, __LINE__);
             else
