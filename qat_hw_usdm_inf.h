@@ -53,6 +53,16 @@
 
 extern FILE* qatDebugLogFile;
 
+/* USDM per-allocation cap: 64 MB (VFIO intree) / 4 MB (UIO OOT).
+ * Buffers larger than this cannot be allocated via USDM and must be
+ * routed to SW fallback before calling qaeCryptoMemAlloc(). Shared by
+ * all QAT HW algorithms (GCM, CCM, chachapoly, ...). */
+#ifdef QAT_HW_INTREE
+# define QAT_USDM_MAX_ALLOC  ((size_t)64U * 1024 * 1024)
+#else
+# define QAT_USDM_MAX_ALLOC  ((size_t)4U * 1024 * 1024)
+#endif
+
 #ifdef QAT_MEM_DEBUG
 # define MEM_DEBUG(fmt_str, ...)                                    \
     do {                                                           \

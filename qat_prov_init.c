@@ -661,22 +661,33 @@ int qat_get_params_from_core(const OSSL_CORE_HANDLE *handle)
         return 0;
     }
 
+#ifdef QAT_HW
+    if (qat_params.enable_sw_fallback != NULL)
+        enable_sw_fallback = atoi(qat_params.enable_sw_fallback);
+#endif
+
     if (qat_params.enable_external_polling == NULL) {
         DEBUG("get_params is NULL. Using the default params\n");
         return 1;
     }
 
     enable_external_polling = atoi(qat_params.enable_external_polling);
-    enable_heuristic_polling = atoi(qat_params.enable_heuristic_polling);
+    if (qat_params.enable_heuristic_polling != NULL)
+        enable_heuristic_polling = atoi(qat_params.enable_heuristic_polling);
 
 #ifdef QAT_HW
-    enable_sw_fallback = atoi(qat_params.enable_sw_fallback);
-    enable_inline_polling = atoi(qat_params.enable_inline_polling);
-    qat_poll_interval = atoi(qat_params.qat_poll_interval);
-    qat_epoll_timeout = atoi(qat_params.qat_epoll_timeout);
-    enable_event_driven_polling = atoi(qat_params.enable_event_driven_polling);
-    enable_instance_for_thread = atoi(qat_params.enable_instance_for_thread);
-    qat_max_retry_count = atoi(qat_params.qat_max_retry_count);
+    if (qat_params.enable_inline_polling != NULL)
+        enable_inline_polling = atoi(qat_params.enable_inline_polling);
+    if (qat_params.qat_poll_interval != NULL)
+        qat_poll_interval = atoi(qat_params.qat_poll_interval);
+    if (qat_params.qat_epoll_timeout != NULL)
+        qat_epoll_timeout = atoi(qat_params.qat_epoll_timeout);
+    if (qat_params.enable_event_driven_polling != NULL)
+        enable_event_driven_polling = atoi(qat_params.enable_event_driven_polling);
+    if (qat_params.enable_instance_for_thread != NULL)
+        enable_instance_for_thread = atoi(qat_params.enable_instance_for_thread);
+    if (qat_params.qat_max_retry_count != NULL)
+        qat_max_retry_count = atoi(qat_params.qat_max_retry_count);
 #endif
 
     return 1;
