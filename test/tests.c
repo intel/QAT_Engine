@@ -804,6 +804,16 @@ void tests_run(TEST_PARAMS *args, int id)
         tests_run_sm4_ccm(args);
         break;
 # endif
+# ifdef ENABLE_QAT_SW_ML_DSA
+    case TEST_ML_DSA:            /* ML-DSA (FIPS 204) test application */
+        tests_run_ml_dsa(args);
+        break;
+# endif
+# ifdef ENABLE_QAT_SW_ML_KEM
+    case TEST_ML_KEM:            /* ML-KEM (FIPS 203) test application */
+        tests_run_ml_kem(args);
+        break;
+# endif
 #endif
 
 #ifdef QAT_HW
