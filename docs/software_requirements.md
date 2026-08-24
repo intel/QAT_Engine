@@ -11,14 +11,14 @@ This release was validated on the following versions and expected to work on all
 and also from the latest versions from the links below.
 
 ## QAT_HW Drivers:
-* [Intel® QuickAssist Technology Driver for Linux\* HW Version 2.0][4] - **QAT20.L.1.2.30-00109**
+* [Intel® QuickAssist Technology Driver for Linux\* HW Version 2.0][4] - **QAT20.L.1.2.30-00239**
 * [Intel® QuickAssist Technology Driver for Linux\* HW Version 1.x][5] - **QAT.L.4.28.0-00004**
 * Intel® QuickAssist Technology Driver for FreeBSD\* HW Version 1.x and 2.0 - **QAT.B.3.14.31-00003** (FreeBSD 13.2)
-* [Intel® QATlib for Linux with intree driver][7] - **QATlib 26.02.0**
+* [Intel® QATlib for Linux with intree driver][7] - **QATlib 26.08.0**
 * [Intel®  QATlib for FreeBSD with intree driver(FreeBSD 14)][8] - **FreeBSD QATlib 26.02.0** (FreeBSD 14)
 
 ## QAT_SW Libraries:
-* [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto v2.1.0**
+* [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto v2.3.0**
 * [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v2.0**
 
 ## Crypto Libraries:
