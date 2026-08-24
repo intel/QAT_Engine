@@ -8,6 +8,7 @@
 #include <openssl/proverr.h>
 #include <openssl/rand.h>
 #include <openssl/sha.h>
+#include <openssl/x509.h>
 #include "e_qat.h"
 #include "qat_provider.h"
 #include "qat_prov_rsa.h"
@@ -146,6 +147,7 @@ static const OSSL_PARAM settable_ctx_params_no_digest[] = {
     OSSL_PARAM_END};
 
 static const OSSL_PARAM known_gettable_ctx_params[] = {
+    OSSL_PARAM_octet_string(OSSL_SIGNATURE_PARAM_ALGORITHM_ID, NULL, 0),
     OSSL_PARAM_utf8_string(OSSL_SIGNATURE_PARAM_PAD_MODE, NULL, 0),
     OSSL_PARAM_utf8_string(OSSL_SIGNATURE_PARAM_DIGEST, NULL, 0),
     OSSL_PARAM_utf8_string(OSSL_SIGNATURE_PARAM_MGF1_DIGEST, NULL, 0),
@@ -1481,9 +1483,16 @@ static int qat_signature_rsa_set_ctx_params(void *vprsactx,
         }
 
         /*
-         * RSA_PSS_SALTLEN_AUTO_DIGEST_MAX is the lowest valid sentinel value
-         * (-4).  Reject anything below it.
+         * RSA_PSS_SALTLEN_AUTO_DIGEST_MAX is not supported by the QAT signer.
+         * Reject it explicitly and keep the supported sentinel range aligned with
+         * the actual PSS padding implementation.
          */
+        if (saltlen == RSA_PSS_SALTLEN_AUTO_DIGEST_MAX) {
+            WARN("PSS salt length auto-digestmax is not supported by the QAT signer");
+            QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
+            return 0;
+        }
+
         if (saltlen < RSA_PSS_SALTLEN_AUTO_DIGEST_MAX) {
             QATerr(ERR_LIB_PROV, PROV_R_INVALID_SALT_LENGTH);
             return 0;
@@ -1599,7 +1608,7 @@ static void *qat_signature_rsa_newctx(void *provctx, const char *propq)
     prsactx->libctx = prov_libctx_of(provctx);
     prsactx->flag_allow_md = 1;
     prsactx->propq = propq_copy;
-    prsactx->saltlen = RSA_PSS_SALTLEN_AUTO_DIGEST_MAX;
+    prsactx->saltlen = RSA_PSS_SALTLEN_AUTO;
     prsactx->min_saltlen = -1;
 
     return prsactx;
@@ -2374,6 +2383,186 @@ static void *qat_signature_rsa_dupctx(void *vprsactx)
     return NULL;
 }
 
+/* Resolve the effective PSS salt length in bytes, per RFC 8017 sec 9.1.1. */
+static int qat_rsa_pss_compute_saltlen(QAT_PROV_RSA_CTX *ctx)
+{
+    int saltlen = ctx->saltlen;
+    int saltlenMax = -1;
+    int mdsize, rsasize;
+
+    if (ctx->md == NULL || ctx->rsa == NULL)
+        return -1;
+
+    mdsize = EVP_MD_get_size(ctx->md);
+    if (mdsize <= 0)
+        return -1;
+
+    if (saltlen == RSA_PSS_SALTLEN_DIGEST) {
+        saltlen = mdsize;
+    } else if (saltlen == RSA_PSS_SALTLEN_AUTO_DIGEST_MAX) {
+        saltlen = RSA_PSS_SALTLEN_MAX;
+        saltlenMax = mdsize;
+    }
+
+    if (saltlen == RSA_PSS_SALTLEN_MAX || saltlen == RSA_PSS_SALTLEN_AUTO) {
+        rsasize = RSA_size(ctx->rsa);
+        if (rsasize <= 2 || rsasize - 2 < mdsize)
+            return -1;
+        saltlen = rsasize - mdsize - 2;
+        if ((RSA_bits(ctx->rsa) & 0x7) == 1)
+            saltlen--;
+        if (saltlenMax >= 0 && saltlen > saltlenMax)
+            saltlen = saltlenMax;
+    }
+
+    if (saltlen < 0)
+        return -1;
+    if (ctx->min_saltlen != -1 && saltlen < ctx->min_saltlen)
+        return -1;
+
+    return saltlen;
+}
+
+/* Build DER AlgorithmIdentifier for RSASSA-PSS signing (RFC 4055/8017). */
+static int qat_rsa_get_pss_algorithm_id(QAT_PROV_RSA_CTX *ctx,
+                                        unsigned char *buf, size_t buf_len,
+                                        size_t *aid_len)
+{
+    RSA_PSS_PARAMS *pss = NULL;
+    X509_ALGOR *mgf1_hash_algor = NULL;
+    X509_ALGOR *algor = NULL;
+    ASN1_STRING *mgf1_params = NULL;
+    ASN1_STRING *pss_params = NULL;
+    unsigned char *der = NULL, *tmp;
+    const EVP_MD *mgf1_md;
+    int saltlen, len, ret = 0;
+
+    saltlen = qat_rsa_pss_compute_saltlen(ctx);
+    if (saltlen < 0)
+        return 0;
+
+    mgf1_md = ctx->mgf1_md != NULL ? ctx->mgf1_md : ctx->md;
+
+    pss = RSA_PSS_PARAMS_new();
+    if (pss == NULL)
+        return 0;
+
+    /* hashAlgorithm and maskGenAlgorithm are OPTIONAL and NULL by default */
+    if ((pss->hashAlgorithm = X509_ALGOR_new()) == NULL
+            || (pss->maskGenAlgorithm = X509_ALGOR_new()) == NULL
+            || (mgf1_hash_algor = X509_ALGOR_new()) == NULL)
+        goto end;
+
+    X509_ALGOR_set_md(pss->hashAlgorithm, ctx->md);
+    X509_ALGOR_set_md(mgf1_hash_algor, mgf1_md);
+
+    len = i2d_X509_ALGOR(mgf1_hash_algor, NULL);
+    if (len <= 0 || (der = OPENSSL_malloc((size_t)len)) == NULL)
+        goto end;
+    tmp = der;
+    if (i2d_X509_ALGOR(mgf1_hash_algor, &tmp) != len)
+        goto end;
+
+    mgf1_params = ASN1_STRING_new();
+    if (mgf1_params == NULL || !ASN1_STRING_set(mgf1_params, der, len))
+        goto end;
+    OPENSSL_free(der);
+    der = NULL;
+
+    if (!X509_ALGOR_set0(pss->maskGenAlgorithm, OBJ_nid2obj(NID_mgf1),
+                          V_ASN1_SEQUENCE, mgf1_params))
+        goto end;
+    mgf1_params = NULL; /* ownership transferred to pss->maskGenAlgorithm */
+
+    /* RFC 8017 default salt length is 20; omit the field when it matches */
+    if (saltlen != 20) {
+        pss->saltLength = ASN1_INTEGER_new();
+        if (pss->saltLength == NULL
+                || !ASN1_INTEGER_set(pss->saltLength, saltlen))
+            goto end;
+    }
+
+    len = i2d_RSA_PSS_PARAMS(pss, NULL);
+    if (len <= 0 || (der = OPENSSL_malloc((size_t)len)) == NULL)
+        goto end;
+    tmp = der;
+    if (i2d_RSA_PSS_PARAMS(pss, &tmp) != len)
+        goto end;
+
+    pss_params = ASN1_STRING_new();
+    if (pss_params == NULL || !ASN1_STRING_set(pss_params, der, len))
+        goto end;
+    OPENSSL_free(der);
+    der = NULL;
+
+    algor = X509_ALGOR_new();
+    if (algor == NULL)
+        goto end;
+    if (!X509_ALGOR_set0(algor, OBJ_nid2obj(NID_rsassaPss),
+                          V_ASN1_SEQUENCE, pss_params))
+        goto end;
+    pss_params = NULL; /* ownership transferred to algor */
+
+    len = i2d_X509_ALGOR(algor, NULL);
+    if (len <= 0 || (size_t)len > buf_len)
+        goto end;
+    tmp = buf;
+    if (i2d_X509_ALGOR(algor, &tmp) != len)
+        goto end;
+    *aid_len = (size_t)len;
+    ret = 1;
+end:
+    OPENSSL_free(der);
+    ASN1_STRING_free(mgf1_params);
+    ASN1_STRING_free(pss_params);
+    X509_ALGOR_free(mgf1_hash_algor);
+    X509_ALGOR_free(algor);
+    RSA_PSS_PARAMS_free(pss);
+    return ret;
+}
+
+/* Build DER AlgorithmIdentifier for PKCS#1 v1.5 or RSASSA-PSS RSA signing. */
+static int qat_rsa_get_algorithm_id(QAT_PROV_RSA_CTX *ctx,
+                                    unsigned char *buf, size_t buf_len,
+                                    size_t *aid_len)
+{
+    X509_ALGOR *algor = NULL;
+    int sig_nid, ret = 0;
+    unsigned char *tmp;
+    int len;
+
+    *aid_len = 0;
+
+    if (ctx->pad_mode == RSA_PKCS1_PSS_PADDING)
+        return qat_rsa_get_pss_algorithm_id(ctx, buf, buf_len, aid_len);
+
+    if (ctx->pad_mode != RSA_PKCS1_PADDING)
+        return 0;
+
+    if (!OBJ_find_sigid_by_algs(&sig_nid, ctx->mdnid, EVP_PKEY_RSA))
+        return 0;
+
+    algor = X509_ALGOR_new();
+    if (algor == NULL)
+        return 0;
+
+    if (!X509_ALGOR_set0(algor, OBJ_nid2obj(sig_nid), V_ASN1_NULL, NULL))
+        goto end;
+
+    len = i2d_X509_ALGOR(algor, NULL);
+    if (len <= 0 || (size_t)len > buf_len)
+        goto end;
+
+    tmp = buf;
+    if (i2d_X509_ALGOR(algor, &tmp) != len)
+        goto end;
+    *aid_len = (size_t)len;
+    ret = 1;
+end:
+    X509_ALGOR_free(algor);
+    return ret;
+}
+
 /**
  * @brief Retrieves context parameters for the QAT RSA signature context.
  *
@@ -2395,6 +2584,20 @@ static int qat_signature_rsa_get_ctx_params(void *vprsactx, OSSL_PARAM *params)
 
     if (prsactx == NULL)
         return 0;
+
+    p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_ALGORITHM_ID);
+    if (p != NULL
+            && (prsactx->pad_mode == RSA_PKCS1_PADDING
+                || prsactx->pad_mode == RSA_PKCS1_PSS_PADDING)
+            && prsactx->mdnid != NID_undef) {
+        unsigned char aid_buf[128];
+        size_t aid_len;
+
+        if (!qat_rsa_get_algorithm_id(prsactx, aid_buf, sizeof(aid_buf),
+                                      &aid_len)
+                || !OSSL_PARAM_set_octet_string(p, aid_buf, aid_len))
+            return 0;
+    }
 
     p = OSSL_PARAM_locate(params, OSSL_SIGNATURE_PARAM_PAD_MODE);
     if (p != NULL) {
