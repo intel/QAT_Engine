@@ -49,6 +49,7 @@
 
 /* Local Includes */
 #include "qat_sw_gcm.h"
+#include "qat_utils.h"
 #if defined(ENABLE_QAT_FIPS) && defined(ENABLE_QAT_SW_SHA2)
 int qat_imb_sha2(int nid, IMB_MGR *ipsec_mgr, unsigned char hash_type,
                  const void *data, size_t len, unsigned char *out);
@@ -57,23 +58,35 @@ void qat_imb_aes_gcm_precomp(int nid, IMB_MGR *ipsec_mgr,
                              const void *key,
                              struct gcm_key_data *key_data_ptr)
 {
+    /* AES-256 needs 15 round keys of 16 bytes each, 64-byte aligned for AVX-512 */
+    DECLARE_ALIGNED(uint8_t dec_keys[16 * 15], 64);
+
+    if (ipsec_mgr == NULL || key == NULL || key_data_ptr == NULL) {
+        WARN("Invalid input parameters\n");
+        return;
+    }
 
     switch (nid) {
         case NID_aes_128_gcm:
-            aes_keyexp_128_enc_avx512(key, key_data_ptr);
+            IMB_AES_KEYEXP_128(ipsec_mgr, key, key_data_ptr, dec_keys);
             IMB_AES128_GCM_PRECOMP(ipsec_mgr, key_data_ptr);
             break;
 
         case NID_aes_192_gcm:
-            aes_keyexp_192_enc_avx512(key, key_data_ptr);
+            IMB_AES_KEYEXP_192(ipsec_mgr, key, key_data_ptr, dec_keys);
             IMB_AES192_GCM_PRECOMP(ipsec_mgr, key_data_ptr);
             break;
 
         case NID_aes_256_gcm:
-            aes_keyexp_256_enc_avx512(key, key_data_ptr);
+            IMB_AES_KEYEXP_256(ipsec_mgr, key, key_data_ptr, dec_keys);
             IMB_AES256_GCM_PRECOMP(ipsec_mgr, key_data_ptr);
             break;
+
+        default:
+            WARN("Invalid nid %d\n", nid);
+            break;
     }
+    OPENSSL_cleanse(dec_keys, sizeof(dec_keys));
 }
 
 void qat_imb_aes_gcm_init_var_iv(int nid, IMB_MGR *ipsec_mgr,
