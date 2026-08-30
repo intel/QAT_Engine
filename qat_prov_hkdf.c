@@ -296,6 +296,10 @@ static int qat_kdf_tls1_3_derive(void *vctx, unsigned char *key, size_t keylen,
 
         if (ctx->key == NULL) {
             ctx->key = OPENSSL_zalloc(EVP_MAX_MD_SIZE);
+            if (ctx->key == NULL) {
+                WARN("Failed to allocate tls13-kdf key.\n");
+                goto end;
+            }
             ctx->key_len = mdlen;
 
             if (!qat_hkdf_ctrl(ctx->evp_pkey_ctx, EVP_PKEY_CTRL_HKDF_KEY,
@@ -350,6 +354,60 @@ end:
         ret = default_provider_HKDF_derive(qat_hkdf_ctx, key, keylen, params);
     }
     return ret;
+}
+
+/*
+ * Keep a default-provider KDF context synchronized with the accumulated
+ * QAT KDF state (digest/mode/key/salt/info). Called only when a fallback to
+ * SW has been requested, so the hot HW path pays no overhead. Building the
+ * params from the accumulated ctx (rather than the derive-time params) makes
+ * the fallback independent of how/when the caller supplied the parameters.
+ */
+static int qat_hkdf_sync_sw_kctx(QAT_KDF_HKDF *ctx, const char *kdf_name)
+{
+    QAT_HKDF_CTX *qat_hkdf_ctx;
+    OSSL_PARAM params[6], *p = params;
+    const EVP_MD *md;
+
+    if (ctx->evp_pkey_ctx == NULL)
+        return 0;
+    qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(ctx->evp_pkey_ctx);
+    if (qat_hkdf_ctx == NULL)
+        return 0;
+
+    if (qat_hkdf_ctx->sw_kctx == NULL) {
+        EVP_KDF *kdf = EVP_KDF_fetch(NULL, kdf_name, "provider=default");
+
+        if (kdf == NULL)
+            return 0;
+        qat_hkdf_ctx->sw_kctx = EVP_KDF_CTX_new(kdf);
+        EVP_KDF_free(kdf);
+        if (qat_hkdf_ctx->sw_kctx == NULL)
+            return 0;
+    }
+
+    md = qat_prov_digest_md(&ctx->digest);
+    if (md != NULL)
+        *p++ = OSSL_PARAM_construct_utf8_string(OSSL_KDF_PARAM_DIGEST,
+                   (char *)EVP_MD_get0_name(md), 0);
+    *p++ = OSSL_PARAM_construct_int(OSSL_KDF_PARAM_MODE, &ctx->mode);
+    if (ctx->key != NULL)
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_KEY,
+                   ctx->key, ctx->key_len);
+    if (ctx->salt != NULL)
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_SALT,
+                   ctx->salt, ctx->salt_len);
+    if (ctx->info_len != 0)
+        *p++ = OSSL_PARAM_construct_octet_string(OSSL_KDF_PARAM_INFO,
+                   ctx->info, ctx->info_len);
+    *p = OSSL_PARAM_construct_end();
+
+    if (!EVP_KDF_CTX_set_params(qat_hkdf_ctx->sw_kctx, params)) {
+        EVP_KDF_CTX_free(qat_hkdf_ctx->sw_kctx);
+        qat_hkdf_ctx->sw_kctx = NULL;
+        return 0;
+    }
+    return 1;
 }
 
 static int qat_hkdf_common_set_ctx_params(const char *kdf_name, 
@@ -470,6 +528,13 @@ static int qat_kdf_hkdf_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             WARN("Failed in setting hkdf info.\n");
             return 0;
         }
+    }
+
+    if (ctx->evp_pkey_ctx != NULL) {
+        QAT_HKDF_CTX *qat_hkdf_ctx = (QAT_HKDF_CTX *)EVP_PKEY_CTX_get_data(
+                                                        ctx->evp_pkey_ctx);
+        if (qat_hkdf_ctx != NULL && qat_hkdf_ctx->fallback)
+            (void)qat_hkdf_sync_sw_kctx(ctx, "HKDF");
     }
     return 1;
 }

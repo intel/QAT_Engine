@@ -75,13 +75,6 @@
 extern int qat_fips_key_zeroize;
 #endif
 
-/* These limits are based on QuickAssist limits.
- * OpenSSL is more generous but better to restrict and fail
- * early on here if they are exceeded rather than later on
- * down in the driver.
- */
-#define QAT_HKDF_INFO_MAXBUF 1024
-
 /* Have a store of the s/w EVP_PKEY_METHOD for software fallback purposes. */
 #ifndef QAT_OPENSSL_3
 /* Only for OpenSSL 1.1.1. For OpenSSL 3, we use the default provider for SW fallback */
@@ -277,7 +270,8 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
         (*sw_cleanup_fn_ptr)(ctx);
         EVP_PKEY_CTX_set_data(ctx, qat_hkdf_ctx);
     }
-#else
+#endif
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     /* Cleanup the memory used for sw fallback */
     OPENSSL_cleanse(qat_hkdf_ctx->sw_ikm, qat_hkdf_ctx->sw_ikm_size);
     OPENSSL_cleanse(qat_hkdf_ctx->sw_info, qat_hkdf_ctx->sw_info_size);
@@ -304,7 +298,6 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
         }
         QAT_MEM_FREE_NONZERO_BUFF(qat_hkdf_ctx->hkdf_op_data, qat_hkdf_ctx->qat_svm);
     }
-    qat_hkdf_ctx->fallback = 0;
 #ifdef QAT_OPENSSL_PROVIDER
     OPENSSL_free(qat_hkdf_ctx->prefix);
     qat_hkdf_ctx->prefix = NULL;
@@ -312,6 +305,8 @@ void qat_hkdf_cleanup(EVP_PKEY_CTX *ctx)
     qat_hkdf_ctx->data = NULL;
     OPENSSL_free(qat_hkdf_ctx->label);
     qat_hkdf_ctx->label = NULL;
+    EVP_KDF_CTX_free(qat_hkdf_ctx->sw_kctx);
+    qat_hkdf_ctx->sw_kctx = NULL;
 #endif
     OPENSSL_free(qat_hkdf_ctx);
     EVP_PKEY_CTX_set_data(ctx, NULL);
@@ -393,22 +388,36 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                 WARN("hkdf_op_data is NULL\n");
                 return 0;
             }
-#ifdef QAT_OPENSSL_3
-            /* Setup the sw fallback parameters */
-            OPENSSL_cleanse(qat_hkdf_ctx->sw_salt,
-                            QAT_KDF_MAX_SEED_SZ);
-            memcpy(qat_hkdf_ctx->sw_salt, p2, p1);
-            qat_hkdf_ctx->sw_salt_size = p1;
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+            if (p1 <= (int)SW_KDF_MAX_SALT_SZ) {
+                OPENSSL_cleanse(qat_hkdf_ctx->sw_salt,
+                                SW_KDF_MAX_SALT_SZ);
+                memcpy(qat_hkdf_ctx->sw_salt, p2, p1);
+                qat_hkdf_ctx->sw_salt_size = p1;
+            } else {
+                WARN("HKDF salt size %d exceeds SW fallback buffer (%d)\n", p1,
+                     SW_KDF_MAX_SALT_SZ);
+                return 0;
+            }
 #endif
             OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->seed,
                             qat_hkdf_ctx->hkdf_op_data->seedLen);
             qat_hkdf_ctx->hkdf_op_data->seedLen = 0;
+
+            if (p1 > (int)CPA_CY_HKDF_KEY_MAX_HMAC_SZ) {
+                DEBUG("HKDF salt size %d exceeds HW limit, fallback to SW\n", p1);
+                qat_hkdf_ctx->fallback = 1;
+                return 1;
+            }
 
             memcpy(qat_hkdf_ctx->hkdf_op_data->seed, p2, p1);
             qat_hkdf_ctx->hkdf_op_data->seedLen = p1;
             return 1;
 
         case EVP_PKEY_CTRL_HKDF_KEY:
+            if (p1 == 0 || p2 == NULL)
+                return 0;
+
             if (p1 < 0) {
                 WARN("Input param p1 length less than zero\n");
                 return 0;
@@ -418,9 +427,9 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                 WARN("hkdf_op_data is NULL\n");
                 return 0;
             }
-#ifdef QAT_OPENSSL_3
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
             /* Setup the sw fallback parameters */
-            if (p1 <= SW_KDF_MAX_KEY_SZ) {
+            if (p1 <= (int)SW_KDF_MAX_KEY_SZ) {
                 OPENSSL_cleanse(qat_hkdf_ctx->sw_ikm,
                                 SW_KDF_MAX_KEY_SZ);
                 memcpy(qat_hkdf_ctx->sw_ikm, p2, p1);
@@ -436,15 +445,14 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
             qat_hkdf_ctx->hkdf_op_data->secretLen = 0;
 
             /* HW buffer is limited to CPA_CY_HKDF_KEY_MAX_SECRET_SZ */
-            if (p1 > CPA_CY_HKDF_KEY_MAX_SECRET_SZ) {
-                WARN("HKDF key size %d exceeds HW limit, fallback to SW\n", p1);
+            if (p1 > (int)CPA_CY_HKDF_KEY_MAX_SECRET_SZ) {
+                DEBUG("HKDF key size %d exceeds HW limit, fallback to SW\n", p1);
                 qat_hkdf_ctx->fallback = 1;
                 return 1;
             }
 
             memcpy(qat_hkdf_ctx->hkdf_op_data->secret, p2, p1);
             qat_hkdf_ctx->hkdf_op_data->secretLen = p1;
-            qat_hkdf_ctx->fallback = 0;
             return 1;
 
         case EVP_PKEY_CTRL_HKDF_INFO:
@@ -456,20 +464,32 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                 return 0;
             }
 
-            if (p1 < 0 || p1 > (int) QAT_HKDF_INFO_MAXBUF - qat_hkdf_ctx->hkdf_op_data->infoLen) {
-                WARN("info p1 %d is out of range\n", p1);
+            if (p1 < 0) {
+                WARN("info p1 %d is negative\n", p1);
                 return 0;
             }
-#ifdef QAT_OPENSSL_3
-            /* Setup the sw fallback parameters */
-            OPENSSL_cleanse(qat_hkdf_ctx->sw_info,
-                            QAT_KDF_MAX_INFO_SZ);
-            memcpy(qat_hkdf_ctx->sw_info, p2, p1);
-            qat_hkdf_ctx->sw_info_size = p1;
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+            if (p1 <= (int)SW_KDF_MAX_INFO_SZ) {
+                OPENSSL_cleanse(qat_hkdf_ctx->sw_info,
+                                SW_KDF_MAX_INFO_SZ);
+                memcpy(qat_hkdf_ctx->sw_info, p2, p1);
+                qat_hkdf_ctx->sw_info_size = p1;
+            } else {
+                WARN("HKDF info size %d exceeds SW fallback buffer (%d)\n", p1,
+                     SW_KDF_MAX_INFO_SZ);
+                return 0;
+            }
 #endif
-	    OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->info,
+            /* Intentional overwrite: provider pre-concatenates info in set_ctx_params */
+            OPENSSL_cleanse(qat_hkdf_ctx->hkdf_op_data->info,
                             qat_hkdf_ctx->hkdf_op_data->infoLen);
             qat_hkdf_ctx->hkdf_op_data->infoLen = 0;
+
+            if (p1 > (int)CPA_CY_HKDF_KEY_MAX_INFO_SZ) {
+                DEBUG("HKDF info size %d exceeds HW limit, fallback to SW\n", p1);
+                qat_hkdf_ctx->fallback = 1;
+                return 1;
+            }
 
             memcpy(qat_hkdf_ctx->hkdf_op_data->info, p2, p1);
             qat_hkdf_ctx->hkdf_op_data->infoLen = p1;
@@ -484,6 +504,7 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                 return 0;
             }
 
+            OPENSSL_free(qat_hkdf_ctx->prefix);
             qat_hkdf_ctx->prefix = OPENSSL_zalloc(p1);
             if (qat_hkdf_ctx->prefix == NULL) {
                    WARN("Cannot allocate qat_hkdf_ctx\n");
@@ -502,6 +523,7 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                 WARN("hkdf_op_data is NULL\n");
                 return 0;
             }
+            OPENSSL_free(qat_hkdf_ctx->data);
             qat_hkdf_ctx->data = OPENSSL_zalloc(p1);
             if (qat_hkdf_ctx->data == NULL) {
                 WARN("Cannot allocate qat_hkdf_ctx\n");
@@ -520,6 +542,7 @@ int qat_hkdf_ctrl(EVP_PKEY_CTX *ctx, int type, int p1, void *p2)
                 return 0;
             }
             qat_hkdf_ctx->hkdf_op_data->numLabels = 1;
+            OPENSSL_free(qat_hkdf_ctx->label);
             qat_hkdf_ctx->label = OPENSSL_zalloc(p1);
             qat_hkdf_ctx->label_len = p1;
             if (qat_hkdf_ctx->label == NULL) {
@@ -680,6 +703,17 @@ int default_provider_HKDF_derive(QAT_HKDF_CTX *qat_hkdf_ctx, unsigned char *out,
     int rv = 0;
     EVP_KDF *kdf = NULL;
     EVP_KDF_CTX *kctx = NULL;
+#ifdef QAT_OPENSSL_PROVIDER
+    /* Prefer the shadow ctx that mirrors the accumulated set_ctx_params state.
+     * This makes the fallback reliable even when derive-time params is NULL. */
+    if (qat_hkdf_ctx->sw_kctx != NULL) {
+        if (EVP_KDF_derive(qat_hkdf_ctx->sw_kctx, out, olen, params) != 1) {
+            fprintf(stderr, "EVP_KDF_derive() failed\n");
+            return 0;
+        }
+        return 1;
+    }
+#endif
 #ifndef QAT_OPENSSL_PROVIDER
     OSSL_PARAM params[6], *p = params;
     char *mode = NULL;
@@ -788,7 +822,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
     int inst_num = QAT_INVALID_INSTANCE;
     thread_local_variables_t *tlv = NULL;
 #ifdef QAT_OPENSSL_PROVIDER
-    size_t hkdflabellen;
+    size_t hkdflabellen = 0;
     unsigned char hkdflabel[2048];
     qat_WPACKET pkt;
     const unsigned char *tls13_data;
@@ -911,7 +945,18 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
             || !QAT_WPACKET_sub_memcpy_u8(&pkt, tls13_data, (tls13_data == NULL) ? 0 : tls13_datalen)
             || !QAT_WPACKET_get_total_written(&pkt, &hkdflabellen)
             || !QAT_WPACKET_finish(&pkt)) {
-            QAT_WPACKET_cleanup(&pkt);}
+            QAT_WPACKET_cleanup(&pkt);
+            WARN("WPACKET failed building HkdfLabel\n");
+            qat_hkdf_ctx->fallback = 1;
+            goto err;
+        }
+
+        if (hkdflabellen > CPA_CY_HKDF_KEY_MAX_LABEL_SZ) {
+            DEBUG("HkdfLabel len %zu exceeds HW limit (%d), fallback to SW\n",
+                  hkdflabellen, CPA_CY_HKDF_KEY_MAX_LABEL_SZ);
+            qat_hkdf_ctx->fallback = 1;
+            goto err;
+        }
 
         memcpy(qat_hkdf_ctx->hkdf_op_data->label[0].label, hkdflabel, hkdflabellen);
         qat_hkdf_ctx->hkdf_op_data->label[0].labelLen = hkdflabellen;

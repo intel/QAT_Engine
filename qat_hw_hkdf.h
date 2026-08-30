@@ -32,9 +32,15 @@
  */
 # define QAT_HKDF_INFO_MAXBUF 1024
 #ifdef QAT_OPENSSL_3
+/* Fixed-size SW-fallback buffers are used instead of per-call dynamic
+ * allocation to avoid malloc/free overhead on every handshake. OpenSSL
+ * heap-allocates salt/info/key with no cap, but 1024 bytes is well above
+ * any real-world TLS/QUIC KDF input, so larger inputs are rejected early. */
 # define QAT_KDF_MAX_INFO_SZ  80
 # define QAT_KDF_MAX_SEED_SZ  48
 # define SW_KDF_MAX_KEY_SZ   1024
+# define SW_KDF_MAX_SALT_SZ  1024
+# define SW_KDF_MAX_INFO_SZ  1024
 #endif
 
 # define EVP_KDF_HKDF_MODE_EXPAND_LABEL         2
@@ -61,15 +67,15 @@ typedef struct {
     /* Below are used for SW fallback when compiled
      * with openssl 3.0 engine API. It uses the openssl
      * default provider. */
-#ifdef QAT_OPENSSL_3
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
     /* input keying material */
     unsigned char sw_ikm[SW_KDF_MAX_KEY_SZ];
     size_t sw_ikm_size;
     /* application specific information */
-    unsigned char sw_info[QAT_KDF_MAX_INFO_SZ];
+    unsigned char sw_info[SW_KDF_MAX_INFO_SZ];
     size_t sw_info_size;
     /* salt */
-    unsigned char sw_salt[QAT_KDF_MAX_SEED_SZ];
+    unsigned char sw_salt[SW_KDF_MAX_SALT_SZ];
     size_t sw_salt_size;
 #endif
 #ifdef QAT_OPENSSL_PROVIDER
@@ -80,6 +86,9 @@ typedef struct {
     unsigned char *data;
     size_t data_len;
     const char *kdf_name;
+    /* Default-provider ctx kept in sync with the accumulated KDF state so
+     * the SW fallback works even when derive-time params is NULL. */
+    EVP_KDF_CTX *sw_kctx;
 #endif
 } QAT_HKDF_CTX;
 
