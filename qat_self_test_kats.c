@@ -404,6 +404,194 @@ static int QAT_self_test_ka(const ST_KAT_KAS *t,
 }
 # endif                         /* !defined(OPENSSL_NO_DH) || !defined(OPENSSL_NO_EC) */
 
+#ifdef ENABLE_QAT_SW_ML_KEM
+/*
+ * FIPS 140-3 IG 10.3.A resolution 14 mandates a CAST for ML-KEM
+ * encapsulation.
+ */
+static int QAT_self_test_kem_encapsulate(const ST_KAT_KEM *t,
+                                         OSSL_SELF_TEST *st,
+                                         OSSL_LIB_CTX *libctx, EVP_PKEY *pkey)
+{
+    int ret = 0;
+    EVP_PKEY_CTX *ctx = NULL;
+    unsigned char *wrapped = NULL, *secret = NULL;
+    size_t wrappedlen = t->cipher_text_len, secretlen = t->secret_len;
+    OSSL_PARAM params[2];
+
+    OSSL_SELF_TEST_onbegin(st, OSSL_SELF_TEST_TYPE_KAT_KEM,
+                          OSSL_SELF_TEST_DESC_ENCAP_KEM);
+
+    ctx = EVP_PKEY_CTX_new_from_pkey(libctx, pkey, "");
+    if (ctx == NULL)
+        goto err;
+
+    /* Fixed entropy (FIPS 203 "m") makes encapsulation deterministic */
+    params[0] = OSSL_PARAM_construct_octet_string(OSSL_KEM_PARAM_IKME,
+                                                   (unsigned char *)t->entropy,
+                                                   t->entropy_len);
+    params[1] = OSSL_PARAM_construct_end();
+
+    if (EVP_PKEY_encapsulate_init(ctx, params) <= 0)
+        goto err;
+
+    wrapped = OPENSSL_malloc(wrappedlen);
+    secret = OPENSSL_malloc(secretlen);
+    if (wrapped == NULL || secret == NULL)
+        goto err;
+
+    if (EVP_PKEY_encapsulate(ctx, wrapped, &wrappedlen, secret, &secretlen) <= 0) {
+        WARN("Error: Failed at EVP_PKEY_encapsulate (ML-KEM)..\n");
+        goto err;
+    }
+
+    OSSL_SELF_TEST_oncorrupt_byte(st, wrapped);
+    if (wrappedlen != t->cipher_text_len
+        || memcmp(wrapped, t->cipher_text, t->cipher_text_len) != 0) {
+        WARN("Error: Failed at expected ML-KEM ciphertext..\n");
+        goto err;
+    }
+
+    OSSL_SELF_TEST_oncorrupt_byte(st, secret);
+    if (secretlen != t->secret_len
+        || memcmp(secret, t->secret, t->secret_len) != 0) {
+        WARN("Error: Failed at expected ML-KEM encapsulated secret..\n");
+        goto err;
+    }
+
+    ret = 1;
+ err:
+    OPENSSL_free(wrapped);
+    OPENSSL_free(secret);
+    EVP_PKEY_CTX_free(ctx);
+    OSSL_SELF_TEST_onend(st, ret);
+    return ret;
+}
+
+/*
+ * FIPS 140-3 IG 10.3.A resolution 14 mandates a CAST for ML-KEM
+ * decapsulation, both for the normal path and the implicit-rejection path.
+ * The implicit-rejection path is exercised with an all-zero (invalid)
+ * ciphertext, matching the approach used by OpenSSL's own FIPS provider.
+ */
+static int QAT_self_test_kem_decapsulate(const ST_KAT_KEM *t,
+                                         OSSL_SELF_TEST *st,
+                                         OSSL_LIB_CTX *libctx, EVP_PKEY *pkey,
+                                         int reject)
+{
+    int ret = 0;
+    EVP_PKEY_CTX *ctx = NULL;
+    unsigned char *secret = NULL, *alloced = NULL;
+    const unsigned char *test_secret = t->secret;
+    const unsigned char *cipher_text = t->cipher_text;
+    size_t secretlen = t->secret_len;
+
+    OSSL_SELF_TEST_onbegin(st, OSSL_SELF_TEST_TYPE_KAT_KEM,
+                          reject ? OSSL_SELF_TEST_DESC_DECAP_KEM_FAIL
+                                 : OSSL_SELF_TEST_DESC_DECAP_KEM);
+
+    if (reject) {
+        cipher_text = alloced = OPENSSL_zalloc(t->cipher_text_len);
+        if (alloced == NULL)
+            goto err;
+        test_secret = t->reject_secret;
+    }
+
+    ctx = EVP_PKEY_CTX_new_from_pkey(libctx, pkey, "");
+    if (ctx == NULL || EVP_PKEY_decapsulate_init(ctx, NULL) <= 0)
+        goto err;
+
+    secret = OPENSSL_malloc(secretlen);
+    if (secret == NULL)
+        goto err;
+
+    if (EVP_PKEY_decapsulate(ctx, secret, &secretlen, cipher_text,
+                             t->cipher_text_len) <= 0) {
+        WARN("Error: Failed at EVP_PKEY_decapsulate (ML-KEM)..\n");
+        goto err;
+    }
+
+    OSSL_SELF_TEST_oncorrupt_byte(st, secret);
+    if (secretlen != t->secret_len
+        || memcmp(secret, test_secret, t->secret_len) != 0) {
+        WARN("Error: Failed at expected ML-KEM decapsulated secret..\n");
+        goto err;
+    }
+
+    ret = 1;
+ err:
+    OPENSSL_free(alloced);
+    OPENSSL_free(secret);
+    EVP_PKEY_CTX_free(ctx);
+    OSSL_SELF_TEST_onend(st, ret);
+    return ret;
+}
+
+/*
+ * Builds the ML-KEM key once and runs the encap/decap/decap-reject KATs,
+ * recording each as a separate result entry (idx is advanced by 3).
+ */
+static int qat_self_test_kem_full(const ST_KAT_KEM *t, TEST_PARAMS *args,
+                                  OSSL_LIB_CTX *libctx,
+                                  QAT_SELF_TEST_RESULT *result, int *idx)
+{
+    int ret = 0, ok_encap, ok_decap, ok_reject;
+    OSSL_PARAM *params = NULL;
+    OSSL_PARAM_BLD *bld = NULL;
+    EVP_PKEY_CTX *kctx = NULL;
+    EVP_PKEY *pkey = NULL;
+    OSSL_SELF_TEST *st = args->st;
+    BN_CTX *bnctx = NULL;
+
+    bnctx = BN_CTX_new_ex(libctx);
+    if (bnctx == NULL)
+        goto err;
+
+    bld = OSSL_PARAM_BLD_new();
+    if (bld == NULL)
+        goto err;
+
+    if (!add_params(bld, t->key, bnctx))
+        goto err;
+    params = OSSL_PARAM_BLD_to_param(bld);
+
+    kctx = EVP_PKEY_CTX_new_from_name(libctx, t->algorithm, NULL);
+    if (kctx == NULL || params == NULL)
+        goto err;
+
+    if (EVP_PKEY_fromdata_init(kctx) <= 0
+        || EVP_PKEY_fromdata(kctx, &pkey, EVP_PKEY_KEYPAIR, params) <= 0)
+        goto err;
+
+    ok_encap = QAT_self_test_kem_encapsulate(t, st, libctx, pkey);
+    result->desc[*idx] = OSSL_SELF_TEST_DESC_ENCAP_KEM;
+    result->type[*idx] = OSSL_SELF_TEST_TYPE_KAT_KEM;
+    result->result[*idx] = ok_encap;
+    (*idx)++;
+
+    ok_decap = QAT_self_test_kem_decapsulate(t, st, libctx, pkey, 0);
+    result->desc[*idx] = OSSL_SELF_TEST_DESC_DECAP_KEM;
+    result->type[*idx] = OSSL_SELF_TEST_TYPE_KAT_KEM;
+    result->result[*idx] = ok_decap;
+    (*idx)++;
+
+    ok_reject = QAT_self_test_kem_decapsulate(t, st, libctx, pkey, 1);
+    result->desc[*idx] = OSSL_SELF_TEST_DESC_DECAP_KEM_FAIL;
+    result->type[*idx] = OSSL_SELF_TEST_TYPE_KAT_KEM;
+    result->result[*idx] = ok_reject;
+    (*idx)++;
+
+    ret = ok_encap && ok_decap && ok_reject;
+ err:
+    BN_CTX_free(bnctx);
+    EVP_PKEY_CTX_free(kctx);
+    EVP_PKEY_free(pkey);
+    OSSL_PARAM_free(params);
+    OSSL_PARAM_BLD_free(bld);
+    return ret;
+}
+#endif /* ENABLE_QAT_SW_ML_KEM */
+
 static int QAT_self_test_kdf(const ST_KAT_KDF *t, TEST_PARAMS *args,
                              OSSL_LIB_CTX *libctx)
 {
@@ -878,6 +1066,43 @@ static int qat_self_test_signatures(TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
     return (count ? 0 : 1);
 }
 
+#ifdef ENABLE_QAT_SW_ML_KEM
+static int qat_self_test_kems(TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
+{
+    int i, count = 0, idx = 0;
+    int n = (int)OSSL_NELEM(st_kat_kem_tests);
+    /* 3 result entries per KAT (encap + decap + decap-reject) */
+    int max_idx = n * 3;
+    QAT_SELF_TEST_RESULT *result;
+
+    if (max_idx > 10) {
+        WARN("Too many KEM KATs (%d * 3 = %d) for result array\n", n, max_idx);
+        return 0;
+    }
+
+    if (args->enable_async) {
+        qat_async_kem_result = (QAT_SELF_TEST_RESULT *)
+            calloc(1, sizeof(QAT_SELF_TEST_RESULT));
+        result = qat_async_kem_result;
+    } else {
+        qat_kem_result = (QAT_SELF_TEST_RESULT *)
+            calloc(1, sizeof(QAT_SELF_TEST_RESULT));
+        result = qat_kem_result;
+    }
+    if (result == NULL) {
+        WARN("Failed to allocate KEM result\n");
+        return 0;
+    }
+
+    for (i = 0; i < n; ++i) {
+        if (!qat_self_test_kem_full(&st_kat_kem_tests[i], args, libctx,
+                                    result, &idx))
+            count++;
+    }
+    return (count ? 0 : 1);
+}
+#endif /* ENABLE_QAT_SW_ML_KEM */
+
 /*
  * Run the algorithm KAT's.
  * Return 1 is successful, otherwise return 0.
@@ -893,6 +1118,10 @@ int QAT_SELF_TEST_kats(void *args)
         ret = 0;
     if (!qat_self_test_kas(temp_args, temp_args->provctx))
         ret = 0;
+#ifdef ENABLE_QAT_SW_ML_KEM
+    if (!qat_self_test_kems(temp_args, temp_args->provctx))
+        ret = 0;
+#endif
     if (!qat_self_test_ciphers(temp_args, temp_args->provctx))
         ret = 0;
     if (!qat_self_test_kdfs(temp_args, temp_args->provctx))

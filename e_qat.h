@@ -445,6 +445,7 @@ extern int qat_sw_ecx_offload;
 extern int qat_sw_ecdh_offload;
 extern int qat_sw_ecdsa_offload;
 extern int qat_sw_gcm_offload;
+extern int qat_sw_ml_kem_offload;
 extern int qat_sw_sm2_offload;
 extern int qat_hw_sm2_offload;
 extern int qat_hw_sha_offload;
@@ -1019,6 +1020,9 @@ void qat_disable_digest(const char *);
 void qat_disable_keymgmt(const char *);
 void qat_disable_asym_cipher(const char *);
 void qat_disable_algorithm(OSSL_ALGORITHM *, const char *);
+# ifdef ENABLE_QAT_SW_ML_KEM
+void qat_disable_kem(const char *);
+# endif
 # endif
 
 #endif   /* E_QAT_H */

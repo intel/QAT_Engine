@@ -159,6 +159,9 @@ extern const OSSL_DISPATCH qat_sm4_ccm_functions[];
 #if defined(ENABLE_QAT_HW_SM4_CBC) || defined(ENABLE_QAT_SW_SM4_CBC)
 extern const OSSL_DISPATCH qat_sm4_cbc_functions[];
 # endif
+#ifdef ENABLE_QAT_SW_ML_KEM
+# include "qat_sw_ml_kem.h"
+#endif
 
 QAT_PROV_PARAMS qat_params;
 
@@ -174,6 +177,9 @@ static void qat_teardown(void *provctx)
 
 #if defined(ENABLE_QAT_FIPS) && defined (ENABLE_QAT_SW_SHA2)
     sha_free_ipsec_mb_mgr();
+#endif
+#ifdef ENABLE_QAT_SW_ML_KEM
+    qat_sw_ml_kem_free_ipsec_mb_mgr();
 #endif
 #ifdef ENABLE_QAT_FIPS
     shmctl(sm_id, IPC_RMID, 0);
@@ -301,6 +307,11 @@ static OSSL_ALGORITHM qat_keymgmt[] = {
 #if defined(ENABLE_QAT_HW_SM2) || defined(ENABLE_QAT_SW_SM2)
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_sm2_keymgmt_functions, "QAT SM2 Keymgmt implementation."},
 #endif
+#ifdef ENABLE_QAT_SW_ML_KEM
+    {"ML-KEM-512", QAT_DEFAULT_PROPERTIES, qat_ml_kem_512_keymgmt_functions, "QAT ML-KEM-512 Keymgmt implementation."},
+    {"ML-KEM-768", QAT_DEFAULT_PROPERTIES, qat_ml_kem_768_keymgmt_functions, "QAT ML-KEM-768 Keymgmt implementation."},
+    {"ML-KEM-1024", QAT_DEFAULT_PROPERTIES, qat_ml_kem_1024_keymgmt_functions, "QAT ML-KEM-1024 Keymgmt implementation."},
+#endif
     {NULL, NULL, NULL}};
 
 static OSSL_ALGORITHM qat_signature[] = {
@@ -319,6 +330,14 @@ static OSSL_ALGORITHM qat_signature[] = {
 #  endif
 # endif
     {NULL, NULL, NULL}};
+
+#ifdef ENABLE_QAT_SW_ML_KEM
+static OSSL_ALGORITHM qat_kem[] = {
+    {"ML-KEM-512", QAT_DEFAULT_PROPERTIES, qat_ml_kem_functions, "QAT ML-KEM-512 KEM implementation."},
+    {"ML-KEM-768", QAT_DEFAULT_PROPERTIES, qat_ml_kem_functions, "QAT ML-KEM-768 KEM implementation."},
+    {"ML-KEM-1024", QAT_DEFAULT_PROPERTIES, qat_ml_kem_functions, "QAT ML-KEM-1024 KEM implementation."},
+    {NULL, NULL, NULL}};
+#endif
 
 #if defined(ENABLE_QAT_HW_HKDF) || defined(ENABLE_QAT_HW_PRF)
 static const OSSL_ALGORITHM qat_kdfs[] = {
@@ -457,6 +476,16 @@ void qat_disable_keymgmt(const char *qat_algo_name)
     qat_disable_algorithm((OSSL_ALGORITHM *)qat_keymgmt, qat_algo_name);
 }
 
+#ifdef ENABLE_QAT_SW_ML_KEM
+/*
+ * Wrapper to disable a KEM algorithm using the qat_kem dispatch table.
+ */
+void qat_disable_kem(const char *qat_algo_name)
+{
+    qat_disable_algorithm((OSSL_ALGORITHM *)qat_kem, qat_algo_name);
+}
+#endif
+
 /*
  * Wrapper to disable an asymmetric cipher algorithm using the qat_asym_cipher dispatch table.
  */
@@ -477,6 +506,7 @@ int qat_operations(int operation_id)
     case OSSL_OP_KEYMGMT:
     case OSSL_OP_KEYEXCH:
     case OSSL_OP_KDF:
+    case OSSL_OP_KEM:
         return 1;
     default:
         return 0;							     }
@@ -578,6 +608,10 @@ static const OSSL_ALGORITHM *qat_query(void *provctx, int operation_id, int *no_
 #if defined(ENABLE_QAT_HW_HKDF) || defined(ENABLE_QAT_HW_PRF)
         case OSSL_OP_KDF:
             return qat_kdfs;
+#endif
+#ifdef ENABLE_QAT_SW_ML_KEM
+        case OSSL_OP_KEM:
+            return qat_kem;
 #endif
 #if defined(ENABLE_QAT_HW_RSA) || defined(ENABLE_QAT_SW_RSA)
         case OSSL_OP_ASYM_CIPHER:
