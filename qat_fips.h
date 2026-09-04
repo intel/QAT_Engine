@@ -169,6 +169,11 @@ extern QAT_SELF_TEST_RESULT *qat_async_digest_result;
 extern QAT_SELF_TEST_RESULT *qat_async_mac_result;
 extern QAT_SELF_TEST_RESULT *qat_async_kdf_result;
 
+#ifdef ENABLE_QAT_SW_ML_KEM
+extern QAT_SELF_TEST_RESULT *qat_kem_result;
+extern QAT_SELF_TEST_RESULT *qat_async_kem_result;
+#endif
+
 struct ossl_self_test_st {
     /* local state variables */
     const char *phase;

@@ -46,6 +46,14 @@
 # define OSSL_TLS_GROUP_ID_ffdhe6144        0x0103
 # define OSSL_TLS_GROUP_ID_ffdhe8192        0x0104
 # define OSSL_TLS_GROUP_ID_sm2              0x0029
+/* Pure ML-KEM group IDs (IANA draft-ietf-tls-mlkem) */
+# define OSSL_TLS_GROUP_ID_MLKEM512         0x0200
+# define OSSL_TLS_GROUP_ID_MLKEM768         0x0201
+# define OSSL_TLS_GROUP_ID_MLKEM1024        0x0202
+/* Hybrid ML-KEM composite group IDs (IANA draft-ietf-tls-hybrid-design) */
+# define OSSL_TLS_GROUP_ID_SecP256r1MLKEM768  0x11EB
+# define OSSL_TLS_GROUP_ID_X25519MLKEM768     0x11EC
+# define OSSL_TLS_GROUP_ID_SecP384r1MLKEM1024 0x11ED
 
 # if !defined(NTLS1_1_VERSION)
 /* NTLS version.
@@ -176,6 +184,89 @@ static const OSSL_PARAM param_group_list[][10] = {
 };
 #endif /* !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH) */
 
+#ifdef ENABLE_QAT_SW_ML_KEM
+/* ML-KEM TLS group entries (TLS 1.3 key encapsulation, RFC draft-ietf-tls-mlkem) */
+static const TLS_GROUP_CONSTANTS ml_kem_group_list[3] = {
+    { OSSL_TLS_GROUP_ID_MLKEM512,  128, TLS1_3_VERSION, 0, -1, -1 },
+    { OSSL_TLS_GROUP_ID_MLKEM768,  192, TLS1_3_VERSION, 0, -1, -1 },
+    { OSSL_TLS_GROUP_ID_MLKEM1024, 256, TLS1_3_VERSION, 0, -1, -1 },
+};
+
+static const unsigned int ml_kem_is_kem = 1;
+
+# define ML_KEM_TLS_GROUP_ENTRY(tlsname, algorithm, idx)                     \
+    {                                                                         \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_GROUP_NAME,               \
+                               tlsname, sizeof(tlsname)),                     \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_GROUP_NAME_INTERNAL,      \
+                               algorithm, sizeof(algorithm)),                 \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_GROUP_ALG,                \
+                               algorithm, sizeof(algorithm)),                 \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_GROUP_ID,                        \
+                        (unsigned int *)&ml_kem_group_list[idx].group_id),   \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_GROUP_SECURITY_BITS,             \
+                        (unsigned int *)&ml_kem_group_list[idx].secbits),    \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MIN_TLS,                    \
+                        (unsigned int *)&ml_kem_group_list[idx].mintls),     \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MAX_TLS,                    \
+                        (unsigned int *)&ml_kem_group_list[idx].maxtls),     \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MIN_DTLS,                   \
+                        (unsigned int *)&ml_kem_group_list[idx].mindtls),    \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MAX_DTLS,                   \
+                        (unsigned int *)&ml_kem_group_list[idx].maxdtls),    \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_GROUP_IS_KEM,                    \
+                        (unsigned int *)&ml_kem_is_kem),                     \
+        OSSL_PARAM_END                                                        \
+    }
+
+static const OSSL_PARAM ml_kem_param_group_list[][11] = {
+    ML_KEM_TLS_GROUP_ENTRY("MLKEM512",  "ML-KEM-512",  0),
+    ML_KEM_TLS_GROUP_ENTRY("MLKEM768",  "ML-KEM-768",  1),
+    ML_KEM_TLS_GROUP_ENTRY("MLKEM1024", "ML-KEM-1024", 2),
+};
+
+/* Hybrid composite ML-KEM groups (classical KEX + ML-KEM).
+ * These are registered by the default provider but require a TLS-GROUP
+ * capability entry from qatprovider so that OpenSSL's ssl_load_groups()
+ * resolves the composite algorithm name against qatprovider's ML-KEM keymgmt. */
+static const TLS_GROUP_CONSTANTS hybrid_ml_kem_group_list[3] = {
+    { OSSL_TLS_GROUP_ID_SecP256r1MLKEM768,  192, TLS1_3_VERSION, 0, -1, -1 },
+    { OSSL_TLS_GROUP_ID_X25519MLKEM768,     192, TLS1_3_VERSION, 0, -1, -1 },
+    { OSSL_TLS_GROUP_ID_SecP384r1MLKEM1024, 256, TLS1_3_VERSION, 0, -1, -1 },
+};
+
+# define HYBRID_ML_KEM_TLS_GROUP_ENTRY(tlsname, algorithm, idx)              \
+    {                                                                          \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_GROUP_NAME,                \
+                               tlsname, sizeof(tlsname)),                      \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_GROUP_NAME_INTERNAL,       \
+                               algorithm, sizeof(algorithm)),                  \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_GROUP_ALG,                 \
+                               algorithm, sizeof(algorithm)),                  \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_GROUP_ID,                         \
+                        (unsigned int *)&hybrid_ml_kem_group_list[idx].group_id), \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_GROUP_SECURITY_BITS,              \
+                        (unsigned int *)&hybrid_ml_kem_group_list[idx].secbits), \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MIN_TLS,                     \
+                        (unsigned int *)&hybrid_ml_kem_group_list[idx].mintls), \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MAX_TLS,                     \
+                        (unsigned int *)&hybrid_ml_kem_group_list[idx].maxtls), \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MIN_DTLS,                    \
+                        (unsigned int *)&hybrid_ml_kem_group_list[idx].mindtls), \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_GROUP_MAX_DTLS,                    \
+                        (unsigned int *)&hybrid_ml_kem_group_list[idx].maxdtls), \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_GROUP_IS_KEM,                     \
+                        (unsigned int *)&ml_kem_is_kem),                       \
+        OSSL_PARAM_END                                                         \
+    }
+
+static const OSSL_PARAM hybrid_ml_kem_param_group_list[][11] = {
+    HYBRID_ML_KEM_TLS_GROUP_ENTRY("SecP256r1MLKEM768",  "SecP256r1MLKEM768",  0),
+    HYBRID_ML_KEM_TLS_GROUP_ENTRY("X25519MLKEM768",     "X25519MLKEM768",     1),
+    HYBRID_ML_KEM_TLS_GROUP_ENTRY("SecP384r1MLKEM1024", "SecP384r1MLKEM1024", 2),
+};
+#endif /* ENABLE_QAT_SW_ML_KEM */
+
 static int tls_group_capability(OSSL_CALLBACK *cb, void *arg)
 {
 #if !defined(OPENSSL_NO_EC) || !defined(OPENSSL_NO_DH)
@@ -184,6 +275,18 @@ static int tls_group_capability(OSSL_CALLBACK *cb, void *arg)
     for (i = 0; i < OSSL_NELEM(param_group_list); i++)
         if (!cb(param_group_list[i], arg))
             return 0;
+#endif
+
+#ifdef ENABLE_QAT_SW_ML_KEM
+    {
+        size_t i;
+        for (i = 0; i < OSSL_NELEM(ml_kem_param_group_list); i++)
+            if (!cb(ml_kem_param_group_list[i], arg))
+                return 0;
+        for (i = 0; i < OSSL_NELEM(hybrid_ml_kem_param_group_list); i++)
+            if (!cb(hybrid_ml_kem_param_group_list[i], arg))
+                return 0;
+    }
 #endif
 
     return 1;

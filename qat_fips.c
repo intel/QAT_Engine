@@ -83,6 +83,11 @@ QAT_SELF_TEST_RESULT *qat_async_cipher_result;
 QAT_SELF_TEST_RESULT *qat_async_digest_result;
 QAT_SELF_TEST_RESULT *qat_async_kdf_result;
 
+#ifdef ENABLE_QAT_SW_ML_KEM
+QAT_SELF_TEST_RESULT *qat_kem_result;
+QAT_SELF_TEST_RESULT *qat_async_kem_result;
+#endif
+
 void fips_result(void)
 {
     int i;
@@ -123,6 +128,22 @@ void fips_result(void)
         if (!qat_signature_result->result[i])
             integrity_status = 0;
     }
+
+#ifdef ENABLE_QAT_SW_ML_KEM
+    /* 3 result slots per KEM test: encap, decap, decap-reject */
+#   define QAT_KEM_RESULTS_PER_TEST 3
+    if (qat_kem_result != NULL) {
+        for (i = 0; i < (int)(OSSL_NELEM(st_kat_kem_tests) * QAT_KEM_RESULTS_PER_TEST); ++i) {
+# ifdef QAT_DEBUG
+            INFO("\t%s   : (%s)  :  %s\n", qat_kem_result->desc[i],
+                 qat_kem_result->type[i],
+                 qat_kem_result->result[i] ? "PASS" : "FAIL");
+# endif
+            if (!qat_kem_result->result[i])
+                integrity_status = 0;
+        }
+    }
+#endif
 
     for (i = 0; i < (int)OSSL_NELEM(st_kat_kas_tests); ++i) {
         /* To skip self test when particular algorithm support is disabled */
@@ -260,6 +281,20 @@ void fips_result(void)
                 integrity_status = 0;
         }
 
+#ifdef ENABLE_QAT_SW_ML_KEM
+        if (qat_async_kem_result != NULL) {
+            for (i = 0; i < (int)(OSSL_NELEM(st_kat_kem_tests) * QAT_KEM_RESULTS_PER_TEST); ++i) {
+# ifdef QAT_DEBUG
+                INFO("\t%s   : (%s)  :  %s\n", qat_async_kem_result->desc[i],
+                     qat_async_kem_result->type[i],
+                     qat_async_kem_result->result[i] ? "PASS" : "FAIL");
+# endif
+                if (!qat_async_kem_result->result[i])
+                    integrity_status = 0;
+            }
+        }
+#endif
+
         for (i = 0; i < (int)OSSL_NELEM(st_kat_kas_tests); ++i) {
             /* To skip self test when particular algorithm support is disabled */
             if (qat_hw_offload) {
@@ -374,12 +409,18 @@ void fips_result(void)
     free(qat_cipher_result);
     free(qat_digest_result);
     free(qat_kdf_result);
+#ifdef ENABLE_QAT_SW_ML_KEM
+    free(qat_kem_result);
+#endif
     if (enable_async) {
         free(qat_async_signature_result);
         free(qat_async_kas_result);
         free(qat_async_cipher_result);
         free(qat_async_digest_result);
         free(qat_async_kdf_result);
+#ifdef ENABLE_QAT_SW_ML_KEM
+        free(qat_async_kem_result);
+#endif
     }
     enable_async = 0;
     async_jobs = 1;
