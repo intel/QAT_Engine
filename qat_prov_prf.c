@@ -201,7 +201,8 @@ end:
     if (fallback) {
         typedef void(*sw_fun_ptr)(void *);
         sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().freectx;
-        if (default_prov_tls12_kdf_fun)
+        if (ctx != NULL && ctx->sw_ctx != NULL
+            && default_prov_tls12_kdf_fun != NULL)
             default_prov_tls12_kdf_fun(ctx->sw_ctx);
     }
 }
@@ -278,14 +279,37 @@ static int qat_tls_prf_derive(void *vctx, unsigned char *key, size_t keylen,
     }
 
     ret = qat_prf_tls_derive(ctx->pctx, key, &keylen);
+    if (ret <= 0) {
+        /* HW PRF unavailable on this device (e.g. SYM service disabled in
+         * /etc/4xxx_dev*.conf -> get_instance(SYM) returns INVALID).
+         * Transparently fall back to the default provider's TLS1-PRF so
+         * the TLS handshake still completes. */
+        WARN("QAT instance does not support PRF (HW TLS1-PRF derive "
+             "unavailable); falling back to software PRF\n");
+        fallback = 1;
+    }
 end:
 #ifdef ENABLE_QAT_FIPS
     qat_fips_service_indicator = 0;
 #endif
    if (fallback) {
-       typedef int(*sw_fun_ptr)(void *, unsigned char *, size_t , const OSSL_PARAM *);
-       sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().derive;
-       ret = default_prov_tls12_kdf_fun(ctx->sw_ctx, key, keylen, params);
+       /* libssl's tls1_PRF() passes the digest, secret and seed inside the
+        * derive `params`, and the default provider's TLS1-PRF derive re-seeds
+        * its own ctx from them - so a mid-stream HW failure can fall back here
+        * without any prior set_ctx_params replay. Guard the software ctx and
+        * the fetched derive pointer: either can be NULL (newctx failed, or the
+        * default TLS1-PRF was unavailable at fetch time), and calling through a
+        * NULL function pointer or with a NULL ctx would crash. */
+       QAT_EVP_KDF sw_prf_kdf = get_default_tls12_kdf();
+
+       if (ctx->sw_ctx == NULL || sw_prf_kdf.derive == NULL) {
+           WARN("QAT PRF: software fallback unavailable "
+                "(sw_ctx=%p, derive_fn=%savailable)\n",
+                (void *)ctx->sw_ctx,
+                sw_prf_kdf.derive == NULL ? "un" : "");
+           return 0;
+       }
+       ret = sw_prf_kdf.derive(ctx->sw_ctx, key, keylen, params);
     }
     return ret;
 }
@@ -506,7 +530,8 @@ end:
     if (fallback) {
         typedef int(*sw_fun_ptr)(void *, const OSSL_PARAM *);
         sw_fun_ptr default_prov_tls12_kdf_fun = get_default_tls12_kdf().set_ctx_params;
-        default_prov_tls12_kdf_fun(ctx->sw_ctx, params);
+        if (ctx->sw_ctx != NULL && default_prov_tls12_kdf_fun != NULL)
+            default_prov_tls12_kdf_fun(ctx->sw_ctx, params);
     }
     return 1;
 }

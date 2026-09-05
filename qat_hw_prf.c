@@ -59,6 +59,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include "qat_hw_prf.h"
+#include "qat_hw_polling.h"
 
 #ifdef ENABLE_QAT_FIPS
 # include "qat_prov_cmvp.h"
@@ -929,6 +930,7 @@ int qat_prf_tls_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen)
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }

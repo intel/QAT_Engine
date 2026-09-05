@@ -472,6 +472,11 @@ extern int qat_hw_keep_polling;
 extern int qat_sw_keep_polling;
 extern int enable_external_polling;
 extern int enable_heuristic_polling;
+#ifdef QAT_OPENSSL_PROVIDER
+extern int qat_app_external_poller;
+int qat_hw_external_poller_missing(void);
+int qat_prov_ensure_init(void);
+#endif
 extern pthread_mutex_t qat_engine_mutex;
 extern pthread_t qat_polling_thread;
 extern sem_t hw_polling_thread_sem;
@@ -603,6 +608,7 @@ extern int kpt_inited;
 extern BIGNUM *e_check;
 extern mb_thread_data *mb_tlv;
 extern pthread_key_t mb_thread_key;
+extern int mb_thread_key_created;
 
 typedef struct _mb_req_rates {
     int req_this_period;

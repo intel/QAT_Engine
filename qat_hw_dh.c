@@ -476,6 +476,7 @@ int qat_dh_generate_key(DH *dh)
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }
@@ -827,6 +828,7 @@ int qat_dh_compute_key(unsigned char *key, const BIGNUM *in_pub_key, DH *dh)
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }

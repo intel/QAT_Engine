@@ -80,7 +80,6 @@
 #include "e_qat.h"
 #include "qat_events.h"
 #include "qat_utils.h"
-
 #ifdef QAT_HW
 int qat_is_event_driven()
 {
@@ -117,6 +116,29 @@ int qat_setup_async_event_notification(volatile ASYNC_JOB *job)
 
 #ifdef __FreeBSD__
     struct kevent event;
+#endif
+
+#ifdef QAT_OPENSSL_PROVIDER
+    /* Reject async work when no caller is driving external polling. */
+    if (qat_hw_external_poller_missing()) {
+        static int logged = 0;
+        if (!logged) {
+            INFO("QAT ERROR: qat_poll_mode external/heuristic cannot process "
+                 "asynchronous requests unless the application registers and "
+                 "drives polling. No external poller is registered, so "
+                 "asynchronous QAT offload is disabled for this process and "
+                 "requests fall back to OpenSSL. Set qat_poll_mode = internal "
+                 "or drive qat_poll from the application.\n");
+            WARN("ERROR: external/heuristic polling cannot proceed without a registered application poller\n");
+            logged = 1;
+        }
+# ifdef QAT_SW
+        /* Latch the fallback so later operations exit before async setup
+         * instead of re-reporting the same configuration error each request. */
+        fallback_to_openssl = 1;
+# endif
+        return 0;
+    }
 #endif
 
     if ((waitctx = ASYNC_get_wait_ctx((ASYNC_JOB *)job)) == NULL) {

@@ -742,6 +742,7 @@ ECDSA_SIG *qat_hw_kpt_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                 sched_yield();
             tlv->kpt_wpk_in_use = kpt_wpk_idx;
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }

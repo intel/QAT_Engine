@@ -894,6 +894,7 @@ static int qat_hw_sha3_offload(EVP_MD_CTX *ctx, const void *in, size_t len, int 
                 sched_yield();
             }
         } else {
+            qat_hw_sync_poll(sha3_ctx->inst_num);
             sched_yield();
         }
     } while (!op_done.flag ||

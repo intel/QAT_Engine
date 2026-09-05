@@ -678,6 +678,7 @@ int qat_ecdh_compute_key(unsigned char **outX, size_t *outlenX,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }
@@ -1862,6 +1863,7 @@ ECDSA_SIG *qat_ecdsa_do_sign(const unsigned char *dgst, int dgst_len,
                 sched_yield();
             }
 #else
+            qat_hw_sync_poll(inst_num);
             sched_yield();
 #endif /* QAT_BORINGSSL */
         }
@@ -2333,6 +2335,7 @@ int qat_ecdsa_do_verify(const unsigned char *dgst, int dgst_len,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }

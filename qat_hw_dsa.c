@@ -597,6 +597,7 @@ DSA_SIG *qat_dsa_do_sign(const unsigned char *dgst, int dlen,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     } while (!op_done.flag ||
@@ -981,6 +982,7 @@ int qat_dsa_do_verify(const unsigned char *dgst, int dgst_len,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }

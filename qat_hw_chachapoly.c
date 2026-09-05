@@ -1062,6 +1062,7 @@ static int qat_chacha20_poly1305_tls_cipher(EVP_CIPHER_CTX * ctx, unsigned char 
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(cp_ctx->inst_num);
             sched_yield();
         }
     } while (!op_done.flag ||
@@ -1455,6 +1456,7 @@ static int qat_chacha20_poly1305_do_cipher(EVP_CIPHER_CTX * ctx, unsigned char *
                     if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                         sched_yield();
                 } else {
+                    qat_hw_sync_poll(cp_ctx->inst_num);
                     sched_yield();
                 }
             } while (!op_done.flag ||

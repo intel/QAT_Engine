@@ -79,6 +79,12 @@
 #include "qat_hw_polling.h"
 #include "qat_utils.h"
 
+#ifdef QAT_OPENSSL_PROVIDER
+/* Set by qat_prov_init.c: openssl.cnf's provider section selected a polling
+ * mode. Provider-only, so declared here rather than in a shared header. */
+extern int qat_prov_configured_from_cnf;
+#endif
+
 /* OpenSSL Includes */
 #include <openssl/err.h>
 #include <openssl/objects.h>
@@ -146,6 +152,16 @@ int qat_use_signals(void)
 
         ENGINE_free(e);
         ENGINE_QAT_PTR_RESET();
+    }
+#else
+    /* Provider mode: lazy auto-init with internal polling. */
+    if (unlikely(!engine_inited)) {
+        DEBUG("[QAT_PROV] qat_use_signals: engine not initialized, "
+             "performing auto-init\n");
+        if (!qat_engine_init(NULL)) {
+            WARN("[QAT_PROV] qat_use_signals: auto-init failed\n");
+            return 0;
+        }
     }
 #endif
 
@@ -247,6 +263,30 @@ int get_instance(int inst_type, int mem_type)
 
         ENGINE_free(e);
         ENGINE_QAT_PTR_RESET();
+    }
+#else
+    /* Provider mode: lazy auto-init with internal polling if no application
+     * drove an explicit INIT_ENGINE via ctrl_cmd before the first crypto op. */
+    if (unlikely(!engine_inited)) {
+        /* openssl.cnf is authoritative and must never be silently demoted here,
+         * even on a retry after the provider's own eager init attempt failed
+         * (qat_prov_configured_from_cnf stays 1, engine_inited stays 0 until a
+         * later call succeeds). Demotion only applies to a mode requested with
+         * no cnf configuration and no application poll-loop handshake. */
+        if (!qat_prov_configured_from_cnf &&
+            (enable_external_polling || enable_heuristic_polling)) {
+            DEBUG("[QAT_PROV] get_instance: no explicit INIT_ENGINE received; "
+                 "defaulting to internal polling for standalone usage "
+                 "(external/heuristic polling needs an application poll loop)\n");
+            enable_external_polling = 0;
+            enable_heuristic_polling = 0;
+        }
+        DEBUG("[QAT_PROV] get_instance: engine not initialized, "
+             "performing auto-init with internal polling\n");
+        if (!qat_engine_init(NULL)) {
+            WARN("[QAT_PROV] get_instance: auto-init failed\n");
+            return inst_num;
+        }
     }
 #endif
 
@@ -509,6 +549,15 @@ int qat_hw_init(void *e)
     int ret_pthread_cond_init = 0;
     Cpa32U package_id = 0;
 
+    DEBUG("[QAT_PROV] qat_hw_init: mode=%s "
+         "(external=%d, heuristic=%d, inline=%d, "
+         "event_driven=%d, sw_fallback=%d)\n",
+         enable_heuristic_polling ? "HEURISTIC" :
+         enable_external_polling  ? "EXTERNAL"  :
+         enable_inline_polling    ? "INLINE"    : "INTERNAL",
+         enable_external_polling, enable_heuristic_polling,
+         enable_inline_polling, enable_event_driven_polling,
+         enable_sw_fallback);
     DEBUG("QAT_HW initialization:\n");
     DEBUG("- External polling: %s\n", enable_external_polling ? "ON": "OFF");
     DEBUG("- Heuristic polling: %s\n", enable_heuristic_polling ? "ON": "OFF");
@@ -578,6 +627,8 @@ int qat_hw_init(void *e)
     }
 
     if (!enable_external_polling && !enable_inline_polling) {
+        DEBUG("[QAT_PROV] qat_hw_init: INTERNAL polling — "
+             "setting up epoll/event infrastructure\n");
 #ifndef __FreeBSD__
         if (qat_is_event_driven()) {
             CpaStatus status;
@@ -724,6 +775,8 @@ int qat_hw_init(void *e)
 #endif
 
     if (!enable_external_polling && !enable_inline_polling) {
+        DEBUG("[QAT_PROV] qat_hw_init: INTERNAL polling mode — "
+              "creating internal polling thread\n");
         if (!qat_is_event_driven()) {
             sigemptyset(&set);
             sigaddset(&set, SIGUSR1);
@@ -783,6 +836,10 @@ int qat_hw_init(void *e)
                 WARN("Failed to lock conditional wait mutex \n");
             }
         }
+    } else {
+        DEBUG("[QAT_PROV] qat_hw_init: %s mode, "
+              "no internal polling thread created\n",
+              enable_heuristic_polling ? "HEURISTIC" : "EXTERNAL");
     }
 
 #ifdef ENABLE_QAT_HW_KPT
@@ -797,6 +854,15 @@ int qat_hw_init(void *e)
         kpt_inited = 1;
     }
 #endif
+
+    DEBUG("[QAT_PROV] qat_hw_init: done, %d instances, mode=%s "
+          "(external=%d, heuristic=%d)\n",
+          qat_num_instances,
+          enable_heuristic_polling ? "HEURISTIC" :
+          enable_external_polling  ? "EXTERNAL"  :
+          enable_inline_polling    ? "INLINE"    : "INTERNAL",
+          enable_external_polling,
+          enable_heuristic_polling);
 
     return 1;
 }

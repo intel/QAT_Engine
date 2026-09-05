@@ -1684,6 +1684,7 @@ int qat_chained_ciphers_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             if ((job_ret = qat_pause_job(done.opDone.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(qctx->inst_num);
             sched_yield();
         }
     } while (!done.opDone.flag ||

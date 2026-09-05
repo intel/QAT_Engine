@@ -48,6 +48,7 @@
 #endif
 #define __USE_GNU
 #include "qat_hw_sm2.h"
+#include "qat_hw_polling.h"
 
 #if defined(ENABLE_QAT_HW_SM2) && !defined(QAT_HW_FBSD_INTREE)
 typedef struct {
@@ -921,6 +922,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }
@@ -1393,6 +1395,7 @@ int qat_sm2_verify(EVP_PKEY_CTX *ctx,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }

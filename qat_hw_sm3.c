@@ -398,6 +398,7 @@ static int qat_hw_sm3_do_offload(QAT_SM3_CTX *qat_sm3_ctx, const void *in,
                 sched_yield();
 
         } else {
+            qat_hw_sync_poll(qat_sm3_ctx->inst_num);
             sched_yield();
         }
     } while (!op_done.flag || QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));

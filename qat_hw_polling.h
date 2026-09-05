@@ -96,4 +96,22 @@ void *event_poll_func(void *ih);
 CpaStatus poll_instances(void);
 CpaStatus poll_heartbeat(void);
 
+/* qat_hw_*.c are shared by the qatengine and qatprovider builds. Everything
+ * below is provider-only; QAT_HW_PROV_SYNC_POLL is the single fence for it so
+ * the engine build cannot be affected. */
+#if defined(QAT_HW) && defined(QAT_OPENSSL_PROVIDER)
+# define QAT_HW_PROV_SYNC_POLL 1
+#endif
+
+#ifdef QAT_HW_PROV_SYNC_POLL
+/* Sync-caller self-poll for external/heuristic mode (no-op otherwise). */
+void qat_hw_sync_poll(int inst_num);
+
+#else
+/* Engine build: compiles away, but still consumes the argument so a call site
+ * cannot trip -Wunused-variable and evaluation semantics stay identical. */
+# define qat_hw_sync_poll(inst_num)        ((void) (inst_num))
+# define qat_hw_external_poller_missing()  (0)
+#endif
+
 #endif   /* QAT_HW_POLLING_H */
