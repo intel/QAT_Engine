@@ -292,11 +292,81 @@ static int tls_group_capability(OSSL_CALLBACK *cb, void *arg)
     return 1;
 }
 
+/* TLS-SIGALG capability: required so that SSL_CTX_new populates its provider
+ * sigalg list with ML-DSA entries pointing to qatprovider's KEYMGMT.
+ * Without this, OpenSSL's ssl_load_sigalgs() queries EVP_KEYMGMT_fetch("ML-DSA-*")
+ * which returns qatprovider (higher priority), but the capability was only
+ * advertised by the default provider -> keymgmt owner mismatch -> ML-DSA never
+ * added to ctx->sigalg_list -> SSL_CTX_use_certificate fails with
+ * SSL_R_UNKNOWN_CERTIFICATE_TYPE for PQC certs. */
+#ifdef ENABLE_QAT_SW_ML_DSA
+
+typedef struct tls_sigalg_constants_st {
+    unsigned int code_point;
+    unsigned int sec_bits;
+    int min_tls;
+    int max_tls;
+    int min_dtls;
+    int max_dtls;
+} QAT_TLS_SIGALG_CONSTANTS;
+
+static const QAT_TLS_SIGALG_CONSTANTS qat_sigalg_constants_list[3] = {
+    { 0x0904, 128, TLS1_3_VERSION, 0, -1, -1 }, /* ML-DSA-44 */
+    { 0x0905, 192, TLS1_3_VERSION, 0, -1, -1 }, /* ML-DSA-65 */
+    { 0x0906, 256, TLS1_3_VERSION, 0, -1, -1 }, /* ML-DSA-87 */
+};
+
+# define QAT_TLS_SIGALG_ENTRY(tlsname, algorithm, oid, idx)              \
+    {                                                                     \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_IANA_NAME,     \
+            tlsname, sizeof(tlsname)),                                    \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_NAME,          \
+            algorithm, sizeof(algorithm)),                                \
+        OSSL_PARAM_utf8_string(OSSL_CAPABILITY_TLS_SIGALG_OID,           \
+            oid, sizeof(oid)),                                            \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_SIGALG_CODE_POINT,           \
+            (unsigned int *)&qat_sigalg_constants_list[idx].code_point), \
+        OSSL_PARAM_uint(OSSL_CAPABILITY_TLS_SIGALG_SECURITY_BITS,        \
+            (unsigned int *)&qat_sigalg_constants_list[idx].sec_bits),   \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_SIGALG_MIN_TLS,               \
+            (unsigned int *)&qat_sigalg_constants_list[idx].min_tls),    \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_SIGALG_MAX_TLS,               \
+            (unsigned int *)&qat_sigalg_constants_list[idx].max_tls),    \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_SIGALG_MIN_DTLS,              \
+            (unsigned int *)&qat_sigalg_constants_list[idx].min_dtls),   \
+        OSSL_PARAM_int(OSSL_CAPABILITY_TLS_SIGALG_MAX_DTLS,              \
+            (unsigned int *)&qat_sigalg_constants_list[idx].max_dtls),   \
+        OSSL_PARAM_END                                                    \
+    }
+
+static const OSSL_PARAM qat_param_sigalg_list[][10] = {
+    QAT_TLS_SIGALG_ENTRY("mldsa44", "ML-DSA-44", "2.16.840.1.101.3.4.3.17", 0),
+    QAT_TLS_SIGALG_ENTRY("mldsa65", "ML-DSA-65", "2.16.840.1.101.3.4.3.18", 1),
+    QAT_TLS_SIGALG_ENTRY("mldsa87", "ML-DSA-87", "2.16.840.1.101.3.4.3.19", 2),
+};
+
+static int tls_sigalg_capability(OSSL_CALLBACK *cb, void *arg)
+{
+    size_t i;
+
+    for (i = 0; i < OSSL_NELEM(qat_param_sigalg_list); i++)
+        if (!cb(qat_param_sigalg_list[i], arg))
+            return 0;
+    return 1;
+}
+
+#endif /* ENABLE_QAT_SW_ML_DSA */
+
 int qat_prov_get_capabilities(void *provctx, const char *capability,
                                OSSL_CALLBACK *cb, void *arg)
 {
     if (strcasecmp(capability, "TLS-GROUP") == 0)
         return tls_group_capability(cb, arg);
+
+#ifdef ENABLE_QAT_SW_ML_DSA
+    if (strcasecmp(capability, "TLS-SIGALG") == 0)
+        return tls_sigalg_capability(cb, arg);
+#endif
 
     /* We don't support this capability */
     return 0;

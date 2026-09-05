@@ -162,6 +162,9 @@ extern const OSSL_DISPATCH qat_sm4_cbc_functions[];
 #ifdef ENABLE_QAT_SW_ML_KEM
 # include "qat_sw_ml_kem.h"
 #endif
+#ifdef ENABLE_QAT_SW_ML_DSA
+# include "qat_sw_ml_dsa.h"
+#endif
 
 QAT_PROV_PARAMS qat_params;
 
@@ -180,6 +183,9 @@ static void qat_teardown(void *provctx)
 #endif
 #ifdef ENABLE_QAT_SW_ML_KEM
     qat_sw_ml_kem_free_ipsec_mb_mgr();
+#endif
+#ifdef ENABLE_QAT_SW_ML_DSA
+    qat_sw_ml_dsa_free_ipsec_mb_mgr();
 #endif
 #ifdef ENABLE_QAT_FIPS
     shmctl(sm_id, IPC_RMID, 0);
@@ -312,6 +318,11 @@ static OSSL_ALGORITHM qat_keymgmt[] = {
     {"ML-KEM-768", QAT_DEFAULT_PROPERTIES, qat_ml_kem_768_keymgmt_functions, "QAT ML-KEM-768 Keymgmt implementation."},
     {"ML-KEM-1024", QAT_DEFAULT_PROPERTIES, qat_ml_kem_1024_keymgmt_functions, "QAT ML-KEM-1024 Keymgmt implementation."},
 #endif
+#ifdef ENABLE_QAT_SW_ML_DSA
+    {"ML-DSA-44", QAT_DEFAULT_PROPERTIES, qat_ml_dsa_44_keymgmt_functions, "QAT ML-DSA-44 Keymgmt implementation."},
+    {"ML-DSA-65", QAT_DEFAULT_PROPERTIES, qat_ml_dsa_65_keymgmt_functions, "QAT ML-DSA-65 Keymgmt implementation."},
+    {"ML-DSA-87", QAT_DEFAULT_PROPERTIES, qat_ml_dsa_87_keymgmt_functions, "QAT ML-DSA-87 Keymgmt implementation."},
+#endif
     {NULL, NULL, NULL}};
 
 static OSSL_ALGORITHM qat_signature[] = {
@@ -329,6 +340,11 @@ static OSSL_ALGORITHM qat_signature[] = {
     {"SM2", QAT_DEFAULT_PROPERTIES, qat_sm2_signature_functions, "QAT SM2 Signature implementation."},
 #  endif
 # endif
+#ifdef ENABLE_QAT_SW_ML_DSA
+    {"ML-DSA-44", QAT_DEFAULT_PROPERTIES, qat_ml_dsa_signature_functions, "QAT ML-DSA-44 Signature implementation."},
+    {"ML-DSA-65", QAT_DEFAULT_PROPERTIES, qat_ml_dsa_signature_functions, "QAT ML-DSA-65 Signature implementation."},
+    {"ML-DSA-87", QAT_DEFAULT_PROPERTIES, qat_ml_dsa_signature_functions, "QAT ML-DSA-87 Signature implementation."},
+#endif
     {NULL, NULL, NULL}};
 
 #ifdef ENABLE_QAT_SW_ML_KEM

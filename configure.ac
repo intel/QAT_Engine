@@ -160,6 +160,11 @@ AC_ARG_ENABLE(qat_sw_ml_kem,
                              [Enable qat_sw ML-KEM (FIPS 203) acceleration via IPsec_mb. Requires OpenSSL 3.5+]))
 AC_SUBST(enable_qat_sw_ml_kem)
 
+AC_ARG_ENABLE(qat_sw_ml_dsa,
+              AS_HELP_STRING([--enable-qat_sw_ml_dsa],
+                             [Enable qat_sw ML-DSA (FIPS 204) acceleration via IPsec_mb. Requires OpenSSL 3.5+]))
+AC_SUBST(enable_qat_sw_ml_dsa)
+
 AC_ARG_ENABLE(qat_small_pkt_offload,
               AS_HELP_STRING([--enable-qat_small_pkt_offload],
                              [Enable small packet CIPHER acceleration]))
@@ -677,6 +682,12 @@ then
     AC_MSG_ERROR([--enable-qat_sw_ml_kem is only supported when building qatprovider. Do not combine with --enable-qat_engine.])
   fi
 
+  # ML-DSA is provider-only (native PQC keymgmt/signature), never supported in the legacy engine build
+  if test "x$enable_qat_engine" = "xyes" -a "x$enable_qat_sw_ml_dsa" = "xyes"
+  then
+    AC_MSG_ERROR([--enable-qat_sw_ml_dsa is only supported when building qatprovider. Do not combine with --enable-qat_engine.])
+  fi
+
   # ML-KEM requires an OpenSSL 3.5+ provider stack (native ML-KEM key types and OSSL_OP_KEM)
   if test "x$enable_qat_sw_ml_kem" = "xyes"
   then
@@ -728,11 +739,68 @@ then
 
   AS_IF([test "x$enable_qat_sw_ml_kem" = "xyes"],
         [cflags_qat_sw_ipsec="${cflags_qat_sw_ipsec} -DENABLE_QAT_SW_ML_KEM"; AC_MSG_NOTICE([Accelerating ML-KEM to Software (IPSec_mb)])])
+
+  # ML-DSA requires an OpenSSL 3.5+ provider stack (native ML-DSA key types)
+  if test "x$enable_qat_sw_ml_dsa" = "xyes"
+  then
+    if test "x$with_openssl_install_dir" != "x"
+    then
+      pqc_openssl_include_dir="$with_openssl_install_dir/include"
+    else
+      pqc_openssl_include_dir="${includes_openssl#-I}"
+    fi
+    save_CPPFLAGS="$CPPFLAGS"
+    CPPFLAGS="-I${pqc_openssl_include_dir} $CPPFLAGS"
+    AC_PREPROC_IFELSE(
+      [AC_LANG_PROGRAM([[#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_NUMBER < 0x30500000L
+#error openssl_too_old_for_pqc
+#endif]])],
+      [openssl_supports_pqc=yes],
+      [openssl_supports_pqc=no])
+    CPPFLAGS="$save_CPPFLAGS"
+    if test "x$openssl_supports_pqc" = "xno"
+    then
+      AC_MSG_ERROR([--enable-qat_sw_ml_dsa requires OpenSSL 3.5.0 or later. Upgrade OpenSSL or omit this flag.])
+    fi
+
+    # ML-DSA APIs are only present in ipsec-mb releases built from the
+    # PQC-enabled branch (targeted for v3.0.0); older releases (e.g. v2.0/bertha)
+    # do not export these symbols and would otherwise fail with a cryptic
+    # "undefined reference" at link time instead of a clear configure error.
+    save_CPPFLAGS="$CPPFLAGS"
+    save_LDFLAGS="$LDFLAGS"
+    save_LIBS="$LIBS"
+    if test "x$with_qat_sw_ipsec_mb_install_dir" != "x"
+    then
+      CPPFLAGS="-I${with_qat_sw_ipsec_mb_install_dir}/include $CPPFLAGS"
+      AS_IF([test -f "${with_qat_sw_ipsec_mb_install_dir}/lib64/libIPSec_MB.so"],
+            [qat_sw_ipsec_mb_libdir=lib64],
+            [qat_sw_ipsec_mb_libdir=lib])
+      LDFLAGS="-Wl,-rpath,${with_qat_sw_ipsec_mb_install_dir}/${qat_sw_ipsec_mb_libdir} -L${with_qat_sw_ipsec_mb_install_dir}/${qat_sw_ipsec_mb_libdir} $LDFLAGS"
+    fi
+    AC_CHECK_LIB([IPSec_MB], [imb_ml_dsa_sign], [ipsec_mb_supports_pqc=yes], [ipsec_mb_supports_pqc=no])
+    CPPFLAGS="$save_CPPFLAGS"
+    LDFLAGS="$save_LDFLAGS"
+    LIBS="$save_LIBS"
+    if test "x$ipsec_mb_supports_pqc" = "xno"
+    then
+      AC_MSG_ERROR([--enable-qat_sw_ml_dsa requires an ipsec-mb build with ML-DSA support (targeted for v3.0.0+); the linked libIPSec_MB does not export imb_ml_dsa_sign. Upgrade ipsec-mb or omit this flag.])
+    fi
+  fi
+
+  AS_IF([test "x$enable_qat_sw_ml_dsa" = "xyes"],
+        [cflags_qat_sw_ipsec="${cflags_qat_sw_ipsec} -DENABLE_QAT_SW_ML_DSA"; AC_MSG_NOTICE([Accelerating ML-DSA to Software (IPSec_mb)])])
 fi
 
 if test "x$cflags_qat_sw_ipsec" = "x" -a "x$enable_qat_sw_ml_kem" = "xyes"
 then
   AC_MSG_ERROR([--enable-qat_sw_ml_kem requires the IPSec_mb offload; add --enable-qat_sw (and --with-qat_sw_ipsec_mb_install_dir if needed).])
+fi
+
+if test "x$cflags_qat_sw_ipsec" = "x" -a "x$enable_qat_sw_ml_dsa" = "xyes"
+then
+  AC_MSG_ERROR([--enable-qat_sw_ml_dsa requires the IPSec_mb offload; add --enable-qat_sw (and --with-qat_sw_ipsec_mb_install_dir if needed).])
 fi
 
 if test "x$cflags_qat_hw" != "x" -a  "x$cflags_qat_sw" != "x"

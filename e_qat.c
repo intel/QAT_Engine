@@ -135,6 +135,9 @@
 # ifdef ENABLE_QAT_SW_ML_KEM
 #  include "qat_sw_ml_kem.h"
 # endif
+# ifdef ENABLE_QAT_SW_ML_DSA
+#  include "qat_sw_ml_dsa.h"
+# endif
 #endif
 
 /* OpenSSL Includes */
@@ -204,6 +207,7 @@ int qat_sw_ecdh_offload = 0;
 int qat_sw_ecdsa_offload = 0;
 int qat_sw_gcm_offload = 0;
 int qat_sw_ml_kem_offload = 0;
+int qat_sw_ml_dsa_offload = 0;
 int qat_hw_chacha_poly_offload = 0;
 int qat_hw_aes_cbc_hmac_sha_offload = 0;
 int qat_hw_sm4_cbc_offload = 0;
@@ -1441,6 +1445,13 @@ static int qat_prov_set_offload(void)
         else
             WARN("QAT_SW ML-KEM IMB_MGR Initialization failed, ML-KEM will be disabled\n");
 # endif
+# ifdef ENABLE_QAT_SW_ML_DSA
+        qat_sw_ml_dsa_offload = qat_sw_ml_dsa_init_ipsec_mb_mgr();
+        if (qat_sw_ml_dsa_offload)
+            INFO("QAT_SW ML-DSA for Provider Enabled\n");
+        else
+            WARN("QAT_SW ML-DSA IMB_MGR Initialization failed, ML-DSA will be disabled\n");
+# endif
 
 # if defined(ENABLE_QAT_FIPS) && defined (ENABLE_QAT_SW_SHA2)
         qat_sw_sha_offload = 1;
@@ -1597,6 +1608,16 @@ static void qat_prov_disable_unused(void)
         qat_disable_kem("ML-KEM-512");
         qat_disable_kem("ML-KEM-768");
         qat_disable_kem("ML-KEM-1024");
+    }
+# endif
+# ifdef ENABLE_QAT_SW_ML_DSA
+    if (!qat_sw_ml_dsa_offload) {
+        qat_disable_keymgmt("ML-DSA-44");
+        qat_disable_keymgmt("ML-DSA-65");
+        qat_disable_keymgmt("ML-DSA-87");
+        qat_disable_signature("ML-DSA-44");
+        qat_disable_signature("ML-DSA-65");
+        qat_disable_signature("ML-DSA-87");
     }
 # endif
 }

@@ -9,372 +9,377 @@
  */
 
 #ifndef OSSL_QAT_ERR_H
-#define OSSL_QAT_ERR_H
-#pragma once
+# define OSSL_QAT_ERR_H
+# pragma once
 
-#include <openssl/opensslconf.h>
-#include <openssl/symhacks.h>
+# include <openssl/opensslconf.h>
+# include <openssl/symhacks.h>
 
-#define QATerr(f, r) ERR_QAT_error(0, (r), OPENSSL_FILE, OPENSSL_LINE)
-#define ERR_R_QAT_LIB ERR_QAT_lib()
 
-#ifdef __cplusplus
+# define QATerr(f, r) ERR_QAT_error(0, (r), OPENSSL_FILE, OPENSSL_LINE)
+# define ERR_R_QAT_LIB ERR_QAT_lib()
+
+
+# ifdef  __cplusplus
 extern "C" {
-#endif
+# endif
 int ERR_load_QAT_strings(void);
 void ERR_unload_QAT_strings(void);
 void ERR_QAT_error(int function, int reason, const char *file, int line);
-#ifdef __cplusplus
+# ifdef  __cplusplus
 }
-#endif
+# endif
+
 /*
  * QAT reason codes.
  */
-#define QAT_R_AAD_INVALID_PTR 100
-#define QAT_R_AAD_LEN_INVALID 101
-#define QAT_R_AAD_MALLOC_FAILURE 102
-#define QAT_R_ADD_M2_FAILURE 103
-#define QAT_R_ADJUST_DELTA_M1_M2_FAILURE 104
-#define QAT_R_ALGO_TYPE_SUPPORTED 105
-#define QAT_R_ALGO_TYPE_UNSUPPORTED 106
-#define QAT_R_ALLOC_E_CHECK_FAILURE 107
-#define QAT_R_ALLOC_MULTIBUFF_RSA_METH_FAILURE 108
-#define QAT_R_ALLOC_QAT_DSA_METH_FAILURE 109
-#define QAT_R_ALLOC_QAT_RSA_METH_FAILURE 110
-#define QAT_R_ALLOC_QAT_X25519_METH_FAILURE 111
-#define QAT_R_ALLOC_QAT_X448_METH_FAILURE 112
-#define QAT_R_ALLOC_TAG_FAILURE 113
-#define QAT_R_BAD_INPUT_PARAMS 114
-#define QAT_R_BAD_LENGTH 115
-#define QAT_R_BAD_TLS_CLIENT_VERSION 116
-#define QAT_R_BN_LIB_FAILURE 117
-#define QAT_R_BUFFER_TOO_SMALL 118
-#define QAT_R_BUF_CONV_FAIL 119
-#define QAT_R_CAPABILITY_FAILURE 120
-#define QAT_R_CBC_OPERATION_FAILED 121
-#define QAT_R_CHACHAPOLY_CTX_NULL 122
-#define QAT_R_CIPHER_DATA_NULL 123
-#define QAT_R_CIPHER_OPERATION_FAILED 124
-#define QAT_R_CLOSE_READFD_FAILURE 125
-#define QAT_R_COMPUTE_FAILURE 126
-#define QAT_R_COMPUTE_H_MULTIPLY_Q_FAILURE 127
-#define QAT_R_CP_BUF_MALLOC_FAILURE 128
-#define QAT_R_CQ_BUF_MALLOC_FAILURE 129
-#define QAT_R_CREATE_FREELIST_QUEUE_FAILURE 130
-#define QAT_R_CTX_MALLOC_FAILURE 131
-#define QAT_R_CTX_NULL 132
-#define QAT_R_CURVE_COORDINATE_PARAMS_CONVERT_TO_FB_FAILURE 133
-#define QAT_R_CURVE_DOES_NOT_SUPPORT_SIGNING 134
-#define QAT_R_CURVE_NOT_SUPPORTED 135
-#define QAT_R_C_MODULO_P_FAILURE 136
-#define QAT_R_C_MODULO_Q_FAILURE 137
-#define QAT_R_C_P_Q_CP_CQ_MALLOC_FAILURE 138
-#define QAT_R_DATA_TOO_LARGE_FOR_KEY_SIZE 139
-#define QAT_R_DEC_OP_DATA_MALLOC_FAILURE 140
-#define QAT_R_DERIVE_FAILURE 141
-#define QAT_R_DGSTLEN_INVALID 142
-#define QAT_R_DGST_BN_CONV_FAILURE 143
-#define QAT_R_DH_NULL 144
-#define QAT_R_DINIT_OPERATION_FAILED 145
-#define QAT_R_DLEN_INVALID 146
-#define QAT_R_DSA_DGST_NULL 147
-#define QAT_R_DSA_DGST_SIG_NULL 148
-#define QAT_R_ECDH_GET_AFFINE_COORD_FAILED 149
-#define QAT_R_ECDH_GROUP_NULL 150
-#define QAT_R_ECDH_PRIVATE_KEY_NULL 151
-#define QAT_R_ECDH_PRIV_KEY_PUB_KEY_NULL 152
-#define QAT_R_ECDH_SET_AFFINE_COORD_FAILED 153
-#define QAT_R_ECDH_UNKNOWN_FIELD_TYPE 154
-#define QAT_R_ECDSA_MALLOC_FAILURE 155
-#define QAT_R_ECDSA_SIGN_FAILURE 156
-#define QAT_R_ECDSA_SIGN_NULL 157
-#define QAT_R_ECDSA_SIGN_SETUP_FAILURE 158
-#define QAT_R_ECDSA_SIG_MALLOC_FAILURE 159
-#define QAT_R_ECDSA_SIG_SET_R_S_FAILURE 160
-#define QAT_R_ECDSA_VERIFY_FAILURE 161
-#define QAT_R_ECDSA_VERIFY_NULL 162
-#define QAT_R_ECKEY_GROUP_PUBKEY_SIG_NULL 163
-#define QAT_R_EC_KEY_GROUP_PRIV_KEY_NULL 164
-#define QAT_R_EC_LIB 165
-#define QAT_R_EC_POINT_RETRIEVE_FAILURE 166
-#define QAT_R_EINIT_OPERATION_FAILED 167
-#define QAT_R_ENC_OP_DATA_MALLOC_FAILURE 168
-#define QAT_R_ENGINE_CTRL_CMD_FAILURE 169
-#define QAT_R_ENGINE_INIT_FAILURE 170
-#define QAT_R_ENGINE_NULL 171
-#define QAT_R_EPOLL_CREATE_FAILURE 172
-#define QAT_R_EPOLL_CTL_FAILURE 173
-#define QAT_R_EVENTS_MALLOC_FAILURE 174
-#define QAT_R_EVP_LIB 175
-#define QAT_R_FAILED_TO_DECRYPT 176
-#define QAT_R_FAILED_TO_GENERATE_KEY 177
-#define QAT_R_FAILED_TO_GET_PARAMETER 178
-#define QAT_R_FAILED_TO_SET_PARAMETER 179
-#define QAT_R_FALLBACK_INIT_FAILURE 180
-#define QAT_R_FALLBACK_POINTER_NULL 181
-#define QAT_R_FIELD_SIZE_INVALID 182
-#define QAT_R_FREE_DH_METH_FAILURE 183
-#define QAT_R_FREE_MULTIBUFF_RSA_METH_FAILURE 184
-#define QAT_R_FREE_QAT_DSA_METH_FAILURE 185
-#define QAT_R_FREE_QAT_RSA_METH_FAILURE 186
-#define QAT_R_GCM_TAG_VERIFY_FAILURE 187
-#define QAT_R_GET_COFACTOR_FAILURE 188
-#define QAT_R_GET_FILE_DESCRIPTOR_FAILURE 189
-#define QAT_R_GET_GROUP_FAILURE 190
-#define QAT_R_GET_INSTANCE_FAILURE 191
-#define QAT_R_GET_INSTANCE_INFO_FAILURE 192
-#define QAT_R_GET_NUM_INSTANCE_FAILURE 193
-#define QAT_R_GET_ORDER_FAILURE 194
-#define QAT_R_GET_PQG_FAILURE 195
-#define QAT_R_GET_PRIV_KEY_FAILURE 196
-#define QAT_R_GROUP_NULL 197
-#define QAT_R_GROUP_PRIV_KEY_PUB_KEY_NULL 198
-#define QAT_R_GROUP_PUB_KEY_NULL 199
-#define QAT_R_H_CONVERT_TO_FB_FAILURE 200
-#define QAT_R_ICP_SAL_USERSTART_FAIL 201
-#define QAT_R_ID_TOO_LARGE 202
-#define QAT_R_INITIALIZE_CTX_FAILURE 203
-#define QAT_R_INIT_FAIL 204
-#define QAT_R_INIT_FAILURE 205
-#define QAT_R_INPUT_DATA_MALLOC_FAILURE 206
-#define QAT_R_INPUT_PARAM_INVALID 207
-#define QAT_R_INSTANCE_HANDLE_MALLOC_FAILURE 208
-#define QAT_R_INSTANCE_UNAVAILABLE 209
-#define QAT_R_INTERNAL_ERROR 210
-#define QAT_R_INVALID_AAD 211
-#define QAT_R_INVALID_ATTACHED_TAG 212
-#define QAT_R_INVALID_CTRL_TYPE 213
-#define QAT_R_INVALID_CURVE 214
-#define QAT_R_INVALID_DATA 215
-#define QAT_R_INVALID_DIGEST 216
-#define QAT_R_INVALID_HASH_DATA 217
-#define QAT_R_INVALID_INPUT 218
-#define QAT_R_INVALID_INPUT_LENGTH 219
-#define QAT_R_INVALID_INPUT_PARAMETER 220
-#define QAT_R_INVALID_IVLEN 221
-#define QAT_R_INVALID_IV_LENGTH 222
-#define QAT_R_INVALID_KEY 223
-#define QAT_R_INVALID_KEY_LENGTH 224
-#define QAT_R_INVALID_L 225
-#define QAT_R_INVALID_LEN 226
-#define QAT_R_INVALID_LENGTH 227
-#define QAT_R_INVALID_PEER_KEY 228
-#define QAT_R_INVALID_PRIVATE_KEY 229
-#define QAT_R_INVALID_PTR 230
-#define QAT_R_INVALID_PTR_IV 231
-#define QAT_R_INVALID_PUB_KEY 232
-#define QAT_R_INVALID_QCTX_MEMORY 233
-#define QAT_R_INVALID_SEED_LENGTH 234
-#define QAT_R_INVALID_TAG 235
-#define QAT_R_INVALID_TAG_LEN 236
-#define QAT_R_INVALID_TYPE 237
-#define QAT_R_IN_KINV_CONVERT_TO_FB_FAILURE 238
-#define QAT_R_IN_R_CONVERT_TO_FB_FAILURE 239
-#define QAT_R_IPSEC_MGR_NULL 240
-#define QAT_R_IV_ALLOC_FAILURE 241
-#define QAT_R_IV_GEN_INVALID 242
-#define QAT_R_IV_INVALID 243
-#define QAT_R_IV_LEN_NOT_SUPPORTED 244
-#define QAT_R_IV_MALLOC_FAILURE 245
-#define QAT_R_IV_NOTSET 246
-#define QAT_R_IV_NULL_PTR_INVALID 247
-#define QAT_R_IV_NVALID 248
-#define QAT_R_KEYGEN_FAILURE 249
-#define QAT_R_KEYS_NOT_SET 250
-#define QAT_R_KEY_IV_NOT_SET 251
-#define QAT_R_KEY_MALLOC_FAILURE 252
-#define QAT_R_KEY_NOTSET 253
-#define QAT_R_KEY_NULL 254
-#define QAT_R_KEY_SIZE_TOO_SMALL 255
-#define QAT_R_K_ALLOCATE_FAILURE 256
-#define QAT_R_K_CONVERT_TO_FB_FAILURE 257
-#define QAT_R_K_E_ORDER_MALLOC_FAILURE 258
-#define QAT_R_K_ORDER_CONVERT_TO_FB_FAILURE 259
-#define QAT_R_K_RAND_GENERATE_FAILURE 260
-#define QAT_R_M1_DEDUCT_M2_FAILURE 261
-#define QAT_R_M1_M2_P_Q_QINV_TMP_MALLOC_FAILURE 262
-#define QAT_R_MALLOC_FAILURE 263
-#define QAT_R_MAX_RETRIES_EXCEEDED 264
-#define QAT_R_MB_FREE_EC_METHOD_FAILURE 265
-#define QAT_R_MB_GET_EC_METHOD_MALLOC_FAILURE 266
-#define QAT_R_MISSING_KEY 267
-#define QAT_R_MISSING_SECRET 268
-#define QAT_R_MODULO_P_FAILURE 269
-#define QAT_R_MOD_GET_NEXT_INST_FAIL 270
-#define QAT_R_MOD_LN_MOD_EXP_FAIL 271
-#define QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL 272
-#define QAT_R_MSGLEN_NOTSET 273
-#define QAT_R_MULTIPLY_QINV_FAILURE 274
-#define QAT_R_NID_NOT_SUPPORTED 275
-#define QAT_R_NO_KEY_SET 276
-#define QAT_R_NO_PARAMETERS_SET 277
-#define QAT_R_N_E_CONVERT_TO_FB_FAILURE 278
-#define QAT_R_N_E_NULL 279
-#define QAT_R_OP1_BASE_PDATA_MALLOC_FAILURE 280
-#define QAT_R_OP2_BASE_PDATA_MALLOC_FAILURE 281
-#define QAT_R_OPDATA_A_PDATA_MALLOC_FAILURE 282
-#define QAT_R_OPDATA_DATA_MALLOC_FAILURE 283
-#define QAT_R_OPDATA_D_MALLOC_FAILURE 284
-#define QAT_R_OPDATA_E_MALLOC_FAILURE 285
-#define QAT_R_OPDATA_K_MALLOC_FAILURE 286
-#define QAT_R_OPDATA_MALLOC_FAILURE 287
-#define QAT_R_OPDATA_PDATA_MALLOC_FAILURE 288
-#define QAT_R_OPDATA_ZPDATA_MALLOC_FAILURE 289
-#define QAT_R_OPDCRT_NULL 290
-#define QAT_R_OPDONE_NULL 291
-#define QAT_R_OPDPIPE_NULL 292
-#define QAT_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE 293
-#define QAT_R_ORDER_MALLOC_FAILURE 294
-#define QAT_R_OUT1_PDATA_MALLOC_FAILURE 295
-#define QAT_R_OUT2_PDATA_MALLOC_FAILURE 296
-#define QAT_R_OUTPUT_BUFFER_TOO_SMALL 297
-#define QAT_R_OUTPUT_BUF_MALLOC_FAILURE 298
-#define QAT_R_OUTPUT_BUF_PDATA_MALLOC_FAILURE 299
-#define QAT_R_OUTX_MALLOC_FAILURE 300
-#define QAT_R_OUTX_OUTY_LEN_NULL 301
-#define QAT_R_OUTY_MALLOC_FAILURE 302
-#define QAT_R_PADDING_UNKNOWN 303
-#define QAT_R_PKCS_DECODING_ERROR 304
-#define QAT_R_POLLING_THREAD_COND_INIT_FAILURE 305
-#define QAT_R_POLLING_THREAD_CREATE_FAILURE 306
-#define QAT_R_POLLING_THREAD_SEM_INIT_FAILURE 307
-#define QAT_R_POLLING_THREAD_SIGMASK_FAILURE 308
-#define QAT_R_POLL_INSTANCE_FAILURE 309
-#define QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE 310
-#define QAT_R_POPDATA_MALLOC_FAILURE 311
-#define QAT_R_POPDATA_PCURVE_MALLOC_FAILURE 312
-#define QAT_R_PPV_MALLOC_FAILURE 313
-#define QAT_R_PPV_PDATA_MALLOC_FAILURE 314
-#define QAT_R_PRESULTR_MALLOC_FAILURE 315
-#define QAT_R_PRESULTR_PDATA_MALLOC_FAILURE 316
-#define QAT_R_PRESULTS_MALLOC_FAILURE 317
-#define QAT_R_PRESULTS_PDATA_MALLOC_FAILURE 318
-#define QAT_R_PRESULTX_MALLOC_FAILURE 319
-#define QAT_R_PRESULTX_PDATA_MALLOC_FAILURE 320
-#define QAT_R_PRESULTY_LENGTH_CHECK_FAILURE 321
-#define QAT_R_PRESULTY_MALLOC_FAILURE 322
-#define QAT_R_PRESULTY_PDATA_MALLOC_FAILURE 323
-#define QAT_R_PRIV_KEY_DUPLICATE_FAILURE 324
-#define QAT_R_PRIV_KEY_K_E_D_CONVERT_TO_FB_FAILURE 325
-#define QAT_R_PRIV_KEY_MALLOC_FAILURE 326
-#define QAT_R_PRIV_KEY_M_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE 327
-#define QAT_R_PRIV_KEY_NULL 328
-#define QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE 329
-#define QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE 330
-#define QAT_R_PRIV_KEY_XP_YP_A_B_P_CONVERT_TO_FB_FAILURE 331
-#define QAT_R_PROV_EC_SEC_NULL 332
-#define QAT_R_PROV_FINAL_CALL_OUT_OF_ORDER 333
-#define QAT_R_PROV_INVALID_CTX_LIB 334
-#define QAT_R_PROV_KEY_SIZE_TOO_SMALL 335
-#define QAT_R_PROV_ONESHOT_CALL_OUT_OF_ORDER 336
-#define QAT_R_PROV_UPDATE_CALL_OUT_OF_ORDER 337
-#define QAT_R_PTHREAD_CREATE_FAILURE 338
-#define QAT_R_PTHREAD_GETAFFINITY_FAILURE 339
-#define QAT_R_PTHREAD_JOIN_FAILURE 340
-#define QAT_R_PTHREAD_SETAFFINITY_FAILURE 341
-#define QAT_R_PUB_KEY_DUPLICATE_FAILURE 342
-#define QAT_R_PUB_KEY_MALLOC_FAILURE 343
-#define QAT_R_PUB_KEY_NULL 344
-#define QAT_R_P_A_B_XG_YG_MALLOC_FAILURE 345
-#define QAT_R_P_A_B_XG_YG_M_K_R_ORDER_MALLOC_FAILURE 346
-#define QAT_R_P_A_B_XG_YG_XP_YP_M_ORDER_FAILURE 347
-#define QAT_R_P_A_B_XP_YP_FAILURE 348
-#define QAT_R_P_A_B_XP_YP_MALLOC_FAILURE 349
-#define QAT_R_P_G_PRIV_KEY_CONVERT_TO_FB_FAILURE 350
-#define QAT_R_P_PUB_PRIV_KEY_CONVERT_TO_FB_FAILURE 351
-#define QAT_R_P_Q_DMP_DMQ_CONVERT_TO_FB_FAILURE 352
-#define QAT_R_P_Q_DMP_DMQ_IQMP_NULL 353
-#define QAT_R_P_Q_G_NULL 354
-#define QAT_R_P_Q_G_X_K_CONVERT_TO_FB_FAILURE 355
-#define QAT_R_P_Q_G_Y_Z_R_S_CONVERT_TO_FB_FAILURE 356
-#define QAT_R_QAT_ALLOC_DH_METH_FAILURE 357
-#define QAT_R_QAT_CREATE_ENGINE_FAILURE 358
-#define QAT_R_QAT_ECDSA_DO_SIGN_FAIL 359
-#define QAT_R_QAT_FREE_EC_METHOD_FAILURE 360
-#define QAT_R_QAT_GET_EC_METHOD_MALLOC_FAILURE 361
-#define QAT_R_QAT_SET_DH_METH_FAILURE 362
-#define QAT_R_QCTX_CTX_NULL 363
-#define QAT_R_QCTX_NULL 364
-#define QAT_R_RAND_BYTES_FAILURE 365
-#define QAT_R_RAND_FAILURE 366
-#define QAT_R_RAND_GENERATE_FAILURE 367
-#define QAT_R_RESULT_PDATA_ALLOC_FAIL 368
-#define QAT_R_RETRIEVE_EC_POINT_FAILURE 369
-#define QAT_R_RETRIEVE_ORDER_FAILURE 370
-#define QAT_R_RSA_FROM_TO_NULL 371
-#define QAT_R_RSA_OUTPUT_BUF_PDATA_MALLOC_FAILURE 372
-#define QAT_R_R_Q_COMPARE_FAILURE 373
-#define QAT_R_SECRET_KEY_MALLOC_FAILURE 374
-#define QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE 375
-#define QAT_R_SEM_POST_FAILURE 376
-#define QAT_R_SETUP_ASYNC_EVENT_FAILURE 377
-#define QAT_R_SET_ADDRESS_TRANSLATION_FAILURE 378
-#define QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE 379
-#define QAT_R_SET_INSTANCE_FAILURE 380
-#define QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE 381
-#define QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE 382
-#define QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE 383
-#define QAT_R_SET_PRIV_KEY_FAILURE 384
-#define QAT_R_SET_QAT_DSA_METH_FAILURE 385
-#define QAT_R_SET_QAT_RSA_METH_FAILURE 386
-#define QAT_R_SET_TAG_INVALID_OP 387
-#define QAT_R_SHA3_CTX_NULL 388
-#define QAT_R_SIG_GET_R_S_FAILURE 389
-#define QAT_R_SIG_MALLOC_FAILURE 390
-#define QAT_R_SM2_BAD_SIGNATURE 391
-#define QAT_R_SM2_ID_TOO_LARGE 392
-#define QAT_R_SM2_INVALID_DIGEST 393
-#define QAT_R_SM2_SIGN_NULL 394
-#define QAT_R_SM2_SIG_GEN_MALLOC_FAILURE 395
-#define QAT_R_SM2_SIG_MALLOC_FAILURE 396
-#define QAT_R_SM2_SIG_SET_R_S_FAILURE 397
-#define QAT_R_SM2_VERIFY_NULL 398
-#define QAT_R_SM3_CTX_NULL 399
-#define QAT_R_SM3_FINAL_FAILURE 400
-#define QAT_R_SM3_INIT_FAILURE 401
-#define QAT_R_SM3_UPDATE_FAILURE 402
-#define QAT_R_SM4_CCM_DECRYPT_FAILURE 403
-#define QAT_R_SM4_GCM_DECRYPT_FAILURE 404
-#define QAT_R_SM4_GCM_ENCRYPT_FAILURE 405
-#define QAT_R_SM4_GET_INSTANCE_FAILED 406
-#define QAT_R_SM4_GET_SESSIONCTX_SIZE_FAILED 407
-#define QAT_R_SM4_MALLOC_FAILED 408
-#define QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE 409
-#define QAT_R_SM4_NULL_CKEY 410
-#define QAT_R_SM4_NULL_CTX 411
-#define QAT_R_SM4_NULL_CTX_OR_KEY 412
-#define QAT_R_SM4_NULL_POINTER 413
-#define QAT_R_SM4_NULL_QCTX 414
-#define QAT_R_SM4_QAT_CONTEXT_NOT_INITIALISED 415
-#define QAT_R_SM4_QAT_INITSESSION_FAILED 416
-#define QAT_R_SM4_QAT_SUBMIT_REQUEST_FAILED 417
-#define QAT_R_SM4_REMOVE_SESSION_FAILED 418
-#define QAT_R_SM4_SETUP_META_DATA_FAILED 419
-#define QAT_R_SM4_SET_METHODS_FAILED 420
-#define QAT_R_SSD_MALLOC_FAILURE 421
-#define QAT_R_SSD_NULL 422
-#define QAT_R_START_INSTANCE_FAILURE 423
-#define QAT_R_STOP_INSTANCE_FAILURE 424
-#define QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL 425
-#define QAT_R_SW_GET_KEYGEN_PFUNC_NULL 426
-#define QAT_R_SW_GET_SIGN_PFUNC_NULL 427
-#define QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL 428
-#define QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL 429
-#define QAT_R_SW_GET_VERIFY_PFUNC_NULL 430
-#define QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL 431
-#define QAT_R_SW_METHOD_NULL 432
-#define QAT_R_S_NULL 433
-#define QAT_R_S_Q_COMPARE_FAILURE 434
-#define QAT_R_TAG_NOTSET 435
-#define QAT_R_TAG_NOT_NEEDED 436
-#define QAT_R_UNKNOWN_PADDING 437
-#define QAT_R_UNKNOWN_PADDING_TYPE 438
-#define QAT_R_UNSUPPORTED_RSA_KEY_SIZE 439
-#define QAT_R_WAKE_PAUSE_JOB_FAILURE 440
-#define QAT_R_X_Y_E_MALLOC_FAILURE 441
-#define QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE 442
-#define QAT_R_X_Y_Z_MALLOC_FAILURE 443
-#define QAT_R_ZALLOC_FAILURE 444
-#define QAT_R_Z_ALLOCATE_FAILURE 445
+# define QAT_R_AAD_INVALID_PTR                            100
+# define QAT_R_AAD_LEN_INVALID                            101
+# define QAT_R_AAD_MALLOC_FAILURE                         102
+# define QAT_R_ADD_M2_FAILURE                             103
+# define QAT_R_ADJUST_DELTA_M1_M2_FAILURE                 104
+# define QAT_R_ALGO_TYPE_SUPPORTED                        105
+# define QAT_R_ALGO_TYPE_UNSUPPORTED                      106
+# define QAT_R_ALLOC_E_CHECK_FAILURE                      107
+# define QAT_R_ALLOC_MULTIBUFF_RSA_METH_FAILURE           108
+# define QAT_R_ALLOC_QAT_DSA_METH_FAILURE                 109
+# define QAT_R_ALLOC_QAT_RSA_METH_FAILURE                 110
+# define QAT_R_ALLOC_QAT_X25519_METH_FAILURE              111
+# define QAT_R_ALLOC_QAT_X448_METH_FAILURE                112
+# define QAT_R_ALLOC_TAG_FAILURE                          113
+# define QAT_R_BAD_INPUT_PARAMS                           114
+# define QAT_R_BAD_LENGTH                                 115
+# define QAT_R_BAD_TLS_CLIENT_VERSION                     116
+# define QAT_R_BN_LIB_FAILURE                             117
+# define QAT_R_BUFFER_TOO_SMALL                           118
+# define QAT_R_BUF_CONV_FAIL                              119
+# define QAT_R_CAPABILITY_FAILURE                         120
+# define QAT_R_CBC_OPERATION_FAILED                       121
+# define QAT_R_CHACHAPOLY_CTX_NULL                        122
+# define QAT_R_CIPHER_DATA_NULL                           123
+# define QAT_R_CIPHER_OPERATION_FAILED                    124
+# define QAT_R_CLOSE_READFD_FAILURE                       125
+# define QAT_R_COMPUTE_FAILURE                            126
+# define QAT_R_COMPUTE_H_MULTIPLY_Q_FAILURE               127
+# define QAT_R_CP_BUF_MALLOC_FAILURE                      128
+# define QAT_R_CQ_BUF_MALLOC_FAILURE                      129
+# define QAT_R_CREATE_FREELIST_QUEUE_FAILURE              130
+# define QAT_R_CTX_MALLOC_FAILURE                         131
+# define QAT_R_CTX_NULL                                   132
+# define QAT_R_CURVE_COORDINATE_PARAMS_CONVERT_TO_FB_FAILURE 133
+# define QAT_R_CURVE_DOES_NOT_SUPPORT_SIGNING             134
+# define QAT_R_CURVE_NOT_SUPPORTED                        135
+# define QAT_R_C_MODULO_P_FAILURE                         136
+# define QAT_R_C_MODULO_Q_FAILURE                         137
+# define QAT_R_C_P_Q_CP_CQ_MALLOC_FAILURE                 138
+# define QAT_R_DATA_TOO_LARGE_FOR_KEY_SIZE                139
+# define QAT_R_DEC_OP_DATA_MALLOC_FAILURE                 140
+# define QAT_R_DERIVE_FAILURE                             141
+# define QAT_R_DGSTLEN_INVALID                            142
+# define QAT_R_DGST_BN_CONV_FAILURE                       143
+# define QAT_R_DH_NULL                                    144
+# define QAT_R_DINIT_OPERATION_FAILED                     145
+# define QAT_R_DLEN_INVALID                               146
+# define QAT_R_DSA_DGST_NULL                              147
+# define QAT_R_DSA_DGST_SIG_NULL                          148
+# define QAT_R_ECDH_GET_AFFINE_COORD_FAILED               149
+# define QAT_R_ECDH_GROUP_NULL                            150
+# define QAT_R_ECDH_PRIVATE_KEY_NULL                      151
+# define QAT_R_ECDH_PRIV_KEY_PUB_KEY_NULL                 152
+# define QAT_R_ECDH_SET_AFFINE_COORD_FAILED               153
+# define QAT_R_ECDH_UNKNOWN_FIELD_TYPE                    154
+# define QAT_R_ECDSA_MALLOC_FAILURE                       155
+# define QAT_R_ECDSA_SIGN_FAILURE                         156
+# define QAT_R_ECDSA_SIGN_NULL                            157
+# define QAT_R_ECDSA_SIGN_SETUP_FAILURE                   158
+# define QAT_R_ECDSA_SIG_MALLOC_FAILURE                   159
+# define QAT_R_ECDSA_SIG_SET_R_S_FAILURE                  160
+# define QAT_R_ECDSA_VERIFY_FAILURE                       161
+# define QAT_R_ECDSA_VERIFY_NULL                          162
+# define QAT_R_ECKEY_GROUP_PUBKEY_SIG_NULL                163
+# define QAT_R_EC_KEY_GROUP_PRIV_KEY_NULL                 164
+# define QAT_R_EC_LIB                                     165
+# define QAT_R_EC_POINT_RETRIEVE_FAILURE                  166
+# define QAT_R_EINIT_OPERATION_FAILED                     167
+# define QAT_R_ENC_OP_DATA_MALLOC_FAILURE                 168
+# define QAT_R_ENGINE_CTRL_CMD_FAILURE                    169
+# define QAT_R_ENGINE_INIT_FAILURE                        170
+# define QAT_R_ENGINE_NULL                                171
+# define QAT_R_EPOLL_CREATE_FAILURE                       172
+# define QAT_R_EPOLL_CTL_FAILURE                          173
+# define QAT_R_EVENTS_MALLOC_FAILURE                      174
+# define QAT_R_EVP_LIB                                    175
+# define QAT_R_FAILED_TO_DECRYPT                          176
+# define QAT_R_FAILED_TO_GENERATE_KEY                     177
+# define QAT_R_FAILED_TO_GET_PARAMETER                    178
+# define QAT_R_FAILED_TO_SET_PARAMETER                    179
+# define QAT_R_FAILED_TO_SIGN                             180
+# define QAT_R_FALLBACK_INIT_FAILURE                      181
+# define QAT_R_FALLBACK_POINTER_NULL                      182
+# define QAT_R_FIELD_SIZE_INVALID                         183
+# define QAT_R_FREE_DH_METH_FAILURE                       184
+# define QAT_R_FREE_MULTIBUFF_RSA_METH_FAILURE            185
+# define QAT_R_FREE_QAT_DSA_METH_FAILURE                  186
+# define QAT_R_FREE_QAT_RSA_METH_FAILURE                  187
+# define QAT_R_GCM_TAG_VERIFY_FAILURE                     188
+# define QAT_R_GET_COFACTOR_FAILURE                       189
+# define QAT_R_GET_FILE_DESCRIPTOR_FAILURE                190
+# define QAT_R_GET_GROUP_FAILURE                          191
+# define QAT_R_GET_INSTANCE_FAILURE                       192
+# define QAT_R_GET_INSTANCE_INFO_FAILURE                  193
+# define QAT_R_GET_NUM_INSTANCE_FAILURE                   194
+# define QAT_R_GET_ORDER_FAILURE                          195
+# define QAT_R_GET_PQG_FAILURE                            196
+# define QAT_R_GET_PRIV_KEY_FAILURE                       197
+# define QAT_R_GROUP_NULL                                 198
+# define QAT_R_GROUP_PRIV_KEY_PUB_KEY_NULL                199
+# define QAT_R_GROUP_PUB_KEY_NULL                         200
+# define QAT_R_H_CONVERT_TO_FB_FAILURE                    201
+# define QAT_R_ICP_SAL_USERSTART_FAIL                     202
+# define QAT_R_ID_TOO_LARGE                               203
+# define QAT_R_INITIALIZE_CTX_FAILURE                     204
+# define QAT_R_INIT_FAIL                                  205
+# define QAT_R_INIT_FAILURE                               206
+# define QAT_R_INPUT_DATA_MALLOC_FAILURE                  207
+# define QAT_R_INPUT_PARAM_INVALID                        208
+# define QAT_R_INSTANCE_HANDLE_MALLOC_FAILURE             209
+# define QAT_R_INSTANCE_UNAVAILABLE                       210
+# define QAT_R_INTERNAL_ERROR                             211
+# define QAT_R_INVALID_AAD                                212
+# define QAT_R_INVALID_ATTACHED_TAG                       213
+# define QAT_R_INVALID_CTRL_TYPE                          214
+# define QAT_R_INVALID_CURVE                              215
+# define QAT_R_INVALID_DATA                               216
+# define QAT_R_INVALID_DIGEST                             217
+# define QAT_R_INVALID_HASH_DATA                          218
+# define QAT_R_INVALID_INPUT                              219
+# define QAT_R_INVALID_INPUT_LENGTH                       220
+# define QAT_R_INVALID_INPUT_PARAMETER                    221
+# define QAT_R_INVALID_IVLEN                              222
+# define QAT_R_INVALID_IV_LENGTH                          223
+# define QAT_R_INVALID_KEY                                224
+# define QAT_R_INVALID_KEY_LENGTH                         225
+# define QAT_R_INVALID_L                                  226
+# define QAT_R_INVALID_LEN                                227
+# define QAT_R_INVALID_LENGTH                             228
+# define QAT_R_INVALID_PEER_KEY                           229
+# define QAT_R_INVALID_PRIVATE_KEY                        230
+# define QAT_R_INVALID_PTR                                231
+# define QAT_R_INVALID_PTR_IV                             232
+# define QAT_R_INVALID_PUB_KEY                            233
+# define QAT_R_INVALID_QCTX_MEMORY                        234
+# define QAT_R_INVALID_SEED_LENGTH                        235
+# define QAT_R_INVALID_TAG                                236
+# define QAT_R_INVALID_TAG_LEN                            237
+# define QAT_R_INVALID_TYPE                               238
+# define QAT_R_IN_KINV_CONVERT_TO_FB_FAILURE              239
+# define QAT_R_IN_R_CONVERT_TO_FB_FAILURE                 240
+# define QAT_R_IPSEC_MGR_NULL                             241
+# define QAT_R_IV_ALLOC_FAILURE                           242
+# define QAT_R_IV_GEN_INVALID                             243
+# define QAT_R_IV_INVALID                                 244
+# define QAT_R_IV_LEN_NOT_SUPPORTED                       245
+# define QAT_R_IV_MALLOC_FAILURE                          246
+# define QAT_R_IV_NOTSET                                  247
+# define QAT_R_IV_NULL_PTR_INVALID                        248
+# define QAT_R_IV_NVALID                                  249
+# define QAT_R_KEYGEN_FAILURE                             250
+# define QAT_R_KEYS_NOT_SET                               251
+# define QAT_R_KEY_IV_NOT_SET                             252
+# define QAT_R_KEY_MALLOC_FAILURE                         253
+# define QAT_R_KEY_NOTSET                                 254
+# define QAT_R_KEY_NULL                                   255
+# define QAT_R_KEY_SIZE_TOO_SMALL                         256
+# define QAT_R_K_ALLOCATE_FAILURE                         257
+# define QAT_R_K_CONVERT_TO_FB_FAILURE                    258
+# define QAT_R_K_E_ORDER_MALLOC_FAILURE                   259
+# define QAT_R_K_ORDER_CONVERT_TO_FB_FAILURE              260
+# define QAT_R_K_RAND_GENERATE_FAILURE                    261
+# define QAT_R_M1_DEDUCT_M2_FAILURE                       262
+# define QAT_R_M1_M2_P_Q_QINV_TMP_MALLOC_FAILURE          263
+# define QAT_R_MALLOC_FAILURE                             264
+# define QAT_R_MAX_RETRIES_EXCEEDED                       265
+# define QAT_R_MB_FREE_EC_METHOD_FAILURE                  266
+# define QAT_R_MB_GET_EC_METHOD_MALLOC_FAILURE            267
+# define QAT_R_MISSING_KEY                                268
+# define QAT_R_MISSING_SECRET                             269
+# define QAT_R_MODULO_P_FAILURE                           270
+# define QAT_R_MOD_GET_NEXT_INST_FAIL                     271
+# define QAT_R_MOD_LN_MOD_EXP_FAIL                        272
+# define QAT_R_MOD_SETUP_ASYNC_EVENT_FAIL                 273
+# define QAT_R_MSGLEN_NOTSET                              274
+# define QAT_R_MULTIPLY_QINV_FAILURE                      275
+# define QAT_R_NID_NOT_SUPPORTED                          276
+# define QAT_R_NOT_SUPPORTED                              277
+# define QAT_R_NO_KEY_SET                                 278
+# define QAT_R_NO_PARAMETERS_SET                          279
+# define QAT_R_N_E_CONVERT_TO_FB_FAILURE                  280
+# define QAT_R_N_E_NULL                                   281
+# define QAT_R_OP1_BASE_PDATA_MALLOC_FAILURE              282
+# define QAT_R_OP2_BASE_PDATA_MALLOC_FAILURE              283
+# define QAT_R_OPDATA_A_PDATA_MALLOC_FAILURE              284
+# define QAT_R_OPDATA_DATA_MALLOC_FAILURE                 285
+# define QAT_R_OPDATA_D_MALLOC_FAILURE                    286
+# define QAT_R_OPDATA_E_MALLOC_FAILURE                    287
+# define QAT_R_OPDATA_K_MALLOC_FAILURE                    288
+# define QAT_R_OPDATA_MALLOC_FAILURE                      289
+# define QAT_R_OPDATA_PDATA_MALLOC_FAILURE                290
+# define QAT_R_OPDATA_ZPDATA_MALLOC_FAILURE               291
+# define QAT_R_OPDCRT_NULL                                292
+# define QAT_R_OPDONE_NULL                                293
+# define QAT_R_OPDPIPE_NULL                               294
+# define QAT_R_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE   295
+# define QAT_R_ORDER_MALLOC_FAILURE                       296
+# define QAT_R_OUT1_PDATA_MALLOC_FAILURE                  297
+# define QAT_R_OUT2_PDATA_MALLOC_FAILURE                  298
+# define QAT_R_OUTPUT_BUFFER_TOO_SMALL                    299
+# define QAT_R_OUTPUT_BUF_MALLOC_FAILURE                  300
+# define QAT_R_OUTPUT_BUF_PDATA_MALLOC_FAILURE            301
+# define QAT_R_OUTX_MALLOC_FAILURE                        302
+# define QAT_R_OUTX_OUTY_LEN_NULL                         303
+# define QAT_R_OUTY_MALLOC_FAILURE                        304
+# define QAT_R_PADDING_UNKNOWN                            305
+# define QAT_R_PKCS_DECODING_ERROR                        306
+# define QAT_R_POLLING_THREAD_COND_INIT_FAILURE           307
+# define QAT_R_POLLING_THREAD_CREATE_FAILURE              308
+# define QAT_R_POLLING_THREAD_SEM_INIT_FAILURE            309
+# define QAT_R_POLLING_THREAD_SIGMASK_FAILURE             310
+# define QAT_R_POLL_INSTANCE_FAILURE                      311
+# define QAT_R_POPDATA_A_PDATA_MALLOC_FAILURE             312
+# define QAT_R_POPDATA_MALLOC_FAILURE                     313
+# define QAT_R_POPDATA_PCURVE_MALLOC_FAILURE              314
+# define QAT_R_PPV_MALLOC_FAILURE                         315
+# define QAT_R_PPV_PDATA_MALLOC_FAILURE                   316
+# define QAT_R_PRESULTR_MALLOC_FAILURE                    317
+# define QAT_R_PRESULTR_PDATA_MALLOC_FAILURE              318
+# define QAT_R_PRESULTS_MALLOC_FAILURE                    319
+# define QAT_R_PRESULTS_PDATA_MALLOC_FAILURE              320
+# define QAT_R_PRESULTX_MALLOC_FAILURE                    321
+# define QAT_R_PRESULTX_PDATA_MALLOC_FAILURE              322
+# define QAT_R_PRESULTY_LENGTH_CHECK_FAILURE              323
+# define QAT_R_PRESULTY_MALLOC_FAILURE                    324
+# define QAT_R_PRESULTY_PDATA_MALLOC_FAILURE              325
+# define QAT_R_PRIV_KEY_DUPLICATE_FAILURE                 326
+# define QAT_R_PRIV_KEY_K_E_D_CONVERT_TO_FB_FAILURE       327
+# define QAT_R_PRIV_KEY_MALLOC_FAILURE                    328
+# define QAT_R_PRIV_KEY_M_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE 329
+# define QAT_R_PRIV_KEY_NULL                              330
+# define QAT_R_PRIV_KEY_RAND_GENERATE_FAILURE             331
+# define QAT_R_PRIV_KEY_XG_YG_A_B_P_CONVERT_TO_FB_FAILURE 332
+# define QAT_R_PRIV_KEY_XP_YP_A_B_P_CONVERT_TO_FB_FAILURE 333
+# define QAT_R_PROV_EC_SEC_NULL                           334
+# define QAT_R_PROV_FINAL_CALL_OUT_OF_ORDER               335
+# define QAT_R_PROV_INVALID_CTX_LIB                       336
+# define QAT_R_PROV_KEY_SIZE_TOO_SMALL                    337
+# define QAT_R_PROV_ONESHOT_CALL_OUT_OF_ORDER             338
+# define QAT_R_PROV_UPDATE_CALL_OUT_OF_ORDER              339
+# define QAT_R_PTHREAD_CREATE_FAILURE                     340
+# define QAT_R_PTHREAD_GETAFFINITY_FAILURE                341
+# define QAT_R_PTHREAD_JOIN_FAILURE                       342
+# define QAT_R_PTHREAD_SETAFFINITY_FAILURE                343
+# define QAT_R_PUB_KEY_DUPLICATE_FAILURE                  344
+# define QAT_R_PUB_KEY_MALLOC_FAILURE                     345
+# define QAT_R_PUB_KEY_NULL                               346
+# define QAT_R_P_A_B_XG_YG_MALLOC_FAILURE                 347
+# define QAT_R_P_A_B_XG_YG_M_K_R_ORDER_MALLOC_FAILURE     348
+# define QAT_R_P_A_B_XG_YG_XP_YP_M_ORDER_FAILURE          349
+# define QAT_R_P_A_B_XP_YP_FAILURE                        350
+# define QAT_R_P_A_B_XP_YP_MALLOC_FAILURE                 351
+# define QAT_R_P_G_PRIV_KEY_CONVERT_TO_FB_FAILURE         352
+# define QAT_R_P_PUB_PRIV_KEY_CONVERT_TO_FB_FAILURE       353
+# define QAT_R_P_Q_DMP_DMQ_CONVERT_TO_FB_FAILURE          354
+# define QAT_R_P_Q_DMP_DMQ_IQMP_NULL                      355
+# define QAT_R_P_Q_G_NULL                                 356
+# define QAT_R_P_Q_G_X_K_CONVERT_TO_FB_FAILURE            357
+# define QAT_R_P_Q_G_Y_Z_R_S_CONVERT_TO_FB_FAILURE        358
+# define QAT_R_QAT_ALLOC_DH_METH_FAILURE                  359
+# define QAT_R_QAT_CREATE_ENGINE_FAILURE                  360
+# define QAT_R_QAT_ECDSA_DO_SIGN_FAIL                     361
+# define QAT_R_QAT_FREE_EC_METHOD_FAILURE                 362
+# define QAT_R_QAT_GET_EC_METHOD_MALLOC_FAILURE           363
+# define QAT_R_QAT_SET_DH_METH_FAILURE                    364
+# define QAT_R_QCTX_CTX_NULL                              365
+# define QAT_R_QCTX_NULL                                  366
+# define QAT_R_RAND_BYTES_FAILURE                         367
+# define QAT_R_RAND_FAILURE                               368
+# define QAT_R_RAND_GENERATE_FAILURE                      369
+# define QAT_R_RESULT_PDATA_ALLOC_FAIL                    370
+# define QAT_R_RETRIEVE_EC_POINT_FAILURE                  371
+# define QAT_R_RETRIEVE_ORDER_FAILURE                     372
+# define QAT_R_RSA_FROM_TO_NULL                           373
+# define QAT_R_RSA_OUTPUT_BUF_PDATA_MALLOC_FAILURE        374
+# define QAT_R_R_Q_COMPARE_FAILURE                        375
+# define QAT_R_SECRET_KEY_MALLOC_FAILURE                  376
+# define QAT_R_SECRET_KEY_PDATA_MALLOC_FAILURE            377
+# define QAT_R_SEM_POST_FAILURE                           378
+# define QAT_R_SETUP_ASYNC_EVENT_FAILURE                  379
+# define QAT_R_SET_ADDRESS_TRANSLATION_FAILURE            380
+# define QAT_R_SET_FILE_DESCRIPTOR_NONBLOCKING_FAILURE    381
+# define QAT_R_SET_INSTANCE_FAILURE                       382
+# define QAT_R_SET_MULTIBUFF_RSA_METH_FAILURE             383
+# define QAT_R_SET_NOTIFICATION_CALLBACK_FAILURE          384
+# define QAT_R_SET_POLLING_THREAD_AFFINITY_FAILURE        385
+# define QAT_R_SET_PRIV_KEY_FAILURE                       386
+# define QAT_R_SET_QAT_DSA_METH_FAILURE                   387
+# define QAT_R_SET_QAT_RSA_METH_FAILURE                   388
+# define QAT_R_SET_TAG_INVALID_OP                         389
+# define QAT_R_SHA3_CTX_NULL                              390
+# define QAT_R_SIG_GET_R_S_FAILURE                        391
+# define QAT_R_SIG_MALLOC_FAILURE                         392
+# define QAT_R_SM2_BAD_SIGNATURE                          393
+# define QAT_R_SM2_ID_TOO_LARGE                           394
+# define QAT_R_SM2_INVALID_DIGEST                         395
+# define QAT_R_SM2_SIGN_NULL                              396
+# define QAT_R_SM2_SIG_GEN_MALLOC_FAILURE                 397
+# define QAT_R_SM2_SIG_MALLOC_FAILURE                     398
+# define QAT_R_SM2_SIG_SET_R_S_FAILURE                    399
+# define QAT_R_SM2_VERIFY_NULL                            400
+# define QAT_R_SM3_CTX_NULL                               401
+# define QAT_R_SM3_FINAL_FAILURE                          402
+# define QAT_R_SM3_INIT_FAILURE                           403
+# define QAT_R_SM3_UPDATE_FAILURE                         404
+# define QAT_R_SM4_CCM_DECRYPT_FAILURE                    405
+# define QAT_R_SM4_GCM_DECRYPT_FAILURE                    406
+# define QAT_R_SM4_GCM_ENCRYPT_FAILURE                    407
+# define QAT_R_SM4_GET_INSTANCE_FAILED                    408
+# define QAT_R_SM4_GET_SESSIONCTX_SIZE_FAILED             409
+# define QAT_R_SM4_MALLOC_FAILED                          410
+# define QAT_R_SM4_NO_QAT_INSTANCE_AVAILABLE              411
+# define QAT_R_SM4_NULL_CKEY                              412
+# define QAT_R_SM4_NULL_CTX                               413
+# define QAT_R_SM4_NULL_CTX_OR_KEY                        414
+# define QAT_R_SM4_NULL_POINTER                           415
+# define QAT_R_SM4_NULL_QCTX                              416
+# define QAT_R_SM4_QAT_CONTEXT_NOT_INITIALISED            417
+# define QAT_R_SM4_QAT_INITSESSION_FAILED                 418
+# define QAT_R_SM4_QAT_SUBMIT_REQUEST_FAILED              419
+# define QAT_R_SM4_REMOVE_SESSION_FAILED                  420
+# define QAT_R_SM4_SETUP_META_DATA_FAILED                 421
+# define QAT_R_SM4_SET_METHODS_FAILED                     422
+# define QAT_R_SSD_MALLOC_FAILURE                         423
+# define QAT_R_SSD_NULL                                   424
+# define QAT_R_START_INSTANCE_FAILURE                     425
+# define QAT_R_STOP_INSTANCE_FAILURE                      426
+# define QAT_R_SW_GET_COMPUTE_KEY_PFUNC_NULL              427
+# define QAT_R_SW_GET_KEYGEN_PFUNC_NULL                   428
+# define QAT_R_SW_GET_SIGN_PFUNC_NULL                     429
+# define QAT_R_SW_GET_SIGN_SETUP_PFUNC_NULL               430
+# define QAT_R_SW_GET_SIGN_SIG_PFUNC_NULL                 431
+# define QAT_R_SW_GET_VERIFY_PFUNC_NULL                   432
+# define QAT_R_SW_GET_VERIFY_SIG_PFUNC_NULL               433
+# define QAT_R_SW_METHOD_NULL                             434
+# define QAT_R_S_NULL                                     435
+# define QAT_R_S_Q_COMPARE_FAILURE                        436
+# define QAT_R_TAG_NOTSET                                 437
+# define QAT_R_TAG_NOT_NEEDED                             438
+# define QAT_R_UNKNOWN_PADDING                            439
+# define QAT_R_UNKNOWN_PADDING_TYPE                       440
+# define QAT_R_UNSUPPORTED_RSA_KEY_SIZE                   441
+# define QAT_R_WAKE_PAUSE_JOB_FAILURE                     442
+# define QAT_R_X_Y_E_MALLOC_FAILURE                       443
+# define QAT_R_X_Y_TX_TY_BN_MALLOC_FAILURE                444
+# define QAT_R_X_Y_Z_MALLOC_FAILURE                       445
+# define QAT_R_ZALLOC_FAILURE                             446
+# define QAT_R_Z_ALLOCATE_FAILURE                         447
 
 #endif

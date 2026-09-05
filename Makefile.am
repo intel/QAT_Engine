@@ -46,7 +46,9 @@ if QAT_PROVIDER
                 qat_prov_aes_ccm.c        \
                 qat_prov_kmgmt_rsa_utils.c \
                 qat_prov_kmgmt_ml_kem.c   \
-                qat_prov_kem_ml_kem.c
+                qat_prov_kem_ml_kem.c     \
+                qat_prov_kmgmt_ml_dsa.c   \
+                qat_prov_sign_ml_dsa.c
 
 
 if QAT_FIPS
@@ -104,7 +106,8 @@ endif
 if QAT_SW_IPSEC
  QAT_SW_IPSEC_SRC = qat_sw_gcm.c       \
                     qat_sw_ipsec_inf.c \
-                    qat_sw_ml_kem.c
+                    qat_sw_ml_kem.c    \
+                    qat_sw_ml_dsa.c
 endif
 endif
 

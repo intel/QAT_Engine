@@ -88,6 +88,11 @@ QAT_SELF_TEST_RESULT *qat_kem_result;
 QAT_SELF_TEST_RESULT *qat_async_kem_result;
 #endif
 
+#ifdef ENABLE_QAT_SW_ML_DSA
+QAT_SELF_TEST_RESULT *qat_pqc_signature_result;
+QAT_SELF_TEST_RESULT *qat_async_pqc_signature_result;
+#endif
+
 void fips_result(void)
 {
     int i;
@@ -140,6 +145,20 @@ void fips_result(void)
                  qat_kem_result->result[i] ? "PASS" : "FAIL");
 # endif
             if (!qat_kem_result->result[i])
+                integrity_status = 0;
+        }
+    }
+#endif
+
+#ifdef ENABLE_QAT_SW_ML_DSA
+    if (qat_pqc_signature_result != NULL) {
+        for (i = 0; i < (int)OSSL_NELEM(st_kat_sign_pqc_tests); ++i) {
+# ifdef QAT_DEBUG
+            INFO("\t%s   : (%s)  :  %s\n", qat_pqc_signature_result->desc[i],
+                 qat_pqc_signature_result->type[i],
+                 qat_pqc_signature_result->result[i] ? "PASS" : "FAIL");
+# endif
+            if (!qat_pqc_signature_result->result[i])
                 integrity_status = 0;
         }
     }
@@ -295,6 +314,21 @@ void fips_result(void)
         }
 #endif
 
+#ifdef ENABLE_QAT_SW_ML_DSA
+        if (qat_async_pqc_signature_result != NULL) {
+            for (i = 0; i < (int)OSSL_NELEM(st_kat_sign_pqc_tests); ++i) {
+# ifdef QAT_DEBUG
+                INFO("\t%s   : (%s)  :  %s\n",
+                     qat_async_pqc_signature_result->desc[i],
+                     qat_async_pqc_signature_result->type[i],
+                     qat_async_pqc_signature_result->result[i] ? "PASS" : "FAIL");
+# endif
+                if (!qat_async_pqc_signature_result->result[i])
+                    integrity_status = 0;
+            }
+        }
+#endif
+
         for (i = 0; i < (int)OSSL_NELEM(st_kat_kas_tests); ++i) {
             /* To skip self test when particular algorithm support is disabled */
             if (qat_hw_offload) {
@@ -412,6 +446,9 @@ void fips_result(void)
 #ifdef ENABLE_QAT_SW_ML_KEM
     free(qat_kem_result);
 #endif
+#ifdef ENABLE_QAT_SW_ML_DSA
+    free(qat_pqc_signature_result);
+#endif
     if (enable_async) {
         free(qat_async_signature_result);
         free(qat_async_kas_result);
@@ -420,6 +457,9 @@ void fips_result(void)
         free(qat_async_kdf_result);
 #ifdef ENABLE_QAT_SW_ML_KEM
         free(qat_async_kem_result);
+#endif
+#ifdef ENABLE_QAT_SW_ML_DSA
+        free(qat_async_pqc_signature_result);
 #endif
     }
     enable_async = 0;
