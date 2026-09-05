@@ -321,6 +321,98 @@ static int QAT_self_test_sign(const ST_KAT_SIGN *t,
 
 }
 
+#ifdef ENABLE_QAT_SW_ML_DSA
+/*
+ * FIPS 204 deterministic (rnd = 0) ML-DSA sign/verify KAT.
+ */
+static int QAT_self_test_sign_pqc(const ST_KAT_SIGN_PQC *t,
+                                  TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
+{
+    int ret = 0, deterministic = 1;
+    OSSL_PARAM *params = NULL;
+    OSSL_PARAM_BLD *bld = NULL;
+    OSSL_PARAM det_params[2];
+    EVP_PKEY_CTX *sctx = NULL, *kctx = NULL;
+    EVP_PKEY *pkey = NULL;
+    OSSL_SELF_TEST *st = args->st;
+    BN_CTX *bnctx = NULL;
+    unsigned char *sig = NULL;
+    size_t siglen = 0;
+
+    OSSL_SELF_TEST_onbegin(st, OSSL_SELF_TEST_TYPE_KAT_SIGNATURE, t->desc);
+
+    bnctx = BN_CTX_new_ex(libctx);
+    if (bnctx == NULL)
+        goto err;
+
+    bld = OSSL_PARAM_BLD_new();
+    if (bld == NULL)
+        goto err;
+
+    if (!add_params(bld, t->key, bnctx))
+        goto err;
+    params = OSSL_PARAM_BLD_to_param(bld);
+
+    kctx = EVP_PKEY_CTX_new_from_name(libctx, t->algorithm, "");
+    if (kctx == NULL || params == NULL)
+        goto err;
+
+    if (EVP_PKEY_fromdata_init(kctx) <= 0
+        || EVP_PKEY_fromdata(kctx, &pkey, EVP_PKEY_KEYPAIR, params) <= 0)
+        goto err;
+
+    sctx = EVP_PKEY_CTX_new_from_pkey(libctx, pkey, NULL);
+    if (sctx == NULL || EVP_PKEY_sign_init(sctx) <= 0)
+        goto err;
+
+    /* FIPS 204 requires a KAT to use deterministic (rnd = 0) signing */
+    det_params[0] = OSSL_PARAM_construct_int(OSSL_SIGNATURE_PARAM_DETERMINISTIC,
+                                             &deterministic);
+    det_params[1] = OSSL_PARAM_construct_end();
+    if (EVP_PKEY_CTX_set_params(sctx, det_params) <= 0)
+        goto err;
+
+    if (EVP_PKEY_sign(sctx, NULL, &siglen, t->msg, t->msg_len) <= 0)
+        goto err;
+    sig = OPENSSL_malloc(siglen);
+    if (sig == NULL)
+        goto err;
+
+    if (EVP_PKEY_sign(sctx, sig, &siglen, t->msg, t->msg_len) <= 0) {
+        WARN("Error: Failed at EVP_PKEY_sign (ML-DSA) API!!..\n");
+        goto err;
+    }
+
+    DUMPL("Expected Sign", t->sig_expected, t->sig_expected_len);
+    DUMPL("Actual Sign", sig, siglen);
+    if (siglen != t->sig_expected_len
+        || memcmp(sig, t->sig_expected, t->sig_expected_len) != 0) {
+        WARN("Error: Failed at expected ML-DSA sig..\n");
+        goto err;
+    }
+
+    OSSL_SELF_TEST_oncorrupt_byte(st, sig);
+
+    if (EVP_PKEY_verify_init(sctx) <= 0
+        || EVP_PKEY_verify(sctx, sig, siglen, t->msg, t->msg_len) <= 0) {
+        WARN("Error: Failed at EVP_PKEY_verify (ML-DSA)..\n");
+        goto err;
+    }
+
+    ret = 1;
+ err:
+    OPENSSL_free(sig);
+    BN_CTX_free(bnctx);
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_CTX_free(kctx);
+    EVP_PKEY_CTX_free(sctx);
+    OSSL_PARAM_free(params);
+    OSSL_PARAM_BLD_free(bld);
+    OSSL_SELF_TEST_onend(st, ret);
+    return ret;
+}
+#endif /* ENABLE_QAT_SW_ML_DSA */
+
 # if !defined(OPENSSL_NO_DH) || !defined(OPENSSL_NO_EC)
 static int QAT_self_test_ka(const ST_KAT_KAS *t,
                             TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
@@ -1103,6 +1195,48 @@ static int qat_self_test_kems(TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
 }
 #endif /* ENABLE_QAT_SW_ML_KEM */
 
+#ifdef ENABLE_QAT_SW_ML_DSA
+static int qat_self_test_pqc_signatures(TEST_PARAMS *args, OSSL_LIB_CTX *libctx)
+{
+    int i, count = 0;
+    QAT_SELF_TEST_RESULT *result;
+    int n = (int)OSSL_NELEM(st_kat_sign_pqc_tests);
+
+    /* Verify we stay within the fixed result arrays (size 10) */
+    if (n > 10) {
+        WARN("Too many PQC signature KATs (%d) for result array\n", n);
+        return 0;
+    }
+
+    if (args->enable_async) {
+        free(qat_async_pqc_signature_result);
+        qat_async_pqc_signature_result = (QAT_SELF_TEST_RESULT *)
+            calloc(1, sizeof(QAT_SELF_TEST_RESULT));
+        result = qat_async_pqc_signature_result;
+    } else {
+        free(qat_pqc_signature_result);
+        qat_pqc_signature_result = (QAT_SELF_TEST_RESULT *)
+            calloc(1, sizeof(QAT_SELF_TEST_RESULT));
+        result = qat_pqc_signature_result;
+    }
+    if (result == NULL) {
+        WARN("Failed to allocate PQC signature result\n");
+        return 0;
+    }
+
+    for (i = 0; i < n; ++i) {
+        int ok = QAT_self_test_sign_pqc(&st_kat_sign_pqc_tests[i], args, libctx);
+
+        if (!ok)
+            count++;
+        result->desc[i] = st_kat_sign_pqc_tests[i].desc;
+        result->type[i] = OSSL_SELF_TEST_TYPE_KAT_SIGNATURE;
+        result->result[i] = ok;
+    }
+    return (count ? 0 : 1);
+}
+#endif /* ENABLE_QAT_SW_ML_DSA */
+
 /*
  * Run the algorithm KAT's.
  * Return 1 is successful, otherwise return 0.
@@ -1116,6 +1250,10 @@ int QAT_SELF_TEST_kats(void *args)
 
     if (!qat_self_test_signatures(temp_args, temp_args->provctx))
         ret = 0;
+#ifdef ENABLE_QAT_SW_ML_DSA
+    if (!qat_self_test_pqc_signatures(temp_args, temp_args->provctx))
+        ret = 0;
+#endif
     if (!qat_self_test_kas(temp_args, temp_args->provctx))
         ret = 0;
 #ifdef ENABLE_QAT_SW_ML_KEM

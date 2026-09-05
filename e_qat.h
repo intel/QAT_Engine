@@ -446,6 +446,7 @@ extern int qat_sw_ecdh_offload;
 extern int qat_sw_ecdsa_offload;
 extern int qat_sw_gcm_offload;
 extern int qat_sw_ml_kem_offload;
+extern int qat_sw_ml_dsa_offload;
 extern int qat_sw_sm2_offload;
 extern int qat_hw_sm2_offload;
 extern int qat_hw_sha_offload;
