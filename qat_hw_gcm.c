@@ -1351,8 +1351,11 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
     if (message_len <= (unsigned int)qat_pkt_threshold_table_get_threshold(nid)) {
 # endif
         DEBUG("Using OpenSSL SW for small packet size %u\n", message_len);
+# ifdef QAT_OPENSSL_PROVIDER
         fallback = 1;
         goto err;
+# endif
+        /* Engine mode keeps small records on the QAT HW path. */
     }
 #endif
 
@@ -1545,6 +1548,7 @@ int qat_aes_gcm_tls_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(qctx->inst_num);
             sched_yield();
         }
     } while (!op_done.flag ||
@@ -1871,9 +1875,10 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
 #ifdef QAT_OPENSSL_PROVIDER
                 *padlen = len;
                 qctx->sw_record_dispatch = 1;
-#endif
                 fallback = 1;
                 goto err;
+#endif
+                /* Engine mode keeps small records on the QAT HW path. */
             }
 #endif
             if (0 == qctx->is_session_init) {
@@ -2060,6 +2065,7 @@ int qat_aes_gcm_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
                     if ((job_ret = qat_pause_job(op_done.job, 0)) == 0)
                         sched_yield();
                 } else {
+                    qat_hw_sync_poll(qctx->inst_num);
                     sched_yield();
                 }
             } while (!op_done.flag ||

@@ -179,36 +179,6 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
 # endif
 #endif
 
-    /* AEAD_TAG first: hot on every EVP_CIPHER_CTX_ctrl(GET_TAG). */
-    p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_AEAD_TAG);
-    if (p != NULL) {
-        sz = p->data_size;
-        if (sz == 0
-            || sz > EVP_GCM_TLS_TAG_LEN
-            || !ctx->enc
-            || ctx->tag_len == UNINITIALISED_SIZET) {
-#ifdef ENABLE_QAT_HW_GCM
-            if (ctx->tag_set)
-                QATerr(ERR_LIB_PROV, QAT_R_INVALID_TAG);
-            ctx->tag_set = 0;
-            return 0;
-#else
-            return 0;
-#endif
-        }
-        if (!OSSL_PARAM_set_octet_string(p, ctx->buf, sz)) {
-            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
-            return 0;
-        }
-#ifdef ENABLE_QAT_HW_GCM
-        if (!ctx->tag_set) {
-            ctx->tag_set = 0;
-            goto end;
-        }
-        ctx->tag_set = 0;
-#endif
-    }
-
     p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_IVLEN);
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->iv_len)) {
         QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
@@ -262,6 +232,35 @@ int qat_gcm_get_ctx_params(void *vctx, OSSL_PARAM params[])
     if (p != NULL && !OSSL_PARAM_set_size_t(p, ctx->tls_aad_pad_sz)) {
         QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
         return 0;
+    }
+    p = OSSL_PARAM_locate(params, OSSL_CIPHER_PARAM_AEAD_TAG);
+    if (p != NULL) {
+        sz = p->data_size;
+        if (sz == 0
+            || sz > EVP_GCM_TLS_TAG_LEN
+            || !ctx->enc
+            || ctx->tag_len == UNINITIALISED_SIZET) {
+#ifdef ENABLE_QAT_HW_GCM
+            if (ctx->tag_set)
+                QATerr(ERR_LIB_PROV, QAT_R_INVALID_TAG);
+            ret = 0;
+            ctx->tag_set = 0;
+            goto end;
+#else
+            return 0;
+#endif
+        }
+        if (!OSSL_PARAM_set_octet_string(p, ctx->buf, sz)) {
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_SET_PARAMETER);
+            return 0;
+        }
+#ifdef ENABLE_QAT_HW_GCM
+        if (!ctx->tag_set) {
+            ctx->tag_set = 0;
+            goto end;
+        }
+        ctx->tag_set = 0;
+#endif
     }
     return 1;
 

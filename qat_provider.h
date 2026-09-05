@@ -62,6 +62,31 @@
 #  define QAT_PROVIDER_NAME_STR "QAT Provider for QAT_SW"
 # endif
 
+/* Provider parameter names for the OSSL_PROVIDER_get_params() wire contract.
+ * The caller supplies values and the provider returns status or counters. */
+# define QAT_PROV_PARAM_ENABLE_EXTERNAL_POLLING      "qat_enable_external_polling"
+# define QAT_PROV_PARAM_ENABLE_HEURISTIC_POLLING     "qat_enable_heuristic_polling"
+# define QAT_PROV_PARAM_ENABLE_SW_FALLBACK           "qat_enable_sw_fallback"
+# define QAT_PROV_PARAM_INTERNAL_POLL_INTERVAL       "qat_internal_poll_interval"
+# define QAT_PROV_PARAM_INIT_PROVIDER                "qat_init_provider"
+# define QAT_PROV_PARAM_POLL                         "qat_poll"
+# define QAT_PROV_PARAM_HEARTBEAT_POLL               "qat_heartbeat_poll"
+# define QAT_PROV_PARAM_NUM_ASYM_REQUESTS_IN_FLIGHT  "qat_num_asym_requests_in_flight"
+# define QAT_PROV_PARAM_NUM_KDF_REQUESTS_IN_FLIGHT   "qat_num_kdf_requests_in_flight"
+# define QAT_PROV_PARAM_NUM_CIPHER_REQUESTS_IN_FLIGHT "qat_num_cipher_requests_in_flight"
+# define QAT_PROV_PARAM_NUM_ASYM_MB_ITEMS_IN_QUEUE   "qat_num_asym_mb_items_in_queue"
+# define QAT_PROV_PARAM_NUM_KDF_MB_ITEMS_IN_QUEUE    "qat_num_kdf_mb_items_in_queue"
+# define QAT_PROV_PARAM_NUM_SYM_MB_ITEMS_IN_QUEUE    "qat_num_sym_mb_items_in_queue"
+# define QAT_PROV_PARAM_SMALL_PKT_OFFLOAD_THRESHOLD  "qat_small_pkt_offload_threshold"
+/* Read-only sentinel: 1 if the provider was configured from openssl.cnf. */
+# define QAT_PROV_PARAM_CONFIGURED_FROM_CNF          "qat_configured_from_cnf"
+/* Heuristic-poll thresholds stored for application read-back. Range 1..512. */
+# define QAT_PROV_PARAM_HW_ASYM_THRESHOLD            "qat_hw_asym_threshold"
+# define QAT_PROV_PARAM_HW_SYM_THRESHOLD             "qat_hw_sym_threshold"
+/* Single QAT_SW multibuff threshold: governs BOTH the SW asym and SW sym
+ * queues (there is no separate SW-sym knob), hence the neutral name. */
+# define QAT_PROV_PARAM_SW_THRESHOLD                 "qat_sw_threshold"
+
 # define OSSL_NELEM(x)    (sizeof(x)/sizeof((x)[0]))
 # define QAT_NAMES_AES_128_GCM "AES-128-GCM"
 # define QAT_NAMES_AES_192_GCM "AES-192-GCM"
@@ -120,12 +145,23 @@ typedef struct qat_provider_params_st {
     char *enable_external_polling;
     char *enable_heuristic_polling;
     char *enable_sw_fallback;
-    char *enable_inline_polling;
     char *qat_poll_interval;
     char *qat_epoll_timeout;
     char *enable_event_driven_polling;
     char *enable_instance_for_thread;
     char *qat_max_retry_count;
+    /* Named polling options accepted from the provider configuration. */
+    char *qat_offload_mode;
+    char *qat_poll_mode;
+    char *qat_sw_fallback_mode;
+    /* Small-packet threshold, so a single openssl.cnf can be the sole source of
+     * truth (read from the provider section by the core path, not only pushed
+     * later by an application via OSSL_PROVIDER_get_params). */
+    char *qat_small_pkt_offload_threshold;
+    /* Heuristic-poll thresholds exposed to the consuming application. */
+    char *qat_hw_asym_threshold;
+    char *qat_hw_sym_threshold;
+    char *qat_sw_threshold;
 } QAT_PROV_PARAMS;
 
 typedef struct qat_ag_capable_st {

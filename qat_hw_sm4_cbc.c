@@ -895,6 +895,7 @@ int qat_sm4_cbc_do_cipher(EVP_CIPHER_CTX *ctx, unsigned char *out,
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(qctx->inst_num);
             sched_yield();
         }
     } while (!op_done.flag || QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));

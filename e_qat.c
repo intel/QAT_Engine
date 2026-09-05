@@ -232,6 +232,17 @@ int qat_hw_keep_polling = 1;
 int qat_sw_keep_polling = 1;
 int enable_external_polling = 0;
 int enable_heuristic_polling = 0;
+#ifdef QAT_OPENSSL_PROVIDER
+int qat_app_external_poller = 0;
+
+int qat_hw_external_poller_missing(void)
+{
+    if (!(enable_external_polling || enable_heuristic_polling))
+        return 0;
+
+    return !qat_app_external_poller;
+}
+#endif
 int qat_sw_ecp256 = 0;
 int qat_sw_ecp384 = 0;
 int qat_sw_ecsm2 = 0;
@@ -296,6 +307,8 @@ BIGNUM *e_check = NULL;
 
 mb_thread_data *mb_tlv = NULL;
 pthread_key_t mb_thread_key;
+/* mb_thread_key is only a valid pthread key while this is set. */
+int mb_thread_key_created = 0;
 #endif
 
 #ifdef QAT_HW
@@ -669,6 +682,23 @@ int qat_engine_init(void *e)
     return 1;
 }
 
+static void qat_reset_config_globals(void)
+{
+    enable_external_polling = 0;
+    enable_heuristic_polling = 0;
+    qat_hw_offload = 0;
+    qat_sw_offload = 0;
+    fallback_to_openssl = 0;
+#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
+    qat_openssl3_prf_fallback = 0;
+    qat_openssl3_hkdf_fallback = 0;
+    qat_openssl3_sm2_fallback = 0;
+    qat_openssl3_sm3_fallback = 0;
+    qat_openssl3_sha_fallback = 0;
+#endif
+    fallback_to_qat_sw = 0;
+}
+
 #ifndef OPENSSL_NO_ENGINE
 int qat_engine_finish_int(ENGINE *e, int reset_globals)
 #else
@@ -678,6 +708,20 @@ int qat_engine_finish_int(void *e, int reset_globals)
     int ret = 1;
 
     DEBUG("---- QAT Engine Finishing...\n\n");
+
+    qat_pthread_mutex_lock();
+
+    /* If engine was never initialized (deferred init), there is nothing to
+     * tear down, but a caller asking for QAT_RESET_GLOBALS still needs the
+     * configuration flags cleared (e.g. a fork that reset before init). */
+    if (!engine_inited) {
+        DEBUG("Engine not initialized, skipping finish\n");
+        if (reset_globals == QAT_RESET_GLOBALS)
+            qat_reset_config_globals();
+        qat_pthread_mutex_unlock();
+        return 1;
+    }
+
     DEBUG("RSA Priv retries: %d, HW requests: %lld, SW requests: %lld\n",
           num_rsa_priv_retry, num_rsa_hw_priv_reqs, num_rsa_sw_priv_reqs);
     DEBUG("RSA Pub retries: %d, HW requests: %lld, SW requests: %lld\n",
@@ -698,8 +742,6 @@ int qat_engine_finish_int(void *e, int reset_globals)
           num_sm4_cbc_cipher_retry, num_sm4_cbc_hw_cipher_reqs,
           num_sm4_cbc_sw_cipher_reqs);
 
-    qat_pthread_mutex_lock();
-
 #ifdef QAT_HW
     if (qat_hw_offload)
         ret = qat_hw_finish_int(e, reset_globals);
@@ -711,21 +753,8 @@ int qat_engine_finish_int(void *e, int reset_globals)
 #endif
     engine_inited = 0;
 
-    if (reset_globals == QAT_RESET_GLOBALS) {
-        enable_external_polling = 0;
-        enable_heuristic_polling = 0;
-        qat_hw_offload = 0;
-        qat_sw_offload = 0;
-        fallback_to_openssl = 0;
-#if defined(QAT_OPENSSL_3) && !defined(QAT_OPENSSL_PROVIDER)
-	qat_openssl3_prf_fallback = 0;
-	qat_openssl3_hkdf_fallback = 0;
-	qat_openssl3_sm2_fallback = 0;
-	qat_openssl3_sm3_fallback = 0;
-	qat_openssl3_sha_fallback = 0;
-#endif
-        fallback_to_qat_sw = 0;
-    }
+    if (reset_globals == QAT_RESET_GLOBALS)
+        qat_reset_config_globals();
     qat_pthread_mutex_unlock();
     CRYPTO_CLOSE_QAT_LOG();
     return ret;

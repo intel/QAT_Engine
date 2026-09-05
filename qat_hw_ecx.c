@@ -501,6 +501,7 @@ static int qat_pkey_ecx_keygen(EVP_PKEY_CTX *ctx, EVP_PKEY *pkey, int type)
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }
@@ -954,6 +955,7 @@ int qat_pkey_ecx_derive25519(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keyl
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }
@@ -1293,6 +1295,7 @@ int qat_pkey_ecx_derive448(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen
             if ((job_ret = qat_pause_job(op_done.job, ASYNC_STATUS_OK)) == 0)
                 sched_yield();
         } else {
+            qat_hw_sync_poll(inst_num);
             sched_yield();
         }
     }

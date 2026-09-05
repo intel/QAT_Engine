@@ -85,6 +85,12 @@ typedef  cpuset_t  qat_cpuset;
 #endif
 #ifdef QAT_OPENSSL_PROVIDER
 # include "qat_provider.h"
+
+/* Remembers whether QAT was initialised in the parent at the moment the
+ * pre-fork (prepare) handler ran. The prepare handler calls
+ * qat_engine_finish_int(), which clears engine_inited, so the child handler
+ * cannot rely on engine_inited to decide whether to re-initialise. */
+static int qat_prov_initialized_before_fork = 0;
 #endif
 
 void engine_init_child_at_fork_handler(void)
@@ -108,6 +114,14 @@ void engine_init_child_at_fork_handler(void)
     ENGINE_QAT_PTR_RESET();
 #endif /* QAT_BORINGSSL */
 # elif defined(QAT_OPENSSL_PROVIDER)
+    /* Re-initialise QAT in the child only when it was up in the parent before
+     * the fork. engine_inited is cleared by the prepare handler, so consult the
+     * remembered pre-fork state captured there instead. */
+    if (!qat_prov_initialized_before_fork) {
+        DEBUG("QAT not initialized before fork, nothing to re-init in child\n");
+        return;
+    }
+
     QAT_PROV_CTX *ctx;
     OSSL_PROVIDER *prov;
     const char *prov_name = "qatprovider";
@@ -148,6 +162,10 @@ void engine_finish_before_fork_handler(void)
     QAT_PROV_CTX *ctx;
     OSSL_PROVIDER *prov;
     const char *prov_name = "qatprovider";
+    /* Latch pre-fork initialization so every later child re-initializes QAT. */
+    if (engine_inited) {
+        qat_prov_initialized_before_fork = 1;
+    }
     ctx = OPENSSL_zalloc(sizeof(*ctx));
     prov = OSSL_PROVIDER_load(prov_libctx_of(ctx),prov_name);
     if (NULL == prov) {

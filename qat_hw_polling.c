@@ -35,15 +35,7 @@
  *
  * ====================================================================
  */
-
-/*****************************************************************************
- * @file qat_hw_polling.c
- *
- * This file provides an implementation for polling in QAT engine
- *
- *****************************************************************************/
-
-/* macros defined to allow use of the cpu get and set affinity functions */
+/* Drain one instance for a synchronous caller in external/heuristic mode. */
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE
 #endif
@@ -354,6 +346,37 @@ CpaStatus poll_instances(void)
 
     return ret_status;
 }
+
+#ifdef QAT_HW_PROV_SYNC_POLL
+/******************************************************************************
+ * function:
+ *         void qat_hw_sync_poll(int inst_num)
+ * * @param inst_num [IN] - QAT instance the pending request was submitted on
+ *
+ * description:
+ *   Drain one instance for a synchronous caller in external/heuristic mode.
+ *   No-op when an internal or inline poller already handles completions.
+ ******************************************************************************/
+void qat_hw_sync_poll(int inst_num)
+{
+    if (!(enable_external_polling || enable_heuristic_polling))
+        return;
+    if (qat_instance_handles == NULL)
+        return;
+    if (inst_num < 0 || (Cpa16U)inst_num >= qat_num_instances)
+        return;
+    if (qat_instance_handles[inst_num] == NULL)
+        return;
+    CpaStatus status = icp_sal_CyPollInstance(qat_instance_handles[inst_num], 0);
+    if (unlikely(status != CPA_STATUS_SUCCESS
+                 && status != CPA_STATUS_RETRY
+                 && status != CPA_STATUS_RESTARTING)) {
+        WARN("qat_hw_sync_poll: icp_sal_CyPollInstance returned status %d\n",
+             status);
+    }
+}
+
+#endif  /* QAT_HW_PROV_SYNC_POLL */
 
 CpaStatus poll_heartbeat(void)
 {

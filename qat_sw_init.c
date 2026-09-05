@@ -214,11 +214,30 @@ void mb_thread_local_destructor(void *tlv_ptr)
     if (pthread_key_delete(mb_thread_key) != 0) {
         WARN("Failed to delete pthread key.\n");
     }
+    mb_thread_key_created = 0;
 }
 
 mb_thread_data* mb_check_thread_local(void)
 {
-    mb_thread_data *tlv = (mb_thread_data *)pthread_getspecific(mb_thread_key);
+    mb_thread_data *tlv;
+
+    /* qat_sw_init() owns mb_thread_key. Reading an unallocated key returns a
+     * stale pointer rather than NULL, so never touch it before it exists. */
+    if (!mb_thread_key_created) {
+#ifdef QAT_OPENSSL_PROVIDER
+        /* No polling mode came from openssl.cnf or the application, so QAT was
+         * never brought up; do it now on this first crypto operation. */
+        if (!qat_prov_ensure_init() || !mb_thread_key_created) {
+            WARN("QAT_SW not initialised, using SW method\n");
+            return NULL;
+        }
+#else
+        WARN("QAT_SW not initialised, using SW method\n");
+        return NULL;
+#endif
+    }
+
+    tlv = (mb_thread_data *)pthread_getspecific(mb_thread_key);
     if (tlv != NULL) {
         return tlv;
     }
@@ -441,6 +460,7 @@ int qat_sw_init(void *e)
         qat_engine_finish(e);
         return 0;
     }
+    mb_thread_key_created = 1;
 
     return 1;
 }

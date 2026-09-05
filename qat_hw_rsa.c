@@ -400,6 +400,7 @@ static int qat_rsa_decrypt(CpaCyRsaDecryptOpData * dec_op_data, int rsa_len,
                 sched_yield();
             }
 # else
+            qat_hw_sync_poll(inst_num);
             sched_yield();
 # endif /* QAT_BORINGSSL */
         }
@@ -775,8 +776,10 @@ static int qat_rsa_encrypt(CpaCyRsaEncryptOpData * enc_op_data,
                     WARN("icp_sal_CyPollInstance failed - status %d\n", sts);
 		    op_done.flag = 1;
                 }
-	    } else
+	    } else {
+                qat_hw_sync_poll(inst_num);
                 sched_yield();
+            }
         }
     } while (!op_done.flag || (sts == CPA_STATUS_RETRY) ||
              QAT_CHK_JOB_RESUMED_UNEXPECTEDLY(job_ret));
