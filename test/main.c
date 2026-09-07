@@ -713,7 +713,7 @@ static void usage(char *program)
     printf("\t        by the engine under test to fail.\n");
     printf("\t-z      enable zero copy mode\n");
     printf("\t-epoll  enable event driven polling\n");
-    printf("\t-poll   enable external polling of the engine (qat engine only)\n");
+    printf("\t-poll   enable external polling of the engine or provider\n");
     printf("\t-f      specifies whether to enable(1) or disable(0) KDF for ECDH \n");
     printf("\t-engine specify the engine to use, eg -engine qatengine (default is software)\n");
     printf("\t-hw_algo specify the hw algorithm enabling bitmap\n");
@@ -725,7 +725,7 @@ static void usage(char *program)
     printf("\t-async_jobs enable asynchronous processing and specifies the number of asynchronous jobs per thread\n");
     printf("\t-prf_op specifies the PRF operation required (default is to run them all)\n");
     printf("\t-hkdf_op specifies the HKDF operation (0-Extract&Expand 1-Extract 2-Expand (default is to run them all))\n");
-    printf("\t-sw_fallback  enables the sw fallback feature (qat engine only)\n");
+    printf("\t-sw_fallback  enables the sw fallback feature\n");
     printf("\t-sign   sign only\n");
     printf("\t-verify verify only\n");
     printf("\t-encrypt encrypt only\n");
@@ -1203,6 +1203,9 @@ static void performance_test(void)
         info->test_params->type = test_alg;
         info->test_params->size = test_size;
         info->test_params->e = engine;
+#ifdef QAT_OPENSSL_PROVIDER
+        info->test_params->prov = provider;
+#endif
         info->test_params->print_output = print_output;
         info->test_params->verify = verify;
         info->test_params->performance = enable_perf;
@@ -1428,6 +1431,9 @@ static void functional_test(void)
     args.type = test_alg;
     args.size = test_size;
     args.e = engine;
+#ifdef QAT_OPENSSL_PROVIDER
+    args.prov = provider;
+#endif
     args.print_output = print_output;
     args.verify = verify;
     args.performance = enable_perf;
@@ -1574,11 +1580,26 @@ int main(int argc, char *argv[])
             printf("# FAIL: ENGINE load error, exit! \n");
             exit(EXIT_FAILURE);
         }
+#ifdef QAT_OPENSSL_PROVIDER
+        /* qatprovider is activated from openssl.cnf and still services the
+         * provider-dispatched EVP_PKEY_* work here, so it needs the same
+         * polling/init drive as in provider mode or those requests never
+         * complete. */
+        provider = tests_initialise_provider("qatprovider",
+                                             enable_external_polling,
+                                             sw_fallback);
+
+        if (!provider) {
+            fprintf(stderr, "# FAIL: Provider load error, exit! \n");
+            exit(EXIT_FAILURE);
+        }
+#endif
     }
 #endif
 #ifdef QAT_OPENSSL_PROVIDER
     else if(enable_provider) {
-        provider = tests_initialise_provider(prov_id);
+        provider = tests_initialise_provider(prov_id, enable_external_polling,
+                                             sw_fallback);
 
         if (!provider) {
             fprintf(stderr, "# FAIL: Provider load error, exit! \n");
@@ -1646,7 +1667,7 @@ int main(int argc, char *argv[])
 #endif
 #ifdef QAT_OPENSSL_PROVIDER
     if (provider)
-        tests_cleanup_provider(provider);
+        tests_cleanup_provider(provider, enable_external_polling);
 #endif
 
     return 0;

@@ -119,8 +119,10 @@ void tests_cleanup_engine(ENGINE *e, char *engine_id, int enable_async,
 #endif
 
 #ifdef QAT_OPENSSL_PROVIDER
-OSSL_PROVIDER *tests_initialise_provider(const char *prov_id);
-void tests_cleanup_provider(OSSL_PROVIDER *prov);
+OSSL_PROVIDER *tests_initialise_provider(const char *prov_id,
+                                         int enable_external_polling,
+                                         int sw_fallback);
+void tests_cleanup_provider(OSSL_PROVIDER *prov, int enable_external_polling);
 #endif
 
 void tests_hexdump(const char *title, const unsigned char *s,int l);
