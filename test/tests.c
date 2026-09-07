@@ -51,6 +51,8 @@
 #include <openssl/rand.h>
 #ifdef QAT_OPENSSL_PROVIDER
 #include <openssl/provider.h>
+#include <openssl/params.h>
+#include <signal.h>
 #endif
 #include <openssl/safestack.h>
 
@@ -86,6 +88,12 @@ static int qat_keep_polling = 0;
 pthread_t *testapp_polling_threads;
 pthread_t *testapp_heartbeat_threads;
 #endif /* !OPENSSL_NO_ENGINE */
+#ifdef QAT_OPENSSL_PROVIDER
+/* Forward declaration: defined later in this file, needed by start_async_job()
+ * so the provider async-job wait loop can drain completions the same way the
+ * engine branch below already does via eng_poll_handler(). */
+static int prov_poll_handler(OSSL_PROVIDER *prov, int *poll_status);
+#endif
 int insecure_algorithms_enabled = 0;
 
 char *sw_algo_bitmap = NULL;
@@ -233,9 +241,7 @@ static int test_callback(void *arg)
 int start_async_job(TEST_PARAMS *args, int (*func)(void *))
 {
     int ret = 0;
-#ifndef OPENSSL_NO_ENGINE
     int poll_status = 0;
-#endif
     int jobs_inprogress = 0;
     int i = 0;
     OSSL_ASYNC_FD job_fd = 0;
@@ -367,6 +373,12 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
                     }
                 }
 #endif /* !OPENSSL_NO_ENGINE */
+#ifdef QAT_OPENSSL_PROVIDER
+                /* prov_poll_handler() logs its own failure; keep draining so
+                 * outstanding jobs are not abandoned mid-flight. */
+                if (args->prov && args->enable_external_polling)
+                    prov_poll_handler(args->prov, &poll_status);
+#endif
                 continue;
             }
 #ifdef QAT_OPENSSL_3
@@ -430,6 +442,10 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
             }
         }
 #endif /* !OPENSSL_NO_ENGINE */
+#ifdef QAT_OPENSSL_PROVIDER
+        if (args->prov && args->enable_external_polling)
+            prov_poll_handler(args->prov, &poll_status);
+#endif
     } /* while (jobs_inprogress > 0) */
 #if !defined(__FreeBSD__) && !defined(OPENSSL_NO_ENGINE)
     free(events);
@@ -448,19 +464,204 @@ int start_async_job(TEST_PARAMS *args, int (*func)(void *))
 }
 
 #ifdef QAT_OPENSSL_PROVIDER
-void tests_cleanup_provider(OSSL_PROVIDER *prov)
+
+/* qatprovider parameter names driven through OSSL_PROVIDER_get_params(). These
+ * mirror the QAT_PROV_PARAM_* wire contract in qat_provider.h; duplicated here
+ * so the test needs no provider-internal header (same approach the nginx QAT
+ * provider module uses). */
+#define TEST_PROV_PARAM_ENABLE_EXTERNAL_POLLING  "qat_enable_external_polling"
+#define TEST_PROV_PARAM_ENABLE_SW_FALLBACK       "qat_enable_sw_fallback"
+#define TEST_PROV_PARAM_INIT_PROVIDER            "qat_init_provider"
+#define TEST_PROV_PARAM_POLL                     "qat_poll"
+#define TEST_PROV_PARAM_HEARTBEAT_POLL           "qat_heartbeat_poll"
+
+/* Written by the main thread, read by the heartbeat thread's loop condition. */
+static volatile sig_atomic_t qat_prov_keep_polling = 0;
+static pthread_t *testapp_prov_heartbeat_threads = NULL;
+static int testapp_prov_heartbeat_thread_started = 0;
+
+/******************************************************************************
+* function:
+*   prov_poll_handler(OSSL_PROVIDER *prov, int *poll_status)
+*
+* description:
+*   Drive one qatprovider polling cycle via OSSL_PROVIDER_get_params(). This is
+*   the provider equivalent of the engine "POLL" control command: it drains
+*   completed hardware requests. Returns 1 on success, 0 on a hard failure.
+******************************************************************************/
+static int prov_poll_handler(OSSL_PROVIDER *prov, int *poll_status)
 {
+    OSSL_PARAM params[2];
+
+    *poll_status = 0;
+    params[0] = OSSL_PARAM_construct_int(TEST_PROV_PARAM_POLL, poll_status);
+    params[1] = OSSL_PARAM_construct_end();
+
+    /* poll_status write-back: 1 = serviced (or benign RETRY / no work),
+     * 0 = hard polling failure. */
+    if (!OSSL_PROVIDER_get_params(prov, params) || *poll_status == 0) {
+        WARN("# FAIL: Provider POLL not supported or failed (status=%d)\n",
+             *poll_status);
+        return 0;
+    }
+    return 1;
+}
+
+static int prov_heartbeat_handler(OSSL_PROVIDER *prov, int *poll_status)
+{
+    OSSL_PARAM params[2];
+
+    *poll_status = 0;
+    params[0] = OSSL_PARAM_construct_int(TEST_PROV_PARAM_HEARTBEAT_POLL,
+                                         poll_status);
+    params[1] = OSSL_PARAM_construct_end();
+
+    if (!OSSL_PROVIDER_get_params(prov, params)) {
+        WARN("# FAIL: Provider HEARTBEAT_POLL not supported or failed\n");
+        return 0;
+    }
+    return 1;
+}
+
+/******************************************************************************
+* function:
+*   prov_heartbeat_poll_loop(void *provider)
+*
+* description:
+*   Standalone provider heartbeat thread. Issues a provider HEARTBEAT_POLL once
+*   a second until qat_prov_keep_polling is cleared, mirroring the engine
+*   heartbeat_poll_loop(). Completion draining is not done here: with external
+*   polling the provider self-polls the submitting instance on its synchronous
+*   wait path, and asynchronous jobs are drained from start_async_job().
+******************************************************************************/
+static void *prov_heartbeat_poll_loop(void *provider)
+{
+    OSSL_PROVIDER *prov = (OSSL_PROVIDER *)provider;
+    int poll_status = 0;
+    struct timespec reqTime = { 0 };
+    struct timespec remTime = { 0 };
+    unsigned int retry_count = 0;
+
+    while (qat_prov_keep_polling) {
+        reqTime.tv_sec = 1;
+        reqTime.tv_nsec = 0;
+        prov_heartbeat_handler(prov, &poll_status);
+
+        retry_count = 0;
+        while (nanosleep(&reqTime, &remTime) != 0) {
+            if (errno != EINTR) {
+                WARN("# FAIL: nanosleep system call failed: errno %i\n", errno);
+                break;
+            }
+            if (++retry_count > 4)
+                break;
+            reqTime = remTime;
+        }
+    }
+    return NULL;
+}
+
+static void prov_stop_polling_threads(void)
+{
+    qat_prov_keep_polling = 0;
+
+    if (testapp_prov_heartbeat_thread_started) {
+        pthread_join(testapp_prov_heartbeat_threads[0], NULL);
+        testapp_prov_heartbeat_thread_started = 0;
+    }
+    OPENSSL_free(testapp_prov_heartbeat_threads);
+    testapp_prov_heartbeat_threads = NULL;
+}
+
+/******************************************************************************
+* function:
+*   prov_enable_external_polling(OSSL_PROVIDER *prov, int sw_fallback)
+*
+* description:
+*   Arm qatprovider external polling and trigger deferred hardware init through
+*   OSSL_PROVIDER_get_params(). Both are sent in one batch; qat_get_params()
+*   applies the external-polling flag before it honours the init trigger, so
+*   the batch is safe (OSSL_PARAM arrays themselves are unordered).
+*   Returns 1 on success, 0 on failure.
+******************************************************************************/
+static int prov_enable_external_polling(OSSL_PROVIDER *prov, int sw_fallback)
+{
+    OSSL_PARAM params[4];
+    int idx = 0;
+    int enable_ext = 1;
+    int enable_swfb = sw_fallback ? 1 : 0;
+    int enable_init = 1;
+
+    params[idx++] = OSSL_PARAM_construct_int(
+                        TEST_PROV_PARAM_ENABLE_EXTERNAL_POLLING, &enable_ext);
+    if (sw_fallback) {
+        params[idx++] = OSSL_PARAM_construct_int(
+                            TEST_PROV_PARAM_ENABLE_SW_FALLBACK, &enable_swfb);
+    }
+    params[idx++] = OSSL_PARAM_construct_int(
+                        TEST_PROV_PARAM_INIT_PROVIDER, &enable_init);
+    params[idx] = OSSL_PARAM_construct_end();
+
+    if (!OSSL_PROVIDER_get_params(prov, params)) {
+        WARN("# FAIL: Unable to enable external polling on provider\n");
+        return 0;
+    }
+
+    /* enable_init is written back with the init result (1 ok, 0 failed). */
+    if (enable_init == 0) {
+        WARN("# FAIL: Provider hardware init failed\n");
+        return 0;
+    }
+
+    DEBUG("Provider external polling enabled (sw_fallback=%d)\n", sw_fallback);
+    return 1;
+}
+
+/******************************************************************************
+* function:
+*   prov_init_provider(OSSL_PROVIDER *prov)
+*
+* description:
+*   Trigger qatprovider's deferred initialisation without claiming external
+*   polling, so the provider starts its own internal polling thread.
+*   Returns 1 on success, 0 on failure.
+******************************************************************************/
+static int prov_init_provider(OSSL_PROVIDER *prov)
+{
+    OSSL_PARAM params[2];
+    int enable_init = 1;
+
+    params[0] = OSSL_PARAM_construct_int(TEST_PROV_PARAM_INIT_PROVIDER,
+                                        &enable_init);
+    params[1] = OSSL_PARAM_construct_end();
+
+    if (!OSSL_PROVIDER_get_params(prov, params) || enable_init == 0) {
+        WARN("# FAIL: Provider initialisation failed\n");
+        return 0;
+    }
+
+    DEBUG("Provider initialised for internal polling\n");
+    return 1;
+}
+
+void tests_cleanup_provider(OSSL_PROVIDER *prov, int enable_external_polling)
+{
+    if (enable_external_polling)
+        prov_stop_polling_threads();
+
     OSSL_PROVIDER_unload(prov);
     OPENSSL_cleanup();
     DEBUG("QAT Provider Freed ! \n");
 }
 
-OSSL_PROVIDER *tests_initialise_provider(const char *prov_id)
+OSSL_PROVIDER *tests_initialise_provider(const char *prov_id,
+                                         int enable_external_polling,
+                                         int sw_fallback)
 {
     /* loading qatprovider */
     OSSL_LIB_CTX *libctx = NULL;
     OSSL_PROVIDER *prov;
-    OSSL_PROVIDER *deflt;
+    OSSL_PROVIDER *deflt = NULL;
 
     DEBUG("Loading Provider ! \n");
     prov = OSSL_PROVIDER_load(libctx, prov_id);
@@ -478,11 +679,40 @@ OSSL_PROVIDER *tests_initialise_provider(const char *prov_id)
          goto err;
     }
 
+    if (enable_external_polling) {
+        if (!prov_enable_external_polling(prov, sw_fallback)) {
+            goto err;
+        }
+
+        qat_prov_keep_polling = 1;
+
+        if (sw_fallback) {
+            testapp_prov_heartbeat_threads =
+                (pthread_t *) OPENSSL_malloc(sizeof(pthread_t));
+            if (testapp_prov_heartbeat_threads == NULL) {
+                WARN("# FAIL: Unable to allocate provider heartbeat thread\n");
+                goto err;
+            }
+            if (pthread_create(&testapp_prov_heartbeat_threads[0], NULL,
+                               prov_heartbeat_poll_loop, (void *)prov) != 0) {
+                WARN("# FAIL: Unable to create provider heartbeat thread\n");
+                goto err;
+            }
+            testapp_prov_heartbeat_thread_started = 1;
+        }
+    } else if (!prov_init_provider(prov)) {
+        goto err;
+    }
+
     return prov;
 
 err:
+    prov_stop_polling_threads();
     OSSL_LIB_CTX_free(libctx);
-    OSSL_PROVIDER_unload(prov);
+    if (deflt)
+        OSSL_PROVIDER_unload(deflt);
+    if (prov)
+        OSSL_PROVIDER_unload(prov);
     return NULL;
 }
 #endif
