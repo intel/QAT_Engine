@@ -134,6 +134,8 @@ static void qat_sm3_free_sw_md_ctx(QAT_SM3_CTX *ctx)
 
 static void qat_sm3_freectx(void *vctx)
 {
+    if (vctx == NULL)
+        return;
 # ifdef ENABLE_QAT_HW_SM3
     QAT_SM3_CTX *ctx = (QAT_SM3_CTX *)vctx;
     if (!qat_hw_sm3_cleanup(ctx)){
@@ -152,6 +154,11 @@ static void qat_sm3_freectx(void *vctx)
 # endif
 # ifdef ENABLE_QAT_SW_SM3
     QAT_SM3_CTX_mb *ctx = (QAT_SM3_CTX_mb *)vctx;
+    /* free the SW fallback ctx allocated in qat_sw_sm3_init to avoid a leak per digest cycle */
+    EVP_MD_CTX_free(ctx->sw_md_ctx);
+    EVP_MD_free(ctx->sw_md);
+    ctx->sw_md_ctx = NULL;
+    ctx->sw_md = NULL;
 # endif
     OPENSSL_clear_free(ctx,  sizeof(*ctx));
 }
@@ -169,6 +176,28 @@ static void *qat_sm3_dupctx(void *ctx)
 # endif
     if (ret != NULL)
         *ret = *in;
+# ifdef ENABLE_QAT_SW_SM3
+    /*
+     * Give the duplicate its own sw_md_ctx and take an extra reference to
+     * sw_md. Otherwise freectx() on both contexts can double-free sw_md / sw_md_ctx.
+     */
+    if (ret != NULL) {
+        if (in->sw_md_ctx != NULL) {
+            ret->sw_md_ctx = EVP_MD_CTX_new();
+            if (ret->sw_md_ctx == NULL
+                || !EVP_MD_CTX_copy_ex(ret->sw_md_ctx, in->sw_md_ctx)) {
+                EVP_MD_CTX_free(ret->sw_md_ctx);
+                OPENSSL_clear_free(ret, sizeof(*ret));
+                return NULL;
+            }
+        }
+        if (ret->sw_md != NULL && !EVP_MD_up_ref(ret->sw_md)) {
+            EVP_MD_CTX_free(ret->sw_md_ctx);
+            OPENSSL_clear_free(ret, sizeof(*ret));
+            return NULL;
+        }
+    }
+# endif
 # ifdef ENABLE_QAT_HW_SM3
     if ((!qat_hw_sm3_offload) || (qat_get_qat_offload_disabled())) {
         ret->rcv_count = 1;
