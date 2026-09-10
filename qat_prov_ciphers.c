@@ -293,6 +293,7 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
     const OSSL_PARAM *p;
     size_t sz = 0;
     void *vp;
+    int ctrl_ret = 0;
 #if defined(ENABLE_QAT_HW_GCM) || (defined(ENABLE_QAT_SW_GCM) \
                 && !defined(QAT_INSECURE_ALGO))
     nid = qat_aes_gcm_ctx_get_nid((QAT_AES_GCM_CTX *)ctx);
@@ -372,11 +373,18 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
             QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
+        ctrl_ret = 0;
 #ifdef ENABLE_QAT_HW_GCM
-        if (qat_aes_gcm_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED, p->data_size, p->data) == 0) {
-#else
-        if (vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED, p->data_size, p->data) == 0) {
+        if (qat_hw_gcm_offload)
+            ctrl_ret = qat_aes_gcm_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED,
+                                        p->data_size, p->data);
 #endif
+#ifdef ENABLE_QAT_SW_GCM
+        if (!ctrl_ret && qat_sw_gcm_offload)
+            ctrl_ret = vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED,
+                                            p->data_size, p->data);
+#endif
+        if (ctrl_ret == 0) {
             QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
         }
@@ -384,14 +392,25 @@ int qat_gcm_set_ctx_params(void *vctx, const OSSL_PARAM params[])
 
     p = OSSL_PARAM_locate_const(params, OSSL_CIPHER_PARAM_AEAD_TLS1_SET_IV_INV);
     if (p != NULL) {
-        if (p->data == NULL
-            || p->data_type != OSSL_PARAM_OCTET_STRING
-#ifdef ENABLE_QAT_HW_GCM
-            || !qat_aes_gcm_ctrl(ctx, EVP_CTRL_GCM_SET_IV_INV, p->data_size, p->data))
-#else
-            || !vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_GCM_SET_IV_INV, p->data_size, p->data))
-#endif
+        ctrl_ret = 0;
+        if (p->data == NULL || p->data_type != OSSL_PARAM_OCTET_STRING) {
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
             return 0;
+        }
+#ifdef ENABLE_QAT_HW_GCM
+        if (qat_hw_gcm_offload)
+            ctrl_ret = qat_aes_gcm_ctrl(ctx, EVP_CTRL_GCM_SET_IV_INV,
+                                        p->data_size, p->data);
+#endif
+#ifdef ENABLE_QAT_SW_GCM
+        if (!ctrl_ret && qat_sw_gcm_offload)
+            ctrl_ret = vaesgcm_ciphers_ctrl(ctx, EVP_CTRL_GCM_SET_IV_INV,
+                                            p->data_size, p->data);
+#endif
+        if (!ctrl_ret) {
+            QATerr(ERR_LIB_PROV, QAT_R_FAILED_TO_GET_PARAMETER);
+            return 0;
+        }
     }
 
 #ifdef ENABLE_QAT_HW_GCM

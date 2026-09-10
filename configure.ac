@@ -66,7 +66,7 @@ AC_SUBST(enable_qat_hw_ciphers)
 
 AC_ARG_ENABLE(qat_hw_gcm,
               AS_HELP_STRING([--enable-qat_hw_gcm],
-                             [Enable qat_hw AES-GCM acceleration (experimental)]))
+                             [Enable qat_hw AES-GCM acceleration]))
 AC_SUBST(enable_qat_hw_gcm)
 
 AC_ARG_ENABLE(qat_hw_sha3,
@@ -633,7 +633,7 @@ then
   AS_IF([test "x$enable_qat_hw_ciphers" != "xno"],
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CIPHERS"; AC_MSG_NOTICE([Accelerating CIPHERS to Hardware])])
   AS_IF([test "x$enable_qat_hw_gcm" = "xyes"],
-        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_GCM"; AC_MSG_NOTICE([Accelerating GCM to Hardware (experimental)])])
+        [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_GCM"; AC_MSG_NOTICE([Accelerating GCM to Hardware])])
   AS_IF([test "x$enable_qat_hw_chachapoly" = "xyes"],
         [cflags_qat_hw="${cflags_qat_hw} -DENABLE_QAT_HW_CHACHAPOLY"; AC_MSG_NOTICE([Accelerating CHACHA-POLY to Hardware])])
   AS_IF([test "x$enable_qat_hw_sm4_cbc" = "xyes"], 
