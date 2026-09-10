@@ -1373,10 +1373,8 @@ static int qat_prov_set_offload(void)
         INFO("QAT_HW SM3 for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_GCM
-        if (!qat_sw_gcm_offload) {
-            qat_hw_gcm_offload = 1;
-            DEBUG("QAT_HW GCM for Provider Enabled\n");
-        }
+        qat_hw_gcm_offload = 1;
+        DEBUG("QAT_HW GCM for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_CIPHERS
         qat_hw_aes_cbc_hmac_sha_offload = 1;
@@ -1395,10 +1393,8 @@ static int qat_prov_set_offload(void)
         DEBUG("QAT_HW ChaCha20-Poly1305 for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_HW_SM4_CBC
-        if (!qat_sw_sm4_cbc_offload) {
-            qat_hw_sm4_cbc_offload = 1;
-            DEBUG("QAT_HW SM4-CBC for Provider Enabled\n");
-        }
+        qat_hw_sm4_cbc_offload = 1;
+        DEBUG("QAT_HW SM4-CBC for Provider Enabled\n");
 # endif
     }
 
@@ -1449,6 +1445,8 @@ static int qat_prov_set_offload(void)
 
 # ifdef ENABLE_QAT_SW_GCM
         qat_sw_gcm_offload = 1;
+        /* Prioritize SW offload over HW for GCM when both are enabled. */
+        qat_hw_gcm_offload = 0;
         DEBUG("QAT_SW GCM for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_SW_SM3
@@ -1464,8 +1462,11 @@ static int qat_prov_set_offload(void)
         DEBUG("QAT_SW SM4-CCM for Provider Enabled\n");
 # endif
 # ifdef ENABLE_QAT_SW_SM4_CBC
-        qat_sw_sm4_cbc_offload = 1;
-        DEBUG("QAT_SW SM4-CBC for Provider Enabled\n");
+        /* Prioritize HW offload over SW for SM4-CBC when both are enabled. */
+        if (!qat_hw_sm4_cbc_offload) {
+            qat_sw_sm4_cbc_offload = 1;
+            DEBUG("QAT_SW SM4-CBC for Provider Enabled\n");
+        }
 # endif
 # ifdef ENABLE_QAT_SW_ML_KEM
         qat_sw_ml_kem_offload = qat_sw_ml_kem_init_ipsec_mb_mgr();
