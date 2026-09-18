@@ -65,6 +65,7 @@
 #include "../qat_utils.h"
 
 #define DEFAULT_KEY_SIZE 2048
+#define DEFAULT_GCM_INPUT_SIZE 8192
 #ifndef __FreeBSD__
 typedef  cpu_set_t qat_cpuset;
 #else
@@ -1007,6 +1008,9 @@ static void handle_option(int argc, char *argv[], int *index)
            for (i = 0; i < size; i++)
                 if (!strcmp(option, aes_choices[i].name)) {
                     test_alg = aes_choices[i].test_alg;
+                    if (test_alg == TEST_AES128_GCM ||
+                        test_alg == TEST_AES256_GCM)
+                        test_size = DEFAULT_GCM_INPUT_SIZE;
                     break;
                 }
     } else if (!strncmp(option, "sha3", strlen("sha3"))) {
