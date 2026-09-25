@@ -172,6 +172,10 @@ typedef struct qat_gcm_ctx_st {
     /* This flag is set to 1 when the session has been initialized */
     int is_session_init;
 
+    /* Set once this operation dispatches a chunk to QAT HW, pinning later
+     * chunks of the same operation to HW too (prevents GCM tag corruption). */
+    int hw_dispatched;
+
     /* QAT Op Params */
     CpaCySymOpData OpData;
 

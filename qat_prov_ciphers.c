@@ -501,6 +501,36 @@ fallback:;
 }
 
 
+#if defined(ENABLE_QAT_HW_GCM) && !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
+/* Small TLS records diverted straight to the cached SW cipher below never go
+ * through qat_aes_gcm_tls_cipher()'s own IV_GEN, so ctx->sw_ctx's internal
+ * explicit-IV counter is never otherwise synchronised with ctx->next_iv.
+ * Seed it directly from the shared counter before the SW call (mirrors
+ * qat_hw_gcm.c's small-packet-threshold fallback) so a later record routed
+ * to QAT HW doesn't reuse a nonce already consumed by this one. */
+static int qat_gcm_seed_sw_iv_for_dispatch(QAT_GCM_CTX *ctx)
+{
+    OSSL_PARAM iv_params[2];
+
+    if (ctx->sw_set_ctx_params == NULL)
+        return 0;
+    iv_params[0] = OSSL_PARAM_construct_octet_string(
+        OSSL_CIPHER_PARAM_AEAD_TLS1_IV_FIXED, ctx->next_iv, (size_t)-1);
+    iv_params[1] = OSSL_PARAM_construct_end();
+    return ctx->sw_set_ctx_params(ctx->sw_ctx, iv_params);
+}
+
+/* TLS records passed here include the 24-byte explicit-IV+tag overhead;
+ * strip it so the size cutover matches qat_aes_gcm_tls_cipher()'s payload-only check. */
+static size_t qat_gcm_small_pkt_len(QAT_GCM_CTX *ctx, size_t inl)
+{
+    if (ctx->tls_aad_len >= 0 &&
+        inl >= (EVP_GCM_TLS_EXPLICIT_IV_LEN + EVP_GCM_TLS_TAG_LEN))
+        return inl - (EVP_GCM_TLS_EXPLICIT_IV_LEN + EVP_GCM_TLS_TAG_LEN);
+    return inl;
+}
+#endif
+
 int qat_gcm_stream_update(void *vctx, unsigned char *out,
                           size_t *outl, size_t outsize,
                           const unsigned char *in, size_t inl)
@@ -528,11 +558,19 @@ int qat_gcm_stream_update(void *vctx, unsigned char *out,
 #endif
 
 #if defined(ENABLE_QAT_HW_GCM) && !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
-    if (qat_hw_gcm_offload && ctx->sw_cupdate != NULL &&
-        out != NULL && inl > 0 && inl <= (size_t)ctx->sw_threshold) {
+    if (qat_hw_gcm_offload && ctx->sw_cupdate != NULL && !ctx->hw_dispatched &&
+        out != NULL && inl > 0 &&
+        qat_gcm_small_pkt_len(ctx, inl) <= (size_t)ctx->sw_threshold) {
         DEBUG("Provider: small packet %zu bytes, using SW fallback\n", inl);
+        if (ctx->tls_aad_len >= 0 && ctx->enc &&
+            !qat_gcm_seed_sw_iv_for_dispatch(ctx)) {
+            WARN("Failed to seed SW GCM IV before small-packet fallback\n");
+            goto end;
+        }
         ctx->sw_record_dispatch = 1;
         ret = ctx->sw_cupdate(ctx->sw_ctx, out, outl, outsize, in, inl) > 0 ? 1 : 0;
+        if (ctx->tls_aad_len >= 0 && ctx->enc && ret)
+            qat_aes_gcm_inc_ctr(ctx->next_iv + ctx->iv_len - 8);
         goto end;
     }
 #endif
@@ -666,11 +704,19 @@ int qat_gcm_cipher(void *vctx, unsigned char *out,
 #if defined(ENABLE_QAT_HW_GCM) && !defined(ENABLE_QAT_SMALL_PKT_OFFLOAD)
     /* See qat_gcm_stream_update(): only divert to SW when this call carries
      * actual payload (out != NULL), not for AAD-only Update() calls. */
-    if (qat_hw_gcm_offload && ctx->sw_cupdate != NULL &&
-        out != NULL && inl > 0 && inl <= (size_t)ctx->sw_threshold) {
+    if (qat_hw_gcm_offload && ctx->sw_cupdate != NULL && !ctx->hw_dispatched &&
+        out != NULL && inl > 0 &&
+        qat_gcm_small_pkt_len(ctx, inl) <= (size_t)ctx->sw_threshold) {
         DEBUG("Provider TLS: small packet %zu bytes, using SW fallback\n", inl);
+        if (ctx->tls_aad_len >= 0 && ctx->enc &&
+            !qat_gcm_seed_sw_iv_for_dispatch(ctx)) {
+            WARN("Failed to seed SW GCM IV before small-packet fallback\n");
+            goto end;
+        }
         ctx->sw_record_dispatch = 1;
         ret = ctx->sw_cupdate(ctx->sw_ctx, out, outl, outsize, in, inl) > 0 ? 1 : 0;
+        if (ctx->tls_aad_len >= 0 && ctx->enc && ret)
+            qat_aes_gcm_inc_ctr(ctx->next_iv + ctx->iv_len - 8);
         goto end;
     }
 #endif
