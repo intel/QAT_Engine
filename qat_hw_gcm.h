@@ -80,6 +80,29 @@
 # define GET_SW_AES_GCM_CIPHER(ctx) \
       qat_gcm_cipher_sw_impl(EVP_CIPHER_CTX_type(ctx))
 #define TLS_CIPHER_SW_CTRL  0x004d
+
+/* Increment provided invocation field counter (64-bit int) by 1.
+ * Shared by qat_hw_gcm.c and qat_prov_ciphers.c so both can advance the
+ * explicit-IV counter when synchronising a QAT/SW dispatch split. */
+static inline void qat_aes_gcm_inc_ctr(unsigned char* ifc)
+{
+    int inv_field_size = 8;
+    unsigned char byte;
+
+    /* Loop over ifc starting with the least significant byte
+     * and work towards the most significant byte of ifc*/
+    do {
+        --inv_field_size;
+        byte = ifc[inv_field_size];
+
+        /* Increment by one and copy back to invocation field */
+        ++byte;
+        ifc[inv_field_size] = byte;
+
+        if (byte)
+            return;
+    } while (inv_field_size);
+}
 /* AES-GCM context */
 typedef struct qat_aes_gcm_ctx_t
 {
@@ -168,7 +191,13 @@ typedef struct qat_aes_gcm_ctx_t
 
     int qat_svm;
     void *sw_ctx_cipher_data;
-    int fallback;
+    int sw_record_dispatch;
+    /* Set once this operation dispatches a chunk to QAT HW, pinning later
+     * chunks of the same operation to HW too (prevents GCM tag corruption). */
+    int hw_dispatched;
+    /* Small-packet threshold, cached in qat_aes_gcm_init() to avoid an
+     * nid lookup and table scan on every record. */
+    int sw_threshold;
     int sw_tls_ctrl;
     int tag_set;
 } qat_gcm_ctx;
