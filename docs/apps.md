@@ -1,7 +1,13 @@
 ## Application Integration
+
+For applications that drive the QAT Provider directly &mdash; selecting a
+polling mode, running external or heuristic polling from their own event loop,
+and reading in-flight telemetry &mdash; see the
+[Application Integration Guide](qat_provider.md#application-integration).
+
 ### Asynchronous Mode Nginx\* with QAT
-NGINX\* with asynchronous mode for Intel&reg; OpenSSL QAT Engine provides
-significant performance improvement with QAT acceleration.
+NGINX\* with asynchronous mode can provide significant performance improvement
+when using QAT acceleration.
 The asynchronous fork of NGINX\* can be found at the following Github\*
 repository:
 

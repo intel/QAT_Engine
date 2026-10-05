@@ -1,47 +1,68 @@
-# Intel&reg; QuickAssist Technology(QAT) OpenSSL Engine and Provider
-Intel&reg; QuickAssist Technology OpenSSL\* Engine (QAT_Engine) supports
-acceleration through the QAT hardware (via the QAT_HW path) and through
-Optimized Software using the Intel instruction set (via the QAT_SW Path
-from 3rd Generation Intel&reg; Xeon&reg; Scalable Processors family).
+# Intel&reg; QuickAssist Technology (QAT) Engine and QAT Provider for OpenSSL
+This project provides QAT Engine (`qatengine`) and QAT Provider (`qatprovider`)
+integrations for OpenSSL. Cryptographic operations can be accelerated through
+QAT hardware (`QAT_HW`) or Intel CPU instruction-set optimized software
+libraries (`QAT_SW`). A co-existence build enables both acceleration paths.
 
 The image below illustrates the high-level software architecture of the
-QAT OpenSSL Engine. Applications such as NGINX and HAProxy are common applications
-which interfaces to crypto libraries like OpenSSL\* and its fork like
-Tongsuo(BabaSSL)\*, BoringSSL\*, etc. OpenSSL\* is a toolkit for TLS/SSL protocols and
-has developed a modular system to plugin device-specific engines and provider.
-Depending on the particular use case, the QAT OpenSSL Engine can be configured
-to accelerate operations using QAT Hardware, QAT Software, or both, depending on
-the platform, to meet your specific acceleration needs. QAT OpenSSL Engine supports
-both the Engine interface (up to OpenSSL 3.x; not supported in OpenSSL 4.0 and later)
-and the Provider interface (`qatprovider`, recommended for OpenSSL 3.x and later). The
-Provider is built by default; pass `--enable-qat_engine` at build time to opt into the
-legacy Engine interface instead. See
-[QAT Provider Interface](docs/qat_common.md#qat-provider-interface) for details.
+QAT Engine and QAT Provider interfaces.
 
 <p align=center>
-<img src="docs/images/qat_engine.png" alt="drawing" width="300"/>
+<img src="docs/images/qat_engine.png" alt="High-level QAT acceleration architecture" width="300"/>
 </p>
 
+Applications such as NGINX and HAProxy are common applications
+which interfaces to crypto libraries like OpenSSL\* and its fork like
+Tongsuo(BabaSSL)\*, BoringSSL\*, etc. OpenSSL\* is a toolkit for TLS/SSL protocols and
+has developed a modular system to plug in device-specific Engines and Providers.
+Depending on the particular use case, the QAT Provider or QAT Engine can be configured
+to accelerate operations using QAT Hardware, QAT Software, or both, depending on
+the platform, to meet your specific acceleration needs. This project supports
+QAT Engine (`qatengine`) through the OpenSSL ENGINE interface (up to OpenSSL 3.x;
+not supported in OpenSSL 4.0 and later) and QAT Provider (`qatprovider`) through
+the OpenSSL Provider interface (recommended for OpenSSL 3.x and later).
+**QAT Provider (`qatprovider`) is built by default.** Pass `--enable-qat_engine` at build time to opt into the
+legacy OpenSSL ENGINE interface instead. See
+[QAT Provider Interface](docs/qat_provider.md) for details.
+
+## Provider-First Quick Start
+For OpenSSL 3.x and later, use QAT Provider (`qatprovider`) as the default interface.
+
+```text
+cd /path/to/openssl_install/bin
+./openssl list -providers -provider qatprovider -provider default
+./openssl speed -provider qatprovider -provider default -elapsed -async_jobs 8 rsa2048
+```
+
+Use QAT Engine (`qatengine`) only when a legacy ENGINE-based integration is required.
+
+## Naming Conventions
+- `qatprovider` is the OpenSSL Provider module name (documented as QAT Provider).
+- `qatengine` is the legacy OpenSSL ENGINE module name (documented as QAT Engine).
+- OpenSSL ENGINE refers to the legacy OpenSSL interface itself, not the project.
+- `QAT_HW` and `QAT_SW` describe acceleration paths, independent of whether the interface is Provider or Engine.
+
 ## Features
-Features of the QAT_Engine are described [here](docs/features.md).
+Supported features are described [here](docs/features.md).
 
 ## Limitations and Known Issues
-Limitations and known issues for the QAT_Engine are described [here](docs/limitations.md).
+Limitations and known issues are described [here](docs/limitations.md).
 
 ## Requirements
 - [Hardware Requirements](docs/hardware_requirements.md)
 - [Software Requirements](docs/software_requirements.md)
 
 ## Installation Instructions
-Installation instructions, including build steps for the Engine and Provider
-interfaces across QAT_HW, QAT_SW and Co-existence configurations, are described [here](docs/install.md)
+Installation instructions, including build steps for the QAT Engine
+(`qatengine`) and QAT Provider (`qatprovider`) interfaces across QAT_HW,
+QAT_SW, and co-existence configurations, are described [here](docs/install.md).
 
 ## Testing
 <details>
-<summary>Verify QAT Provider and Engine loading</summary>
+<summary>Verify QAT Provider and QAT Engine loading</summary>
 
 ### Verify QAT Provider loading
-QAT Provider (qatprovider) is the default and recommended interface for OpenSSL 3.x and later.
+QAT Provider (`qatprovider`) is the default and recommended interface for OpenSSL 3.x and later.
 Run the following to verify `qatprovider` is loaded correctly. Always load the `default` provider
 alongside `qatprovider` to ensure complete algorithm coverage.
 
@@ -54,10 +75,10 @@ Expected output will list `qatprovider` with its name, version and loaded status
 
 > **Note:** Always activate the `default` provider alongside `qatprovider` — either via
 > `-provider default` on the command line or by adding it to your `openssl.cnf`.
-> See [QAT Provider Interface](docs/qat_common.md#qat-provider-interface) for details.
+> See [QAT Provider Interface](docs/qat_provider.md) for details.
 
 ### Verify QAT Engine loading
-Use the `--enable-qat_engine` flag to build the legacy QAT Engine.Run the following
+Use the `--enable-qat_engine` flag to build the legacy QAT Engine. Run the following
 command to verify that the QAT Engine is loaded correctly. This command should not be
 used to determine QAT Engine capabilities, as it does not display all the algorithms
 supported by the QAT Engine.
@@ -166,7 +187,7 @@ qat_sw
 Note: Run the test without `-engine qatengine` or `-provider qatprovider` for each algorithm to
 compare against OpenSSL\* software. This covers key algorithms; additional algorithms can be tested
 by changing the algo parameter. Additional provider test commands are described in
-[docs/qat_common.md](docs/qat_common.md#openssl-provider-support).
+[docs/qat_provider.md](docs/qat_provider.md#example-qat-provider-qatprovider-test-commands).
 </details>
 <details>
 <summary>Test using inbuilt testapp utility</summary>
@@ -194,7 +215,11 @@ Additional information for testapp tests available with the help option
 </details>
 
 ## Application integration & Case studies
-Links to additional content is available [here](docs/apps.md).
+Guidance on integrating an application directly with the QAT Provider,
+including external and heuristic polling, is described
+[here](docs/qat_provider.md#application-integration).
+
+Links to additional content are available [here](docs/apps.md).
 
 ## Troubleshooting
 Troubleshooting information is available [here](docs/troubleshooting.md).

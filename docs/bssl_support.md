@@ -1,4 +1,4 @@
-# Intel® QuickAssist Technology(QAT) BoringSSL\* Library
+# Intel® QuickAssist Technology (QAT) BoringSSL\* Library
 Intel® QuickAssist Technology BoringSSL\* Library is a prototype accelerating asymmetric cryptographic algorithms for BoringSSL\*, the Google\*'s OpenSSL\* fork which doesn't support engine mechanism. It checks the type of user input SSL library during configuration time and builds out a traditional engine library if OpenSSL\* is detected or a library fitting in with BoringSSL\* private key method if BoringSSL\* is applied.
 
 This document details the capabilities, interfaces and limitations of the BoringSSL\* based library. Both the hardware and software requirements are explained followed by detailed instructions on how to install and use the library.
@@ -17,8 +17,8 @@ Some limitations specific for the current BoringSSL\* Library:
 * `RSA_padding_add_PKCS1_OAEP` function is exported by BoringSSL\* `libdecrepit.so`,
 so it needs to be linked in the BoringSSL\* Library. It may cause linking error while
 building with the system lack of that library.
-* The QAT Provider (`qatprovider`) is not supported with BoringSSL\*. Only the QAT
-Engine interface is available for BoringSSL\* builds.
+* The QAT Provider (`qatprovider`) is not supported with BoringSSL\*. Only QAT
+Engine (`qatengine`) is available for BoringSSL\* builds.
 
 ## Requirements
 - [Hardware Requirements](hardware_requirements.md)
@@ -34,13 +34,14 @@ mkdir -p build
 cd build/
 ```
 
-Note: BoringSSL\* builds static library by default. To align with the QAT_Engine use case within NGINX\*, an explicit option is added to build it as a dynamic library.
+Note: BoringSSL\* builds a static library by default. To use it with QAT
+acceleration in NGINX\*, explicitly build it as a dynamic library.
 ```
 cmake .. -DBUILD_SHARED_LIBS=1 -DCMAKE_BUILD_TYPE=Release
 make
 ```
 
-BoringSSL\* doesn't support "make install" to consolidate build output to an appropriate location. Here is a solution to integrate all output libraries into one customized path 'lib' by symbol links.
+BoringSSL\* doesn't support "make install" to consolidate build output in one location. The following commands collect the output libraries in a custom `lib` directory using symbolic links.
 ```
 cd ..
 mkdir -p lib
@@ -74,13 +75,13 @@ make install
 ```
 In the above example, `--disable-qat_hw` needs to be provided if the system
 has qatlib installed.
-Note : `--enable-qat_sw` checks crypto_mb and IPSec_MB libraries in its
-respective default path (/usr/local/lib and /usr/lib) or in the path provided
+Note: `--enable-qat_sw` checks the crypto_mb and IPsec MB libraries in their
+respective default paths (`/usr/local/lib` and `/usr/lib`) or in the paths provided
 in the config flag `--with-qat_sw_crypto_mb_install_dir` (for crypto_mb) and
 `--with-qat_sw_ipsec_mb_install_dir` (for ipsec_mb). If any of the libraries
 is not installed then their corresponding algorithm support is disabled.
-By here, the QAT BoringSSL\* Library `libqatengine.so` is installed to
-system path `/usr/local/lib`. Set the `--prefix` if specific install path is expected.
+At this point, the QAT BoringSSL\* Library `libqatengine.so` is installed in
+the system path `/usr/local/lib`. Set `--prefix` to use a specific installation path.
 
 ### Test the Intel® QuickAssist Technology BoringSSL\* Library
 
@@ -102,9 +103,10 @@ The test code is under `test_bssl/` directory and will be compiled along with th
     ./qatengine_test -k /opt/ec-secp384r1-priv-key.pem
     ./qatengine_test -k /opt/ec-secp384r1-priv-key.pem -a
   ```
-`Note:` All private keys mentioned here are just for example, pls instead by your locally generated or existing one.
+`Note:` All private keys shown here are examples. Replace them with locally generated or existing keys.
 `Note:` Async mode can't be applied to the BoringSSL default method when QAT_HW and QAT_SW are disabled.
 
-- Tip: to get more debug information, enable QATEngine option: --enable-qat_debug when configuring QATEngine before compiling.
+- Tip: For more debug information, configure with `--enable-qat_debug` before compiling.
 
-All example codes provided here are __exclusively__ used for functional tests on QATEngine APIs with BoringSSL enabled.
+All example code provided here is used exclusively for functional tests of the
+QAT Engine (`qatengine`) APIs with BoringSSL enabled.

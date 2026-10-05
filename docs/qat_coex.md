@@ -1,22 +1,40 @@
 # QAT_HW and QAT_SW Co-existence
 
-Intel&reg; QAT OpenSSL\* Engine and Provider support QAT_HW and QAT_SW Co-existence
+The QAT Engine and QAT Provider support QAT_HW and QAT_SW co-existence
 when both QAT_HW flag `--with-qat_hw_dir=/path/to/QAT_Driver`
 and QAT_SW flag `--enable-qat_sw` configured in the build configure
 option to provide acceleration from both QAT_HW and QAT_SW combined.
+
+See [Co-existence Features](features.md#co-existence-features) for the supported
+algorithms, default routing policy, and driver/interface restrictions.
 
 If the platform has support for both QAT_HW and QAT_SW, the default
 behavior is to accelerate asymmetric algorithms and Symmetric chained ciphers
 using QAT Hardware and Symmetric GCM Ciphers using QAT Software. If the platform
 doesn't have QAT Hardware support then it will use QAT_SW Acceleration for
-QAT_SW asymmetric algorithms that are supported in the qatengine.
+QAT_SW asymmetric algorithms that are supported by QAT Engine (`qatengine`).
 
 The default behavior can be changed using corresponding algorithm's enable
 flags (eg:--enable-qat_sw_rsa) in which case the individual algorithms enabled
 (either qat_hw or qat_sw) in the build configure will get accelerated.
 
+### QAT Provider symmetric algorithm priority
+
+When both QAT_HW and QAT_SW implementations are enabled in a QAT Provider build,
+the Provider selects one implementation for these symmetric algorithms during
+initialization:
+
+* **AES-GCM:** QAT_SW takes priority and QAT_HW GCM is disabled at runtime. To
+   use QAT_HW GCM, configure the build with `--enable-qat_hw_gcm
+   --disable-qat_sw_gcm`.
+* **SM4-CBC:** QAT_HW takes priority and QAT_SW SM4-CBC is not enabled at
+   runtime when both implementations are built.
+
+These Provider selection rules are separate from the legacy QAT Engine module's
+request-routing behavior described below.
+
 For the algorithms RSA2K/3K/4K, ECDHP256/P384/X25519 & ECDSAP384 to reach
-better performance, QATEngine uses both QAT_HW and QAT_SW for acceleration
+better performance, co-existence mode uses both QAT_HW and QAT_SW for acceleration
 when QAT_HW capacity is reached with co-existence build. The mechanism by which
 QAT_HW capacity is detected differs between the two driver modes:
 
@@ -108,7 +126,7 @@ flowchart TD
 > **Note:** This section is applicable to the **QAT Engine** (`qatengine`) module only
 > and does not apply to the QAT Provider (`qatprovider`).
 
-Intel&reg; QAT OpenSSL\* Engine supports a runtime mechanism to dynamically choose
+The QAT Engine supports a runtime mechanism to dynamically choose
 the QAT_HW or QAT_SW or both for each algorithm using the ENGINE ctrl commands:
 **HW_ALGO_BITMAP** & **SW_ALGO_BITMAP**,
 Bitmap of each algorithm is defined below:
@@ -143,7 +161,7 @@ If one algorithm is expected to be enabled, the preconditions are:
 Algorithms that are enabled in HW_ALGO_BITMAP will be accelerated via QAT_HW method and algorithms that are enabled in SW_ALGO_BITMAP will be accelerated via QAT_SW method. If an algorithm is enabled in both HW_ALGO_BITMAP and SW_ALGO_BITMAP then the one that has highest priority (listed above) will be accelerated. If none is enabled, OpenSSL SW will be used.
 
 **Note:** 
-1. The default HW_ALGO_BITMAP and SW_ALGO_BITMAP value for each algorithm are set to 0xFFFF, which means all algorithms are enabled by default. If both HW&SW bitmap aren't set, QAT_Engine will offload the algorithm depending on the configuration and [default algorithm] setup.
+1. The default HW_ALGO_BITMAP and SW_ALGO_BITMAP value for each algorithm are set to 0xFFFF, which means all algorithms are enabled by default. If neither bitmap is set, the QAT Engine (`qatengine`) offloads the algorithm according to the configuration and [default algorithm] setup.
 2. The XX_ALGO_BITMAP commands are only workable when the corresponding offload mode is enabled, e.g. SW_ALGO_BITMAP is supported only if the QAT_SW is enabled.
 3. In case the QAT_HW&QAT_SW are both enabled, it's recommended to set both HW_ALGO_BITMAP and SW_ALGO_BITMAP in the meantime, disabling the unnecessary and enabling the necessary offload mode for each algorithm.
 4. The offload mode with higher priority must be disabled when you want to enable the lower priority one for each algorithm.

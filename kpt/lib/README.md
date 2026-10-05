@@ -1,16 +1,20 @@
 # Key Protection Technology Library
 
-The KPT2.0 capability is delivered through the KPT Library which is placed in the QAT_Engine repository. It can provide KPT2.0 functionalities, like special key file parse, KPT init/finish, asymmetric crypto offload etc. And the library will leverage other Intel security technologies, e.g. Software Guard Extensions(SGX) to provide more security services in the future.
+The KPT 2.0 capability is delivered through the KPT library in the QAT_Engine
+repository. It provides KPT 2.0 functionality such as parsing special key files,
+initializing and finalizing KPT, and offloading asymmetric cryptography. The
+library may use other Intel security technologies, such as Software Guard
+Extensions (SGX), to provide additional security services in the future.
 
 <p align=center>
 <img src="KPT_Library.PNG" alt="drawing" width="300"/>
 </p>
 
-## **Division of the work**
-* QAT_ENGINE: Control Path
+## **Responsibilities**
+* QAT Engine: Control Path
     * Async job control
     * QAT resource management
-    * KPT Layer between QAT_Engine and KPT Library: qat_hw_kpt.c
+    * KPT layer between QAT Engine and KPT library: `qat_hw_kpt.c`
 
 * KPT_LIB: Data Path
     * WPK load and parse
@@ -23,4 +27,6 @@ The KPT2.0 capability is delivered through the KPT Library which is placed in th
 * OpenSSL 1.1.1x & 3.0.x
 
 ### Build
-  This Library is built along with qatengine build when KPT is enabled using the configure flag `--enable-qat_hw_kpt`. KPT debugs can be enabled by passing "KPT_DEBUG" or "KPT_WARN" in the CFLAGS.
+    This library is built with `qatengine` when KPT is enabled using the
+    `--enable-qat_hw_kpt` configure flag. Enable KPT debug logging by passing
+    `KPT_DEBUG` or `KPT_WARN` in `CFLAGS`.

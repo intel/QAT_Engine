@@ -1,5 +1,14 @@
 # Features
 
+## Interfaces
+This project exposes QAT acceleration through two OpenSSL\* interfaces:
+
+* [QAT Provider (`qatprovider`)](qat_provider.md) — default and recommended for OpenSSL 3.x and later,
+  and the only supported interface for OpenSSL 4.0 and later.
+* QAT Engine (`qatengine`) — legacy OpenSSL ENGINE interface, built only with `--enable-qat_engine`.
+
+The algorithm support listed below applies to both QAT interfaces unless stated otherwise.
+
 ## qat_hw Features
 * Asymmetric PKE
     * RSA for Key Sizes 512/1024/2048/4096/8192.
@@ -30,7 +39,7 @@
     * SM3
 * Synchronous and [Asynchronous](async_job.md) Operation
 * [Pipelined Operations](qat_hw.md#using-the-openssl-pipelining-capability)
-* [Intel&reg; QAT OpenSSL\* Engine Software Fallback](qat_hw.md#intel-qat-openssl-engine-software-fallback-feature)
+* [QAT_HW Software Fallback](qat_hw.md#qat_hw-software-fallback-feature)
 * [Key Protection Technology (KPT) Support using QAT_HW driver v2.0](qat_hw_kpt.md)
 
 > **Algorithm default status:**
@@ -56,19 +65,54 @@ for the following algorithms:
 | ECDH X25519, P-256/P-384, SM2 | \* |
 | ECDSA P-256/P-384, SM2 | \* |
 | AES128-GCM, AES192-GCM, AES256-GCM | \* |
+| ML-KEM-512/768/1024 (`qatprovider` with OpenSSL 3.5+) | \*\*\* |
+| ML-DSA-44/65/87 (`qatprovider` with OpenSSL 3.5+) | \*\*\* |
 | SM4-CBC, SM4-GCM, SM4-CCM (16 multibuffer requests) | \# |
 | SM3 (16 multibuffer requests) | \*\* |
 
 \* Enabled by default in the standard build.<br>
+\*\*\* Disabled by default; enable with `--enable-qat_sw_ml_kem` and/or
+`--enable-qat_sw_ml_dsa`. Requires OpenSSL 3.5.0+ and IPsec MB v3.0.0+. See
+[ML-KEM and ML-DSA Offload](qat_provider_pqc.md#ml-kem-and-ml-dsa-offload-via-ipsec-mb).<br>
 \# Disabled by default; applicable to Tongsuo/BabaSSL builds only.<br>
 \*\* Disabled by default due to performance degradation in multithreaded scenarios; see [Known Issues](limitations.md#known-issues).
 
+## Co-existence Features
+
+A co-existence build enables both QAT_HW and QAT_SW. Algorithms with
+implementations on both paths use the routing policy below:
+
+| Algorithm | Supported variants | Default routing | Driver/interface notes |
+| :--- | :--- | :--- | :--- |
+| RSA | 2048/3072/4096 | QAT_HW first; route requests to QAT_SW when QAT_HW capacity is reached | OOT uses QAT_HW `RETRY`; intree uses the in-flight request threshold. |
+| ECDSA | P-256 | QAT_SW | QAT_SW is preferred for P-256. |
+| ECDSA | P-384 | QAT_HW first; route requests to QAT_SW when QAT_HW capacity is reached | OOT uses QAT_HW `RETRY`; intree uses the in-flight request threshold. |
+| ECDH | P-256/P-384 | QAT_HW first; route requests to QAT_SW when QAT_HW capacity is reached | OOT uses QAT_HW `RETRY`; intree uses the in-flight request threshold. |
+| X25519 | X25519 | QAT_HW first; route requests to QAT_SW when QAT_HW capacity is reached | OOT uses QAT_HW `RETRY`; intree uses the in-flight request threshold. |
+| AES-GCM | AES-128/192/256-GCM | QAT_SW | In a QAT Provider build, enabling both implementations activates only QAT_SW at runtime. Build with `--enable-qat_hw_gcm --disable-qat_sw_gcm` to use QAT_HW. Both QAT Provider and QAT Engine builds define a 4096-byte QAT_HW GCM threshold; payloads up to and including that threshold use OpenSSL software. AES-192-GCM has no QAT_HW implementation. |
+| SM2 | ECDSA/SM2 key exchange | QAT_HW preferred | QAT_SW can be selected when the QAT_HW implementation is unavailable or disabled. |
+| SM4-CBC | SM4-CBC | QAT_HW | In a QAT Provider build, QAT_HW takes priority when both implementations are enabled. The legacy QAT Engine module supports packet-size-based routing with QAT_SW spillover on QAT_HW `RETRY`; this requires Tongsuo/BabaSSL and the OOT driver. |
+| SM3 | SM3 | QAT_HW or QAT_SW | Select one implementation at build time; simultaneous QAT_HW and QAT_SW SM3 is not supported. |
+
+Algorithms implemented by only one acceleration path remain available in a
+co-existence build through that path:
+
+| Acceleration path | Algorithms |
+| :--- | :--- |
+| QAT_HW | DSA, DH, X448, PRF, HKDF, AES-CBC-HMAC-SHA, AES-CCM, ChaCha20-Poly1305, SHA3 |
+| QAT_SW | SM4-GCM, SM4-CCM, ML-KEM-512/768/1024, ML-DSA-44/65/87 |
+
+Algorithm configure flags and platform restrictions still apply. ML-KEM and
+ML-DSA are disabled by default and available only through `qatprovider` with
+OpenSSL 3.5.0+ and IPsec MB support. The `HW_ALGO_BITMAP` and `SW_ALGO_BITMAP`
+runtime controls apply only to QAT Engine (`qatengine`). See
+[QAT_HW and QAT_SW Co-existence](qat_coex.md#qat_hw-and-qat_sw-co-existence) for
+the OOT/intree routing design, recommended settings, and Engine bitmap details.
+
 ## Common Features to qat_hw & qat_sw
+* [PQC and Hybrid PQC Support](qat_provider_pqc.md)
 * [BoringSSL Support](bssl_support.md)
-* [QAT Provider Interface](qat_common.md#qat-provider-interface)
-* [QAT_HW & QAT_SW Co-existence](qat_coex.md#qat-hw-and-qat-sw-co-existence)
-* [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification)
-* [Hybrid PQC Interoperability](qat_common.md#interoperability-with-openssl-default-provider-for-hybrid-pqc)
+* [FIPS 140-3 Certification](qat_provider.md#fips-140-3-certification)
 
 Note: RSA Padding schemes are handled by OpenSSL\* or BoringSSL\* rather than accelerated, so the
 engine supports the same padding schemes as OpenSSL\* or BoringSSL\* does natively.

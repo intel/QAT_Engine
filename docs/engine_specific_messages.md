@@ -1,6 +1,6 @@
-# Intel&reg; QuickAssist Technology OpenSSL\* Engine Specific Messages
+# QAT Engine-Specific Messages
 
-OpenSSL\* engines support a mechanism whereby custom messages can be defined for
+The OpenSSL\* ENGINE interface supports a mechanism whereby custom messages can be defined for
 an application to communicate directly with the engine.  These messages are
 typically used in two ways:
 
@@ -19,13 +19,12 @@ defined as follows:
 
 Where:
 
-   - `<Engine>` is a pointer to the Intel&reg; QAT enabled OpenSSL\* Engine.
-   - `<Message String>` is a string representing the message type.
-   - `<Param 3>` is a long that can be used to pass a number, or a pointer
-     can be cast to it.
-   - `<Param 4>` is a void pointer used to pass data structures in.
-   - The last two parameters are always `NULL` and 0 when used with the Intel&reg;
-     QAT OpenSSL\* Engine.
+- `<Engine>` is a pointer to the QAT Engine (`qatengine`).
+- `<Message String>` is a string representing the message type.
+- `<Param 3>` is a long that can be used to pass a number, or a pointer
+    can be cast to it.
+- `<Param 4>` is a void pointer used to pass data structures in.
+- The last two parameters are always `NULL` and 0 when used with the QAT Engine.
 
 ```text
 Message String: ENABLE_EXTERNAL_POLLING
@@ -190,7 +189,7 @@ Param 3:        0
 Param 4:        NULL
 Description:
     This message is used to enable the inline polling mode of operation where
-    a busy loop is used by the Intel(R) QAT OpenSSL* Engine to check for
+    a busy loop is used by the QAT Engine to check for
     messages from the hardware accelerator after requests are sent to it.
     Currently this mode is only available in the synchronous RSA computation.
     It has no parameters or return value. If required this message must be sent
@@ -238,7 +237,7 @@ Param 4:        NULL terminated string of section name from Intel(R) QAT Driver
                 config file. Maximum length is 64 bytes including
                 NULL terminator.
 Description:
-    This message is used to configure the Intel(R) QAT OpenSSL* Engine to use
+    This message is used to configure the QAT Engine to use
     the string passed in as parameter 4 to be the name for the Intel(R) QAT
     Driver config section rather than the default `[SHIM]`. It must be sent
     after engine creation but before engine initialization. It should not be
@@ -249,12 +248,12 @@ Param 3:        0
 Param 4:        NULL
 Description:
     This message is used to enable fallback to software (on-core) of the crypto
-    operations normally accelerated to the acceleration devices by the
-    Intel&reg; QuickAssist Technology OpenSSL\* Engine.  This command enables
+    operations normally accelerated to the acceleration devices by
+    QAT Engine (qatengine). This command enables
     the software fallback feature - crypto operations will continue to be
     accelerated but, with this feature enabled, in the event the acceleration
-    devices subsequently go offline the Intel&reg; QuickAssist Technology
-    OpenSSL\* Engine will automatically switch to performing crypto operations
+    devices subsequently go offline, QAT Engine (qatengine) will automatically
+    switch to performing crypto operations
     on-core. If required this message must be sent after engine creation and
     before engine initialization. This message is not supported in the FreeBSD
     operating system or in the qatlib RPM.
@@ -269,8 +268,8 @@ Description:
     (see engine command ENABLE_EXTERNAL_POLLING). The result of this
     engine specific message (success/failure) is assigned to the dereferenced int
     that is passed in as Param 4.
-    Polling using this message will result in the Intel&reg; QuickAssist Technology
-    OpenSSL\* Engine being notified when instances of an acceleration device go
+    Polling using this message will result in QAT Engine (qatengine) being
+    notified when instances of an acceleration device go
     offline or come back online. By sending this message more frequently you can
     decrease the time taken for the engine to become aware of instances going
     offline/coming back online at the expense of additional cpu cycles. The
@@ -298,7 +297,8 @@ Description:
     the Engine supports the first 16 bits of the input value, the higher bit value
     will be deprecated. The default QAT_HW algorithm bitmap is 0xFFFF which means
     all algorithms are supported at the runtime level.
-    For more detailed usage, refer to: docs/qat_common.md
+    For more detailed usage, refer to "Run time configuration using HW & SW
+    algorithm bitmap" in docs/qat_coex.md.
 
 Message String: SW_ALGO_BITMAP
 Param 3:        0
@@ -311,6 +311,7 @@ Description:
     the Engine supports the first 16 bits of the input value, the higher bits value
     will be deprecated. The default QAT_SW algorithm bitmap is 0xFFFF which means
     all algorithms are supported at the runtime level.
-    For more detailed usage, refer to: docs/qat_common.md
+    For more detailed usage, refer to "Run time configuration using HW & SW
+    algorithm bitmap" in docs/qat_coex.md.
 
 ```

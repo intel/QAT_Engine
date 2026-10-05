@@ -1,9 +1,10 @@
-# Intel&reg; QuickAssist Technology OpenSSL\* Engine Build Options
+# QAT_Engine Build Options
 
 The following is a list of the options that can be used with the
-`./configure` command when building the Intel&reg; QAT OpenSSL\* Engine:
+`./configure` command when building this project:
 
 ### qat_hw options:
+
 ```
 --with-qat_hw_dir=/path/to/qat_driver
     Specify the path to the source code directory of the Intel(R) QAT Driver.
@@ -16,9 +17,10 @@ The following is a list of the options that can be used with the
     installed via qatlib RPM.
 
     This option is not required when building for qat_sw.
-
 ```
+
 ### Building against OpenSSL from source
+
 ```
 --with-openssl_install_dir=/path/to/openssl_install
     Specify the path to the top level directory where the OpenSSL* was installed to.
@@ -36,21 +38,23 @@ The following is a list of the options that can be used with the
     directory (e.g., `/usr/lib64/ossl-modules`); for engine
     builds qatengine.so is installed in the system engines directory
     (e.g., `/usr/lib64/engines-3`).
-
 ```
+
 ### qat_sw options
+
 ```
 --enable-qat_sw/--disable-qat_sw
     Enable/Disable qat_sw acceleration. This flag needs to be enabled to utilize
     qat_sw acceleration. This flag when enabled uses Intel(R) Crypto
-    Multi-buffer and Intel(R) Multi-buffer crypto for IPsec library and headers
-    from the default path (/usr/local and /usr/ respectively). If the crypto_mb
-    and IPSec_MB libraries are installed in the path other than default then use
+    Multi-buffer and Intel(R) Multi-buffer crypto for IPsec libraries and headers
+    from the default paths (`/usr/local` and `/usr`, respectively). Both
+    libraries are required for a qat_sw build. If the crypto_mb
+    and IPsec MB libraries are installed outside the default paths, use
     `--with-qat_sw_crypto_mb_install_dir` and `--with-qat_sw_ipsec_mb_install_dir`
-    to set the crypto_mb and ipsec_mb libraries install dir respectively. (disabled by default).
+    to set their installation directories. This option is disabled by default.
 
 --disable-qat_hw
-    Disable Intel(R) QAT Hardware acceleration. This flag needs to be enabled if
+    Disable Intel(R) QAT Hardware acceleration. Specify this flag if
     the system has both QAT Hardware and QAT Software Multi-buffer capabilities
     and the in-tree driver is installed in the system via `qatlib`
     RPM where use of QAT SW acceleration over QAT HW is preferred. In case of
@@ -59,10 +63,10 @@ The following is a list of the options that can be used with the
     available (both QAT HW or QAT SW) then QAT HW acceleration will
     be used by default. However, use of this `--disable-qat_hw` option will
     force the use of QAT SW acceleration.
-
 ```
 
 ### Optional
+
 ```
 --with-openssl_dir=/path/to/openssl
     Specify the path to the top level of the OpenSSL* source code.  This path
@@ -96,11 +100,11 @@ The following is a list of the options that can be used with the
 
 --with-qat_sw_ipsec_mb_install_dir=/path/to/ipsec_mb install location
     Specify the path of the built Intel(R) Multi-buffer crypto for IPsec
-    library (IPSec_mb). This path is needed in order to link to the IPsec_MB
+    library (IPsec MB). This path is required to link to the IPsec MB
     library. The default if not specified is to use the standard
     installation path which is '/usr'.
 
-    You only need to specify this parameter if the Intel(R) IPSec_MB
+    You only need to specify this parameter if the Intel(R) IPsec MB
     library files have been built somewhere other than the default.
 
 --with-qat_hw_usdm_dir=/path/to/usdm/directory
@@ -115,11 +119,12 @@ The following is a list of the options that can be used with the
     option is retained for backward compatibility and has no effect.
 
 --enable-qat_engine
-    Enables the legacy QAT Engine interface. The QAT Engine is disabled by default. Specify
+    Enables the legacy QAT Engine (`qatengine`). QAT Engine is disabled by default. Specify
     this option to build and enable the legacy QAT Engine.
-
 ```
-Refer to [QAT Provider Interface](qat_common.md#qat-provider-interface) for supported algorithms and test examples.
+
+Refer to [QAT Provider Interface](qat_provider.md) for supported algorithms, runtime parameters, and test examples.
+
 ```
 
 --enable-qat_fips
@@ -128,7 +133,9 @@ Refer to [QAT Provider Interface](qat_common.md#qat-provider-interface) for supp
     functionality in the qatprovider, FIPS compliance can only be claimed when
     it is used as part of a validated OpenSSL FIPS configuration.
 ```
-Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for more details.
+
+Refer to [FIPS 140-3 Certification](qat_provider.md#fips-140-3-certification) for more details.
+
 ```
 
 --disable-qat_hw_rsa/--enable-qat_hw_rsa
@@ -161,15 +168,20 @@ Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for 
 
 --disable-qat_hw_gcm/--enable-qat_hw_gcm
     Disable/Enable Intel(R) QAT Hardware AES-GCM acceleration (disabled by default).
+    In QAT Provider and QAT Engine builds, QAT_SW GCM takes runtime priority
+    when both GCM implementations are enabled. Use
+    '--enable-qat_hw_gcm --disable-qat_sw_gcm' to activate QAT_HW GCM at runtime.
 
 --disable-qat_hw_ccm/--enable-qat_hw_ccm
     Disable/Enable Intel(R) QAT Hardware AES-CCM acceleration (enabled by default).
 
 --disable-qat_hw_sm4_cbc/--enable-qat_hw_sm4_cbc
     Disable/Enable Intel(R) QAT Hardware SM4-CBC acceleration.(disabled by default)
-    This flag is valid only on 4xxx(QAT gen 4 devices) as the support is not available
-    for earlier generations of QAT devices (e.g. c62x, dh895xxcc, etc.) and QAT Engine
-    is built with Tongsuo only
+    This flag applies to 4xxx (QAT Gen 4) and later devices with SM4-CBC
+    support; earlier QAT devices (e.g. c62x, dh895xxcc) are not supported.
+    SM4-CBC requires a build with Tongsuo.
+    In a QAT Provider build, QAT_HW SM4-CBC takes runtime priority when both
+    QAT_HW and QAT_SW SM4-CBC implementations are enabled.
 
 --disable-qat_hw_sha3/--enable-qat_hw_sha3
     Disable/Enable Intel(R) QAT Hardware SHA-3 acceleration (disabled by default).
@@ -193,9 +205,32 @@ Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for 
 
 --disable-qat_sw_gcm/--enable-qat_sw_gcm
     Disable/Enable Intel(R) QAT Software vectorized AES-GCM acceleration.
-    This flag is valid only when QAT SW acceleration is enabled using the flag
-    flag '--enable-qat_sw' and IPSec_mb library is installed in the system
+    This flag is valid only when QAT SW acceleration is enabled using
+    '--enable-qat_sw' and the IPsec MB library is installed on the system
     (enabled by default if qat_sw is enabled).
+    In QAT Provider and QAT Engine builds, enabling this option gives QAT_SW GCM
+    runtime priority over QAT_HW GCM, even when '--enable-qat_hw_gcm' is specified.
+
+--disable-qat_sw_ml_kem/--enable-qat_sw_ml_kem
+    Disable/Enable QAT_SW offload of IPsec MB's ML-KEM implementation.
+    This flag is valid only when QAT SW acceleration is enabled using the flag
+    '--enable-qat_sw'. It is supported for qatprovider builds only (do not
+    combine with '--enable-qat_engine').
+    This option requires OpenSSL 3.5.0 or later and an IPsec MB build that
+    supports ML-KEM algorithms.
+    (disabled by default).
+
+--disable-qat_sw_ml_dsa/--enable-qat_sw_ml_dsa
+    Disable/Enable QAT_SW offload of IPsec MB's ML-DSA implementation.
+    This flag is valid only when QAT SW acceleration is enabled using the flag
+    '--enable-qat_sw'. It is supported for qatprovider builds only (do not
+    combine with '--enable-qat_engine').
+    This option requires OpenSSL 3.5.0 or later and an IPsec MB build that
+    supports ML-DSA algorithms.
+    (disabled by default).
+
+    ML-KEM and ML-DSA require IPsec MB v3.0.0 or later. See
+    [ML-KEM and ML-DSA Offload](qat_provider_pqc.md#ml-kem-and-ml-dsa-offload-via-ipsec-mb).
 
 --disable-qat_sw_rsa/--enable-qat_sw_rsa
     Disable/Enable Intel(R) QAT Software RSA acceleration.
@@ -232,6 +267,10 @@ Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for 
     This flag is valid only when QAT SW acceleration is enabled using the
     flag '--enable-qat_sw' and QAT Engine is built with Tongsuo only
     (disabled by default if qat_sw is enabled).
+    In a QAT Engine build with both QAT_HW and QAT_SW SM4-CBC enabled, the two
+    paths can coexist and route requests between them. In a QAT Provider build,
+    QAT_HW takes priority when both implementations are enabled; QAT_SW SM4-CBC
+    is not activated at runtime.
 
 --disable-qat_sw_sm4_gcm/--enable-qat_sw_sm4_gcm
     Disable/Enable Intel(R) QAT Software SM4-GCM acceleration.
@@ -246,8 +285,12 @@ Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for 
     (disabled by default if qat_sw is enabled).
 
 --enable-qat_small_pkt_offload
-    Enable the acceleration of small packet cipher operations to Intel(R) QAT
-    Hardware. When disabled, these operations are performed using the CPU
+    Without this option, small packet thresholds apply where implemented.
+    Enabling it disables threshold-based routing so small packets can also be
+    offloaded to QAT_HW. For example, `CRYPTO_SMALL_PACKET_OFFLOAD_THRESHOLD_HW_GCM`
+    defines a 4096-byte QAT_HW AES-GCM threshold in both QAT Provider and QAT
+    Engine builds. AES-GCM payloads of 4096 bytes or less use OpenSSL software
+    and larger payloads use QAT_HW by default.
     (disabled by default).
 
 --enable-qat_warnings
@@ -321,7 +364,7 @@ Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for 
 --disable-qat_hw_lenstra_protection
     Disable protection against Lenstra attack (CVE-2017-5681)
     (protection is enabled by default). The RSA-CRT implementation in the
-    Intel(R) QAT OpenSSL* Engine, for OpenSSL* versions prior to v0.5.19,
+    QAT Engine, for OpenSSL* versions prior to v0.5.19,
     may allow remote attackers to obtain private RSA keys by conducting a
     Lenstra side-channel attack.  From version v0.5.19 onward, protection
     against this form of attack is effected by performing a Verify/Encrypt
@@ -366,5 +409,4 @@ Refer to [FIPS 140-3 Certification](qat_common.md#fips-140-3-certification) for 
 
 --with-ld-opt="parameters"
     Sets additional parameters that will be used during linking.
-
 ```
