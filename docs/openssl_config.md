@@ -1,4 +1,6 @@
-# Using the OpenSSL\* Configuration File to Load/Initialize Providers
+# OpenSSL\* Configuration for QAT Provider and QAT Engine
+
+## Using the OpenSSL\* Configuration File to Load/Initialize Providers
 
 OpenSSL\* 3.x introduced a provider model as the successor to the engine
 interface. The Intel&reg; QAT Provider (`qatprovider`) can be loaded via the
@@ -54,7 +56,7 @@ For further details on using the OpenSSL\* configuration file please see the
 OpenSSL\* online documentation located at:
 <https://www.openssl.org/docs/man3.0/man5/config.html>
 
-# Using the OpenSSL\* Configuration File to Load/Initialize Engines
+## Using the OpenSSL\* Configuration File to Load/Initialize Engines
 
 OpenSSL\* includes support for loading and initializing engines via the
 openssl.cnf file. The openssl.cnf file is contained in the `ssl` subdirectory of
@@ -65,8 +67,8 @@ OpenSSL\* library:
 
     OPENSSL_init_crypto(OPENSSL_INIT_LOAD_CONFIG, NULL);
 
-Add the following snippet to your `openssl.cnf` to load the Intel&reg; QAT
-OpenSSL\* Engine. The `openssl_conf` line belongs in the global section (before
+Add the following snippet to your `openssl.cnf` to load QAT Engine
+(`qatengine`). The `openssl_conf` line belongs in the global section (before
 the first bracketed section header); the remaining sections can be appended
 anywhere below it:
 
@@ -109,7 +111,7 @@ anywhere below it:
   loaded.
 * `[ engine_section ]` with `qat = qat_section` — lists the engines to load
   and points at the per-engine settings section.
-* `[ qat_section ]` — settings for the Intel&reg; QAT OpenSSL\* Engine:
+* `[ qat_section ]` — settings for the QAT Engine (`qatengine`):
   * `engine_id` specifies the name of the engine to load (should be
     `qatengine`).
   * `dynamic_path` is the location of the loadable shared library

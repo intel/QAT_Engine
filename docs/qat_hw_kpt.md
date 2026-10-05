@@ -6,10 +6,10 @@ Intel QuickAssist (QAT) IP will deliver this capability. Once, customer keys
 are securely delivered to the QAT on IA platform, the customer keys are
 protected within the QAT IP while in transport or in use.
 
-The QAT_Engine with KPT feature can expose the KPT2.0 asymmetric capability
-to the other applications e.g. Nginx, OpenSSL, etc.
+The KPT feature exposes KPT 2.0 asymmetric capabilities to applications such as
+NGINX and OpenSSL.
 
-> **Note:** KPT is supported via the **Engine** interface (`qatengine`) only.
+> **Note:** KPT is supported only by **QAT Engine** (`qatengine`).
 > The QAT Provider (`qatprovider`) does not currently expose KPT functionality;
 > use `--enable-qat_engine` together with `--enable-qat_hw_kpt` to build with
 > KPT support.
@@ -21,20 +21,20 @@ to the other applications e.g. Nginx, OpenSSL, etc.
 
 ## Requirements
 ### Hardware
-The Key Protection Technology(KPT) feature in the Intel&reg; QAT OpenSSL\* Engine needs
+The Key Protection Technology (KPT) feature in the QAT Engine needs
 QAT acceleration devices with KPT capability on platform with Intel&reg; Xeon&reg; with
 QAT 4XXX Series Chipset.
 
 ### **Key Protection Technology Library**
 
 This library provides the key protection services for applications upon various Intel&reg;
-security hardware technology, like QuickAssist Technology, etc. The Intel&reg; QAT OpenSSL\*
-Engine comes with the KPT library in its subdirectory `kpt/lib`.
-Please refer [here](../kpt/lib/README.md) for detailed information.
+security hardware technology, like QuickAssist Technology, etc. The QAT_Engine
+repository includes the KPT library in its `kpt/lib` subdirectory.
+See the [KPT library documentation](../kpt/lib/README.md) for detailed information.
 
 ## Build Instruction for enabling KPT
 
-To build and install the Intel&reg; QAT OpenSSL\* Engine with add `--enable-qat_hw_kpt`
+To build and install the QAT Engine with KPT, add `--enable-qat_hw_kpt`
 to enable KPT configure flag to the qat_hw target build instructions as below
 
 ```

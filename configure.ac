@@ -712,8 +712,8 @@ then
       AC_MSG_ERROR([--enable-qat_sw_ml_kem requires OpenSSL 3.5.0 or later. Upgrade OpenSSL or omit this flag.])
     fi
 
-    # ML-KEM APIs are only present in ipsec-mb releases built from the
-    # PQC-enabled branch (targeted for v3.0.0); older releases (e.g. v2.0/bertha)
+    # ML-KEM APIs are available in ipsec-mb v3.0.0 and later; older releases
+    # (e.g. v2.0/bertha)
     # do not export these symbols and would otherwise fail with a cryptic
     # "undefined reference" at link time instead of a clear configure error.
     save_CPPFLAGS="$CPPFLAGS"
@@ -733,7 +733,7 @@ then
     LIBS="$save_LIBS"
     if test "x$ipsec_mb_supports_pqc" = "xno"
     then
-      AC_MSG_ERROR([--enable-qat_sw_ml_kem requires an ipsec-mb build with ML-KEM support (targeted for v3.0.0+); the linked libIPSec_MB does not export imb_ml_kem_encap. Upgrade ipsec-mb or omit this flag.])
+      AC_MSG_ERROR([--enable-qat_sw_ml_kem requires ipsec-mb v3.0.0 or later with ML-KEM support; the linked libIPSec_MB does not export imb_ml_kem_encap. Upgrade ipsec-mb or omit this flag.])
     fi
   fi
 
@@ -764,8 +764,8 @@ then
       AC_MSG_ERROR([--enable-qat_sw_ml_dsa requires OpenSSL 3.5.0 or later. Upgrade OpenSSL or omit this flag.])
     fi
 
-    # ML-DSA APIs are only present in ipsec-mb releases built from the
-    # PQC-enabled branch (targeted for v3.0.0); older releases (e.g. v2.0/bertha)
+    # ML-DSA APIs are available in ipsec-mb v3.0.0 and later; older releases
+    # (e.g. v2.0/bertha)
     # do not export these symbols and would otherwise fail with a cryptic
     # "undefined reference" at link time instead of a clear configure error.
     save_CPPFLAGS="$CPPFLAGS"
@@ -785,7 +785,7 @@ then
     LIBS="$save_LIBS"
     if test "x$ipsec_mb_supports_pqc" = "xno"
     then
-      AC_MSG_ERROR([--enable-qat_sw_ml_dsa requires an ipsec-mb build with ML-DSA support (targeted for v3.0.0+); the linked libIPSec_MB does not export imb_ml_dsa_sign. Upgrade ipsec-mb or omit this flag.])
+      AC_MSG_ERROR([--enable-qat_sw_ml_dsa requires ipsec-mb v3.0.0 or later with ML-DSA support; the linked libIPSec_MB does not export imb_ml_dsa_sign. Upgrade ipsec-mb or omit this flag.])
     fi
   fi
 

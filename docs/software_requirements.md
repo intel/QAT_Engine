@@ -1,11 +1,11 @@
 # Software Requirements
 
-Successful operation of QAT Hardware(QAT_HW) acceleration requires a 
-[QAT Hardware driver][1] depending on the platform and OS mentioned below. 
-QAT Software(QAT_SW) acceleration requires optimized software libraries
-[Intel® Crypto Multi-buffer library][2] and [intel-ipsec-mb][3]. Depending on the use 
-case crypto library like OpenSSL, TongSuo(BabaSSL) and BoringSSL needs to be installed along
-with a QAT_HW driver or QAT_SW libraries or both.
+Successful operation of QAT Hardware (QAT_HW) acceleration requires a
+[QAT Hardware driver][1] appropriate for the platform and OS listed below.
+QAT Software (QAT_SW) acceleration requires the optimized software libraries
+[Intel® Crypto Multi-buffer library][2] and [intel-ipsec-mb][3]. Depending on the
+use case, a cryptographic library such as OpenSSL, Tongsuo (BabaSSL), or BoringSSL
+must be installed with a QAT_HW driver, QAT_SW libraries, or both.
 
 This release was validated on the following versions and expected to work on all Linux distributions
 and also from the latest versions from the links below.
@@ -19,17 +19,17 @@ and also from the latest versions from the links below.
 
 ## QAT_SW Libraries:
 * [Intel&reg; Crypto Multi-buffer library][2] - **IPP Crypto v2.3.0**
-* [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] **v2.0**
+* [Intel&reg; Multi-Buffer crypto for IPsec Library release version][3] - **v3.0.0**
 
 ## Crypto Libraries:
 * [OpenSSL\*][9] 3.0.21, 3.5.7, 3.6.3 & 4.0.1
 * BoringSSL\* - [0.20250415.0][10]
-* [Tongsuo][11] - 8.4.0 (BabaSSL)
+* [Tongsuo][11] - 8.4.0 & 8.5.0-pre2 (BabaSSL)
 
 ## Applications:
 * [HAProxy\*][12] - **v3.4.0**
 
-## Optional Libraries (for Hybrid PQC interoperability):
+## Optional Libraries for Hybrid PQC Support
 * [liboqs][13] - Open Quantum Safe library (required for `oqs-provider`)
 * [oqs-provider][14] - OpenSSL provider for post-quantum algorithms (alternative to OpenSSL 3.5.x built-in PQC)
 
