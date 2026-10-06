@@ -41,7 +41,7 @@ FROM ${UBUNTU_BASE} AS builder
 ARG OPENSSL_VERSION="openssl-3.5.7"
 ARG QATLIB_VERSION="26.08.0"
 ARG QAT_ENGINE_VERSION="v2.3.0"
-ARG IPSEC_MB_VERSION="v2.0"
+ARG IPSEC_MB_VERSION="v3.0.0"
 ARG IPP_CRYPTO_VERSION="v2.3.0"
 ARG HAPROXY_VERSION="v3.4.0"
 ARG GID
@@ -114,7 +114,12 @@ RUN make crypto_mb -j && make install -j
 
 # Building Ipsec_MB
 WORKDIR /intel-ipsec-mb
-RUN make -j && make install LIB_INSTALL_DIR=/usr/local/lib
+RUN mkdir build && cd build && \
+  cmake -DCMAKE_INSTALL_PREFIX=/usr/local/ \
+        -DCMAKE_INSTALL_LIBDIR=lib .. && \
+  cmake --build . --parallel $(nproc) && \
+  cmake --install .
+
 
 # Building QAT Engine
 WORKDIR /QAT_Engine
@@ -167,4 +172,3 @@ USER appuser
 ENV OPENSSL_MODULES="/usr/lib/x86_64-linux-gnu/ossl-modules/"
 ENV LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu/"
 ENV QAT_POLICY=1
-
