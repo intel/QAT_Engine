@@ -219,7 +219,7 @@ static int parse_wrapping_metadata(WRAPPINGMETADATA *wrapping_metadata,
     }
 
     if (wpk_loading_idx < 0 || wpk_loading_idx > (MAX_WPK_NUM - 1)) {
-        WARN("Invalid WPK index whiling loading.\n");
+        WARN("Invalid WPK index while loading.\n");
         return 0;
     }
 

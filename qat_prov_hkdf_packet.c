@@ -469,7 +469,7 @@ int QAT_WPACKET_set_flags(qat_WPACKET *pkt, unsigned int flags)
     return 1;
 }
 
-/*SM2 releated functions*/
+/*SM2 related functions*/
 
 int qat_int_end_context(qat_WPACKET *pkt, int tag)
 {

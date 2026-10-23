@@ -294,7 +294,7 @@ void process_ecdsa_sm2_verify_reqs(mb_thread_data *tlv)
     DEBUG("Processed Final Request\n");
 }
 
-/* OpenSSL Softare implementation for synchronous requests,
+/* OpenSSL Software implementation for synchronous requests,
  * Since OpenSSL doesn't support single shot operation
  * and it has to be digest and then sign, Whereas crypto_mb only
  * supports single shot operation for performance reasons.

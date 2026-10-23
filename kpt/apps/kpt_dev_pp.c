@@ -115,7 +115,7 @@ const char *log_level_str(int level)
         level_str = "DEBUG";
         break;
     default:
-        level_str = "UNKNOW";
+        level_str = "UNKNOWN";
         break;
     };
 
@@ -330,7 +330,7 @@ int kpt_get_per_part_key(void)
 
         if ( CPA_FALSE == CapInfo.kptSupported ||
             CPA_TRUE == CapInfo.symSupported) {
-            log_print("Skiped Instance No: %d Located on Device: %d"
+            log_print("Skipped Instance No: %d Located on Device: %d"
                 "(non-kpt or sym instance)\n", instNum, package_id);
             qat_instance_details[instNum].qat_instance_started = 0;
             continue;

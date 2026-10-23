@@ -149,7 +149,7 @@ static int test_sm2_sign_verify(int count, int size, ENGINE *e,
 
     if (!EVP_PKEY_set_alias_type(sm2_pkey, EVP_PKEY_SM2)) {
         ret = -1;
-        WARN("# FAIL: EVP_PKEY set allias type Failed\n");
+        WARN("# FAIL: EVP_PKEY set alias type Failed\n");
         goto builtin_err;
     }
 

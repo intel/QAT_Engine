@@ -907,7 +907,7 @@ int qat_hkdf_derive(EVP_PKEY_CTX *ctx, unsigned char *key, size_t *olen,
     key_length = *olen;
     md_size = EVP_MD_size(qat_hkdf_ctx->qat_md);
 #ifdef QAT_OPENSSL_PROVIDER
-    /*hkdf label creation and intialization for TLS13-KDF*/
+    /*hkdf label creation and initialization for TLS13-KDF*/
     if((qat_hkdf_ctx->hkdf_op_data->hkdfKeyOp == CPA_CY_HKDF_KEY_EXPAND_LABEL)) {
         if (qat_hkdf_ctx->hkdf_op_data->seedLen != 0) {
             EVP_MD_CTX *mctx = EVP_MD_CTX_new();

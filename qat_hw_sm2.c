@@ -39,7 +39,7 @@
 /*****************************************************************************
  * @file qat_hw_sm2.c
  *
- * This file provides SM2 implementaion for QAT_HW
+ * This file provides SM2 implementation for QAT_HW
  *
  *****************************************************************************/
 
@@ -700,7 +700,7 @@ int qat_sm2_sign(EVP_PKEY_CTX *ctx,
         }
     while (BN_is_zero(k)) ;
 
-    /* SM2 BabaSSL implementaion uses ECDSA hence following
+    /* SM2 BabaSSL implementation uses ECDSA hence following
      * the same */
     if ((s = ECDSA_SIG_new()) == NULL) {
         WARN("Failure to allocate SM2_SIG\n");

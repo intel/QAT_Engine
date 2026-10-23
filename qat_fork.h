@@ -166,7 +166,7 @@ int qat_set_instance_for_thread(long instanceNum);
  *                             const char *file, int line)
  *
  * description:
- *   Wrapper funcation to memory allocation based on instance type (SVM or pinned
+ *   Wrapper function to memory allocation based on instance type (SVM or pinned
  *   contiguous memory)
  *
  ******************************************************************************/
